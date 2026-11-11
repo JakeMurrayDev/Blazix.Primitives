@@ -51,6 +51,9 @@ internal sealed class MenuStore<TPayload> : PopupStore<MenuStoreState<TPayload>,
     /// <value>The context, or <see langword="null"/> for a handle's fallback store.</value>
     public MenuRootContext? Context { get; private set; }
 
+    /// <summary>Gets the parent the root resolved from its position, which a trigger's forwarded parent does not change.</summary>
+    public MenuParent RootParent => rootParent;
+
     // MNU-STA-04 (MenuRoot.tsx:404, 422-437; isKeyboardOpen.ts).
     /// <summary>Derives the instant type an applied open change writes.</summary>
     /// <param name="parent">The menu's parent kind, or <see langword="null"/> for a top-level menu.</param>

@@ -49,6 +49,11 @@ internal abstract class MenuRootContext
     /// <summary>Gets the registered submenus, for the tree's closes.</summary>
     internal IReadOnlyList<MenuRootContext> ChildMenus => Children;
 
+    // MBR-ARIA-04 (MenuPortal.tsx:29-32): the Portal's owner role is decided by where the Root sits, not by the parent a
+    // detached trigger forwards to the store, which Parent reports.
+    /// <summary>Gets the parent the root resolved from its position.</summary>
+    internal abstract MenuParent PositionParent { get; }
+
     /// <summary>Gets the registered submenus.</summary>
     private protected abstract IReadOnlyList<MenuRootContext> Children { get; }
 
@@ -286,6 +291,9 @@ internal sealed class MenuRootContext<TPayload> : MenuRootContext
 
     /// <summary>Gets or sets the delegate that routes an exception of a cascaded request to the root.</summary>
     public Func<Exception, Task>? DispatchException { get; set; }
+
+    /// <inheritdoc />
+    internal override MenuParent PositionParent => store.RootParent;
 
     /// <inheritdoc />
     private protected override IReadOnlyList<MenuRootContext> Children => children;

@@ -92,8 +92,10 @@ internal sealed class MenuPortalBehavior : IAsyncDisposable
         portal.Enclosing = enclosing;
         portal.NodeId = nodeId;
 
-        // MNU-STR-18, MNU-ARIA-18 (MenuPortal.tsx:32): a submenu's or a bar menu's contents are owned by a group.
-        portal.OwnerRole = root!.Parent.Kind is MenuParentKind.Menu or MenuParentKind.Menubar ? "group" : null;
+        // MNU-STR-18, MNU-ARIA-18 (MenuPortal.tsx:32): a submenu's or a bar menu's contents are owned by a group. The
+        // parent is the Root's position, not the store's (MBR-ARIA-04, MenuPortal.tsx:29-31): a detached Root outside a
+        // bar keeps an owner with no role while a bar trigger holds its popup.
+        portal.OwnerRole = root!.PositionParent.Kind is MenuParentKind.Menu or MenuParentKind.Menubar ? "group" : null;
         portalContext.KeepMounted = keepMounted;
         consumerContent = content;
         return portal.CascadeContent(cascade);
