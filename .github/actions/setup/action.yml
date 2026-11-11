@@ -36,10 +36,25 @@ runs:
         path: ~/.cache/ms-playwright
         key: playwright-${{ runner.os }}-${{ steps.playwright.outputs.version }}-${{ hashFiles('global.json', 'package-lock.json') }}
     - name: Install the Playwright browser
+      # The browser alone, from Playwright's CDN; its system libraries are the next step, which apt can fail without
+      # failing the job.
       if: inputs.playwright == 'true' && steps.playwright-cache.outputs.cache-hit != 'true'
       shell: bash
-      run: npx playwright install --with-deps chromium
+      run: npx playwright install chromium
     - name: Install the Playwright browser's system dependencies
-      if: inputs.playwright == 'true' && steps.playwright-cache.outputs.cache-hit == 'true'
+      # apt-get, on a cache hit or a miss: three attempts, 15 s and 30 s apart. When the Ubuntu mirrors cannot be reached
+      # (they failed to resolve from the runners for about 2.5 hours, exit 100 on every browser job), the step warns and
+      # the job relies on the runner image's preinstalled libraries. That masks nothing: a library the image lacks fails
+      # the browser's launch with Playwright's own missing-dependency error, which names the library.
+      if: inputs.playwright == 'true'
       shell: bash
-      run: npx playwright install-deps chromium
+      run: |
+        for attempt in 1 2 3; do
+          if npx playwright install-deps chromium; then
+            exit 0
+          fi
+          if [ "$attempt" -lt 3 ]; then
+            sleep $((attempt * 15))
+          fi
+        done
+        echo "::warning title=Playwright system dependencies::apt-get could not install Chromium's system dependencies in 3 attempts (the Ubuntu mirrors may be unreachable); this job relies on the runner image's preinstalled libraries."

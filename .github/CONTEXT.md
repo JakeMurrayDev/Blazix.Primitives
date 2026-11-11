@@ -57,6 +57,8 @@ The red check leaves out lint tests, which read the repository and are green on 
 
 `ubuntu-latest`; the SDK from `global.json`, Node from `.node-version` (`.github/actions/setup`). Cache keys: NuGet on `global.json`, `Directory.Packages.props`, `package-lock.json` and every `*.csproj`; npm on `package-lock.json` (`setup-node`); the Playwright browser on its version, `global.json` and `package-lock.json`.
 
+The browser's system libraries (2026-11-12): on a cache miss the setup downloads Chromium alone (`npx playwright install chromium`, without `--with-deps`). Then, on a hit or a miss, it runs `npx playwright install-deps chromium`, three attempts 15 s and 30 s apart. If apt still fails, the step emits a warning instead of failing the job, and the job relies on the runner image's preinstalled libraries. The trigger was an outage in which the Ubuntu mirrors failed to resolve from the runners for about 2.5 hours, and every `browser-*` and `red-check` job died in apt with exit 100. A library the image lacks still fails the job, at the browser's launch, with Playwright's missing-dependency error naming it.
+
 ### Required check
 
 Branch protection is a repository setting, not a file. Require the check **`gate`**: it collects `docs-lint`, `build-and-test`, `browser-server`, `browser-wasm` and `red-check` (and the report and pack jobs), so it holds the five checks of ADR 11 §2 and §3 without naming each matrix shard.
