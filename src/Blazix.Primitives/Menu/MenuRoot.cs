@@ -1,6 +1,7 @@
 using Blazix.Primitives.Rendering;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Rendering;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.JSInterop;
 
@@ -40,6 +41,9 @@ public sealed class MenuRoot<TPayload> : ComponentBase, IAsyncDisposable
 
     [Inject]
     private ILogger<MenuRoot<TPayload>> Logger { get; set; } = null!;
+
+    [Inject]
+    private IServiceProvider Services { get; set; } = null!;
 
     [Inject]
     private IJSRuntime JSRuntime { get; set; } = null!;
@@ -192,7 +196,8 @@ public sealed class MenuRoot<TPayload> : ComponentBase, IAsyncDisposable
     /// <inheritdoc />
     public override Task SetParametersAsync(ParameterView parameters)
     {
-        behavior ??= new MenuRootBehavior<TPayload>("Menu", isSubmenu: false, JSRuntime, Platform, StateHasChanged, InvokeAsync, DispatchExceptionAsync);
+        // MNU-STA-05: the touch guard runs under the application's TimeProvider (ADR 06 §2 "Clocks").
+        behavior ??= new MenuRootBehavior<TPayload>("Menu", isSubmenu: false, JSRuntime, Platform, StateHasChanged, InvokeAsync, DispatchExceptionAsync, Services.GetService<TimeProvider>() ?? TimeProvider.System);
         behavior.SetParameters(parameters, Ids, Logger);
         return base.SetParametersAsync(parameters);
     }

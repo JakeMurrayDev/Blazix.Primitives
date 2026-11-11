@@ -90,7 +90,8 @@ internal sealed class MenuRootBehavior<TPayload> : IAsyncDisposable
     /// <param name="requestRender">Asks the root to render.</param>
     /// <param name="invokeAsync">Runs work on the root's renderer.</param>
     /// <param name="dispatchException">Routes an exception to the root.</param>
-    public MenuRootBehavior(string familyName, bool isSubmenu, IJSRuntime jsRuntime, PlatformFlags platform, Action requestRender, Func<Func<Task>, Task> invokeAsync, Func<Exception, Task> dispatchException)
+    /// <param name="timeProvider">The clock of the store's touch guard, or <see langword="null"/> for the system's.</param>
+    public MenuRootBehavior(string familyName, bool isSubmenu, IJSRuntime jsRuntime, PlatformFlags platform, Action requestRender, Func<Func<Task>, Task> invokeAsync, Func<Exception, Task> dispatchException, TimeProvider? timeProvider = null)
     {
         this.familyName = familyName;
         this.isSubmenu = isSubmenu;
@@ -98,7 +99,7 @@ internal sealed class MenuRootBehavior<TPayload> : IAsyncDisposable
         this.platform = platform;
         this.invokeAsync = invokeAsync;
         this.dispatchException = dispatchException;
-        root = new((popupId, token, logger) => new MenuStore<TPayload>(popupId, token, logger: logger), requestRender);
+        root = new((popupId, token, logger) => new MenuStore<TPayload>(popupId, token, logger: logger, timeProvider: timeProvider), requestRender);
         contextCascade = RenderContextCascade;
         listCascade = RenderListCascade;
         storeCascade = root.BuildRenderTree;
