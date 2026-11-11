@@ -654,14 +654,23 @@ internal sealed class ComboboxStore<TValue> : ComboboxStore
     public override async Task<ChangeEventDetails?> RemoveAtAsync(int index, EventReason reason, EventSnapshot @event)
     {
         IReadOnlyList<TValue> current = SelectedValues;
-        if (!Multiple || index < 0 || index >= current.Count)
+        if (!Multiple)
         {
             return null;
         }
 
+        ChangeEventDetails details = CreateDetails(reason, @event);
+
+        // ComboboxChipRemove.tsx:76-90: the selection is filtered by the chip's index and set whatever the index holds, so a chip
+        // whose value is already gone reports the unchanged selection (and its allowPropagation() still counts).
+        if (index < 0 || index >= current.Count)
+        {
+            await SetSelectedValuesAsync([.. current], details);
+            return details;
+        }
+
         TValue removed = current[index];
         IReadOnlyList<TValue> next = ItemEquality.RemoveItem(current, removed, inputs.IsItemEqualToValue);
-        ChangeEventDetails details = CreateDetails(reason, @event);
 
         // ComboboxChipRemove.tsx: the highlight clears when the removed value was the highlighted item.
         if (State.ActiveIndex is int active && active < filtered.Flat.Count && ItemEquality.Compare(filtered.Flat[active], removed, inputs.IsItemEqualToValue))

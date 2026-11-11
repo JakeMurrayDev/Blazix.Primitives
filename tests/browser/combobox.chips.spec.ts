@@ -444,6 +444,18 @@ test.describe('<Combobox.ChipRemove />', () => {
 
       const remove = page.getByTestId('remove-apple');
       await remove.click();
+      if (mode === 'server') {
+        // ADR 01 relaxation (CMB-EVT-09's ChipRemove clause, KEY-10, PTR-10; §9, 2026-11-11): on Server the consumer's
+        // allowPropagation() arrives after the dispatch, so the remove point's fallback stops the click and the keydown.
+        await expect(fixture).toHaveAttribute('data-value-changes', ':chip-remove-press');
+        await remove.focus();
+        await page.keyboard.press('Enter');
+        await expect(fixture).toHaveAttribute('data-value-changes', ':chip-remove-press :chip-remove-press');
+        await settle(fixture);
+        expect(await recorded(fixture, 'data-chip-clicks')).toEqual([]);
+        expect(await recorded(fixture, 'data-chip-keydowns')).toEqual([]);
+        return;
+      }
       await expect(fixture).toHaveAttribute('data-chip-clicks', 'x');
       await settle(fixture);
       expect(await recorded(fixture, 'data-chip-clicks')).toHaveLength(1);
