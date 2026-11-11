@@ -185,7 +185,7 @@ public sealed class ComboboxInput : PartBase<ComboboxInputState>
     /// <inheritdoc />
     protected override void OnParametersSet()
     {
-        behavior!.Apply(Disabled, GeneratedId, AdditionalAttributes, Direction);
+        behavior!.Apply(Disabled, GeneratedId, AdditionalAttributes, Direction, Render);
     }
 
     /// <inheritdoc />

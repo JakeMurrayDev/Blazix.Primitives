@@ -1,6 +1,8 @@
 using Blazix.Primitives.Rendering;
 using Blazix.Primitives.Utilities;
+using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Rendering;
+using Microsoft.AspNetCore.Components.RenderTree;
 
 namespace Blazix.Primitives;
 
@@ -15,6 +17,60 @@ internal static class ComboboxParts
     /// <returns>The id, or <see langword="null"/> when the consumer gave none.</returns>
     public static string? ConsumerId(IReadOnlyDictionary<string, object>? consumerAttributes) =>
         consumerAttributes is not null && consumerAttributes.TryGetValue("id", out object? supplied) ? supplied as string : null;
+
+    /// <summary>Reads the root element of a part's <c>Render</c> fragment: the first element frame, or the start tag of a markup block Razor folded.</summary>
+    /// <param name="render">The part's <c>Render</c> fragment.</param>
+    /// <returns>The root's tag name and its <c>id</c> attribute; both are <see langword="null"/> for a fragment whose root is a component.</returns>
+    public static (string? TagName, string? Id) SubstituteRoot(RenderFragment render)
+    {
+        ArgumentNullException.ThrowIfNull(render);
+        using RenderTreeBuilder builder = new();
+        render(builder);
+#pragma warning disable BL0006 // The frames are read through the public GetFrames(), as the render pipeline does (ADR 02 decision 1).
+        ArrayRange<RenderTreeFrame> frames = builder.GetFrames();
+        for (int i = 0; i < frames.Count; i++)
+        {
+            RenderTreeFrame frame = frames.Array[i];
+            if (frame.FrameType == RenderTreeFrameType.Element)
+            {
+                for (int j = i + 1; j < frames.Count && frames.Array[j].FrameType == RenderTreeFrameType.Attribute; j++)
+                {
+                    if (string.Equals(frames.Array[j].AttributeName, "id", StringComparison.Ordinal))
+                    {
+                        return (frame.ElementName, frames.Array[j].AttributeValue as string);
+                    }
+                }
+
+                return (frame.ElementName, null);
+            }
+
+            if (frame.FrameType == RenderTreeFrameType.Markup && !string.IsNullOrWhiteSpace(frame.MarkupContent))
+            {
+                if (!MarkupRootParser.TryParse(frame.MarkupContent, out MarkupRootParser.Root root, out _))
+                {
+                    return (null, null);
+                }
+
+                foreach (KeyValuePair<string, string> attribute in root.Attributes)
+                {
+                    if (string.Equals(attribute.Key, "id", StringComparison.Ordinal))
+                    {
+                        return (root.TagName, attribute.Value);
+                    }
+                }
+
+                return (root.TagName, null);
+            }
+
+            if (frame.FrameType == RenderTreeFrameType.Component)
+            {
+                return (null, null);
+            }
+        }
+#pragma warning restore BL0006
+
+        return (null, null);
+    }
 
     /// <summary>Determines whether the cascaded reading direction is right to left.</summary>
     /// <param name="direction">The cascaded direction provider, or <see langword="null"/>.</param>

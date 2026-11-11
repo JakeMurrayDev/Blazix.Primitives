@@ -77,6 +77,12 @@ internal sealed class ComboboxInputBehavior : IAsyncDisposable
 
     private bool listRoleSet;
 
+    // AriaCombobox.tsx:1347-1354: whether the part's substitute is an element other than an <input>, and whether the element
+    // has mounted; until it has, the control is taken for an input, as on the server.
+    private bool nonInputControl;
+
+    private bool elementMounted;
+
     private bool disposed;
 
     /// <summary>Initializes a new instance of the <see cref="ComboboxInputBehavior"/> class.</summary>
@@ -197,9 +203,11 @@ internal sealed class ComboboxInputBehavior : IAsyncDisposable
     /// <param name="generatedId">The part's generated id, used inside the popup.</param>
     /// <param name="consumerAttributes">The consumer's attributes, for its <c>id</c> and the declined handlers.</param>
     /// <param name="direction">The cascaded direction provider, or <see langword="null"/>.</param>
-    public void Apply(bool disabled, string? generatedId, IReadOnlyDictionary<string, object>? consumerAttributes, DirectionProviderContext? direction)
+    /// <param name="render">The part's <c>Render</c> fragment, whose root element is the control, or <see langword="null"/>.</param>
+    public void Apply(bool disabled, string? generatedId, IReadOnlyDictionary<string, object>? consumerAttributes, DirectionProviderContext? direction, RenderFragment? render)
     {
         disabledParameter = disabled;
+        nonInputControl = render is not null && ComboboxParts.SubstituteRoot(render).TagName is { } tag && !string.Equals(tag, "input", StringComparison.OrdinalIgnoreCase);
         Rtl = ComboboxParts.IsRtl(direction);
         consumerId = ComboboxParts.ConsumerId(consumerAttributes);
         this.generatedId = generatedId;
@@ -236,15 +244,22 @@ internal sealed class ComboboxInputBehavior : IAsyncDisposable
         reference.AddAttributes(attributes, id);
         interactions.AddAttributes(attributes);
 
-        // AriaCombobox.tsx:1348-1376: an input-like control (always, on the server and before hydration) takes the four
-        // fixed attributes and the combobox ARIA.
-        attributes.Set("autocomplete", "off");
-        attributes.Set("spellcheck", "false");
-        attributes.Set("autocorrect", "off");
-        attributes.Set("autocapitalize", "none");
-        // AriaCombobox.tsx:1348-1376: in both layouts (review B7, settled by the orchestrator 2026-11-10).
+        // AriaCombobox.tsx:1347-1376: an input-like control (an <input>, and any control on the server and before its element
+        // mounts) takes the four fixed attributes and the combobox ARIA; another control (a <textarea>) takes the combobox ARIA
+        // only while expanded, so a closed one keeps its native semantics. In both layouts (review B7, settled by the
+        // orchestrator 2026-11-10).
+        bool inputLike = !nonInputControl || !elementMounted;
+        bool expanded = state.Expanded;
+        if (inputLike)
         {
-            bool expanded = state.Expanded;
+            attributes.Set("autocomplete", "off");
+            attributes.Set("spellcheck", "false");
+            attributes.Set("autocorrect", "off");
+            attributes.Set("autocapitalize", "none");
+        }
+
+        if (inputLike || expanded)
+        {
             attributes.Set("role", "combobox");
             attributes.Set("aria-expanded", expanded ? "true" : "false");
             attributes.Set("aria-haspopup", state.Grid ? "grid" : "listbox");
@@ -386,6 +401,15 @@ internal sealed class ComboboxInputBehavior : IAsyncDisposable
         Task interactionsSync = interactions.AfterRenderAsync(true, element, id);
         Task referenceSync = reference.AfterRenderAsync(true, element, id);
         lastElement = element;
+        if (element is not null && !elementMounted)
+        {
+            elementMounted = true;
+            if (nonInputControl)
+            {
+                services.RequestRender();
+            }
+        }
+
         Task twinSync = SyncTwinAsync(element);
         await Task.WhenAll(interactionsSync, referenceSync, twinSync);
     }

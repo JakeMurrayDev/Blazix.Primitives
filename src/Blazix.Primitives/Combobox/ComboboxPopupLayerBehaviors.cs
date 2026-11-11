@@ -3,7 +3,6 @@ using Blazix.Primitives.Rendering;
 using Blazix.Primitives.Store;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Rendering;
-using Microsoft.AspNetCore.Components.RenderTree;
 
 namespace Blazix.Primitives;
 
@@ -572,7 +571,7 @@ internal sealed class ComboboxPopupBehavior : IAsyncDisposable
         // CMB-DOM-24 (ComboboxPopup.tsx:56-62): the store's popup id is the rendered element's, so a substitute element's own
         // id wins over the consumer's (RND-DOM-32 precedence (1)). A substitute callback is opaque to C#: its id is not read.
         string? consumer = consumerAttributes is not null && consumerAttributes.TryGetValue("id", out object? supplied) ? supplied as string : null;
-        consumerId = render is not null && SubstituteElementId(render) is { Length: > 0 } own ? own : consumer;
+        consumerId = render is not null && ComboboxParts.SubstituteRoot(render).Id is { Length: > 0 } own ? own : consumer;
         Resolve();
         focus.SetInputs(FocusInputs());
     }
@@ -636,53 +635,6 @@ internal sealed class ComboboxPopupBehavior : IAsyncDisposable
 
         await focusSync;
         await Store.AtBatchBoundaryAsync();
-    }
-
-    // The id attribute of a substitute element's root: the first element frame's own attributes, or the start tag of a markup
-    // block Razor folded (as the render pipeline reads them, ADR 02 decision 1).
-    private static string? SubstituteElementId(RenderFragment render)
-    {
-        using RenderTreeBuilder builder = new();
-        render(builder);
-#pragma warning disable BL0006 // The frames are read through the public GetFrames(), as the render pipeline does (ADR 02 decision 1).
-        ArrayRange<RenderTreeFrame> frames = builder.GetFrames();
-        for (int i = 0; i < frames.Count; i++)
-        {
-            RenderTreeFrame frame = frames.Array[i];
-            if (frame.FrameType == RenderTreeFrameType.Element)
-            {
-                for (int j = i + 1; j < frames.Count && frames.Array[j].FrameType == RenderTreeFrameType.Attribute; j++)
-                {
-                    if (string.Equals(frames.Array[j].AttributeName, "id", StringComparison.Ordinal))
-                    {
-                        return frames.Array[j].AttributeValue as string;
-                    }
-                }
-
-                return null;
-            }
-
-            if (frame.FrameType == RenderTreeFrameType.Markup)
-            {
-                if (!MarkupRootParser.TryParse(frame.MarkupContent, out MarkupRootParser.Root root, out _))
-                {
-                    return null;
-                }
-
-                foreach (KeyValuePair<string, string> attribute in root.Attributes)
-                {
-                    if (string.Equals(attribute.Key, "id", StringComparison.Ordinal))
-                    {
-                        return attribute.Value;
-                    }
-                }
-
-                return null;
-            }
-        }
-#pragma warning restore BL0006
-
-        return null;
     }
 
     // CMB-DOM-24 (ComboboxPopup.tsx:65, root/utils/index.ts:13-15, derived at every render): the consumer's id, else
