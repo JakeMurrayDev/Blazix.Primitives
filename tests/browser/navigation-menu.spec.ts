@@ -1545,6 +1545,25 @@ test.describe('<NavigationMenu.Trigger /> keyboard and focus', () => {
     await expect(trigger(page, 1)).not.toBeFocused();
   });
 
+  // The title above failed on Server in PR 217's run 42847434971: the blur that leaves the menu is trigger 2's, an inactive
+  // trigger, and it found no Popup until the Popup's handle attached, so it reported no `focus-out` (NAV-FOC-10).
+  test('port: closes when focus leaves through an inactive trigger before the popup attaches, under circuit latency on Server', async ({ page, mode }) => {
+    test.skip(mode !== 'server', 'the window is the round trips before the Popup\'s handle attaches');
+    await delayCircuit(page, 250);
+    const fixture = await gotoMenu(page, mode);
+    await trigger(page, 1).focus();
+    await trigger(page, 1).click();
+    await expect(content(page, 1)).toBeVisible();
+    for (let i = 0; i < 4; i += 1) {
+      await page.keyboard.press('Tab');
+    }
+
+    await expect(page.getByTestId('after')).toBeFocused();
+    await expect(page.getByTestId('popup-root')).toHaveCount(0);
+    await settle(fixture);
+    expect(await valueChanges(fixture)).toContain('null:focus-out');
+  });
+
   test('closes the menu when tabbing back out', async ({ page, mode }) => {
     const fixture = await gotoMenu(page, mode);
     await trigger(page, 1).click();
