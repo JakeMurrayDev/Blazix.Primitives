@@ -42,3 +42,23 @@ test('@verifies ADR-16/5 Combobox virtualized with Blazor Virtualize: keyboard a
   await expect(page.getByRole('listbox')).toHaveCount(0);
   await expect(page.locator('input[name="fruit"]')).toHaveValue(label);
 });
+
+// Issue 29's per-keystroke allocation budget at 1,000 items, on the runtime of each mode (ADR 16 rule 7; the brief's
+// Deliverable 14): the fixture types into the store directly, the least of five after a warm-up, around
+// GC.GetAllocatedBytesForCurrentThread; Server is CoreCLR, WebAssembly the interpreter. It counts the store's handling of
+// the keystroke (the filter, the commit, the notifications); the render it queues follows the handler and is the L2
+// budget's (ComboboxAllocationBudgetTests, CoreCLR). First measurement 2026-11-11 (arm64, local): 7320 bytes on Server and
+// 6504 on WebAssembly in each of four runs, plus 112. The figures only tighten.
+const KEYSTROKE_BUDGET: Record<string, number> = { server: 7432, wasm: 6616 };
+
+test('stays within the per-keystroke allocation budget at 1,000 items', async ({ page, mode }) => {
+  const fixture = await gotoCombobox(page, mode, 'combobox-virtualize');
+  await page.getByTestId('input').click();
+  await expect(page.getByRole('listbox')).toBeVisible();
+
+  await page.getByTestId('measure-keystroke').click();
+  await expect.poll(async () => (await recorded(fixture, 'data-keystroke-bytes')).length).toBe(1);
+  const bytes = Number((await recorded(fixture, 'data-keystroke-bytes'))[0]);
+  test.info().annotations.push({ type: 'keystroke-bytes', description: `${mode}: ${bytes}` });
+  expect(bytes).toBeLessThanOrEqual(KEYSTROKE_BUDGET[mode]!);
+});

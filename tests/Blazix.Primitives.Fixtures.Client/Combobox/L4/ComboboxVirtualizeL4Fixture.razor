@@ -13,6 +13,9 @@
 <FixtureContainer Name="combobox-virtualize" data-attached="@(Attached ? "true" : "false")" data-sync="@Sync"
                   data-open-changes="@OpenChanges" data-open-change-completes="@OpenChangeCompletes" @attributes="Records">
     @SyncButton
+    @* Issue 29's per-keystroke allocation budget on this runtime: a typed change alternating two queries of the same size, the
+       least of five after a warm-up of 20, around GC.GetAllocatedBytesForCurrentThread (ADR 16 rule 7). *@
+    <button type="button" data-testid="measure-keystroke" @onclick="MeasureKeystrokeAsync">measure</button>
     <form data-testid="form">
         <ComboboxRoot TValue="string" @ref="root" Name="fruit" Items="@items" FilteredItems="@filtered" Virtualized="true"
                       OnInputValueChange="Filter" OnItemHighlighted="Reveal" OnValueChange="RecordValueChange">
@@ -38,6 +41,7 @@
     private ComboboxInput? input;
     private Virtualize<string>? virtualize;
     private List<string> filtered = [.. items];
+    private static readonly string[] queries = ["item 1", "item 2"];
 
     protected override IEnumerable<Task> Attachments =>
         [root?.SessionAttached ?? Task.CompletedTask, input?.TwinAttached ?? Task.CompletedTask];
@@ -47,6 +51,26 @@
         string query = args.Value.Trim();
         filtered = query.Length == 0 ? [.. items] : [.. items.Where(item => item.Contains(query, StringComparison.OrdinalIgnoreCase))];
         RecordInputChange(args);
+    }
+
+    private async Task MeasureKeystrokeAsync()
+    {
+        ComboboxStore<string> store = root!.Store;
+        EventSnapshot snapshot = EventSnapshot.CreatePlaceholder();
+        for (int i = 0; i < 20; i++)
+        {
+            await store.HandleInputChangeAsync(queries[i % 2], true, false, snapshot);
+        }
+
+        long least = long.MaxValue;
+        for (int run = 0; run < 5; run++)
+        {
+            long before = GC.GetAllocatedBytesForCurrentThread();
+            await store.HandleInputChangeAsync(queries[run % 2], true, false, snapshot);
+            least = Math.Min(least, GC.GetAllocatedBytesForCurrentThread() - before);
+        }
+
+        Record("keystroke-bytes", least.ToString(System.Globalization.CultureInfo.InvariantCulture));
     }
 
     // Design point 1 (a): the consumer reveals a keyboard highlight through Virtualize, as Base UI's virtualized example scrolls
