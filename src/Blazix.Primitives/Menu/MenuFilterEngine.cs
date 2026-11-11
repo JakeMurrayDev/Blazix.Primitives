@@ -249,6 +249,8 @@ internal sealed class MenuFilterRootContext
     private readonly MenuSelection<bool> mounted;
     private bool wasOpen;
     private string? closeQuery;
+    private int inputs;
+    private bool inputCheckPending;
 
     /// <summary>Initializes a new instance of the <see cref="MenuFilterRootContext"/> class.</summary>
     /// <param name="provider">The provider the root consumed.</param>
@@ -262,6 +264,7 @@ internal sealed class MenuFilterRootContext
         open = rootSubscription.Select(MenuSelectors.Open);
         mounted = rootSubscription.Select(MenuSelectors.Mounted);
         wasOpen = open.Value;
+        inputCheckPending = wasOpen;
     }
 
     // MNU-STA-16, STA-23: the match the provider sets, or the collator's contains under its culture (MNU-API-54, API-56).
@@ -343,9 +346,12 @@ internal sealed class MenuFilterRootContext
     public MenuFilterHighlight PendingHighlight { get; private set; }
 
     /// <summary>Registers the menu's input, its focus owner.</summary>
-    /// <param name="element">The input's element.</param>
     /// <returns>The registration; disposing it unregisters the input.</returns>
-    public IDisposable RegisterInput(ElementReference element) => throw new NotImplementedException();
+    public IDisposable RegisterInput()
+    {
+        inputs++;
+        return new InputRegistration(this);
+    }
 
     // MNU-API-62 (FilterDropdownList.tsx:23-27): the input's aria-controls follows the list's id; an empty id is none.
     /// <summary>Records the filter list's rendered id, and tells the input when it changed.</summary>
@@ -463,6 +469,7 @@ internal sealed class MenuFilterRootContext
     /// <summary>Recomputes the visible set when the query or the registry changed since the last recompute.</summary>
     public void Flush()
     {
+        CheckInput();
         string query = Query;
         Func<string, string, bool>? match = Match;
         if (!dirty && string.Equals(flushedQuery, query, StringComparison.Ordinal) && ReferenceEquals(flushedMatch, match))
@@ -518,6 +525,7 @@ internal sealed class MenuFilterRootContext
     {
         bool isOpen = open.Value;
         bool closed = wasOpen && !isOpen;
+        inputCheckPending |= !wasOpen && isOpen;
         wasOpen = isOpen;
         if (closed && provider.Value.Length > 0)
         {
@@ -543,6 +551,24 @@ internal sealed class MenuFilterRootContext
         await provider.RequestValueAsync("", EventReason.PopupClose, null);
         Track();
         Flush();
+    }
+
+    // MNU-EDGE-05 (useMenuFilterPopup.ts:41-52): once per open, after the popup's content rendered (the first flush after
+    // the open, run by the parts' after-render), a filterable menu without a Menu.Input warns in development.
+    private void CheckInput()
+    {
+        if (!inputCheckPending || !open.Value)
+        {
+            return;
+        }
+
+        inputCheckPending = false;
+        if (inputs == 0 && root.Logger is { } logger && DevelopmentWarnings.IsEnabled)
+        {
+            DevelopmentWarnings.Write(
+                logger,
+                "Blazix: A filterable menu opened without a `<MenuInput>`. Render the input inside `<MenuPopup>`, or drop `<MenuFilterProvider>` for a menu that does not filter.");
+        }
     }
 
     private bool Matches(MenuFilterItem item)
@@ -576,6 +602,21 @@ internal sealed class MenuFilterRootContext
         {
             list.Remove(changed);
             query.Dispose();
+        }
+    }
+
+    private sealed class InputRegistration(MenuFilterRootContext owner) : IDisposable
+    {
+        private bool disposed;
+
+        /// <inheritdoc />
+        public void Dispose()
+        {
+            if (!disposed)
+            {
+                disposed = true;
+                owner.inputs--;
+            }
         }
     }
 
