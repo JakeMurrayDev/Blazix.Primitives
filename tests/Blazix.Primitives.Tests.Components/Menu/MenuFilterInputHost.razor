@@ -1,17 +1,18 @@
 @namespace Blazix.Primitives.Tests.Components
 @* MenuFilterRoot.test.tsx's trees for the input's own element (MNU-API-59, DOM-21): an open filterable menu whose popup
    holds a label, the input and a list. `Disabled` disables the root, `InputDisabled` the input, `DefaultQuery` seeds the
-   provider. *@
-<MenuFilterProvider DefaultValue="@DefaultQuery">
-    <MenuRoot TPayload="NoPayload" DefaultOpen="true" Disabled="Disabled">
+   provider, `OnValueChange` receives its query requests, `Open` is bound to the root, `KeepMounted` keeps the closed popup and `InputClass` is the input's class
+   function. *@
+<MenuFilterProvider DefaultValue="@DefaultQuery" OnValueChange="OnValueChange">
+    <MenuRoot TPayload="NoPayload" @bind-Open="Open" Disabled="Disabled">
         <MenuTrigger TPayload="NoPayload">Actions</MenuTrigger>
-        <MenuPortal>
+        <MenuPortal KeepMounted="KeepMounted">
             <MenuPositioner>
                 <MenuPopup>
                     <label for="action-filter">Filter actions</label>
                     @if (InputId is null)
                     {
-                        <MenuInput aria-label="Filter actions" Disabled="InputDisabled" />
+                        <MenuInput aria-label="Filter actions" Disabled="InputDisabled" ClassValue="InputClass" />
                     }
                     else
                     {
@@ -38,4 +39,16 @@
 
     [Parameter]
     public string DefaultQuery { get; set; } = "";
+
+    [Parameter]
+    public EventCallback<ValueChangeEventArgs<string>> OnValueChange { get; set; }
+
+    [Parameter]
+    public bool Open { get; set; } = true;
+
+    [Parameter]
+    public bool KeepMounted { get; set; }
+
+    [Parameter]
+    public Func<MenuInputState, string?>? InputClass { get; set; }
 }
