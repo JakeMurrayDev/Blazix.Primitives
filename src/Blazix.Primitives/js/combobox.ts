@@ -238,8 +238,8 @@ function attachInput(element: HTMLInputElement, initial: ComboboxOptions, channe
     }
     composing = false;
     compositionText = element.value;
-    report(element.value, true, false, event);
     resetListScroll();
+    report(element.value, true, false, event);
   };
 
   const onInput = (event: Event): void => {
@@ -250,10 +250,12 @@ function attachInput(element: HTMLInputElement, initial: ComboboxOptions, channe
     }
     compositionText = null;
     const typed = isTypedInput(event, composing);
-    report(element.value, typed, composing, event);
+    // AriaCombobox.tsx:676-707 resets inside the handler, before the highlight its commit scrolls to; on WebAssembly the report
+    // runs C#, and a restored highlight's scroll, before it returns, so the reset goes first (CMB-PTR-13).
     if (typed && !composing) {
       resetListScroll();
     }
+    report(element.value, typed, composing, event);
   };
 
   const clickHighlighted = (event: KeyboardEvent): boolean => {
