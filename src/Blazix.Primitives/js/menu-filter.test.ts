@@ -2,7 +2,7 @@
 // menu/filter-root/useMenuFilterKeyDown.test.ts, both `it.each` tables with every row, against the module's pure
 // getMenuFilterKeyAction (MNU-KEY-22, KEY-30 re-tagged to L3 with "(L4 for …)" for the rest).
 
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { attach, getMenuFilterKeyAction, type MenuFilterKey, type MenuFilterKeyAction, type MenuFilterOptions } from './menu-filter';
 import { createFakeTwin, type FakeTwin } from './test-support/fake-twin';
 import type { TwinHandle } from './twin';
@@ -258,5 +258,67 @@ describe('the List handle', () => {
       { ids: ['a'], texts: ['Rename'] },
       { ids: ['c'], texts: ['Pin'] },
     ]);
+  });
+});
+
+// MNU-ARIA-15 (MenuStore.ts:107-111, useMenuItemCommonProps.ts:63-68, 82; design point 5 (c)): on WebKit only, while the
+// input has focus, the item its aria-activedescendant names carries aria-selected="true", written by the Input handle.
+describe('the Input handle and aria-selected', () => {
+  afterEach(() => {
+    document.body.replaceChildren();
+    vi.doUnmock('./platform');
+    vi.resetModules();
+  });
+
+  function renderItems(): { input: HTMLInputElement; first: HTMLElement; second: HTMLElement } {
+    const input = document.createElement('input');
+    const first = document.createElement('div');
+    first.id = 'item-1';
+    const second = document.createElement('div');
+    second.id = 'item-2';
+    document.body.append(input, first, second);
+    return { input, first, second };
+  }
+
+  async function attachUnder(webkit: boolean): Promise<typeof import('./menu-filter')> {
+    vi.resetModules();
+    vi.doMock('./platform', async (importOriginal) => {
+      const actual = await importOriginal<typeof import('./platform')>();
+      return { ...actual, platform: { ...actual.platform, engine: { ...actual.platform.engine, webkit } } };
+    });
+    return import('./menu-filter');
+  }
+
+  it('port: marks the highlighted item aria-selected on WebKit while the input has focus', async () => {
+    const module = await attachUnder(true);
+    const { input, first, second } = renderItems();
+    const handle = module.attach(input, JSON.stringify({ part: 'input', menuKey: 'menu-1', open: true }), createFakeTwin().twin);
+    input.focus();
+
+    input.setAttribute('aria-activedescendant', 'item-1');
+    await Promise.resolve();
+    expect(first.getAttribute('aria-selected')).toBe('true');
+
+    input.setAttribute('aria-activedescendant', 'item-2');
+    await Promise.resolve();
+    expect(first.hasAttribute('aria-selected')).toBe(false);
+    expect(second.getAttribute('aria-selected')).toBe('true');
+
+    input.blur();
+    expect(second.hasAttribute('aria-selected')).toBe(false);
+    handle.dispose();
+  });
+
+  it('does not set aria-selected on highlighted items outside WebKit', async () => {
+    const module = await attachUnder(false);
+    const { input, first } = renderItems();
+    const handle = module.attach(input, JSON.stringify({ part: 'input', menuKey: 'menu-1', open: true }), createFakeTwin().twin);
+    input.focus();
+
+    input.setAttribute('aria-activedescendant', 'item-1');
+    await Promise.resolve();
+
+    expect(first.hasAttribute('aria-selected')).toBe(false);
+    handle.dispose();
   });
 });
