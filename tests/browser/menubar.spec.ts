@@ -258,9 +258,9 @@ test.describe('<Menubar />', () => {
     test('port: while a bar menu is open the pointer moving over another trigger makes it the tab stop, and while none is open it does not', async ({ page, mode }) => {
       // MBR-PTR-06 (CMP-PTR-01 under `HighlightItemOnHover = HasSubmenuOpen`): the highlight focuses the trigger, which
       // makes it the bar's tab stop. The hovered trigger's own menu then opens and takes the focus, so the title reads the
-      // roving tabindex the highlight leaves. Red on Server (2026-11-11): the hovered View trigger never becomes the tab
-      // stop (tabindex stays -1, 2 of 2). Open by ID (MBR-PTR-06's Server row, brief's Server rows).
-      test.fixme(mode === 'server', 'the hover highlight while a bar menu is open never reaches the roving tabindex on Server');
+      // roving tabindex the highlight leaves. On Server the bar's hover highlight is the composite's option, sent after the
+      // flag's render, and File's popup takes its initial focus a round trip after its open: a hover right after File is
+      // visible met neither (MBR-PTR-06's Server row, ADR 01's popup-element row), so the title waits for the focus inside.
       const fixture = await render(page, mode);
       await moveTo(page, page.getByTestId('edit-trigger'));
       await settle(fixture);
@@ -269,6 +269,7 @@ test.describe('<Menubar />', () => {
 
       await page.getByTestId('file-trigger').click();
       await expect(page.getByTestId('file-menu')).toBeVisible();
+      await focusInside(page, 'file-menu');
       await moveTo(page, page.getByTestId('view-trigger'));
       await expect(page.getByTestId('view-trigger')).toHaveAttribute('tabindex', '0');
       await expect(page.getByTestId('file-trigger')).toHaveAttribute('tabindex', '-1');
@@ -366,9 +367,12 @@ test.describe('<Menubar />', () => {
 
     test('port: after a list-navigation close that opens no other menu the flag stays, so a hover still opens a menu', async ({ page, mode }) => {
       // MBR-EDGE-03 (with §16 Q4 replicated: the closed menu's trigger keeps the focus and the flag, and File reopens with
-      // `trigger-focus`). Red on Server (2026-11-11): after that reopen, hovering Edit opens nothing (Edit records no
-      // change). Open by ID with the probe in the hand-over note.
-      test.fixme(mode === 'server', 'after the §16 Q4 reopen a hover on another trigger opens nothing on Server');
+      // `trigger-focus`). Red on Server (2026-11-11), not the hover-entry class: after that reopen the same backdrop and
+      // positioner stay, and 1 ms after the reopen's render the backdrop loses its cut-out (`clip-path` none; WebAssembly
+      // keeps it), so the backdrop covers the bar and the hover on Edit hits it. C# sends the bar's cut-out id on every sync;
+      // the remaining suspects are in the popup module's positioner role (`cut()`).
+      test.info().annotations.push({ type: 'open', description: 'MBR-EDGE-03 on Server: the reopened bar menu\'s backdrop loses its cut-out' });
+      test.fixme(mode === 'server', 'MBR-EDGE-03: after the §16 Q4 reopen the backdrop loses its cut-out on Server');
       const fixture = await render(page, mode, { loopFocus: false });
       const bar = page.getByRole('menubar');
       await page.getByTestId('file-trigger').focus();
