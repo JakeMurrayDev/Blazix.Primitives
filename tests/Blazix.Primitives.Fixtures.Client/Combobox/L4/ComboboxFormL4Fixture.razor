@@ -1,0 +1,48 @@
+@namespace Blazix.Primitives.Fixtures.Client.ComboboxFixtures
+@using Blazix.Primitives
+@inherits ComboboxL4FixtureBase
+
+@*
+    The `combobox-form` fixture (M5 track 10, issue 174; ported by session S for CMB-FRM-05): ComboboxRoot.test.tsx "prop:
+    validationMode=onSubmit", at L4 (its steps are keyboard navigation and a Clear's focus): a Form around a Field.Root whose
+    `validate` returns "error" for `a`, over a required root with an Input (`input`), a Clear kept mounted (`clear`) and the
+    items a and b, and a submit button. Each validation is recorded as `data-validations`. For a repro, `mode=onChange` sets
+    the Field's validation mode and `optional=true` drops `required`.
+*@
+<FixtureContainer Name="combobox-form" data-attached="@(Attached ? "true" : "false")" data-sync="@Sync"
+                  data-open-changes="@OpenChanges" data-open-change-completes="@OpenChangeCompletes" @attributes="Records">
+    @SyncButton
+    <Form>
+        <FieldRoot Validate="Validate" ValidationMode="@(Query("mode") == "onChange" ? ValidationMode.OnChange : ValidationMode.OnSubmit)">
+            <ComboboxRoot TValue="string" @ref="root" Required="@(QueryFlag("optional") != true)">
+                <ComboboxInput @ref="input" data-testid="input" />
+                <ComboboxClear data-testid="clear" KeepMounted="true" />
+                <ComboboxPortal>
+                    <ComboboxPositioner>
+                        <ComboboxPopup>
+                            <ComboboxList TValue="string">
+                                <ComboboxItem TValue="string" Value="@("a")">a</ComboboxItem>
+                                <ComboboxItem TValue="string" Value="@("b")">b</ComboboxItem>
+                            </ComboboxList>
+                        </ComboboxPopup>
+                    </ComboboxPositioner>
+                </ComboboxPortal>
+            </ComboboxRoot>
+        </FieldRoot>
+        <button type="submit">submit</button>
+    </Form>
+</FixtureContainer>
+
+@code {
+    private ComboboxRoot<string>? root;
+    private ComboboxInput? input;
+
+    protected override IEnumerable<Task> Attachments =>
+        [root?.SessionAttached ?? Task.CompletedTask, input?.TwinAttached ?? Task.CompletedTask];
+
+    private ValueTask<FieldValidationResult?> Validate(FieldValidationArguments arguments)
+    {
+        Record("validations", Format(arguments.Value as string));
+        return ValueTask.FromResult<FieldValidationResult?>(arguments.Value as string == "a" ? "error" : null);
+    }
+}
