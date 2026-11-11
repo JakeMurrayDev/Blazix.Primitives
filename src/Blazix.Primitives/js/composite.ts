@@ -2124,6 +2124,19 @@ function doSwitch(orientation: Orientation | undefined, vertical: boolean, horiz
   }
 }
 
+// M5 track 12, issue 197 (granted by the orchestrator 2026-11-11): the keydowns another module owns on a list's reference
+// (the menu-filter Input's edit keys, MNU-KEY-22; useMenuFilterKeyDown.ts:117-125 keeps them from the list navigation).
+const skippedListKeys = new WeakSet<KeyboardEvent>();
+
+/**
+ * Marks a keydown that the list's handles leave alone: no list navigation, no typeahead, no `preventDefault`.
+ * Call it before the handles' listeners run, from a capture listener on the reference.
+ * @param event The keydown.
+ */
+export function skipListNavigation(event: KeyboardEvent): void {
+  skippedListKeys.add(event);
+}
+
 // CMP-ALG-20 (useListNavigation.ts:59-100), exported for Menu's filter keydown (fact sheet A contradiction 8).
 /**
  * Determines whether a key moves along a list's orientation.
@@ -3543,6 +3556,10 @@ function attachList(
 
   // Listeners. One keydown per handle runs the list navigation, then the typeahead, after the consumer's veto.
   const onKeyDown = (event: KeyboardEvent): void => {
+    // A key another module owns (skipListNavigation): no handle acts on it.
+    if (skippedListKeys.has(event)) {
+      return;
+    }
     // CMP-KEY-22's note of 2026-11-10 (found by TLB-STR-05): useButton returns from a disabled trigger's keydown before
     // the merged list navigation and typeahead run (internals/use-button/useButton.ts:116-119), whether it renders the
     // `disabled` attribute or, focusable when disabled, `aria-disabled="true"`; no key is handled and nothing is asked.
