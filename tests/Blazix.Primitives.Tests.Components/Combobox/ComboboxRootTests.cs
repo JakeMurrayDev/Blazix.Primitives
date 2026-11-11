@@ -1,0 +1,571 @@
+using AngleSharp.Dom;
+using Bunit;
+using Microsoft.AspNetCore.Components;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
+
+// Family tests use the project's root namespace.
+namespace Blazix.Primitives.Tests.Components;
+
+// CMB §3.1, §4 at L2 (ComboboxRoot.test.tsx's titles whose assertions are what C# renders and sends): the ARIA the input
+// renders, the initial input text, the controlled values and the selection's request sequence. A typed change reaches the
+// store as the `combobox` module reports it on Server (ComboboxTestContext.TypeAsync); the input's live `value` is the
+// module's (ADR 04 Amendments 2026-11-03 (6)), so these titles assert the rendered value and the committed text sent.
+/// <summary>Combobox's root at L2: the store core.</summary>
+public sealed class ComboboxRootTests : IDisposable
+{
+    private static readonly string[] s_fruits = ["apple", "banana", "cherry"];
+
+    private static readonly string[] s_apricots = ["apple", "apricot", "banana"];
+
+    private readonly ComboboxTestContext test = new();
+
+    /// <inheritdoc />
+    public void Dispose() => test.Dispose();
+
+    [Fact(DisplayName = "sets all aria attributes on the input when closed")]
+    [Trait("Requirement", "CMB-STR-01")]
+    [Trait("Requirement", "CMB-ARIA-01")]
+    public void Sets_all_aria_attributes_on_the_input_when_closed()
+    {
+        IRenderedComponent<ComboboxHarness> cut = Render(new());
+        IElement input = cut.Find("[data-testid=input]");
+
+        Assert.Equal("combobox", input.GetAttribute("role"));
+        Assert.Equal("false", input.GetAttribute("aria-expanded"));
+        Assert.Equal("list", input.GetAttribute("aria-autocomplete"));
+        Assert.Equal("listbox", input.GetAttribute("aria-haspopup"));
+        Assert.False(input.HasAttribute("aria-controls"));
+        Assert.False(input.HasAttribute("aria-activedescendant"));
+
+        // CMB-STR-01: no wrapper element: the input's parent is the test's container.
+        Assert.Equal("input", cut.Nodes.OfType<IElement>().First().TagName.ToLowerInvariant());
+    }
+
+    [Fact(DisplayName = "derives input from defaultValue on first mount when unspecified")]
+    [Trait("Requirement", "CMB-STA-19")]
+    [Trait("Requirement", "CMB-API-02")]
+    public void Derives_input_from_defaultValue_on_first_mount_when_unspecified()
+    {
+        IRenderedComponent<ComboboxHarness> cut = Render(new() { ["DefaultValue"] = "apple" });
+
+        Assert.Equal("apple", cut.Find("[data-testid=input]").GetAttribute("value"));
+    }
+
+    [Fact(DisplayName = "defaultInputValue overrides derivation when provided")]
+    [Trait("Requirement", "CMB-STA-19")]
+    [Trait("Requirement", "CMB-API-10")]
+    public void DefaultInputValue_overrides_derivation_when_provided()
+    {
+        IRenderedComponent<ComboboxHarness> cut = Render(new() { ["DefaultValue"] = "apple", ["DefaultInputValue"] = "x" });
+
+        Assert.Equal("x", cut.Find("[data-testid=input]").GetAttribute("value"));
+    }
+
+    [Fact(DisplayName = "multiple mode initial input remains empty")]
+    [Trait("Requirement", "CMB-STA-19")]
+    [Trait("Requirement", "CMB-API-02")]
+    public void Multiple_mode_initial_input_remains_empty()
+    {
+        IRenderedComponent<ComboboxHarness> cut = Render(new() { ["Multiple"] = true, ["Items"] = (IReadOnlyList<string>)s_fruits });
+
+        Assert.Equal(string.Empty, cut.Find("[data-testid=input]").GetAttribute("value"));
+    }
+
+    [Fact(DisplayName = "does not set input value for input-inside-popup pattern")]
+    [Trait("Requirement", "CMB-STA-19")]
+    public void Does_not_set_input_value_for_input_inside_popup_pattern()
+    {
+        IRenderedComponent<ComboboxHarness> cut = test.Context.Render<ComboboxHarness>(p => p
+            .Add(x => x.RootParameters, new Dictionary<string, object?> { ["DefaultOpen"] = true, ["DefaultValue"] = "apple" })
+            .Add(x => x.InputInsidePopup, true));
+
+        Assert.Equal(string.Empty, cut.Instance.Root!.Store.State.InputValue);
+        Assert.Contains(cut.Instance.InputChanges, change => change.Text.Length == 0 && change.Reason == EventReason.None);
+    }
+
+    [Fact(DisplayName = "normalizes a controlled null value when selecting in multiple mode")]
+    [Trait("Requirement", "CMB-API-01")]
+    [Trait("Requirement", "CMB-EDGE-11")]
+    public async Task Normalizes_a_controlled_null_value_when_selecting_in_multiple_mode()
+    {
+        IRenderedComponent<ComboboxHarness> cut = Render(
+            new() { ["Multiple"] = true, ["Values"] = null, ["DefaultOpen"] = true },
+            staticItems: ["apple"]);
+
+        await cut.InvokeAsync(() => cut.Find("[data-testid=item-apple]").Click());
+
+        (IReadOnlyList<string> values, EventReason reason) = Assert.Single(cut.Instance.ValuesChanges);
+        Assert.Equal(["apple"], values);
+        Assert.Equal(EventReason.ItemPress, reason);
+    }
+
+    [Fact(DisplayName = "\"single\" keeps the popup open when selection is canceled")]
+    [Trait("Requirement", "CMB-API-03")]
+    [Trait("Requirement", "CMB-STA-18")]
+    [Trait("Requirement", "CMB-EVT-07")]
+    public async Task Single_keeps_the_popup_open_when_selection_is_canceled()
+    {
+        IRenderedComponent<ComboboxHarness> cut = Render(new() { ["DefaultOpen"] = true, ["Items"] = (IReadOnlyList<string>)s_fruits });
+        cut.Instance.OnValue = args => args.Details.Cancel();
+
+        await cut.InvokeAsync(() => cut.Find("[data-testid=item-banana]").Click());
+
+        Assert.True(cut.Instance.Root!.Store.IsOpen);
+        Assert.False(cut.Instance.Root.Store.State.HasSelectedValue);
+        Assert.Empty(cut.Instance.OpenChanges);
+        Assert.Empty(cut.Instance.InputChanges);
+    }
+
+    [Fact(DisplayName = "port: a single selection reports the value, then the input's label, then the close, each with item-press")]
+    [Trait("Requirement", "CMB-EVT-10")]
+    [Trait("Requirement", "CMB-EVT-04")]
+    public async Task A_single_selection_reports_the_value_then_the_label_then_the_close()
+    {
+        IRenderedComponent<ComboboxHarness> cut = Render(new() { ["DefaultOpen"] = true, ["Items"] = (IReadOnlyList<string>)s_fruits });
+        List<string> order = [];
+        cut.Instance.OnValue = args => order.Add("value:" + args.Value);
+        cut.Instance.OnInput = args => order.Add("input:" + args.Value);
+        cut.Instance.OnOpen = args => order.Add("open:" + args.Value);
+
+        await cut.InvokeAsync(() => cut.Find("[data-testid=item-banana]").Click());
+
+        Assert.Equal(["value:banana", "input:banana", "open:False"], order);
+        Assert.All(cut.Instance.OpenChanges, change => Assert.Equal(EventReason.ItemPress, change.Reason));
+        Assert.Equal("banana", cut.Instance.Root!.Store.State.InputValue);
+        Assert.False(cut.Instance.Root.Store.IsOpen);
+    }
+
+    [Fact(DisplayName = "port: typing commits the text and sends it to the input's handle with a new revision")]
+    [Trait("Requirement", "CMB-API-09")]
+    [Trait("Requirement", "CMB-API-11")]
+    [Trait("Requirement", "CMB-STA-21")]
+    public async Task Typing_commits_the_text_and_sends_it_with_a_new_revision()
+    {
+        IRenderedComponent<ComboboxHarness> cut = Render(new() { ["Items"] = (IReadOnlyList<string>)s_fruits });
+
+        await test.TypeAsync(cut, "ba");
+
+        (string text, EventReason reason, _) = Assert.Single(cut.Instance.InputChanges);
+        Assert.Equal("ba", text);
+        Assert.Equal(EventReason.InputChange, reason);
+        Assert.Contains("\"value\":\"ba\"", test.LastInputOptions(), StringComparison.Ordinal);
+        Assert.Equal(["banana"], cut.Instance.Root!.Store.FilteredValues);
+
+        // ComboboxInput.tsx:266-275: a typed non-blank change opens the popup with input-change.
+        Assert.True(cut.Instance.Root.Store.IsOpen);
+        Assert.Contains(cut.Instance.OpenChanges, change => change.Open && change.Reason == EventReason.InputChange);
+    }
+
+    [Fact(DisplayName = "port: an autofill-like change commits the text without opening the popup")]
+    [Trait("Requirement", "CMB-KEY-17")]
+    [Trait("Requirement", "CMB-STA-21")]
+    public async Task An_autofill_like_change_commits_the_text_without_opening()
+    {
+        IRenderedComponent<ComboboxHarness> cut = Render(new() { ["Items"] = (IReadOnlyList<string>)s_fruits });
+
+        await test.TypeAsync(cut, "cherry", typed: false);
+
+        Assert.Equal("cherry", cut.Instance.Root!.Store.State.InputValue);
+        Assert.False(cut.Instance.Root.Store.IsOpen);
+    }
+
+    [Fact(DisplayName = "port: emptying the input outside the popup clears the single selection with input-clear")]
+    [Trait("Requirement", "CMB-EVT-03")]
+    public async Task Emptying_the_input_clears_the_single_selection()
+    {
+        IRenderedComponent<ComboboxHarness> cut = Render(new() { ["DefaultValue"] = "apple", ["Items"] = (IReadOnlyList<string>)s_fruits });
+
+        await test.TypeAsync(cut, string.Empty);
+
+        (string? value, EventReason reason) = Assert.Single(cut.Instance.ValueChanges);
+        Assert.Null(value);
+        Assert.Equal(EventReason.InputClear, reason);
+        Assert.False(cut.Instance.Root!.Store.State.HasSelectedValue);
+    }
+
+    [Fact(DisplayName = "port: a part outside the root throws the missing-root error with the family's names")]
+    [Trait("Requirement", "CMB-STR-02")]
+    public void A_part_outside_the_root_throws_the_missing_root_error()
+    {
+        InvalidOperationException error = Assert.Throws<InvalidOperationException>(() => test.Context.Render<ComboboxInput>());
+
+        Assert.Equal("Blazix: `ComboboxRootContext` is missing. Combobox parts must be placed within `<ComboboxRoot>`.", error.Message);
+    }
+
+    [Fact(DisplayName = "port: the item of a default value renders selected on the first render")]
+    [Trait("Requirement", "CMB-ARIA-09")]
+    public void The_item_of_a_default_value_renders_selected_on_the_first_render()
+    {
+        IRenderedComponent<ComboboxHarness> cut = Render(new() { ["DefaultOpen"] = true, ["DefaultValue"] = "banana" }, staticItems: s_fruits);
+
+        Assert.Equal("true", cut.Find("[data-testid=item-banana]").GetAttribute("aria-selected"));
+        Assert.Equal("false", cut.Find("[data-testid=item-apple]").GetAttribute("aria-selected"));
+    }
+
+    [Fact(DisplayName = "port: the first render with items exposes the filtered list, not an empty one")]
+    [Trait("Requirement", "CMB-STA-21")]
+    [Trait("Requirement", "CMB-DOM-02")]
+    public void The_first_render_with_items_exposes_the_filtered_list()
+    {
+        IRenderedComponent<ComboboxHarness> cut = Render(new() { ["Items"] = (IReadOnlyList<string>)s_fruits, ["DefaultOpen"] = true });
+
+        Assert.Equal(3, cut.Instance.Root!.Store.State.FilteredCount);
+        Assert.False(cut.Find("[data-testid=input]").HasAttribute("data-list-empty"));
+    }
+
+    [Fact(DisplayName = "port: a controlled input text the consumer changes is sent to the input's handle with a new revision")]
+    [Trait("Requirement", "CMB-API-09")]
+    public void A_controlled_input_text_change_is_sent_with_a_new_revision()
+    {
+        IRenderedComponent<ComboboxHarness> cut = Render(new() { ["InputValue"] = "a" });
+        int revision = cut.Instance.Root!.Store.State.InputRevision;
+
+        cut.Render(p => p.Add(x => x.RootParameters, new Dictionary<string, object?> { ["InputValue"] = "b" }));
+
+        Assert.True(cut.Instance.Root.Store.State.InputRevision > revision);
+        Assert.Contains("\"value\":\"b\"", test.LastInputOptions(), StringComparison.Ordinal);
+    }
+
+    [Fact(DisplayName = "port: a typed change the consumer cancels re-asserts the controlled text")]
+    [Trait("Requirement", "CMB-API-09")]
+    [Trait("Requirement", "CMB-EVT-07")]
+    public async Task A_canceled_typed_change_reasserts_the_controlled_text()
+    {
+        IRenderedComponent<ComboboxHarness> cut = Render(new() { ["InputValue"] = "a" });
+        cut.Instance.OnInput = args => args.Details.Cancel();
+        int revision = cut.Instance.Root!.Store.State.InputRevision;
+
+        await test.TypeAsync(cut, "ab");
+
+        Assert.True(cut.Instance.Root.Store.State.InputRevision > revision);
+        Assert.Contains("\"value\":\"a\"", test.LastInputOptions(), StringComparison.Ordinal);
+    }
+
+    // On Server the consumer's render, which carries the controlled text, can reach the root after the commit: a re-assert at
+    // the commit would write the previous text over the typing and move the caret to the end.
+    [Fact(DisplayName = "port: a typed controlled text is not re-asserted before the consumer's render")]
+    [Trait("Requirement", "CMB-API-09")]
+    public async Task A_typed_controlled_text_is_not_reasserted_before_the_consumer_render()
+    {
+        // The consumer's callbacks render nothing yet (their receiver is not a component), as a render Server has not sent.
+        string latest = string.Empty;
+        EventCallback<ValueChangeEventArgs<string>> onChange = EventCallback.Factory.Create<ValueChangeEventArgs<string>>(new object(), args => latest = args.Value);
+        EventCallback<ValueChangeEventArgs<bool>> onOpen = EventCallback.Factory.Create<ValueChangeEventArgs<bool>>(new object(), _ => { });
+        IRenderedComponent<ComboboxHarness> cut = Render(new() { ["InputValue"] = string.Empty, ["OnInputValueChange"] = onChange, ["OnOpenChange"] = onOpen });
+        int revision = cut.Instance.Root!.Store.State.InputRevision;
+
+        await test.TypeAsync(cut, "a");
+        await test.TypeAsync(cut, "ab");
+
+        Assert.Equal(revision, cut.Instance.Root.Store.State.InputRevision);
+
+        cut.Render(p => p.Add(x => x.RootParameters, new Dictionary<string, object?> { ["InputValue"] = latest, ["OnInputValueChange"] = onChange, ["OnOpenChange"] = onOpen }));
+
+        Assert.True(cut.Instance.Root.Store.State.InputRevision > revision);
+        Assert.Contains("\"value\":\"ab\"", test.LastInputOptions(), StringComparison.Ordinal);
+    }
+
+    [Fact(DisplayName = "port: a consumer render that keeps the controlled text re-asserts it over the typed edit")]
+    [Trait("Requirement", "CMB-API-09")]
+    public async Task A_consumer_render_that_keeps_the_controlled_text_reasserts_it()
+    {
+        EventCallback<ValueChangeEventArgs<string>> onChange = EventCallback.Factory.Create<ValueChangeEventArgs<string>>(new object(), _ => { });
+        EventCallback<ValueChangeEventArgs<bool>> onOpen = EventCallback.Factory.Create<ValueChangeEventArgs<bool>>(new object(), _ => { });
+        IRenderedComponent<ComboboxHarness> cut = Render(new() { ["InputValue"] = "a", ["OnInputValueChange"] = onChange, ["OnOpenChange"] = onOpen });
+
+        await test.TypeAsync(cut, "ab");
+        int revision = cut.Instance.Root!.Store.State.InputRevision;
+        cut.Render(p => p.Add(x => x.RootParameters, new Dictionary<string, object?> { ["InputValue"] = "a", ["OnInputValueChange"] = onChange, ["OnOpenChange"] = onOpen }));
+
+        Assert.True(cut.Instance.Root.Store.State.InputRevision > revision);
+        Assert.Contains("\"value\":\"a\"", test.LastInputOptions(), StringComparison.Ordinal);
+    }
+
+    [Fact(DisplayName = "port: a supplied null input text derives the text from the selection")]
+    [Trait("Requirement", "CMB-STA-19")]
+    [Trait("Requirement", "CMB-API-09")]
+    public void A_supplied_null_input_text_derives_from_the_selection()
+    {
+        IRenderedComponent<ComboboxHarness> cut = Render(new() { ["InputValue"] = null, ["DefaultValue"] = "apple" });
+
+        Assert.Equal("apple", cut.Find("[data-testid=input]").GetAttribute("value"));
+        Assert.True(cut.Instance.Root!.Store.InputControlled);
+    }
+
+    [Fact(DisplayName = "port: a typed query that keeps the filtered list sends the auto-highlight to the list handle")]
+    [Trait("Requirement", "CMB-API-17")]
+    [Trait("Requirement", "CMB-STA-24")]
+    public async Task A_typed_query_that_keeps_the_list_sends_the_auto_highlight()
+    {
+        IRenderedComponent<ComboboxHarness> cut = Render(new()
+        {
+            ["Items"] = (IReadOnlyList<string>)["apple", "apricot", "avocado"],
+            ["AutoHighlight"] = true,
+            ["DefaultOpen"] = true,
+        });
+
+        await test.TypeAsync(cut, "a");
+
+        Assert.Equal(0, cut.Instance.Root!.Store.State.ActiveIndex);
+        Assert.Contains(CompositeOptions(), options => options.Contains("\"highlight\":{\"index\":0", StringComparison.Ordinal));
+    }
+
+    [Fact(DisplayName = "port: the internal dismiss button's close-press carries the button as its trigger")]
+    [Trait("Requirement", "CMB-STR-07")]
+    [Trait("Requirement", "CMB-EVT-04")]
+    public async Task The_dismiss_buttons_close_press_carries_its_trigger()
+    {
+        IRenderedComponent<ComboboxHarness> cut = Render(new() { ["DefaultOpen"] = true });
+        string? trigger = null;
+        cut.Instance.OnOpen = args => trigger = args.Details.Trigger?.Id;
+        string dismissId = cut.Instance.Root!.Store.State.ElementIds.StartDismiss!;
+
+        await cut.InvokeAsync(() => test.TwinOf(Blazix.Primitives.Interop.ComboboxTwin.InputPart).OnDismiss(ComboboxTestContext.Click));
+
+        Assert.Equal(EventReason.ClosePress, Assert.Single(cut.Instance.OpenChanges).Reason);
+        Assert.Equal(dismissId, trigger);
+    }
+
+    [Fact(DisplayName = "port: an exception of the consumer's callback in the inside input's blank write reaches the root")]
+    [Trait("Requirement", "CMB-STA-19")]
+    public void An_exception_in_the_inside_inputs_blank_write_reaches_the_root()
+    {
+        Assert.Throws<InvalidOperationException>(() => test.Context.Render<ComboboxHarness>(p => p
+            .Add(x => x.RootParameters, new Dictionary<string, object?>
+            {
+                ["DefaultValue"] = "apple",
+                ["OnInputValueChange"] = EventCallback.Factory.Create<ValueChangeEventArgs<string>>(this, _ => throw new InvalidOperationException("consumer")),
+            })
+            .Add(x => x.InputInsidePopup, true)
+            .Add(x => x.KeepMounted, true)));
+    }
+
+    [Fact(DisplayName = "port: two selected values that serialize alike each get a hidden input")]
+    [Trait("Requirement", "CMB-DOM-19")]
+    [Trait("Requirement", "CMB-FRM-02")]
+    public void Two_values_that_serialize_alike_each_get_a_hidden_input()
+    {
+        Func<string, string> firstLetter = value => value[..1];
+        IRenderedComponent<ComboboxHarness> cut = Render(new()
+        {
+            ["Multiple"] = true,
+            ["Name"] = "fruit",
+            ["Values"] = (IReadOnlyList<string>)["apple"],
+            ["ItemToStringValue"] = firstLetter,
+        });
+
+        cut.Render(p => p.Add(x => x.RootParameters, new Dictionary<string, object?>
+        {
+            ["Multiple"] = true,
+            ["Name"] = "fruit",
+            ["Values"] = (IReadOnlyList<string>)["apple", "apricot"],
+            ["ItemToStringValue"] = firstLetter,
+        }));
+
+        Assert.Equal(["a", "a"], cut.FindAll("input[name=fruit]").Select(input => input.GetAttribute("value")));
+    }
+
+    [Fact(DisplayName = "port: with filtered item groups, a typed query's auto-highlight waits for the groups to arrive")]
+    [Trait("Requirement", "CMB-API-17")]
+    [Trait("Requirement", "CMB-API-13")]
+    public async Task The_auto_highlight_waits_for_filtered_item_groups()
+    {
+        Dictionary<string, object?> Parameters(IReadOnlyList<ComboboxItemGroup<string>> groups) => new()
+        {
+            ["FilteredItemGroups"] = groups,
+            ["AutoHighlight"] = true,
+            ["DefaultOpen"] = true,
+        };
+
+        IRenderedComponent<ComboboxHarness> cut = Render(Parameters([]));
+        await test.TypeAsync(cut, "a");
+        Assert.DoesNotContain(CompositeOptions(), options => options.Contains("\"highlight\":{\"index\":0", StringComparison.Ordinal));
+
+        cut.Render(p => p.Add(x => x.RootParameters, Parameters([new ComboboxItemGroup<string>("fruit", ["apple", "apricot"])])));
+
+        Assert.Contains(CompositeOptions(), options => options.Contains("\"highlight\":{\"index\":0", StringComparison.Ordinal));
+    }
+
+    [Fact(DisplayName = "port: an input outside the popup follows a change of the root's id")]
+    [Trait("Requirement", "CMB-API-27")]
+    [Trait("Requirement", "CMB-API-39")]
+    public void An_outside_input_follows_a_change_of_the_roots_id()
+    {
+        IRenderedComponent<ComboboxHarness> cut = Render(new() { ["Id"] = "first" });
+        Assert.Equal("first", cut.Find("[data-testid=input]").Id);
+
+        cut.Render(p => p.Add(x => x.RootParameters, new Dictionary<string, object?> { ["Id"] = "second" }));
+
+        Assert.Equal("second", cut.Find("[data-testid=input]").Id);
+    }
+
+    [Fact(DisplayName = "port: a typed query does not re-render the Value part")]
+    [Trait("Requirement", "CMB-API-46")]
+    public async Task A_typed_query_does_not_rerender_the_value_part()
+    {
+        RenderFragment extra = builder =>
+        {
+            builder.OpenComponent<ComboboxValue<string>>(0);
+            builder.CloseComponent();
+        };
+        IRenderedComponent<ComboboxHarness> cut = test.Context.Render<ComboboxHarness>(p => p
+            .Add(x => x.RootParameters, new Dictionary<string, object?> { ["DefaultOpen"] = true, ["Items"] = (IReadOnlyList<string>)s_fruits })
+            .Add(x => x.Extra, extra));
+        IRenderedComponent<ComboboxValue<string>> value = cut.FindComponent<ComboboxValue<string>>();
+        int renders = value.RenderCount;
+
+        await test.TypeAsync(cut, "ban");
+
+        Assert.Equal(["banana"], cut.Instance.Root!.Store.FilteredValues);
+        Assert.Equal(renders, value.RenderCount);
+    }
+
+    // The fixture page logged it on WebAssembly: a later parameter set without DefaultInputValue was compared with the
+    // first set's as a changed default.
+    [Fact(DisplayName = "port: a re-render that supplies no DefaultInputValue logs no development warning")]
+    [Trait("Requirement", "CMB-EDGE-03")]
+    public void A_rerender_without_DefaultInputValue_logs_no_development_warning()
+    {
+        CapturingLogger<ComboboxRoot<string>> logger = new();
+        test.Context.Services.AddSingleton<ILogger<ComboboxRoot<string>>>(logger);
+        Dictionary<string, object?> parameters = new() { ["DefaultValue"] = "banana", ["Items"] = (IReadOnlyList<string>)s_fruits };
+        IRenderedComponent<ComboboxHarness> cut = Render(parameters);
+        Assert.Equal("banana", cut.Instance.Root!.Store.State.InputValue);
+
+        cut.Render(p => p.Add(x => x.RootParameters, new Dictionary<string, object?>(parameters)));
+
+        Assert.Empty(logger.Entries);
+    }
+
+    // CMB-STA-21's handleOpenChanged (AriaCombobox.tsx:1272-1277): a controlled `open` that interrupts the close runs the
+    // interrupted reopen without a setOpen call. The consumer follows each request by re-rendering the root.
+    [Fact(DisplayName = "releases the frozen query when controlled open reopens the popup")]
+    [Trait("Requirement", "CMB-STA-21")]
+    public async Task Releases_the_frozen_query_when_controlled_open_reopens_the_popup()
+    {
+        Dictionary<string, object?> parameters = new() { ["Multiple"] = true, ["Items"] = (IReadOnlyList<string>)s_apricots, ["Open"] = false };
+        IRenderedComponent<ComboboxHarness> cut = Render(parameters);
+        await test.TypeAsync(cut, "app");
+        Follow(cut, parameters);
+        Assert.Equal(["apple"], Options(cut));
+        await test.SessionRequestAsync(cut, false, "escape-key");
+        Follow(cut, parameters);
+        Assert.True(cut.Instance.Root!.Store.State.Lifecycle.Mounted);
+
+        parameters["Open"] = true;
+        cut.Render(p => p.Add(x => x.RootParameters, new Dictionary<string, object?>(parameters)));
+        Assert.Contains("banana", Options(cut));
+        cut.Instance.InputChanges.Clear();
+        await test.SessionRequestAsync(cut, false, "escape-key");
+        Follow(cut, parameters);
+
+        Assert.Empty(cut.Instance.InputChanges);
+    }
+
+    // CMB-STA-21's handleQueryChanged (AriaCombobox.tsx:1262-1270): a query that changes while open, by the consumer as
+    // well as by typing, counts as changed since the open, so the close clears it in multiple mode.
+    [Fact(DisplayName = "port: a controlled query set while open is cleared when the popup closes (multiple)")]
+    [Trait("Requirement", "CMB-STA-21")]
+    public async Task A_controlled_query_set_while_open_is_cleared_when_the_popup_closes()
+    {
+        Dictionary<string, object?> parameters = new() { ["Multiple"] = true, ["Items"] = (IReadOnlyList<string>)s_apricots, ["DefaultOpen"] = true, ["InputValue"] = string.Empty };
+        IRenderedComponent<ComboboxHarness> cut = Render(parameters);
+        parameters["InputValue"] = "ap";
+        cut.Render(p => p.Add(x => x.RootParameters, new Dictionary<string, object?>(parameters)));
+        Assert.Equal(["apple", "apricot"], Options(cut));
+
+        await test.SessionRequestAsync(cut, false, "escape-key");
+
+        (string text, EventReason reason, _) = Assert.Single(cut.Instance.InputChanges);
+        Assert.Equal((string.Empty, EventReason.InputClear), (text, reason));
+    }
+
+    // CMB-KEY-01 (AriaCombobox.tsx:1425-1426, derived at every render): a query typed since the open sets focusItemOnOpen
+    // to false, so the typed open does not move the highlight to the selected item. The callbacks are empty, so no
+    // consumer render sets the root's parameters again.
+    [Fact(DisplayName = "port: a typed open sends focusItemOnOpen false to the list navigation")]
+    [Trait("Requirement", "CMB-KEY-01")]
+    public async Task A_typed_open_sends_focusItemOnOpen_false()
+    {
+        IRenderedComponent<ComboboxHarness> cut = Render(new()
+        {
+            ["Items"] = (IReadOnlyList<string>)s_fruits,
+            ["DefaultValue"] = "banana",
+            ["OnInputValueChange"] = default(EventCallback<ValueChangeEventArgs<string>>),
+            ["OnOpenChange"] = default(EventCallback<ValueChangeEventArgs<bool>>),
+        });
+        Assert.DoesNotContain("\"focusItemOnOpen\":false", LastListNavigationOptions(), StringComparison.Ordinal);
+
+        await test.TypeAsync(cut, "c");
+
+        Assert.True(cut.Instance.Root!.Store.IsOpen);
+        Assert.Contains("\"focusItemOnOpen\":false", LastListNavigationOptions(), StringComparison.Ordinal);
+    }
+
+    // ADR 16 decision 11 (review F17): Base UI memoizes the filtered items on their inputs (AriaCombobox.tsx:358-438), so a
+    // parameter set that changes none of them runs no filter.
+    [Fact(DisplayName = "port: a parameter set with unchanged inputs runs no filter")]
+    [Trait("Requirement", "CMB-STA-23")]
+    public void A_parameter_set_with_unchanged_inputs_runs_no_filter()
+    {
+        int calls = 0;
+        Dictionary<string, object?> parameters = new()
+        {
+            ["Items"] = (IReadOnlyList<string>)s_apricots,
+            ["DefaultOpen"] = true,
+            ["DefaultInputValue"] = "ap",
+            ["Filter"] = (Func<string, string, Func<string, string>?, bool>)((item, query, _) =>
+            {
+                calls++;
+                return item.StartsWith(query, StringComparison.Ordinal);
+            }),
+        };
+        IRenderedComponent<ComboboxHarness> cut = Render(parameters);
+        Assert.Equal(["apple", "apricot"], Options(cut));
+        int before = calls;
+
+        cut.Render(p => p.Add(x => x.RootParameters, new Dictionary<string, object?>(parameters)));
+
+        Assert.Equal(["apple", "apricot"], Options(cut));
+        Assert.Equal(before, calls);
+    }
+
+    private static void Follow(IRenderedComponent<ComboboxHarness> cut, Dictionary<string, object?> parameters)
+    {
+        if (cut.Instance.OpenChanges.Count != 0)
+        {
+            parameters["Open"] = cut.Instance.OpenChanges[^1].Open;
+            cut.Render(p => p.Add(x => x.RootParameters, new Dictionary<string, object?>(parameters)));
+        }
+    }
+
+    private static List<string> Options(IRenderedComponent<ComboboxHarness> cut) => cut.FindAll("[role=option]").Select(option => option.TextContent).ToList();
+
+    private string LastListNavigationOptions() => CompositeOptions().FindLast(options => options.Contains("\"virtual\":true", StringComparison.Ordinal)) ?? string.Empty;
+
+    private List<string> CompositeOptions()
+    {
+        List<string> options = [];
+        foreach (JSRuntimeInvocation attach in test.Composite.Invocations["attach"])
+        {
+            if (attach.Arguments[1] is string json)
+            {
+                options.Add(json);
+            }
+        }
+
+        foreach (JSRuntimeInvocation update in test.CompositeHandle.Invocations["update"])
+        {
+            if (update.Arguments[0] is string json)
+            {
+                options.Add(json);
+            }
+        }
+
+        return options;
+    }
+
+    private IRenderedComponent<ComboboxHarness> Render(Dictionary<string, object?> parameters, IReadOnlyList<string>? staticItems = null) =>
+        test.Context.Render<ComboboxHarness>(p => p.Add(x => x.RootParameters, parameters).Add(x => x.StaticItems, staticItems));
+}

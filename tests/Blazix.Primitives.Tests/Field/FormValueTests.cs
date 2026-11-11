@@ -60,13 +60,15 @@ public sealed class FormValueTests : IDisposable
         Assert.Equal("NaN", FormValue.Serialize(double.NaN));
     }
 
-    // FFI-ALG-11's dated deviation: JSON.stringify(true) is "true"; the port submits Boolean's text.
-    [Fact(DisplayName = "port: a bool is submitted as its .NET text")]
+    // FFI-ALG-11's note of 2026-11-11 (CMB-API-68, settled by the orchestrator 2026-11-11): a bool is submitted as
+    // JSON.stringify and String() give it, no longer as Boolean's .NET text.
+    [Fact(DisplayName = "port: a bool is submitted as JavaScript's text")]
     [Trait("Requirement", "RAD-FRM-02")]
-    public void Port_a_bool_is_submitted_as_its_dotnet_text()
+    [Trait("Requirement", "CMB-API-68")]
+    public void Port_a_bool_is_submitted_as_javascripts_text()
     {
-        Assert.Equal("True", FormValue.Serialize(true));
-        Assert.Equal("False", FormValue.Serialize(false));
+        Assert.Equal("true", FormValue.Serialize(true));
+        Assert.Equal("false", FormValue.Serialize(false));
     }
 
     [Fact(DisplayName = "port: an enum is submitted as its name")]

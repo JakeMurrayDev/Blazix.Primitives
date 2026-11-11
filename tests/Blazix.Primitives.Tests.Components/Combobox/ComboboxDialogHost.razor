@@ -1,0 +1,104 @@
+@namespace Blazix.Primitives.Tests.Components
+@* ComboboxRoot.test.tsx's dialog pattern: an inline Root whose `open` the host keeps with the Dialog's, as the tests' useState
+   does, around a Dialog with a Trigger and a Popup (kept mounted with `KeepMounted`) holding the Input, the inline List and a
+   Close. A selection closes the dialog with `CloseOnValueChange`, as the first title's onValueChange does. The Dialog's own
+   presses (Trigger, Close, Escape) end in its onOpenChange's setOpen, which `SetOpen` stands for. *@
+<ComboboxRoot TValue="string" @ref="Root" @attributes="Parameters">
+    <DialogRoot TPayload="NoPayload" Open="open" OnOpenChange="OnDialogOpenChange">
+        <DialogTrigger TPayload="NoPayload" data-testid="dialog-trigger">Choose fruit</DialogTrigger>
+        <DialogPortal KeepMounted="KeepMounted">
+            <DialogPopup aria-label="Fruit chooser" data-testid="dialog">
+                <ComboboxInput data-testid="dialog-input" />
+                <ComboboxList TValue="string">
+                    <ItemContent>
+                        <ComboboxItem TValue="string" Value="@context.Value" @key="context.Value">@context.Value</ComboboxItem>
+                    </ItemContent>
+                </ComboboxList>
+                <DialogClose data-testid="done">Done</DialogClose>
+            </DialogPopup>
+        </DialogPortal>
+    </DialogRoot>
+</ComboboxRoot>
+
+@code {
+    private bool open;
+    private bool initialized;
+
+    [Parameter]
+    public IReadOnlyList<string> Items { get; set; } = [];
+
+    [Parameter]
+    public bool Multiple { get; set; }
+
+    [Parameter]
+    public bool DefaultOpen { get; set; }
+
+    [Parameter]
+    public bool KeepMounted { get; set; }
+
+    [Parameter]
+    public bool CloseOnValueChange { get; set; }
+
+    public ComboboxRoot<string>? Root { get; private set; }
+
+    public bool IsOpen => open;
+
+    public List<string?> Highlights { get; } = [];
+
+    public List<object?> ValueChanges { get; } = [];
+
+    /// <summary>Sets the state the Dialog's and the Combobox's `open` follow, as the Dialog's onOpenChange does.</summary>
+    /// <param name="value">The next state.</param>
+    public void SetOpen(bool value)
+    {
+        open = value;
+        StateHasChanged();
+    }
+
+    /// <inheritdoc />
+    protected override void OnParametersSet()
+    {
+        if (!initialized)
+        {
+            initialized = true;
+            open = DefaultOpen;
+        }
+    }
+
+    private Dictionary<string, object?> Parameters
+    {
+        get
+        {
+            Dictionary<string, object?> parameters = new()
+            {
+                [nameof(ComboboxRoot<string>.Inline)] = true,
+                [nameof(ComboboxRoot<string>.Items)] = Items,
+                [nameof(ComboboxRoot<string>.Open)] = open,
+                [nameof(ComboboxRoot<string>.OnOpenChange)] = EventCallback.Factory.Create<ValueChangeEventArgs<bool>>(this, args => open = args.Value),
+                [nameof(ComboboxRoot<string>.OnItemHighlighted)] = EventCallback.Factory.Create<ComboboxItemHighlightedEventArgs<string>>(this, args => Highlights.Add(args.Value)),
+            };
+            if (Multiple)
+            {
+                parameters[nameof(ComboboxRoot<string>.Multiple)] = true;
+                parameters[nameof(ComboboxRoot<string>.OnValuesChange)] = EventCallback.Factory.Create<ValueChangeEventArgs<IReadOnlyList<string>>>(this, args => OnValue(args.Value));
+            }
+            else
+            {
+                parameters[nameof(ComboboxRoot<string>.OnValueChange)] = EventCallback.Factory.Create<ValueChangeEventArgs<string>>(this, args => OnValue(args.Value));
+            }
+
+            return parameters;
+        }
+    }
+
+    private void OnValue(object? value)
+    {
+        ValueChanges.Add(value);
+        if (CloseOnValueChange)
+        {
+            open = false;
+        }
+    }
+
+    private void OnDialogOpenChange(ValueChangeEventArgs<bool> args) => open = args.Value;
+}

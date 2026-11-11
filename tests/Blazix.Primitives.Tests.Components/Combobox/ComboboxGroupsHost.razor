@@ -1,0 +1,31 @@
+@namespace Blazix.Primitives.Tests.Components
+@* ComboboxRoot.test.tsx's grouped tree: a Root over `ItemGroups` (in `RootParameters`, splatted) whose List renders each
+   filtered group as a Group with its GroupLabel and a Collection of its items. *@
+<ComboboxRoot TValue="string" @ref="Root" @attributes="RootParameters">
+    <ComboboxInput data-testid="input" />
+    <ComboboxPortal>
+        <ComboboxPositioner>
+            <ComboboxPopup>
+                <ComboboxList TValue="string">
+                    <GroupContent>
+                        <ComboboxGroup TValue="string" Items="@context.Items" @key="context.Value">
+                            <ComboboxGroupLabel data-testid="group-label">@context.Value</ComboboxGroupLabel>
+                            <ComboboxCollection TValue="string">
+                                <ItemContent Context="item">
+                                    <ComboboxItem TValue="string" Value="@item.Value" @key="item.Value">@item.Value</ComboboxItem>
+                                </ItemContent>
+                            </ComboboxCollection>
+                        </ComboboxGroup>
+                    </GroupContent>
+                </ComboboxList>
+            </ComboboxPopup>
+        </ComboboxPositioner>
+    </ComboboxPortal>
+</ComboboxRoot>
+
+@code {
+    [Parameter]
+    public Dictionary<string, object?> RootParameters { get; set; } = [];
+
+    public ComboboxRoot<string>? Root { get; private set; }
+}

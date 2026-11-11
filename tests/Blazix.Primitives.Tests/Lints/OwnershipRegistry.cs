@@ -336,6 +336,35 @@ internal static class OwnershipRegistry
         new("menu", "CheckboxItemIndicator", "data-ending-style", Writer.Js, "MenuCheckboxItemIndicatorState.TransitionStatus"),
         new("menu", "RadioItemIndicator", "data-starting-style", Writer.Js, "MenuRadioItemIndicatorState.TransitionStatus"),
         new("menu", "RadioItemIndicator", "data-ending-style", Writer.Js, "MenuRadioItemIndicatorState.TransitionStatus"),
+        // Combobox (M5 track 10, issue 174; ADR 04 §2, Amendments 2026-11-03 (2) and (6), chosen by the user 2026-11-03, and
+        // the `form` list additions of 2026-11-04). The list handle writes the Item's data-highlighted and the Input's
+        // aria-activedescendant from attach (Highlighted mirrored); the combobox module writes the Input's value from update
+        // and the form module the hidden input's; positioning writes the Positioner's placement and variables and the
+        // Arrow's (mirrored); transitions writes the Popup's, Backdrop's, Clear's and ItemIndicator's transition attributes.
+        new("combobox", "Root", "value", Writer.CsharpToJs),
+        new("combobox", "Input", "aria-activedescendant", Writer.Js),
+        new("combobox", "Input", "value", Writer.CsharpToJs),
+        new("combobox", "Clear", "data-starting-style", Writer.Js, "ComboboxClearState.TransitionStatus"),
+        new("combobox", "Clear", "data-ending-style", Writer.Js, "ComboboxClearState.TransitionStatus"),
+        new("combobox", "Backdrop", "data-starting-style", Writer.Js, "ComboboxBackdropState.TransitionStatus"),
+        new("combobox", "Backdrop", "data-ending-style", Writer.Js, "ComboboxBackdropState.TransitionStatus"),
+        new("combobox", "Positioner", "data-side", Writer.CsharpToJs, "ComboboxPositionerState.Side"),
+        new("combobox", "Positioner", "data-align", Writer.CsharpToJs, "ComboboxPositionerState.Align"),
+        new("combobox", "Positioner", "data-anchor-hidden", Writer.Js, "ComboboxPositionerState.AnchorHidden"),
+        new("combobox", "Positioner", "--available-width", Writer.CsharpToJs),
+        new("combobox", "Positioner", "--available-height", Writer.CsharpToJs),
+        new("combobox", "Positioner", "--anchor-width", Writer.CsharpToJs),
+        new("combobox", "Positioner", "--anchor-height", Writer.CsharpToJs),
+        new("combobox", "Positioner", "--transform-origin", Writer.CsharpToJs),
+        new("combobox", "Popup", "data-starting-style", Writer.Js, "ComboboxPopupState.TransitionStatus"),
+        new("combobox", "Popup", "data-ending-style", Writer.Js, "ComboboxPopupState.TransitionStatus"),
+        new("combobox", "Arrow", "data-side", Writer.CsharpToJs, "ComboboxArrowState.Side"),
+        new("combobox", "Arrow", "data-align", Writer.CsharpToJs, "ComboboxArrowState.Align"),
+        new("combobox", "Arrow", "data-uncentered", Writer.CsharpToJs, "ComboboxArrowState.Uncentered"),
+        new("combobox", "Item", "data-highlighted", Writer.CsharpToJs, "ComboboxItemState.Highlighted"),
+        new("combobox", "ItemIndicator", "data-starting-style", Writer.Js, "ComboboxItemIndicatorState.TransitionStatus"),
+        new("combobox", "ItemIndicator", "data-ending-style", Writer.Js, "ComboboxItemIndicatorState.TransitionStatus"),
+
         // ContextMenu (M5 track 7, issue 194; ADR 04 §2 and Amendments 2026-11-03 (2), context-menu.md §5): Menu's rows on
         // ContextMenu's shells, less the Viewport, which ContextMenu has not (CTX-STR-01); and ARIA-04's aria-hidden outside
         // the tree, the modal focus manager's (as AlertDialog's).

@@ -12,6 +12,53 @@ public sealed class ItemEqualityTests
 {
     private static readonly ItemSlot<string>[] s_items = Slots("a", "b", "c");
 
+    // Design point 1 (a) of M5 track 10 (an Item's index among the filtered values in constant time): the map shares
+    // SelectionSet's hash and Object.is equality, and serves the default comparer only.
+    [Fact(DisplayName = "port: an index map finds each value's first index, and -1 for an absent value")]
+    [Trait("Requirement", "UTL-ALG-06")]
+    public void An_index_map_finds_each_values_first_index()
+    {
+        ItemEquality.IndexMap<string> map = new();
+        ItemSlot<string>[] items = [new("a", true), new("b", true), new("a", true), new("x", false), new("c", true)];
+
+        map.Build(items);
+
+        Assert.Equal(0, map.IndexOf("a"));
+        Assert.Equal(1, map.IndexOf("b"));
+        Assert.Equal(4, map.IndexOf("c"));
+        Assert.Equal(-1, map.IndexOf("x"));
+        Assert.Equal(-1, map.IndexOf("d"));
+    }
+
+    [Fact(DisplayName = "port: an index map compares by Object.is")]
+    [Trait("Requirement", "UTL-ALG-06")]
+    public void An_index_map_compares_by_Object_is()
+    {
+        ItemEquality.IndexMap<double> map = new();
+
+        map.Build(Slots(double.NaN, -0.0, 1.5));
+
+        Assert.Equal(0, map.IndexOf(double.NaN));
+        Assert.Equal(1, map.IndexOf(-0.0));
+        Assert.Equal(-1, map.IndexOf(0.0));
+        Assert.Equal(2, map.IndexOf(1.5));
+    }
+
+    [Fact(DisplayName = "port: an index map rebuilt over another list holds only that list")]
+    [Trait("Requirement", "UTL-ALG-06")]
+    public void An_index_map_rebuilt_over_another_list_holds_only_that_list()
+    {
+        ItemEquality.IndexMap<int> map = new();
+        map.Build(Slots([.. Enumerable.Range(0, 100)]));
+        Assert.Equal(99, map.IndexOf(99));
+
+        map.Build(Slots(7, 3));
+
+        Assert.Equal(-1, map.IndexOf(99));
+        Assert.Equal(0, map.IndexOf(7));
+        Assert.Equal(1, map.IndexOf(3));
+    }
+
     [Fact(DisplayName = "anchors to the first selected item in rendered order, not value order")]
     [Trait("Requirement", "UTL-ALG-06")]
     public void Anchors_to_the_first_selected_item_in_rendered_order_not_value_order()

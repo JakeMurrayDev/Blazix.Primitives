@@ -130,3 +130,10 @@ Facts the port found against context-menu.md, each recorded on its row:
 - CTX-EDGE-05, MNU-EDGE-15 (PR 228 review B1): a plain menu inside the Trigger keeps its own release slot while the context menu is closed, because the context menu's session joins the menu tree only while its Positioner is mounted. Open by ID; the fix is in the shared `interactions` module.
 - CTX-POS-03, POS-06 (PR 228 review B2): the submenu's visual-viewport result differs from the layout viewport's only under a pinch zoom; open at L4 by ID.
 
+## 2026-11-11, combobox.md fidelity corrections (M5 track 10, [issue 174](https://github.com/JakeMurrayDev/Blazix.Primitives/issues/174))
+
+- §6–§8 Test lines: the citations Base UI runs only in a browser (`describe.skipIf(isJSDOM)` or `skipIf(isJSDOM)` titles, CMB-API-21's grid titles, STA-28's visible inline highlight) were tagged [L2]; retagged L4 with dated notes (5c21131a). "releases the frozen query when controlled open reopens the popup" stays L2: the port's title completes the store's close transition itself.
+- CMB-FOC-08, CMB-DIS-04: "validates when the popup is blurred" closes on a programmatic focus-out only under jsdom; in a browser the portalled popup's focus manager closes on focus-out only after a pointerdown outside (`FloatingFocusManager.tsx:571-595`). Read from the source, not run (dated notes).
+- RND-DOM-54 (rendering-and-composition.md): its list of parts that publish a rendered id omits ComboboxPopup, which reads its DOM id (`ComboboxPopup.tsx:56-62`); dated note.
+- CMB-KEY-10, CMB-PTR-10, CMB-EVT-09: the ChipRemove propagation clause meets ADR 01's decision-point row on Server like the Escape clause; §9 lists it (dated).
+
