@@ -1,6 +1,6 @@
 import { type CDPSession, type Locator } from '@playwright/test';
 import { delayCircuit, expect, isScrollLocked, test, type Page, type RenderMode } from './helpers';
-import { center, moveTo, parkPointer } from './menu.helpers';
+import { center, clickThrough, moveTo, parkPointer } from './menu.helpers';
 import { gotoPopupFixture, settle, type PopupFixtureOptions } from './suites/popupFixture';
 
 // The L4 titles of Menubar.test.tsx (M5 track 8, issue 195; docs/components/menubar.md), titles verbatim, on both render
@@ -174,6 +174,213 @@ test.describe('<Menubar />', () => {
       await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
       await settle(fixture);
       await expect(fixture).toHaveAttribute('data-item-clicks', '');
+    });
+  });
+
+  // Deliverable 7's port titles for the rows Base UI's tests do not cover (MBR §13 `none`), on the contained bar.
+  test.describe('port: rows with no Base UI title', () => {
+    test('port: every popup of the bar, submenus included, names the bar as its root owner', async ({ page, mode }) => {
+      // MBR-STA-06, MBR-DOM-09.
+      await render(page, mode);
+      const barId = await page.getByRole('menubar').getAttribute('id');
+      expect(barId).toBeTruthy();
+      await page.getByTestId('file-trigger').click();
+      await expect(page.getByTestId('file-menu')).toBeVisible();
+      await moveTo(page, page.getByTestId('share-trigger'));
+      await expect(page.getByTestId('share-menu')).toBeVisible();
+
+      await expect(page.getByTestId('file-menu').getByRole('menu').first()).toHaveAttribute('data-rootownerid', barId!);
+      await expect(page.getByTestId('share-menu').getByRole('menu')).toHaveAttribute('data-rootownerid', barId!);
+    });
+
+    test('port: a bar trigger renders no focus guards, closed or open', async ({ page, mode }) => {
+      // MBR-DOM-07. A trigger's guards carry no `data-type`; the open menu's portal keeps its `outside` guards around its
+      // owner in the bar, as Base UI's FloatingPortal does.
+      await render(page, mode);
+      const triggerGuards = page.getByRole('menubar').locator('[data-base-ui-focus-guard]:not([data-type])');
+      await expect(triggerGuards).toHaveCount(0);
+
+      await page.getByTestId('file-trigger').click();
+      await expect(page.getByTestId('file-menu')).toBeVisible();
+      await expect(page.getByRole('menubar').locator('[data-base-ui-focus-guard][data-type="outside"]')).toHaveCount(2);
+      await expect(triggerGuards).toHaveCount(0);
+    });
+
+    test('port: the bar ignores its arrow keys while a modifier key is held', async ({ page, mode }) => {
+      // MBR-KEY-03: no allowed modifier keys (CMP-KEY-02).
+      const fixture = await render(page, mode);
+      const fileTrigger = page.getByTestId('file-trigger');
+      await fileTrigger.focus();
+
+      for (const modifier of ['Shift', 'Control', 'Alt', 'Meta']) {
+        await page.keyboard.press(`${modifier}+ArrowRight`);
+        await page.keyboard.press(`${modifier}+End`);
+      }
+      await settle(fixture);
+      await expect(fileTrigger).toBeFocused();
+
+      await page.keyboard.press('ArrowRight');
+      await expect(page.getByTestId('edit-trigger')).toBeFocused();
+    });
+
+    test('port: Shift+Tab inside an open bar menu closes it with focus-out', async ({ page, mode }) => {
+      // MBR-KEY-12.
+      const fixture = await render(page, mode);
+      await page.getByTestId('file-trigger').focus();
+      await page.keyboard.press('Enter');
+      await expect(page.getByTestId('file-item-1')).toBeFocused();
+      await expect(page.getByRole('menubar')).toHaveAttribute('data-has-submenu-open', '');
+
+      await page.keyboard.press('Shift+Tab');
+      // The close and its reason. What follows differs by mode, an open question (design point 6 of M5 track 8): the focus
+      // the close returns to File's trigger reaches it while the flag is still set on Server, and the trigger's focus open
+      // reopens the menu (`true:trigger-focus`); on WebAssembly the flag clears inside the keydown and the menu stays closed.
+      await expect(fixture).toHaveAttribute('data-file-changes', /^true:trigger-press false:focus-out/);
+    });
+
+    test('port: the bar has no typeahead, and an open bar menu runs its own', async ({ page, mode }) => {
+      // MBR-KEY-15.
+      const fixture = await render(page, mode);
+      const fileTrigger = page.getByTestId('file-trigger');
+      await fileTrigger.focus();
+
+      await page.keyboard.press('v');
+      await settle(fixture);
+      await expect(fileTrigger).toBeFocused();
+      await expect(page.getByRole('menu')).toHaveCount(0);
+
+      await page.keyboard.press('Enter');
+      await expect(page.getByTestId('file-item-1')).toBeFocused();
+      await page.keyboard.press('s');
+      await expect(page.getByTestId('file-item-2')).toBeFocused();
+    });
+
+    test('port: while a bar menu is open the pointer moving over another trigger makes it the tab stop, and while none is open it does not', async ({ page, mode }) => {
+      // MBR-PTR-06 (CMP-PTR-01 under `HighlightItemOnHover = HasSubmenuOpen`): the highlight focuses the trigger, which
+      // makes it the bar's tab stop. The hovered trigger's own menu then opens and takes the focus, so the title reads the
+      // roving tabindex the highlight leaves. Red on Server (2026-11-11): the hovered View trigger never becomes the tab
+      // stop (tabindex stays -1, 2 of 2). Open by ID (MBR-PTR-06's Server row, brief's Server rows).
+      test.fixme(mode === 'server', 'the hover highlight while a bar menu is open never reaches the roving tabindex on Server');
+      const fixture = await render(page, mode);
+      await moveTo(page, page.getByTestId('edit-trigger'));
+      await settle(fixture);
+      await expect(page.getByTestId('edit-trigger')).toHaveAttribute('tabindex', '-1');
+      await expect(page.getByTestId('file-trigger')).toHaveAttribute('tabindex', '0');
+
+      await page.getByTestId('file-trigger').click();
+      await expect(page.getByTestId('file-menu')).toBeVisible();
+      await moveTo(page, page.getByTestId('view-trigger'));
+      await expect(page.getByTestId('view-trigger')).toHaveAttribute('tabindex', '0');
+      await expect(page.getByTestId('file-trigger')).toHaveAttribute('tabindex', '-1');
+    });
+
+    test('port: while a modal bar menu is open the bar is cut out of the backdrop, and a press elsewhere is an outside press', async ({ page, mode }) => {
+      // MBR-PTR-09, MBR-DOM-08.
+      const fixture = await render(page, mode);
+      await page.getByTestId('file-trigger').click();
+      await expect(page.getByTestId('file-menu')).toBeVisible();
+
+      const hitAt = async (target: Locator) => {
+        const { x, y } = await center(target);
+        return page.evaluate((point) => {
+          const hit = document.elementFromPoint(point.x, point.y);
+          return hit?.getAttribute('data-testid') ?? hit?.getAttribute('role') ?? hit?.tagName ?? '';
+        }, { x, y });
+      };
+      await expect.poll(() => hitAt(page.getByTestId('edit-trigger'))).toBe('edit-trigger');
+      await expect.poll(() => hitAt(page.getByTestId('before'))).toBe('presentation');
+
+      await clickThrough(page, page.getByTestId('before'));
+      await expect(page.getByTestId('file-menu')).toHaveCount(0);
+      await expect(fixture).toHaveAttribute('data-file-changes', /(^| )false:outside-press$/);
+    });
+
+    test('port: a bar menu of a modal bar marks nothing outside it', async ({ page, mode }) => {
+      // MBR-FOC-06: the focus manager is non-modal (no inert or aria-hidden marking, no trap).
+      await render(page, mode);
+      await page.getByTestId('file-trigger').focus();
+      await page.keyboard.press('Enter');
+      await expect(page.getByTestId('file-item-1')).toBeFocused();
+
+      // The non-modal focus manager still writes its plain marker, `data-base-ui-inert`, as Base UI's markOthers does.
+      const marked = await page.getByTestId('before').evaluate((element) => !!element.closest('[aria-hidden="true"], [inert]'));
+      expect(marked).toBe(false);
+    });
+
+    test('port: in a horizontal right-to-left bar ArrowLeft moves forward and ArrowRight backward, and ArrowDown still opens', async ({ page, mode }) => {
+      // MBR-I18N-01.
+      await render(page, mode, { dir: 'rtl' });
+      await page.getByTestId('file-trigger').focus();
+
+      await page.keyboard.press('ArrowLeft');
+      await expect(page.getByTestId('edit-trigger')).toBeFocused();
+      await page.keyboard.press('ArrowRight');
+      await expect(page.getByTestId('file-trigger')).toBeFocused();
+
+      await page.keyboard.press('ArrowDown');
+      await expect(page.getByTestId('file-menu')).toBeVisible();
+    });
+
+    test('port: in a bar menu of a horizontal right-to-left bar ArrowLeft on a plain item moves to the next menu and ArrowRight to the previous', async ({ page, mode }) => {
+      // MBR-I18N-03.
+      await render(page, mode, { dir: 'rtl' });
+      await page.getByTestId('edit-trigger').focus();
+      await page.keyboard.press('Enter');
+      await expect(page.getByTestId('edit-item-1')).toBeFocused();
+
+      await page.keyboard.press('ArrowLeft');
+      await expect(page.getByTestId('view-menu')).toBeVisible();
+      await expect(page.getByTestId('edit-menu')).toHaveCount(0);
+      await focusInside(page, 'view-menu');
+
+      await page.keyboard.press('ArrowRight');
+      await expect(page.getByTestId('view-menu')).toHaveCount(0);
+      await expect(page.getByTestId('edit-menu')).toBeVisible();
+    });
+
+    test('port: a canceled sibling-open close leaves two bar menus open', async ({ page, mode }) => {
+      // MBR-EVT-01.
+      await render(page, mode, { cancelSibling: true });
+      await page.getByTestId('file-trigger').click();
+      await expect(page.getByTestId('file-menu')).toBeVisible();
+
+      await moveTo(page, page.getByTestId('edit-trigger'));
+      await expect(page.getByTestId('edit-menu')).toBeVisible();
+      await expect(page.getByTestId('file-menu')).toBeVisible();
+    });
+
+    test('port: a switch between bar menus is instant as a group, and a submenu in a bar menu never is', async ({ page, mode }) => {
+      // MBR-ANI-01.
+      await render(page, mode);
+      await page.getByTestId('file-trigger').click();
+      await expect(page.getByTestId('file-menu')).toBeVisible();
+      await moveTo(page, page.getByTestId('share-trigger'));
+      await expect(page.getByTestId('share-menu')).toBeVisible();
+      await expect(page.getByTestId('share-menu')).not.toHaveAttribute('data-instant', 'group');
+
+      await moveTo(page, page.getByTestId('edit-trigger'));
+      await expect(page.getByTestId('edit-menu')).toBeVisible();
+      await expect(page.getByTestId('edit-menu')).toHaveAttribute('data-instant', 'group');
+      await expect(page.getByTestId('edit-menu').getByRole('menu')).toHaveAttribute('data-instant', 'group');
+    });
+
+    test('port: after a list-navigation close that opens no other menu the flag stays, so a hover still opens a menu', async ({ page, mode }) => {
+      // MBR-EDGE-03 (with §16 Q4 replicated: the closed menu's trigger keeps the focus and the flag, and File reopens with
+      // `trigger-focus`). Red on Server (2026-11-11): after that reopen, hovering Edit opens nothing (Edit records no
+      // change). Open by ID with the probe in the hand-over note.
+      test.fixme(mode === 'server', 'after the §16 Q4 reopen a hover on another trigger opens nothing on Server');
+      const fixture = await render(page, mode, { loopFocus: false });
+      const bar = page.getByRole('menubar');
+      await page.getByTestId('file-trigger').focus();
+      await page.keyboard.press('Enter');
+      await expect(page.getByTestId('file-item-1')).toBeFocused();
+
+      await page.keyboard.press('ArrowLeft');
+      await expect(fixture).toHaveAttribute('data-file-changes', /false:list-navigation/);
+      await expect(bar).toHaveAttribute('data-has-submenu-open', '');
+
+      await moveTo(page, page.getByTestId('edit-trigger'));
+      await expect(page.getByTestId('edit-menu')).toBeVisible();
     });
   });
 

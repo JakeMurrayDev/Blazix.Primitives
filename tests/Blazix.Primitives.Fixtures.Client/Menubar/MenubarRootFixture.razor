@@ -18,7 +18,8 @@
     Outside button and a bar whose one menu has no trigger, is bound open and kept mounted (Menubar.test.tsx:119).
     `case=scroll-lock`: a modal bar of File (`fileWidth=narrow` makes its positioner 240px wide, else the viewport less
     10px) and Edit (240px) (`:821-927`). `case=open-side`: a bar (`orientation`) whose File menu is open, for
-    MenuPositioner.test.tsx's "Menubar parent" titles. `orientation=vertical` turns the bar, `loopFocus=false` stops the arrow keys at the ends, `disabled` disables it, and `dir=rtl` puts it in a right-to-left DirectionProvider. A "Before" button precedes the bar for Tab. The container records each
+    MenuPositioner.test.tsx's "Menubar parent" titles. `cancelSibling` makes the contained File menu's callback cancel its
+    `sibling-open` close. `orientation=vertical` turns the bar, `loopFocus=false` stops the arrow keys at the ends, `disabled` disables it, and `dir=rtl` puts it in a right-to-left DirectionProvider. A "Before" button precedes the bar for Tab. The container records each
     menu's open changes (`data-file-changes`, `data-edit-changes`, `data-view-changes`, `open:reason`).
 *@
 <FixtureContainer Name="menubar-root" data-attached="@(Attached ? "true" : "false")" data-sync="@Sync"
@@ -129,7 +130,7 @@
     else
     {
     <Menubar @ref="bar" Orientation="@orientation" LoopFocus="@loopFocus" Disabled="@disabled" style="max-width: 25vw; display: flex">
-        <MenuRoot TPayload="NoPayload" @ref="file" OnOpenChange="@((ValueChangeEventArgs<bool> args) => Record(fileChanges, args))">
+        <MenuRoot TPayload="NoPayload" @ref="file" OnOpenChange="RecordFile">
             <MenuTrigger TPayload="NoPayload" @ref="fileTrigger" data-testid="file-trigger">File</MenuTrigger>
             <MenuPortal>
                 <MenuPositioner data-testid="file-menu">
@@ -205,6 +206,16 @@
         loopFocus = QueryFlag("loopFocus") != false;
         disabled = QueryFlag("disabled") == true;
         direction = Query("dir") == "rtl" ? TextDirection.Rtl : TextDirection.Ltr;
+    }
+
+    // `cancelSibling` (MBR-EVT-01): File's callback cancels its `sibling-open` close.
+    private void RecordFile(ValueChangeEventArgs<bool> args)
+    {
+        Record(fileChanges, args);
+        if (!args.Value && args.Details.Reason == EventReason.SiblingOpen && QueryFlag("cancelSibling") == true)
+        {
+            args.Details.Cancel();
+        }
     }
 
     private static void Record(List<string> changes, ValueChangeEventArgs<bool> args) =>
