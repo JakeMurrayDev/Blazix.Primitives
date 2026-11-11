@@ -397,15 +397,14 @@ test.describe('<Menubar />', () => {
       });
 
       test('sets aria-orientation on the root element', async ({ page, mode }) => {
-        await render(page, mode, { orientation: 'vertical' });
+        // Base UI renders its own `<Menubar orientation="vertical" />` here, in every setup.
+        await renderFixture(page, mode, { orientation: 'vertical' });
         await expect(page.getByRole('menubar')).toHaveAttribute('aria-orientation', 'vertical');
       });
 
       test('moves between triggers with the main-axis arrow keys when vertical', async ({ page, mode }) => {
-        // Red on the detached setup, both modes (2026-11-11): a closed detached Root's parent is its own position, so its
-        // list opens on ArrowDown before the bar moves focus. Open by ID (MBR-KEY-01's detached run).
-        test.fixme(setup === 'detached', 'detached setup: ArrowDown on a closed trigger opens its menu (open)');
-        await render(page, mode, { orientation: 'vertical' });
+        // Base UI renders its own contained `<Menubar orientation="vertical">` here, in every setup.
+        await renderFixture(page, mode, { orientation: 'vertical' });
         await page.getByTestId('file-trigger').focus();
 
         await page.keyboard.press('ArrowDown');
@@ -418,10 +417,8 @@ test.describe('<Menubar />', () => {
         { direction: 'rtl', openKey: 'ArrowLeft', oppositeKey: 'ArrowRight' },
       ] as const) {
         test(`opens a menu of a vertical ${direction} menubar with ${openKey}`, async ({ page, mode }) => {
-          // Red on the detached setup, both modes (2026-11-11): the closed detached Root's own list handles the keys
-          // (see the main-axis title). Open by ID (MBR-KEY-04, KEY-05, I18N-02's detached runs).
-          test.fixme(setup === 'detached', 'detached setup: a closed trigger\'s keys are its own Root\'s (open)');
-          const fixture = await render(page, mode, { orientation: 'vertical', dir: direction });
+          // Base UI renders its own contained vertical bar in a DirectionProvider here, in every setup.
+          const fixture = await renderFixture(page, mode, { orientation: 'vertical', dir: direction });
           await page.getByTestId('file-trigger').focus();
 
           await page.keyboard.press(oppositeKey);
