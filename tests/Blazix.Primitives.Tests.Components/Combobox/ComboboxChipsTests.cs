@@ -195,7 +195,7 @@ public sealed class ComboboxChipsTests : IDisposable
         string cherry = cut.Find("[data-testid=chip-cherry]").Id!;
         // The registry's handle attaches after the composite module's import resolves, which a parallel run can delay past the
         // render: the title polls for it on the renderer's thread, as it polls for the options below.
-        CompositeTwin? FindRegistry() => runtime.Twins.OfType<CompositeTwin>().FirstOrDefault(twin => runtime.AttachedOptionsOrNull(twin)?.Contains("\"registrationOnly\":true", StringComparison.Ordinal) == true);
+        CompositeTwin? FindRegistry() => runtime.Twins().OfType<CompositeTwin>().FirstOrDefault(twin => runtime.AttachedOptionsOrNull(twin)?.Contains("\"registrationOnly\":true", StringComparison.Ordinal) == true);
         CompositeTwin? registry = await cut.InvokeAsync(FindRegistry);
         for (int wait = 0; wait < 500 && registry is null; wait++)
         {
@@ -210,7 +210,7 @@ public sealed class ComboboxChipsTests : IDisposable
 
         // The update renders nothing, so a wait that re-checks on renders can miss it under load: the title polls the
         // module's record, on the renderer's thread that writes it (it timed out in a full Combobox run, 2026-11-11).
-        bool Sent(List<string> options) => options.Exists(json => json.Contains(apple, StringComparison.Ordinal) && json.Contains(cherry, StringComparison.Ordinal));
+        bool Sent(string[] options) => Array.Exists(options, json => json.Contains(apple, StringComparison.Ordinal) && json.Contains(cherry, StringComparison.Ordinal));
         for (int wait = 0; wait < 500 && !Sent(await cut.InvokeAsync(runtime.ChipsOptions)); wait++)
         {
             await Task.Delay(10, Xunit.TestContext.Current.CancellationToken);
@@ -475,21 +475,45 @@ public sealed class ComboboxChipsTests : IDisposable
 
     // A JS runtime for one title: the held module's import stays pending until Release; every other import resolves at once.
     // Each handle records the options it receives. A test fake: nothing here calls JavaScript, so BL0016 does not apply.
+    // The modules' calls can arrive off the renderer's thread while the title polls, so every write and every read of the
+    // records below takes the one gate, and each read returns a copy (CI run 42997538015: "Collection was modified").
 #pragma warning disable BL0016
     private sealed class HeldModuleRuntime(string heldPath) : IJSRuntime
     {
         // Completed inline by Release, inside the renderer's dispatcher.
         private readonly TaskCompletionSource<IJSObjectReference> held = new();
 
+        private readonly Lock gate = new();
+
         private readonly List<FakeHandle> handles = [];
 
-        public List<object> Twins { get; } = [];
+        private readonly List<object> twins = [];
 
         public void Release() => held.SetResult(new FakeModule(this));
 
-        public string? AttachedOptionsOrNull(object twin) => handles.FirstOrDefault(handle => ReferenceEquals(handle.Twin, twin))?.Options[0];
+        public object[] Twins()
+        {
+            lock (gate)
+            {
+                return [.. twins];
+            }
+        }
 
-        public List<string> ChipsOptions() => [.. handles.Where(handle => handle.Options[0].Contains("\"part\":\"chips\"", StringComparison.Ordinal)).SelectMany(handle => handle.Options)];
+        public string? AttachedOptionsOrNull(object twin)
+        {
+            lock (gate)
+            {
+                return handles.FirstOrDefault(handle => ReferenceEquals(handle.Twin, twin))?.Options[0];
+            }
+        }
+
+        public string[] ChipsOptions()
+        {
+            lock (gate)
+            {
+                return [.. handles.Where(handle => handle.Options[0].Contains("\"part\":\"chips\"", StringComparison.Ordinal)).SelectMany(handle => handle.Options)];
+            }
+        }
 
         public ValueTask<TValue> InvokeAsync<TValue>(string identifier, object?[]? args) => Answer<TValue>(identifier, args);
 
@@ -532,21 +556,25 @@ public sealed class ComboboxChipsTests : IDisposable
 
             private ValueTask<TValue> Attach<TValue>(string options, object? twin)
             {
-                FakeHandle handle = new(twin, options);
-                runtime.handles.Add(handle);
-                if (twin is not null)
+                FakeHandle handle = new(runtime, twin, options);
+                lock (runtime.gate)
                 {
-                    runtime.Twins.Add(twin);
+                    runtime.handles.Add(handle);
+                    if (twin is not null)
+                    {
+                        runtime.twins.Add(twin);
+                    }
                 }
 
                 return ValueTask.FromResult((TValue)(object)handle);
             }
         }
 
-        private sealed class FakeHandle(object? twin, string options) : IJSObjectReference
+        private sealed class FakeHandle(HeldModuleRuntime runtime, object? twin, string options) : IJSObjectReference
         {
             public object? Twin { get; } = twin;
 
+            // Read and written only under the runtime's gate.
             public List<string> Options { get; } = [options];
 
             public ValueTask DisposeAsync() => ValueTask.CompletedTask;
@@ -559,7 +587,10 @@ public sealed class ComboboxChipsTests : IDisposable
             {
                 if (identifier == "update" && args is [string json, ..])
                 {
-                    Options.Add(json);
+                    lock (runtime.gate)
+                    {
+                        Options.Add(json);
+                    }
                 }
 
                 return ValueTask.FromResult(default(TValue)!);
