@@ -1,7 +1,9 @@
 using AngleSharp.Dom;
+using Blazix.Primitives.Interop;
 using Bunit;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Rendering;
+using Microsoft.JSInterop;
 
 // Family tests use the project's root namespace.
 namespace Blazix.Primitives.Tests.Components;
@@ -112,9 +114,244 @@ public sealed class ComboboxFieldTests : IDisposable
         Assert.True(FieldElement(cut).HasAttribute("data-touched"));
     }
 
+    // ComboboxRoot.test.tsx's Field titles (PR 193 delta review B1): the field's state reaches the input and the trigger as
+    // data attributes, and the field's name, disabled state, description and validation reach the parts.
+    [Fact(DisplayName = "[data-touched]")]
+    [Trait("Requirement", "CMB-DOM-02")]
+    [Trait("Requirement", "CMB-FRM-05")]
+    public async Task Data_touched()
+    {
+        IRenderedComponent<FieldRoot> cut = Render(field => { }, new(), withTrigger: true);
+        Assert.False(cut.Find("[data-testid=input]").HasAttribute("data-touched"));
+
+        await cut.InvokeAsync(() => cut.Find("[data-testid=input]").Focus());
+        await cut.InvokeAsync(() => cut.Find("[data-testid=input]").Blur());
+
+        Assert.True(cut.Find("[data-testid=input]").HasAttribute("data-touched"));
+        Assert.True(cut.Find("[data-testid=trigger]").HasAttribute("data-touched"));
+    }
+
+    [Fact(DisplayName = "[data-dirty]")]
+    [Trait("Requirement", "CMB-DOM-02")]
+    [Trait("Requirement", "CMB-FRM-03")]
+    public async Task Data_dirty()
+    {
+        IRenderedComponent<FieldRoot> cut = Render(field => { }, new() { ["DefaultOpen"] = true }, withTrigger: true);
+        Assert.False(cut.Find("[data-testid=input]").HasAttribute("data-dirty"));
+        Assert.False(cut.Find("[data-testid=trigger]").HasAttribute("data-dirty"));
+
+        await cut.InvokeAsync(() => cut.Find("[data-testid=item-banana]").Click());
+
+        Assert.True(cut.Find("[data-testid=input]").HasAttribute("data-dirty"));
+        Assert.True(cut.Find("[data-testid=trigger]").HasAttribute("data-dirty"));
+    }
+
+    [Fact(DisplayName = "removes [data-dirty] in multiple mode after returning to the initial value")]
+    [Trait("Requirement", "CMB-FRM-03")]
+    public async Task Removes_data_dirty_in_multiple_mode_after_returning_to_the_initial_value()
+    {
+        IRenderedComponent<FieldRoot> cut = Render(field => { }, new() { ["Multiple"] = true, ["DefaultOpen"] = true, ["DefaultValues"] = (IReadOnlyList<string>)["apple"] }, withTrigger: true);
+        Assert.False(cut.Find("[data-testid=trigger]").HasAttribute("data-dirty"));
+
+        await cut.InvokeAsync(() => cut.Find("[data-testid=item-banana]").Click());
+        Assert.True(cut.Find("[data-testid=input]").HasAttribute("data-dirty"));
+        Assert.True(cut.Find("[data-testid=trigger]").HasAttribute("data-dirty"));
+
+        await cut.InvokeAsync(() => cut.Find("[data-testid=item-banana]").Click());
+        Assert.False(cut.Find("[data-testid=input]").HasAttribute("data-dirty"));
+        Assert.False(cut.Find("[data-testid=trigger]").HasAttribute("data-dirty"));
+    }
+
+    [Fact(DisplayName = "keeps [data-dirty] when the same values are reselected in a different order")]
+    [Trait("Requirement", "CMB-FRM-03")]
+    public async Task Keeps_data_dirty_when_the_same_values_are_reselected_in_a_different_order()
+    {
+        IRenderedComponent<FieldRoot> cut = Render(field => { }, new() { ["Multiple"] = true, ["DefaultOpen"] = true, ["DefaultValues"] = (IReadOnlyList<string>)["apple", "banana"] }, withTrigger: true);
+        Assert.False(cut.Find("[data-testid=trigger]").HasAttribute("data-dirty"));
+
+        await cut.InvokeAsync(() => cut.Find("[data-testid=item-apple]").Click());
+        Assert.True(cut.Find("[data-testid=trigger]").HasAttribute("data-dirty"));
+
+        await cut.InvokeAsync(() => cut.Find("[data-testid=item-apple]").Click());
+        Assert.True(cut.Find("[data-testid=trigger]").HasAttribute("data-dirty"));
+    }
+
+    [Fact(DisplayName = "adds [data-filled] attribute when filled")]
+    [Trait("Requirement", "CMB-DOM-02")]
+    [Trait("Requirement", "CMB-FRM-04")]
+    public async Task Adds_data_filled_attribute_when_filled()
+    {
+        IRenderedComponent<FieldRoot> cut = Render(field => { }, new() { ["DefaultOpen"] = true }, withTrigger: true);
+        Assert.False(cut.Find("[data-testid=input]").HasAttribute("data-filled"));
+        Assert.False(cut.Find("[data-testid=trigger]").HasAttribute("data-filled"));
+
+        await cut.InvokeAsync(() => cut.Find("[data-testid=item-banana]").Click());
+
+        Assert.True(cut.Find("[data-testid=input]").HasAttribute("data-filled"));
+        Assert.True(cut.Find("[data-testid=trigger]").HasAttribute("data-filled"));
+        Assert.False(cut.Find("[data-testid=list]").HasAttribute("data-filled"));
+    }
+
+    [Fact(DisplayName = "adds [data-filled] attribute when already filled")]
+    [Trait("Requirement", "CMB-FRM-04")]
+    public void Adds_data_filled_attribute_when_already_filled()
+    {
+        IRenderedComponent<FieldRoot> cut = Render(field => { }, new() { ["DefaultValue"] = "apple" }, withTrigger: true);
+
+        Assert.True(cut.Find("[data-testid=input]").HasAttribute("data-filled"));
+        Assert.True(cut.Find("[data-testid=trigger]").HasAttribute("data-filled"));
+    }
+
+    [Fact(DisplayName = "[data-invalid]")]
+    [Trait("Requirement", "CMB-DOM-02")]
+    [Trait("Requirement", "CMB-FRM-05")]
+    public void Data_invalid()
+    {
+        IRenderedComponent<FieldRoot> cut = Render(field => field.Add(x => x.Invalid, true), new(), withTrigger: true);
+
+        Assert.True(cut.Find("[data-testid=input]").HasAttribute("data-invalid"));
+        Assert.True(cut.Find("[data-testid=trigger]").HasAttribute("data-invalid"));
+    }
+
+    [Fact(DisplayName = "[data-valid]")]
+    [Trait("Requirement", "CMB-DOM-02")]
+    [Trait("Requirement", "CMB-FRM-05")]
+    public async Task Data_valid()
+    {
+        IRenderedComponent<FieldRoot> cut = Render(field => field.Add(x => x.ValidationMode, ValidationMode.OnBlur), new() { ["DefaultOpen"] = true }, withTrigger: true);
+        Assert.False(cut.Find("[data-testid=input]").HasAttribute("data-valid"));
+        Assert.False(cut.Find("[data-testid=input]").HasAttribute("data-invalid"));
+        Assert.False(cut.Find("[data-testid=trigger]").HasAttribute("data-valid"));
+
+        await cut.InvokeAsync(() => cut.Find("[data-testid=input]").Focus());
+        await cut.InvokeAsync(() => cut.Find("[data-testid=item-banana]").Click());
+        await cut.InvokeAsync(() => cut.Find("[data-testid=input]").Blur());
+
+        cut.WaitForAssertion(() => Assert.True(cut.Find("[data-testid=input]").HasAttribute("data-valid")));
+        Assert.True(cut.Find("[data-testid=trigger]").HasAttribute("data-valid"));
+        Assert.False(cut.Find("[data-testid=input]").HasAttribute("data-invalid"));
+        Assert.False(cut.Find("[data-testid=trigger]").HasAttribute("data-invalid"));
+    }
+
+    [Fact(DisplayName = "prop: validate")]
+    [Trait("Requirement", "CMB-FRM-05")]
+    public async Task Prop_validate()
+    {
+        IRenderedComponent<FieldRoot> cut = Render(
+            field => field.Add(x => x.ValidationMode, ValidationMode.OnBlur).Add(x => x.Validate, _ => ValueTask.FromResult<FieldValidationResult?>("error")),
+            new());
+        Assert.False(cut.Find("[data-testid=input]").HasAttribute("aria-invalid"));
+
+        await cut.InvokeAsync(() => cut.Find("[data-testid=input]").Focus());
+        await cut.InvokeAsync(() => cut.Find("[data-testid=input]").Blur());
+
+        cut.WaitForAssertion(() => Assert.Equal("true", cut.Find("[data-testid=input]").GetAttribute("aria-invalid")));
+    }
+
+    [Fact(DisplayName = "prop: validationMode=onChange")]
+    [Trait("Requirement", "CMB-FRM-03")]
+    public async Task Prop_validationMode_onChange()
+    {
+        IRenderedComponent<FieldRoot> cut = Render(
+            field => field.Add(x => x.ValidationMode, ValidationMode.OnChange).Add(x => x.Validate, args => ValueTask.FromResult<FieldValidationResult?>(args.Value as string == "apple" ? "error" : null)),
+            new() { ["DefaultOpen"] = true });
+        Assert.False(cut.Find("[data-testid=input]").HasAttribute("aria-invalid"));
+
+        await cut.InvokeAsync(() => cut.Find("[data-testid=item-apple]").Click());
+
+        cut.WaitForAssertion(() => Assert.Equal("true", cut.Find("[data-testid=input]").GetAttribute("aria-invalid")));
+    }
+
+    [Fact(DisplayName = "prop: validationMode=onBlur")]
+    [Trait("Requirement", "CMB-FRM-05")]
+    public async Task Prop_validationMode_onBlur()
+    {
+        IRenderedComponent<FieldRoot> cut = Render(
+            field => field.Add(x => x.ValidationMode, ValidationMode.OnBlur).Add(x => x.Validate, args => ValueTask.FromResult<FieldValidationResult?>(args.Value as string == "apple" ? "error" : null)),
+            new() { ["DefaultOpen"] = true });
+
+        await cut.InvokeAsync(() => cut.Find("[data-testid=item-apple]").Click());
+        // Selecting an item must not validate until the input is blurred.
+        Assert.False(cut.Find("[data-testid=input]").HasAttribute("aria-invalid"));
+
+        await cut.InvokeAsync(() => cut.Find("[data-testid=input]").Blur());
+
+        cut.WaitForAssertion(() => Assert.Equal("true", cut.Find("[data-testid=input]").GetAttribute("aria-invalid")));
+    }
+
+    [Fact(DisplayName = "should receive name prop from Field.Root")]
+    [Trait("Requirement", "CMB-API-25")]
+    [Trait("Requirement", "CMB-FRM-01")]
+    public void Should_receive_name_prop_from_Field_Root()
+    {
+        IRenderedComponent<FieldRoot> cut = Render(field => field.Add(x => x.Name, "field-combobox"), new());
+
+        Assert.Single(cut.FindAll("input[aria-hidden=true][name=field-combobox]"));
+    }
+
+    [Fact(DisplayName = "should receive disabled prop from Field.Root")]
+    [Trait("Requirement", "CMB-API-30")]
+    [Trait("Requirement", "CMB-FRM-06")]
+    public void Should_receive_disabled_prop_from_Field_Root()
+    {
+        IRenderedComponent<FieldRoot> cut = Render(field => field.Add(x => x.Disabled, true), new(), withTrigger: true);
+
+        Assert.True(cut.Find("[data-testid=input]").HasAttribute("disabled"));
+        Assert.True(cut.Find("[data-testid=trigger]").HasAttribute("disabled"));
+    }
+
+    [Fact(DisplayName = "Field.Description")]
+    [Trait("Requirement", "CMB-ARIA-16")]
+    [Trait("Requirement", "CMB-FRM-06")]
+    public void Field_Description()
+    {
+        IRenderedComponent<FieldRoot> cut = Render(field => { }, new(), withDescription: true);
+
+        Assert.Equal(cut.Find("[data-testid=description]").Id, cut.Find("[data-testid=input]").GetAttribute("aria-describedby"));
+    }
+
+    [Fact(DisplayName = "clears external errors on change")]
+    [Trait("Requirement", "CMB-FRM-03")]
+    public async Task Clears_external_errors_on_change()
+    {
+        void Field(RenderTreeBuilder builder)
+        {
+            builder.OpenComponent<FieldRoot>(0);
+            builder.AddComponentParameter(1, nameof(FieldRoot.Name), "combobox");
+            builder.AddComponentParameter(2, nameof(FieldRoot.ChildContent), (RenderFragment)(inner =>
+            {
+                inner.OpenComponent<ComboboxHarness>(0);
+                inner.AddComponentParameter(1, nameof(ComboboxHarness.RootParameters), new Dictionary<string, object?> { ["DefaultOpen"] = true });
+                inner.AddComponentParameter(2, nameof(ComboboxHarness.StaticItems), (IReadOnlyList<string>)s_fruits);
+                inner.CloseComponent();
+                inner.OpenComponent<FieldError>(3);
+                inner.AddComponentParameter(4, "data-testid", "error");
+                inner.CloseComponent();
+            }));
+            builder.CloseComponent();
+        }
+
+        IRenderedComponent<Form> cut = test.Context.Render<Form>(p => p.Add(x => x.Errors, new FormErrors { ["combobox"] = "test" }).Add(x => x.ChildContent, (RenderFragment)Field));
+        Assert.Contains("test", cut.Find("[data-testid=error]").TextContent, StringComparison.Ordinal);
+        Assert.Equal("true", cut.Find("[data-testid=input]").GetAttribute("aria-invalid"));
+
+        await cut.InvokeAsync(() => cut.Find("[data-testid=item-banana]").Click());
+        // The Field.Error leaves after its exit transition, which the `transitions` module reports.
+        TransitionsTwin[] exits = [.. test.Context.JSInterop.Invocations
+            .Where(invocation => invocation.Identifier == "attach" && invocation.Arguments.Count > 2 && invocation.Arguments[2] is DotNetObjectReference<TransitionsTwin>)
+            .Select(invocation => ((DotNetObjectReference<TransitionsTwin>)invocation.Arguments[2]!).Value)];
+        foreach (TransitionsTwin exit in exits)
+        {
+            await cut.InvokeAsync(() => exit.OnTransitionComplete("""{"open":false}"""));
+        }
+
+        Assert.Empty(cut.FindAll("[data-testid=error]"));
+        Assert.False(cut.Find("[data-testid=input]").HasAttribute("aria-invalid"));
+    }
+
     private static IElement FieldElement(IRenderedComponent<FieldRoot> cut) => cut.Find("[data-testid=field]");
 
-    private IRenderedComponent<FieldRoot> Render(Action<ComponentParameterCollectionBuilder<FieldRoot>> field, Dictionary<string, object?> root, bool withTrigger = false)
+    private IRenderedComponent<FieldRoot> Render(Action<ComponentParameterCollectionBuilder<FieldRoot>> field, Dictionary<string, object?> root, bool withTrigger = false, bool withDescription = false)
     {
         void Extra(RenderTreeBuilder builder)
         {
@@ -136,6 +373,12 @@ public sealed class ComboboxFieldTests : IDisposable
             builder.AddComponentParameter(4, nameof(ComboboxHarness.StaticItems), (IReadOnlyList<string>)s_fruits);
             builder.AddComponentParameter(5, nameof(ComboboxHarness.Extra), (RenderFragment)Extra);
             builder.CloseComponent();
+            if (withDescription)
+            {
+                builder.OpenComponent<FieldDescription>(6);
+                builder.AddComponentParameter(7, "data-testid", "description");
+                builder.CloseComponent();
+            }
         }
 
         return test.Context.Render<FieldRoot>(p =>
