@@ -190,9 +190,10 @@ internal sealed class ComboboxLabelBehavior : IAsyncDisposable
         // aria-labelledby follows the label's first render, so the prerendered HTML has no link (CMB-ARIA-07).
         Publish();
 
-        // CMB-STR-10 (ComboboxLabel.tsx:40-53): once per input element change, while the input is outside the popup.
+        // CMB-STR-10 (ComboboxLabel.tsx:40-53): once per input element change, while the input is outside the popup, and only
+        // in development (the switch, ADR 05 §3), as Base UI's runs only outside production.
         ComboboxStoreState state = Store.State;
-        if (state.ElementIds.Input is { } inputId && !state.InputInsidePopup && !string.Equals(inputId, warnedInputId, StringComparison.Ordinal))
+        if (DevelopmentWarnings.IsEnabled && state.ElementIds.Input is { } inputId && !state.InputInsidePopup && !string.Equals(inputId, warnedInputId, StringComparison.Ordinal))
         {
             warnedInputId = inputId;
             DevelopmentWarnings.Write(
