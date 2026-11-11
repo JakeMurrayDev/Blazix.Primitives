@@ -448,6 +448,8 @@ internal sealed class ComboboxGroupLabelBehavior : IDisposable
 
     private string? id;
 
+    private bool published;
+
     /// <summary>Initializes a new instance of the <see cref="ComboboxGroupLabelBehavior"/> class.</summary>
     /// <param name="family">The family whose parts the diagnostics name.</param>
     public ComboboxGroupLabelBehavior(string family)
@@ -472,11 +474,19 @@ internal sealed class ComboboxGroupLabelBehavior : IDisposable
     /// <param name="labelId">The id the label renders.</param>
     public void Apply(string? labelId)
     {
-        if (id is not null && !string.Equals(id, labelId, StringComparison.Ordinal))
+        // ComboboxGroupLabel.tsx:24-34 (useIsoLayoutEffect on the id): the id is published when it changes, not at every render,
+        // so a newer label keeps the slot while an older one is still mounted (CMB-STA-16).
+        if (published && string.Equals(id, labelId, StringComparison.Ordinal))
+        {
+            return;
+        }
+
+        if (id is not null)
         {
             group!.LabelId.Withdraw(id);
         }
 
+        published = true;
         id = labelId;
         if (labelId is not null)
         {

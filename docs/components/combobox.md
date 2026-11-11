@@ -957,6 +957,7 @@ Empty (`{}`), see CMB-STA-17. The Group additionally keeps the registered label 
 
 - **CMB-STA-16** — MUST. A Group keeps the id of its mounted `GroupLabel` (set when the label mounts or its id changes). The label's cleanup clears the registration only if the registered id is still its own, so an older label unmounting cannot erase a newer label's id.
   Source: `combobox/group/ComboboxGroup.tsx:24-33`; `combobox/group-label/ComboboxGroupLabel.tsx:21-30`. Test: [L2] `ComboboxGroupLabel.test.tsx` "does not let an older label cleanup clear a newer label", "uses provided id in aria-labelledby".
+  Port note (2026-11-11, M5 track 10, [issue 174](https://github.com/JakeMurrayDev/Blazix.Primitives/issues/174); found by the L2 port of `ComboboxGroupLabel.test.tsx`, PR 193 delta review B1): a GroupLabel publishes its id when the id changes, as `ComboboxGroupLabel.tsx:24-34`'s layout effect does, not at every render; two mounted labels had re-published in turn and looped the Group's renders. L2: "does not let an older label cleanup clear a newer label".
 
 #### Data attributes
 
