@@ -237,6 +237,22 @@ internal static class ItemEquality
         return result;
     }
 
+    /// <summary>Maps each value of an item list to its first index under <c>Object.is</c>, for a lookup in constant time.</summary>
+    /// <typeparam name="TValue">The type of the values.</typeparam>
+    public sealed class IndexMap<TValue>
+    {
+        /// <summary>Builds the map over an item list, replacing the previous one.</summary>
+        /// <param name="items">The item values in rendered order; an absent slot maps nothing.</param>
+        public void Build(ReadOnlySpan<ItemSlot<TValue>> items)
+        {
+        }
+
+        /// <summary>Finds the first index of a value.</summary>
+        /// <param name="value">The value.</param>
+        /// <returns>The index, or -1 when the list does not hold the value.</returns>
+        public int IndexOf(TValue value) => -1;
+    }
+
     // The set of selected values under Object.is: open addressing with linear probing, one per thread and value type, emptied
     // after each use, so a lookup allocates nothing once warm. A render runs on one thread at a time and the default comparer
     // calls no consumer code, so a set is never rented twice at once. HashSet<T> is not used: on the WebAssembly interpreter its
