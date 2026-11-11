@@ -923,6 +923,7 @@ State attributes follow the generic projection (RND-DOM-01..10) unless a mapping
 | `data-disabled` | effective disabled | MNU-DOM-02 | C# |
 | `aria-haspopup`, `aria-expanded`, `aria-controls` | see §5.9 | MNU-ARIA-01..03 | C# |
 | `role="menuitem"` | inside a Menubar | MNU-ARIA-17 | C# |
+| `tabindex` | inside a Menubar: `-1` until the bar's composite handle attaches, then the bar's roving tab stop (added 2026-11-11, M5 track 8, [issue 195](https://github.com/JakeMurrayDev/Blazix.Primitives/issues/195); sheet C contradiction 6; ADR 04 §2's `tabindex` cell) | MBR-DOM-05 | C# → JS (from attach, inside a Menubar) |
 
 - **MNU-DOM-01** — MUST. `data-popup-open=""` and `data-pressed=""` are both present iff the menu is open *and* this trigger is the active trigger; neither is present otherwise (a second trigger of the same menu stays unmarked). A vetoed controlled close keeps them.
   Source: `menu/trigger/MenuTrigger.tsx:229-232,266`; `utils/popupStateMapping.ts:13-16,39-46`. Test: [L2] `MenuTrigger.test.tsx` "should have the data-popup-open and data-pressed attributes when open", "keeps the data-popup-open attribute and handle.isOpen when a controlled close is vetoed"; `MenuRoot.test.tsx` "unmounts on a later normal close after a preventUnmountOnClose cycle and reopen".
