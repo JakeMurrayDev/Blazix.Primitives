@@ -114,6 +114,9 @@ internal sealed class MenuTriggerBehavior<TPayload> : IAsyncDisposable, IMenuTri
 
     private bool HasFocusGuards => !InBar && (focusGuards?.Value ?? false);
 
+    // MenuTrigger.tsx:394-411: the parent a trigger forwards to the store while it holds the popup.
+    private MenuParent OwnParent => parent is { } bar ? new MenuParent(MenuParentKind.Menubar, null, bar) : MenuParent.None;
+
     private int CloseDelayMilliseconds => (int)(parameters.CloseDelay?.ToMilliseconds() ?? 0);
 
     /// <summary>Gets the store the trigger belongs to: its handle's, else its root's.</summary>
@@ -149,6 +152,7 @@ internal sealed class MenuTriggerBehavior<TPayload> : IAsyncDisposable, IMenuTri
         if (trigger.IsMountedByTrigger)
         {
             store.ForwardTriggerState(CloseDelayMilliseconds);
+            store.ForwardTriggerParent(OwnParent);
         }
 
         SyncInteractions();
@@ -243,6 +247,7 @@ internal sealed class MenuTriggerBehavior<TPayload> : IAsyncDisposable, IMenuTri
         if (store.Popup.IsTriggerActive(id) && store.Popup.EffectiveOpen)
         {
             store.ForwardTriggerState(CloseDelayMilliseconds);
+            store.ForwardTriggerParent(OwnParent);
         }
 
         bool disabled = Disabled;
