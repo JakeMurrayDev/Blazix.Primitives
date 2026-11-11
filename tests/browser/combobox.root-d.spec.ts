@@ -484,10 +484,14 @@ test.describe('<Combobox.Root />', () => {
     });
 
     test('shows every item when selection reopens the popup', async ({ page, mode }) => {
-      await gotoRoot(page, mode, { case: 'selection-reopen', animations: 1 });
+      const fixture = await gotoRoot(page, mode, { case: 'selection-reopen', animations: 1 });
 
       const field = input(page);
       await typeInto(field, 'ap');
+      // Deviation (2026-11-11): on Server the filtered list and its items' handles land round trips after the keys; Base UI's
+      // click lands on the settled list, so the press waits for it.
+      await expect(page.getByRole('option')).toHaveCount(2);
+      await settle(fixture);
       await pressOption(option(page, 'apple'));
 
       const popup = page.getByTestId('popup');
