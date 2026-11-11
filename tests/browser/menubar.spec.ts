@@ -1,7 +1,7 @@
 import { type Locator } from '@playwright/test';
 import { delayCircuit, expect, test, type Page, type RenderMode } from './helpers';
 import { moveTo, parkPointer } from './menu.helpers';
-import { gotoPopupFixture, type PopupFixtureOptions } from './suites/popupFixture';
+import { gotoPopupFixture, settle, type PopupFixtureOptions } from './suites/popupFixture';
 
 // The L4 titles of Menubar.test.tsx (M5 track 8, issue 195; docs/components/menubar.md), titles verbatim, on both render
 // modes, Server under a one-way circuit delay. Real Playwright input: presses, hovers and keys. The first batch runs on
@@ -245,6 +245,32 @@ test.describe('<Menubar />', () => {
         await render(page, mode, { orientation: 'vertical' });
         await expect(page.getByRole('menubar')).toHaveAttribute('aria-orientation', 'vertical');
       });
+
+      test('moves between triggers with the main-axis arrow keys when vertical', async ({ page, mode }) => {
+        await render(page, mode, { orientation: 'vertical' });
+        await page.getByTestId('file-trigger').focus();
+
+        await page.keyboard.press('ArrowDown');
+        await expect(page.getByTestId('edit-trigger')).toBeFocused();
+        await expect(page.getByRole('menu')).toHaveCount(0);
+      });
+
+      for (const { direction, openKey, oppositeKey } of [
+        { direction: 'ltr', openKey: 'ArrowRight', oppositeKey: 'ArrowLeft' },
+        { direction: 'rtl', openKey: 'ArrowLeft', oppositeKey: 'ArrowRight' },
+      ] as const) {
+        test(`opens a menu of a vertical ${direction} menubar with ${openKey}`, async ({ page, mode }) => {
+          const fixture = await render(page, mode, { orientation: 'vertical', dir: direction });
+          await page.getByTestId('file-trigger').focus();
+
+          await page.keyboard.press(oppositeKey);
+          await settle(fixture);
+          await expect(page.getByRole('menu')).toHaveCount(0);
+
+          await page.keyboard.press(openKey);
+          await expect(page.getByRole('menu')).toHaveCount(1);
+        });
+      }
 
       test('sets role="menuitem" on menu triggers', async ({ page, mode }) => {
         await render(page, mode);
