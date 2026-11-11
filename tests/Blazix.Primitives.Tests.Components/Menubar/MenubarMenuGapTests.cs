@@ -38,6 +38,19 @@ public sealed class MenubarMenuGapTests : BunitContext
         Assert.Contains(cut.Instance.Parent.Changes, change => change.Open);
     }
 
+    // Design point 1 (a): Base UI arms on every closed trigger's press and resets the arm for a menu that is not open only
+    // when the trigger has no parent (MenuTrigger.tsx:120-124, 240-256).
+    [Fact(DisplayName = "port: a bar trigger arms the release and keeps the arm when its menu closes")]
+    [Trait("Requirement", "MBR-STA-07")]
+    public void A_bar_trigger_arms_the_release_and_keeps_the_arm()
+    {
+        Render<MenubarMenuGapHost>();
+
+        Assert.Contains(
+            JSInterop.Invocations.SelectMany(invocation => invocation.Arguments.OfType<string>()),
+            argument => argument.Contains("\"release\":true", StringComparison.Ordinal) && argument.Contains("\"keepArmedWhenClosed\":true", StringComparison.Ordinal));
+    }
+
     [Fact(DisplayName = "port: a bar menu with no Positioner is not heard by the bar")]
     [Trait("Requirement", "MBR-STA-04")]
     public void A_bar_menu_with_no_positioner_is_not_heard()
