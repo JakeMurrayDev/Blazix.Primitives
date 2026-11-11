@@ -1650,7 +1650,12 @@ test.describe('<NavigationMenu.Trigger /> keyboard and focus', () => {
   });
 
   // Gap G2 of the review of PR 168 (PR 184): a Shift+Tab out of an inline nested panel left its Links at tabindex -1.
-  test('tabs between nested triggers and links without opening inactive panels', async ({ page, mode }) => {
+  // Quarantined (ADR 11 §4) until 2026-11-26, issue 241: on Server `nested-link-get-started` can stay inactive after the
+  // Tab from its nested trigger (PR 228's run 42885016205, 1 of 160 locally on 2026-11-11, PR 240's run 43063463263).
+  test.fixme('tabs between nested triggers and links without opening inactive panels', {
+    tag: '@quarantine',
+    annotation: { type: 'issue', description: 'https://github.com/JakeMurrayDev/Blazix.Primitives/issues/241' },
+  }, async ({ page, mode }) => {
     await gotoMenu(page, mode, { nested: 'tabFlow' });
     await trigger(page, 1).click();
     await expect(content(page, 1)).toBeVisible();
