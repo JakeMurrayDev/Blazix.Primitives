@@ -4160,6 +4160,41 @@ describe('useHoverFloatingInteraction', () => {
     expect(popup.open).toBe(false);
   });
 
+  // Design point 5 of M5 track 8, the floating side (session V's note of 2026-11-10): on Server the Popup's handle attaches
+  // a round trip after the popup is shown, so the pointer can enter it with no listener there, and the close the trigger's
+  // leave started is never cancelled. The floating handle reads the document's recorded entry at its install, without
+  // consuming it, so a trigger inside the popup that attaches later still takes it.
+  it('port: a floating handle that attaches after the pointer has entered the popup cancels the pending close', async () => {
+    const popup = harness();
+    popup.attachSession();
+    const button = element('button');
+    popup.attachTrigger(button, { trigger: { hover: { delayClose: 100 } } });
+    popup.setReference(button);
+    const tooltip = element('div');
+    const inner = document.createElement('button');
+    tooltip.append(inner);
+
+    hoverMouse(button, 'mouseenter');
+    await vi.advanceTimersByTimeAsync(0);
+    expect(popup.open).toBe(true);
+
+    hoverMouse(button, 'mouseleave', { relatedTarget: inner });
+    hoverPointer(inner, 'pointerover', 'mouse');
+    hoverMouse(inner, 'mouseover', { relatedTarget: button });
+    hoverMouse(tooltip, 'mouseenter', { relatedTarget: button });
+    popup.attachFloating(tooltip, { floating: { hover: { closeDelay: 100 } } });
+
+    await vi.advanceTimersByTimeAsync(100);
+    expect(popup.open).toBe(true);
+
+    // The record is still there for a trigger inside the popup.
+    const nested = harness();
+    nested.attachSession();
+    nested.attachTrigger(inner, { trigger: { hover: {} } });
+    await vi.advanceTimersByTimeAsync(0);
+    expect(nested.open).toBe(true);
+  });
+
   it('keeps the popup open when the floating element is entered before closeDelay elapses', async () => {
     const { popup, button, tooltip } = render(500);
 
