@@ -23,4 +23,4 @@ Tests what needs no renderer: store and selectors, `MergeProps` and the merge ru
 
 - A new test keeps Base UI's title and is shown failing with its fix reverted before it counts (ADR 06 §1).
 - No `using Bunit`, no `WebApplicationFactory`; a test that needs a renderer belongs in `Tests.Components`.
-- An allocation budget only tightens (ADR 16 rule 7).
+- An allocation budget only tightens (ADR 16 rule 7). The two projects that hold budgets build with dynamic PGO off (`<TieredPGO>false</TieredPGO>`), and a main run skips the collection's classes: `node .github/scripts/allocation-budgets.mjs` runs each of them in a process of its own (`--exclusions <project>` prints the `--filter-not-class` arguments a main run passes), because inside a full run the state earlier tests leave in the process moved some budgets' figures (ADR 16 Amendments 2026-11-11, issue 216). A budget that fails inside a plain local `dotnet test` of the whole project is re-checked with the script first.
