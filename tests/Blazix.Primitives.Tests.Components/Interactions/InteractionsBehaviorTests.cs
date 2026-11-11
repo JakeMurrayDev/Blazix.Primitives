@@ -388,6 +388,49 @@ public sealed class InteractionsBehaviorTests : IDisposable
         Assert.Equal(before + 1, renders);
     }
 
+    // ADR 04 Amendments 2026-11-11: every trigger press is answered through its session's counter, a canceled or vetoed one
+    // too, so the module ends a press-requested open's count as open when C# did not commit it (and gap 16's rollback).
+    [Fact]
+    public async Task A_committed_press_sends_the_answered_counter_with_the_committed_state()
+    {
+        IRenderedComponent<TestInteractionsRoot> cut = RenderPopup();
+
+        await cut.InvokeAsync(() => host.TriggerTwin.OnPress($$"""{"open":true,"reason":"trigger-press","triggerId":"t","interactionType":"mouse","event":{{ClickJson}}}"""));
+
+        string update = Assert.Single(host.UpdateOptions);
+        Assert.Contains("\"open\":true", update, StringComparison.Ordinal);
+        Assert.Contains("\"answered\":1", update, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task A_canceled_press_sends_one_session_update_with_the_answered_counter_and_renders_nothing()
+    {
+        int renders = 0;
+        IRenderedComponent<TestInteractionsRoot> cut = RenderPopup(onOpenChange: (_, details) => details.Cancel(), classValue: () => renders++);
+        int before = renders;
+
+        await cut.InvokeAsync(() => host.TriggerTwin.OnPress($$"""{"open":true,"reason":"trigger-press","triggerId":"t","interactionType":"mouse","event":{{ClickJson}}}"""));
+
+        string update = Assert.Single(host.UpdateOptions);
+        Assert.Contains("\"answered\":1", update, StringComparison.Ordinal);
+        Assert.Contains("\"open\":false", update, StringComparison.Ordinal);
+        Assert.Equal(before, renders);
+        Assert.False(cut.Instance.Open);
+    }
+
+    [Fact]
+    public async Task A_press_the_consumer_vetoes_on_Server_sends_one_session_update_with_the_answered_counter()
+    {
+        IRenderedComponent<TestInteractionsRoot> cut = RenderPopup(onClick: e => e.PreventPartHandler());
+
+        await cut.InvokeAsync(() => host.TriggerTwin.OnPress($$"""{"open":true,"reason":"trigger-press","triggerId":"t","interactionType":"mouse","event":{{ClickJson}}}"""));
+
+        string update = Assert.Single(host.UpdateOptions);
+        Assert.Contains("\"answered\":1", update, StringComparison.Ordinal);
+        Assert.Contains("\"open\":false", update, StringComparison.Ordinal);
+        Assert.Empty(cut.Instance.Requests);
+    }
+
     [Fact]
     public async Task A_canceled_session_request_sends_one_update_with_the_answered_counter_and_renders_nothing()
     {
