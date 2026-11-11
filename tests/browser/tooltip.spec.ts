@@ -1423,9 +1423,10 @@ test.describe('<Tooltip.Viewport />', () => {
   // follows the end of the phase. Once written, the far-edge anchoring holds while the Positioner has a transition, so the
   // poll waits on an end state.
   test('port: anchors the positioner from the far edge once the starting phase ends, under circuit latency on Server', async ({ page, mode }) => {
-    if (mode === 'server') {
-      await delayCircuit(page, 250);
-    }
+    // The missed pass needs the circuit's round trip between the end of the phase and the tracking's last pass;
+    // WebAssembly has none, and Base UI's title above covers it there. Gated so the red-check counts the Server run.
+    test.skip(mode !== 'server', 'the missed pass is a Server round-trip window');
+    await delayCircuit(page, 250);
     await gotoPopupFixture(page, mode, 'tooltip-viewport', { case: 'far-edge' });
 
     await page.getByRole('button', { name: 'Trigger', exact: true }).focus();
