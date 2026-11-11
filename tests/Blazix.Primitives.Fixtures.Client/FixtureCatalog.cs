@@ -334,5 +334,8 @@ public static class FixtureCatalog
         ["combobox-suite"] = new(typeof(ComboboxSuiteL4Fixture)),
         ["combobox-suite-list"] = new(typeof(ComboboxSuiteListL4Fixture)),
         ["combobox-suite-positioner"] = new(typeof(ComboboxSuitePositionerL4Fixture)),
+        // combobox.live-regions.spec.ts, combobox.form.spec.ts (session S's batch for track 10)
+        ["combobox-live-regions"] = new(typeof(ComboboxLiveRegionsL4Fixture)),
+        ["combobox-form"] = new(typeof(ComboboxFormL4Fixture)),
     };
 }
