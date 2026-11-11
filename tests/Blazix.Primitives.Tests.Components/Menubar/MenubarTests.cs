@@ -1,3 +1,4 @@
+using System.Text.Json;
 using AngleSharp.Dom;
 using Bunit;
 using Microsoft.Extensions.DependencyInjection;
@@ -78,6 +79,27 @@ public sealed class MenubarTests : BunitContext
         }));
 
         Assert.Equal(new MenubarState(Blazix.Primitives.Orientation.Horizontal, false, false), seen);
+    }
+
+    // MBR-STR-03 (Menubar.tsx:79, FloatingTree): the bar draws an elementless session and cascades its token, so each bar
+    // menu's session names it as its parent and the bar's menus are one forest (Deliverable 4 of the brief).
+    [Fact(DisplayName = "port: the bar draws an elementless session whose token is its menus' parent token")]
+    [Trait("Requirement", "MBR-STR-03")]
+    public void The_bar_draws_an_elementless_session_its_menus_name_as_parent()
+    {
+        Render<MenubarHost>();
+
+        List<JsonElement> sessions = [.. JSInterop.Invocations
+            .SelectMany(invocation => invocation.Arguments.OfType<string>())
+            .Where(argument => argument.StartsWith('{') && argument.Contains("\"session\":", StringComparison.Ordinal))
+            .Select(argument => JsonDocument.Parse(argument).RootElement)];
+        string? parentToken = sessions
+            .Where(options => options.GetProperty("session").TryGetProperty("floatingId", out JsonElement id) && id.ValueKind == JsonValueKind.String)
+            .Select(options => options.GetProperty("session").TryGetProperty("parentToken", out JsonElement token) ? token.GetString() : null)
+            .LastOrDefault();
+
+        Assert.NotNull(parentToken);
+        Assert.Contains(sessions, options => options.TryGetProperty("sessionToken", out JsonElement token) && token.GetString() == parentToken);
     }
 
     [Fact(DisplayName = "port: a bar menu's open sets data-has-submenu-open, and its close by another reason clears it")]
