@@ -376,6 +376,8 @@ internal sealed class ComboboxStore<TValue> : ComboboxStore
 
     private bool labelSyncPending;
 
+    private bool itemsLabelSyncPending;
+
     private EventSnapshot? selectionEvent;
 
     private IReadOnlyList<TValue>? lastItems;
@@ -974,10 +976,9 @@ internal sealed class ComboboxStore<TValue> : ComboboxStore
         lastItems = next.Items;
         lastGroups = next.ItemGroups;
         lastSelectedLabel = selectedLabel;
-        if (!firstSet && (itemsChanged || labelChanged) && !queryChangedAfterOpen)
+        if (!firstSet && (itemsChanged || labelChanged))
         {
-            labelSynced = false;
-            labelSyncPending = true;
+            itemsLabelSyncPending = true;
         }
 
         if (!ReferenceEquals(previous.ItemToStringLabel, next.ItemToStringLabel) && !firstSet)
@@ -1247,10 +1248,11 @@ internal sealed class ComboboxStore<TValue> : ComboboxStore
             await MatchAutofillAsync(autofill.Text, autofill.Details);
         }
 
-        if (labelSyncPending)
+        // A handler's own label sync runs after it (RunHandlerAsync): on Server a render inside the handler reaches this boundary
+        // before the handler's open request, which a typed reopen needs first.
+        if (!handlingEvent)
         {
-            labelSyncPending = false;
-            await SyncInputToSelectedLabelAsync();
+            await RunLabelSyncAsync();
         }
 
         SyncSelectedIndex();
@@ -1504,6 +1506,28 @@ internal sealed class ComboboxStore<TValue> : ComboboxStore
         RefreshDerivation(State);
     }
 
+    // AriaCombobox.tsx:1295-1318: the selection's change syncs the input's label; an items or label change syncs it unless the
+    // query changed since the open, read when the sync runs (syncInputAfterItemsOrLabelChange).
+    private async Task RunLabelSyncAsync()
+    {
+        if (labelSyncPending)
+        {
+            labelSyncPending = false;
+            itemsLabelSyncPending = false;
+            await SyncInputToSelectedLabelAsync();
+        }
+
+        if (itemsLabelSyncPending)
+        {
+            itemsLabelSyncPending = false;
+            if (!queryChangedAfterOpen)
+            {
+                labelSynced = false;
+                await SyncInputToSelectedLabelAsync();
+            }
+        }
+    }
+
     private async Task SyncInputToSelectedLabelAsync()
     {
         if (!Single || HasInputValueParameter || State.InputInsidePopup)
@@ -1677,11 +1701,7 @@ internal sealed class ComboboxStore<TValue> : ComboboxStore
             handlingEvent = false;
         }
 
-        if (labelSyncPending)
-        {
-            labelSyncPending = false;
-            await SyncInputToSelectedLabelAsync();
-        }
+        await RunLabelSyncAsync();
 
         if (highlightDeferred)
         {
