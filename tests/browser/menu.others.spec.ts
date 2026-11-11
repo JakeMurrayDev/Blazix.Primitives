@@ -1,5 +1,5 @@
 import { type Locator } from '@playwright/test';
-import { expect, test, type Page, type RenderMode } from './helpers';
+import { delayCircuit, expect, test, type Page, type RenderMode } from './helpers';
 import { parkPointer, recorded } from './menu.helpers';
 import { gotoPopupFixture, openChanges, settle, type PopupFixtureOptions } from './suites/popupFixture';
 
@@ -216,6 +216,28 @@ test.describe('<Dialog.Root /> with a nested menu', () => {
 
     await expect(page.getByRole('dialog')).toHaveCount(0);
     await expect(page.getByTestId('menu-popup')).toBeVisible();
+  });
+
+  // The title above failed on Server in PR 233's run 42954678792: the dialog renders a round trip before its session hears
+  // C#'s commit of the press, and an Escape in between closed the menu. A press-requested open counts as open for Escape
+  // dismissal until C# answers the press (ADR 04 Amendments 2026-11-11).
+  test('port: does not close the parent menu when Escape is pressed in a nested dialog that has just opened, under circuit latency on Server', async ({ page, mode }) => {
+    test.skip(mode !== 'server', 'the window is the round trip between the dialog\'s render and its session\'s open');
+    await delayCircuit(page, 250);
+    const fixture = await gotoPopupFixture(page, mode, 'menu-dialog', { case: 'dialog' });
+    await page.getByTestId('menu-trigger').click();
+    await expect(page.getByRole('menu')).toBeVisible();
+    await settle(fixture);
+    await expect(fixture).toHaveAttribute('data-item-attached', 'true');
+
+    await page.getByRole('menuitem', { name: 'Open Dialog' }).click();
+    await expect(page.getByRole('dialog')).toBeVisible();
+    await page.keyboard.press('Escape');
+
+    await expect(page.getByRole('dialog')).toHaveCount(0);
+    await expect(page.getByTestId('menu-popup')).toBeVisible();
+    await settle(fixture);
+    expect(await openChanges(fixture)).toEqual(['true:trigger-press']);
   });
 });
 
