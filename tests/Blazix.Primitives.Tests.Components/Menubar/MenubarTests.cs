@@ -145,8 +145,9 @@ public sealed class MenubarTests : BunitContext
 
     // The brief's render counts: clearing the flag renders the bar once and nothing of a closed menu's content. The other
     // menu's trigger renders twice (measured 2026-11-11; the brief asks for once): it hears the bar through its own
-    // subscription (OnParentChanged) and, unverified, through its menu's store, which the bar also notifies. A Menu/
-    // follow-up; this title pins the figure so it cannot grow.
+    // subscription (OnParentChanged), and it renders again as a child of its Root, which re-renders on the store's
+    // NotifyParentChanged (traced 2026-11-11: without the first, the count is one). Open as issue 239, a Menu/ fix; this
+    // title pins the figure so it cannot grow.
     [Fact(DisplayName = "port: a flag flip renders the bar once, the other trigger at most twice and no closed menu's content")]
     [Trait("Requirement", "MBR-STA-02")]
     [Trait("Requirement", "MBR-STA-03")]
