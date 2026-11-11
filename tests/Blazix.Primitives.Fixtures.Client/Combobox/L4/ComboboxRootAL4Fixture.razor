@@ -455,10 +455,12 @@
         root.Unmount();
     }
 
+    // The consumer's write comes before the record, which renders the fixture: a render inside the handler that still carried the
+    // previous values would be the consumer's answer.
     private void HandleControlledValues(ValueChangeEventArgs<IReadOnlyList<string>> args)
     {
-        RecordValuesChange(args);
         values = args.Value ?? [];
+        RecordValuesChange(args);
     }
 
     private void ClearValues() => values = [];
