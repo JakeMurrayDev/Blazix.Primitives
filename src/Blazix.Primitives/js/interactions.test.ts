@@ -2577,6 +2577,60 @@ describe('useDismiss', () => {
       });
     });
 
+    // ADR 04 Amendments 2026-11-11 (menu.others.spec.ts:205 on Server, PR 233's run 42954678792): a nested popup opened by
+    // a press is open in Base UI from the press's commit, so an Escape right after closes it, not its parent. On Server C#'s
+    // commit reaches the session a round trip after the popup renders; until C# answers the press, its requested open counts
+    // as open for Escape dismissal. A press C# cancels is answered (every press is), and then it no longer counts.
+    it('port: on Server an Escape while a nested popup\'s press-requested open awaits C# is that popup\'s, and once C# cancels the press it is the parent\'s', () => {
+      // The press's commit has not arrived: the parent asks nothing, and the nested popup requests its own close.
+      const outer = harness({ open: true });
+      outer.attachSession({ session: { dismiss: {} } });
+      const outerFloating = element('div');
+      outer.attachFloating(outerFloating);
+      const inner = harness({ commit: false });
+      inner.attachSession({ session: { dismiss: {}, parentToken: outer.token } });
+      // The nested popup's trigger is an item of the parent's popup, as a DialogTrigger rendered as a menu item is.
+      const trigger = element('button');
+      outerFloating.append(trigger);
+      inner.attachTrigger(trigger, { trigger: { click: {} } });
+      inner.attachFloating(element('div'));
+
+      userClick(trigger);
+      expect(inner.open).toBe(false);
+      const event = keyDown(outerFloating);
+
+      expect(event.defaultPrevented).toBe(true);
+      expect(outer.requests).toEqual([]);
+      expect(outer.open).toBe(true);
+      expect(inner.requests.map((request) => [request.method, request.payload.open, request.payload.reason])).toEqual([
+        ['OnPress', true, 'trigger-press'],
+        ['OnRequest', false, 'escape-key'],
+      ]);
+      inner.dispose();
+      outer.dispose();
+
+      // C# canceled the press and answered it: the nested popup is closed, and the Escape closes the parent.
+      const parent = harness({ open: true });
+      parent.attachSession({ session: { dismiss: {} } });
+      const parentFloating = element('div');
+      parent.attachFloating(parentFloating);
+      const child = harness({ onOpenChange: (_open, details) => details.cancel() });
+      child.attachSession({ session: { dismiss: {}, parentToken: parent.token } });
+      const childTrigger = element('button');
+      parentFloating.append(childTrigger);
+      child.attachTrigger(childTrigger, { trigger: { click: {} } });
+      child.attachFloating(element('div'));
+
+      userClick(childTrigger);
+      expect(child.open).toBe(false);
+      keyDown(parentFloating);
+
+      expect(parent.open).toBe(false);
+      expect(child.requests.map((request) => request.payload.reason)).toEqual(['trigger-press']);
+      child.dispose();
+      parent.dispose();
+    });
+
     it('port: one close per keydown: a script-dispatched Escape that the floating element lets propagate reaches the session\'s document listener, which asks nothing more', async () => {
       const consumers: [string, (details: { cancel(): void; allowPropagation(): void }) => void][] = [
         ['accepted with allowPropagation()', allowPropagation],
