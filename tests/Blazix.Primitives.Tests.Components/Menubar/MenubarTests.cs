@@ -142,4 +142,26 @@ public sealed class MenubarTests : BunitContext
 
         cut.WaitForAssertion(() => Assert.False(cut.Find("[role=\"menubar\"]").HasAttribute("data-has-submenu-open")), TimeSpan.FromSeconds(2));
     }
+
+    // The brief's render counts: clearing the flag renders the bar once and nothing of a closed menu's content. The other
+    // menu's trigger renders twice (measured 2026-11-11; the brief asks for once): it hears the bar through its own
+    // subscription (OnParentChanged) and, unverified, through its menu's store, which the bar also notifies. A Menu/
+    // follow-up; this title pins the figure so it cannot grow.
+    [Fact(DisplayName = "port: a flag flip renders the bar once, the other trigger at most twice and no closed menu's content")]
+    [Trait("Requirement", "MBR-STA-02")]
+    [Trait("Requirement", "MBR-STA-03")]
+    public async Task A_flag_flip_renders_the_bar_once_and_no_closed_menus_content()
+    {
+        IRenderedComponent<MenubarRenderHost> cut = Render<MenubarRenderHost>();
+        cut.WaitForAssertion(() => Assert.True(cut.Find("[role=\"menubar\"]").HasAttribute("data-has-submenu-open")), TimeSpan.FromSeconds(2));
+        Dictionary<string, int> before = new(cut.Instance.Renders);
+
+        await cut.InvokeAsync(() => cut.Instance.File!.CloseAsync());
+        cut.WaitForAssertion(() => Assert.False(cut.Find("[role=\"menubar\"]").HasAttribute("data-has-submenu-open")), TimeSpan.FromSeconds(2));
+
+        Dictionary<string, int> renders = cut.Instance.Renders;
+        Assert.Equal(before["bar"] + 1, renders["bar"]);
+        Assert.InRange(renders["edit"] - before["edit"], 1, 2);
+        Assert.Equal(0, renders.GetValueOrDefault("edit-item"));
+    }
 }
