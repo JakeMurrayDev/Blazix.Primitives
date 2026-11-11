@@ -343,6 +343,9 @@ internal sealed class ComboboxStore<TValue> : ComboboxStore
 
     private bool hadInputClear;
 
+    // The rendered registry a query-clear restore found without the selection, waiting for the module's next order report.
+    private ItemSlot<TValue>[]? restoreWaitedOn;
+
     // A typed text a controlled consumer did not apply by its commit, re-asserted once the consumer's render applies the root's
     // parameters: on Server that render can reach the root after the commit, carrying the typed text.
     private string? keptTypedText;
@@ -1053,7 +1056,7 @@ internal sealed class ComboboxStore<TValue> : ComboboxStore
 
         SyncSelectedIndex();
         ReassertSelectedIndex();
-        if (pendingAutofill is not null)
+        if (pendingAutofill is not null || pendingHighlight is not null)
         {
             RequestBoundary();
         }
@@ -1143,6 +1146,7 @@ internal sealed class ComboboxStore<TValue> : ComboboxStore
                 }
 
                 pendingHighlight = new PendingHighlight(hasQuery, false);
+                restoreWaitedOn = null;
                 if (hasQuery && inputs.AutoHighlight != ComboboxAutoHighlightMode.Off && State.ActiveIndex is null && (IsOpen || State.Inline))
                 {
                     Write(State with { ActiveIndex = 0 });
@@ -1152,6 +1156,7 @@ internal sealed class ComboboxStore<TValue> : ComboboxStore
         else if (details.Reason == EventReason.InputClear && text.Length == 0 && State.InputInsidePopup)
         {
             pendingHighlight = new PendingHighlight(false, true);
+            restoreWaitedOn = null;
         }
 
         await CommitInputValueAsync(text, typed);
@@ -1787,6 +1792,24 @@ internal sealed class ComboboxStore<TValue> : ComboboxStore
             }
             else if (State.InputValue.Trim().Length == 0)
             {
+                // Base UI's restore runs after the commit in which the items registered (AriaCombobox.tsx:1089-1235); the
+                // rendered registry reaches C# with the module's order report, which can follow this boundary. A selection
+                // the registry does not hold yet waits for the next report, once, and nothing is reconciled against the old
+                // order; after that report the restore resolves, consumed when the selection is still absent.
+                bool selectionPresent = Multiple ? SelectedValues.Count > 0 : Single && singlePresent;
+                if (navigable && selectionPresent && !State.HasItems && !HasFilteredItemsInput && !pending.HasToggledValue && restoreWaitedOn is null
+                    && FindSelectedIndexIn(candidates) is null)
+                {
+                    restoreWaitedOn = renderedValues;
+                    return;
+                }
+
+                if (ReferenceEquals(restoreWaitedOn, renderedValues))
+                {
+                    return;
+                }
+
+                restoreWaitedOn = null;
                 pendingHighlight = null;
                 if (navigable)
                 {
