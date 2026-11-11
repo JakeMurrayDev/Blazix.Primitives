@@ -18,6 +18,15 @@ public sealed class MenubarTests : BunitContext
         Services.AddBlazixPrimitives();
     }
 
+    [Fact(DisplayName = "throws when the menubar context is missing")]
+    [Trait("Requirement", "MBR-EDGE-01")]
+    public void Throws_when_the_menubar_context_is_missing()
+    {
+        InvalidOperationException error = Assert.Throws<InvalidOperationException>(() => Render<MenubarContextReader>());
+
+        Assert.Equal("Blazix: The `Menubar` context is missing. Menubar parts must be placed within `<Menubar>`.", error.Message);
+    }
+
     [Fact(DisplayName = "port: Menubar renders a div with role menubar, its id, aria-orientation and its state attributes")]
     [Trait("Requirement", "MBR-STR-01")]
     [Trait("Requirement", "MBR-ARIA-01")]
