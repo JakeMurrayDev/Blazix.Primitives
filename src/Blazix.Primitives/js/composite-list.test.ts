@@ -11,6 +11,7 @@ import {
   LIST_HIGHLIGHT_REPORT,
   NAVIGATE_POINT,
   relayKeyboardEvent,
+  skipListNavigation,
   type CompositeListHighlightReport,
   type CompositeOptions,
 } from './composite';
@@ -2777,5 +2778,48 @@ describe('list navigation inside a shadow root (port)', () => {
     expect(document.activeElement).toBe(option(harness, 3));
     expect(highlighted(option(harness, 3))).toBe(true);
     expect(harness.activeIndex).toBe(3);
+  });
+});
+
+// skipListNavigation (M5 track 12, issue 197; granted by the orchestrator 2026-11-11): a module whose element is a list's
+// reference and owns some keys itself (the menu-filter Input's `edit` keys, MNU-KEY-22) marks a keydown so the list's
+// handles leave it alone: no navigation, no typeahead, no preventDefault.
+describe('skipListNavigation (port)', () => {
+  function descendantOf(element: Element | null): string | null {
+    return element?.getAttribute('aria-activedescendant') ?? null;
+  }
+
+  it('port: a keydown marked by skipListNavigation is neither navigated nor prevented', async () => {
+    const harness = app({ reference: 'input', list: { virtual: true } });
+    harness.reference.focus();
+    keyDown(harness.reference, 'ArrowDown');
+    await waitFor(() => {
+      expect(descendantOf(harness.reference)).toBe(harness.item(0).id);
+    });
+    const mark = (event: Event): void => skipListNavigation(event as KeyboardEvent);
+    harness.reference.addEventListener('keydown', mark, { capture: true });
+
+    const marked = keyDown(harness.reference, 'ArrowDown');
+
+    expect(marked.defaultPrevented).toBe(false);
+    expect(descendantOf(harness.reference)).toBe(harness.item(0).id);
+
+    harness.reference.removeEventListener('keydown', mark, { capture: true });
+    const unmarked = keyDown(harness.reference, 'ArrowDown');
+    expect(unmarked.defaultPrevented).toBe(true);
+    await waitFor(() => {
+      expect(descendantOf(harness.reference)).toBe(harness.item(1).id);
+    });
+  });
+
+  it('port: a marked keydown on the closed reference does not open the list', () => {
+    const harness = app({ reference: 'input', list: { virtual: true } });
+    harness.reference.focus();
+    harness.reference.addEventListener('keydown', (event) => skipListNavigation(event as KeyboardEvent), { capture: true });
+
+    const event = keyDown(harness.reference, 'ArrowDown');
+
+    expect(event.defaultPrevented).toBe(false);
+    expect(harness.floating).toBe(null);
   });
 });
