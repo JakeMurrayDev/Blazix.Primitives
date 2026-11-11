@@ -523,7 +523,7 @@ None.
 **Consumed:** `render`, `className`, `style`, `nativeButton`, `disabled`, `id`.
 
 - **CMB-API-43** — MUST. `nativeButton` (default `true`) configures the shared button behavior; a non-native disabled trigger ignores native keydown events.
-  Source: `combobox/trigger/ComboboxTrigger.tsx:43,129-132`. Test: [L2] `ComboboxTrigger.test.tsx` describeConformance (`button: true`), "ignores native keydown events on a disabled non-native trigger".
+  Source: `combobox/trigger/ComboboxTrigger.tsx:43,129-132`. Test: [L2] `ComboboxTrigger.test.tsx` describeConformance (`button: true`), "ignores native keydown events on a disabled non-native trigger" (L3: the trigger's keys are the `combobox` module's; retagged 2026-11-11).
 - **CMB-API-44** — MUST. `disabled` (default `false`) is OR-ed with the Field's and Root's disabled flags; a disabled Trigger renders `disabled`/`aria-disabled` per UBT and never opens.
   Source: `combobox/trigger/ComboboxTrigger.tsx:44,82,193`. Test: [L2] `ComboboxTrigger.test.tsx` "should render aria-disabled attribute when disabled", "should inherit disabled state from ComboboxRoot", "should inherit disabled state from Field.Root", "should not open popup when disabled", "should prioritize local disabled over root disabled".
 - **CMB-API-45** — MUST. When the input is inside the popup the Trigger's `id` defaults to the Root id and is registered as the labelable control id so `Field.Label`/`Combobox.Label` point at it; otherwise `id` is forwarded as given and nothing is registered.

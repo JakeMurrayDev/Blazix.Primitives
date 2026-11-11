@@ -603,6 +603,21 @@ describe('the trigger', () => {
     return { trigger, input, fake };
   }
 
+  // ComboboxTrigger.test.tsx (CMB-API-43; PR 193 delta review B1): a disabled non-native trigger dispatches a native ArrowDown
+  // and asks for no open; the trigger's keys are the module's, so the title runs at L3 (re-tagged 2026-11-11).
+  it('ignores native keydown events on a disabled non-native trigger', () => {
+    const trigger = document.createElement('div');
+    trigger.setAttribute('aria-disabled', 'true');
+    document.body.append(trigger);
+    const fake = createFakeTwin();
+    handles.push(attach(trigger, options({ part: 'trigger', disabled: true }), fake.twin));
+
+    const arrow = new KeyboardEvent('keydown', { key: 'ArrowDown', bubbles: true, cancelable: true });
+    trigger.dispatchEvent(arrow);
+
+    expect([fake.reported('OnOpenRequest').length, arrow.defaultPrevented]).toEqual([0, false]);
+  });
+
   function release(target: Element, clientX: number, clientY: number): void {
     target.dispatchEvent(new MouseEvent('mouseup', { bubbles: true, clientX, clientY }));
   }
