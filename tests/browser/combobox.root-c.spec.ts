@@ -350,7 +350,7 @@ test.describe('<Combobox.Root />', () => {
       return page.evaluate(() => (window as unknown as { submitted: (string | null)[][] }).submitted);
     }
 
-    test('submits to an external form when form is provided', async ({ page, mode }) => {
+    test('submits to an external form when `form` is provided', async ({ page, mode }) => {
       await gotoRoot(page, mode, { case: 'form-external' });
       await recordSubmits(page, 'country');
 
@@ -359,7 +359,7 @@ test.describe('<Combobox.Root />', () => {
       expect(await submitted(page)).toEqual([['US']]);
     });
 
-    test('submits multiple values to an external form when form is provided', async ({ page, mode }) => {
+    test('submits multiple values to an external form when `form` is provided', async ({ page, mode }) => {
       await gotoRoot(page, mode, { case: 'form-external', multiple: true });
       await recordSubmits(page, 'countries');
 

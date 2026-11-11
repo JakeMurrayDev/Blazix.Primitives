@@ -6,9 +6,10 @@ namespace Blazix.Primitives;
 // FFI-ALG-11, RAD-FRM-02 (internals/serializeValue.ts): the text a hidden form input submits for a value-typed part (Radio,
 // and from M5 Select, Combobox and Autocomplete). Moved from Radio/RadioValues.cs by M5 track 4 (chosen by the user
 // 2026-11-03, plan decision 10 (a); design point 1 settled by the orchestrator 2026-11-04). A string is submitted as is; any
-// other value as its text under the invariant culture, built by an interpolated string.Create, which takes the value unboxed
-// (radio.md's dated deviation note: `True`, enum names and record text differ from JSON.stringify, which would need
-// reflection, ADR 16 rule 1). FFI-EDGE-05 holds by construction: there is no JSON, so nothing throws.
+// other value as its text under the invariant culture, built by an interpolated string.Create, which takes the value unboxed,
+// except a bool, which is `true`/`false` as JavaScript gives it (FFI-ALG-11's note of 2026-11-11). Enum names and record
+// text differ from JSON.stringify, which would need reflection (radio.md's dated deviation note, ADR 16 rule 1).
+// FFI-EDGE-05 holds by construction: there is no JSON, so nothing throws.
 /// <summary>Provides the text a hidden form input submits for a value.</summary>
 internal static class FormValue
 {
@@ -31,8 +32,8 @@ internal static class FormValue
             return (string)(object)value!;
         }
 
-        // JavaScript's String(): a boolean is "true" or "false", where C# formats "True" or "False" (CMB-API-68; settled by
-        // the orchestrator 2026-11-10).
+        // JavaScript's String(): a boolean is "true" or "false", where C# formats "True" or "False" (CMB-API-68; FormValue.cs
+        // granted and the change settled by the orchestrator 2026-11-11).
         if (typeof(TValue) == typeof(bool) || typeof(TValue) == typeof(bool?))
         {
             return (bool)(object)value! ? "true" : "false";
