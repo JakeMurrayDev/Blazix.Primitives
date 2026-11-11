@@ -367,22 +367,25 @@
         open = true;
     }
 
+    // The consumer's write or cancel comes before the record, which renders the fixture: a render inside the handler that still
+    // carried the previous text would be the consumer's answer.
     private void RecordAndSetInputValue(ValueChangeEventArgs<string> args)
     {
-        RecordInputChange(args);
         inputValue = args.Value ?? "";
+        RecordInputChange(args);
     }
 
     private void RecordAndCancelItemPress(ValueChangeEventArgs<string> args)
     {
-        RecordInputChange(args);
         bool? itemPress = (args.Details as ComboboxChangeEventDetails)?.IsItemPress;
-        Record("input-item-presses", itemPress is { } press ? (press ? "true" : "false") : "null");
-        Record("input-events", args.Details.Event.Type);
         if (itemPress == true)
         {
             args.Details.Cancel();
         }
+
+        RecordInputChange(args);
+        Record("input-item-presses", itemPress is { } press ? (press ? "true" : "false") : "null");
+        Record("input-events", args.Details.Event.Type);
     }
 
     private void ClearInputOnClose(ValueChangeEventArgs<bool> args)
