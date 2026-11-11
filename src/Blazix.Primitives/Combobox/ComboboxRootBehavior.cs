@@ -457,6 +457,9 @@ internal sealed class ComboboxRootBehavior<TValue> : IAsyncDisposable
     {
         if (rendered && !disposed)
         {
+            // AriaCombobox.tsx:1243-1323 run at every render of the root, which a selection causes in React: the field's
+            // filled state, its registration and the change's validation follow the selection with no render of the part.
+            fieldBehavior!.AfterRender(inputs.Id, inputs.Name, HiddenInputId(root.Store));
             _ = ObserveAsync(SyncFormAsync());
         }
     }

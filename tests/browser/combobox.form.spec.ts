@@ -1,5 +1,5 @@
 import { expect, test } from './helpers';
-import { gotoCombobox } from './combobox.helpers';
+import { center, gotoCombobox } from './combobox.helpers';
 
 // CMB-FRM-05's "prop: validationMode=onSubmit" (ComboboxRoot.test.tsx, describe 'Field'; M5 track 10, issue 174; ported by
 // session S): Base UI's title verbatim, at L4 on both render modes, on the `combobox-form` fixture
@@ -18,6 +18,10 @@ test.describe('<Combobox.Root />', () => {
       await expect(input).toHaveAttribute('aria-invalid', 'true');
 
       await input.click();
+      // On Server the open lands a round trip after the click: the keys wait for the positioned list, as the other keyboard
+      // titles do.
+      await expect(page.getByRole('listbox')).toBeVisible();
+      await center(page.getByRole('listbox'));
 
       await page.keyboard.press('ArrowDown');
       await page.keyboard.press('ArrowDown');
