@@ -47,6 +47,19 @@ Specs: `smoke.spec.ts` (the probe twin, the harness canary, and the button twin)
 - `retries` stays 0; a flaky test is quarantined with `test.fixme`, `@quarantine` and an issue, for at most 14 days. The nightly summary counts the quarantined specs and reports any flaky result (there can be none while `retries` is 0).
 - A test that needs frozen time pauses the clock itself; nothing waits on a timeout.
 
+`context-menu.spec.ts` (M5 track 7, [issue 194](https://github.com/JakeMurrayDev/Blazix.Primitives/issues/194); the plan's §Settled; the dialog.spec.ts precedent), dated note 2026-11-11 on the real-input rule above:
+- Right clicks and right-button releases are real `page.mouse` input, so Chromium fires `contextmenu` on the press.
+- Some titles dispatch events in the page instead:
+  - the long-press and touch titles dispatch `TouchEvent`s on the Trigger, as Base UI's `fireEvent.touch*`;
+  - the native-menu suppression titles dispatch a `contextmenu` and read `defaultPrevented` after it, as Base UI does (a real native menu is not observable);
+  - the keyboard-request title dispatches the `contextmenu` that Shift+F10 makes the platform send;
+  - CTX-PTR-14's title dispatches its second `contextmenu` on the Trigger, which the modal internal backdrop covers to a real pointer.
+- `navigator.platform` is pinned before the first load (`MacIntel` or `Linux x86_64`), as Base UI mocks `platform.os.mac`.
+- Every Server title runs under `delayCircuit`.
+- Held-clock titles behave differently by mode:
+  - on Server, the open is awaited in real time, since the delayed circuit does not run on the page's clock;
+  - on WebAssembly, the clock is stepped and the time it ran is subtracted.
+
 `list-values.spec.ts` (M5 track 4, issue 162) holds the shared list value layer's L4 titles on its test-only `list-values-*` fixtures:
 - the item indicator's DOM-52 and ANI-03 titles (the exit's `animationstart` recorded);
 - the form-participation input (a page-set value and a dispatched `change` stand in for the browser's autofill), including the per-mode timing of ADR 01's autofill relaxation row under `delayCircuit`;
