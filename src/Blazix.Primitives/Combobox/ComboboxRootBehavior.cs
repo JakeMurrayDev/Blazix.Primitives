@@ -50,6 +50,15 @@ internal sealed class ComboboxRootBehavior<TValue> : IAsyncDisposable
     private FormOptions? formOptions;
     private string? attachedSerialized;
     private int formRevision;
+
+    // Revisions sent only to ask for a fresh report of the hidden input's native state.
+    private int formRefreshes;
+
+    private int refreshRevision;
+
+    private TaskCompletionSource? refreshSource;
+
+    private (bool Required, bool Disabled, bool ReadOnly) sentConstraints;
     private InteractionsDismissOptions? dismiss;
     private DismissKey dismissKey;
     private bool rendered;
@@ -90,7 +99,7 @@ internal sealed class ComboboxRootBehavior<TValue> : IAsyncDisposable
     public async Task OnAfterRenderAsync()
     {
         rendered = true;
-        fieldBehavior?.AfterRender(inputs.Id, inputs.Name);
+        fieldBehavior?.AfterRender(inputs.Id, inputs.Name, HiddenInputId(root.Store));
         CopySessionInputs();
         Task sync = session!.AfterRenderAsync();
         Task flush = list!.FlushAsync();
@@ -111,6 +120,7 @@ internal sealed class ComboboxRootBehavior<TValue> : IAsyncDisposable
 
         disposed = true;
         committed?.Dispose();
+        refreshSource?.TrySetResult();
         fieldBehavior?.Dispose();
         root.Dispose();
         list?.Dispose();
@@ -159,7 +169,7 @@ internal sealed class ComboboxRootBehavior<TValue> : IAsyncDisposable
             committed.Select(static state => state.SelectedIndex);
             committed.Select(static state => state.FilteredCount);
             committed.Select(static state => state.ElementIds);
-            fieldBehavior = new ComboboxFieldBehavior<TValue>(store, () => Serialized(store));
+            fieldBehavior = new ComboboxFieldBehavior<TValue>(store, () => Serialized(store), () => _ = ObserveAsync(SyncFormAsync()), RefreshFormAsync);
             store.NameResolver = fieldBehavior.NameOf;
             store.ControlBlurred = fieldBehavior.Blur;
 
@@ -266,17 +276,13 @@ internal sealed class ComboboxRootBehavior<TValue> : IAsyncDisposable
         ComboboxStoreState state = store.State;
         bool multiple = state.SelectionMode == ComboboxSelectionMode.Multiple;
         string? name = store.Name;
-        bool inputOwnsFormValue = state.SelectionMode == ComboboxSelectionMode.None && (state.Inline || !state.InputInsidePopup);
-        string? hiddenName = multiple || (state.SelectionMode == ComboboxSelectionMode.None && inputOwnsFormValue) ? null : name;
+        string? hiddenName = HiddenName(store);
         bool hasMultipleSelection = multiple && store.SelectedValues.Count > 0;
         attachedSerialized ??= Serialized(store);
 
         builder.OpenRegion(1);
         builder.OpenElement(0, "input");
-        if (hiddenName is null)
-        {
-            builder.AddAttribute(1, "id", state.Id + "-hidden-input");
-        }
+        builder.AddAttribute(1, "id", HiddenInputId(store));
 
         builder.AddAttribute(2, "form", store.Form);
         builder.AddAttribute(3, "name", hiddenName);
@@ -310,6 +316,16 @@ internal sealed class ComboboxRootBehavior<TValue> : IAsyncDisposable
         builder.CloseRegion();
     }
 
+    // AriaCombobox.tsx:1589-1593, 1691: the name the hidden input submits, and its id when it has none.
+    private static string? HiddenName(ComboboxStore<TValue> store)
+    {
+        ComboboxStoreState state = store.State;
+        bool inputOwnsFormValue = state.SelectionMode == ComboboxSelectionMode.None && (state.Inline || !state.InputInsidePopup);
+        return state.SelectionMode == ComboboxSelectionMode.Multiple || (state.SelectionMode == ComboboxSelectionMode.None && inputOwnsFormValue) ? null : store.Name;
+    }
+
+    private static string? HiddenInputId(ComboboxStore<TValue> store) => HiddenName(store) is null ? store.State.Id + "-hidden-input" : null;
+
     private async Task SyncFormAsync()
     {
         // The `form` module's Control role (ADR 04 Amendments 2026-11-04): the committed value through update, and the element the
@@ -328,37 +344,109 @@ internal sealed class ComboboxRootBehavior<TValue> : IAsyncDisposable
                     _ = ObserveAsync(invokeAsync(() => root.Store.HandleAutofillAsync(report.Text, report.Event)));
                 }
             };
+            formTwin.ControlReported += report => _ = ObserveAsync(invokeAsync(() =>
+            {
+                OnControlReport(report);
+                return Task.CompletedTask;
+            }));
             formRevision = 1;
-            formOptions = FormOptionsOf(serialized, focusTarget, formRevision);
+            sentConstraints = Constraints(store.State);
+            formOptions = FormOptionsOf(serialized, focusTarget);
             formHandle = await formTwin.AttachAsync(hiddenInput, formOptions);
+
+            // The field reads the hidden input's native state from a report: the first one now.
+            _ = ObserveAsync(RefreshFormAsync());
 
             // A selection committed while the attach was in flight is sent once it lands.
             serialized = Serialized(store);
             focusTarget = FocusTarget(store.State);
         }
 
-        if (formHandle is null
-            || (string.Equals(formOptions?.Control?.Value, serialized, StringComparison.Ordinal) && string.Equals(formOptions?.Control?.FocusTarget, focusTarget, StringComparison.Ordinal)))
+        if (formHandle is null)
         {
             return;
         }
 
-        bool valueChanged = !string.Equals(formOptions?.Control?.Value, serialized, StringComparison.Ordinal);
-        if (valueChanged)
+        if (!string.Equals(formOptions?.Control?.Value, serialized, StringComparison.Ordinal))
         {
             formRevision++;
         }
 
-        formOptions = FormOptionsOf(serialized, focusTarget, formRevision);
+        // A changed constraint changes the native state: the next update asks for a report of it.
+        (bool Required, bool Disabled, bool ReadOnly) constraints = Constraints(store.State);
+        if (constraints != sentConstraints)
+        {
+            sentConstraints = constraints;
+            formRefreshes++;
+        }
+
+        if (formOptions?.Control is { } sent
+            && sent.Revision == formRevision + formRefreshes
+            && string.Equals(sent.Value, serialized, StringComparison.Ordinal)
+            && string.Equals(sent.FocusTarget, focusTarget, StringComparison.Ordinal)
+            && string.Equals(sent.FormId, fieldBehavior?.FormToken, StringComparison.Ordinal)
+            && string.Equals(sent.CustomValidity, fieldBehavior?.OwnMessage, StringComparison.Ordinal))
+        {
+            return;
+        }
+
+        formOptions = FormOptionsOf(serialized, focusTarget);
         await formHandle.UpdateAsync(formOptions);
     }
+
+    // DP6 (the checkable controls' and Select's refresh): a commit reads the hidden input's native state from a fresh report.
+    // Only a field reads it, and only `required` constrains the hidden input.
+    private Task RefreshFormAsync()
+    {
+        if (formHandle is null || disposed || fieldBehavior is not { InField: true } || !root.Store.State.Required)
+        {
+            return Task.CompletedTask;
+        }
+
+        refreshSource ??= new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        formRefreshes++;
+        refreshRevision = formRevision + formRefreshes;
+        _ = ObserveAsync(SyncFormAsync());
+        return refreshSource.Task;
+    }
+
+    private void OnControlReport(FormControlReport report)
+    {
+        if (disposed || !string.Equals(report.Type, "sync", StringComparison.Ordinal))
+        {
+            return;
+        }
+
+        if (report.Validity is { } validity)
+        {
+            fieldBehavior?.ReportValidity(validity);
+        }
+
+        if (refreshSource is { } source && report.Revision >= refreshRevision)
+        {
+            refreshSource = null;
+            source.TrySetResult();
+        }
+    }
+
+    private static (bool Required, bool Disabled, bool ReadOnly) Constraints(ComboboxStoreState state) => (state.Required, state.Disabled, state.ReadOnly);
 
     private static string? FocusTarget(ComboboxStoreState state) =>
         state.InputInsidePopup ? state.ElementIds.Trigger : state.ElementIds.Input ?? state.ElementIds.Trigger;
 
-    private static FormOptions FormOptionsOf(string serialized, string? focusTarget, int revision) => new()
+    private FormOptions FormOptionsOf(string serialized, string? focusTarget) => new()
     {
-        Control = new FormControlOptions { ReportEvents = false, ReportAutofill = true, Controlled = true, Value = serialized, Revision = revision, FocusTarget = focusTarget },
+        Control = new FormControlOptions
+        {
+            FormId = fieldBehavior?.FormToken,
+            CustomValidity = fieldBehavior?.OwnMessage,
+            ReportEvents = false,
+            ReportAutofill = true,
+            Controlled = true,
+            Value = serialized,
+            Revision = formRevision + formRefreshes,
+            FocusTarget = focusTarget,
+        },
     };
 
     private Task RouteAsync(OpenChangeRequest request) => root.Store.RequestOpenAsync(request.Open, request.Details);
