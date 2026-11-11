@@ -12,6 +12,7 @@ namespace Blazix.Primitives;
 /// <summary>Attaches a filter part's <c>menu-filter</c> handle and sends its options when they changed.</summary>
 internal sealed class MenuFilterModuleAttachment : IAsyncDisposable
 {
+    private readonly TaskCompletionSource attached = new(TaskCreationOptions.RunContinuationsAsynchronously);
     private TwinHandle<MenuFilterOptions>? handle;
     private MenuFilterOptions? sent;
     private Task? attaching;
@@ -26,6 +27,9 @@ internal sealed class MenuFilterModuleAttachment : IAsyncDisposable
 
     /// <summary>Gets the part's twin, whose reports the part subscribes to.</summary>
     public MenuFilterTwin Twin { get; }
+
+    /// <summary>Gets a task that completes when the handle has attached the first time.</summary>
+    public Task Attached => attached.Task;
 
     /// <inheritdoc />
     public async ValueTask DisposeAsync()
@@ -68,5 +72,6 @@ internal sealed class MenuFilterModuleAttachment : IAsyncDisposable
         sent = options;
         handle = await Twin.AttachAsync(element, options);
         attaching = null;
+        attached.TrySetResult();
     }
 }

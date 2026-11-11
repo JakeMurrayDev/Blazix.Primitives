@@ -37,6 +37,9 @@ public sealed class MenuList : PartBase<EmptyState>
     /// <inheritdoc />
     protected override bool UsesGeneratedId => true;
 
+    /// <summary>Gets a task that completes when a filterable menu's list has attached its <c>menu-filter</c> handle.</summary>
+    internal Task FilterAttached => filterModule?.Attached ?? Task.CompletedTask;
+
     /// <inheritdoc />
     protected override void OnInitialized()
     {

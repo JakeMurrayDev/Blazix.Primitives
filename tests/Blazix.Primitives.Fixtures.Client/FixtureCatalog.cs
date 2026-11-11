@@ -257,6 +257,9 @@ public static class FixtureCatalog
         ["list-values-indicator"] = new(typeof(ListValuesIndicatorFixture)),
         ["list-values-hidden-input"] = new(typeof(ListValuesHiddenInputFixture)),
 
+        // M5 track 12 (issue 197): Menu's filter mode.
+        ["menu-filter-root"] = new(typeof(MenuFilterRootFixture)),
+
         // M5 track 1 (issue 159, Deliverables 12-13): the popup-list suite on the test-only list hosts.
         ["composite-list-dom"] = new(typeof(CompositeListDomFixture)),
         ["composite-list-virtual"] = new(typeof(CompositeListVirtualFixture)),
