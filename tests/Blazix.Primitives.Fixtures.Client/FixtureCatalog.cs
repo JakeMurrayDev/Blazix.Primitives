@@ -6,6 +6,7 @@ using Blazix.Primitives.Fixtures.Client.ButtonBehavior;
 using Blazix.Primitives.Fixtures.Client.ButtonFixtures;
 using Blazix.Primitives.Fixtures.Client.CheckboxFixtures;
 using Blazix.Primitives.Fixtures.Client.CheckboxGroupFixtures;
+using Blazix.Primitives.Fixtures.Client.ContextMenuFixtures;
 using Blazix.Primitives.Fixtures.Client.CollapsibleFixtures;
 using Blazix.Primitives.Fixtures.Client.CompositeFixtures;
 using Blazix.Primitives.Fixtures.Client.DialogFixtures;
@@ -19,8 +20,10 @@ using Blazix.Primitives.Fixtures.Client.ListValuesFixtures;
 using Blazix.Primitives.Fixtures.Client.Interactions;
 using Blazix.Primitives.Fixtures.Client.KeepAlive;
 using Blazix.Primitives.Fixtures.Client.MeterFixtures;
+using Blazix.Primitives.Fixtures.Client.MenuFixtures;
 using Blazix.Primitives.Fixtures.Client.NavigationMenuFixtures;
 using Blazix.Primitives.Fixtures.Client.PopoverFixtures;
+using Blazix.Primitives.Fixtures.Client.SelectFixtures;
 using Blazix.Primitives.Fixtures.Client.PopupFixtures;
 using Blazix.Primitives.Fixtures.Client.PortalFixtures;
 using Blazix.Primitives.Fixtures.Client.PreviewCardFixtures;
@@ -188,6 +191,26 @@ public static class FixtureCatalog
         ["popover-triggers"] = new(typeof(PopoverTriggersFixture)),
         ["popover-tooltip-close"] = new(typeof(PopoverTooltipCloseFixture)),
         ["popover-viewport"] = new(typeof(PopoverViewportFixture)),
+
+        // M5 track 6 (issue 172): Menu's fixtures.
+        ["menu-conformance"] = new(typeof(MenuConformanceFixture)),
+        ["menu-triggers"] = new(typeof(MenuTriggersFixture)),
+        ["menu-viewport"] = new(typeof(MenuViewportFixture)),
+        ["menu-focus"] = new(typeof(MenuFocusFixture)),
+        ["menu-positioner"] = new(typeof(MenuPositionerFixture)),
+        ["menu-list"] = new(typeof(MenuListFixture)),
+        ["menu-nested"] = new(typeof(MenuNestedFixture)),
+        ["menu-measure"] = new(typeof(MenuMeasureFixture)),
+        ["menu-root"] = new(typeof(MenuRootFixture)),
+        ["context-menu-root"] = new(typeof(ContextMenuRootFixture)),
+        ["menu-dialog"] = new(typeof(MenuDialogFixture)),
+        ["menu-transition"] = new(typeof(MenuTransitionFixture)),
+        ["menu-triggerless"] = new(typeof(MenuTriggerlessFixture)),
+        ["menu-toolbar"] = new(typeof(MenuToolbarFixture)),
+        ["menu-perf"] = new(typeof(MenuPerfFixture)),
+        ["menu-guards"] = new(typeof(MenuGuardsFixture)),
+        ["menu-nesting"] = new(typeof(MenuNestingFixture)),
+        ["menu-anchor"] = new(typeof(MenuAnchorFixture)),
         ["portal-basic"] = new(typeof(PortalBasicFixture)),
         ["portal-prerender"] = new(typeof(PortalPrerenderFixture), Prerender: true),
         ["preview-card-conformance"] = new(typeof(PreviewCardConformanceFixture)),
@@ -246,5 +269,48 @@ public static class FixtureCatalog
         ["composite-list-measure"] = new(typeof(CompositeListMeasureFixture)),
         ["navigation-menu-basic"] = new(typeof(NavigationMenuBasicFixture)),
         ["navigation-menu-prerender"] = new(typeof(NavigationMenuPrerenderFixture), Prerender: true),
+
+        // M5 track 9 (issue 173, Deliverable 11): Select.
+        ["select-basic"] = new(typeof(SelectBasicFixture)),
+        ["select-conformance"] = new(typeof(SelectConformanceFixture)),
+        ["select-focus"] = new(typeof(SelectFocusFixture)),
+        ["select-list"] = new(typeof(SelectListFixture)),
+        ["select-positioner"] = new(typeof(SelectPositionerFixture)),
+        ["select-press-item"] = new(typeof(SelectPressItemFixture)),
+        ["select-press-trigger"] = new(typeof(SelectPressTriggerFixture)),
+        ["select-press-indicator"] = new(typeof(SelectPressIndicatorFixture)),
+        // select-press fixtures above this line (M5 track 9, L4 agent press)
+        ["select-lifecycle-actions"] = new(typeof(SelectLifecycleActionsFixture)),
+        ["select-lifecycle-basic"] = new(typeof(SelectLifecycleBasicFixture)),
+        ["select-lifecycle-touch"] = new(typeof(SelectLifecycleTouchFixture)),
+        ["select-lifecycle-arrows"] = new(typeof(SelectLifecycleArrowsFixture)),
+        ["select-lifecycle-popover"] = new(typeof(SelectLifecyclePopoverFixture)),
+        // select-lifecycle fixtures above this line (M5 track 9, L4 agent lifecycle)
+        ["select-form-state"] = new(typeof(SelectFormStateFixture)),
+        ["select-form-external"] = new(typeof(SelectFormExternalFixture)),
+        ["select-form-submit"] = new(typeof(SelectFormSubmitFixture)),
+        ["select-form-validation"] = new(typeof(SelectFormValidationFixture)),
+        ["select-form-field"] = new(typeof(SelectFormFieldFixture)),
+        ["select-form-label"] = new(typeof(SelectFormLabelFixture)),
+        // select-form fixtures above this line (M5 track 9, L4 agent form)
+        ["select-nav-dynamic"] = new(typeof(SelectNavDynamicFixture)),
+        ["select-nav-typeahead"] = new(typeof(SelectNavTypeaheadFixture)),
+        ["select-nav-multiple"] = new(typeof(SelectNavMultipleFixture)),
+        ["select-nav-hover"] = new(typeof(SelectNavHoverFixture)),
+        ["select-nav-groups"] = new(typeof(SelectNavGroupsFixture)),
+        ["select-nav-aligned"] = new(typeof(SelectNavAlignedFixture)),
+        ["select-nav-opening"] = new(typeof(SelectNavOpeningFixture)),
+        ["select-nav-closing"] = new(typeof(SelectNavClosingFixture)),
+        ["select-nav-arrow"] = new(typeof(SelectNavArrowFixture)),
+        // select-nav fixtures above this line (M5 track 9, L4 agent nav)
+        ["select-aligned-layout"] = new(typeof(SelectAlignedLayoutFixture)),
+        ["select-aligned-scroll"] = new(typeof(SelectAlignedScrollFixture)),
+        ["select-aligned-focus"] = new(typeof(SelectAlignedFocusFixture)),
+        // select-aligned fixtures above this line (M5 track 9, L4 agent aligned)
+        ["select-toolbar"] = new(typeof(SelectToolbarFixture)),
+        ["select-dialog"] = new(typeof(SelectDialogFixture)),
+        ["select-use-label"] = new(typeof(SelectUseLabelFixture)),
+        ["field-select-prerender"] = new(typeof(FieldSelectPrerenderFixture), Prerender: true),
+        // select-others fixtures above this line (M5 track 9, final review B2)
     };
 }

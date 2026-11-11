@@ -35,6 +35,9 @@ public static class DemoCatalog
         new("tooltip", "Tooltip", "A popup that names a button when the pointer rests on it or the keyboard focuses it.", typeof(TooltipDemo)),
         new("preview-card", "Preview Card", "A card that previews a link's content when the pointer rests on it or the keyboard focuses it.", typeof(PreviewCardDemo)),
         new("navigation-menu", "Navigation Menu", "A menu bar of links whose triggers open panels of further links, here the documentation's sections.", typeof(NavigationMenuDemo)),
+        new("menu", "Menu", "A list of actions in a popup anchored to a button, with checkbox items and a submenu of radio items.", typeof(MenuDemo)),
+        new("context-menu", "Context Menu", "A menu that opens at the pointer on a right click or a long press, with a submenu.", typeof(ContextMenuDemo)),
+        new("select", "Select", "A button that opens a list of options to choose one from, placed over the button with the chosen option aligned.", typeof(SelectDemo)),
     ];
 
     public static DemoEntry? Find(string slug) =>

@@ -331,6 +331,15 @@ public sealed class CompositeTwinContractTests
         Assert.Contains(""","trigger":{}}""", JsonSerializer.Serialize(new CompositeOptions { Trigger = new CompositeTriggerOptions() }, BlazixJsonContext.Default.CompositeOptions), StringComparison.Ordinal);
     }
 
+    // SEL-STA-07 (queued by the orchestrator 2026-11-10): the list option crosses by its module name, only when true.
+    [Fact(DisplayName = "port: the retain-highlight-while-closing list option is written by its module name, only when true")]
+    [Trait("Requirement", "CMP-STA-34")]
+    public void Retain_highlight_while_closing_is_written_by_its_module_name_only_when_true()
+    {
+        Assert.Contains("\"retainHighlightWhileClosing\":true", JsonSerializer.Serialize(new CompositeListOptions { RetainHighlightWhileClosing = true }, BlazixJsonContext.Default.CompositeListOptions), StringComparison.Ordinal);
+        Assert.DoesNotContain("retainHighlightWhileClosing", JsonSerializer.Serialize(new CompositeListOptions(), BlazixJsonContext.Default.CompositeListOptions), StringComparison.Ordinal);
+    }
+
     [Fact]
     [Trait("Requirement", "CMP-EVT-04")]
     [Trait("Requirement", "CMP-EVT-06")]
@@ -362,7 +371,7 @@ public sealed class CompositeTwinContractTests
     // Design point 9 (a) of M5 track 6 (settled by the orchestrator 2026-11-04; ADR 04 Amendments 2026-11-04): the highlight
     // report's label, absent when no item is highlighted or the item has none.
     [Fact(DisplayName = "port: the highlight report's label is read by its module name, and an absent one is null")]
-    [Trait("Requirement", "CMP-EVT-10")]
+    [Trait("Requirement", "CMP-EVT-04")]
     [Trait("Requirement", "MNU-EVT-10")]
     public void The_highlight_reports_label_is_read_by_its_module_name_and_an_absent_one_is_null()
     {

@@ -1066,6 +1066,12 @@ function keyDown(target: Element, key: string): void {
   target.dispatchEvent(new KeyboardEvent('keydown', { key, bubbles: true, cancelable: true }));
 }
 
+function pointerMove(target: Element, pointerType = 'mouse'): void {
+  const event = new MouseEvent('pointermove', { bubbles: true, cancelable: true, composed: true });
+  Object.defineProperty(event, 'pointerType', { value: pointerType });
+  target.dispatchEvent(event);
+}
+
 function pointerDown(target: Element, pointerType = 'mouse'): void {
   const event = new MouseEvent('pointerdown', { bubbles: true, cancelable: true, composed: true });
   Object.defineProperty(event, 'pointerType', { value: pointerType });
@@ -1409,6 +1415,25 @@ describe('FloatingFocusManager', () => {
       expect(focusSpy).not.toHaveBeenCalledWith(expect.objectContaining({ focusVisible: true }));
     });
 
+    it('port: an element inside the popup is no return target when the manager stops before the popup leaves the document', async () => {
+      // C# disposes the handle before the `portal` module takes the moved popup out of the document; Base UI's cleanup runs
+      // once its portal node left it, so an element focused inside the popup when the effect armed is disconnected there.
+      const reference = element('button', 'reference', { id: 'reference' });
+      const floating = element('div', undefined, { 'data-open': '' });
+      const inside = element('button', 'inside');
+      floating.append(inside);
+      document.body.append(reference, floating);
+      inside.focus();
+
+      const manager = attachManager(floating, { domReferenceId: 'reference', openInteractionType: null });
+      await settle();
+      floating.removeAttribute('data-open');
+      manager.handle.dispose();
+      await settle();
+
+      expect(document.activeElement).toBe(reference);
+    });
+
     it('does not return focus while open when the reference changes', async () => {
       const first = element('button', 'first', { id: 'first' });
       const second = element('button', 'second', { id: 'second' });
@@ -1463,6 +1488,39 @@ describe('FloatingFocusManager', () => {
       await settle();
 
       expect(document.activeElement).toBe(parentReference);
+    });
+
+    // D10 of PR 183 (MNU-DIS-04): a default-open submenu's portal content, guards included, sits inside the parent's popup until
+    // the `portal` module moves it; in Base UI those guards are in the body. A guard is never the initial focus target.
+    it('port: the default initial focus skips a nested portal\'s focus guard inside the popup', async () => {
+      const app = renderApp({ modal: false });
+      const nested = insideGuard();
+      app.floating.prepend(nested);
+      for (const button of [app.one, app.two, app.three]) {
+        button.remove();
+      }
+      app.reference.focus();
+
+      app.open({ modal: false, openInteractionType: 'mouse' });
+      await settle();
+
+      expect(document.activeElement).toBe(app.floating);
+    });
+
+    // The interim review of PR 183 (F4): any tabbable of a nested portal node not yet moved is in the body in Base UI, not
+    // only its guards, so the default initial focus skips the node's content as well.
+    it('port: the default initial focus skips the content of a nested portal not yet moved', async () => {
+      const app = renderApp({ modal: false });
+      const portal = element('div');
+      portal.setAttribute('data-base-ui-portal', '');
+      portal.append(element('button', 'nested-button'));
+      app.floating.prepend(portal);
+      app.reference.focus();
+
+      app.open({ modal: false, openInteractionType: 'mouse' });
+      await settle();
+
+      expect(document.activeElement).toBe(app.one);
     });
 
     // FLT-FOC-20 has no Base UI title: a programmatic open (`null`) prefers the element focused before the open.
@@ -2377,6 +2435,35 @@ describe('FloatingFocusManager', () => {
       expect(second.items[0]!.getAttribute('tabindex')).toBe('0');
       expect(document.activeElement).toBe(second.after);
     });
+
+    // Issue 221 (MNU-PTR-12's submenu-trigger title on WebAssembly; option (a), settled by the orchestrator 2026-11-11): a
+    // hover inside the popup is an interaction. A submenu that opened on that hover renders its trigger `tabindex="0"`
+    // long after initial focus, and the re-pick moved focus there, which highlighted it.
+    it('port: a pointer move inside the popup counts as an interaction, and one outside it does not', async () => {
+      const outside = renderGroupPopup();
+      outside.reference.focus();
+      attachManager(outside.floating);
+      await settle();
+      expect(document.activeElement).toBe(outside.after);
+
+      pointerMove(outside.reference);
+      outside.attachGroup();
+      await settle();
+      expect(document.activeElement).toBe(outside.items[0]);
+      document.body.replaceChildren();
+
+      const inside = renderGroupPopup();
+      inside.reference.focus();
+      attachManager(inside.floating);
+      await settle();
+      expect(document.activeElement).toBe(inside.after);
+
+      pointerMove(inside.items[1]!);
+      inside.attachGroup();
+      await settle();
+      expect(inside.items[0]!.getAttribute('tabindex')).toBe('0');
+      expect(document.activeElement).toBe(inside.after);
+    });
   });
 
   // FLT-ARIA-01's hover title: the `useHover` shim becomes a hover open carried by the relay (dated note on FLT-ARIA-01).
@@ -3112,6 +3199,34 @@ describe('FloatingFocusManager', () => {
       const focusOut = manager.fake.reported(FOCUS_OUT_CLOSE_REPORT).length;
       const outsidePress = popup.requests.filter((request) => request.method === 'OnRequest' && request.payload.open === false).length;
       expect(focusOut + outsidePress).toBe(1);
+    });
+
+    it('port: focus returns on close to a trigger that became the session reference while the popup was open', async () => {
+      // MenuRoot.triggerless.test.tsx's "preserves real trigger registration": a root opened without a trigger claims one
+      // that mounts while it is open (useImplicitActiveTrigger), and the return-focus effect re-arms for that reference
+      // with no update of the manager's own options. The popup then leaves the document with no update either.
+      const popup = sessionPopup({ open: true });
+      popup.attachSession();
+      const floating = element('div', 'floating', { role: 'menu', tabindex: '-1', 'data-open': '' });
+      const inside = element('button', 'inside');
+      floating.append(inside);
+      document.body.append(floating);
+      popup.attachFloating(floating);
+      const manager = attachManager(floating, { modal: false, sessionToken: popup.token });
+      await settle();
+      inside.focus();
+
+      const trigger = element('button', 'trigger', { id: 'trigger' });
+      document.body.append(trigger);
+      popup.attachTrigger(trigger);
+      popup.setReference(trigger);
+      await settle();
+      floating.removeAttribute('data-open');
+      floating.remove();
+      manager.handle.dispose();
+      await settle();
+
+      expect(document.activeElement).toBe(trigger);
     });
 
     it('focuses without a frame delay when a screen reader press opens it', async () => {

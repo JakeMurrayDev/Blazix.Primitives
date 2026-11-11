@@ -1,0 +1,113 @@
+@namespace Blazix.Primitives.Fixtures.Client.MenuFixtures
+@using System.Globalization
+@using Blazix.Primitives
+@using Blazix.Primitives.Fixtures.Client.PopupFixtures
+@inherits PopupSuiteFixtureBase
+
+@*
+    The `menu-dialog` fixture (tests/browser/menu.popups.spec.ts, M5 track 6): MenuRoot.test.tsx's nested popups, a dialog
+    opened from a menu item. `case`: `dialog` (a native item substituting a DialogTrigger, its popup holding `dialog-button`),
+    `alert-dialog` (an AlertDialogTrigger, a backdrop and `alert-dialog-close`), `dialog-div` (a non-native DialogTrigger,
+    `dialog-close`), `press-release` (a kept-mounted menu whose item opens a sibling controlled Dialog with a fixed backdrop).
+    The container records `data-open-changes` (the menu's), `data-dialog-open-changes` and, for the first three cases,
+    `data-item-attached` once the substituted trigger attached.
+*@
+<FixtureContainer Name="menu-dialog" data-attached="@(Attached ? "true" : "false")" data-sync="@Sync"
+                  data-open-changes="@OpenChanges" data-dialog-open-changes="@string.Join(' ', dialogChanges)"
+                  data-item-attached="@(itemAttached ? "true" : "false")">
+    <button type="button" data-sync-button data-key-control @onclick="() => Sync++" @onkeydown="OnShift(() => Sync++)">Sync</button>
+    <MenuRoot TPayload="NoPayload" @ref="root" OnOpenChange="RecordOpenChange">
+        <MenuTrigger TPayload="NoPayload" @ref="trigger" data-testid="menu-trigger">Open Menu</MenuTrigger>
+        <MenuPortal KeepMounted="@(Case == "press-release")">
+            <MenuPositioner>
+                <MenuPopup data-testid="menu-popup">
+                    @if (Case == "press-release")
+                    {
+                        <MenuItem data-testid="item" @onclick="() => dialogOpen = true">Open dialog</MenuItem>
+                    }
+                    else
+                    {
+                        <MenuItem>Item 1</MenuItem>
+                        @NestedPopup
+                        <MenuItem>Item 2</MenuItem>
+                    }
+                </MenuPopup>
+            </MenuPositioner>
+        </MenuPortal>
+    </MenuRoot>
+    @if (Case == "press-release")
+    {
+        <DialogRoot TPayload="NoPayload" Open="@dialogOpen" OnOpenChange="RecordDialogChange">
+            <DialogPortal>
+                <DialogBackdrop style="position: fixed; inset: 0" />
+                <DialogPopup data-testid="dialog-popup">Dialog</DialogPopup>
+            </DialogPortal>
+        </DialogRoot>
+    }
+</FixtureContainer>
+
+@code {
+    private static readonly RenderFragment s_div = @<div></div>;
+    private readonly List<string> dialogChanges = [];
+    private MenuRoot<NoPayload>? root;
+    private MenuTrigger<NoPayload>? trigger;
+    private DialogTrigger<NoPayload>? dialogTrigger;
+    private AlertDialogTrigger<NoPayload>? alertDialogTrigger;
+    private bool dialogOpen;
+    private bool itemAttached;
+
+    protected override IEnumerable<Task> Attachments =>
+        [trigger?.TwinsAttached ?? Task.CompletedTask, root?.SessionAttached ?? Task.CompletedTask];
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        await base.OnAfterRenderAsync(firstRender);
+        if (!itemAttached && (dialogTrigger is not null || alertDialogTrigger is not null))
+        {
+            await (dialogTrigger?.TwinAttached ?? alertDialogTrigger!.TwinAttached);
+            itemAttached = true;
+            StateHasChanged();
+        }
+    }
+
+    private void RecordDialogChange(ValueChangeEventArgs<bool> args)
+    {
+        dialogChanges.Add(string.Create(CultureInfo.InvariantCulture, $"{(args.Value ? "true" : "false")}:{args.Details.Reason.ToLiteral()}"));
+        dialogOpen = args.Value;
+    }
+
+    private RenderFragment DialogTriggerPart => @<DialogTrigger TPayload="NoPayload" @ref="dialogTrigger" />;
+
+    private RenderFragment DivDialogTriggerPart => @<DialogTrigger TPayload="NoPayload" @ref="dialogTrigger" Render="@s_div" NativeButton="false" />;
+
+    private RenderFragment AlertDialogTriggerPart => @<AlertDialogTrigger TPayload="NoPayload" @ref="alertDialogTrigger" />;
+
+    private RenderFragment NestedPopup => Case switch
+    {
+        "alert-dialog" => @<AlertDialogRoot TPayload="NoPayload" OnOpenChange="RecordDialogChange">
+            <MenuItem Render="@AlertDialogTriggerPart" CloseOnClick="false" NativeButton="true" data-testid="alert-dialog-trigger">Open Alert Dialog</MenuItem>
+            <AlertDialogPortal>
+                <AlertDialogBackdrop data-testid="alert-dialog-backdrop" />
+                <AlertDialogPopup data-testid="alert-dialog-popup">
+                    <AlertDialogClose data-testid="alert-dialog-close">Close</AlertDialogClose>
+                </AlertDialogPopup>
+            </AlertDialogPortal>
+        </AlertDialogRoot>,
+        "dialog-div" => @<DialogRoot TPayload="NoPayload" OnOpenChange="RecordDialogChange">
+            <MenuItem Render="@DivDialogTriggerPart" CloseOnClick="false" data-testid="dialog-trigger">Open Dialog</MenuItem>
+            <DialogPortal>
+                <DialogPopup data-testid="dialog-popup">
+                    <DialogClose data-testid="dialog-close">Close</DialogClose>
+                </DialogPopup>
+            </DialogPortal>
+        </DialogRoot>,
+        _ => @<DialogRoot TPayload="NoPayload" OnOpenChange="RecordDialogChange">
+            <MenuItem Render="@DialogTriggerPart" CloseOnClick="false" NativeButton="true" data-testid="dialog-trigger">Open Dialog</MenuItem>
+            <DialogPortal>
+                <DialogPopup data-testid="dialog-popup">
+                    <button type="button" data-testid="dialog-button">Dialog Button</button>
+                </DialogPopup>
+            </DialogPortal>
+        </DialogRoot>,
+    };
+}

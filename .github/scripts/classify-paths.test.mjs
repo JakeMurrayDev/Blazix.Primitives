@@ -93,6 +93,22 @@ describe('dependent families', () => {
     expect(run(['src/Blazix.Primitives/AlertDialog/AlertDialogRoot.cs'], withDialog).specs).toEqual(['tests/browser/alert-dialog.spec.ts']);
     expect(run(['tests/browser/dialog.spec.ts'], withDialog).specs).toEqual(['tests/browser/dialog.spec.ts']);
   });
+
+  // ADR 11 Amendments 2026-10-29's dependents rule (M5 track 7, issue 194): ContextMenu's parts are sealed shells over the
+  // behaviours in Menu/ (decision 12 of the M5 plan), so a change there also runs the ContextMenu spec; one way.
+  it('a change under the Menu folder also runs the ContextMenu spec, and not the other way round', () => {
+    const withMenu = {
+      families: [...families, 'menu', 'context-menu'],
+      specFiles: [...specFiles, 'tests/browser/menu.root.spec.ts', 'tests/browser/menu.helpers.ts', 'tests/browser/context-menu.spec.ts'],
+    };
+    const shared = run(['src/Blazix.Primitives/Menu/MenuPopupBehavior.cs'], withMenu);
+    expect(shared.l4).toBe('scoped');
+    expect(shared.families).toEqual(['context-menu', 'menu']);
+    expect(shared.specs).toContain('tests/browser/context-menu.spec.ts');
+    expect(shared.specs).toContain('tests/browser/menu.root.spec.ts');
+
+    expect(run(['src/Blazix.Primitives/ContextMenu/ContextMenuTrigger.cs'], withMenu).specs).toEqual(['tests/browser/context-menu.spec.ts']);
+  });
 });
 
 describe('full L4', () => {

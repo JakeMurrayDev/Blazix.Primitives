@@ -82,6 +82,12 @@ internal sealed record ButtonOptions : TwinOptions
     /// <summary>Gets a value indicating whether the module checks that the element matches <see cref="Native"/>.</summary>
     /// <value>The state of the library's development warnings switch unless set.</value>
     public bool DevelopmentChecks { get; init; } = DevelopmentWarnings.IsEnabled;
+
+    // MNU-EDGE-06 (MenuSubmenuTrigger.tsx:134-145; settled by the orchestrator 2026-11-10 as option (a)).
+    /// <summary>Gets a value indicating whether the module checks for an element rendered disabled while the part is not.</summary>
+    /// <value><see langword="true"/> for a part that warns about it; the default <see langword="false"/> is not sent.</value>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
+    public bool DisabledElementCheck { get; init; }
 }
 
 // UBT-ALG-07; button-behavior.md §2 (timing constants)

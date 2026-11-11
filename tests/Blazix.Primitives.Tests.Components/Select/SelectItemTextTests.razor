@@ -1,0 +1,22 @@
+@namespace Blazix.Primitives.Tests.Components
+@inherits SelectTestBase
+@using Bunit
+@*
+    L2: SelectItemText.test.tsx's one title beside its conformance suite (M5 track 9).
+*@
+
+@code {
+    [Fact(DisplayName = "throws a descriptive error when rendered outside <Select.Item>")]
+    [Trait("Requirement", "SEL-STR-04")]
+    [Trait("Requirement", "SEL-EDGE-01")]
+    public void Throws_a_descriptive_error_when_rendered_outside_an_item()
+    {
+        InvalidOperationException error = Assert.Throws<InvalidOperationException>(() => RenderSelect(@<SelectRoot TValue="string" Open="true">
+            <SelectPositioner>
+                <SelectItemText />
+            </SelectPositioner>
+        </SelectRoot>));
+
+        Assert.Equal("Blazix: `SelectItemContext` is missing. SelectItem parts must be placed within `<SelectItem>`.", error.Message);
+    }
+}

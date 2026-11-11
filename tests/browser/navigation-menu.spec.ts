@@ -816,7 +816,9 @@ test.describe('<NavigationMenu.Popup /> anchoring', () => {
       await expect(popup).toBeVisible();
 
       await expect(page.getByTestId('positioner')).toHaveAttribute('data-side', side);
-      expect(await popup.evaluate((element: HTMLElement) => [element.style.position, element.style.top, element.style.right, element.style.left, element.style.bottom])).toEqual(['absolute', '0px', '0px', '', '']);
+      // The module writes the anchoring styles (NAV-DOM-31) when the Popup attaches or its status changes, so they can land
+      // a frame after `data-side` does; the poll waits for that end state (ADR 06 §2).
+      await expect.poll(() => popup.evaluate((element: HTMLElement) => [element.style.position, element.style.top, element.style.right, element.style.left, element.style.bottom])).toEqual(['absolute', '0px', '0px', '', '']);
     });
   }
 
@@ -827,7 +829,7 @@ test.describe('<NavigationMenu.Popup /> anchoring', () => {
     await expect(popup).toBeVisible();
 
     await expect(page.getByTestId('positioner')).toHaveAttribute('data-side', 'top');
-    expect(await popup.evaluate((element: HTMLElement) => [element.style.position, element.style.bottom, element.style.left, element.style.top, element.style.right])).toEqual(['absolute', '0px', '0px', '', '']);
+    await expect.poll(() => popup.evaluate((element: HTMLElement) => [element.style.position, element.style.bottom, element.style.left, element.style.top, element.style.right])).toEqual(['absolute', '0px', '0px', '', '']);
   });
 
   test('disables popup and arrow transitions while a kept portal opens', async ({ page, mode }) => {
@@ -843,7 +845,7 @@ test.describe('<NavigationMenu.Popup /> anchoring', () => {
 
     await page.clock.runFor(64);
     await expect.poll(() => popup.evaluate((element: HTMLElement) => element.style.transition)).not.toBe('none');
-    expect(await arrowPart.evaluate((element: HTMLElement) => element.style.transition)).not.toBe('none');
+    await expect.poll(() => arrowPart.evaluate((element: HTMLElement) => element.style.transition)).not.toBe('none');
   });
 });
 
@@ -2168,11 +2170,19 @@ test.describe('attach order', () => {
   }
 
   test('port: with js/navigation-menu.js stalled the trigger opens on click, and the size pass runs once the module arrives', async ({ page, mode }) => {
+    // On Server the circuit is delayed, so the handles attach round trips after the page is interactive every time, as on
+    // the loaded runner of main's run 42839131657, where the click landed before trigger 1's interactions handle.
+    if (mode === 'server') {
+      await delayCircuit(page, 150);
+    }
     const stalled = await stall(page, 'navigation-menu');
     await page.goto(`${fixtureUrl(mode, FIXTURE)}?sized=true`, { waitUntil: 'commit' });
     await page.locator(Fixture.started).waitFor({ state: 'attached' });
     await page.locator(Fixture.interactive(FIXTURE)).first().waitFor({ state: 'attached' });
     await expect.poll(stalled.hits).toBeGreaterThan(0);
+    // With navigation-menu.js stalled, the interactions handle's click role is the only path that opens, and on Server it
+    // attaches round trips after the page is interactive: the fixture renders it once C# has it.
+    await expect(page.locator(Fixture.container(FIXTURE))).toHaveAttribute('data-handles', /(^| )trigger-1:interactions( |$)/);
 
     await trigger(page, 1).click();
     await expect(trigger(page, 1)).toHaveAttribute('aria-expanded', 'true');

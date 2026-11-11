@@ -744,6 +744,77 @@ test.describe('<Toolbar.Button />', () => {
       });
     });
 
+    // ToolbarButton.test.tsx's Select block (M5 track 9, final review B2): a SelectTrigger substituted into the button on the
+    // `select-toolbar` fixture, the popup placed against the trigger. The L2 halves are ToolbarSelectTests.
+    test.describe('Select', () => {
+      const NON_NATIVE_MISMATCH = 'Blazix: A component that acts as a button expected a non-`<button>` because the `NativeButton` parameter is `false`.';
+      const valueChanges = async (fixture: Locator) => ((await fixture.getAttribute('data-value-changes')) ?? '').split(' ').filter(Boolean);
+
+      // TLB-STR-05, TLB-ARIA-09
+      test('renders a select trigger', async ({ page, mode }) => {
+        await gotoPopupFixture(page, mode, 'select-toolbar');
+
+        const trigger = page.getByTestId('button');
+        await expect(page.getByRole('combobox')).toHaveAttribute('data-testid', 'button');
+        await expect(trigger).toHaveAttribute('aria-haspopup', 'listbox');
+      });
+
+      // TLB-STR-05, TLB-KEY-03, TLB-KEY-15, TLB-FOC-06. Base UI runs it in jsdom only (`it.skipIf(!isJSDOM)`); here a real
+      // keyboard in the browser: the cross-axis ArrowDown reaches the trigger and opens the select, the arrows move within
+      // the list, and Enter selects and returns focus to the toolbar item.
+      test('handles interactions', async ({ page, mode }) => {
+        const fixture = await gotoPopupFixture(page, mode, 'select-toolbar');
+        await expect(page.getByRole('listbox')).toHaveCount(0);
+
+        const trigger = page.getByTestId('button');
+        await page.keyboard.press('Tab');
+        await expect(trigger).toBeFocused();
+
+        await page.keyboard.press('ArrowDown');
+        await expect(page.getByRole('listbox')).toHaveAttribute('data-testid', 'popup');
+        await expect(page.getByRole('option', { name: 'a', exact: true })).toBeFocused();
+
+        await page.keyboard.press('ArrowDown');
+        await expect(page.getByRole('option', { name: 'b', exact: true })).toBeFocused();
+
+        await page.keyboard.press('Enter');
+        await expect(page.getByRole('listbox')).toHaveCount(0);
+        await expect(trigger).toBeFocused();
+
+        await settlePopup(fixture);
+        const changes = await valueChanges(fixture);
+        expect(changes).toHaveLength(1);
+        expect(changes[0]).toMatch(/^b:/);
+      });
+
+      // TLB-STR-05, TLB-DOM-08, TLB-EDGE-02. Base UI's `toErrorDev` is the session's diagnostics: the trigger declares
+      // `NativeButton="false"` over its default `<button>`, so the declared-mode check writes the non-native message once.
+      test('disabled state', async ({ page, mode }) => {
+        const fixture = await gotoPopupFixture(page, mode, 'select-toolbar', { disabled: true });
+        await expect(page.getByRole('listbox')).toHaveCount(0);
+
+        const trigger = page.getByRole('combobox');
+        await expect(trigger).not.toHaveAttribute('disabled');
+        await expect(trigger).toHaveAttribute('data-disabled');
+        await expect(trigger).toHaveAttribute('aria-disabled', 'true');
+
+        await page.keyboard.press('Tab');
+        await expect(trigger).toBeFocused();
+        expect(await openChanges(fixture)).toEqual([]);
+        expect(await valueChanges(fixture)).toEqual([]);
+
+        for (const key of ['ArrowUp', 'ArrowDown', 'Enter', 'Space']) {
+          await page.keyboard.press(key);
+        }
+
+        await settlePopup(fixture);
+        expect(await openChanges(fixture)).toEqual([]);
+        expect(await valueChanges(fixture)).toEqual([]);
+        const mismatches = (await readDiagnostics(page, mode, fixture)).filter((d) => d.message.startsWith('Blazix: A component that acts as a button'));
+        expect(mismatches.map((d) => d.message.slice(0, NON_NATIVE_MISMATCH.length))).toEqual([NON_NATIVE_MISMATCH]);
+      });
+    });
+
     test.describe('Toggle and ToggleGroup', () => {
       // TLB-STR-05, TLB-ARIA-09, TLB-EDGE-12.
       test('renders toggle and toggle group', async ({ page, mode }) => {

@@ -1,0 +1,729 @@
+@namespace Blazix.Primitives.Tests.Components
+@inherits SelectTestBase
+@using AngleSharp.Dom
+@using Bunit
+@*
+    L2: SelectValue.test.tsx's titles bUnit observes (M5 track 9). The value part is C# only: the label it resolves from the
+    root's items, the templates and the placeholder. A label is a string in the port (design point N1), so the ReactNode
+    label titles are not ported; the object `label`/`value` member fallback is replaced by ItemToStringLabel and
+    ItemToStringValue (ADR 16 rule 1), which a port title below covers.
+*@
+
+@code {
+    private sealed record Country(string Name, string Code)
+    {
+        public override string ToString() => Code;
+    }
+
+    private static string? Record(List<string?> calls, string? value)
+    {
+        calls.Add(value);
+        return value;
+    }
+
+    private static string RecordAll(List<IReadOnlyList<string>> calls, IReadOnlyList<string> values)
+    {
+        calls.Add(values);
+        return "Selected: " + string.Join(" + ", values);
+    }
+
+    private static IElement ValueOf(IRenderedComponent<SelectHost> cut) => cut.Find("[data-testid=\"value\"]");
+
+    // prop: children
+
+    [Fact(DisplayName = "accepts a function with a value parameter")]
+    [Trait("Requirement", "SEL-API-29")]
+    [Trait("Requirement", "SEL-EVT-14")]
+    public async Task Accepts_a_function_with_a_value_parameter()
+    {
+        List<string?> calls = [];
+        IRenderedComponent<SelectHost> cut = RenderSelect(@<SelectRoot TValue="string" Value="@("1")">
+            <SelectTrigger>
+                <SelectValue>
+                    <ValueContent Context="value">@Record(calls, value)</ValueContent>
+                </SelectValue>
+            </SelectTrigger>
+            <SelectPortal>
+                <SelectPositioner>
+                    <SelectPopup>
+                        <SelectItem Value="@("1")">one</SelectItem>
+                    </SelectPopup>
+                </SelectPositioner>
+            </SelectPortal>
+        </SelectRoot>);
+
+        // Base UI clicks the trigger's text; the open press is the interactions module's report.
+        await OpenAsync(cut);
+
+        Assert.Equal("1", calls[0]);
+        Assert.Equal("1", Trigger(cut).TextContent);
+    }
+
+    [Fact(DisplayName = "overrides the text when children is a string")]
+    [Trait("Requirement", "SEL-API-29")]
+    public void Overrides_the_text_when_children_is_a_string()
+    {
+        IRenderedComponent<SelectHost> cut = RenderSelect(@<SelectRoot TValue="string" Value="@("1")">
+            <SelectValue data-testid="value">one</SelectValue>
+        </SelectRoot>);
+
+        Assert.Equal("one", ValueOf(cut).TextContent);
+    }
+
+    // prop: items (object format)
+
+    [Fact(DisplayName = "displays the label from items object when no children are provided")]
+    [Trait("Requirement", "SEL-API-19")]
+    public void Displays_the_label_from_items_object_when_no_children_are_provided()
+    {
+        IReadOnlyDictionary<string, string?> items = new Dictionary<string, string?>
+        {
+            ["sans"] = "Sans-serif",
+            ["serif"] = "Serif",
+            ["mono"] = "Monospace",
+        };
+
+        IRenderedComponent<SelectHost> cut = RenderSelect(@<SelectRoot TValue="string" Value="@("sans")" ItemLabels="items">
+            <SelectTrigger>
+                <SelectValue data-testid="value" />
+            </SelectTrigger>
+            <SelectPortal>
+                <SelectPositioner>
+                    <SelectPopup>
+                        <SelectItem Value="@("sans")">Sans-serif</SelectItem>
+                        <SelectItem Value="@("serif")">Serif</SelectItem>
+                        <SelectItem Value="@("mono")">Monospace</SelectItem>
+                    </SelectPopup>
+                </SelectPositioner>
+            </SelectPortal>
+        </SelectRoot>);
+
+        Assert.Equal("Sans-serif", ValueOf(cut).TextContent);
+    }
+
+    [Fact(DisplayName = "updates the label when value changes with items object")]
+    [Trait("Requirement", "SEL-API-19")]
+    public async Task Updates_the_label_when_value_changes_with_items_object()
+    {
+        IReadOnlyDictionary<string, string?> items = new Dictionary<string, string?>
+        {
+            ["sans"] = "Sans-serif",
+            ["serif"] = "Serif",
+            ["mono"] = "Monospace",
+        };
+        string value = "sans";
+
+        IRenderedComponent<SelectHost> cut = RenderSelect(@<SelectRoot TValue="string" Value="@value" ItemLabels="items">
+            <SelectTrigger>
+                <SelectValue data-testid="value" />
+            </SelectTrigger>
+            <SelectPortal>
+                <SelectPositioner>
+                    <SelectPopup>
+                        <SelectItem Value="@("sans")">Sans-serif</SelectItem>
+                        <SelectItem Value="@("serif")">Serif</SelectItem>
+                        <SelectItem Value="@("mono")">Monospace</SelectItem>
+                    </SelectPopup>
+                </SelectPositioner>
+            </SelectPortal>
+        </SelectRoot>);
+
+        Assert.Equal("Sans-serif", ValueOf(cut).TextContent);
+
+        value = "serif";
+        await RefreshAsync(cut);
+        Assert.Equal("Serif", ValueOf(cut).TextContent);
+
+        value = "mono";
+        await RefreshAsync(cut);
+        Assert.Equal("Monospace", ValueOf(cut).TextContent);
+    }
+
+    [Fact(DisplayName = "falls back to raw value when value is not in items object")]
+    [Trait("Requirement", "SEL-API-19")]
+    public void Falls_back_to_raw_value_when_value_is_not_in_items_object()
+    {
+        IReadOnlyDictionary<string, string?> items = new Dictionary<string, string?>
+        {
+            ["sans"] = "Sans-serif",
+            ["serif"] = "Serif",
+        };
+
+        IRenderedComponent<SelectHost> cut = RenderSelect(@<SelectRoot TValue="string" Value="@("unknown")" ItemLabels="items">
+            <SelectValue data-testid="value" />
+        </SelectRoot>);
+
+        Assert.Equal("unknown", ValueOf(cut).TextContent);
+    }
+
+    // "supports ReactNode labels in items object": not ported. A label is a string in the port (design point N1), so there
+    // is no node to render; the labels that are strings render as text in the titles above.
+
+    [Fact(DisplayName = "can lookup null value")]
+    [Trait("Requirement", "SEL-API-19")]
+    [Trait("Requirement", "SEL-EDGE-19")]
+    public void Can_lookup_null_value()
+    {
+        IReadOnlyDictionary<string, string?> items = new Dictionary<string, string?>
+        {
+            ["sans"] = "Sans-serif",
+            ["serif"] = "Serif",
+            ["null"] = "Null",
+        };
+
+        IRenderedComponent<SelectHost> cut = RenderSelect(@<SelectRoot TValue="string" Value="@(default(string))" ItemLabels="items">
+            <SelectValue data-testid="value" />
+        </SelectRoot>);
+
+        Assert.Equal("Null", ValueOf(cut).TextContent);
+    }
+
+    // prop: items (array format)
+
+    [Fact(DisplayName = "displays the label from items array when no children are provided")]
+    [Trait("Requirement", "SEL-API-19")]
+    public void Displays_the_label_from_items_array_when_no_children_are_provided()
+    {
+        LabeledValue<string>[] items = [new("sans", "Sans-serif"), new("serif", "Serif"), new("mono", "Monospace")];
+
+        IRenderedComponent<SelectHost> cut = RenderSelect(@<SelectRoot TValue="string" Value="@("serif")" Items="items">
+            <SelectTrigger>
+                <SelectValue data-testid="value" />
+            </SelectTrigger>
+            <SelectPortal>
+                <SelectPositioner>
+                    <SelectPopup>
+                        <SelectItem Value="@("sans")">Sans-serif</SelectItem>
+                        <SelectItem Value="@("serif")">Serif</SelectItem>
+                        <SelectItem Value="@("mono")">Monospace</SelectItem>
+                    </SelectPopup>
+                </SelectPositioner>
+            </SelectPortal>
+        </SelectRoot>);
+
+        Assert.Equal("Serif", ValueOf(cut).TextContent);
+    }
+
+    [Fact(DisplayName = "updates the label when value changes with items array")]
+    [Trait("Requirement", "SEL-API-19")]
+    public async Task Updates_the_label_when_value_changes_with_items_array()
+    {
+        LabeledValue<string>[] items = [new("sans", "Sans-serif"), new("serif", "Serif"), new("mono", "Monospace")];
+        string value = "sans";
+
+        IRenderedComponent<SelectHost> cut = RenderSelect(@<SelectRoot TValue="string" Value="@value" Items="items">
+            <SelectTrigger>
+                <SelectValue data-testid="value" />
+            </SelectTrigger>
+            <SelectPortal>
+                <SelectPositioner>
+                    <SelectPopup>
+                        <SelectItem Value="@("sans")">Sans-serif</SelectItem>
+                        <SelectItem Value="@("serif")">Serif</SelectItem>
+                        <SelectItem Value="@("mono")">Monospace</SelectItem>
+                    </SelectPopup>
+                </SelectPositioner>
+            </SelectPortal>
+        </SelectRoot>);
+
+        Assert.Equal("Sans-serif", ValueOf(cut).TextContent);
+
+        value = "serif";
+        await RefreshAsync(cut);
+        Assert.Equal("Serif", ValueOf(cut).TextContent);
+
+        value = "mono";
+        await RefreshAsync(cut);
+        Assert.Equal("Monospace", ValueOf(cut).TextContent);
+    }
+
+    [Fact(DisplayName = "falls back to raw value when value is not in items array")]
+    [Trait("Requirement", "SEL-API-19")]
+    public void Falls_back_to_raw_value_when_value_is_not_in_items_array()
+    {
+        LabeledValue<string>[] items = [new("sans", "Sans-serif"), new("serif", "Serif")];
+
+        IRenderedComponent<SelectHost> cut = RenderSelect(@<SelectRoot TValue="string" Value="@("unknown")" Items="items">
+            <SelectValue data-testid="value" />
+        </SelectRoot>);
+
+        Assert.Equal("unknown", ValueOf(cut).TextContent);
+    }
+
+    // "supports ReactNode labels in items array": not ported, as "supports ReactNode labels in items object" (string labels).
+
+    [Fact(DisplayName = "is not stale after being updated")]
+    [Trait("Requirement", "SEL-API-19")]
+    public async Task Is_not_stale_after_being_updated()
+    {
+        string value = "a";
+        LabeledValue<string>[] items = [new("a", "a"), new("b", "b")];
+
+        IRenderedComponent<SelectHost> cut = RenderSelect(@<SelectRoot TValue="string" Value="@value" Items="items">
+            <SelectTrigger>
+                <SelectValue data-testid="value" />
+            </SelectTrigger>
+            <SelectPortal>
+                <SelectPositioner>
+                    <SelectPopup>
+                        @foreach (LabeledValue<string> item in items)
+                        {
+                            <SelectItem @key="item.Value" Value="@item.Value">@item.Label</SelectItem>
+                        }
+                    </SelectPopup>
+                </SelectPositioner>
+            </SelectPortal>
+        </SelectRoot>);
+
+        Assert.Equal("a", ValueOf(cut).TextContent);
+
+        items = [new("a", "a new"), new("b", "b new"), new("c", "c")];
+        await RefreshAsync(cut);
+        Assert.Equal("a new", ValueOf(cut).TextContent);
+
+        value = "c";
+        await RefreshAsync(cut);
+        Assert.Equal("c", ValueOf(cut).TextContent);
+    }
+
+    // prop: itemToStringLabel
+
+    [Fact(DisplayName = "uses custom itemToStringLabel function")]
+    [Trait("Requirement", "SEL-API-20")]
+    public void Uses_custom_itemToStringLabel_function()
+    {
+        Country[] items = [new("United States", "US"), new("Canada", "CA")];
+
+        IRenderedComponent<SelectHost> cut = RenderSelect(@<SelectRoot TValue="Country" Value="@items[1]" ItemToStringLabel="country => country.Name" ItemToStringValue="country => country.Code">
+            <SelectTrigger>
+                <SelectValue data-testid="value" />
+            </SelectTrigger>
+            <SelectPortal>
+                <SelectPositioner>
+                    <SelectPopup>
+                        @foreach (Country country in items)
+                        {
+                            <SelectItem @key="country.Code" Value="country">@country.Name</SelectItem>
+                        }
+                    </SelectPopup>
+                </SelectPositioner>
+            </SelectPortal>
+        </SelectRoot>);
+
+        Assert.Equal("Canada", ValueOf(cut).TextContent);
+    }
+
+    // The port never reads an object's `label` and `value` members (ADR 16 rule 1; UTL, track 4's design point 2): without
+    // the two functions the label and the submitted text are the value's invariant text, here the record's ToString.
+    [Fact(DisplayName = "port: falls back to the value's invariant text when the functions are not provided")]
+    [Trait("Requirement", "SEL-DOM-51")]
+    [Trait("Requirement", "SEL-DOM-10")]
+    public void Port_falls_back_to_the_values_invariant_text_when_the_functions_are_not_provided()
+    {
+        Country[] items = [new("United States", "US"), new("Canada", "CA")];
+
+        IRenderedComponent<SelectHost> cut = RenderSelect(@<SelectRoot TValue="Country" Name="country" Value="@items[1]">
+            <SelectTrigger>
+                <SelectValue data-testid="value" />
+            </SelectTrigger>
+            <SelectPortal>
+                <SelectPositioner>
+                    <SelectPopup>
+                        @foreach (Country country in items)
+                        {
+                            <SelectItem @key="country.Code" Value="country">@country.Name</SelectItem>
+                        }
+                    </SelectPopup>
+                </SelectPositioner>
+            </SelectPortal>
+        </SelectRoot>);
+
+        Assert.Equal("CA", ValueOf(cut).TextContent);
+        Assert.Equal("CA", cut.Find("input[name=\"country\"]").GetAttribute("value"));
+    }
+
+    // prop: children (takes precedence over items)
+
+    [Fact(DisplayName = "uses children string over items object")]
+    [Trait("Requirement", "SEL-API-29")]
+    public void Uses_children_string_over_items_object()
+    {
+        IReadOnlyDictionary<string, string?> items = new Dictionary<string, string?>
+        {
+            ["sans"] = "Sans-serif",
+            ["serif"] = "Serif",
+        };
+
+        IRenderedComponent<SelectHost> cut = RenderSelect(@<SelectRoot TValue="string" Value="@("sans")" ItemLabels="items">
+            <SelectValue data-testid="value">Custom Text</SelectValue>
+        </SelectRoot>);
+
+        Assert.Equal("Custom Text", ValueOf(cut).TextContent);
+    }
+
+    [Fact(DisplayName = "uses children function over items array")]
+    [Trait("Requirement", "SEL-API-29")]
+    public void Uses_children_function_over_items_array()
+    {
+        LabeledValue<string>[] items = [new("sans", "Sans-serif"), new("serif", "Serif")];
+
+        IRenderedComponent<SelectHost> cut = RenderSelect(@<SelectRoot TValue="string" Value="@("sans")" Items="items">
+            <SelectValue data-testid="value">
+                <ValueContent Context="value">Custom: @value</ValueContent>
+            </SelectValue>
+        </SelectRoot>);
+
+        Assert.Equal("Custom: sans", ValueOf(cut).TextContent);
+    }
+
+    [Fact(DisplayName = "changes text when the value changes")]
+    [Trait("Requirement", "SEL-DOM-10")]
+    public async Task Changes_text_when_the_value_changes()
+    {
+        string value = null!;
+
+        IRenderedComponent<SelectHost> cut = RenderSelect(@<SelectRoot TValue="string" Value="@value">
+            <SelectTrigger>
+                <SelectValue data-testid="value">
+                    <ValueContent Context="current">@(current ?? "initial")</ValueContent>
+                </SelectValue>
+            </SelectTrigger>
+            <SelectPortal>
+                <SelectPositioner>
+                    <SelectPopup>
+                        <SelectItem Value="@("1")">1</SelectItem>
+                        <SelectItem Value="@("2")">2</SelectItem>
+                    </SelectPopup>
+                </SelectPositioner>
+            </SelectPortal>
+        </SelectRoot>);
+
+        Assert.Equal("initial", ValueOf(cut).TextContent);
+        await OpenAsync(cut);
+
+        value = "1";
+        await RefreshAsync(cut);
+        Assert.Equal("1", ValueOf(cut).TextContent);
+
+        value = "2";
+        await RefreshAsync(cut);
+        Assert.Equal("2", ValueOf(cut).TextContent);
+
+        value = null!;
+        await RefreshAsync(cut);
+        Assert.Equal("initial", ValueOf(cut).TextContent);
+    }
+
+    // prop: multiple
+
+    [Fact(DisplayName = "displays comma-separated labels for multiple values with items object")]
+    [Trait("Requirement", "SEL-DOM-10")]
+    public void Displays_comma_separated_labels_for_multiple_values_with_items_object()
+    {
+        IReadOnlyDictionary<string, string?> items = new Dictionary<string, string?>
+        {
+            ["sans"] = "Sans-serif",
+            ["serif"] = "Serif",
+            ["mono"] = "Monospace",
+        };
+
+        IRenderedComponent<SelectHost> cut = RenderSelect(@<SelectRoot TValue="string" Values="@(new[] { "sans", "serif" })" ItemLabels="items" Multiple="true">
+            <SelectTrigger>
+                <span data-testid="value">
+                    <SelectValue />
+                </span>
+            </SelectTrigger>
+        </SelectRoot>);
+
+        Assert.Equal("Sans-serif, Serif", ValueOf(cut).TextContent);
+    }
+
+    [Fact(DisplayName = "displays comma-separated labels for multiple values with items array")]
+    [Trait("Requirement", "SEL-DOM-10")]
+    public void Displays_comma_separated_labels_for_multiple_values_with_items_array()
+    {
+        LabeledValue<string>[] items = [new("serif", "Serif"), new("mono", "Monospace")];
+
+        IRenderedComponent<SelectHost> cut = RenderSelect(@<SelectRoot TValue="string" Values="@(new[] { "serif", "mono" })" Items="items" Multiple="true">
+            <SelectTrigger>
+                <span data-testid="value">
+                    <SelectValue />
+                </span>
+            </SelectTrigger>
+        </SelectRoot>);
+
+        Assert.Equal("Serif, Monospace", ValueOf(cut).TextContent);
+    }
+
+    // "supports ReactNode labels for multiple selections": not ported (string labels), as the single-value titles above.
+
+    [Fact(DisplayName = "falls back to raw values when no items are provided")]
+    [Trait("Requirement", "SEL-DOM-10")]
+    public void Falls_back_to_raw_values_when_no_items_are_provided()
+    {
+        IRenderedComponent<SelectHost> cut = RenderSelect(@<SelectRoot TValue="string" Values="@(new[] { "serif", "mono" })" Multiple="true">
+            <SelectTrigger>
+                <span data-testid="value">
+                    <SelectValue />
+                </span>
+            </SelectTrigger>
+        </SelectRoot>);
+
+        Assert.Equal("serif, mono", ValueOf(cut).TextContent);
+    }
+
+    [Fact(DisplayName = "displays single value when only one value is selected in multiple mode")]
+    [Trait("Requirement", "SEL-DOM-10")]
+    public void Displays_single_value_when_only_one_value_is_selected_in_multiple_mode()
+    {
+        IRenderedComponent<SelectHost> cut = RenderSelect(@<SelectRoot TValue="string" Values="@(new[] { "sans" })" Multiple="true">
+            <SelectValue data-testid="value" />
+        </SelectRoot>);
+
+        Assert.Equal("sans", ValueOf(cut).TextContent);
+    }
+
+    [Fact(DisplayName = "displays empty when no values are selected in multiple mode")]
+    [Trait("Requirement", "SEL-DOM-10")]
+    public void Displays_empty_when_no_values_are_selected_in_multiple_mode()
+    {
+        IRenderedComponent<SelectHost> cut = RenderSelect(@<SelectRoot TValue="string" Values="@(Array.Empty<string>())" Multiple="true">
+            <SelectValue data-testid="value" />
+        </SelectRoot>);
+
+        Assert.Equal(string.Empty, ValueOf(cut).TextContent);
+    }
+
+    [Fact(DisplayName = "children function receives array of values in multiple mode")]
+    [Trait("Requirement", "SEL-API-29")]
+    [Trait("Requirement", "SEL-EVT-14")]
+    public void Children_function_receives_array_of_values_in_multiple_mode()
+    {
+        List<IReadOnlyList<string>> calls = [];
+        IReadOnlyDictionary<string, string?> items = new Dictionary<string, string?>
+        {
+            ["sans"] = "Sans-serif",
+            ["serif"] = "Serif",
+        };
+
+        IRenderedComponent<SelectHost> cut = RenderSelect(@<SelectRoot TValue="string" Values="@(new[] { "sans", "serif" })" ItemLabels="items" Multiple="true">
+            <SelectValue data-testid="value">
+                <ValuesContent Context="values">@RecordAll(calls, values)</ValuesContent>
+            </SelectValue>
+        </SelectRoot>);
+
+        Assert.Equal(["sans", "serif"], calls[0]);
+        Assert.Equal("Selected: sans + serif", ValueOf(cut).TextContent);
+    }
+
+    [Fact(DisplayName = "children prop takes precedence over items in multiple mode")]
+    [Trait("Requirement", "SEL-API-29")]
+    public void Children_prop_takes_precedence_over_items_in_multiple_mode()
+    {
+        IReadOnlyDictionary<string, string?> items = new Dictionary<string, string?>
+        {
+            ["sans"] = "Sans-serif",
+            ["serif"] = "Serif",
+        };
+
+        IRenderedComponent<SelectHost> cut = RenderSelect(@<SelectRoot TValue="string" Values="@(new[] { "sans", "serif" })" ItemLabels="items" Multiple="true">
+            <SelectValue data-testid="value">Custom Multiple Text</SelectValue>
+        </SelectRoot>);
+
+        Assert.Equal("Custom Multiple Text", ValueOf(cut).TextContent);
+    }
+
+    [Fact(DisplayName = "defaults to empty array when no value is provided")]
+    [Trait("Requirement", "SEL-API-02")]
+    public void Defaults_to_empty_array_when_no_value_is_provided()
+    {
+        List<IReadOnlyList<string>> calls = [];
+
+        RenderSelect(@<SelectRoot TValue="string" Multiple="true">
+            <SelectValue>
+                <ValuesContent Context="values">@RecordAll(calls, values)</ValuesContent>
+            </SelectValue>
+        </SelectRoot>);
+
+        Assert.Empty(calls[0]);
+    }
+
+    // prop: placeholder
+
+    [Fact(DisplayName = "displays placeholder when no value is selected")]
+    [Trait("Requirement", "SEL-API-30")]
+    public void Displays_placeholder_when_no_value_is_selected()
+    {
+        IRenderedComponent<SelectHost> cut = RenderSelect(@<SelectRoot TValue="string">
+            <SelectValue data-testid="value">
+                <Placeholder>Select an option</Placeholder>
+            </SelectValue>
+        </SelectRoot>);
+
+        Assert.Equal("Select an option", ValueOf(cut).TextContent);
+    }
+
+    [Fact(DisplayName = "displays placeholder when value is null")]
+    [Trait("Requirement", "SEL-API-30")]
+    public void Displays_placeholder_when_value_is_null()
+    {
+        IRenderedComponent<SelectHost> cut = RenderSelect(@<SelectRoot TValue="string" Value="@(default(string))">
+            <SelectValue data-testid="value">
+                <Placeholder>Select an option</Placeholder>
+            </SelectValue>
+        </SelectRoot>);
+
+        Assert.Equal("Select an option", ValueOf(cut).TextContent);
+    }
+
+    [Fact(DisplayName = "does not display placeholder when value is selected")]
+    [Trait("Requirement", "SEL-API-30")]
+    public void Does_not_display_placeholder_when_value_is_selected()
+    {
+        IRenderedComponent<SelectHost> cut = RenderSelect(@<SelectRoot TValue="string" Value="@("option1")">
+            <SelectValue data-testid="value">
+                <Placeholder>Select an option</Placeholder>
+            </SelectValue>
+            <SelectPortal>
+                <SelectPositioner>
+                    <SelectPopup>
+                        <SelectItem Value="@("option1")">Option 1</SelectItem>
+                    </SelectPopup>
+                </SelectPositioner>
+            </SelectPortal>
+        </SelectRoot>);
+
+        Assert.Equal("option1", ValueOf(cut).TextContent);
+    }
+
+    [Fact(DisplayName = "children prop takes precedence over placeholder")]
+    [Trait("Requirement", "SEL-API-29")]
+    [Trait("Requirement", "SEL-API-30")]
+    public void Children_prop_takes_precedence_over_placeholder()
+    {
+        IRenderedComponent<SelectHost> cut = RenderSelect(@<SelectRoot TValue="string">
+            <SelectValue data-testid="value">
+                <Placeholder>Select an option</Placeholder>
+                <ChildContent>Custom Text</ChildContent>
+            </SelectValue>
+        </SelectRoot>);
+
+        Assert.Equal("Custom Text", ValueOf(cut).TextContent);
+    }
+
+    [Fact(DisplayName = "children function takes precedence over placeholder")]
+    [Trait("Requirement", "SEL-API-29")]
+    [Trait("Requirement", "SEL-API-30")]
+    public void Children_function_takes_precedence_over_placeholder()
+    {
+        IRenderedComponent<SelectHost> cut = RenderSelect(@<SelectRoot TValue="string">
+            <SelectValue data-testid="value">
+                <Placeholder>Select an option</Placeholder>
+                <ValueContent Context="value">@(string.IsNullOrEmpty(value) ? "Function fallback" : value)</ValueContent>
+            </SelectValue>
+        </SelectRoot>);
+
+        Assert.Equal("Function fallback", ValueOf(cut).TextContent);
+    }
+
+    [Fact(DisplayName = "null item label in items takes precedence over placeholder")]
+    [Trait("Requirement", "SEL-API-30")]
+    [Trait("Requirement", "SEL-API-40")]
+    [Trait("Requirement", "SEL-EDGE-15")]
+    public void Null_item_label_in_items_takes_precedence_over_placeholder()
+    {
+        LabeledValue<string>[] items = [new(null!, "None"), new("option1", "Option 1")];
+
+        IRenderedComponent<SelectHost> cut = RenderSelect(@<SelectRoot TValue="string" Items="items">
+            <SelectValue data-testid="value">
+                <Placeholder>Select an option</Placeholder>
+            </SelectValue>
+            <SelectPortal>
+                <SelectPositioner>
+                    <SelectPopup>
+                        <SelectItem Value="@(default(string))">None</SelectItem>
+                        <SelectItem Value="@("option1")">Option 1</SelectItem>
+                    </SelectPopup>
+                </SelectPositioner>
+            </SelectPortal>
+        </SelectRoot>);
+
+        Assert.Equal("None", ValueOf(cut).TextContent);
+    }
+
+    [Fact(DisplayName = "uses placeholder when items have null value without label")]
+    [Trait("Requirement", "SEL-API-30")]
+    public void Uses_placeholder_when_items_have_null_value_without_label()
+    {
+        LabeledValue<string>[] items = [new(null!, null), new("option1", "Option 1")];
+
+        IRenderedComponent<SelectHost> cut = RenderSelect(@<SelectRoot TValue="string" Items="items">
+            <SelectValue data-testid="value">
+                <Placeholder>Select an option</Placeholder>
+            </SelectValue>
+            <SelectPortal>
+                <SelectPositioner>
+                    <SelectPopup>
+                        <SelectItem Value="@(default(string))">None</SelectItem>
+                        <SelectItem Value="@("option1")">Option 1</SelectItem>
+                    </SelectPopup>
+                </SelectPositioner>
+            </SelectPortal>
+        </SelectRoot>);
+
+        Assert.Equal("Select an option", ValueOf(cut).TextContent);
+    }
+
+    [Fact(DisplayName = "displays placeholder when object items do not have a null key")]
+    [Trait("Requirement", "SEL-API-30")]
+    public void Displays_placeholder_when_object_items_do_not_have_a_null_key()
+    {
+        IReadOnlyDictionary<string, string?> items = new Dictionary<string, string?>
+        {
+            ["option1"] = "Option 1",
+            ["option2"] = "Option 2",
+        };
+
+        IRenderedComponent<SelectHost> cut = RenderSelect(@<SelectRoot TValue="string" ItemLabels="items">
+            <SelectValue data-testid="value">
+                <Placeholder>Select an option</Placeholder>
+            </SelectValue>
+        </SelectRoot>);
+
+        Assert.Equal("Select an option", ValueOf(cut).TextContent);
+    }
+
+    [Fact(DisplayName = "null key label in object items takes precedence over placeholder")]
+    [Trait("Requirement", "SEL-API-30")]
+    [Trait("Requirement", "SEL-EDGE-19")]
+    public void Null_key_label_in_object_items_takes_precedence_over_placeholder()
+    {
+        IReadOnlyDictionary<string, string?> items = new Dictionary<string, string?>
+        {
+            ["null"] = "None",
+            ["option1"] = "Option 1",
+        };
+
+        IRenderedComponent<SelectHost> cut = RenderSelect(@<SelectRoot TValue="string" ItemLabels="items">
+            <SelectValue data-testid="value">
+                <Placeholder>Select an option</Placeholder>
+            </SelectValue>
+        </SelectRoot>);
+
+        Assert.Equal("None", ValueOf(cut).TextContent);
+    }
+
+    [Fact(DisplayName = "supports ReactNode as placeholder")]
+    [Trait("Requirement", "SEL-API-30")]
+    public void Supports_ReactNode_as_placeholder()
+    {
+        IRenderedComponent<SelectHost> cut = RenderSelect(@<SelectRoot TValue="string">
+            <SelectValue data-testid="value">
+                <Placeholder><span data-testid="placeholder">Select an option</span></Placeholder>
+            </SelectValue>
+        </SelectRoot>);
+
+        Assert.Equal("Select an option", cut.Find("[data-testid=\"placeholder\"]").TextContent);
+        Assert.Equal("value", cut.Find("[data-testid=\"placeholder\"]").ParentElement!.GetAttribute("data-testid"));
+    }
+}

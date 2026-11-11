@@ -1,0 +1,81 @@
+@namespace Blazix.Primitives.Fixtures.Client.SelectFixtures
+@using Blazix.Primitives
+@using Blazix.Primitives.Fixtures.Client.PopupFixtures
+@inherits PopupSuiteFixtureBase
+
+@*
+    The `select-form-submit` fixture (tests/browser/select-form.spec.ts; M5 track 9): SelectRoot.test.tsx's `Form` block
+    titles that submit (native validation) and "prop: validateMode=onSubmit". A Form around a field around a required
+    select, and a Submit button; the container records `data-form-submits` (the form's OnFormSubmit runs, which a blocked
+    submission never reaches) and `data-validate-calls`.
+    - `?case=required` (default): the field is named `select`; the select's items are `a` and `b`; a Field.Error
+      `match="valueMissing"` (test id `error`, text "required") follows it;
+    - `?case=validate`: the field validates `val === '2'` as an error (Base UI's `validate`); the items are `1` and `2`.
+    The page also holds an `after` button following the select.
+*@
+<FixtureContainer Name="select-form-submit" data-attached="@(Attached ? "true" : "false")" data-sync="@Sync"
+                  data-form-submits="@submits" data-validate-calls="@validateCalls">
+    <button type="button" tabindex="-1" data-sync-button data-key-control @onclick="() => Sync++" @onkeydown="OnShift(() => Sync++)">Sync</button>
+    <Form @ref="form" OnFormSubmit="() => submits++">
+        @if (Case == "validate")
+        {
+            <FieldRoot Validate="ValidateAsync" data-testid="field">
+                <SelectRoot TValue="string" @ref="root" Required="true">
+                    <SelectTrigger TValue="string" @ref="trigger" data-testid="trigger" />
+                    <SelectPortal>
+                        <SelectPositioner AlignItemWithTrigger="false">
+                            <SelectPopup>
+                                <SelectItem TValue="string" Value="@("1")">Option 1</SelectItem>
+                                <SelectItem TValue="string" Value="@("2")">Option 2</SelectItem>
+                            </SelectPopup>
+                        </SelectPositioner>
+                    </SelectPortal>
+                </SelectRoot>
+            </FieldRoot>
+        }
+        else
+        {
+            <FieldRoot Name="select" data-testid="field">
+                <SelectRoot TValue="string" @ref="root" Required="true">
+                    <SelectTrigger TValue="string" @ref="trigger" data-testid="trigger">
+                        <SelectValue TValue="string" />
+                    </SelectTrigger>
+                    <SelectPortal>
+                        <SelectPositioner AlignItemWithTrigger="false">
+                            <SelectPopup>
+                                <SelectItem TValue="string" Value="@("a")">a</SelectItem>
+                                <SelectItem TValue="string" Value="@("b")">b</SelectItem>
+                            </SelectPopup>
+                        </SelectPositioner>
+                    </SelectPortal>
+                </SelectRoot>
+                <FieldError Match="@ValidityFlag.ValueMissing" data-testid="error">required</FieldError>
+            </FieldRoot>
+        }
+        <button type="submit" data-testid="submit">Submit</button>
+    </Form>
+    <button type="button" data-testid="after">After</button>
+</FixtureContainer>
+
+@code {
+    private Form? form;
+    private SelectRoot<string>? root;
+    private SelectTrigger<string>? trigger;
+    private int submits;
+    private int validateCalls;
+
+    protected override IEnumerable<Task> Attachments =>
+    [
+        form?.TwinAttached ?? Task.CompletedTask,
+        trigger?.TwinsAttached ?? Task.CompletedTask,
+        root?.SessionAttached ?? Task.CompletedTask,
+        root?.Field.TwinAttached ?? Task.CompletedTask,
+    ];
+
+    private ValueTask<FieldValidationResult?> ValidateAsync(FieldValidationArguments args)
+    {
+        validateCalls++;
+        _ = InvokeAsync(StateHasChanged);
+        return ValueTask.FromResult<FieldValidationResult?>(Equals(args.Value, "2") ? "error" : null);
+    }
+}

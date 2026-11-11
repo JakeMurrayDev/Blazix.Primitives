@@ -96,6 +96,95 @@ describe('useListNavigation', () => {
     });
   });
 
+  // MNU-FOC-03 (M2's repro on PR 183): a kept-mounted list's handle attaches before the open, and the relay of the open reaches it
+  // before the batch that shows the popup (ADR 01's commit path). Base UI's effect runs after the commit, so its list is showing.
+  it('port: a kept-mounted list still hidden when the open arrives focuses its first item once it shows', async () => {
+    const harness = app({ keepMounted: true });
+    const floating = menu(harness);
+    floating.style.display = 'none';
+
+    keyDown(harness.reference, 'ArrowDown');
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    expect(document.activeElement).not.toBe(harness.item(0));
+
+    floating.style.display = '';
+    await waitFor(() => {
+      expect(document.activeElement).toBe(harness.item(0));
+    });
+  });
+
+  // SEL-STA-07 (Select's finding; queued by the orchestrator 2026-11-10): useListNavigation.ts's close resets the index and
+  // calls `onNavigate()`, which Base UI's Select ignores while closed, so its highlight stays on the item while the popup
+  // animates out. A list with `retainHighlightWhileClosing` keeps it; one without clears it, as Menu's does.
+  it('port: a list that retains its highlight while closing keeps it through the close, and one that does not clears it', async () => {
+    const retained = app({ keepMounted: true, list: { retainHighlightWhileClosing: true } });
+    keyDown(retained.reference, 'ArrowDown');
+    await waitFor(() => {
+      expect(document.activeElement).toBe(retained.item(0));
+    });
+    keyDown(menu(retained), 'ArrowDown');
+    expect(highlighted(retained.item(1))).toBe(true);
+    retained.setOpen(false);
+    await nextTask();
+    expect(highlighted(retained.item(1))).toBe(true);
+
+    const cleared = app({ keepMounted: true });
+    keyDown(cleared.reference, 'ArrowDown');
+    await waitFor(() => {
+      expect(document.activeElement).toBe(cleared.item(0));
+    });
+    cleared.setOpen(false);
+    await nextTask();
+    expect(highlighted(cleared.item(0))).toBe(false);
+  });
+
+  // CMP-ALG-24's dated note: the wait ends with the batch that shows the list, read from the attributes of the list and its
+  // ancestors (a closed Positioner's `hidden`), however many frames later, and not after a count of frames.
+  it('port: a kept-mounted list hidden by an ancestor focuses its first item when it shows, however many frames later, and a close ends that wait', async () => {
+    const container = document.createElement('div');
+    document.body.append(container);
+    const harness = app({ keepMounted: true, container });
+    container.hidden = true;
+    // A browser's `checkVisibility` reads the ancestors; jsdom has none.
+    menu(harness).checkVisibility = () => !container.hidden;
+    // Frames as microtasks, so any count of them passes before the list shows.
+    let frame = 0;
+    vi.spyOn(window, 'requestAnimationFrame').mockImplementation((callback) => {
+      queueMicrotask(() => callback(performance.now()));
+      return ++frame;
+    });
+
+    keyDown(harness.reference, 'ArrowDown');
+    await new Promise((resolve) => setTimeout(resolve, 300));
+    expect(document.activeElement).not.toBe(harness.item(0));
+
+    container.hidden = false;
+    await waitFor(() => {
+      expect(document.activeElement).toBe(harness.item(0));
+    });
+
+    // A close ends the wait (the interim review of PR 183, F3): here the close and the later show change no attribute on the
+    // observed chain, so only the close can stop it; after a reopen that finds the list showing, an attribute write must not
+    // run the first open's search again.
+    const second = app({ keepMounted: true });
+    let visible = false;
+    menu(second).checkVisibility = () => visible;
+    keyDown(second.reference, 'ArrowDown');
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    second.popup.setOpen(false);
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    visible = true;
+    keyDown(second.reference, 'ArrowDown');
+    await waitFor(() => {
+      expect(document.activeElement).toBe(second.item(0));
+    });
+    keyDown(menu(second), 'ArrowDown');
+    expect(document.activeElement).toBe(second.item(1));
+    menu(second).setAttribute('data-probe', '');
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    expect(document.activeElement).toBe(second.item(1));
+  });
+
   // F1 of PR 183 (settled by the orchestrator 2026-11-04 as (b)): the focus manager's handle can attach after the list's
   // open focus moved focus in, which Base UI's layout effect never sees. While open, the list marks the item it moved focus
   // to and the element focus came from, in the session's data slot; the close clears it.
@@ -127,6 +216,59 @@ describe('useListNavigation', () => {
     expect(harness.floating).not.toBeNull();
     await waitFor(() => {
       expect(document.activeElement).toBe(harness.item(2));
+    });
+  });
+
+  // useListNavigation.ts:378-387 (found by M5 track 9 on Select, Escape then ArrowDown on Server under latency; queued by
+  // the orchestrator 2026-11-10): Base UI clears the opening key when `open` or `focusItemOnOpen` changes, not on each
+  // render while closed. The close's unmount can land after the next opening key, before C# commits that open.
+  it('port: a close whose unmount lands after the next opening key keeps the key for that open', async () => {
+    let hold = false;
+    const harness = app({ session: { onOpenChange: (open, details) => (hold && open ? details.cancel() : undefined) } });
+    // The request's commit has not arrived yet, so C# has not answered it either.
+    harness.popup.answering = false;
+    harness.setOpen(true);
+    await waitFor(() => {
+      expect(harness.floating).not.toBeNull();
+    });
+
+    // The close commits; C#'s render that unmounts the list runs after the key's open request.
+    harness.popup.setOpen(false);
+    hold = true;
+    keyDown(harness.reference, 'ArrowUp');
+    expect(harness.openRequests.at(-1)?.open).toBe(true);
+    expect(harness.floating).toBeNull();
+
+    hold = false;
+    harness.popup.setOpen(true, 'list-navigation', harness.openRequests.at(-1)?.triggerId ?? null);
+    await waitFor(() => {
+      expect(document.activeElement).toBe(harness.item(2));
+    });
+  });
+
+  // The same effect's other dependency: a virtual click's focus-on-open value (CMP-STA-39) stays through a sync while the
+  // list stays closed, here a close's unmount that lands after the click, before C# commits the click's open.
+  it('port: a close whose unmount lands after a virtual click keeps the click\'s focus-on-open value for that open', async () => {
+    let hold = false;
+    const harness = app({ session: { onOpenChange: (open, details) => (hold && open ? details.cancel() : undefined) } });
+    harness.popup.answering = false;
+    harness.setOpen(true);
+    await waitFor(() => {
+      expect(harness.floating).not.toBeNull();
+    });
+
+    harness.popup.setOpen(false);
+    hold = true;
+    fireClick(harness.reference);
+    expect(harness.popup.open).toBe(false);
+    await waitFor(() => {
+      expect(harness.floating).toBeNull();
+    });
+
+    hold = false;
+    harness.popup.setOpen(true, 'trigger-press', harness.reference.id);
+    await waitFor(() => {
+      expect(document.activeElement).toBe(harness.item(0));
     });
   });
 
@@ -2373,6 +2515,25 @@ describe('list navigation rows without a Base UI title (port)', () => {
 
     keyDown(menu(harness), 'ArrowUp');
     expect(document.activeElement).toBe(harness.item(3));
+  });
+
+  // MenuRoot.tsx:574-592 (MNU-EVT-11, EVT-13): an index can come to point at a different element while its value stays the
+  // same, so the highlight is reported again when the registry settles, with no event (Base UI's `none`).
+  it('port: a list change that points the highlighted index at another item reports the highlight again with no event', async () => {
+    const harness = app({ items: ['One', 'Two'] });
+    keyDown(harness.reference, 'ArrowDown');
+    await waitFor(() => {
+      expect(document.activeElement).toBe(harness.item(0));
+    });
+    keyDown(menu(harness), 'ArrowDown');
+    expect(document.activeElement).toBe(harness.item(1));
+    const before = harness.highlights.length;
+
+    harness.setItems(['Archive', 'One', 'Two']);
+    await nextTask();
+
+    expect(harness.highlights.length).toBeGreaterThan(before);
+    expect(harness.highlights.at(-1)).toMatchObject({ event: null });
   });
 
   it('port: a C# highlight request out of bounds moves neither the focus nor the cursor, while one in bounds does', async () => {

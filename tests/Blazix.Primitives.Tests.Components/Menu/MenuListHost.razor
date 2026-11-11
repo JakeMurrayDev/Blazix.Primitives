@@ -1,0 +1,63 @@
+@namespace Blazix.Primitives.Tests.Components
+@* MenuList.test.tsx's trees, open from the start with the trigger active (Base UI presses the trigger; here the Root's
+   `DefaultTriggerId` names it). `PlainMenu`: a contained trigger, a header and a List of two items. `TwoTriggers`: two
+   detached triggers of one handle, the first active (or the menu closed, `StartOpen` false, until the handle opens it on the
+   first); the second counts its render passes through a render function. *@
+@if (TwoTriggers)
+{
+    <MenuTrigger TPayload="NoPayload" Handle="handle" id="first">First</MenuTrigger>
+    <MenuTrigger TPayload="NoPayload" Handle="handle" id="second" RenderFunction="CountSecond">Second</MenuTrigger>
+    <MenuRoot TPayload="NoPayload" Handle="handle" DefaultOpen="StartOpen" DefaultTriggerId="@(StartOpen ? "first" : null)">
+        <MenuPortal>
+            <MenuPositioner>
+                <MenuPopup>
+                    <MenuList data-testid="list"><MenuItem>Rename</MenuItem></MenuList>
+                </MenuPopup>
+            </MenuPositioner>
+        </MenuPortal>
+    </MenuRoot>
+}
+else
+{
+    <MenuRoot TPayload="NoPayload" DefaultOpen="true" DefaultTriggerId="trigger" Orientation="Orientation">
+        <MenuTrigger TPayload="NoPayload" id="trigger">Actions</MenuTrigger>
+        <MenuPortal>
+            <MenuPositioner>
+                <MenuPopup data-testid="popup">
+                    <div>Header</div>
+                    <MenuList data-testid="list" id="@ListId">
+                        <MenuItem data-testid="item-1">Rename</MenuItem>
+                        <MenuItem data-testid="item-2">Delete</MenuItem>
+                    </MenuList>
+                </MenuPopup>
+            </MenuPositioner>
+        </MenuPortal>
+    </MenuRoot>
+}
+
+@code {
+    private readonly MenuHandle<NoPayload> handle = new();
+
+    [Parameter]
+    public bool TwoTriggers { get; set; }
+
+    [Parameter]
+    public bool StartOpen { get; set; } = true;
+
+    /// <summary>Gets the handle of the two detached triggers, which opens the menu as the first trigger's press would.</summary>
+    public MenuHandle<NoPayload> Handle => handle;
+
+    [Parameter]
+    public string? ListId { get; set; }
+
+    [Parameter]
+    public Blazix.Primitives.Orientation Orientation { get; set; } = Blazix.Primitives.Orientation.Vertical;
+
+    public int SecondTriggerPasses { get; private set; }
+
+    private RenderFragment CountSecond(RenderProps<MenuTriggerState> props)
+    {
+        SecondTriggerPasses++;
+        return @<button @attributes="props.Attributes">@props.ChildContent</button>;
+    }
+}

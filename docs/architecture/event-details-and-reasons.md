@@ -7,6 +7,7 @@
 | Tests | `internals/createBaseUIEventDetails.spec.ts`, `internals/useValueChanged.test.tsx`, `packages/utils/src/useControlled.test.tsx`; partial (only the titles on this doc's `Test:` lines; the rest of each file is covered by the owning doc): `utils/popups/popupStoreUtils.test.tsx` ("getPopupOpenState" and "applyPopupOpenChange" blocks; rest PSH), `floating-ui-react/hooks/useDismiss.test.tsx` (Escape preventDefault titles; rest FLT), `merge-props/mergeProps.test.ts` (`preventBaseUIHandler` titles; rest RND); plus the component tests cited inline |
 | Prefix | `EVD` |
 | Status | approved |
+| Revised | 2026-11-04 |
 | Used by | Every component document. Directly: accordion, alert-dialog, autocomplete, checkbox, checkbox-group, collapsible, combobox, context-menu, dialog, drawer, field, form, input, menu, menubar, navigation-menu, number-field, otp-field, popover, preview-card, radio, radio-group, select, slider, switch, tabs, toggle, toggle-group, tooltip. Architecture: `floating-and-positioning.md` (FLT), `popup-store-and-handles.md` (PSH), `transitions-and-mounting.md` (TRN), `field-and-form-infrastructure.md` (FFI), `button-behavior.md` (UBT), `rendering-and-composition.md` (RND), `shared-utilities.md` (UTL) |
 
 ## 1. Purpose
@@ -172,6 +173,8 @@ Components with **no** event-details callbacks: Avatar (`onLoadingStatusChange(s
 | `isItemPress` | `Combobox.Root` / `Autocomplete.Root` input-value details | `boolean \| undefined` | "When `reason` is `input-clear` in multiple mode, indicates whether an item press caused the clear. Automatic cleanup clears omit this property." | `combobox/root/AriaCombobox.tsx:823-829, 918-923, 2039-2045` |
 | `index` | `Combobox.Root` / `Autocomplete.Root` `onItemHighlighted` | `number` | Index of the highlighted item (`-1` when the highlight is cleared). | `combobox/root/AriaCombobox.tsx:606-619, 2014-2017` |
 | `label` | `Menu.Root` `onItemHighlighted` | `string \| undefined` | "The highlighted item's `label` prop, or its text content when the prop is not set." | `menu/root/MenuRoot.tsx:605-613, 947-955` |
+
+Port note (2026-11-04, M5 track 6, [issue 172](https://github.com/JakeMurrayDev/Blazix.Primitives/issues/172); design point 3 (a), settled by the orchestrator 2026-11-04; ADR 08 Amendments 2026-11-04, Menu's parts and shapes as built): the port has two highlight-details types where this section names one. `Events/HighlightEventDetails` carries `Index` and is Combobox's and Autocomplete's. Menu's `MenuHighlightEventDetails` (`Menu/`) carries `Label` and no index, as `Menu.Root.HighlightEventDetails` has none. The label is `composite`'s highlight report's (design point 9 (a), PR 185): the item's `Label`, else its text content.
 
 ### 3.8 Public props whose semantics are defined here
 

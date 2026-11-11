@@ -1,0 +1,67 @@
+@namespace Blazix.Primitives.Fixtures.Client.SelectFixtures
+@using Blazix.Primitives
+@using Blazix.Primitives.Fixtures.Client.PopupFixtures
+@inherits PopupSuiteFixtureBase
+
+@*
+    The `select-use-label` fixture (tests/browser/field.spec.ts's useLabel block; M5 track 9, final review B2): useLabel.test.tsx's
+    TestControl for its Select-rendering cases, a Field named `country` holding a Select whose trigger has the id `country`
+    and the text "Choose a country", and one item France in a list. `label=select` (the default) renders a SelectLabel
+    "Country" in the root; `label=field` a non-native FieldLabel "Country" rendered as a `div` before the root. The container
+    records the root's open changes.
+*@
+<FixtureContainer Name="select-use-label" data-attached="@(Attached ? "true" : "false")" data-sync="@Sync"
+                  data-open-changes="@OpenChanges">
+    <FieldRoot Name="country">
+        @if (fieldLabel)
+        {
+            <FieldLabel @ref="fieldLabelPart" NativeLabel="false">
+                <Render><div></div></Render>
+                <ChildContent>Country</ChildContent>
+            </FieldLabel>
+        }
+        <SelectRoot TValue="string" @ref="root" OnOpenChange="RecordOpenChange">
+            @if (!fieldLabel)
+            {
+                <SelectLabel @ref="selectLabel">Country</SelectLabel>
+            }
+            <SelectTrigger @ref="trigger" id="country">Choose a country</SelectTrigger>
+            <SelectPortal>
+                <SelectPositioner>
+                    <SelectPopup>
+                        <SelectList>
+                            <SelectItem Value="@("fr")">
+                                <SelectItemText>France</SelectItemText>
+                            </SelectItem>
+                        </SelectList>
+                    </SelectPopup>
+                </SelectPositioner>
+            </SelectPortal>
+        </SelectRoot>
+    </FieldRoot>
+    <button type="button" tabindex="-1" data-sync-button data-key-control @onclick="() => Sync++" @onkeydown="OnShift(() => Sync++)">Sync</button>
+</FixtureContainer>
+
+@code {
+    private SelectRoot<string>? root;
+    private SelectTrigger<string>? trigger;
+    private bool fieldLabel;
+
+    private SelectLabel? selectLabel;
+    private FieldLabel? fieldLabelPart;
+
+    protected override IEnumerable<Task> Attachments =>
+    [
+        trigger?.TwinsAttached ?? Task.CompletedTask,
+        root?.SessionAttached ?? Task.CompletedTask,
+        root?.Field.TwinAttached ?? Task.CompletedTask,
+        selectLabel?.TwinAttached ?? Task.CompletedTask,
+        fieldLabelPart?.TwinAttached ?? Task.CompletedTask,
+    ];
+
+    protected override void OnInitialized()
+    {
+        base.OnInitialized();
+        fieldLabel = Query("label") == "field";
+    }
+}

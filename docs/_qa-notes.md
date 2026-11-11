@@ -110,3 +110,23 @@ Run `python3 docs/_tools/check_docs.py` from the repo root. Checks below are imp
 - ToggleGroup: `toggleMultiple` renamed `multiple` (v1.0.0-beta.4); Toolbar: no `cols` (removed v1.0.0-beta.5), no Home/End.
 - Form: `onClearErrors` removed in v1.0.0-alpha.9; not a prop in 1.9.0.
 - NumberField: no `role="spinbutton"`/`aria-value*`, no PageUp/PageDown, no Enter commit, no `pattern`, no cursor CSS variables.
+
+- 2026-11-10 (M5 track 9, [issue 173](https://github.com/JakeMurrayDev/Blazix.Primitives/issues/173)): two fidelity corrections in `select.md`. SEL-EDGE-05 said a read-only single-mode activation still requests the close; `select/item/SelectItem.tsx:128-138` returns before the close. SEL-POS-11 counted fourteen "aligned popup scroll resizing" titles; the describe has fifteen.
+
+## 2026-11-04, menu.md fidelity corrections (M5 track 6, [issue 172](https://github.com/JakeMurrayDev/Blazix.Primitives/issues/172))
+
+- MNU-FOC-09: `finalFocus`'s function receives the close's interaction type (`'mouse' | 'touch' | 'pen' | 'keyboard' | ''`), as MNU-API-31 says, not a reason category (`FloatingFocusManager.tsx:50-66`).
+- MNU-STR-07: Portal and Backdrop read the Root's context and throw outside a Root (`menu/portal/MenuPortal.tsx:21`, `menu/backdrop/MenuBackdrop.tsx:23`); the bullet listed them as exempt.
+- MNU-FOC-10, MNU-DIS-09, MNU-ANI-02: their "MNU-DOM-11" references meant the internal backdrop (MNU-DOM-25) or the Backdrop (MNU-DOM-10).
+- §3.7 Viewport: `data-activation-direction`, `data-transitioning`, `[data-previous]` and its size variables are written by the `popup` module, not C# (dated Writer note in §3.7).
+
+## 2026-11-11, ContextMenu port (M5 track 7, [issue 194](https://github.com/JakeMurrayDev/Blazix.Primitives/issues/194))
+
+Facts the port found against context-menu.md, each recorded on its row:
+- CTX-ARIA-05: a modal portal renders no `aria-owns` owner span (FloatingPortal renders it with its guards), so the root clause holds by absence; submenus' carry `role="group"`.
+- CTX-ANI-02 (§16 Q5): Chromium gives a right click's `contextmenu` `detail` 0, so a right-click open is an instant `click` open.
+- CTX-API-06: Base UI's handler stops the propagation of `contextmenu` and a single-touch `touchstart`, so a consumer handler on either cannot be left to Blazor's delegated dispatch; the module runs all five (design point 3 (a) of M5 track 7).
+- CTX-DOM-04's L4 title: Base UI's internal-backdrop selector also matches the consumer Backdrop once the modal focus manager marks it in a browser; the port's title takes the root Positioner's previous sibling.
+- CTX-EDGE-05, MNU-EDGE-15 (PR 228 review B1): a plain menu inside the Trigger keeps its own release slot while the context menu is closed, because the context menu's session joins the menu tree only while its Positioner is mounted. Open by ID; the fix is in the shared `interactions` module.
+- CTX-POS-03, POS-06 (PR 228 review B2): the submenu's visual-viewport result differs from the layout viewport's only under a pinch zoom; open at L4 by ID.
+

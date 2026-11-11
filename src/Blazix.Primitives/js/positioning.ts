@@ -694,14 +694,18 @@ const physicalSides: Record<Side, (isRtl: boolean) => PhysicalSide> = {
 // A symbol on the element, not a module registry: a repeated attach of the same element returns the live handle, and
 // the exports below find it.
 const attachedHandle = Symbol('blazix.positioning.handle');
+// An aligned request made before the element's handle attached (setAligned), applied at attach.
+const pendingAligned = Symbol('blazix.positioning.pendingAligned');
 
 interface PositioningHandle extends TwinHandle {
   placement(): RenderedPlacement;
   position(): void;
+  aligned(aligned: boolean, onPositioned: (() => void) | undefined): void;
 }
 
 interface AttachedElement extends HTMLElement {
   [attachedHandle]?: PositioningHandle;
+  [pendingAligned]?: { onPositioned: (() => void) | undefined };
 }
 
 type Declarations = Map<string, string>;
@@ -739,6 +743,36 @@ export function readPlacement(element: Element): RenderedPlacement | null {
  */
 export function update(element: Element): void {
   (element as AttachedElement)[attachedHandle]?.position();
+}
+
+// SEL-STA-20, SEL-POS-14 (M5 track 9, granted by the orchestrator 2026-11-04; decision 8, chosen by the user
+// 2026-11-03; design point 2 (i), settled by the orchestrator 2026-11-04): Select's aligned placement replaces the
+// Positioner's coordinates, and its side reads `none` (select/positioner/SelectPositioner.tsx:114); the report keeps
+// the resolved side (SEL-STA-28).
+/**
+ * Tells an attached Positioner whether Select's module places it over its trigger: while aligned, `data-side` reads `none`
+ * and `onPositioned` runs after each positioning pass, at once when the current mount is already positioned.
+ * @param element The Positioner element.
+ * @param aligned Whether the Positioner is placed over the trigger.
+ * @param onPositioned Called after each pass while aligned, in the pass's task, or `undefined`.
+ * @returns `true`: the request is applied, or held until the element's handle attaches.
+ */
+export function setAligned(element: Element, aligned: boolean, onPositioned?: () => void): boolean {
+  const attached = element as AttachedElement;
+  const handle = attached[attachedHandle];
+  if (handle) {
+    handle.aligned(aligned, onPositioned);
+    return true;
+  }
+
+  // Select's `select` handle attaches when its force-mounted Popup renders, before this module's handle, which only an
+  // open attaches (PR 205's final review F4, settled by the orchestrator 2026-11-11): the request waits for the attach.
+  if (aligned) {
+    attached[pendingAligned] = { onPositioned };
+  } else {
+    delete attached[pendingAligned];
+  }
+  return true;
 }
 
 interface PassData {
@@ -834,6 +868,8 @@ export function attach(
   let arrowDeclarations: Declarations = new Map();
 
   let open = element.matches(options.openSelector || '[data-open]');
+  let alignedActive = false;
+  let onAlignedPass: (() => void) | undefined;
   let mounted = !element.hidden;
   let isPositioned = false;
   let data: PassData | null = null;
@@ -1106,7 +1142,11 @@ export function attach(
       size({
         ...commonCollisionProps,
         apply({ availableWidth, availableHeight, rects }) {
-          if (!mounted) {
+          // internals/useAnchorPositioning.ts:363: nothing once unmounted. The module hears of the unmount from the
+          // Positioner's `hidden`, one update after the exit's end hid the popup inside it: a closed Positioner with an
+          // empty box is that moment (SEL-POS-06; M5 track 9, settled by the orchestrator 2026-11-10), and the next open
+          // starts from the size it closed with.
+          if (!mounted || (!open && rects.floating.width === 0 && rects.floating.height === 0)) {
             return;
           }
 
@@ -1164,6 +1204,22 @@ export function attach(
   const render = () => {
     const positionMethod = options.positionMethod ?? 'absolute';
     const declarations: Declarations = new Map();
+    // SEL-POS-07, DP1 (a) of M5 track 9 (settled by the orchestrator 2026-11-04; SelectPositioner.tsx:115): while told
+    // aligned the layer stands down to `position: fixed`, hidden until the first pass so nothing shows before the
+    // placement the caller writes over it in the same task; usePositioner's inert `pointer-events` stays.
+    if (alignedActive) {
+      declarations.set('position', 'fixed');
+      if (!isPositioned) {
+        declarations.set('opacity', '0');
+      }
+      if (!open) {
+        declarations.set('pointer-events', 'none');
+      }
+      writeLayer(positionerLayer, positionerDeclarations, declarations);
+      positionerDeclarations = declarations;
+      renderTransitionsAndAttributes();
+      return;
+    }
     // Default to `fixed` when not positioned to prevent `autoFocus` scroll jumps. This ensures the popup is inside the
     // viewport initially before it gets positioned.
     const resolvedPosition = isPositioned ? positionMethod : 'fixed';
@@ -1201,6 +1257,10 @@ export function attach(
     }
     writeLayer(positionerLayer, positionerDeclarations, declarations);
     positionerDeclarations = declarations;
+    renderTransitionsAndAttributes();
+  };
+
+  const renderTransitionsAndAttributes = () => {
     // TRN's disabled-mount transition, merged after the positioner styles and before the consumer's (FLT-ANI-05).
     if (options.transitionStatus === 'starting') {
       transitionLayer.set('transition', 'none');
@@ -1211,7 +1271,7 @@ export function attach(
     const placementNow = data?.placement ?? placement;
     const sideAttribute = getLogicalSide(sideParam(), getSide(placementNow), isRtl());
     const alignAttribute = getAlignment(placementNow) || 'center';
-    writeAttribute(element, 'data-side', sideAttribute);
+    writeAttribute(element, 'data-side', alignedActive ? 'none' : sideAttribute);
     writeAttribute(element, 'data-align', alignAttribute);
     writeAttribute(element, 'data-anchor-hidden', data?.middlewareData.hide?.referenceHidden ? '' : null);
 
@@ -1271,6 +1331,9 @@ export function attach(
       session?.setPlacement(next.placement);
       report();
       lockPlacement();
+      if (alignedActive && isPositioned) {
+        onAlignedPass?.();
+      }
     });
   };
 
@@ -1398,6 +1461,17 @@ export function attach(
       };
     },
     position,
+    aligned(next, onPositioned) {
+      if (disposed) {
+        return;
+      }
+      alignedActive = next;
+      onAlignedPass = next ? onPositioned : undefined;
+      render();
+      if (next && isPositioned && data !== null) {
+        onPositioned?.();
+      }
+    },
     dispose() {
       if (disposed) {
         return;
@@ -1424,6 +1498,11 @@ export function attach(
   element[attachedHandle] = handle;
   syncSession();
   observe();
+  const pending = element[pendingAligned];
+  if (pending) {
+    delete element[pendingAligned];
+    handle.aligned(true, pending.onPositioned);
+  }
   refresh();
   return handle;
 }

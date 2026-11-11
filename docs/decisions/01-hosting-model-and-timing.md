@@ -220,3 +220,29 @@ Normative. Each row is a requirement whose stated timing Server cannot meet with
 - "SLD-PTR-01 (default-prevented clause), EVD-EVT-26 against composite/button key handling, …" gains the list handles' `navigate` point (ADR 04 Amendments 2026-11-03 (3)). Server: the module moves the highlight at 0 and the consumer's C# `onkeydown` runs at 158, so its veto cannot apply; WebAssembly: the handler runs inside the keydown, at 8, and its veto keeps the highlight. The families add their IDs. ("port: navigate: a consumer's veto of an arrow key applies on WebAssembly and cannot apply on Server, where the handler runs a leg after the move")
 - "C#-origin consumer vetoes" gains CMP-KEY-24 and EVT-08, the list handle's `leave` point (ADR 04 Amendments 2026-11-03 (3)): on Server a canceled Shift+Tab close still moves focus. Server: the focus moves to the trigger at 2–3 and the cancel reaches C# at 158; WebAssembly: the cancel lands inside the keydown, at 18–19, and the focus stays in the list. ("port: leave: a canceled Shift+Tab close keeps the focus on WebAssembly and still moves it on Server")
 - The list measurement fixture's messages and bytes per held key and per typeahead burst are ADR 14's (Amendments 2026-11-03, its line of 2026-11-04).
+
+**2026-11-04, Menu's IDs on the relaxation table (M5 track 6, [issue 172](https://github.com/JakeMurrayDev/Blazix.Primitives/issues/172); the rows' substitutes unchanged).** menu.md §9 names each with its row:
+- "EVD-EVT-18, PSH-ANI-03" gains MNU-PTR-05, PTR-07 and PTR-09 to PTR-11 (the hover opens and closes, and the submenu's `sibling-open` close, requested by `interactions` at their timer).
+- "PSH-KEY-07" gains MNU-KEY-10.
+- "FLT-FOC-11" gains MNU-FOC-06 to FOC-08 and DIS-08.
+- "PSH-STA-23, …" gains MNU-DIS-13 (the close when the active trigger unmounts).
+- "RND-STA-01 for mirrored fields" gains MNU-DOM-13 and DOM-14 (the items' `Highlighted` mirror).
+- "EVD-STA-07, CMP-STA-10, FFI registration" gains MNU-EDGE-09.
+- The list handles' `navigate` point gains MNU-KEY-02; the `leave` point gains MNU-KEY-11.
+- "C#-origin consumer vetoes" (the press from the `mousedown`) gains MNU-PTR-01 and EVT-14.
+- The platform flags row's MNU-A11Y-01 was added by track 2.
+Menu's figures are the list rows' (track 1's test-only hosts run Menu's options), except the drag-release, which is pointer state in `interactions` and is met on both modes.
+
+**2026-11-11, the CTX row's `Cancel()` clause (M5 track 7, [issue 194](https://github.com/JakeMurrayDev/Blazix.Primitives/issues/194); sheet C contradiction 1; a clarification, the row unchanged).** A consumer's `Cancel()` on the open of a right click restores no native menu on either mode.
+- Base UI calls `preventDefault()` before it requests the open (`context-menu/trigger/ContextMenuTrigger.tsx:81-82`), and so does the `context-menu` module.
+- The row's "on Server, where a `Cancel()` can no longer restore the native menu" therefore holds on both modes.
+- A canceled open leaves the menu closed with the new anchor and the release window installed (CTX-EVT-04's port title).
+- The consumer's own `oncontextmenu` veto is "C#-origin consumer vetoes" (CTX-API-06 gains a dated row in context-menu.md §9).
+
+**2026-11-11, a measured row: the native menu over a just-mounted backdrop (M5 track 7, [issue 194](https://github.com/JakeMurrayDev/Blazix.Primitives/issues/194); design point 2 (a), settled by the orchestrator 2026-11-11).**
+- *The cause.* The `context-menu` module learns the internal backdrop and the consumer Backdrop from the root's `update`, which is sent after the render that mounted them. Until it arrives, a right click on a backdrop shows the browser's menu (CTX-PTR-03, DIS-03).
+- *The measurement.* A page-side probe dispatched `contextmenu` on the internal backdrop every frame from its insertion until one was prevented, 8 runs each (local, 2026-11-11):
+  - WebAssembly: 0 ms in 8 of 8.
+  - Server: 0 ms in 6 of 8, and one frame (17 ms) in 2.
+  - Server with a 40 ms one-way circuit delay: 78–98 ms, about one round trip.
+- *The rule.* WebAssembly meets CTX-PTR-03. On Server the window is the round trip after the opening render.

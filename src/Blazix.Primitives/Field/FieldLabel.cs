@@ -98,9 +98,11 @@ public sealed class FieldLabel : PartBase<FieldLabelState>
     private string? renderedControlId;
     private FormTwin? twin;
     private TwinHandle<FormOptions>? handle;
+    private Task? attaching;
     private FormOptions? sentOptions;
     private DecidedPointer? decided;
     private bool? reportedNativeLabel;
+    private bool disposed;
 
     /// <summary>Initializes a new instance of the <see cref="FieldLabel"/> class.</summary>
     public FieldLabel()
@@ -214,39 +216,24 @@ public sealed class FieldLabel : PartBase<FieldLabelState>
             return;
         }
 
-        FormOptions options = Options();
-        if (handle is not null)
+        if (handle is null)
         {
-            if (options != sentOptions)
+            twin ??= CreateTwin();
+            Task pending = attaching ??= AttachAsync(twin);
+            await pending.ConfigureAwait(true);
+            if (ReferenceEquals(attaching, pending))
             {
-                sentOptions = options;
-                await handle.UpdateAsync(options).ConfigureAwait(true);
-            }
-
-            return;
-        }
-
-        twin ??= CreateTwin();
-        sentOptions = options;
-        if (Element is { } element)
-        {
-            handle = await twin.AttachAsync(element, options).ConfigureAwait(true);
-        }
-        else
-        {
-            try
-            {
-                handle = await twin.AttachAsync(Id!, options).ConfigureAwait(true);
-            }
-            catch (JSException)
-            {
-                // FFI-EDGE-02: a substitute that renders no element leaves nothing to attach to and nothing to check.
-                sentOptions = null;
-                return;
+                attaching = null;
             }
         }
 
-        attachedSource.TrySetResult();
+        // Issue 213's shape (main's PR 215): a render while the handle attached, such as a control claiming its id after the
+        // label's first render, sends what the attach did not carry. A second attach would find the live handle and be ignored.
+        if (handle is not null && !disposed && Enabled && Options() is var options && options != sentOptions)
+        {
+            sentOptions = options;
+            await handle.UpdateAsync(options).ConfigureAwait(true);
+        }
     }
 
     /// <inheritdoc />
@@ -254,6 +241,7 @@ public sealed class FieldLabel : PartBase<FieldLabelState>
     {
         if (disposing)
         {
+            disposed = true;
             field?.RemoveListener(fieldChanged);
             if (publishedId is not null)
             {
@@ -314,6 +302,31 @@ public sealed class FieldLabel : PartBase<FieldLabelState>
             DevelopmentChecks = DevelopmentWarnings.IsEnabled,
         },
     };
+
+    private async Task AttachAsync(FormTwin attachingTwin)
+    {
+        FormOptions options = Options();
+        sentOptions = options;
+        if (Element is { } element)
+        {
+            handle = await attachingTwin.AttachAsync(element, options).ConfigureAwait(true);
+        }
+        else
+        {
+            try
+            {
+                handle = await attachingTwin.AttachAsync(Id!, options).ConfigureAwait(true);
+            }
+            catch (JSException)
+            {
+                // FFI-EDGE-02: a substitute that renders no element leaves nothing to attach to and nothing to check.
+                sentOptions = null;
+                return;
+            }
+        }
+
+        attachedSource.TrySetResult();
+    }
 
     private FormTwin CreateTwin()
     {

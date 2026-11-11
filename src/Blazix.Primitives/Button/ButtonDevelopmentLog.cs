@@ -40,4 +40,17 @@ internal sealed class ButtonDevelopmentLog
             DevelopmentWarnings.Write(logger, message);
         }
     }
+
+    // MNU-EDGE-06 in the port's words (MenuSubmenuTrigger.tsx:139-142); Base UI's `warn` writes each message once too.
+    /// <summary>Writes the message for an element rendered disabled while its part is not, unless this session wrote it.</summary>
+    /// <param name="logger">The logger of the part that rendered the element.</param>
+    /// <param name="part">The part's component name, such as <c>MenuSubmenuTrigger</c>.</param>
+    public void ReportDisabledElement(ILogger logger, string part)
+    {
+        string message = $"Blazix: A disabled element was detected on `<{part}>`. To properly disable the trigger, use the `Disabled` parameter on the component instead of setting it on the rendered element.";
+        if (written.Add(message))
+        {
+            DevelopmentWarnings.Write(logger, message);
+        }
+    }
 }

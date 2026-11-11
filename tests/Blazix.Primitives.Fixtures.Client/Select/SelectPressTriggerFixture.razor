@@ -1,0 +1,125 @@
+@namespace Blazix.Primitives.Fixtures.Client.SelectFixtures
+@using Blazix.Primitives
+@using Blazix.Primitives.Fixtures.Client.PopupFixtures
+@inherits PopupSuiteFixtureBase
+
+@*
+    The `select-press-trigger` fixture (tests/browser/select-press.spec.ts, M5 track 9, L4 agent press): the
+    SelectTrigger.test.tsx titles' roots, one case per page, named by `?case=` (the open changes are recorded as
+    `data-open-changes`):
+    - `aligned-open`: a default-open root with `defaultValue` a, aligned (the positioner's default), in a wrapper with
+      200 px of top padding and a 600 px minimum height; the items a and b;
+    - `non-aligned-open`: a default-open root, `AlignItemWithTrigger=false`, the item a;
+    - `release`: a closed root, `AlignItemWithTrigger=false`, the item a, the trigger fixed at left 100 px, top 100 px, 100 px
+      wide and 40 px high (the bounds `SelectTrigger.test.tsx`'s `pressTrigger` pins on `getBoundingClientRect`);
+    - `disabled`: a closed root with `defaultValue` b and a disabled trigger, the items a and b;
+    - `side-right`: a closed root, the trigger "Trigger", `Side=Right`, `AlignItemWithTrigger=false`, the item apple;
+    - `resolved-side`: a closed root with `defaultValue` apple, in a wrapper with 100 px of top and 10 px of left padding, the
+      trigger 120 × 36, the popup `max-height: none`, the items apple and orange (aligned).
+    The sync button takes the suites' Shift keydown (`data-key-control`).
+*@
+<FixtureContainer Name="select-press-trigger" data-attached="@(Attached ? "true" : "false")" data-sync="@Sync" data-case="@Case"
+                  data-open-changes="@OpenChanges">
+    <button type="button" tabindex="-1" data-sync-button data-key-control style="position: fixed; right: 0; bottom: 0" @onclick="() => Sync++" @onkeydown="OnShift(() => Sync++)">Sync</button>
+    <div style="@wrapperStyle">
+        <SelectRoot TValue="string" @ref="root" DefaultOpen="@defaultOpen" DefaultValue="@defaultValue" OnOpenChange="RecordOpenChange">
+            <SelectTrigger TValue="string" @ref="trigger" data-testid="trigger" Disabled="@triggerDisabled" style="@triggerStyle">
+                @if (Case == "side-right")
+                {
+                    <text>Trigger</text>
+                }
+                else
+                {
+                    <SelectValue TValue="string" />
+                }
+            </SelectTrigger>
+            <SelectPortal>
+                <SelectPositioner @ref="positioner" data-testid="positioner" AlignItemWithTrigger="@align" Side="@side">
+                    <SelectPopup data-testid="popup" style="@popupStyle">
+                        @foreach (string item in items)
+                        {
+                            <SelectItem @key="item" TValue="string" Value="@item">@item</SelectItem>
+                        }
+                    </SelectPopup>
+                </SelectPositioner>
+            </SelectPortal>
+        </SelectRoot>
+    </div>
+</FixtureContainer>
+
+@code {
+    private SelectRoot<string>? root;
+    private SelectTrigger<string>? trigger;
+    private SelectPositioner? positioner;
+    private bool defaultOpen;
+    private bool align = true;
+    private bool triggerDisabled;
+    private string? defaultValue;
+    private string? wrapperStyle;
+    private string? triggerStyle;
+    private string? popupStyle;
+    private Side? side;
+    private string[] items = ["a", "b"];
+
+    protected override IEnumerable<Task> Attachments =>
+        [trigger?.TwinsAttached ?? Task.CompletedTask, root?.SessionAttached ?? Task.CompletedTask, PositionerAttached()];
+
+    protected override void OnInitialized()
+    {
+        base.OnInitialized();
+        switch (Case)
+        {
+            case "aligned-open":
+                defaultOpen = true;
+                defaultValue = "a";
+                wrapperStyle = "padding-top: 200px; min-height: 600px";
+                break;
+            case "non-aligned-open":
+                defaultOpen = true;
+                align = false;
+                items = ["a"];
+                break;
+            case "release":
+                align = false;
+                items = ["a"];
+                triggerStyle = "position: fixed; left: 100px; top: 100px; width: 100px; height: 40px; margin: 0; padding: 0; box-sizing: border-box";
+                break;
+            case "disabled":
+                triggerDisabled = true;
+                defaultValue = "b";
+                break;
+            case "side-right":
+                align = false;
+                side = Primitives.Side.Right;
+                items = ["apple"];
+                break;
+            case "resolved-side":
+                defaultValue = "apple";
+                wrapperStyle = "padding-top: 100px; padding-left: 10px";
+                triggerStyle = "width: 120px; height: 36px; box-sizing: border-box";
+                popupStyle = "max-height: none";
+                items = ["apple", "orange"];
+                break;
+        }
+    }
+
+    // A root that opens at the first render mounts its positioner after the first render: wait for its handle before the
+    // page reads as attached.
+    private async Task PositionerAttached()
+    {
+        if (!defaultOpen)
+        {
+            return;
+        }
+
+        for (int i = 0; positioner is null && i < 2000; i++)
+        {
+            await Task.Delay(5);
+        }
+
+        if (positioner is not null)
+        {
+            await positioner.TwinAttached;
+        }
+    }
+}

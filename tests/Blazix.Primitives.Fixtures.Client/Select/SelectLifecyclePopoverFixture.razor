@@ -1,0 +1,171 @@
+@namespace Blazix.Primitives.Fixtures.Client.SelectFixtures
+@using System.Globalization
+@using Blazix.Primitives
+@using Blazix.Primitives.Fixtures.Client.PopupFixtures
+@inherits PopupSuiteFixtureBase
+
+@*
+    The `select-lifecycle-popover` fixture (tests/browser/select-lifecycle.spec.ts; M5 track 9, L4 agent lifecycle): the roots of
+    SelectRoot.test.tsx's `select inside popover` describe, a select in a popover's popup. The popover trigger reads `Open
+    popover`, its popup is `popover-popup`; the select trigger is `select-trigger` and reads a `Pick one` or `Select apple`
+    placeholder until a value is chosen. The query `case`:
+    - `aligned-reopen` (default): the popover open from the first render, the select with default value `gala`, a positioner with
+      `alignItemWithTrigger`, items Gala and Fuji;
+    - `selected-reopen`: the popover closed, `InitialFocus` false, a label `Apple`, a positioner `sideOffset` 8, a scroll up arrow,
+      a list of Gala, Fuji and Honeycrisp, a scroll down arrow;
+    - `modal-popover`: a modal popover open from the first render, a non-modal select with an aligned positioner, items One and Two;
+    - `escape`: the popover open, a non-modal select, items One and Two;
+    - `programmatic`: the popover open, a button `Open select programmatically` in its popup, and a select controlled by this page
+      (`open={selectOpen} onOpenChange={setSelectOpen}`), items One and Two;
+    - `drag`: the popover open, a modal select with an aligned positioner, items One and Two.
+    The container records the select's and the popover's open changes (`data-select-changes`, `data-popover-changes`) and renders
+    `data-select-attached` once the select's trigger and session have attached (the select renders with the popover's popup).
+*@
+<FixtureContainer Name="select-lifecycle-popover" data-attached="@(Attached ? "true" : "false")" data-sync="@Sync"
+                  data-select-attached="@(selectAttached ? "true" : "false")"
+                  data-select-changes="@string.Join(' ', selectChanges)" data-popover-changes="@string.Join(' ', popoverChanges)">
+    <button type="button" tabindex="-1" data-sync-button data-key-control @onclick="() => Sync++" @onkeydown="OnShift(() => Sync++)">Sync</button>
+    <PopoverRoot TPayload="NoPayload" @ref="popover" DefaultOpen="@popoverOpen" Modal="@popoverModal" OnOpenChange="args => Record(popoverChanges, args)">
+        <PopoverTrigger TPayload="NoPayload" @ref="popoverTrigger">Open popover</PopoverTrigger>
+        <PopoverPortal>
+            <PopoverPositioner>
+                <PopoverPopup data-testid="popover-popup" InitialFocus="@initialFocus">
+                    @if (kase == "programmatic")
+                    {
+                        <button type="button" @onclick="() => selectOpen = true">Open select programmatically</button>
+                    }
+                    <SelectRoot TValue="string" @ref="select" Modal="@selectModal" Items="@labeled" @attributes="SelectAttributes"
+                                OnOpenChange="HandleSelectOpenChange">
+                        @if (kase == "selected-reopen")
+                        {
+                            <SelectLabel>Apple</SelectLabel>
+                        }
+                        <SelectTrigger TValue="string" @ref="selectTrigger" data-testid="select-trigger">
+                            <SelectValue TValue="string">
+                                <Placeholder>@(kase == "selected-reopen" ? "Select apple" : "Pick one")</Placeholder>
+                            </SelectValue>
+                        </SelectTrigger>
+                        <SelectPortal>
+                            <SelectPositioner AlignItemWithTrigger="@aligned" SideOffset="@sideOffset" data-testid="select-positioner">
+                                <SelectPopup data-testid="select-popup">
+                                    @if (kase == "selected-reopen")
+                                    {
+                                        <SelectScrollUpArrow />
+                                    }
+                                    <SelectList>
+                                        @foreach (LabeledValue<string> item in labeled)
+                                        {
+                                            <SelectItem @key="item.Value" TValue="string" Value="@item.Value">@item.Label</SelectItem>
+                                        }
+                                    </SelectList>
+                                    @if (kase == "selected-reopen")
+                                    {
+                                        <SelectScrollDownArrow />
+                                    }
+                                </SelectPopup>
+                            </SelectPositioner>
+                        </SelectPortal>
+                    </SelectRoot>
+                </PopoverPopup>
+            </PopoverPositioner>
+        </PopoverPortal>
+    </PopoverRoot>
+</FixtureContainer>
+
+@code {
+    private readonly List<string> selectChanges = [];
+    private readonly List<string> popoverChanges = [];
+    private PopoverRoot<NoPayload>? popover;
+    private PopoverTrigger<NoPayload>? popoverTrigger;
+    private SelectRoot<string>? select;
+    private SelectTrigger<string>? selectTrigger;
+    private LabeledValue<string>[] labeled = [];
+    private string kase = "aligned-reopen";
+    private bool popoverOpen = true;
+    private ModalValue? popoverModal;
+    private FocusTargetValue? initialFocus;
+    private bool selectModal = true;
+    // Every case keeps Base UI's positioner default: the placement is aligned over the select's trigger.
+    private const bool aligned = true;
+    private OffsetValue? sideOffset;
+    private bool selectOpen;
+    private bool selectAttached;
+    private bool watching;
+
+    protected override IEnumerable<Task> Attachments =>
+    [
+        popoverTrigger?.TwinsAttached ?? Task.CompletedTask,
+        popover?.SessionAttached ?? Task.CompletedTask,
+    ];
+
+    // The programmatic case's select is controlled by this page; the others take no `Open`.
+    private Dictionary<string, object> SelectAttributes => kase == "programmatic" ? new() { ["Open"] = selectOpen } : [];
+
+    protected override void OnInitialized()
+    {
+        kase = Query("case") ?? "aligned-reopen";
+        popoverOpen = kase != "selected-reopen";
+        if (kase == "modal-popover")
+        {
+            popoverModal = new ModalValue(true);
+        }
+
+        if (kase == "selected-reopen")
+        {
+            initialFocus = new FocusTargetValue(false);
+        }
+
+        selectModal = kase is not ("modal-popover" or "escape");
+        if (kase == "selected-reopen")
+        {
+            sideOffset = new OffsetValue(8);
+        }
+
+        labeled = kase switch
+        {
+            "aligned-reopen" => [new("gala", "Gala"), new("fuji", "Fuji")],
+            "selected-reopen" => [new("gala", "Gala"), new("fuji", "Fuji"), new("honeycrisp", "Honeycrisp")],
+            _ => [new("one", "One"), new("two", "Two")],
+        };
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        await base.OnAfterRenderAsync(firstRender);
+
+        // The select renders with the popover's popup, whenever that opens: its refs are set by a render of the popover's
+        // content, which the fixture's own render may precede, so the fixture waits for them off the render path.
+        if (!watching && RendererInfo.IsInteractive)
+        {
+            watching = true;
+            _ = WatchSelectAsync();
+        }
+    }
+
+    private async Task WatchSelectAsync()
+    {
+        while (select is null || selectTrigger is null)
+        {
+            await Task.Delay(20);
+        }
+
+        await Task.WhenAll(selectTrigger.TwinsAttached, select.SessionAttached);
+        await InvokeAsync(() =>
+        {
+            selectAttached = true;
+            StateHasChanged();
+        });
+    }
+
+    private void HandleSelectOpenChange(ValueChangeEventArgs<bool> args)
+    {
+        Record(selectChanges, args);
+        if (kase == "programmatic" && !args.Details.IsCanceled)
+        {
+            selectOpen = args.Value;
+        }
+    }
+
+    private void Record(List<string> changes, ValueChangeEventArgs<bool> args) =>
+        changes.Add(string.Create(CultureInfo.InvariantCulture, $"{(args.Value ? "true" : "false")}:{args.Details.Reason.ToLiteral()}"));
+}

@@ -1,0 +1,70 @@
+@namespace Blazix.Primitives.Tests.Components
+@* MenuItem.test.tsx's trees: a menu open from the start (Base UI opens it by pressing the trigger, which needs the
+   `interactions` module, so the closing titles start uncontrolled and open) holding one item. `Outside` renders the item
+   with no root. The item's handlers are recorded; `PreventOnClick` and `PreventOnMouseDown` veto the part's handler. *@
+@if (Outside)
+{
+    <MenuItem>Item</MenuItem>
+}
+else
+{
+    <MenuRoot TPayload="NoPayload" DefaultOpen="true" OnOpenChange="RecordOpenChange">
+        <MenuTrigger TPayload="NoPayload" data-testid="trigger">Open</MenuTrigger>
+        <MenuPortal>
+            <MenuPositioner>
+                <MenuPopup data-testid="popup">
+                    <MenuItem id="item" CloseOnClick="CloseOnClick" Disabled="Disabled"
+                              @onclick="OnClick" @onmousedown="OnMouseDown" @onkeydown="OnKeyDown" @onkeyup="OnKeyUp">Item</MenuItem>
+                </MenuPopup>
+            </MenuPositioner>
+        </MenuPortal>
+    </MenuRoot>
+}
+
+@code {
+    [Parameter]
+    public bool Outside { get; set; }
+
+    [Parameter]
+    public bool CloseOnClick { get; set; } = true;
+
+    [Parameter]
+    public bool Disabled { get; set; }
+
+    [Parameter]
+    public bool PreventOnClick { get; set; }
+
+    [Parameter]
+    public bool PreventOnMouseDown { get; set; }
+
+    public int Clicks { get; private set; }
+
+    public int KeyDowns { get; private set; }
+
+    public int KeyUps { get; private set; }
+
+    public List<string> OpenChanges { get; } = [];
+
+    private void RecordOpenChange(ValueChangeEventArgs<bool> args) => OpenChanges.Add($"{args.Value}:{args.Details.Reason}");
+
+    private void OnClick(MouseEventArgs e)
+    {
+        Clicks++;
+        if (PreventOnClick)
+        {
+            e.PreventPartHandler();
+        }
+    }
+
+    private void OnMouseDown(MouseEventArgs e)
+    {
+        if (PreventOnMouseDown)
+        {
+            e.PreventPartHandler();
+        }
+    }
+
+    private void OnKeyDown(KeyboardEventArgs e) => KeyDowns++;
+
+    private void OnKeyUp(KeyboardEventArgs e) => KeyUps++;
+}

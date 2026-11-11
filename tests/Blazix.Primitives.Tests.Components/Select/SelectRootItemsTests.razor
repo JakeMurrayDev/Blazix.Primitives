@@ -1,0 +1,716 @@
+@namespace Blazix.Primitives.Tests.Components
+@inherits SelectTestBase
+@using System.Text.Json
+@using AngleSharp.Dom
+@using Bunit
+@using Microsoft.Extensions.DependencyInjection
+@using Microsoft.Extensions.Time.Testing
+@using Microsoft.JSInterop
+@*
+    L2: SelectRoot.test.tsx's titles from "dynamic items" to the end that bUnit observes (M5 track 9): the item registry
+    and its reconciliation (the composite module's order report is PublishOrderAsync), the closed-trigger typeahead's
+    C# half, isItemEqualToValue, the opening method and the trigger's render count. Typeahead matching, keys, focus,
+    hover highlighting, geometry and the animated exit are the modules' (tests/browser/select.spec.ts).
+*@
+
+@code {
+    // `user.click(trigger)` focuses the trigger first, whose onfocus force-mounts the list 0 ms later (SEL-STA-09); the
+    // timer runs under this clock, which FocusTriggerAsync advances.
+    private readonly FakeTimeProvider clock = new();
+
+    public SelectRootItemsTests()
+    {
+        Services.AddSingleton<TimeProvider>(clock);
+    }
+
+    private sealed record User(int Id, string Name);
+
+    private sealed record Account(int Id, string Name, string Source);
+
+    private async Task FocusTriggerAsync(IRenderedComponent<SelectHost> cut)
+    {
+        await cut.InvokeAsync(() => Trigger(cut).Focus());
+        clock.Advance(TimeSpan.FromMilliseconds(1));
+        await cut.InvokeAsync(() => { });
+    }
+
+    // A user's click: the pointer focuses the trigger, then presses it.
+    private async Task ClickTriggerAsync(IRenderedComponent<SelectHost> cut)
+    {
+        await FocusTriggerAsync(cut);
+        await OpenAsync(cut);
+    }
+
+    // ArrowDown or ArrowUp on the focused closed trigger: the composite module's request to open the list (CMP-EVT-06).
+    private async Task OpenWithKeyAsync(IRenderedComponent<SelectHost> cut, string key)
+    {
+        string request = $$"""{"open":true,"reason":"list-navigation","event":{{Key(key)}},"triggerId":"{{Trigger(cut).Id}}"}""";
+        await cut.InvokeAsync(() => CompositeTwinOf("\"reference\":")!.OnListOpenRequest(request));
+        await PublishOrderAsync(cut);
+    }
+
+    private static IElement Option(IRenderedComponent<SelectHost> cut, string text) =>
+        cut.FindAll("[role=\"option\"]").First(option => option.TextContent.Trim() == text);
+
+    private static bool IsSelected(IRenderedComponent<SelectHost> cut, string text) => Option(cut, text).HasAttribute("data-selected");
+
+    // The latest options the composite module received on a handle whose attach carries the marker: its attach's, or its
+    // latest update's (the same record goes to every handle of the list, so the trigger's reference handle stands for it).
+    private string? LastComposite(string marker)
+    {
+        string? options = Composite.Invocations["attach"].Select(invocation => invocation.Arguments[1] as string).LastOrDefault(json => json is not null && json.Contains(marker, StringComparison.Ordinal));
+        foreach (JSRuntimeInvocation update in CompositeHandle.Invocations["update"])
+        {
+            if (update.Arguments[0] is string json && json.Contains(marker, StringComparison.Ordinal))
+            {
+                options = json;
+            }
+        }
+
+        return options;
+    }
+
+    // The selected index (the anchor the module opens on) C# last sent to the list's handles.
+    private int? SentSelectedIndex()
+    {
+        using JsonDocument document = JsonDocument.Parse(LastComposite("\"reference\":")!);
+        return document.RootElement.TryGetProperty("list", out JsonElement list) && list.TryGetProperty("selectedIndex", out JsonElement index) ? index.GetInt32() : null;
+    }
+
+    [Fact(DisplayName = "unselects the selected item if removed")]
+    [Trait("Requirement", "SEL-STA-12")]
+    public async Task Unselects_the_selected_item_if_removed()
+    {
+        string[] items = ["a", "b", "c"];
+        string selectedItem = "a";
+        List<ValueChangeEventArgs<string>> changes = [];
+        IRenderedComponent<SelectHost> cut = RenderSelect(@<div>
+            <div data-testid="value">@selectedItem</div>
+            <SelectRoot TValue="string" Value="@selectedItem" OnValueChange="e => { selectedItem = e.Value; changes.Add(e); }">
+                <SelectTrigger>Toggle</SelectTrigger>
+                <SelectPortal>
+                    <SelectPositioner>
+                        <SelectPopup>
+                            @foreach (string item in items)
+                            {
+                                <SelectItem @key="item" Value="@item">@item</SelectItem>
+                            }
+                        </SelectPopup>
+                    </SelectPositioner>
+                </SelectPortal>
+            </SelectRoot>
+        </div>);
+
+        // The key is the module's (L4); the popup opens as its request reports.
+        await FocusTriggerAsync(cut);
+        await OpenWithKeyAsync(cut, "ArrowDown");
+
+        Assert.True(IsSelected(cut, "a"));
+        Assert.Equal("a", cut.Find("[data-testid=\"value\"]").TextContent);
+
+        // "Remove": the item leaves the list; the registry publishes the new order.
+        items = ["b", "c"];
+        await RefreshAsync(cut);
+        await PublishOrderAsync(cut);
+
+        // The reconciliation reset the controlled value through onValueChange, and no remaining option is selected.
+        Assert.Single(changes);
+        Assert.Null(changes[0].Value);
+        await RefreshAsync(cut);
+        Assert.Equal("", cut.Find("[data-testid=\"value\"]").TextContent);
+        Assert.False(IsSelected(cut, "b"));
+
+        // "Add": the removed item returns, and it is not selected because the value was reset.
+        items = ["a", "b", "c"];
+        await RefreshAsync(cut);
+        await PublishOrderAsync(cut);
+
+        Assert.Equal(3, cut.FindAll("[role=\"option\"]").Count);
+        Assert.False(IsSelected(cut, "a"));
+        Assert.Single(changes);
+    }
+
+    [Fact(DisplayName = "resets the value when the selected item is replaced and the item count is unchanged")]
+    [Trait("Requirement", "SEL-STA-12")]
+    [Trait("Requirement", "SEL-EVT-02")]
+    public async Task Resets_the_value_when_the_selected_item_is_replaced_and_the_item_count_is_unchanged()
+    {
+        string[] items = ["a", "b", "c"];
+        string value = "c";
+        List<ValueChangeEventArgs<string>> changes = [];
+        IRenderedComponent<SelectHost> cut = RenderSelect(@<SelectRoot TValue="string" Value="@value" OnValueChange="e => { value = e.Value; changes.Add(e); }">
+            <SelectTrigger data-testid="trigger">
+                <SelectValue />
+            </SelectTrigger>
+            <SelectPortal>
+                <SelectPositioner>
+                    <SelectPopup>
+                        @foreach (string item in items)
+                        {
+                            <SelectItem @key="item" Value="@item">@item</SelectItem>
+                        }
+                    </SelectPopup>
+                </SelectPositioner>
+            </SelectPortal>
+        </SelectRoot>);
+
+        Assert.Contains("c", cut.Find("[data-testid=\"trigger\"]").TextContent, StringComparison.Ordinal);
+
+        // The items only register once the popup has mounted.
+        await ClickTriggerAsync(cut);
+        Assert.NotEmpty(cut.FindAll("[role=\"listbox\"]"));
+        Assert.Empty(changes);
+
+        // Replace "c" with "d" while the popup is open, keeping the count at three.
+        items = ["a", "b", "d"];
+        await RefreshAsync(cut);
+        await PublishOrderAsync(cut);
+
+        // The reconciliation asks for null with the reason `none` (SEL-EVT-02), and the controlled consumer applies it.
+        Assert.Single(changes);
+        Assert.Null(changes[^1].Value);
+        Assert.Equal(EventReason.None, changes[^1].Details.Reason);
+        await RefreshAsync(cut);
+        Assert.DoesNotContain("c", cut.Find("[data-testid=\"trigger\"]").TextContent, StringComparison.Ordinal);
+    }
+
+    [Fact(DisplayName = "resets the value when every item is replaced and the item count is unchanged")]
+    [Trait("Requirement", "SEL-STA-12")]
+    public async Task Resets_the_value_when_every_item_is_replaced_and_the_item_count_is_unchanged()
+    {
+        string[] items = ["a", "b", "c"];
+        string value = "c";
+        List<ValueChangeEventArgs<string>> changes = [];
+        IRenderedComponent<SelectHost> cut = RenderSelect(@<SelectRoot TValue="string" Value="@value" OnValueChange="e => { value = e.Value; changes.Add(e); }">
+            <SelectTrigger data-testid="trigger">
+                <SelectValue />
+            </SelectTrigger>
+            <SelectPortal>
+                <SelectPositioner>
+                    <SelectPopup>
+                        @foreach (string item in items)
+                        {
+                            <SelectItem @key="item" Value="@item">@item</SelectItem>
+                        }
+                    </SelectPopup>
+                </SelectPositioner>
+            </SelectPortal>
+        </SelectRoot>);
+
+        await ClickTriggerAsync(cut);
+        Assert.NotEmpty(cut.FindAll("[role=\"listbox\"]"));
+        Assert.Empty(changes);
+
+        items = ["x", "y", "z"];
+        await RefreshAsync(cut);
+        await PublishOrderAsync(cut);
+
+        Assert.Single(changes);
+        Assert.Null(changes[^1].Value);
+    }
+
+    [Fact(DisplayName = "keeps the value when the items are only reordered")]
+    [Trait("Requirement", "SEL-STA-12")]
+    public async Task Keeps_the_value_when_the_items_are_only_reordered()
+    {
+        string[] items = ["a", "b", "c"];
+        string value = "c";
+        List<ValueChangeEventArgs<string>> changes = [];
+        IRenderedComponent<SelectHost> cut = RenderSelect(@<SelectRoot TValue="string" Value="@value" OnValueChange="e => { value = e.Value; changes.Add(e); }">
+            <SelectTrigger data-testid="trigger">
+                <SelectValue />
+            </SelectTrigger>
+            <SelectPortal>
+                <SelectPositioner>
+                    <SelectPopup>
+                        @foreach (string item in items)
+                        {
+                            <SelectItem @key="item" Value="@item">@item</SelectItem>
+                        }
+                    </SelectPopup>
+                </SelectPositioner>
+            </SelectPortal>
+        </SelectRoot>);
+
+        await ClickTriggerAsync(cut);
+        Assert.Equal(["a", "b", "c"], cut.FindAll("[role=\"option\"]").Select(option => option.TextContent.Trim()));
+
+        items = ["c", "a", "b"];
+        await RefreshAsync(cut);
+        await PublishOrderAsync(cut);
+
+        // The order really changed, and the selected item is still selected.
+        Assert.Equal(["c", "a", "b"], cut.FindAll("[role=\"option\"]").Select(option => option.TextContent.Trim()));
+        Assert.True(IsSelected(cut, "c"));
+
+        // The item set is unchanged, so nothing should have been reconciled away.
+        Assert.Empty(changes);
+        Assert.Contains("c", cut.Find("[data-testid=\"trigger\"]").TextContent, StringComparison.Ordinal);
+    }
+
+    [Fact(DisplayName = "resets to default when the selected item is removed from the list")]
+    [Trait("Requirement", "SEL-STA-12")]
+    [Trait("Requirement", "SEL-STA-31")]
+    public async Task Resets_to_default_when_the_selected_item_is_removed_from_the_list()
+    {
+        string[] items = ["a", "b", "c"];
+        IRenderedComponent<SelectHost> cut = RenderSelect(@<SelectRoot TValue="string" DefaultValue="@("b")">
+            <SelectTrigger data-testid="trigger">
+                <SelectValue />
+            </SelectTrigger>
+            <SelectPortal>
+                <SelectPositioner>
+                    <SelectPopup>
+                        @foreach (string item in items)
+                        {
+                            <SelectItem @key="item" Value="@item">@item</SelectItem>
+                        }
+                    </SelectPopup>
+                </SelectPositioner>
+            </SelectPortal>
+        </SelectRoot>);
+
+        await ClickTriggerAsync(cut);
+        await ClickOptionAsync(cut, "c");
+        await CompleteTransitionAsync<string>(cut);
+        Assert.Contains("c", cut.Find("[data-testid=\"trigger\"]").TextContent, StringComparison.Ordinal);
+
+        // "Remove C": the selected item leaves, so the value falls back to the initial value (SEL-STA-31), which is still present.
+        items = ["a", "b"];
+        await RefreshAsync(cut);
+        await PublishOrderAsync(cut);
+
+        Assert.Contains("b", cut.Find("[data-testid=\"trigger\"]").TextContent, StringComparison.Ordinal);
+        Assert.DoesNotContain("c", cut.Find("[data-testid=\"trigger\"]").TextContent, StringComparison.Ordinal);
+
+        await ClickTriggerAsync(cut);
+        Assert.True(IsSelected(cut, "b"));
+    }
+
+    [Fact(DisplayName = "resets via onValueChange and does not break in controlled mode when the selected item is removed")]
+    [Trait("Requirement", "SEL-STA-12")]
+    [Trait("Requirement", "SEL-STA-14")]
+    public async Task Resets_via_on_value_change_and_does_not_break_in_controlled_mode_when_the_selected_item_is_removed()
+    {
+        string[] items = ["a", "b", "c"];
+        string value = "c";
+        List<ValueChangeEventArgs<string>> changes = [];
+        IRenderedComponent<SelectHost> cut = RenderSelect(@<SelectRoot TValue="string" Value="@value" OnValueChange="e => { value = e.Value; changes.Add(e); }">
+            <SelectTrigger data-testid="trigger">
+                <SelectValue />
+            </SelectTrigger>
+            <SelectPortal>
+                <SelectPositioner>
+                    <SelectPopup>
+                        @foreach (string item in items)
+                        {
+                            <SelectItem @key="item" Value="@item">@item</SelectItem>
+                        }
+                    </SelectPopup>
+                </SelectPositioner>
+            </SelectPortal>
+        </SelectRoot>);
+
+        Assert.Contains("c", cut.Find("[data-testid=\"trigger\"]").TextContent, StringComparison.Ordinal);
+
+        // "Remove C" before the popup ever opened: the items register for the first time on the opening.
+        items = ["a", "b"];
+        await RefreshAsync(cut);
+
+        // Opening should not break; and no option is selected since the value is missing from the list. The first
+        // publication of the item map never reconciles (SEL-STA-14), so the consumer's value is untouched.
+        await ClickTriggerAsync(cut);
+
+        Assert.NotEmpty(cut.FindAll("[role=\"listbox\"]"));
+        IReadOnlyList<IElement> options = cut.FindAll("[role=\"option\"]");
+        Assert.Equal(2, options.Count);
+        Assert.All(options, option => Assert.False(option.HasAttribute("data-selected")));
+        Assert.Empty(changes);
+        Assert.Equal("c", value);
+    }
+
+    [Fact(DisplayName = "falls back to null when both selected and initial default are removed (uncontrolled)")]
+    [Trait("Requirement", "SEL-STA-12")]
+    public async Task Falls_back_to_null_when_both_selected_and_initial_default_are_removed_uncontrolled()
+    {
+        string[] items = ["a", "b", "c"];
+        IRenderedComponent<SelectHost> cut = RenderSelect(@<SelectRoot TValue="string" DefaultValue="@("b")">
+            <SelectTrigger data-testid="trigger">
+                <SelectValue />
+            </SelectTrigger>
+            <SelectPortal>
+                <SelectPositioner>
+                    <SelectPopup>
+                        @foreach (string item in items)
+                        {
+                            <SelectItem @key="item" Value="@item">@item</SelectItem>
+                        }
+                    </SelectPopup>
+                </SelectPositioner>
+            </SelectPortal>
+        </SelectRoot>);
+
+        await ClickTriggerAsync(cut);
+        await ClickOptionAsync(cut, "c");
+        await CompleteTransitionAsync<string>(cut);
+        Assert.Contains("c", cut.Find("[data-testid=\"trigger\"]").TextContent, StringComparison.Ordinal);
+
+        // "Remove B": the selected "c" stays, so nothing changes.
+        items = ["a", "c"];
+        await RefreshAsync(cut);
+        await PublishOrderAsync(cut);
+        Assert.Contains("c", cut.Find("[data-testid=\"trigger\"]").TextContent, StringComparison.Ordinal);
+
+        // "Remove C": now no fallback remains; the value resets to null.
+        items = ["a"];
+        await RefreshAsync(cut);
+        await PublishOrderAsync(cut);
+        Assert.Equal("", cut.Find("[data-testid=\"trigger\"]").TextContent.Trim());
+
+        await ClickTriggerAsync(cut);
+        IReadOnlyList<IElement> options = cut.FindAll("[role=\"option\"]");
+        Assert.Single(options);
+        Assert.All(options, option => Assert.False(option.HasAttribute("data-selected")));
+    }
+
+    [Fact(DisplayName = "falls back to null when both selected and initial default are removed (controlled)")]
+    [Trait("Requirement", "SEL-STA-12")]
+    public async Task Falls_back_to_null_when_both_selected_and_initial_default_are_removed_controlled()
+    {
+        string[] items = ["a", "b", "c"];
+        string value = "c";
+        List<ValueChangeEventArgs<string>> changes = [];
+        IRenderedComponent<SelectHost> cut = RenderSelect(@<SelectRoot TValue="string" Value="@value" OnValueChange="e => { value = e.Value; changes.Add(e); }">
+            <SelectTrigger data-testid="trigger">
+                <SelectValue />
+            </SelectTrigger>
+            <SelectPortal>
+                <SelectPositioner>
+                    <SelectPopup>
+                        @foreach (string item in items)
+                        {
+                            <SelectItem @key="item" Value="@item">@item</SelectItem>
+                        }
+                    </SelectPopup>
+                </SelectPositioner>
+            </SelectPortal>
+        </SelectRoot>);
+
+        Assert.Contains("c", cut.Find("[data-testid=\"trigger\"]").TextContent, StringComparison.Ordinal);
+
+        // "Remove B", "Remove C" before the popup ever opened.
+        items = ["a", "c"];
+        await RefreshAsync(cut);
+        items = ["a"];
+        await RefreshAsync(cut);
+
+        await ClickTriggerAsync(cut);
+
+        IReadOnlyList<IElement> options = cut.FindAll("[role=\"option\"]");
+        Assert.Single(options);
+        Assert.All(options, option => Assert.False(option.HasAttribute("data-selected")));
+        Assert.Empty(changes);
+    }
+
+    [Fact(DisplayName = "commits typeahead on a closed trigger when items are provided")]
+    [Trait("Requirement", "SEL-STA-09")]
+    [Trait("Requirement", "SEL-STR-06")]
+    public async Task Commits_typeahead_on_a_closed_trigger_when_items_are_provided()
+    {
+        string value = null!;
+        Dictionary<string, string?> labels = new() { ["apple"] = "Apple", ["cherry"] = "Cherry" };
+        List<ValueChangeEventArgs<string>> changes = [];
+        IRenderedComponent<SelectHost> cut = RenderSelect(@<SelectRoot TValue="string" ItemLabels="labels" Value="@value" OnValueChange="e => { value = e.Value; changes.Add(e); }">
+            <SelectTrigger data-testid="trigger">
+                <SelectValue data-testid="value" />
+            </SelectTrigger>
+            <SelectPortal>
+                <SelectPositioner>
+                    <SelectPopup>
+                        <SelectItem Value="@("apple")">Apple</SelectItem>
+                        <SelectItem Value="@("cherry")">Cherry</SelectItem>
+                    </SelectPopup>
+                </SelectPositioner>
+            </SelectPortal>
+        </SelectRoot>);
+
+        // SEL-STR-06: the popup is never opened, and before the focus the list does not exist.
+        Assert.Empty(cut.FindAll("[role=\"option\"]"));
+
+        // The trigger's own onfocus force-mounts the list 0 ms later (SEL-STA-09), so the closed trigger can match items
+        // even though `items` is provided; the typeahead match itself is the composite module's report (L4).
+        await FocusTriggerAsync(cut);
+        Assert.Equal(2, cut.FindAll("[role=\"option\"]").Count);
+        Assert.DoesNotContain(cut.FindAll("[role=\"listbox\"]"), listbox => listbox.HasAttribute("data-open"));
+        await PublishOrderAsync(cut);
+
+        await MatchAsync(cut, 1, "c");
+
+        Assert.Single(changes);
+        Assert.Equal("cherry", changes[0].Value);
+        Assert.Equal(EventReason.None, changes[0].Details.Reason);
+        await RefreshAsync(cut);
+        Assert.Equal("Cherry", cut.Find("[data-testid=\"value\"]").TextContent);
+    }
+
+    [Fact(DisplayName = "does not jump matches after a closed-state value reset")]
+    [Trait("Requirement", "SEL-STA-04")]
+    public async Task Does_not_jump_matches_after_a_closed_state_value_reset()
+    {
+        string value = "dog";
+        List<ValueChangeEventArgs<string>> changes = [];
+        IRenderedComponent<SelectHost> cut = RenderSelect(@<div>
+            <SelectRoot TValue="string" Value="@value" OnValueChange="e => { value = e.Value; changes.Add(e); }">
+                <SelectTrigger data-testid="trigger">
+                    <SelectValue data-testid="value" />
+                </SelectTrigger>
+                <SelectPortal>
+                    <SelectPositioner>
+                        <SelectPopup>
+                            <SelectItem Value="@("car")">car</SelectItem>
+                            <SelectItem Value="@("cat")">cat</SelectItem>
+                            <SelectItem Value="@("dog")">dog</SelectItem>
+                        </SelectPopup>
+                    </SelectPositioner>
+                </SelectPortal>
+            </SelectRoot>
+        </div>);
+
+        Assert.Equal("dog", cut.Find("[data-testid=\"value\"]").TextContent);
+
+        // "Set car": a controlled change while closed, before the list ever mounted.
+        value = "car";
+        await RefreshAsync(cut);
+        Assert.Equal("car", cut.Find("[data-testid=\"value\"]").TextContent);
+
+        await FocusTriggerAsync(cut);
+        await PublishOrderAsync(cut);
+
+        // The closed typeahead starts from the selected index (the module's search), which follows the value: "car" is
+        // item 0, not the stale "dog" (2).
+        Assert.Equal(0, SentSelectedIndex());
+
+        // The first "c" lands on the next match after "car" and commits it; the later "a" keeps it (the module's search, L4).
+        await MatchAsync(cut, 1, "c");
+        Assert.Single(changes);
+        Assert.Equal("cat", changes[0].Value);
+        await RefreshAsync(cut);
+        Assert.Equal("cat", cut.Find("[data-testid=\"value\"]").TextContent);
+        Assert.Equal(1, SentSelectedIndex());
+    }
+
+    [Fact(DisplayName = "matches object values using the provided comparator")]
+    [Trait("Requirement", "SEL-API-22")]
+    [Trait("Requirement", "SEL-STA-03")]
+    public async Task Matches_object_values_using_the_provided_comparator()
+    {
+        User[] users = [new(1, "Alice"), new(2, "Bob")];
+        User selected = new(2, "Bob");
+        IRenderedComponent<SelectHost> cut = RenderSelect(@<SelectRoot TValue="User" Value="@selected" ItemToStringLabel="item => item.Name" ItemToStringValue="item => item.Id.ToString()" IsItemEqualToValue="(item, value) => item.Id == value.Id">
+            <SelectTrigger data-testid="trigger">
+                <SelectValue />
+            </SelectTrigger>
+            <SelectPortal>
+                <SelectPositioner>
+                    <SelectPopup>
+                        @foreach (User user in users)
+                        {
+                            <SelectItem @key="user.Id" Value="@user">@user.Name</SelectItem>
+                        }
+                    </SelectPopup>
+                </SelectPositioner>
+            </SelectPortal>
+        </SelectRoot>);
+
+        Assert.Contains("Bob", cut.Find("[data-testid=\"trigger\"]").TextContent, StringComparison.Ordinal);
+
+        await ClickTriggerAsync(cut);
+
+        Assert.True(IsSelected(cut, "Bob"));
+        Assert.False(IsSelected(cut, "Alice"));
+    }
+
+    [Fact(DisplayName = "matches object values when the popup is mounted on the initial render")]
+    [Trait("Requirement", "SEL-API-22")]
+    [Trait("Requirement", "SEL-STA-05")]
+    public void Matches_object_values_when_the_popup_is_mounted_on_the_initial_render()
+    {
+        User[] users = [new(1, "Alice"), new(2, "Bob")];
+        User selected = new(2, "Bob");
+        IRenderedComponent<SelectHost> cut = RenderSelect(@<SelectRoot TValue="User" DefaultOpen="true" Value="@selected" ItemToStringLabel="item => item.Name" ItemToStringValue="item => item.Id.ToString()" IsItemEqualToValue="(item, value) => item.Id == value.Id">
+            <SelectTrigger data-testid="trigger">
+                <SelectValue />
+            </SelectTrigger>
+            <SelectPortal>
+                <SelectPositioner>
+                    <SelectPopup>
+                        @foreach (User user in users)
+                        {
+                            <SelectItem @key="user.Id" Value="@user">@user.Name</SelectItem>
+                        }
+                    </SelectPopup>
+                </SelectPositioner>
+            </SelectPortal>
+        </SelectRoot>);
+
+        Assert.True(IsSelected(cut, "Bob"));
+        Assert.False(IsSelected(cut, "Alice"));
+    }
+
+    [Fact(DisplayName = "passes item as the first comparator argument in multiple mode")]
+    [Trait("Requirement", "SEL-API-22")]
+    [Trait("Requirement", "SEL-EVT-05")]
+    [Trait("Requirement", "SEL-EVT-15")]
+    public async Task Passes_item_as_the_first_comparator_argument_in_multiple_mode()
+    {
+        Account[] users = [new(1, "Alice", "item"), new(2, "Bob", "item")];
+        Account[] defaults = [new(2, "Bob", "selected")];
+        List<(Account? Item, Account? Selected)> calls = [];
+        List<ValueChangeEventArgs<IReadOnlyList<Account>>> changes = [];
+        bool Equal(Account item, Account selected)
+        {
+            calls.Add((item, selected));
+            return item.Id == selected.Id && item.Source == "item" && selected.Source == "selected";
+        }
+
+        IRenderedComponent<SelectHost> cut = RenderSelect(@<SelectRoot TValue="Account" Multiple="true" DefaultOpen="true" DefaultValues="defaults" ItemToStringLabel="item => item.Name" ItemToStringValue="item => item.Id.ToString()" IsItemEqualToValue="Equal" OnValuesChange="changes.Add">
+            <SelectTrigger data-testid="trigger">
+                <SelectValue />
+            </SelectTrigger>
+            <SelectPortal>
+                <SelectPositioner>
+                    <SelectPopup>
+                        @foreach (Account user in users)
+                        {
+                            <SelectItem @key="user.Id" Value="@user">@user.Name</SelectItem>
+                        }
+                    </SelectPopup>
+                </SelectPositioner>
+            </SelectPortal>
+        </SelectRoot>);
+
+        Assert.True(IsSelected(cut, "Bob"));
+        Assert.False(IsSelected(cut, "Alice"));
+
+        await ClickOptionAsync(cut, "Bob");
+
+        // The click removed the selected value, which only matches with the item first (SEL-EVT-05).
+        Assert.Single(changes);
+        Assert.Empty(changes[0].Value);
+        Assert.Equal(EventReason.ItemPress, changes[0].Details.Reason);
+        Assert.False(IsSelected(cut, "Bob"));
+
+        // SEL-EVT-15, SEL-API-22: in every call the item came first, a selected value second, and neither was null.
+        Assert.NotEmpty(calls);
+        Assert.All(calls, call =>
+        {
+            Assert.NotNull(call.Item);
+            Assert.NotNull(call.Selected);
+            Assert.Equal("item", call.Item!.Source);
+            Assert.Equal("selected", call.Selected!.Source);
+        });
+    }
+
+    [Fact(DisplayName = "does not carry an ArrowUp opening over to a later pointer opening")]
+    [Trait("Requirement", "SEL-DOM-25")]
+    public async Task Does_not_carry_an_arrow_up_opening_over_to_a_later_pointer_opening()
+    {
+        // A selected item claims the keyboard opening, so the ArrowUp is never consumed.
+        string value = "b";
+        IRenderedComponent<SelectHost> cut = RenderSelect(@<div>
+            <SelectRoot TValue="string" Value="@value" OnValueChange="e => value = e.Value">
+                <SelectTrigger data-testid="trigger">
+                    <SelectValue />
+                </SelectTrigger>
+                <SelectPortal>
+                    <SelectPositioner AlignItemWithTrigger="false">
+                        <SelectPopup>
+                            <SelectItem Value="@("a")">a</SelectItem>
+                            <SelectItem Value="@("b")">b</SelectItem>
+                            <SelectItem Value="@("c")">c</SelectItem>
+                        </SelectPopup>
+                    </SelectPositioner>
+                </SelectPortal>
+            </SelectRoot>
+        </div>);
+        SelectStore<string> store = StoreOf<string>(cut);
+
+        // The ArrowUp is the composite module's request to open (CMP-EVT-06, reason list-navigation); the list opens on
+        // the selected item. The key it records for the opening is the module's own (L4); C# records no open method for it.
+        await FocusTriggerAsync(cut);
+        await OpenWithKeyAsync(cut, "ArrowUp");
+        Assert.Equal("true", Trigger(cut).GetAttribute("aria-expanded"));
+        Assert.Equal(1, SentSelectedIndex());
+
+        // Escape: the popup closes and its exit completes; the recorded open method goes with it (SEL-STA-08).
+        await SessionRequestAsync(cut, false, "escape-key", Key("Escape"));
+        await CompleteTransitionAsync<string>(cut);
+        Assert.Equal("false", Trigger(cut).GetAttribute("aria-expanded"));
+        Assert.Null(store.State.Lifecycle.OpenMethod);
+
+        // "Clear", then a pointer opening.
+        value = null!;
+        await RefreshAsync(cut);
+        await ClickTriggerAsync(cut);
+
+        // The popup is the focus element of the opening (SEL-DOM-25; the focus itself and the highlight are L4): the
+        // listbox is focusable, nothing is selected to claim the opening, and the open method is the pointer's.
+        IElement listbox = cut.Find("[role=\"listbox\"]");
+        Assert.Equal("-1", listbox.GetAttribute("tabindex"));
+        Assert.True(listbox.HasAttribute("data-base-ui-focusable"));
+        Assert.Null(SentSelectedIndex());
+        Assert.Equal(InteractionType.Mouse, store.State.Lifecycle.OpenMethod);
+        Assert.Null(store.List!.HighlightedIndex);
+        Assert.DoesNotContain(cut.FindAll("[role=\"option\"]"), option => option.HasAttribute("data-highlighted"));
+    }
+
+    // docs/components/select.md §14: a render-count optimization, non-normative, so no requirement row. The trigger's class
+    // function runs once per render of the part; the highlight is the composite module's report.
+    [Fact(DisplayName = "does not re-render the trigger while navigating the list")]
+    public async Task Does_not_re_render_the_trigger_while_navigating_the_list()
+    {
+        int triggerRenders = 0;
+        IRenderedComponent<SelectHost> cut = RenderSelect(@<SelectRoot TValue="string">
+            <SelectTrigger ClassValue="@(state => { triggerRenders++; return null; })">
+                <SelectValue />
+            </SelectTrigger>
+            <SelectPortal>
+                <SelectPositioner>
+                    <SelectPopup>
+                        @foreach (int index in Enumerable.Range(0, 10))
+                        {
+                            <SelectItem @key="index" Value="@(index.ToString())">@($"Item {index}")</SelectItem>
+                        }
+                    </SelectPopup>
+                </SelectPositioner>
+            </SelectPortal>
+        </SelectRoot>);
+
+        await ClickTriggerAsync(cut);
+        Assert.NotEmpty(cut.FindAll("[role=\"listbox\"]"));
+        Assert.Equal(10, cut.FindAll("[role=\"option\"]").Count);
+
+        // The count works: the opening itself rendered the trigger.
+        Assert.True(triggerRenders > 0);
+        IRenderedComponent<SelectTrigger<string>> trigger = cut.FindComponent<SelectTrigger<string>>();
+        IReadOnlyList<IRenderedComponent<SelectItem<string>>> items = cut.FindComponents<SelectItem<string>>();
+        int rendersBefore = trigger.RenderCount;
+        int[] itemRendersBefore = [.. items.Select(item => item.RenderCount)];
+        triggerRenders = 0;
+
+        // ArrowDown three times: the module reports each move of the highlight.
+        await HighlightAsync(cut, 0);
+        await HighlightAsync(cut, 1);
+        await HighlightAsync(cut, 2);
+
+        // The reports reached the root's mirror, and the shared list navigation did not rebuild the trigger's props.
+        Assert.Equal(2, StoreOf<string>(cut).List!.HighlightedIndex);
+        Assert.Equal(0, triggerRenders);
+        Assert.Equal(rendersBefore, trigger.RenderCount);
+
+        // Only the items the highlight touched rendered again (items 0 to 2); the other seven did not.
+        int[] itemRendersAfter = [.. items.Select(item => item.RenderCount)];
+        Assert.All(Enumerable.Range(0, 3), index => Assert.True(itemRendersAfter[index] > itemRendersBefore[index]));
+        Assert.All(Enumerable.Range(3, 7), index => Assert.Equal(itemRendersBefore[index], itemRendersAfter[index]));
+    }
+}
