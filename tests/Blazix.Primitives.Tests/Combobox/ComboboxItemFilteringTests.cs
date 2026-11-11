@@ -166,6 +166,77 @@ public sealed class ComboboxItemFilteringTests
         Assert.Equal(["apple"], ComboboxItemFiltering.Derive(Inputs(items, "ap", limit: 1)).Flat);
     }
 
+    // createItems.test.tsx's grouped collection (PR 193 delta review B1): teams of user ids, Engineering (Alice, Bob) and Design
+    // (Carol), whose derived labels are the users' names, as ComboboxItems.CreateGrouped gives them to the root.
+    private static readonly ComboboxItemGroup<int>[] s_teams = [new("Engineering", [1, 2]), new("Design", [3])];
+
+    private static readonly Dictionary<int, string> s_names = new() { [1] = "Alice", [2] = "Bob", [3] = "Carol" };
+
+    [Fact(DisplayName = "filters items by their derived labels and drops empty groups")]
+    [Trait("Requirement", "CMB-STA-23")]
+    public void Filters_items_by_their_derived_labels_and_drops_empty_groups()
+    {
+        ComboboxFilteredItems<int> result = ComboboxItemFiltering.Derive(TeamInputs("car", -1, ComboboxItemPredicate<int>.Collator(s_collator, id => s_names[id])));
+
+        Assert.Equal([3], result.Flat);
+        ComboboxItemGroup<int> only = Assert.Single(result.Groups!);
+        Assert.Equal("Design", only.Value);
+    }
+
+    [Fact(DisplayName = "passes leaf source items to a custom root filter")]
+    [Trait("Requirement", "CMB-STA-23")]
+    public void Passes_leaf_source_items_to_a_custom_root_filter()
+    {
+        List<int> calls = [];
+        ComboboxItemPredicate<int> filter = ComboboxItemPredicate<int>.Custom((id, _, _) =>
+        {
+            calls.Add(id);
+            return id == 3;
+        }, id => s_names[id]);
+
+        ComboboxFilteredItems<int> result = ComboboxItemFiltering.Derive(TeamInputs("x", -1, filter));
+
+        Assert.Equal([3], result.Flat);
+        Assert.Equal(new HashSet<int> { 1, 2, 3 }, calls.ToHashSet());
+    }
+
+    [Fact(DisplayName = "applies the limit across groups and drops the emptied ones")]
+    [Trait("Requirement", "CMB-STA-23")]
+    public void Applies_the_limit_across_groups_and_drops_the_emptied_ones()
+    {
+        ComboboxFilteredItems<int> result = ComboboxItemFiltering.Derive(TeamInputs("", 1, ComboboxItemPredicate<int>.Collator(s_collator, id => s_names[id])));
+
+        Assert.Equal([1], result.Flat);
+        ComboboxItemGroup<int> only = Assert.Single(result.Groups!);
+        Assert.Equal("Engineering", only.Value);
+    }
+
+    // AriaCombobox.tsx's external-result bypass: an open with a selection ignores an empty external result, so every group shows.
+    [Fact(DisplayName = "resets an emptied external result when reopening a grouped selection")]
+    [Trait("Requirement", "CMB-STA-22")]
+    public void Resets_an_emptied_external_result_when_reopening_a_grouped_selection()
+    {
+        ComboboxItemGroup<int>[] carol = [new("Design", [3])];
+        ComboboxFilteredItems<int> before = ComboboxItemFiltering.Derive(new ComboboxFilterInputs<int>(null, s_teams, null, carol, false, "", -1, ComboboxItemPredicate<int>.Collator(s_collator, id => s_names[id])));
+        ComboboxFilteredItems<int> reopened = ComboboxItemFiltering.Derive(new ComboboxFilterInputs<int>(null, s_teams, null, [], true, "", -1, ComboboxItemPredicate<int>.Collator(s_collator, id => s_names[id])));
+
+        Assert.Equal([3], before.Flat);
+        Assert.Equal([1, 2, 3], reopened.Flat);
+    }
+
+    [Fact(DisplayName = "resets an initially empty external result when opening a grouped selection")]
+    [Trait("Requirement", "CMB-STA-22")]
+    public void Resets_an_initially_empty_external_result_when_opening_a_grouped_selection()
+    {
+        ComboboxFilteredItems<int> opened = ComboboxItemFiltering.Derive(new ComboboxFilterInputs<int>(null, s_teams, null, [], true, "", -1, ComboboxItemPredicate<int>.Collator(s_collator, id => s_names[id])));
+
+        Assert.Equal([1, 2, 3], opened.Flat);
+        Assert.Equal(2, opened.Groups!.Count);
+    }
+
+    private static ComboboxFilterInputs<int> TeamInputs(string query, int limit, ComboboxItemPredicate<int> filter) =>
+        new(null, s_teams, null, null, false, query, limit, filter);
+
     private static ComboboxFilterInputs<T> Inputs<T>(
         IReadOnlyList<T>? items,
         string query,
