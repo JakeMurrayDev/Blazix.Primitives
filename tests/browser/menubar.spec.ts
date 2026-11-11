@@ -42,6 +42,35 @@ test.describe('<Menubar />', () => {
     await expect(owner).toHaveAttribute('aria-owns', portalId);
   });
 
+  // Deliverable 6 of M5 track 8's brief (MBR-PTR-01, PTR-02; PSH-PTR-04, ALG-20): the mixed toggle with consumer handlers.
+  test.describe('port: the mixed toggle with consumer handlers', () => {
+    test('port: the opening press runs onmousedown once, the swallowed click runs onclick once and keeps the menu open, and the next click closes it', async ({ page, mode }) => {
+      const fixture = await render(page, mode, { case: 'consumer' });
+      const trigger = page.getByTestId('file-trigger');
+
+      await trigger.click();
+      await expect(page.getByTestId('file-menu')).toBeVisible();
+      await expect(fixture).toHaveAttribute('data-handler-calls', 'mousedown click');
+      await settle(fixture);
+      await expect(page.getByTestId('file-menu')).toBeVisible();
+
+      await trigger.click();
+      await expect(page.getByTestId('file-menu')).toHaveCount(0);
+      expect(((await fixture.getAttribute('data-file-changes')) ?? '').split(' ')).toEqual(['true:trigger-press', 'false:trigger-press']);
+    });
+
+    test('port: a consumer onmousedown that calls PreventPartHandler() stops the open', async ({ page, mode }) => {
+      const fixture = await render(page, mode, { case: 'consumer', veto: true });
+
+      await page.getByTestId('file-trigger').click();
+      await expect(fixture).toHaveAttribute('data-handler-calls', /mousedown/);
+      await settle(fixture);
+
+      await expect(page.getByTestId('file-menu')).toHaveCount(0);
+      await expect(fixture).toHaveAttribute('data-file-changes', '');
+    });
+  });
+
   test.describe('disabled state', () => {
     test('keeps the menubar reachable when the first trigger is disabled', async ({ page, mode }) => {
       await render(page, mode, { case: 'first-disabled' });

@@ -12,13 +12,14 @@
     trigger. `setup=detached`: the three triggers in the bar bound by a handle to one Root outside it; `setup=multiple`:
     the three triggers inside one Root in the bar (DetachedTriggerMenubar, MultipleContainedTriggersMenubar); the Root
     renders the menu its trigger's payload names (`file`, `edit`, `view`), its open changes in `data-file-changes`.
-    `case=first-disabled`: a bar whose File trigger is disabled, then Edit. `case=disabled-open`: a disabled bar
+    `case=first-disabled`: a bar whose File trigger is disabled, then Edit. `case=consumer`: a bar whose File trigger has a consumer `onmousedown` (calling PreventPartHandler() with
+    `veto`) and `onclick`, recorded in `data-handler-calls`. `case=disabled-open`: a disabled bar
     whose File menu is held open by `Open`, its item recording its clicks (`data-item-clicks`). `orientation=vertical` turns the bar, `loopFocus=false` stops the arrow keys at the ends, `disabled` disables it, and `dir=rtl` puts it in a right-to-left DirectionProvider. A "Before" button precedes the bar for Tab. The container records each
     menu's open changes (`data-file-changes`, `data-edit-changes`, `data-view-changes`, `open:reason`).
 *@
 <FixtureContainer Name="menubar-root" data-attached="@(Attached ? "true" : "false")" data-sync="@Sync"
                   data-file-changes="@string.Join(' ', fileChanges)" data-edit-changes="@string.Join(' ', editChanges)"
-                  data-view-changes="@string.Join(' ', viewChanges)" data-item-clicks="@string.Join(' ', itemClicks)">
+                  data-view-changes="@string.Join(' ', viewChanges)" data-item-clicks="@string.Join(' ', itemClicks)" data-handler-calls="@string.Join(' ', handlerCalls)">
     <button type="button" data-sync-button data-key-control @onclick="() => Sync++" @onkeydown="OnShift(() => Sync++)">Sync</button>
     <button type="button" data-testid="before">Before</button>
     @switch (Query("case"))
@@ -32,6 +33,15 @@
                 <MenuRoot TPayload="NoPayload" @ref="edit">
                     <MenuTrigger TPayload="NoPayload" @ref="editTrigger" data-testid="edit-trigger">Edit</MenuTrigger>
                     <MenuPortal><MenuPositioner><MenuPopup><MenuItem>Copy</MenuItem></MenuPopup></MenuPositioner></MenuPortal>
+                </MenuRoot>
+            </Menubar>
+            break;
+        case "consumer":
+            <Menubar @ref="bar">
+                <MenuRoot TPayload="NoPayload" @ref="file" OnOpenChange="@((ValueChangeEventArgs<bool> args) => Record(fileChanges, args))">
+                    <MenuTrigger TPayload="NoPayload" @ref="fileTrigger" data-testid="file-trigger"
+                                 @onmousedown="@OnConsumerMouseDown" @onclick="@(() => handlerCalls.Add("click"))">File</MenuTrigger>
+                    <MenuPortal><MenuPositioner data-testid="file-menu"><MenuPopup><MenuItem>Open</MenuItem></MenuPopup></MenuPositioner></MenuPortal>
                 </MenuRoot>
             </Menubar>
             break;
@@ -109,6 +119,7 @@
     private readonly List<string> editChanges = [];
     private readonly List<string> viewChanges = [];
     private readonly List<string> itemClicks = [];
+    private readonly List<string> handlerCalls = [];
     private Menubar? bar;
     private MenuRoot<NoPayload>? file;
     private MenuRoot<NoPayload>? edit;
@@ -151,6 +162,16 @@
 
     private static void Record(List<string> changes, ValueChangeEventArgs<bool> args) =>
         changes.Add(string.Create(CultureInfo.InvariantCulture, $"{(args.Value ? "true" : "false")}:{args.Details.Reason.ToLiteral()}"));
+
+    // Deliverable 6's consumer handlers: `veto` makes the press's handler call PreventPartHandler().
+    private void OnConsumerMouseDown(MouseEventArgs args)
+    {
+        handlerCalls.Add("mousedown");
+        if (QueryFlag("veto") == true)
+        {
+            args.PreventPartHandler();
+        }
+    }
 
     // The shared Root's open changes, recorded under File's attribute.
     private void RecordShared(ValueChangeEventArgs<bool> args) => Record(fileChanges, args);
