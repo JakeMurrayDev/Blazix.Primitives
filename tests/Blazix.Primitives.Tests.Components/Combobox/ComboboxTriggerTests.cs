@@ -274,9 +274,10 @@ public sealed class ComboboxTriggerTests : IDisposable
         Assert.Equal("combobox", Trigger(cut).GetAttribute("role"));
     }
 
-    [Fact(DisplayName = "port: the input is the list's reference in both layouts, and the trigger joins no list")]
+    [Fact(DisplayName = "port: the input is the list's reference in both layouts, and the trigger joins the list only for its typeahead")]
     [Trait("Requirement", "CMB-ARIA-03")]
-    public void The_input_is_the_lists_reference_and_the_trigger_joins_no_list()
+    [Trait("Requirement", "CMB-KEY-12")]
+    public void The_input_is_the_lists_reference_and_the_trigger_joins_only_for_its_typeahead()
     {
         foreach (Layout layout in new[] { Layout.InputInside, Layout.InputOutside })
         {
@@ -291,12 +292,13 @@ public sealed class ComboboxTriggerTests : IDisposable
                     builder.CloseComponent();
                 })));
 
-            // One list handle with the reference role (the input), one floating (the list), none with the trigger role: the
-            // trigger attaches no list handle at all.
+            // One list handle with the reference role (the input), one floating (the list), and the trigger's only in the
+            // trigger role with the typeahead alone (CMB-KEY-12, option (a) of 2026-11-11): it navigates nothing.
             List<string> options = context.Composite.Invocations["attach"].Select(attach => attach.Arguments[1] as string ?? string.Empty).ToList();
             Assert.Single(options, json => json.Contains("\"reference\":{}", StringComparison.Ordinal));
-            Assert.DoesNotContain(options, json => json.Contains("\"trigger\":{}", StringComparison.Ordinal));
-            Assert.Equal(2, options.Count(json => !json.Contains("\"registrationOnly\":true", StringComparison.Ordinal)));
+            string trigger = Assert.Single(options, json => json.Contains("\"trigger\":{}", StringComparison.Ordinal));
+            Assert.Contains("\"typeaheadOnly\":true", trigger, StringComparison.Ordinal);
+            Assert.Equal(3, options.Count(json => !json.Contains("\"registrationOnly\":true", StringComparison.Ordinal)));
         }
     }
 

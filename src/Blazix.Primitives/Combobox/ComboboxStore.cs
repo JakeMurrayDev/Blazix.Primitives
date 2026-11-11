@@ -1,4 +1,5 @@
 using System.Globalization;
+using Blazix.Primitives.Interop;
 using Blazix.Primitives.Store;
 using Blazix.Primitives.Utilities;
 using Microsoft.AspNetCore.Components;
@@ -48,6 +49,9 @@ internal abstract class ComboboxStore : PopupLifecycleStore<ComboboxStoreState>,
 
     /// <summary>Gets the labels of the filtered items, for the closed trigger's typeahead.</summary>
     public abstract IReadOnlyList<string?> FilteredLabels { get; }
+
+    /// <summary>Gets the typeahead the trigger runs on the closed list, or <see langword="null"/> while it is off.</summary>
+    public abstract CompositeTypeaheadOptions? TriggerTypeahead { get; }
 
     /// <summary>Gets a value indicating whether pressing the input opens the popup.</summary>
     public abstract bool OpenOnInputClick { get; }
@@ -127,6 +131,12 @@ internal abstract class ComboboxStore : PopupLifecycleStore<ComboboxStoreState>,
     /// <param name="event">The native event.</param>
     /// <returns>A task that completes with the request's details.</returns>
     public abstract Task<ChangeEventDetails?> RemoveAtAsync(int index, EventReason reason, EventSnapshot @event);
+
+    /// <summary>Selects the item the closed trigger's typeahead matched, as Base UI's <c>onMatch</c> does.</summary>
+    /// <param name="index">The matched index.</param>
+    /// <param name="event">The keydown that matched.</param>
+    /// <returns>A task that completes when the selection and its callbacks have run.</returns>
+    public abstract Task SelectTypeaheadMatchAsync(int index, EventSnapshot @event);
 
     /// <summary>Takes the highlight the list handle reported.</summary>
     /// <param name="index">The highlighted index, or <see langword="null"/> for none.</param>
@@ -266,6 +276,9 @@ internal sealed class ComboboxStore<TValue> : ComboboxStore
     // AriaCombobox.tsx's INITIAL_LAST_HIGHLIGHT: nothing emitted yet.
     private static readonly bool s_nullable = default(TValue) is null || Nullable.GetUnderlyingType(typeof(TValue)) is not null;
 
+    // The mounted items' labels: the module matches the labels the force-mounted list registers.
+    private static readonly CompositeTypeaheadOptions s_renderedTypeahead = new();
+
     private readonly Controlled<TValue> valueState;
 
     private readonly Controlled<IReadOnlyList<TValue>> valuesState;
@@ -293,6 +306,8 @@ internal sealed class ComboboxStore<TValue> : ComboboxStore
     private ItemSlot<TValue>[] filteredSlots = [];
 
     private string?[] filteredLabels = [];
+
+    private CompositeTypeaheadOptions? derivedTypeahead;
 
     private readonly Dictionary<CompositeItemBehavior, TValue> itemValues = new(ReferenceEqualityComparer.Instance);
 
@@ -397,11 +412,41 @@ internal sealed class ComboboxStore<TValue> : ComboboxStore
 
     private bool HasInputValueParameter { get; set; }
 
+    // The candidates are the filtered collection with items or filtered items given, else the rendered items.
+    private bool UsesCollection => State.HasItems || inputs.FilteredItems is not null || inputs.FilteredItemGroups is not null;
+
     /// <inheritdoc />
     public override ListNavigationContext ListNavigation => listNavigation ?? throw new InvalidOperationException($"Blazix: the list navigation of `<{Family}Root>` is created at its first parameter set.");
 
     /// <inheritdoc />
     public override IReadOnlyList<string?> FilteredLabels => filteredLabels;
+
+    // ComboboxTrigger.tsx:107-115 (CMB-KEY-12): enabled while single, not read-only and not disabled; the module checks the
+    // closed state. With items the labels are the filtered values' (AriaCombobox.tsx:593-600, forceMount), else the mounted
+    // items' own.
+    /// <inheritdoc />
+    public override CompositeTypeaheadOptions? TriggerTypeahead
+    {
+        get
+        {
+            if (!Single || State.ReadOnly || State.Disabled)
+            {
+                return null;
+            }
+
+            if (!UsesCollection)
+            {
+                return s_renderedTypeahead;
+            }
+
+            if (derivedTypeahead is null || !ReferenceEquals(derivedTypeahead.Labels, filteredLabels))
+            {
+                derivedTypeahead = new CompositeTypeaheadOptions { Labels = filteredLabels };
+            }
+
+            return derivedTypeahead;
+        }
+    }
 
     /// <inheritdoc />
     public override bool OpenOnInputClick => inputs.OpenOnInputClick;
@@ -680,6 +725,18 @@ internal sealed class ComboboxStore<TValue> : ComboboxStore
 
         await SetSelectedValuesAsync(next, details);
         return details;
+    }
+
+    // ComboboxTrigger.tsx:116-121: valuesRef[index] with the reason none; an index without a value selects nothing.
+    /// <inheritdoc />
+    public override Task SelectTypeaheadMatchAsync(int index, EventSnapshot @event)
+    {
+        if (TriggerTypeahead is null || IsOpen || !TryCandidateAt(index, out TValue value))
+        {
+            return Task.CompletedTask;
+        }
+
+        return RunHandlerAsync(() => SetSelectedValueAsync(value, CreateDetails(EventReason.None, @event)));
     }
 
     /// <inheritdoc />
@@ -1525,6 +1582,18 @@ internal sealed class ComboboxStore<TValue> : ComboboxStore
         }
 
         return index < renderedValues.Length ? renderedValues[index].Value : default!;
+    }
+
+    private bool TryCandidateAt(int index, out TValue value)
+    {
+        if (UsesCollection ? index >= 0 && index < filtered.Flat.Count : index >= 0 && index < renderedValues.Length && renderedValues[index].Present)
+        {
+            value = UsesCollection ? filtered.Flat[index] : renderedValues[index].Value;
+            return true;
+        }
+
+        value = default!;
+        return false;
     }
 
     private IReadOnlyList<TValue> CandidateValues()

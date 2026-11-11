@@ -146,6 +146,7 @@ internal sealed class ComboboxRootBehavior<TValue> : IAsyncDisposable
                 ResetOnPointerLeave = true,
             };
             list.HighlightChanged += report => _ = ObserveAsync(store.OnHighlightReportedAsync(report.Index, report.Event));
+            list.Matched += match => _ = ObserveAsync(store.SelectTypeaheadMatchAsync(match.Index, match.Event));
             store.AttachListNavigation(list, list.RequestHighlightAsync);
             store.SessionInputsChanged += CopyAndSyncSession;
             store.SelectionCommitted += OnSelectionCommitted;

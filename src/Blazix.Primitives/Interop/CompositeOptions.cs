@@ -106,6 +106,16 @@ internal sealed record CompositeOptions : TwinOptions
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
     public bool RegistrationOnly { get; init; }
 
+    // CMB-KEY-12 (ComboboxTrigger.tsx:107-122; option (a), settled by the orchestrator 2026-11-11): Base UI's combobox trigger
+    // runs useTypeahead alone, over the root's labels, and never the list navigation's keys.
+    /// <summary>Gets a value indicating whether a list handle runs only its list's typeahead.</summary>
+    /// <value>
+    /// <see langword="true"/> for a handle that handles none of the list navigation's keys and runs the typeahead of its
+    /// <see cref="List"/> only while the list is closed; the default is <see langword="false"/>, which is not sent.
+    /// </value>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
+    public bool TypeaheadOnly { get; init; }
+
     /// <summary>Gets a value indicating whether the highlight follows the item marked active.</summary>
     /// <value>
     /// <see langword="true"/> to move the highlight to the item that carries <c>data-composite-item-active</c> whenever it

@@ -26,6 +26,9 @@ internal sealed class ComboboxTriggerBehavior : IAsyncDisposable
 
     private readonly InteractionsTriggerBehavior interactions;
 
+    // CMB-KEY-12 (ComboboxTrigger.tsx:107-122; option (a), settled by the orchestrator 2026-11-11): the list's typeahead only.
+    private readonly CompositeRootBehavior typeahead;
+
     private ComboboxStore? store;
 
     private FieldRootContext? fieldScope;
@@ -58,6 +61,7 @@ internal sealed class ComboboxTriggerBehavior : IAsyncDisposable
         this.services = services;
         button = new ButtonBehavior(services.JSRuntime, services.Logger, developmentLog, services.Ids, services.RequestRender, services.DispatchException, onKeyDown, onKeyUp);
         interactions = new InteractionsTriggerBehavior(services.JSRuntime, RouteAsync, services.DispatchException, onClick, onMouseDown);
+        typeahead = new CompositeRootBehavior(services.JSRuntime, services.Ids, services.RequestRender, services.DispatchException, default) { TypeaheadOnly = true };
     }
 
     /// <summary>Gets the root's store.</summary>
@@ -99,6 +103,7 @@ internal sealed class ComboboxTriggerBehavior : IAsyncDisposable
 
         fieldScope?.RemoveListener(services.RequestRender);
         button.Dispose();
+        typeahead.Dispose();
         Task twinDisposal = twin?.DisposeAsync().AsTask() ?? Task.CompletedTask;
         await Task.WhenAll(interactions.DisposeAsync().AsTask(), twinDisposal);
     }
@@ -127,6 +132,8 @@ internal sealed class ComboboxTriggerBehavior : IAsyncDisposable
         subscription.Select(static state => state.ElementIds.List);
         subscription.Select(static state => state.ElementIds.Popup);
         subscription.Select(static state => state.ElementIds.Label);
+        typeahead.SetList(store.ListNavigation, CompositeListRole.Trigger);
+        typeahead.TypeaheadSource = () => Disabled ? null : Store.TriggerTypeahead;
         twin = new ComboboxTwin(services.JSRuntime);
         twin.Blurred += snapshot => _ = Observe(services.InvokeAsync(() =>
         {
@@ -286,8 +293,9 @@ internal sealed class ComboboxTriggerBehavior : IAsyncDisposable
         interactions.SessionToken = Store.SessionToken;
         Task pressed = interactions.AfterRenderAsync(true, element, id);
         Task twinSync = SyncTwinAsync(element);
+        Task typeaheadSync = typeahead.AfterRenderAsync(true, element, id);
         await button.AfterRenderAsync(true, element, id, composite: false);
-        await Task.WhenAll(pressed, twinSync);
+        await Task.WhenAll(pressed, twinSync, typeaheadSync);
     }
 
     // CMB-API-45 (ComboboxTrigger.tsx:89-90, derived at every render): the root's id with the input inside the popup, else
