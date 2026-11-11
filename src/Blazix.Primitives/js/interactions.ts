@@ -4877,6 +4877,12 @@ function createFocusController(context: HandleContext): Controller {
       if (contains(record.dataRef.current.floatingContext?.elements.floating, activeEl) || contains(domReference, activeEl) || movedToFocusGuard) {
         return;
       }
+      // The popup the session names by its floating id, before the positioner's floating handle attaches (Base UI's
+      // floating ref is set at commit; on a slow host the focus manager can focus inside first, M5 track 8).
+      const named = record.floatingId ? ownerDocument(element).getElementById(record.floatingId) : null;
+      if (contains(named, activeEl)) {
+        return;
+      }
       const nextFocusedElement = relatedTarget ?? activeEl;
       if (isTargetInsideEnabledTrigger(nextFocusedElement, record.triggerElements)) {
         return;
