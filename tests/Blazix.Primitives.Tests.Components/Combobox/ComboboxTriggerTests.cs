@@ -378,7 +378,10 @@ public sealed class ComboboxTriggerTests : IDisposable
     {
         Render(new() { ["Items"] = (IReadOnlyList<string>)["apple", "banana"], [flag] = true }, Layout.InputInside);
 
-        Assert.DoesNotContain("\"typeahead\":", TypeaheadOptions(), StringComparison.Ordinal);
+        // The handle is there, with no typeahead.
+        string options = TypeaheadOptions();
+        Assert.Contains("\"trigger\":{}", options, StringComparison.Ordinal);
+        Assert.DoesNotContain("\"typeahead\":", options, StringComparison.Ordinal);
     }
 
     private static IElement Trigger(IRenderedComponent<ComboboxHarness> cut) => cut.Find("[data-testid=trigger]");

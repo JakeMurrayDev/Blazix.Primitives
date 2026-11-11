@@ -2408,7 +2408,8 @@ describe('useListNavigation (WebKit)', () => {
 describe('list navigation rows without a Base UI title (port)', () => {
   // `:45`/`:63` (settled by the orchestrator 2026-11-11, option (a)): on Server the floating list attaches a round trip after
   // the open, so a navigation key pressed meanwhile is kept, the newest only, and replayed once the list attaches.
-  it('port: a navigation key pressed on the open reference before the list attaches is replayed once it attaches, the newest only', async () => {
+  // One title, so the red check runs the guards against the base too: without the replay its first half fails.
+  it('port: a navigation key pressed on the open reference before the list attaches is replayed once it attaches, the newest only; a key the list does not navigate with is not kept, and a close drops the kept key', async () => {
     const harness = app({ reference: 'input', floatingRole: 'listbox', items: ['a', 'b', 'c'], list: { virtual: true, focusItemOnOpen: false } });
     harness.reference.focus();
     // C# commits the open; its render, which mounts the list, comes later.
@@ -2416,35 +2417,25 @@ describe('list navigation rows without a Base UI title (port)', () => {
     expect(harness.floating).toBeNull();
 
     const kept = [keyDown(harness.reference, 'ArrowDown'), keyDown(harness.reference, 'ArrowDown')];
+    // EDGE-09's toolbar arrow: ArrowLeft on a vertical list is not the list's, so it is neither stopped nor kept.
+    const left = keyDown(harness.reference, 'ArrowLeft');
     harness.setOpen(true);
 
     await waitFor(() => {
       expect(harness.activeIndex).toBe(0);
     });
-    expect([kept.map((event) => event.defaultPrevented), harness.highlights.length]).toEqual([[true, true], 1]);
-  });
+    expect([kept.map((event) => event.defaultPrevented), left.defaultPrevented, harness.highlights.length]).toEqual([[true, true], false, 1]);
 
-  it('port: a key the list does not navigate with is not kept before the list attaches (ArrowLeft on a vertical list)', () => {
-    const harness = app({ reference: 'input', floatingRole: 'listbox', items: ['a', 'b', 'c'], list: { virtual: true, focusItemOnOpen: false } });
-    harness.reference.focus();
-    harness.popup.setOpen(true, 'none');
-
-    const left = keyDown(harness.reference, 'ArrowLeft');
-
-    expect(left.defaultPrevented).toBe(false);
-  });
-
-  it('port: a kept navigation key is dropped when the popup closes before the list attaches', async () => {
-    const harness = app({ reference: 'input', floatingRole: 'listbox', items: ['a', 'b', 'c'], list: { virtual: true, focusItemOnOpen: false } });
-    harness.reference.focus();
-    harness.popup.setOpen(true, 'none');
-    keyDown(harness.reference, 'ArrowDown');
-    harness.popup.setOpen(false, 'none');
-    harness.popup.setOpen(true, 'none');
-    harness.setOpen(true);
+    const closed = app({ reference: 'input', floatingRole: 'listbox', items: ['a', 'b', 'c'], list: { virtual: true, focusItemOnOpen: false } });
+    closed.reference.focus();
+    closed.popup.setOpen(true, 'none');
+    keyDown(closed.reference, 'ArrowDown');
+    closed.popup.setOpen(false, 'none');
+    closed.popup.setOpen(true, 'none');
+    closed.setOpen(true);
     await new Promise((resolve) => setTimeout(resolve, 0));
 
-    expect(harness.highlights).toEqual([]);
+    expect(closed.highlights).toEqual([]);
   });
 
   it('port: in grid mode a typeable combobox input with no highlight keeps ArrowLeft and ArrowRight for its caret (CMB-KEY-13)', () => {
