@@ -349,6 +349,40 @@ public sealed class ComboboxFieldTests : IDisposable
         Assert.False(cut.Find("[data-testid=input]").HasAttribute("aria-invalid"));
     }
 
+    [Fact(DisplayName = "removes [data-dirty] when an equal object value is reselected (different reference)")]
+    [Trait("Requirement", "CMB-FRM-03")]
+    public async Task Removes_data_dirty_when_an_equal_object_value_is_reselected()
+    {
+        FruitOption[] options = [new("a", "a"), new("b", "b")];
+        void Content(RenderTreeBuilder builder)
+        {
+            builder.OpenComponent<ComboboxTypedHarness<FruitOption>>(0);
+            builder.AddComponentParameter(1, nameof(ComboboxTypedHarness<FruitOption>.RootParameters), new Dictionary<string, object?>
+            {
+                ["Multiple"] = true,
+                ["DefaultOpen"] = true,
+                ["Items"] = (IReadOnlyList<FruitOption>)options,
+                // An equal value by the comparator, not by reference.
+                ["DefaultValues"] = (IReadOnlyList<FruitOption>)[new FruitOption("a", "a")],
+                ["IsItemEqualToValue"] = (Func<FruitOption, FruitOption, bool>)((item, value) => item.Id == value.Id),
+                ["ItemToStringLabel"] = (Func<FruitOption, string>)(item => item.Label),
+            });
+            builder.AddComponentParameter(2, nameof(ComboboxTypedHarness<FruitOption>.WithTrigger), true);
+            builder.AddComponentParameter(3, nameof(ComboboxTypedHarness<FruitOption>.ItemText), (Func<FruitOption, string>)(item => item.Label));
+            builder.CloseComponent();
+        }
+
+        IRenderedComponent<FieldRoot> cut = test.Context.Render<FieldRoot>(p => p.AddChildContent((RenderFragment)Content));
+        AngleSharp.Dom.IElement Option(string name) => cut.FindAll("[role=option]").Single(option => option.TextContent.Trim() == name);
+        Assert.False(cut.Find("[data-testid=trigger]").HasAttribute("data-dirty"));
+
+        await cut.InvokeAsync(() => Option("a").Click());
+        Assert.True(cut.Find("[data-testid=trigger]").HasAttribute("data-dirty"));
+
+        await cut.InvokeAsync(() => Option("a").Click());
+        Assert.False(cut.Find("[data-testid=trigger]").HasAttribute("data-dirty"));
+    }
+
     private static IElement FieldElement(IRenderedComponent<FieldRoot> cut) => cut.Find("[data-testid=field]");
 
     private IRenderedComponent<FieldRoot> Render(Action<ComponentParameterCollectionBuilder<FieldRoot>> field, Dictionary<string, object?> root, bool withTrigger = false, bool withDescription = false)
@@ -387,5 +421,13 @@ public sealed class ComboboxFieldTests : IDisposable
             field(p);
             p.AddChildContent((RenderFragment)Content);
         });
+    }
+
+    // A class, so two options with the same id are different references (Base UI's object literals).
+    private sealed class FruitOption(string id, string label)
+    {
+        public string Id { get; } = id;
+
+        public string Label { get; } = label;
     }
 }
