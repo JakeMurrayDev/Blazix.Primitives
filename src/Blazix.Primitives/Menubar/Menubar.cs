@@ -34,7 +34,11 @@ public static class MenubarDataAttributes
 //   (MBR-STR-01, API-05, API-06, ARIA-01, ARIA-02, DOM-04).
 // - The composite root of every descendant MenuTrigger (CompositeRootBehavior): Orientation, LoopFocus, Home and End on,
 //   the highlight on hover while a menu is open (MBR-PTR-06), the default propagation stop.
-// - It cascades its MenubarContext as Menu's parent context, fixed with a subscription, then the composite registry.
+// - It cascades its MenubarContext as Menu's parent context, fixed with a subscription, then its floating node, then the
+//   composite registry.
+// - MBR-STR-03 (Menubar.tsx:79, FloatingTree), Deliverable 4 of M5 track 8: an elementless interactions session whose
+//   token its menus name as their parent (FloatingNodeContext), so they are one forest and share the release slot. It is
+//   never open, and a request it reports is dropped; its own parent is the enclosing popup's.
 // - The consumer's onkeydown is declined and run inside the composite's gate, as ToolbarRoot does.
 /// <summary>
 /// Represents a menu bar: Base UI's <c>Menubar</c>, rendered as a <c>div</c> with <c>role="menubar"</c>, around the
@@ -54,6 +58,8 @@ public sealed class Menubar : PartBase<MenubarState>
     private readonly EventCallback onKeyDown;
     private CompositeRootBehavior? composite;
     private MenubarContext? context;
+    private InteractionsSessionBehavior? session;
+    private FloatingNodeContext? node;
     private MenubarState? state;
     private RenderFragment? cascade;
     private RenderFragment? cascadedContent;
@@ -75,6 +81,9 @@ public sealed class Menubar : PartBase<MenubarState>
 
     [CascadingParameter]
     private IMenuParentContext? EnclosingParent { get; set; }
+
+    [CascadingParameter]
+    private IFloatingNodeContext? FloatingParent { get; set; }
 
     // MBR-API-01
     /// <summary>Gets or sets the axis of the arrow keys that move focus between the bar's triggers.</summary>
@@ -126,6 +135,8 @@ public sealed class Menubar : PartBase<MenubarState>
             EnableHomeAndEndKeys = true,
         };
         context = new MenubarContext(OnFlagChanged, DispatchExceptionAsync);
+        session = new InteractionsSessionBehavior(JSRuntime, IdGenerator, static _ => Task.CompletedTask, DispatchExceptionAsync);
+        node = new FloatingNodeContext(session.Token);
     }
 
     /// <inheritdoc />
@@ -138,13 +149,15 @@ public sealed class Menubar : PartBase<MenubarState>
         composite.SetConsumerAttributes(AdditionalAttributes);
         context.Enclosing = EnclosingParent;
         context.SetValues(Modal, Disabled, Orientation, Id);
+        session!.ParentToken = FloatingParent?.SessionToken;
         UpdateState();
 
         if (cascade is null || (!ReferenceEquals(ChildContent, cascade) && !ReferenceEquals(cascadedContent, ChildContent)))
         {
             cascadedContent = ChildContent;
             RenderFragment items = composite.Context.Cascade(cascadedContent);
-            cascade = builder => RenderContextCascade(builder, items);
+            RenderFragment nodeCascade = builder => RenderNodeCascade(builder, items);
+            cascade = builder => RenderContextCascade(builder, nodeCascade);
         }
 
         ChildContent = cascade;
@@ -154,7 +167,9 @@ public sealed class Menubar : PartBase<MenubarState>
     protected override Task OnAfterRenderAsync(bool firstRender)
     {
         context!.SetElement(Element);
-        return composite!.AfterRenderAsync(Enabled, Element, Id);
+        Task sessionSync = session!.AfterRenderAsync();
+        Task compositeSync = composite!.AfterRenderAsync(Enabled, Element, Id);
+        return Task.WhenAll(sessionSync, compositeSync);
     }
 
     /// <inheritdoc />
@@ -163,6 +178,10 @@ public sealed class Menubar : PartBase<MenubarState>
         if (disposing)
         {
             composite?.Dispose();
+            if (session is not null)
+            {
+                _ = session.DisposeAsync().AsTask();
+            }
         }
 
         base.Dispose(disposing);
@@ -188,12 +207,21 @@ public sealed class Menubar : PartBase<MenubarState>
         StateHasChanged();
     }
 
-    private void RenderContextCascade(RenderTreeBuilder builder, RenderFragment items)
+    private void RenderContextCascade(RenderTreeBuilder builder, RenderFragment content)
     {
         builder.OpenComponent<CascadingValue<IMenuParentContext>>(0);
         builder.AddComponentParameter(1, nameof(CascadingValue<IMenuParentContext>.Value), context);
         builder.AddComponentParameter(2, nameof(CascadingValue<IMenuParentContext>.IsFixed), true);
-        builder.AddComponentParameter(3, nameof(CascadingValue<IMenuParentContext>.ChildContent), items);
+        builder.AddComponentParameter(3, nameof(CascadingValue<IMenuParentContext>.ChildContent), content);
+        builder.CloseComponent();
+    }
+
+    private void RenderNodeCascade(RenderTreeBuilder builder, RenderFragment items)
+    {
+        builder.OpenComponent<CascadingValue<IFloatingNodeContext>>(0);
+        builder.AddComponentParameter(1, nameof(CascadingValue<IFloatingNodeContext>.Value), node);
+        builder.AddComponentParameter(2, nameof(CascadingValue<IFloatingNodeContext>.IsFixed), true);
+        builder.AddComponentParameter(3, nameof(CascadingValue<IFloatingNodeContext>.ChildContent), items);
         builder.CloseComponent();
     }
 
