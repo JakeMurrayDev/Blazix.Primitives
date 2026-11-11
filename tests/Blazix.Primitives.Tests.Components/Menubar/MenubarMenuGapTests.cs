@@ -5,8 +5,8 @@ using Microsoft.Extensions.DependencyInjection;
 namespace Blazix.Primitives.Tests.Components;
 
 /// <summary>
-/// L2: the Menu paths a bar reads (design points 2 and 3 of M5 track 8, settled by the orchestrator 2026-11-11), on a
-/// recording bar parent. A bar menu open at its first render is heard (MBR-STA-02, STA-04; Base UI's Positioner reports on
+/// L2: the Menu paths a bar reads (design points 1-3 of M5 track 8, settled by the orchestrator 2026-11-11), on the real
+/// Menubar, which shows that it heard a menu open as <c>data-has-submenu-open</c>. A bar menu open at its first render is heard (MBR-STA-02, STA-04; Base UI's Positioner reports on
 /// mount, MenuPositioner.tsx:218-227); a trigger in the bar holding a detached Root's popup makes the bar its store's parent
 /// (MBR-STR-04; MenuTrigger.tsx:95-108); a bar menu with no Positioner is not heard (MBR-STA-04's Positioner clause).
 /// </summary>
@@ -25,7 +25,7 @@ public sealed class MenubarMenuGapTests : BunitContext
     {
         IRenderedComponent<MenubarMenuGapHost> cut = Render<MenubarMenuGapHost>();
 
-        cut.WaitForAssertion(() => Assert.Contains(cut.Instance.Parent.Changes, change => change.Open), TimeSpan.FromSeconds(2));
+        cut.WaitForAssertion(() => Assert.True(Bar(cut).HasAttribute("data-has-submenu-open")), TimeSpan.FromSeconds(2));
     }
 
     [Fact(DisplayName = "port: a detached menu whose bar trigger holds the popup takes the bar as its parent")]
@@ -34,8 +34,8 @@ public sealed class MenubarMenuGapTests : BunitContext
     {
         IRenderedComponent<MenubarMenuGapHost> cut = Render<MenubarMenuGapHost>(p => p.Add(x => x.Case, "detached"));
 
-        Assert.Equal(MenubarRecordingParent.BarRootId, cut.Find("[data-testid=\"popup\"]").GetAttribute("data-rootownerid"));
-        Assert.Contains(cut.Instance.Parent.Changes, change => change.Open);
+        Assert.Equal("bar", cut.Find("[data-testid=\"popup\"]").GetAttribute("data-rootownerid"));
+        cut.WaitForAssertion(() => Assert.True(Bar(cut).HasAttribute("data-has-submenu-open")), TimeSpan.FromSeconds(2));
     }
 
     // MenuRoot.tsx:193, 516-568: the Root's list reads the store's parent, so a detached menu held by a bar trigger
@@ -76,6 +76,8 @@ public sealed class MenubarMenuGapTests : BunitContext
 
         cut.Render(p => p.Add(x => x.Open, true));
 
-        Assert.DoesNotContain(cut.Instance.Parent.Changes, change => change.Open);
+        Assert.False(Bar(cut).HasAttribute("data-has-submenu-open"));
     }
+
+    private static AngleSharp.Dom.IElement Bar(IRenderedComponent<MenubarMenuGapHost> cut) => cut.Find("[role=\"menubar\"]");
 }
