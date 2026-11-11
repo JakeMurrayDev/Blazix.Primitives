@@ -248,8 +248,19 @@ internal sealed class MenuPopupBehavior : IAsyncDisposable
             attributes.Set("id", state.FloatingId);
         }
 
+        // MNU-ARIA-06 (MenuFilterPopup.tsx:52-56, useMenuFilterPopup.ts:97-101; M5 track 12): a filterable menu's popup is a
+        // dialog labelled as the menu would be, without aria-orientation; its list keeps the menu semantics.
+        if (menu.Filter is not null)
+        {
+            attributes.Set("role", "dialog");
+            if (PopupLabel.Resolve(consumerAttributes, activeTriggerId!.Value) is { } dialogLabel)
+            {
+                attributes.Set("aria-labelledby", dialogLabel);
+            }
+        }
+
         // MenuPopup.tsx:151-164: a rendered list takes the menu semantics.
-        if (!string.IsNullOrEmpty(listElementId!.Value))
+        else if (!string.IsNullOrEmpty(listElementId!.Value))
         {
             attributes.Set("role", "presentation");
         }
