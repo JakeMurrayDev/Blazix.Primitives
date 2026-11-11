@@ -2,9 +2,13 @@
 // menu/filter-root/useMenuFilterKeyDown.test.ts, both `it.each` tables with every row, against the module's pure
 // getMenuFilterKeyAction (MNU-KEY-22, KEY-30 re-tagged to L3 with "(L4 for …)" for the rest).
 
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import { resetFocusManagerState } from './focus-manager';
+import { resetInteractionsForTest } from './interactions';
 import { attach, getMenuFilterKeyAction, type MenuFilterKey, type MenuFilterKeyAction, type MenuFilterOptions } from './menu-filter';
 import { createFakeTwin, type FakeTwin } from './test-support/fake-twin';
+import { createListHarness, type ListHarness } from './test-support/list-harness';
+import { resetFrameScheduler } from './transitions';
 import type { TwinHandle } from './twin';
 
 interface ValueChange {
@@ -244,5 +248,51 @@ describe('the List handle', () => {
       { ids: ['a'], texts: ['Rename'] },
       { ids: ['c'], texts: ['Pin'] },
     ]);
+  });
+});
+
+// The key router (MNU-KEY-22, KEY-30; useMenuFilterKeyDown.ts:103-170): the Input is the list's reference under virtual
+// focus, and the module keeps `composite`'s list navigation out of the keys getMenuFilterKeyAction gives to the input.
+describe('the key router', () => {
+  const harnesses: ListHarness[] = [];
+  const handles: TwinHandle[] = [];
+
+  afterEach(() => {
+    handles.splice(0).forEach((handle) => handle.dispose());
+    harnesses.splice(0).forEach((harness) => harness.dispose());
+    resetInteractionsForTest();
+    resetFocusManagerState();
+    resetFrameScheduler();
+    document.body.replaceChildren();
+  });
+
+  function keyDown(target: EventTarget, key: string, init: KeyboardEventInit = {}): KeyboardEvent {
+    const event = new KeyboardEvent('keydown', { key, bubbles: true, cancelable: true, composed: true, ...init });
+    target.dispatchEvent(event);
+    return event;
+  }
+
+  // An open filterable menu: the harness's input reference under virtual focus, with the menu-filter Input handle on it.
+  async function openFilterMenu(): Promise<{ harness: ListHarness; input: HTMLInputElement }> {
+    const harness = createListHarness({ reference: 'input', list: { virtual: true } });
+    harnesses.push(harness);
+    const input = harness.reference as HTMLInputElement;
+    handles.push(attach(input, JSON.stringify({ part: 'input', menuKey: 'menu-1', open: true, orientation: 'vertical' }), createFakeTwin().twin));
+    input.focus();
+    keyDown(input, 'ArrowDown');
+    await vi.waitFor(() => expect(input.getAttribute('aria-activedescendant')).toBe(harness.item(0).id), { timeout: 1000, interval: 5 });
+    return { harness, input };
+  }
+
+  // KEY-22's "leaves modified editing keys to the input while an item is highlighted": a modified main-axis arrow is an
+  // `edit` key (text selection), which `composite`'s reference handle would take as navigation.
+  it.each(['ArrowDown', 'ArrowUp'])('port: Shift+%s in the input selects text instead of moving the highlight', async (key) => {
+    const { harness, input } = await openFilterMenu();
+    input.value = 'on';
+
+    const event = keyDown(input, key, { shiftKey: true });
+
+    expect(event.defaultPrevented).toBe(false);
+    expect(input.getAttribute('aria-activedescendant')).toBe(harness.item(0).id);
   });
 });
