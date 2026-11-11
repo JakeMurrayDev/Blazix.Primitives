@@ -50,6 +50,7 @@ internal sealed class MenuSubmenuTriggerBehavior : IAsyncDisposable
     private IReadOnlyDictionary<string, object>? openAttributes;
     private IReadOnlyDictionary<string, object>? openAttributesSource;
     private bool registeredOpen;
+    private MenuFilterItemSlot? filterSlot;
     private bool disposed;
 
     /// <summary>Initializes a new instance of the <see cref="MenuSubmenuTriggerBehavior"/> class.</summary>
@@ -102,6 +103,11 @@ internal sealed class MenuSubmenuTriggerBehavior : IAsyncDisposable
     /// <summary>Gets a value indicating whether the trigger ignores user interaction.</summary>
     public bool Disabled => parameters.Item.Disabled || (submenu?.State.Disabled ?? false) || (parentDisabled?.Value ?? false);
 
+    // MNU-STA-15 (M5 track 12): in a filterable parent menu, a trigger the query filters out renders nothing and leaves the
+    // parent's list.
+    /// <summary>Gets a value indicating whether the parent menu's filter hides the trigger, so that its part renders nothing.</summary>
+    public bool FilteredOut => filterSlot is { FilteredOut: true };
+
     /// <summary>Gets a value indicating whether the trigger is highlighted in its parent's list, the list handle's mirror.</summary>
     public bool Highlighted => item?.Highlighted ?? false;
 
@@ -118,6 +124,7 @@ internal sealed class MenuSubmenuTriggerBehavior : IAsyncDisposable
     /// <returns>A task that completes when the handles have their options.</returns>
     public async Task OnAfterRenderAsync(bool enabled, ElementReference? element, string? id)
     {
+        filterSlot?.Flush();
         await trigger!.OnAfterRenderAsync(element);
         if (trigger.IsMountedByTrigger)
         {
@@ -144,6 +151,7 @@ internal sealed class MenuSubmenuTriggerBehavior : IAsyncDisposable
         }
 
         disposed = true;
+        filterSlot?.Dispose();
         submenu?.Parent.Menu?.Items.Remove(this);
         parentSubscription?.Dispose();
         trigger?.Dispose();
@@ -176,6 +184,10 @@ internal sealed class MenuSubmenuTriggerBehavior : IAsyncDisposable
 
         trigger = new(this, familyName + "SubmenuTrigger", OnTriggerChanged);
         item = new CompositeItemBehavior(parentList, familyName + "SubmenuTrigger", onKeyDown, requestRender);
+        if (context.Parent.Menu?.Filter is { } filter)
+        {
+            filterSlot = new MenuFilterItemSlot(filter, OnFilterChanged);
+        }
     }
 
     /// <summary>Applies the trigger's parameters and its registration.</summary>
@@ -191,9 +203,10 @@ internal sealed class MenuSubmenuTriggerBehavior : IAsyncDisposable
         MenuStore<NoPayload> store = submenu!.Store;
         trigger!.Apply(store, null, id, element, false, default, MenuParts.MissingSubmenuRoot(familyName).Message);
         bool disabled = Disabled;
+        filterSlot?.Apply(parameters.Item.Label);
         Register();
         item!.SetConsumerAttributes(attributes);
-        if (id is not null)
+        if (id is not null && !FilteredOut)
         {
             submenu.Parent.Menu?.Items.Set(this, id);
         }
@@ -339,6 +352,14 @@ internal sealed class MenuSubmenuTriggerBehavior : IAsyncDisposable
     // `tabindex` wins, as it does on every item.
     private void Register()
     {
+        // MNU-STA-15: a filtered-out trigger leaves the parent's composite list and item ids until it matches again.
+        if (FilteredOut)
+        {
+            item!.Dispose();
+            submenu!.Parent.Menu?.Items.Remove(this);
+            return;
+        }
+
         registeredOpen = Open;
         IReadOnlyDictionary<string, object>? registered = consumerAttributes;
         if (registeredOpen && !HasConsumerTabIndex)
@@ -357,6 +378,17 @@ internal sealed class MenuSubmenuTriggerBehavior : IAsyncDisposable
         }
 
         item!.SetRegistration(id, registered, Disabled, focusableWhenDisabled: true, label: parameters.Item.Label);
+    }
+
+    private void OnFilterChanged()
+    {
+        Register();
+        if (!FilteredOut && id is not null)
+        {
+            submenu!.Parent.Menu?.Items.Set(this, id);
+        }
+
+        requestRender();
     }
 
     private void OnTriggerChanged()

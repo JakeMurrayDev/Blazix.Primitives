@@ -297,17 +297,26 @@ internal sealed class MenuFilterRootContext
     /// <param name="id">The id, or <see langword="null"/> when the list renders none.</param>
     public void SetListId(string? id) => ListId = string.IsNullOrEmpty(id) ? null : id;
 
-    /// <summary>Subscribes to changes of the query, the provider's options and the visible set.</summary>
+    /// <summary>Subscribes to changes of the query and the provider's options: the Input's and the Clear's.</summary>
     /// <param name="changed">The callback run after a change, once <see cref="QueryRevision"/> and the visible set are current.</param>
     /// <returns>The subscription; disposing it unsubscribes.</returns>
-    public IDisposable Subscribe(Action changed)
+    public IDisposable Subscribe(Action changed) => provider.Subscribe(() =>
+    {
+        Track();
+        Flush();
+        changed();
+    });
+
+    /// <summary>Subscribes to the visible set becoming empty or not, and to changes of the registry: the Empty's.</summary>
+    /// <param name="changed">The callback run after such a change; a registry change asks for a render whose flush decides.</param>
+    /// <returns>The subscription; disposing it unsubscribes.</returns>
+    public IDisposable SubscribeVisibleSet(Action changed)
     {
         subscribers.Add(changed);
         IDisposable query = provider.Subscribe(() =>
         {
             Track();
             Flush();
-            changed();
         });
         return new Subscription(this, changed, query);
     }
@@ -331,7 +340,8 @@ internal sealed class MenuFilterRootContext
     }
 
     // MNU-STA-15..20 (FilterDropdownRoot.tsx:131-196): the visible set and the highlight it asks for, once per change of the
-    // query or the registry; the subscribers (Empty) hear of it.
+    // query or the registry; the visible-set subscribers (Empty) hear of it only when its emptiness changed, and an item
+    // hears of its own visibility (ADR 16: no render for an unchanged result).
     /// <summary>Recomputes the visible set when the query or the registry changed since the last recompute.</summary>
     public void Flush()
     {
@@ -343,8 +353,12 @@ internal sealed class MenuFilterRootContext
 
         dirty = false;
         flushedQuery = query;
+        bool wasEmpty = Engine.IsEmpty;
         PendingHighlight = Engine.Recompute(new MenuFilterPass(root.State.Open, query, Match, provider.AutoHighlight, root.HighlightedItemId is not null));
-        Notify();
+        if (Engine.IsEmpty != wasEmpty)
+        {
+            Notify();
+        }
     }
 
     // MNU-EVT-16 (FilterDropdownInput.tsx:96-121, FilterDropdownRoot.tsx:155-178): the provider runs onValueChange and commits

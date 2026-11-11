@@ -1,5 +1,6 @@
 using Blazix.Primitives.Rendering;
 using Microsoft.AspNetCore.Components;
+using Microsoft.AspNetCore.Components.Rendering;
 using Microsoft.AspNetCore.Components.Web;
 using Microsoft.Extensions.Logging;
 using Microsoft.JSInterop;
@@ -124,6 +125,14 @@ public sealed class MenuItem : PartBase<MenuItemState>
 
     /// <inheritdoc />
     protected override void OnParametersSet() => behavior!.Apply(Id, new MenuItemParameters(Disabled, Label, NativeButton, CloseOnClick), AdditionalAttributes);
+
+    // MNU-STA-15 (M5 track 12): an item the menu's filter hides renders nothing.
+    /// <inheritdoc />
+    protected override void BuildRenderTree(RenderTreeBuilder builder)
+    {
+        Enabled = !behavior!.FilteredOut;
+        base.BuildRenderTree(builder);
+    }
 
     /// <inheritdoc />
     protected override Task OnAfterRenderAsync(bool firstRender) => behavior!.OnAfterRenderAsync(Enabled, Element, Id);

@@ -62,6 +62,7 @@ internal sealed class MenuItemBehavior : IDisposable
     private MenuItemParameters parameters;
     private string? id;
     private IReadOnlyDictionary<string, object>? attributes;
+    private MenuFilterItemSlot? filterSlot;
 
     /// <summary>Initializes a new instance of the <see cref="MenuItemBehavior"/> class.</summary>
     /// <param name="familyName">The item's family, such as <c>Menu</c>.</param>
@@ -120,6 +121,10 @@ internal sealed class MenuItemBehavior : IDisposable
     /// <summary>Gets a value indicating whether the item is highlighted, the list handle's mirror.</summary>
     public bool Highlighted => item?.Highlighted ?? false;
 
+    // MNU-STA-15 (M5 track 12): in a filterable menu, an item the query filters out renders nothing and leaves the list.
+    /// <summary>Gets a value indicating whether the menu's filter hides the item, so that its part renders nothing.</summary>
+    public bool FilteredOut => filterSlot is { FilteredOut: true };
+
     /// <summary>Gets a task that completes when the item's handles are attached.</summary>
     public Task TwinsAttached => button?.TwinAttached ?? Task.CompletedTask;
 
@@ -130,6 +135,7 @@ internal sealed class MenuItemBehavior : IDisposable
     /// <returns>A task that completes when the handles have their options.</returns>
     public async Task OnAfterRenderAsync(bool enabled, ElementReference? element, string? id)
     {
+        filterSlot?.Flush();
         Task itemSync = item!.AfterRenderAsync(element);
         if (button is not null)
         {
@@ -143,6 +149,7 @@ internal sealed class MenuItemBehavior : IDisposable
     /// <inheritdoc />
     public void Dispose()
     {
+        filterSlot?.Dispose();
         root?.Items.Remove(this);
         rootSubscription?.Dispose();
         button?.Dispose();
@@ -158,6 +165,10 @@ internal sealed class MenuItemBehavior : IDisposable
         // MNU-EDGE-03: the Root context error, before the composite item's own.
         this.root = MenuRootContext.Require(root, familyName);
         item = new CompositeItemBehavior(list, partName, onKeyDown, requestRender);
+        if (this.root.Filter is { } filter)
+        {
+            filterSlot = new MenuFilterItemSlot(filter, OnFilterChanged);
+        }
 
         // MenuItem.tsx:32-37, MenuCheckboxItem.tsx:41-46, MenuRadioItem.tsx:47-49: the root's disabled state disables an item
         // too, and follows it. A LinkItem has no disabled state.
@@ -177,6 +188,7 @@ internal sealed class MenuItemBehavior : IDisposable
         this.parameters = parameters;
         this.id = id;
         this.attributes = attributes;
+        filterSlot?.Apply(parameters.Label);
         Register();
     }
 
@@ -235,6 +247,14 @@ internal sealed class MenuItemBehavior : IDisposable
     // useMenuItem.ts:29-35: focusable when disabled, composite (Space activates on keydown), native only on request.
     private void Register()
     {
+        // MNU-STA-15: a filtered-out item leaves the composite list and the menu's item ids until it matches again.
+        if (FilteredOut)
+        {
+            item!.Dispose();
+            root!.Items.Remove(this);
+            return;
+        }
+
         bool disabled = Disabled;
         item!.SetRegistration(id, attributes, disabled, focusableWhenDisabled: true, label: parameters.Label);
         item.SetConsumerAttributes(attributes);
@@ -253,6 +273,12 @@ internal sealed class MenuItemBehavior : IDisposable
     }
 
     private void OnRootChanged()
+    {
+        Register();
+        requestRender();
+    }
+
+    private void OnFilterChanged()
     {
         Register();
         requestRender();

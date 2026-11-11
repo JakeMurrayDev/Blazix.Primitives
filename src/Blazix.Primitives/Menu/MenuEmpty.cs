@@ -34,7 +34,7 @@ public sealed class MenuEmpty : PartBase<EmptyState>
     {
         // MNU-EDGE-04, STR-15.
         filter = RootContext?.Filter ?? throw MenuParts.MissingFilter("Empty");
-        subscription = filter.Subscribe(() => _ = InvokeAsync(StateHasChanged));
+        subscription = filter.SubscribeVisibleSet(() => _ = InvokeAsync(StateHasChanged));
         base.OnInitialized();
     }
 

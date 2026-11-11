@@ -164,6 +164,8 @@ public sealed class MenuRadioItem<TValue> : PartBase<MenuRadioItemState>
     protected override void BuildRenderTree(RenderTreeBuilder builder)
     {
         radio.Apply(Value, behavior!.Disabled || radio.GroupDisabled, behavior.Highlighted);
+        // MNU-STA-15 (M5 track 12): an item the menu's filter hides renders nothing.
+        Enabled = !behavior.FilteredOut;
         base.BuildRenderTree(builder);
     }
 
