@@ -260,28 +260,39 @@ internal sealed class InteractionsTriggerBehavior : IAsyncDisposable
             return DecisionPolicy.Run;
         }
 
-        // ADR 04 Amendments 2026-11-11: the session answers the press, vetoed or not; the press runs synchronously inside.
-        DecisionPolicy verdict = DecisionPolicy.Run;
-        _ = Observe(InteractionsSessionBehavior.AnswerPressAsync(jsRuntime, attachedToken ?? SessionToken, () =>
+        if (RunConsumerHandler(snapshot, press.Deferred))
         {
-            if (RunConsumerHandler(snapshot, press.Deferred))
-            {
-                verdict = DecisionPolicy.Stop;
-                return Task.CompletedTask;
-            }
+            _ = Observe(AnswerDeclinedAsync());
+            return DecisionPolicy.Stop;
+        }
 
-            return requestOpenChange(InteractionsRequests.FromPress(press.Open, press.Reason, press.TriggerId, press.InteractionType, snapshot));
-        }));
-        return verdict;
+        _ = Observe(RequestAsync(InteractionsRequests.FromPress(press.Open, press.Reason, press.TriggerId, press.InteractionType, snapshot)));
+        return DecisionPolicy.Run;
     }
 
-    // ADR 04 Amendments 2026-11-11: every press is answered through the session's counter, a vetoed or canceled one too,
-    // so the module ends its press-requested open's count as open (and rolls back its optimistic open event, gap 16).
-    private void OnPress(InteractionsPress press) =>
-        _ = Observe(InteractionsSessionBehavior.AnswerPressAsync(jsRuntime, attachedToken ?? SessionToken, () =>
-            RunConsumerHandler(press.Event, press.Deferred)
-                ? Task.CompletedTask
-                : requestOpenChange(InteractionsRequests.FromPress(press.Open, press.Reason, press.TriggerId, press.InteractionType, press.Event))));
+    private void OnPress(InteractionsPress press)
+    {
+        if (RunConsumerHandler(press.Event, press.Deferred))
+        {
+            _ = Observe(AnswerDeclinedAsync());
+            return;
+        }
+
+        _ = Observe(RequestAsync(InteractionsRequests.FromPress(press.Open, press.Reason, press.TriggerId, press.InteractionType, press.Event)));
+    }
+
+    // ADR 04 Amendments 2026-11-11: a press's request, answered through the session when the consumer canceled it; an
+    // accepted one is answered by its commit's relay.
+    private async Task RequestAsync(OpenChangeRequest request)
+    {
+        await requestOpenChange(request);
+        if (request.Details.IsCanceled)
+        {
+            await AnswerDeclinedAsync();
+        }
+    }
+
+    private Task AnswerDeclinedAsync() => InteractionsSessionBehavior.AnswerDeclinedPressAsync(jsRuntime, attachedToken ?? SessionToken);
 
     private void OnRequest(InteractionsRequest request)
     {

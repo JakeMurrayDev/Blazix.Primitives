@@ -388,10 +388,12 @@ public sealed class InteractionsBehaviorTests : IDisposable
         Assert.Equal(before + 1, renders);
     }
 
-    // ADR 04 Amendments 2026-11-11: every trigger press is answered through its session's counter, a canceled or vetoed one
-    // too, so the module ends a press-requested open's count as open when C# did not commit it (and gap 16's rollback).
+    // ADR 04 Amendments 2026-11-11: every trigger press is answered. An accepted one by its commit's relay, with no counter
+    // (a click that changes nothing keeps its upgrade of the open event, as Base UI's dispatchOpenChange does); a canceled or
+    // vetoed one through its session's counter, so the module ends a press-requested open's count as open and rolls back
+    // the press's open event (gap 16).
     [Fact]
-    public async Task A_committed_press_sends_the_answered_counter_with_the_committed_state()
+    public async Task A_committed_press_is_answered_by_its_relay_and_moves_no_counter()
     {
         IRenderedComponent<TestInteractionsRoot> cut = RenderPopup();
 
@@ -399,7 +401,7 @@ public sealed class InteractionsBehaviorTests : IDisposable
 
         string update = Assert.Single(host.UpdateOptions);
         Assert.Contains("\"open\":true", update, StringComparison.Ordinal);
-        Assert.Contains("\"answered\":1", update, StringComparison.Ordinal);
+        Assert.DoesNotContain("\"answered\"", update, StringComparison.Ordinal);
     }
 
     [Fact]

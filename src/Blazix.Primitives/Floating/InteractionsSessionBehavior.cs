@@ -150,14 +150,17 @@ internal sealed class InteractionsSessionBehavior : IAsyncDisposable
     public Task AfterRenderAsync() => attachment.SyncAsync(new InteractionsTarget(null, null, Token), Unchanged, BuildOptions);
 
     // ADR 04 Amendments 2026-11-11 (the nested dialog's Escape on Server, PR 233's run 42954678792): the module counts a
-    // press-requested open as open for Escape dismissal until C# answers the press, so every press is answered, committed,
-    // canceled or vetoed, as every request the session routes is (design point 10 of M4 track 3).
-    /// <summary>Runs a trigger's press as a request its session answers: the counter moves first, then the press runs, then the session sends its options.</summary>
+    // press-requested open as open for Escape dismissal until C# answers the press. An accepted press is answered by its
+    // commit's relay; a declined one, canceled by the consumer's callback or vetoed by its handler, commits nothing, so the
+    // session answers it, as it answers every request it routes (design point 10 of M4 track 3). Base UI's store syncs the
+    // open event only after an accepted change (PopoverStore.ts:139-145), so the answer also rolls back the press's
+    // optimistic open event (gap 16). An accepted press that changes nothing (a click on an open NavigationMenu item) is
+    // not answered: its click upgrade stands, as Base UI's dispatchOpenChange keeps it.
+    /// <summary>Answers a trigger's press that its session did not commit: the counter moves and the session sends its options.</summary>
     /// <param name="jsRuntime">The trigger's runtime.</param>
     /// <param name="token">The session token the trigger's handle joins, or <see langword="null"/> without one.</param>
-    /// <param name="press">Runs the press: the consumer's handler, then the request unless the handler vetoed it.</param>
-    /// <returns>A task that completes once the press ran and the session sent its answer; without a session, the press's own task.</returns>
-    internal static Task AnswerPressAsync(IJSRuntime jsRuntime, string? token, Func<Task> press)
+    /// <returns>A task that completes once the session sent its answer, at once without a session.</returns>
+    internal static Task AnswerDeclinedPressAsync(IJSRuntime jsRuntime, string? token)
     {
         InteractionsSessionBehavior? session = null;
         if (token is not null && s_sessions.TryGetValue(jsRuntime, out Dictionary<string, InteractionsSessionBehavior>? sessions))
@@ -170,22 +173,11 @@ internal sealed class InteractionsSessionBehavior : IAsyncDisposable
 
         if (session is null || session.disposed)
         {
-            return press();
+            return Task.CompletedTask;
         }
 
-        // Before the press runs, so a commit's render sends the counter with the committed state.
         session.answered++;
-        Task request;
-        try
-        {
-            request = press();
-        }
-        catch (Exception exception)
-        {
-            request = Task.FromException(exception);
-        }
-
-        return session.SendAnswerAsync(request);
+        return session.attachment.SyncAsync(new InteractionsTarget(null, null, session.Token), session.Unchanged, session.BuildOptions);
     }
 
     private static DecisionPolicy Verdict(OpenChangeEventDetails details)
@@ -231,19 +223,6 @@ internal sealed class InteractionsSessionBehavior : IAsyncDisposable
     {
         answered++;
         _ = AnswerAsync(requestOpenChange(InteractionsRequests.From(request)));
-    }
-
-    // A press's answer: the trigger observes the press's task, so its exceptions reach the trigger's part.
-    private async Task SendAnswerAsync(Task request)
-    {
-        try
-        {
-            await request;
-        }
-        finally
-        {
-            await attachment.SyncAsync(new InteractionsTarget(null, null, Token), Unchanged, BuildOptions);
-        }
     }
 
     // Design point 10 of M4 track 3 (settled by the orchestrator 2026-10-27; ADR 01 Amendments 2026-10-27's commit-path
