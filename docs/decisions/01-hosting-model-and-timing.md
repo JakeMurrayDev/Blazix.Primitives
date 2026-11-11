@@ -254,3 +254,17 @@ Menu's figures are the list rows' (track 1's test-only hosts run Menu's options)
   - Server: 0 ms in 6 of 8, and one frame (17 ms) in 2.
   - Server with a 40 ms one-way circuit delay: 78–98 ms, about one round trip.
 - *The rule.* WebAssembly meets CTX-PTR-03. On Server the window is the round trip after the opening render.
+
+**2026-11-11, Menubar's IDs on the relaxation table, with measured figures (M5 track 8, [issue 195](https://github.com/JakeMurrayDev/Blazix.Primitives/issues/195); the brief's "Server rows"; the rows' substitutes unchanged).** menubar.md §9 names each with its row.
+- *How measured.* `tests/browser/menubar.spec.ts` › "port: the bar's Server timings (ADR 01)": the time from an input to its effect, in the page's clock, by an in-page listener and a mutation observer. The median of 5 fresh renders per mode, Server under a 40 ms one-way circuit delay (local, 2026-11-11); the range follows in brackets.
+- "EVD-EVT-18, PSH-ANI-03" (an open the `interactions` module requests, committed a round trip later) gains three switches:
+  - MBR-PTR-04, the hover switch, from the `mouseover` of another trigger to its open popup: Server 88 ms (88–89), WebAssembly 29 (28–30).
+  - MBR-FOC-03, the focus switch, from the `focusin` of another trigger: Server 88 (88–93), WebAssembly 23 (22–26).
+  - MBR-KEY-08, the keyboard switch, from ArrowRight in a bar menu (the relayed key's `list-navigation` close and the next trigger's focus open): Server 90 (89–93), WebAssembly 27 (24–27).
+  - On the shared-Root setups each switch is a trigger change on one open menu, the row "TIP-PTR-07, TIP-FOC-04"'s hand-off.
+- "FLT-FOC-11" gains MBR-EVT-03, the blur close, from the focus leaving a focus-opened menu's trigger to the popup's removal: Server 184 (178–191), WebAssembly 10 (10–14). The close's reason is open (menubar.md, MBR-EVT-03's note).
+- "C#-origin consumer vetoes" (the press from the `mousedown`) gains MBR-PTR-01, from the `mousedown` on a closed trigger to the open popup: Server 103 (101–130), WebAssembly 61 (60–65). A consumer `onmousedown` that calls `PreventPartHandler()` stops the open on both modes (Deliverable 6's titles).
+- "A popup element the opening render creates" (Amendments 2026-10-27) gains two IDs:
+  - MBR-DIS-05, the touch lock, from the touch's `pointerdown` to the page's scroll lock (the lock waits for the positioned popup's width): Server 489 (480–492), WebAssembly 105 (98–111).
+  - MBR-PTR-06, the hover highlight after the flag. Measured by a probe: the flag was in the page at 212 ms after the click, a hover at 460 ms focused no trigger, and File's popup took its initial focus at about 480–495 ms. The title waits for that focus.
+- *A fidelity note, not a row.* MBR-STA-02..04 and DOM-03 are met earlier than Base UI's on both modes. The flag is set in C#'s commit path, where Base UI sets it after paint from the Positioner's report (menubar.md, MBR-STA-04's note).

@@ -989,3 +989,147 @@ test.describe('<Menubar />', () => {
   });
   }
 });
+
+// ADR 01's Server rows for the bar (M5 track 8's brief, "Server rows"): the time from an input to its effect in the page's
+// clock, the median of five fresh renders per mode, Server under the spec's 40 ms one-way circuit delay. An in-page
+// listener records the input event and a mutation observer the effect, so Playwright's own timing is not in the figure.
+// Each title also asserts that its effect came.
+interface BarFigure {
+  row: string;
+  title: string;
+  options?: PopupFixtureOptions;
+  /** The event that starts the clock, and the element it must reach. */
+  start: { type: string; selector: string };
+  /** The effect: a selector that appears, or (absent) disappears; `scrollLock` waits for the page's scroll lock. */
+  effect: { selector?: string; absent?: boolean; scrollLock?: boolean };
+  prepare?: (page: Page, fixture: Locator) => Promise<void>;
+  act: (page: Page, cdp: CDPSession | null) => Promise<void>;
+  touch?: boolean;
+}
+
+const EDIT_OPEN = '[data-testid="edit-menu"] [role="menu"][data-open]';
+
+const BAR_FIGURES: BarFigure[] = [
+  {
+    row: 'MBR-PTR-01',
+    title: 'the press on a closed trigger: from the mousedown to the open popup',
+    start: { type: 'mousedown', selector: '[data-testid="file-trigger"]' },
+    effect: { selector: '[data-testid="file-menu"] [role="menu"][data-open]' },
+    act: async (page) => {
+      await page.getByTestId('file-trigger').click();
+    },
+  },
+  {
+    row: 'MBR-PTR-04',
+    title: 'the hover switch: from the mouseover of another trigger to its open popup',
+    start: { type: 'mouseover', selector: '[data-testid="edit-trigger"]' },
+    effect: { selector: EDIT_OPEN },
+    prepare: async (page) => {
+      await page.getByTestId('file-trigger').click();
+      await expect(page.getByTestId('file-menu')).toBeVisible();
+      await focusInside(page, 'file-menu');
+    },
+    act: async (page) => {
+      await moveTo(page, page.getByTestId('edit-trigger'));
+    },
+  },
+  {
+    row: 'MBR-FOC-03',
+    title: 'the focus switch: from the focus of another trigger to its open popup',
+    start: { type: 'focusin', selector: '[data-testid="edit-trigger"]' },
+    effect: { selector: EDIT_OPEN },
+    prepare: async (page) => {
+      await userClick(page.getByTestId('file-trigger'));
+      await expect(page.getByTestId('file-menu')).toBeVisible();
+      await focusInside(page, 'file-menu');
+    },
+    act: async (page) => {
+      await page.getByTestId('edit-trigger').focus();
+    },
+  },
+  {
+    row: 'MBR-KEY-08',
+    title: 'the keyboard switch: from ArrowRight in a bar menu to the next menu\'s open popup',
+    start: { type: 'keydown', selector: '[data-testid="file-menu"]' },
+    effect: { selector: EDIT_OPEN },
+    prepare: async (page) => {
+      await page.getByTestId('file-trigger').focus();
+      await page.keyboard.press('Enter');
+      await expect(page.getByTestId('file-item-1')).toBeFocused();
+    },
+    act: async (page) => {
+      await page.keyboard.press('ArrowRight');
+    },
+  },
+  {
+    row: 'MBR-EVT-03',
+    title: 'the blur close: from the focus leaving a focus-opened menu\'s trigger to the popup\'s removal',
+    start: { type: 'focusin', selector: '[data-testid="before"]' },
+    effect: { selector: '[data-testid="edit-menu"]', absent: true },
+    prepare: async (page) => {
+      await userClick(page.getByTestId('file-trigger'));
+      await expect(page.getByTestId('file-menu')).toBeVisible();
+      await focusInside(page, 'file-menu');
+      await page.getByTestId('edit-trigger').focus();
+      await expect(page.getByTestId('edit-menu')).toBeVisible();
+      await focusInside(page, 'edit-menu');
+      await page.getByTestId('edit-trigger').focus();
+    },
+    act: async (page) => {
+      await page.getByTestId('before').focus();
+    },
+  },
+  {
+    row: 'MBR-DIS-05',
+    title: 'the touch lock: from the touch on a trigger to the page\'s scroll lock',
+    options: { case: 'scroll-lock' },
+    start: { type: 'pointerdown', selector: '[data-testid="file-trigger"]' },
+    effect: { scrollLock: true },
+    touch: true,
+    act: async (page, cdp) => {
+      await tap(cdp!, page.getByTestId('file-trigger'));
+    },
+  },
+];
+
+test.describe('port: the bar\'s Server timings (ADR 01)', () => {
+  for (const figure of BAR_FIGURES) {
+    test(`port: ${figure.title} (${figure.row})`, async ({ page, mode }) => {
+      const times: number[] = [];
+      for (let run = 0; run < 5; run += 1) {
+        const fixture = await renderFixture(page, mode, figure.options ?? {});
+        const cdp = figure.touch ? await touchSession(page) : null;
+        await figure.prepare?.(page, fixture);
+        await page.evaluate(({ start, effect }) => {
+          const record = { t0: -1, t1: -1 };
+          (window as unknown as { barFigure: typeof record }).barFigure = record;
+          const met = () =>
+            effect.scrollLock
+              ? document.documentElement.style.overflow === 'hidden' || document.documentElement.hasAttribute('data-base-ui-scroll-locked') || document.body.style.overflow === 'hidden'
+              : (document.querySelector(effect.selector!) !== null) !== !!effect.absent;
+          document.addEventListener(start.type, (event) => {
+            if (record.t0 < 0 && (event.target as Element | null)?.closest?.(start.selector)) {
+              record.t0 = performance.now();
+            }
+          }, true);
+          const check = () => {
+            if (record.t0 >= 0 && record.t1 < 0 && met()) {
+              record.t1 = performance.now();
+            }
+          };
+          new MutationObserver(check).observe(document.documentElement, { subtree: true, childList: true, attributes: true });
+        }, { start: figure.start, effect: figure.effect });
+        await figure.act(page, cdp);
+        await expect.poll(() => page.evaluate(() => (window as unknown as { barFigure: { t1: number } }).barFigure.t1)).toBeGreaterThanOrEqual(0);
+        times.push(await page.evaluate(() => {
+          const record = (window as unknown as { barFigure: { t0: number; t1: number } }).barFigure;
+          return record.t1 - record.t0;
+        }));
+      }
+      times.sort((a, b) => a - b);
+      const description = `${figure.row} ${mode}: median ${times[2]!.toFixed(0)} ms (${times.map((t) => t.toFixed(0)).join(', ')})`;
+      test.info().annotations.push({ type: 'figure', description });
+      console.log(`[figure] ${description}`);
+    });
+  }
+});

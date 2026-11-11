@@ -444,6 +444,13 @@ Mounting, transition status, `keepMounted` and `onOpenChangeComplete` of bar men
 - MBR-ANI-02 — TRN-ANI-03/09/10 row (adopted through MNU-ANI-01, MNU-ANI-06): the outgoing bar menu's unmount (or `hidden`) and `onOpenChangeComplete(false)` land in the first render batch after the completion message, about two round trips after its exit animation ends; JS sets `hidden` at animation end (optimistic convergent write, ADR 04 §2).
 - MBR-POS-01 — RND-STA-01 row (mirrored fields, adopted through MNU-POS-06): the Positioner's `data-side` is JS-written at frame timing; the `side` state field (and so the Popup's attributes and `ClassValue`/`StyleValue`) follows one round trip later.
 
+Server rows as built (2026-11-11, M5 track 8, [issue 195](https://github.com/JakeMurrayDev/Blazix.Primitives/issues/195); decisions/01-hosting-model-and-timing.md Amendments 2026-11-11, with the figures):
+- MBR-PTR-04, MBR-FOC-03, MBR-KEY-08 — "EVD-EVT-18, PSH-ANI-03": the hover, focus and keyboard switches are requested by `interactions` at once and committed a round trip later; on the shared-Root setups, "TIP-PTR-07, TIP-FOC-04".
+- MBR-EVT-03 — "FLT-FOC-11": the blur close commits a round trip later.
+- MBR-PTR-01 — "C#-origin consumer vetoes": the press from the `mousedown`.
+- MBR-DIS-05, MBR-PTR-06 — "A popup element the opening render creates": the touch lock waits for the positioned popup, and the hover highlight for the bar's option and the popup's initial focus.
+- MBR-STA-02..04 and DOM-03 are met earlier than Base UI's on both modes (the flag is set in C#'s commit path): a fidelity note, not a row.
+
 ## 10. Positioning
 
 - **MBR-POS-01** — MUST. A top-level bar menu's Positioner defaults to `side: 'bottom'` in a horizontal bar and `side: 'inline-end'` in a vertical bar, and to `align: 'start'` in both; explicit `side`/`align` props win. The resolved side is reported to function-form offsets and as `data-side`. Server: relaxed, see §9.
