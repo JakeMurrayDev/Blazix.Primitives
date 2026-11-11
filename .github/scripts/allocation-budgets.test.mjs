@@ -62,6 +62,30 @@ describe('budget classes', () => {
   it('finds no class in a file without the attribute', () => {
     expect(budgetClasses('namespace A;\n\npublic sealed class Plain\n{\n}\n')).toEqual([]);
   });
+
+  it('names a Razor test component in the collection by its @namespace and its file name', () => {
+    const source = [
+      '@namespace Blazix.Primitives.Tests.Components',
+      '@inherits SelectTestBase',
+      '@attribute [Collection(AllocationBudgetsCollection.Name)]',
+      '@using Bunit',
+      '',
+      '@code {',
+      '    public enum Fruit { Apple }',
+      '',
+      '    private sealed class Row { }',
+      '}',
+    ].join('\n');
+
+    expect(budgetClasses(source, 'tests/Blazix.Primitives.Tests.Components/Select/SelectAllocationBudgetTests.razor'))
+      .toEqual(['Blazix.Primitives.Tests.Components.SelectAllocationBudgetTests']);
+  });
+
+  it('finds no class in a Razor component without the @attribute directive', () => {
+    const source = '@namespace Blazix.Primitives.Tests.Components\n\n@code {\n    // [Collection(AllocationBudgetsCollection.Name)]\n}\n';
+
+    expect(budgetClasses(source, 'tests/Blazix.Primitives.Tests.Components/Popup/Harness.razor')).toEqual([]);
+  });
 });
 
 describe('exclusion arguments', () => {
