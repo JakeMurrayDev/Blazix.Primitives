@@ -173,6 +173,23 @@ function attachInput(input: HTMLInputElement, initial: MenuFilterOptions, channe
     channel.report('OnValueChange', { value, reason: value === '' ? 'input-clear' : 'input-change', event: eventInfo(event) });
   };
 
+  // ARIA-15 (MenuStore.ts:107-111, useMenuItemCommonProps.ts:63-68; design point 5 (c)): WebKit only, while the input has
+  // focus, the item the composite's aria-activedescendant names is marked aria-selected="true".
+  let selectedItem: Element | null = null;
+  const syncSelected = (): void => {
+    if (!platform.engine.webkit) {
+      return;
+    }
+    const id = input.getAttribute('aria-activedescendant');
+    const next = !disposed && id && input.ownerDocument.activeElement === input ? input.ownerDocument.getElementById(id) : null;
+    if (next === selectedItem) {
+      return;
+    }
+    selectedItem?.removeAttribute('aria-selected');
+    next?.setAttribute('aria-selected', 'true');
+    selectedItem = next;
+  };
+
   const syncHighlighted = (): void => {
     const next = focusVisible && (!keyboardModality || !input.hasAttribute('aria-activedescendant'));
     if (next === highlighted) {
@@ -220,10 +237,12 @@ function attachInput(input: HTMLInputElement, initial: MenuFilterOptions, channe
   const onFocus = (): void => {
     focusVisible = true;
     syncHighlighted();
+    syncSelected();
   };
   const onBlur = (): void => {
     focusVisible = false;
     syncHighlighted();
+    syncSelected();
   };
   const onKeyDown = (): void => {
     keyboardModality = true;
@@ -234,7 +253,10 @@ function attachInput(input: HTMLInputElement, initial: MenuFilterOptions, channe
     syncHighlighted();
   };
   // ADR 04 :504: composite writes aria-activedescendant on its reference, the Input; the focus ring follows it.
-  const observer = new MutationObserver(syncHighlighted);
+  const observer = new MutationObserver(() => {
+    syncHighlighted();
+    syncSelected();
+  });
   observer.observe(input, { attributes: true, attributeFilter: ['aria-activedescendant'] });
 
   input.addEventListener('input', onInput);
@@ -267,6 +289,7 @@ function attachInput(input: HTMLInputElement, initial: MenuFilterOptions, channe
       }
       disposed = true;
       observer.disconnect();
+      syncSelected();
       input.removeEventListener('input', onInput);
       input.removeEventListener('compositionstart', onCompositionStart);
       input.removeEventListener('compositionend', onCompositionEnd);

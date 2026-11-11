@@ -494,6 +494,9 @@ Source: `menu/item/MenuItem.tsx:50-53,81-90`.
 | `data-highlighted` | highlighted | MNU-DOM-13 | C# → JS |
 | `data-disabled` | disabled | MNU-DOM-13 | C# |
 | `tabindex` | `0` when open, highlighted and not virtual focus; otherwise `-1` | MNU-DOM-14 | C# → JS |
+| `aria-selected` | `"true"` on WebKit while `Menu.Input` has focus and the item is highlighted (the parent menu's input, for a submenu trigger) | MNU-ARIA-15 | JS |
+
+Writer note (2026-11-11, M5 track 12, [issue 197](https://github.com/JakeMurrayDev/Blazix.Primitives/issues/197); design point 5 (c), settled by the orchestrator 2026-11-11): in a filterable menu the `menu-filter` Input handle writes `aria-selected` on the item that `composite`'s `aria-activedescendant` names, on WebKit only, while the input has focus.
 
 Writer note (2026-11-04, M5 track 6, [issue 172](https://github.com/JakeMurrayDev/Blazix.Primitives/issues/172); ADR 04 Amendments 2026-11-03 (2), chosen by the user 2026-11-03): `data-highlighted` and `tabindex` are written by the list handle of `composite` from attach, in the same task as the focus move; C# renders the initial values and mirrors the highlight in the part's `Highlighted` state field (ADR 01's RND-STA-01 row). The `data-highlighted` and `tabindex` cells of this section and of §3.10, §3.11, §3.15 and §3.20 read C# before this note.
 
@@ -518,6 +521,9 @@ State object (`Menu.LinkItem.State`): `{ highlighted: boolean }`. Source: `menu/
 |---|---|---|---|
 | `data-highlighted` | highlighted | MNU-DOM-15 | C# → JS |
 | `tabindex` | per MNU-DOM-14 | MNU-DOM-14 | C# → JS |
+| `aria-selected` | `"true"` on WebKit while `Menu.Input` has focus and the item is highlighted (the parent menu's input, for a submenu trigger) | MNU-ARIA-15 | JS |
+
+Writer note (2026-11-11, M5 track 12, [issue 197](https://github.com/JakeMurrayDev/Blazix.Primitives/issues/197); design point 5 (c), settled by the orchestrator 2026-11-11): in a filterable menu the `menu-filter` Input handle writes `aria-selected` on the item that `composite`'s `aria-activedescendant` names, on WebKit only, while the input has focus.
 
 Writer note (2026-11-04, M5 track 6): the table is added for the Writer column; its writers are §3.9's note.
 
@@ -560,6 +566,9 @@ Source: `menu/checkbox-item/MenuCheckboxItem.tsx:59-67,143-156`.
 | `data-disabled` | | MNU-DOM-16 | C# |
 | `data-highlighted` | | MNU-DOM-16 | C# → JS |
 | `tabindex` | per MNU-DOM-14 | MNU-DOM-14 | C# → JS |
+| `aria-selected` | `"true"` on WebKit while `Menu.Input` has focus and the item is highlighted (the parent menu's input, for a submenu trigger) | MNU-ARIA-15 | JS |
+
+Writer note (2026-11-11, M5 track 12, [issue 197](https://github.com/JakeMurrayDev/Blazix.Primitives/issues/197); design point 5 (c), settled by the orchestrator 2026-11-11): in a filterable menu the `menu-filter` Input handle writes `aria-selected` on the item that `composite`'s `aria-activedescendant` names, on WebKit only, while the input has focus.
 
 ### 3.12 `Menu.CheckboxItemIndicator` and 3.13 `Menu.RadioItemIndicator`
 
@@ -634,6 +643,9 @@ State object (`Menu.RadioItem.State`): `{ disabled, highlighted, checked }` as C
 | `data-disabled` | | MNU-DOM-16 | C# |
 | `data-highlighted` | | MNU-DOM-16 | C# → JS |
 | `tabindex` | per MNU-DOM-14 | MNU-DOM-14 | C# → JS |
+| `aria-selected` | `"true"` on WebKit while `Menu.Input` has focus and the item is highlighted (the parent menu's input, for a submenu trigger) | MNU-ARIA-15 | JS |
+
+Writer note (2026-11-11, M5 track 12, [issue 197](https://github.com/JakeMurrayDev/Blazix.Primitives/issues/197); design point 5 (c), settled by the orchestrator 2026-11-11): in a filterable menu the `menu-filter` Input handle writes `aria-selected` on the item that `composite`'s `aria-activedescendant` names, on WebKit only, while the input has focus.
 
 Writer note (2026-11-04, M5 track 6): the table is added for the Writer column; its writers are §3.9's note.
 
@@ -714,6 +726,9 @@ Source: `menu/submenu-trigger/MenuSubmenuTrigger.tsx:210,291-304`.
 | `data-highlighted` | | MNU-DOM-18 | C# → JS |
 | `data-disabled` | | MNU-DOM-18 | C# |
 | `tabindex` | `0` when (open or highlighted) and the parent is not virtual-focus; otherwise `-1` | MNU-DOM-18 | C# → JS |
+| `aria-selected` | `"true"` on WebKit while `Menu.Input` has focus and the item is highlighted (the parent menu's input, for a submenu trigger) | MNU-ARIA-15 | JS |
+
+Writer note (2026-11-11, M5 track 12, [issue 197](https://github.com/JakeMurrayDev/Blazix.Primitives/issues/197); design point 5 (c), settled by the orchestrator 2026-11-11): in a filterable menu the `menu-filter` Input handle writes `aria-selected` on the item that `composite`'s `aria-activedescendant` names, on WebKit only, while the input has focus.
 
 ### 3.21 `Menu.FilterProvider` (Preview)
 

@@ -122,6 +122,18 @@ public sealed class MenuFilterInputHandleTests : BunitContext
         Assert.Contains("\"open\":false", LastUpdate(), StringComparison.Ordinal);
     }
 
+    [Fact(DisplayName = "port: the input's focus-out report closes the menu")]
+    [Trait("Requirement", "MNU-KEY-26")]
+    public async Task A_focus_out_report_closes_the_menu()
+    {
+        IRenderedComponent<MenuFilterInputHost> cut = Render<MenuFilterInputHost>();
+        MenuFilterTwin twin = Twin();
+
+        await cut.InvokeAsync(() => twin.OnFocusOut("""{"event":null}"""));
+
+        cut.WaitForAssertion(() => Assert.False(cut.Instance.Open));
+    }
+
     // The List attaches its own handle (its texts), so the input's attach and updates are told apart by their part.
     private static bool IsInput(JSRuntimeInvocation invocation) =>
         invocation.Arguments.Count > 0 && invocation.Arguments[^1] is not null && ((invocation.Arguments.FirstOrDefault(a => a is string) as string)?.Contains("\"part\":\"input\"", StringComparison.Ordinal) ?? false);
