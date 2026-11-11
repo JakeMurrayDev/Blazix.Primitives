@@ -36,6 +36,7 @@ public static class DemoCatalog
         new("preview-card", "Preview Card", "A card that previews a link's content when the pointer rests on it or the keyboard focuses it.", typeof(PreviewCardDemo)),
         new("navigation-menu", "Navigation Menu", "A menu bar of links whose triggers open panels of further links, here the documentation's sections.", typeof(NavigationMenuDemo)),
         new("menu", "Menu", "A list of actions in a popup anchored to a button, with checkbox items and a submenu of radio items.", typeof(MenuDemo)),
+        new("combobox", "Combobox", "An input that filters a list of options as the user types, here a list of fruits.", typeof(ComboboxDemo)),
         new("context-menu", "Context Menu", "A menu that opens at the pointer on a right click or a long press, with a submenu.", typeof(ContextMenuDemo)),
         new("menubar", "Menubar", "A bar of menus: once one is open, hovering or focusing another trigger opens it.", typeof(MenubarDemo)),
         new("select", "Select", "A button that opens a list of options to choose one from, placed over the button with the chosen option aligned.", typeof(SelectDemo)),

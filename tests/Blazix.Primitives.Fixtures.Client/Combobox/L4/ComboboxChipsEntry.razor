@@ -1,0 +1,32 @@
+@namespace Blazix.Primitives.Fixtures.Client.ComboboxFixtures
+@using Blazix.Primitives
+
+@* One Chip of the `combobox-chips` fixture: the chip with the value as its text, and a ChipRemove when the query asks for one. *@
+<ComboboxChip @attributes="Fixture.ChipAttributes(Value)">
+    @Value
+    @if (Fixture.Remove)
+    {
+        @if (Fixture.NonNative)
+        {
+            <ComboboxChipRemove NativeButton="false" Render="Div" @attributes="Fixture.RemoveAttributes(Value)">×</ComboboxChipRemove>
+        }
+        else
+        {
+            <ComboboxChipRemove @attributes="Fixture.RemoveAttributes(Value)">×</ComboboxChipRemove>
+        }
+    }
+</ComboboxChip>
+
+@code {
+    private static readonly RenderFragment Div = builder =>
+    {
+        builder.OpenElement(0, "div");
+        builder.CloseElement();
+    };
+
+    [Parameter, EditorRequired]
+    public ComboboxChipsL4Fixture Fixture { get; set; } = null!;
+
+    [Parameter, EditorRequired]
+    public string Value { get; set; } = "";
+}

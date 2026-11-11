@@ -31,6 +31,7 @@ namespace Blazix.Primitives;
 /// </summary>
 internal sealed class InteractionsTriggerBehavior : IAsyncDisposable
 {
+    private readonly IJSRuntime jsRuntime;
     private readonly Func<OpenChangeRequest, Task> requestOpenChange;
     private readonly Func<Exception, Task> dispatchException;
     private readonly EventCallback onClick;
@@ -57,6 +58,7 @@ internal sealed class InteractionsTriggerBehavior : IAsyncDisposable
         EventCallback onClick,
         EventCallback onMouseDown = default)
     {
+        this.jsRuntime = jsRuntime;
         this.requestOpenChange = requestOpenChange;
         this.dispatchException = dispatchException;
         this.onClick = onClick;
@@ -260,10 +262,11 @@ internal sealed class InteractionsTriggerBehavior : IAsyncDisposable
 
         if (RunConsumerHandler(snapshot, press.Deferred))
         {
+            _ = Observe(AnswerDeclinedAsync());
             return DecisionPolicy.Stop;
         }
 
-        _ = Observe(requestOpenChange(InteractionsRequests.FromPress(press.Open, press.Reason, press.TriggerId, press.InteractionType, snapshot)));
+        _ = Observe(RequestAsync(InteractionsRequests.FromPress(press.Open, press.Reason, press.TriggerId, press.InteractionType, snapshot)));
         return DecisionPolicy.Run;
     }
 
@@ -271,11 +274,25 @@ internal sealed class InteractionsTriggerBehavior : IAsyncDisposable
     {
         if (RunConsumerHandler(press.Event, press.Deferred))
         {
+            _ = Observe(AnswerDeclinedAsync());
             return;
         }
 
-        _ = Observe(requestOpenChange(InteractionsRequests.FromPress(press.Open, press.Reason, press.TriggerId, press.InteractionType, press.Event)));
+        _ = Observe(RequestAsync(InteractionsRequests.FromPress(press.Open, press.Reason, press.TriggerId, press.InteractionType, press.Event)));
     }
+
+    // ADR 04 Amendments 2026-11-11: a press's request, answered through the session when the consumer canceled it; an
+    // accepted one is answered by its commit's relay.
+    private async Task RequestAsync(OpenChangeRequest request)
+    {
+        await requestOpenChange(request);
+        if (request.Details.IsCanceled)
+        {
+            await AnswerDeclinedAsync();
+        }
+    }
+
+    private Task AnswerDeclinedAsync() => InteractionsSessionBehavior.AnswerDeclinedPressAsync(jsRuntime, attachedToken ?? SessionToken);
 
     private void OnRequest(InteractionsRequest request)
     {

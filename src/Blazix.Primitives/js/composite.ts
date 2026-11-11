@@ -1337,6 +1337,12 @@ export interface CompositeOptions extends TwinOptions {
    */
   registrationOnly?: boolean | undefined;
   /**
+   * CMB-KEY-12 (`combobox/trigger/ComboboxTrigger.tsx:109-122`; composite grant, option (a) settled 2026-11-11): a list
+   * reference that runs only the list's typeahead, and only while the list is closed, as Combobox's trigger runs the list's
+   * `useTypeahead` beside the input that navigates it. Its navigation keys are left to the element.
+   */
+  typeaheadOnly?: boolean | undefined;
+  /**
    * Whether the highlight follows the item marked active when focus is outside the root and the item is not
    * `aria-disabled="true"`, except once after a keydown on that item; the re-validation against the disabled indices does
    * not run.
@@ -2280,6 +2286,8 @@ interface ListState {
   handles: Set<ListHandle>;
   /** The revision of the last C# highlight request applied. */
   appliedRevision: number;
+  /** A navigation key pressed on an open reference before the list attached, the newest only; `null` otherwise. */
+  pendingKey: { readonly handle: ListHandle; readonly event: KeyboardEvent } | null;
   /** The highlight last reported, so a report goes out once per change; `undefined` before any. */
   reportedIndex: number | null | undefined;
   /** The item element of the highlight last reported, as an index can come to point at another element. */
@@ -2756,12 +2764,16 @@ function createListState(session: InteractionSession, list: CompositeListOptions
     references: new Set(),
     handles: new Set(),
     appliedRevision: 0,
+    pendingKey: null,
     reportedIndex: null,
     reportedElement: null,
     descendantTargets: new Set(),
     typeahead: { text: '', prevIndex: selectedIndexOf(list) ?? -1, matchIndex: null, timer: null, typing: false },
     // FLT-STA-02: the session emits before it applies the state, so the effects read the emitted value.
     onOpenChange: (details) => {
+      if (!details.open) {
+        state.pendingKey = null;
+      }
       const handle = currentHandle(state);
       if (!handle) {
         return;
@@ -3030,6 +3042,18 @@ function commonKeyDown(state: ListState, handle: ListHandle, dispatch: KeyDispat
   const rtl = list.rtl === true;
   const isGrid = list.grid === true;
 
+  // CMB-KEY-13 (AriaCombobox.tsx:1456-1469, granted by the orchestrator 2026-11-11): in grid mode a typeable combobox input
+  // with no highlight is still editing its query, so ArrowLeft and ArrowRight keep the caret; the list navigation skips them.
+  if (
+    isGrid &&
+    state.activeIndex == null &&
+    (event.key === ARROW_LEFT || event.key === ARROW_RIGHT) &&
+    currentTarget === referenceElementOf(state, handle.session) &&
+    isTypeableCombobox(currentTarget)
+  ) {
+    return;
+  }
+
   // CMP-KEY-27, CMP-DIS-01, CMP-EVT-07: the nested close across the list's orientation.
   if (list.nested && !list.keepOpenOnCrossOrientationKey && isCrossOrientationCloseKey(event.key, orientation, rtl, isGrid)) {
     if (!proceed(dispatch, handle)) {
@@ -3153,6 +3177,20 @@ function triggerKeyDown(state: ListState, handle: ListHandle, dispatch: KeyDispa
   const isMainKey = isMainOrientationKey(event.key, currentOpen ? orientation : triggerOrientation);
   const isNavigationKey = (list.nested ? isParentCrossOpenKey : isMainKey) || event.key === 'Enter' || event.key.trim() === '';
 
+  // `:45`/`:63` (settled by the orchestrator 2026-11-11, option (a); ADR 01's "a popup element the opening render creates"
+  // row): on Server the floating list attaches a round trip after the open, where Base UI's list mounts in the open's commit.
+  // A navigation key pressed on the open reference meanwhile is kept, the newest only, and replayed once the list attaches
+  // while the same open lasts; a close or any newer key drops it (PR 193 delta review F1). The key stops here as its
+  // navigation would.
+  if (currentOpen && state.floating === null) {
+    if (isKeptNavigationKey(event, list, currentTarget)) {
+      stopEvent(event);
+      state.pendingKey = { handle, event };
+      return;
+    }
+    state.pendingKey = null;
+  }
+
   if (list.virtual && currentOpen && (!list.nested || isTypeableElement(currentTarget))) {
     commonKeyDown(state, handle, dispatch, currentTarget);
     return;
@@ -3208,6 +3246,30 @@ function triggerKeyDown(state: ListState, handle: ListHandle, dispatch: KeyDispa
       navigateTo(state, handle, event);
     }
   }
+}
+
+// The unmodified keys the open list navigates with: its main-orientation arrows (every arrow in a grid), and Home and End
+// unless the reference is a typeable combobox (CMP-KEY-28). Another key, such as a toolbar's arrow around a vertical
+// list's input, is left to the element.
+function isKeptNavigationKey(event: KeyboardEvent, list: CompositeListOptions, reference: Element): boolean {
+  if (event.ctrlKey || event.metaKey || event.altKey) {
+    return false;
+  }
+  if (event.key === HOME || event.key === END) {
+    return !isTypeableCombobox(reference);
+  }
+  const isArrow = event.key === ARROW_UP || event.key === ARROW_DOWN || event.key === ARROW_LEFT || event.key === ARROW_RIGHT;
+  return isArrow && (list.grid === true || isMainOrientationKey(event.key, orientationOf(list)));
+}
+
+// The kept key's replay once the list attached, through its reference's keydown, while the same open lasts.
+function replayPendingKey(state: ListState, session: InteractionSession): void {
+  const pending = state.pendingKey;
+  state.pendingKey = null;
+  if (pending === null || state.floating === null || !state.handles.has(pending.handle) || !isOpen(state, session)) {
+    return;
+  }
+  triggerKeyDown(state, pending.handle, { event: pending.event, vetoed: null, stopped: false });
 }
 
 // The floating element's keydown (useListNavigation.ts:769-797): Shift+Tab's `leave`, then the common handling.
@@ -3551,14 +3613,15 @@ function attachList(
     }
     const list = handle.list();
     const dispatch: KeyDispatch = { event, vetoed: null, stopped: false };
-    if (enabledOf(list)) {
+    const typeaheadOnly = options.typeaheadOnly === true;
+    if (enabledOf(list) && !typeaheadOnly) {
       if (isFloating) {
         floatingKeyDown(state, handle, dispatch);
       } else {
         triggerKeyDown(state, handle, dispatch);
       }
     }
-    if (list.typeahead && typeaheadProceeds(dispatch, handle, event)) {
+    if (list.typeahead && (!typeaheadOnly || !isOpen(state, handle.session)) && typeaheadProceeds(dispatch, handle, event)) {
       const stoppedBefore = event.defaultPrevented;
       typeaheadKeyDown(state, handle, event);
       if (!stoppedBefore && event.defaultPrevented) {
@@ -3642,6 +3705,7 @@ function attachList(
   applyHighlightRequest(state, handle);
   if (registry) {
     syncOpenAndMount(state, handle);
+    replayPendingKey(state, session);
   } else {
     session.dataRef.current.orientation = orientationOf(handle.list());
     writeHighlight(state, handle);

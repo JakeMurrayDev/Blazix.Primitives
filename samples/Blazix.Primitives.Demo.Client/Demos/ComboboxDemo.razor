@@ -1,0 +1,87 @@
+<DemoFrame Slug="combobox" Note="Type to filter the fruits. The arrow keys move the highlight while the focus stays in the input; Enter or a click selects, and the input shows the fruit's label. Escape closes the list, and a second Escape clears the selection; the clear button empties it too.">
+    <Hero>
+        <ComboboxRoot Items="s_fruits">
+            <div class="relative flex flex-col gap-1 text-sm leading-5 font-bold text-neutral-950 dark:text-white">
+                <label for="@InputId">Choose a fruit</label>
+                <ComboboxInputGroup class="@InputGroupClass">
+                    <ComboboxInput placeholder="e.g. Apple" id="@InputId" class="@InputClass" />
+                    <div class="absolute right-0 bottom-0 flex h-full items-center justify-center text-neutral-500 dark:text-neutral-400">
+                        <ComboboxClear class="combobox-clear flex h-full w-6 items-center justify-center border-0 bg-transparent p-0 text-neutral-950 dark:text-white" aria-label="Clear selection">
+                            <XIcon />
+                        </ComboboxClear>
+                        <ComboboxTrigger class="flex h-full w-6 items-center justify-center border-0 bg-transparent p-0 text-neutral-950 dark:text-white" aria-label="Open popup">
+                            <CaretDownIcon />
+                        </ComboboxTrigger>
+                    </div>
+                </ComboboxInputGroup>
+            </div>
+
+            <ComboboxPortal>
+                <ComboboxPositioner class="outline-none" SideOffset="4">
+                    <ComboboxPopup class="@PopupClass">
+                        <ComboboxEmpty>
+                            <div class="py-4 pr-4 pl-2 text-sm leading-4 text-neutral-500 dark:text-neutral-400">
+                                No fruits found.
+                            </div>
+                        </ComboboxEmpty>
+                        <ComboboxList class="max-h-[min(22.5rem,var(--available-height))] overflow-y-auto overscroll-contain py-1 scroll-py-1 outline-0 data-empty:p-0">
+                            <ItemContent>
+                                <ComboboxItem Value="@context.Value" class="@ItemClass" @key="context.Value">
+                                    <ComboboxItemIndicator class="col-start-1">
+                                        <CheckIcon />
+                                    </ComboboxItemIndicator>
+                                    <span class="col-start-2">@s_fruits.Get(context.Value).Label</span>
+                                </ComboboxItem>
+                            </ItemContent>
+                        </ComboboxList>
+                    </ComboboxPopup>
+                </ComboboxPositioner>
+            </ComboboxPortal>
+        </ComboboxRoot>
+    </Hero>
+</DemoFrame>
+
+@code {
+    private const string InputId = "combobox-demo-input";
+
+    private const string InputGroupClass = "relative h-8 w-56 border border-neutral-950 bg-white dark:bg-neutral-950 focus-within:outline-2 focus-within:-outline-offset-1 focus-within:outline-neutral-950 dark:focus-within:outline-white dark:border-white [&>input]:pr-[calc(0.5rem+2rem)] has-[.combobox-clear]:[&>input]:pr-[calc(0.5rem+2rem*2)]";
+
+    private const string InputClass = "h-full w-full border-0 bg-white pl-2 dark:bg-neutral-950 text-sm any-pointer-coarse:text-base font-normal text-neutral-950 outline-none placeholder:text-neutral-500 dark:placeholder:text-neutral-400 dark:text-white";
+
+    private const string PopupClass = "w-[var(--anchor-width)] max-w-[var(--available-width)] origin-[var(--transform-origin)] border border-neutral-950 bg-white text-neutral-950 shadow-[0.25rem_0.25rem_0_rgb(0_0_0_/_12%)] transition-[scale,opacity] duration-100 data-starting-style:scale-95 data-starting-style:opacity-0 data-ending-style:scale-95 data-ending-style:opacity-0 dark:border-white dark:bg-neutral-950 dark:text-white dark:shadow-none";
+
+    private const string ItemClass = "grid cursor-default grid-cols-[1rem_1fr] items-center gap-2 p-2 text-sm leading-4 outline-none select-none data-highlighted:relative data-highlighted:z-0 data-highlighted:text-white data-highlighted:before:absolute data-highlighted:before:inset-0 data-highlighted:before:z-[-1] data-highlighted:before:bg-neutral-950 dark:data-highlighted:text-neutral-950 dark:data-highlighted:before:bg-white";
+
+    private static readonly ComboboxItemCollection<Fruit, string> s_fruits = ComboboxItems.Create(
+        [
+            new Fruit("Apple", "apple"),
+            new Fruit("Banana", "banana"),
+            new Fruit("Orange", "orange"),
+            new Fruit("Pineapple", "pineapple"),
+            new Fruit("Grape", "grape"),
+            new Fruit("Mango", "mango"),
+            new Fruit("Strawberry", "strawberry"),
+            new Fruit("Blueberry", "blueberry"),
+            new Fruit("Raspberry", "raspberry"),
+            new Fruit("Blackberry", "blackberry"),
+            new Fruit("Cherry", "cherry"),
+            new Fruit("Peach", "peach"),
+            new Fruit("Pear", "pear"),
+            new Fruit("Plum", "plum"),
+            new Fruit("Kiwi", "kiwi"),
+            new Fruit("Watermelon", "watermelon"),
+            new Fruit("Cantaloupe", "cantaloupe"),
+            new Fruit("Honeydew", "honeydew"),
+            new Fruit("Papaya", "papaya"),
+            new Fruit("Guava", "guava"),
+            new Fruit("Lychee", "lychee"),
+            new Fruit("Pomegranate", "pomegranate"),
+            new Fruit("Apricot", "apricot"),
+            new Fruit("Grapefruit", "grapefruit"),
+            new Fruit("Passionfruit", "passionfruit"),
+        ],
+        static fruit => fruit.Value,
+        static fruit => fruit.Label);
+
+    private sealed record Fruit(string Label, string Value);
+}

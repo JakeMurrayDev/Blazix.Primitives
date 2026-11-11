@@ -1,0 +1,73 @@
+@namespace Blazix.Primitives.Tests.Components
+@* ComboboxRoot.test.tsx's Form and Field trees: an optional Form (recording OnSubmit and OnFormSubmit) around one Field.Root
+   with an optional Field.Label before the combobox and a Field.Description and Field.Error after it. `Content` is the
+   combobox, one of the Combobox hosts. *@
+@if (InForm)
+{
+    <Form OnSubmit="args => Submits.Add(args)" OnFormSubmit="OnFormSubmit">
+        @FieldContent
+    </Form>
+}
+else
+{
+    @FieldContent
+}
+
+@code {
+    [Parameter]
+    public bool InForm { get; set; }
+
+    [Parameter]
+    public bool CaptureFormSubmit { get; set; }
+
+    [Parameter]
+    public string? FieldName { get; set; }
+
+    [Parameter]
+    public bool FieldInvalid { get; set; }
+
+    [Parameter]
+    public ValidationMode? ValidationMode { get; set; }
+
+    [Parameter]
+    public Func<FieldValidationArguments, ValueTask<FieldValidationResult?>>? Validate { get; set; }
+
+    [Parameter]
+    public bool WithFieldLabel { get; set; }
+
+    [Parameter]
+    public bool WithDescription { get; set; }
+
+    /// <summary>Gets or sets the Field.Error's match, or <see langword="null"/> for no Field.Error.</summary>
+    [Parameter]
+    public MatchValue? ErrorMatch { get; set; }
+
+    [Parameter]
+    public string? ErrorText { get; set; }
+
+    [Parameter]
+    public RenderFragment? Content { get; set; }
+
+    public List<FormSubmitEventArgs> Submits { get; } = [];
+
+    public List<FormValues> FormSubmits { get; } = [];
+
+    private EventCallback<FormSubmitEventArgs> OnFormSubmit =>
+        CaptureFormSubmit ? EventCallback.Factory.Create<FormSubmitEventArgs>(this, args => FormSubmits.Add(args.Values)) : default;
+
+    private RenderFragment FieldContent => @<FieldRoot data-testid="field" Name="@FieldName" Invalid="FieldInvalid" ValidationMode="ValidationMode" Validate="Validate">
+        @if (WithFieldLabel)
+        {
+            <FieldLabel data-testid="label">Search</FieldLabel>
+        }
+        @Content
+        @if (WithDescription)
+        {
+            <FieldDescription data-testid="description" />
+        }
+        @if (ErrorMatch is { } match)
+        {
+            <FieldError data-testid="error" Match="match">@ErrorText</FieldError>
+        }
+    </FieldRoot>;
+}

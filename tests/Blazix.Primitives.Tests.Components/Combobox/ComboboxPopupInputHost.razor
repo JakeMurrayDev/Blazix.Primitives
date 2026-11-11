@@ -1,0 +1,52 @@
+@namespace Blazix.Primitives.Tests.Components
+@typeparam TValue
+@* A Root over any value type with the input inside the popup, as ComboboxRoot.test.tsx's input-inside-popup titles render it:
+   a Trigger (with `TriggerContent`, such as a Value), `Extra`, and a Portal > Positioner > Popup holding the Input and a
+   List of the root's items, each item's text `ItemText(value)`. `RootParameters` are splatted. *@
+<ComboboxRoot TValue="TValue" @ref="Root" @attributes="RootParameters">
+    <ComboboxTrigger data-testid="trigger">@(TriggerContent ?? DefaultTriggerContent)</ComboboxTrigger>
+    @Extra
+    <ComboboxPortal>
+        <ComboboxPositioner>
+            <ComboboxPopup data-testid="popup">
+                @if (InputContent is not null)
+                {
+                    @InputContent
+                }
+                else
+                {
+                    <ComboboxInput data-testid="input" />
+                }
+                <ComboboxList TValue="TValue">
+                    <ItemContent>
+                        <ComboboxItem TValue="TValue" Value="@context.Value" @key="context.Value">@TextOf(context.Value)</ComboboxItem>
+                    </ItemContent>
+                </ComboboxList>
+            </ComboboxPopup>
+        </ComboboxPositioner>
+    </ComboboxPortal>
+</ComboboxRoot>
+
+@code {
+    private static readonly RenderFragment DefaultTriggerContent = builder => builder.AddContent(0, "Open");
+
+    [Parameter]
+    public Dictionary<string, object?> RootParameters { get; set; } = [];
+
+    [Parameter]
+    public Func<TValue, string>? ItemText { get; set; }
+
+    [Parameter]
+    public RenderFragment? TriggerContent { get; set; }
+
+    /// <summary>Gets or sets the input the popup holds instead of a plain ComboboxInput, such as one rendered as a field-aware Input.</summary>
+    [Parameter]
+    public RenderFragment? InputContent { get; set; }
+
+    [Parameter]
+    public RenderFragment? Extra { get; set; }
+
+    public ComboboxRoot<TValue>? Root { get; private set; }
+
+    private string TextOf(TValue value) => ItemText is { } text ? text(value) : Convert.ToString(value, System.Globalization.CultureInfo.InvariantCulture) ?? string.Empty;
+}

@@ -1,0 +1,31 @@
+@namespace Blazix.Primitives.Tests.Components
+@* Static items as ComboboxItem.test.tsx renders most titles, each item taking the attributes `ItemAttributes` gives it
+   (onclick, Disabled). The root's parameters are splatted. *@
+<ComboboxRoot TValue="string" @ref="Root" @attributes="RootParameters">
+    <ComboboxInput data-testid="input" />
+    <ComboboxPortal>
+        <ComboboxPositioner>
+            <ComboboxPopup>
+                <ComboboxList TValue="string">
+                    @foreach (string value in Values)
+                    {
+                        <ComboboxItem TValue="string" Value="@value" @key="value" data-testid="@("item-" + value)" @attributes="ItemAttributes?.Invoke(value)">@value</ComboboxItem>
+                    }
+                </ComboboxList>
+            </ComboboxPopup>
+        </ComboboxPositioner>
+    </ComboboxPortal>
+</ComboboxRoot>
+
+@code {
+    [Parameter]
+    public Dictionary<string, object?> RootParameters { get; set; } = [];
+
+    [Parameter]
+    public IReadOnlyList<string> Values { get; set; } = [];
+
+    [Parameter]
+    public Func<string, IReadOnlyDictionary<string, object>?>? ItemAttributes { get; set; }
+
+    public ComboboxRoot<string>? Root { get; private set; }
+}
