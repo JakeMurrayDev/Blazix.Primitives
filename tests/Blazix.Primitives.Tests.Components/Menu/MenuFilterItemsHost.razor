@@ -1,0 +1,58 @@
+@namespace Blazix.Primitives.Tests.Components
+@* MenuFilterRoot.test.tsx's Empty trees and MenuFilterRoot.scoping.test.tsx's "filters items by text and shows the empty
+   state" (MNU-STA-15, STA-23, API-61, DOM-23), one per `Case`:
+   - "no-items": an input, Empty and a list with no items;
+   - "unlabeled": an input, Empty holding a mount probe, and two items without a label;
+   - "labeled": an input, Empty and one item of each kind with a label (Rename, Copy, Pin, Delete, Share).
+   `DefaultQuery` seeds the provider; `OnEmptyMount` is the probe's callback. *@
+<MenuFilterProvider DefaultValue="@DefaultQuery">
+    <MenuRoot TPayload="NoPayload" DefaultOpen="true">
+        <MenuTrigger TPayload="NoPayload">Actions</MenuTrigger>
+        <MenuPortal>
+            <MenuPositioner>
+                <MenuPopup>
+                    <MenuInput aria-label="Filter actions" />
+                    @switch (Case)
+                    {
+                        case "no-items":
+                            <MenuEmpty>No actions found</MenuEmpty>
+                            <MenuList />
+                            break;
+                        case "unlabeled":
+                            <MenuEmpty><MenuFilterMountProbe Text="No results" OnMount="OnEmptyMount" /></MenuEmpty>
+                            <MenuList>
+                                <MenuItem>Rename</MenuItem>
+                                <MenuItem>Delete</MenuItem>
+                            </MenuList>
+                            break;
+                        default:
+                            <MenuEmpty>No actions found</MenuEmpty>
+                            <MenuList>
+                                <MenuItem Label="Rename">Rename</MenuItem>
+                                <MenuLinkItem Label="Copy" href="#copy">Copy</MenuLinkItem>
+                                <MenuCheckboxItem Label="Pin">Pin</MenuCheckboxItem>
+                                <MenuRadioGroup TValue="string">
+                                    <MenuRadioItem TValue="string" Value="@("delete")" Label="Delete">Delete</MenuRadioItem>
+                                </MenuRadioGroup>
+                                <MenuSubmenuRoot>
+                                    <MenuSubmenuTrigger Label="Share">Share</MenuSubmenuTrigger>
+                                </MenuSubmenuRoot>
+                            </MenuList>
+                            break;
+                    }
+                </MenuPopup>
+            </MenuPositioner>
+        </MenuPortal>
+    </MenuRoot>
+</MenuFilterProvider>
+
+@code {
+    [Parameter]
+    public string Case { get; set; } = "labeled";
+
+    [Parameter]
+    public string DefaultQuery { get; set; } = "";
+
+    [Parameter]
+    public Action? OnEmptyMount { get; set; }
+}

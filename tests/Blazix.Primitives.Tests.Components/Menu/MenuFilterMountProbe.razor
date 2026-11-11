@@ -1,0 +1,14 @@
+@namespace Blazix.Primitives.Tests.Components
+@* The `NoResults` component of "never mounts the Empty children while items match": it calls `OnMount` when it is
+   initialized and renders its text. *@
+@Text
+
+@code {
+    [Parameter]
+    public string Text { get; set; } = "";
+
+    [Parameter]
+    public Action? OnMount { get; set; }
+
+    protected override void OnInitialized() => OnMount?.Invoke();
+}
