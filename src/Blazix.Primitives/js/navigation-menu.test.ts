@@ -1249,6 +1249,22 @@ describe('focus-out', () => {
     expect(rendered.twin.reported(FOCUS_OUT_REPORT)).toHaveLength(1);
   });
 
+  // PR 217's run 42847434971: focus left through an inactive trigger before the Popup's handle attached, and no `focus-out`
+  // was reported. Base UI's onBlur reads the Root's one `popupElement` (NavigationMenuTrigger.tsx:694-708), whichever
+  // Trigger blurs.
+  it('port: closes the menu when an inactive trigger blurs outside before the popup handles attach, by the popup the active trigger names', async () => {
+    const rendered = renderMenu({ open: 'item-1', popupHandles: false });
+    await settle();
+    rendered.item('item-1').trigger.setAttribute('aria-controls', rendered.popup!.id);
+    const inactive = rendered.item('item-2').trigger;
+    expect(inactive.hasAttribute('aria-controls')).toBe(false);
+
+    inactive.dispatchEvent(new FocusEvent('focusout', { bubbles: true, relatedTarget: rendered.item('item-1').trigger }));
+    expect(rendered.twin.reported(FOCUS_OUT_REPORT)).toHaveLength(0);
+    inactive.dispatchEvent(new FocusEvent('focusout', { bubbles: true, relatedTarget: document.querySelector('[data-testid="after"]') }));
+    expect(rendered.twin.reported(FOCUS_OUT_REPORT)).toHaveLength(1);
+  });
+
   it('closes the menu when the trigger blurs to an element outside the root and the popup, and only once in flight', async () => {
     const rendered = renderMenu({ open: 'item-1' });
     await settle();
