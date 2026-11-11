@@ -21,10 +21,7 @@ async function render(page: Page, mode: RenderMode, options: PopupFixtureOptions
 test.describe('<Menubar />', () => {
   test.describe('when using contained triggers', () => {
     test.describe('click interactions', () => {
-      // Red on both modes (2026-11-11): the bar menu's internal backdrop has no cut-out over the bar, so the trigger is
-      // covered and the second click never reaches it. MenuPositionerBehavior sends `Cutout` only for a top-level menu;
-      // Base UI cuts the bar's element out for a bar menu (MenuPositioner.tsx:271-276). Lifted with that Menu/ fix.
-      test.fixme('should open the menu after clicking on its trigger and close it when clicking again', async ({ page, mode }) => {
+      test('should open the menu after clicking on its trigger and close it when clicking again', async ({ page, mode }) => {
         await render(page, mode);
         const fileTrigger = page.getByTestId('file-trigger');
 
@@ -47,9 +44,7 @@ test.describe('<Menubar />', () => {
         await expect(page.getByTestId('file-menu')).toHaveCount(0);
       });
 
-      // Red on both modes (2026-11-11): with File open, the internal backdrop covers Edit's trigger (no cut-out over the
-      // bar), so the hover never reaches it. Lifted with the same Menu/ fix as the click title.
-      test.fixme('should open submenus on hover when another submenu is already open', async ({ page, mode }) => {
+      test('should open submenus on hover when another submenu is already open', async ({ page, mode }) => {
         await render(page, mode);
         await page.getByTestId('file-trigger').click();
         await expect(page.getByTestId('file-menu')).toBeVisible();
