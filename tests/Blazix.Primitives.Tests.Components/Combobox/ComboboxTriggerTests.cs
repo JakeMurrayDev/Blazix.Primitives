@@ -345,7 +345,66 @@ public sealed class ComboboxTriggerTests : IDisposable
         Assert.Contains("\"focusTarget\":\"" + expected + "\"", LastHiddenControlOptions(), StringComparison.Ordinal);
     }
 
+    // ComboboxTrigger.tsx:107-122 (CMB-KEY-12; option (a), settled by the orchestrator 2026-11-11): the trigger runs the list's
+    // typeahead while closed, single, not read-only and not disabled, over the root's labels (`labelsRef`, the derived labels
+    // with `items`), and a match selects `valuesRef[index]` with the reason none.
+    [Fact(DisplayName = "port: the trigger's typeahead-only list handle matches the derived labels, and a closed match selects the value with reason none")]
+    [Trait("Requirement", "CMB-KEY-12")]
+    public async Task The_triggers_typeahead_selects_the_matched_value()
+    {
+        IRenderedComponent<ComboboxHarness> cut = Render(new() { ["Items"] = (IReadOnlyList<string>)["apple", "banana", "cherry"] }, Layout.InputInside);
+
+        string options = TypeaheadOptions();
+        Assert.Contains("\"typeaheadOnly\":true", options, StringComparison.Ordinal);
+        Assert.Contains("\"trigger\":{}", options, StringComparison.Ordinal);
+        Assert.Contains("\"labels\":[\"apple\",\"banana\",\"cherry\"]", options, StringComparison.Ordinal);
+
+        await cut.InvokeAsync(() => TypeaheadTwin().OnListMatch($$"""{"index":1,"event":{{ComboboxTestContext.Key("b")}}}"""));
+
+        (string? value, EventReason reason) = Assert.Single(cut.Instance.ValueChanges);
+        Assert.Equal("banana", value);
+        Assert.Equal(EventReason.None, reason);
+        Assert.Empty(cut.Instance.OpenChanges);
+    }
+
+    [Theory(DisplayName = "port: the trigger's typeahead is off while multiple, read-only or disabled")]
+    [InlineData("Multiple")]
+    [InlineData("ReadOnly")]
+    [InlineData("Disabled")]
+    [Trait("Requirement", "CMB-KEY-12")]
+    public void The_triggers_typeahead_is_off_while_multiple_read_only_or_disabled(string flag)
+    {
+        Render(new() { ["Items"] = (IReadOnlyList<string>)["apple", "banana"], [flag] = true }, Layout.InputInside);
+
+        Assert.DoesNotContain("\"typeahead\":", TypeaheadOptions(), StringComparison.Ordinal);
+    }
+
     private static IElement Trigger(IRenderedComponent<ComboboxHarness> cut) => cut.Find("[data-testid=trigger]");
+
+    private string TypeaheadOptions()
+    {
+        string last = string.Empty;
+        foreach (JSRuntimeInvocation attach in test.Composite.Invocations["attach"])
+        {
+            if (attach.Arguments[1] is string json && json.Contains("\"typeaheadOnly\":true", StringComparison.Ordinal))
+            {
+                last = json;
+            }
+        }
+
+        foreach (JSRuntimeInvocation update in test.CompositeHandle.Invocations["update"])
+        {
+            if (update.Arguments[0] is string json && json.Contains("\"typeaheadOnly\":true", StringComparison.Ordinal))
+            {
+                last = json;
+            }
+        }
+
+        return last;
+    }
+
+    private CompositeTwin TypeaheadTwin() =>
+        ((DotNetObjectReference<CompositeTwin>)test.Composite.Invocations["attach"].Last(attach => attach.Arguments[1] is string json && json.Contains("\"typeaheadOnly\":true", StringComparison.Ordinal)).Arguments[2]!).Value;
 
     private string LastHiddenControlOptions()
     {
