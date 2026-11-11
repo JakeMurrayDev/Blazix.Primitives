@@ -3171,12 +3171,18 @@ function takeHoverEntry(element: Element, consume = true): HoverEntry | null {
   return entry;
 }
 
-/** A view of a dispatched event whose `currentTarget` is the element a replayed listener runs for. */
-function retargetEvent<T extends Event>(event: T, currentTarget: EventTarget): T {
+/**
+ * A view of a dispatched event as the live listener it replays would receive it: its `currentTarget` is the element the
+ * listener runs for and its `type` the event that listener handles (`mouseenter`, `mousemove`).
+ */
+function retargetEvent<T extends Event>(event: T, currentTarget: EventTarget, type: string = event.type): T {
   return new Proxy(event, {
     get(target, property) {
       if (property === 'currentTarget') {
         return currentTarget;
+      }
+      if (property === 'type') {
+        return type;
       }
       const value: unknown = Reflect.get(target, property, target);
       return typeof value === 'function' ? (value as (...args: unknown[]) => unknown).bind(target) : value;
@@ -3834,7 +3840,9 @@ function createHoverReferenceController(context: HandleContext): Controller {
     if (entry === null) {
       return;
     }
-    const event = retargetEvent(entry.event, element);
+    const over = retargetEvent(entry.event, element);
+    const enter = retargetEvent(entry.event, element, 'mouseenter');
+    const move = retargetEvent(entry.event, element, 'mousemove');
     if (entry.pointerType !== undefined) {
       instance.pointerType = entry.pointerType;
       if (options.nestedTooltipTriggers === true) {
@@ -3842,16 +3850,16 @@ function createHoverReferenceController(context: HandleContext): Controller {
       }
     }
     if (options.nestedTooltipTriggers === true) {
-      handleNestedTriggerHover(event);
+      handleNestedTriggerHover(over);
     }
     if (options.blockPointerEventsOnEnter === true) {
-      lockOnEnter(event);
+      lockOnEnter(enter);
     }
-    onMouseEnter(event);
+    onMouseEnter(enter);
     if (options.move !== false) {
-      onFirstMouseMove(event);
+      onFirstMouseMove(move);
     }
-    onMouseMove(event);
+    onMouseMove(move);
   };
 
   syncGate();
