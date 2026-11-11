@@ -408,7 +408,9 @@ internal sealed class MenuTriggerBehavior<TPayload> : IAsyncDisposable, IMenuTri
                 PatientClick = topLevel,
                 MouseDownAction = InBar ? "open" : null,
             };
-        InteractionsMenuTriggerOptions menu = new() { RootId = state.RootId, Release = topLevel, TrackMouseEnter = true };
+        // Design point 1 (a) of M5 track 8 (settled by the orchestrator 2026-11-11): a bar trigger arms the release too, and
+        // keeps the arm when its menu closes (MenuTrigger.tsx:120-124, 240-256; MBR §16 Q9).
+        InteractionsMenuTriggerOptions menu = new() { RootId = state.RootId, Release = topLevel || InBar, TrackMouseEnter = true, KeepArmedWhenClosed = InBar };
         InteractionsFocusOptions? focus = !disabled && barMenuOpen ? s_focus : null;
         InteractionsTriggerOptions current = interactions.Options;
         if (!string.Equals(current.TriggerId, id, StringComparison.Ordinal) || !Equals(current.Click, click) || !Equals(current.Hover, hoverOptions)
