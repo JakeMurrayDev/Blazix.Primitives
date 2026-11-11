@@ -51,7 +51,7 @@ test('Combobox virtualized with Blazor Virtualize: keyboard across the window, t
 // 6504 on WebAssembly in each of four runs, plus 112. The figures only tighten.
 const KEYSTROKE_BUDGET: Record<string, number> = { server: 7432, wasm: 6616 };
 
-test('@verifies ADR-16/5 Combobox virtualized: stays within the per-keystroke allocation budget at 1,000 items', async ({ page, mode }) => {
+test('Combobox virtualized: stays within the per-keystroke allocation budget at 1,000 items', async ({ page, mode }) => {
   const fixture = await gotoCombobox(page, mode, 'combobox-virtualize');
   await page.getByTestId('input').click();
   await expect(page.getByRole('listbox')).toBeVisible();
