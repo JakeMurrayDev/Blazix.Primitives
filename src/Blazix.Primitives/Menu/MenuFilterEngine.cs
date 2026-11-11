@@ -228,6 +228,7 @@ internal sealed class MenuFilterRootContext
     private readonly MenuFilterProviderContext provider;
     private readonly MenuRootContext root;
     private readonly List<Action> subscribers = [];
+    private readonly List<Action> partSubscribers = [];
     private string inputText;
     private string? flushedQuery;
     private bool dirty;
@@ -293,19 +294,36 @@ internal sealed class MenuFilterRootContext
     /// <returns>The registration; disposing it unregisters the input.</returns>
     public IDisposable RegisterInput(ElementReference element) => throw new NotImplementedException();
 
-    /// <summary>Records the filter list's rendered id.</summary>
+    // MNU-API-62 (FilterDropdownList.tsx:23-27): the input's aria-controls follows the list's id; an empty id is none.
+    /// <summary>Records the filter list's rendered id, and tells the input when it changed.</summary>
     /// <param name="id">The id, or <see langword="null"/> when the list renders none.</param>
-    public void SetListId(string? id) => ListId = string.IsNullOrEmpty(id) ? null : id;
+    public void SetListId(string? id)
+    {
+        string? next = string.IsNullOrEmpty(id) ? null : id;
+        if (!string.Equals(ListId, next, StringComparison.Ordinal))
+        {
+            ListId = next;
+            for (int i = 0; i < partSubscribers.Count; i++)
+            {
+                partSubscribers[i]();
+            }
+        }
+    }
 
-    /// <summary>Subscribes to changes of the query and the provider's options: the Input's and the Clear's.</summary>
+    /// <summary>Subscribes to changes of the query, the provider's options and the list's id: the Input's and the Clear's.</summary>
     /// <param name="changed">The callback run after a change, once <see cref="QueryRevision"/> and the visible set are current.</param>
     /// <returns>The subscription; disposing it unsubscribes.</returns>
-    public IDisposable Subscribe(Action changed) => provider.Subscribe(() =>
+    public IDisposable Subscribe(Action changed)
     {
-        Track();
-        Flush();
-        changed();
-    });
+        partSubscribers.Add(changed);
+        IDisposable query = provider.Subscribe(() =>
+        {
+            Track();
+            Flush();
+            changed();
+        });
+        return new Subscription(partSubscribers, changed, query);
+    }
 
     /// <summary>Subscribes to the visible set becoming empty or not, and to changes of the registry: the Empty's.</summary>
     /// <param name="changed">The callback run after such a change; a registry change asks for a render whose flush decides.</param>
@@ -318,7 +336,7 @@ internal sealed class MenuFilterRootContext
             Track();
             Flush();
         });
-        return new Subscription(this, changed, query);
+        return new Subscription(subscribers, changed, query);
     }
 
     /// <summary>Registers an item with the engine and sets its visibility for its first render.</summary>
@@ -405,12 +423,12 @@ internal sealed class MenuFilterRootContext
         }
     }
 
-    private sealed class Subscription(MenuFilterRootContext owner, Action changed, IDisposable query) : IDisposable
+    private sealed class Subscription(List<Action> list, Action changed, IDisposable query) : IDisposable
     {
         /// <inheritdoc />
         public void Dispose()
         {
-            owner.subscribers.Remove(changed);
+            list.Remove(changed);
             query.Dispose();
         }
     }

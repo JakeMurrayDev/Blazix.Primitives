@@ -454,6 +454,12 @@ internal sealed class MenuListBehavior : IDisposable
         {
             root.SetListElementId(null);
         }
+
+        // MNU-API-62 (M5 track 12): a filterable menu's input stops naming a list that left.
+        if (root?.Filter is { } filter && string.Equals(filter.ListId, string.IsNullOrEmpty(id) ? null : id, StringComparison.Ordinal))
+        {
+            filter.SetListId(null);
+        }
     }
 
     /// <summary>Checks the part's placement and subscribes to the root's state, once.</summary>
@@ -475,8 +481,10 @@ internal sealed class MenuListBehavior : IDisposable
         this.id = id;
         this.attributes = attributes;
 
-        // MenuList.tsx:23-33 (MNU-EDGE-09): the trigger's aria-controls follows the list's id.
+        // MenuList.tsx:23-33 (MNU-EDGE-09): the trigger's aria-controls follows the list's id; in a filterable menu the
+        // input's does (FilterDropdownList.tsx:23-27, MNU-API-62; M5 track 12).
         root!.SetListElementId(id);
+        root.Filter?.SetListId(id);
     }
 
     /// <summary>Adds the list's attributes.</summary>
