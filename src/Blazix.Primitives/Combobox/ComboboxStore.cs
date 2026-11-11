@@ -305,6 +305,10 @@ internal sealed class ComboboxStore<TValue> : ComboboxStore
 
     private ItemSlot<TValue>[] filteredSlots = [];
 
+    private readonly ItemEquality.IndexMap<TValue> filteredIndex = new();
+
+    private ItemSlot<TValue>[]? filteredIndexBuiltFor;
+
     private string?[] filteredLabels = [];
 
     private CompositeTypeaheadOptions? derivedTypeahead;
@@ -1048,7 +1052,19 @@ internal sealed class ComboboxStore<TValue> : ComboboxStore
         ReadOnlySpan<ItemSlot<TValue>> slots = filteredSlots;
         if (!nullItem)
         {
-            return ItemEquality.FindItemIndex(slots, value, inputs.IsItemEqualToValue);
+            // Design point 1 (a): in constant time under the default comparer, the map built once per filtered derivation.
+            if (inputs.IsItemEqualToValue is not null)
+            {
+                return ItemEquality.FindItemIndex(slots, value, inputs.IsItemEqualToValue);
+            }
+
+            if (!ReferenceEquals(filteredIndexBuiltFor, filteredSlots))
+            {
+                filteredIndex.Build(slots);
+                filteredIndexBuiltFor = filteredSlots;
+            }
+
+            return filteredIndex.IndexOf(value);
         }
 
         for (int i = 0; i < slots.Length; i++)

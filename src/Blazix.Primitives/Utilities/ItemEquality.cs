@@ -237,20 +237,109 @@ internal static class ItemEquality
         return result;
     }
 
+    // Design point 1 (a) of M5 track 10 (granted by the orchestrator 2026-11-11): an item list's values mapped to their first
+    // index under Object.is, by SelectionSet's open addressing and hash, so an Item that resolves its own index among the
+    // filtered values reads it in constant time. The arrays are kept and reused by each build; the default comparer only (a
+    // custom comparer is not a hash, so its lookup stays linear, as Base UI's findItemIndex is).
     /// <summary>Maps each value of an item list to its first index under <c>Object.is</c>, for a lookup in constant time.</summary>
     /// <typeparam name="TValue">The type of the values.</typeparam>
     public sealed class IndexMap<TValue>
     {
+        private TValue[] values = [];
+        private int[] indexes = [];
+        private bool[] used = [];
+        private int shift;
+        private int capacity;
+
         /// <summary>Builds the map over an item list, replacing the previous one.</summary>
         /// <param name="items">The item values in rendered order; an absent slot maps nothing.</param>
         public void Build(ReadOnlySpan<ItemSlot<TValue>> items)
         {
+            Reset(items.Length);
+            for (int i = 0; i < items.Length; i++)
+            {
+                ref readonly ItemSlot<TValue> item = ref items[i];
+                if (item.Present)
+                {
+                    Add(item.Value, i);
+                }
+            }
         }
 
         /// <summary>Finds the first index of a value.</summary>
         /// <param name="value">The value.</param>
         /// <returns>The index, or -1 when the list does not hold the value.</returns>
-        public int IndexOf(TValue value) => -1;
+        public int IndexOf(TValue value)
+        {
+            if (capacity == 0)
+            {
+                return -1;
+            }
+
+            int slot = Slot(value);
+            while (used[slot])
+            {
+                if (Equality.Is(values[slot], value))
+                {
+                    return indexes[slot];
+                }
+
+                slot = (slot + 1) & (capacity - 1);
+            }
+
+            return -1;
+        }
+
+        private void Add(TValue value, int index)
+        {
+            int slot = Slot(value);
+            while (used[slot])
+            {
+                if (Equality.Is(values[slot], value))
+                {
+                    // The first index wins.
+                    return;
+                }
+
+                slot = (slot + 1) & (capacity - 1);
+            }
+
+            used[slot] = true;
+            values[slot] = value;
+            indexes[slot] = index;
+        }
+
+        // As SelectionSet's: a power of two at least twice the count; the previous build's region is cleared, so a reused array
+        // holds no value of the old list.
+        private void Reset(int count)
+        {
+            int bits = 2;
+            while ((1 << bits) < count * 2)
+            {
+                bits++;
+            }
+
+            int next = 1 << bits;
+            if (values.Length < next)
+            {
+                values = new TValue[next];
+                indexes = new int[next];
+                used = new bool[next];
+            }
+            else if (capacity != 0)
+            {
+                Array.Clear(used, 0, capacity);
+                if (RuntimeHelpers.IsReferenceOrContainsReferences<TValue>())
+                {
+                    Array.Clear(values, 0, capacity);
+                }
+            }
+
+            capacity = next;
+            shift = 32 - bits;
+        }
+
+        private int Slot(TValue value) => (int)(((uint)SelectionSet<TValue>.Hash(ref value) * 0x9E3779B9u) >> shift);
     }
 
     // The set of selected values under Object.is: open addressing with linear probing, one per thread and value type, emptied
@@ -317,32 +406,12 @@ internal static class ItemEquality
             }
         }
 
-        // A power of two at least twice the count, so a probe ends at an empty slot; Fibonacci hashing spreads close hashes.
-        private void Reset(int count)
-        {
-            int bits = 2;
-            while ((1 << bits) < count * 2)
-            {
-                bits++;
-            }
-
-            capacity = 1 << bits;
-            shift = 32 - bits;
-            if (values.Length < capacity)
-            {
-                values = new TValue[capacity];
-                used = new bool[capacity];
-            }
-        }
-
-        private int Slot(TValue value) => (int)(((uint)Hash(ref value) * 0x9E3779B9u) >> shift);
-
         // A hash that agrees with Equality.Is: a reference by identity, a string by its ordinal text, a floating-point number or
         // a decimal by its own hash (+0 and -0, every NaN, and 1.0m and 1.00m each hash alike), an integral primitive or an enum
         // by its bits, and any other value type by its default hash. EqualityComparer<T>.Default.GetHashCode boxes a primitive
         // or an enum on the interpreter (measured 2026-11-04: 16 bytes per item), so those read their bits through Unsafe.As, as
         // Equality.Is compares them.
-        private static int Hash(ref TValue value)
+        internal static int Hash(ref TValue value)
         {
             if (!typeof(TValue).IsValueType)
             {
@@ -397,6 +466,26 @@ internal static class ItemEquality
 
             return EqualityComparer<TValue>.Default.GetHashCode(value!);
         }
+
+        // A power of two at least twice the count, so a probe ends at an empty slot; Fibonacci hashing spreads close hashes.
+        private void Reset(int count)
+        {
+            int bits = 2;
+            while ((1 << bits) < count * 2)
+            {
+                bits++;
+            }
+
+            capacity = 1 << bits;
+            shift = 32 - bits;
+            if (values.Length < capacity)
+            {
+                values = new TValue[capacity];
+                used = new bool[capacity];
+            }
+        }
+
+        private int Slot(TValue value) => (int)(((uint)Hash(ref value) * 0x9E3779B9u) >> shift);
     }
 }
 
