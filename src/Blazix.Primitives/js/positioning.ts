@@ -1434,13 +1434,22 @@ export function attach(
       if (disposed) {
         return;
       }
+      const wasStarting = options.transitionStatus === 'starting';
       options = parseOptions<PositioningOptions>(nextJson);
       references = nextReferences;
       captures = nextCaptures;
       writer.setConsumer(options.style);
       syncSession();
       observe();
-      refresh();
+      // Issue 207 (FLT-ALG-12, FLT-ANI-05; floating-and-positioning.md amended 2026-11-10): every pass of the starting
+      // phase sees its `transition: none`, so the adaptive origin anchors from the near edge. Base UI's last pass of an
+      // open follows the end of the phase: useTransitionStatus.ts:64-68 ends it a frame after the open, and autoUpdate
+      // (@floating-ui/dom 1.8.0, floating-ui.dom.mjs:639-660) re-observes the floating element a frame after its first
+      // resize delivery, whose delivery runs a pass. Here the end arrives with C#'s update, after a circuit round trip on
+      // Server, so it can land after the tracking's last pass: the end of the phase runs that pass itself.
+      if (!refresh() && wasStarting && options.transitionStatus !== 'starting' && options.adaptiveOrigin && mounted && isPositioned) {
+        position();
+      }
     },
     placement() {
       const placementNow = data?.placement ?? placement;
