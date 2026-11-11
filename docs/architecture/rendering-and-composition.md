@@ -7,7 +7,7 @@
 | Tests | `internals/useRenderElement.test.tsx`, `internals/useRenderElement.spec.tsx`, `internals/getStateAttributesProps.test.ts`, `internals/stateAttributesMapping.test.ts`, `internals/resolveRenderedId.test.tsx`, `merge-props/mergeProps.test.ts`, `use-render/useRender.test.tsx`, `use-render/useRender.spec.tsx`, `utils/listbox-separator/ListboxSeparator.test.tsx`, `select/item-indicator/SelectItemIndicator.test.tsx`, `combobox/item-indicator/ComboboxItemIndicator.test.tsx`, `packages/utils/src/useId.test.tsx`, `packages/utils/src/useId.react17.test.tsx`, `packages/utils/src/useMergedRefs.test.tsx`, `packages/utils/src/getReactElementRef.test.tsx`, `test/describeConformance.tsx`, `test/conformanceTests/*.tsx` |
 | Prefix | `RND` |
 | Status | approved |
-| Revised | 2026-11-04 |
+| Revised | 2026-11-11 |
 | Used by | every component document (all 41 modules render through this pipeline); `architecture/transitions-and-mounting.md` (transition data attributes), `architecture/popup-store-and-handles.md` (popup state mappings), `architecture/field-and-form-infrastructure.md` (validity mapping), `architecture/button-behavior.md` (`nativeButton`, function-form props), `architecture/event-details-and-reasons.md` (`BaseUIEvent` vs event details) |
 
 Citation note: source paths are relative to `reference/base-ui/packages/react/src/` per conventions §3.1. Paths beginning with `test/` are relative to `reference/base-ui/packages/react/` (the conformance suite lives outside `src/`). Paths beginning with `packages/utils/` or `docs/` are relative to `reference/base-ui/`.
@@ -193,8 +193,10 @@ The following internals are also reachable through package subpaths but are not 
   Source: `use-render/useRender.ts:18`, `internals/useRenderElement.tsx:163`. Test: [L2] `use-render/useRender.test.tsx` "is overwritten by the render prop".
 - **RND-STR-10** — MUST. The shared `ItemIndicator` implementation renders a `span` and is the implementation of `Select.ItemIndicator` and `Combobox.ItemIndicator`; those public parts only decide whether to mount it (RND-ANI-01) and pass `selected` from their item context.
   Source: `utils/ItemIndicator.tsx:28`; `select/item-indicator/SelectItemIndicator.tsx:18-25`; `combobox/item-indicator/ComboboxItemIndicator.tsx:18-25`. Test: [L2] `select/item-indicator/SelectItemIndicator.test.tsx` (conformance, `refInstanceof: HTMLSpanElement`).
+  Port note 2026-11-11 (M5 track 9, [issue 173](https://github.com/JakeMurrayDev/Blazix.Primitives/issues/173); PR 205's final review B2): Select's clause is covered at L2 by `Select/SelectConformanceTests.cs`'s `SelectItemIndicatorConformanceTests` (it renders a `span`).
 - **RND-STR-11** — MUST. The shared `ListboxSeparator` implementation renders a `div` and is the implementation of `Autocomplete.Separator`, `Combobox.Separator` and `Select.Separator`.
   Source: `utils/listbox-separator/ListboxSeparator.tsx:20`; `autocomplete/separator/AutocompleteSeparator.tsx`, `combobox/separator/ComboboxSeparator.tsx`, `select/separator/SelectSeparator.tsx`. Test: [L2] `utils/listbox-separator/ListboxSeparator.test.tsx` "exposes the listbox separator behavior" (3 variants: `Autocomplete.Separator`, `Combobox.Separator`, `Select.Separator`).
+  Port note 2026-11-11 (M5 track 9, [issue 173](https://github.com/JakeMurrayDev/Blazix.Primitives/issues/173); PR 205's final review B2): "exposes the listbox separator behavior" runs its Select.Separator case at L2, `ListValues/ListboxSeparatorTests.cs`, green (with RND-ARIA-02).
 
 ### 4.2 Public parameters common to every part (API)
 
@@ -883,4 +885,5 @@ Counts: STR 11, API 13, STA 3, DOM 53, ARIA 2, ANI 3, EVT 13, ALG 15, EDGE 9 —
   - STR-10's family clause and its `SelectItemIndicator` conformance title → M5 track 9; the `Combobox.ItemIndicator` half → track 10;
   - "exposes the listbox separator behavior" (STR-11, ARIA-02) → tracks 9, 10 and 11;
   - the brief's render-count claim, "a selection change renders only the indicators whose `Selected` changed" (ADR 16 rule 6, counted through `ClassValue`) → tracks 9 and 10. It depends on how a shell receives `Selected` from its item context, which the test-only indicator takes as a parameter. What is green at L2 counts the `transitions` module's `update` messages only, not renders: an indicator re-rendered with unchanged parameters or with a new selection sends none, and a `KeepMounted` change sends one;
+    Select's half, green 2026-11-10 (M5 track 9, [issue 173](https://github.com/JakeMurrayDev/Blazix.Primitives/issues/173)): `SelectRenderCountTests` counts `ClassValue` on ten items, and a value change renders the two items whose selection changed and their two indicators once each, nothing else; a toggle in multiple mode renders the toggled item and its indicator once; an indicator without parameters still renders once. The shell receives `Selected` from its item's context, whose listeners run from inside the item's cascade content so the listener's render and the cascade's parameter render coalesce. The `Combobox.ItemIndicator` half stays open → track 10.
   - tracks 9 and 10 re-run the indicator titles on their parts and add "also proven through" notes.

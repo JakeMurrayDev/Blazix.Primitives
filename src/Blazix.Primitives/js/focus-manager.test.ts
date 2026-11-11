@@ -978,7 +978,13 @@ function insideGuard(): HTMLSpanElement {
 }
 
 /** Base UI's `App`: a reference, the dialog with three buttons, and an outside tabbable. */
-function renderApp({ guards = true, children = [] as HTMLElement[], modal }: { guards?: boolean; children?: HTMLElement[]; modal?: boolean } = {}) {
+function renderApp({
+  guards = true,
+  children = [] as HTMLElement[],
+  modal,
+  beforePopup = [] as HTMLElement[],
+  afterPopup = [] as HTMLElement[],
+}: { guards?: boolean; children?: HTMLElement[]; modal?: boolean; beforePopup?: HTMLElement[]; afterPopup?: HTMLElement[] } = {}) {
   const reference = element('button', 'reference', { id: 'reference' });
   const floating = element('div', 'floating', { role: 'dialog' });
   const one = element('button', 'one');
@@ -999,7 +1005,7 @@ function renderApp({ guards = true, children = [] as HTMLElement[], modal }: { g
     /** Renders the popup with `data-open` before `last` (the opening batch) and attaches the manager (`OnAfterRender`). */
     open(options: FocusManagerOptions = {}, attachOptions?: Parameters<typeof attachManager>[2]): Manager {
       floating.setAttribute('data-open', '');
-      last.before(...[before, floating, after].filter((x): x is HTMLElement => x != null));
+      last.before(...[before, ...beforePopup, floating, ...afterPopup, after].filter((x): x is HTMLElement => x != null));
       return attachManager(floating, { modal, ...options }, attachOptions);
     },
   };
@@ -1164,6 +1170,26 @@ describe('FloatingFocusManager', () => {
       await settle();
 
       expect(document.activeElement).toBe(app.one);
+    });
+
+    // Combobox renders its end dismiss element between the popup and the after guard, as Base UI renders
+    // ComboboxInternalDismissButton among FloatingFocusManager's children (ComboboxPopup.tsx:139-142; CMB-FOC-03, FOC-09):
+    // the guards are the first focus guards before and after the popup among its siblings, not only its neighbours.
+    it('port: a modal popup with other siblings before its guards still wraps focus from either guard', async () => {
+      const start = element('span', 'start', { role: 'button', 'aria-label': 'Dismiss' });
+      const end = element('span', 'end', { role: 'button', 'aria-label': 'Dismiss' });
+      const app = renderApp({ beforePopup: [start], afterPopup: [end] });
+      app.reference.focus();
+      app.open();
+      await settle();
+
+      (end.nextElementSibling as HTMLElement).focus();
+      await settle();
+      expect(document.activeElement).toBe(app.one);
+
+      (start.previousElementSibling as HTMLElement).focus();
+      await settle();
+      expect(document.activeElement).toBe(app.three);
     });
 
     it('default behavior focuses the checked radio in a named group', async () => {

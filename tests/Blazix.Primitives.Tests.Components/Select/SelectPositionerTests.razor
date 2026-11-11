@@ -1,0 +1,56 @@
+@namespace Blazix.Primitives.Tests.Components
+@inherits SelectTestBase
+@using AngleSharp.Dom
+@using Bunit
+@using Microsoft.Extensions.DependencyInjection
+@using Microsoft.Extensions.Time.Testing
+@*
+    L2: SelectPositioner.test.tsx beside its conformance suite (M5 track 9). Its `positionerConformanceTests` and the kept-mounted
+    positioner's coordinates are the positioning module's (L3, L4: tests/browser/positioning.spec.ts, select.spec.ts); the one
+    title's C# half is what the positioner renders while closed.
+*@
+
+@code {
+    // The trigger's focus force-mounts the portal 0 ms later (SEL-STA-09), on this clock.
+    private readonly FakeTimeProvider clock = new();
+
+    public SelectPositionerTests()
+    {
+        Services.AddSingleton<TimeProvider>(clock);
+    }
+
+    [Fact(DisplayName = "does not retain stale coordinates while closed")]
+    [Trait("Requirement", "SEL-DOM-18")]
+    public async Task Does_not_retain_stale_coordinates_while_closed()
+    {
+        IRenderedComponent<SelectHost> cut = RenderSelect(@<SelectRoot TValue="string" DefaultOpen="true">
+            <SelectTrigger style="width: 72px; height: 36px">Trigger</SelectTrigger>
+            <SelectPortal>
+                <SelectPositioner data-testid="positioner" AlignItemWithTrigger="false">
+                    <SelectPopup style="width: 52px; height: 24px">Popup</SelectPopup>
+                </SelectPositioner>
+            </SelectPortal>
+        </SelectRoot>);
+
+        Assert.False(cut.Find("[data-testid=\"positioner\"]").HasAttribute("hidden"));
+
+        // The focus returning to the trigger as the popup closes force-mounts the portal 0 ms later (SEL-STA-09), which keeps the
+        // hidden positioner in the DOM; the focus event is what bUnit can send.
+        await cut.InvokeAsync(() => Trigger(cut).Focus());
+        clock.Advance(TimeSpan.FromMilliseconds(1));
+        await cut.InvokeAsync(() => { });
+        Assert.True(StoreOf<string>(cut).State.ForceMount);
+        await SessionRequestAsync(cut, open: false, "escape-key", Key("Escape"));
+        await CompleteTransitionAsync<string>(cut);
+
+        // The portal can remount around the close, so the kept-mounted node is found again.
+        IElement closed = cut.Find("[data-testid=\"positioner\"]");
+        Assert.True(closed.HasAttribute("hidden"));
+        string style = closed.GetAttribute("style")!;
+        Assert.Contains("position: fixed", style, StringComparison.Ordinal);
+        Assert.Contains("top: 0px", style, StringComparison.Ordinal);
+        Assert.Contains("left: 0px", style, StringComparison.Ordinal);
+        Assert.DoesNotContain("transform", style, StringComparison.Ordinal);
+        // The coordinates a placement wrote are the positioning module's to reset (L4).
+    }
+}

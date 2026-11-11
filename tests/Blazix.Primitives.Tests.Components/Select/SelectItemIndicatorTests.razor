@@ -1,0 +1,127 @@
+@namespace Blazix.Primitives.Tests.Components
+@inherits SelectTestBase
+@using AngleSharp.Dom
+@using Bunit
+@*
+    L2: SelectItemIndicator.test.tsx's titles beside its conformance suite (M5 track 9). Whether the indicator is in the DOM is
+    C#; its `data-ending-style` is the transitions module's (mirrored), so a deselected indicator's settling is L4
+    (tests/browser/select.spec.ts) and asserted here only as the attribute C# never writes.
+*@
+
+@code {
+    private static string Join(IReadOnlyList<string> values) => string.Join(',', values);
+
+    private static IElement Indicator(IRenderedComponent<SelectHost> cut) => cut.Find("[data-testid=\"indicator\"]");
+
+    [Fact(DisplayName = "settles out of its transition state after the item is deselected")]
+    [Trait("Requirement", "SEL-ANI-12")]
+    public async Task Settles_out_of_its_transition_state_after_the_item_is_deselected()
+    {
+        List<string> changes = [];
+        IRenderedComponent<SelectHost> cut = RenderSelect(@<SelectRoot TValue="string" Multiple="true" DefaultOpen="true" DefaultValues="@(new[] { "a" })" OnValuesChange="e => changes.Add(Join(e.Value))">
+            <SelectTrigger>
+                <SelectValue />
+            </SelectTrigger>
+            <SelectPortal>
+                <SelectPositioner>
+                    <SelectPopup>
+                        <SelectItem Value="@("a")">
+                            a
+                            <SelectItemIndicator KeepMounted="true" data-testid="indicator" />
+                        </SelectItem>
+                        <SelectItem Value="@("b")">b</SelectItem>
+                    </SelectPopup>
+                </SelectPositioner>
+            </SelectPortal>
+        </SelectRoot>);
+        await PublishOrderAsync(cut);
+
+        Assert.True(Indicator(cut).HasAttribute("data-selected"));
+
+        await ClickOptionAsync(cut, cut.Find("[role=\"option\"]"));
+
+        // The selection left: the same indicator element is still there and no longer selected. Its exit state
+        // (`data-ending-style`) is the transitions module's to write and to clear (L4); C# never writes it.
+        Assert.Equal([""], changes);
+        Assert.False(Indicator(cut).HasAttribute("data-selected"));
+        Assert.False(Indicator(cut).HasAttribute("data-ending-style"));
+    }
+
+    [Fact(DisplayName = "mounts only while selected when keepMounted is false")]
+    [Trait("Requirement", "SEL-STR-11")]
+    [Trait("Requirement", "SEL-DOM-39")]
+    [Trait("Requirement", "SEL-ARIA-13")]
+    public async Task Mounts_only_while_selected_when_keepMounted_is_false()
+    {
+        string value = "b";
+        IRenderedComponent<SelectHost> cut = RenderSelect(@<SelectRoot TValue="string" Value="@value" Open="true">
+            <SelectTrigger />
+            <SelectPositioner>
+                <SelectPopup>
+                    <SelectItem Value="@("a")">
+                        a
+                        <SelectItemIndicator data-testid="indicator" />
+                    </SelectItem>
+                    <SelectItem Value="@("b")">b</SelectItem>
+                </SelectPopup>
+            </SelectPositioner>
+        </SelectRoot>);
+
+        Assert.Empty(cut.FindAll("[data-testid=\"indicator\"]"));
+
+        value = "a";
+        await RefreshAsync(cut);
+        IElement indicator = Indicator(cut);
+        Assert.True(indicator.HasAttribute("data-selected"));
+        Assert.Equal("true", indicator.GetAttribute("aria-hidden"));
+        Assert.False(indicator.HasAttribute("selected"));
+
+        value = "b";
+        await RefreshAsync(cut);
+        Assert.Empty(cut.FindAll("[data-testid=\"indicator\"]"));
+
+        value = "a";
+        await RefreshAsync(cut);
+        Assert.True(Indicator(cut).HasAttribute("data-selected"));
+    }
+
+    [Fact(DisplayName = "preserves the kept-mounted element across selection changes")]
+    [Trait("Requirement", "SEL-STR-11")]
+    [Trait("Requirement", "SEL-ANI-12")]
+    public async Task Preserves_the_kept_mounted_element_across_selection_changes()
+    {
+        string value = "b";
+        IRenderedComponent<SelectHost> cut = RenderSelect(@<SelectRoot TValue="string" Value="@value" Open="true">
+            <SelectTrigger />
+            <SelectPositioner>
+                <SelectPopup>
+                    <SelectItem Value="@("a")">
+                        a
+                        <SelectItemIndicator KeepMounted="true" data-testid="indicator" />
+                    </SelectItem>
+                    <SelectItem Value="@("b")">b</SelectItem>
+                </SelectPopup>
+            </SelectPositioner>
+        </SelectRoot>);
+
+        SelectItemIndicator part = cut.FindComponent<SelectItemIndicator>().Instance;
+        string element = part.Element!.Value.Id;
+        Assert.False(Indicator(cut).HasAttribute("data-selected"));
+
+        value = "a";
+        await RefreshAsync(cut);
+        Assert.Equal(element, part.Element!.Value.Id);
+        Assert.True(Indicator(cut).HasAttribute("data-selected"));
+
+        value = "b";
+        await RefreshAsync(cut);
+        Assert.Equal(element, part.Element!.Value.Id);
+        Assert.False(Indicator(cut).HasAttribute("data-selected"));
+        // `data-ending-style` while the exit runs is the transitions module's (L4).
+
+        value = "a";
+        await RefreshAsync(cut);
+        Assert.Equal(element, part.Element!.Value.Id);
+        Assert.True(Indicator(cut).HasAttribute("data-selected"));
+    }
+}

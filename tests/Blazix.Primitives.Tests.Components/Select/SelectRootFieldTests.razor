@@ -1,0 +1,1042 @@
+@namespace Blazix.Primitives.Tests.Components
+@inherits SelectTestBase
+@using System.Globalization
+@using AngleSharp.Dom
+@using Blazix.Primitives.Interop
+@using Bunit
+@using Microsoft.AspNetCore.Components.Web
+@*
+    L2: SelectRoot.test.tsx's "with Field.Root parent", "Form" and "Field" blocks and the two titles between them
+    (M5 track 9). The field half reads the hidden input's native validity from the form module (SelectRootFieldSupport
+    answers its refreshes, as the module does on Server) and the trigger's focus and blur from C# (focus) and the select
+    module's report (blur). The key presses, the native label's click, the focus after an invalid submission and the
+    FormData of an external form are L4 (tests/browser/select.spec.ts). Not ported here: the three "[data-focused] without
+    a blur event" and "focus moves into the popup" titles, "validates when the popup is blurred",
+    "prop: validationMode=onBlur" and "Select.Label focuses trigger without opening" (L4).
+*@
+
+@code {
+    private sealed record Country(string Code, string Label);
+
+    private static IElement OptionNamed(IRenderedComponent<SelectHost> cut, string text) =>
+        cut.FindAll("[role=\"option\"]").First(option => option.TextContent.Trim() == text);
+
+    private sealed record EmptyOption(int Id, string Label);
+
+    // Base UI's `(val) => val ?? 'initial'` children function.
+    private static readonly RenderFragment<string> InitialOrValue = val => builder => builder.AddContent(0, val ?? "initial");
+
+    [Fact(DisplayName = "applies the root id to the trigger")]
+    [Trait("Requirement", "SEL-API-10")]
+    [Trait("Requirement", "SEL-FRM-14")]
+    [Trait("Requirement", "SEL-FRM-23")]
+    public void Applies_the_root_id_to_the_trigger()
+    {
+        IRenderedComponent<SelectHost> cut = RenderSelect(@<FieldRoot>
+            <FieldLabel data-testid="label">Label</FieldLabel>
+            <SelectRoot TValue="string" Id="test-id">
+                <SelectTrigger data-testid="trigger">
+                    <SelectValue />
+                </SelectTrigger>
+            </SelectRoot>
+        </FieldRoot>);
+
+        Assert.Equal("test-id", cut.Find("[data-testid=\"trigger\"]").GetAttribute("id"));
+        Assert.Equal("test-id", cut.Find("[data-testid=\"label\"]").GetAttribute("for"));
+    }
+
+    [Fact(DisplayName = "should receive disabled prop from Field.Root")]
+    [Trait("Requirement", "SEL-API-13")]
+    [Trait("Requirement", "SEL-FRM-11")]
+    public void Should_receive_disabled_prop_from_Field_Root()
+    {
+        IRenderedComponent<SelectHost> cut = RenderSelect(@<FieldRoot Disabled="true">
+            <SelectRoot TValue="string">
+                <SelectTrigger data-testid="trigger">
+                    <SelectValue />
+                </SelectTrigger>
+                <SelectPortal>
+                    <SelectPositioner>
+                        <SelectPopup>
+                            <SelectItem Value="@("a")">a</SelectItem>
+                            <SelectItem Value="@("b")">b</SelectItem>
+                        </SelectPopup>
+                    </SelectPositioner>
+                </SelectPortal>
+            </SelectRoot>
+        </FieldRoot>);
+
+        Assert.True(cut.Find("[data-testid=\"trigger\"]").HasAttribute("disabled"));
+
+        // SEL-FRM-11: the hidden input carries the field's disabled state too, so nothing is submitted.
+        Assert.True(cut.Find("input[aria-hidden=\"true\"]").HasAttribute("disabled"));
+    }
+
+    [Fact(DisplayName = "should receive name prop from Field.Root")]
+    [Trait("Requirement", "SEL-API-07")]
+    [Trait("Requirement", "SEL-FRM-10")]
+    public void Should_receive_name_prop_from_Field_Root()
+    {
+        IRenderedComponent<SelectHost> cut = RenderSelect(@<FieldRoot Name="field-select">
+            <SelectRoot TValue="string">
+                <SelectTrigger data-testid="trigger">
+                    <SelectValue />
+                </SelectTrigger>
+                <SelectPortal>
+                    <SelectPositioner>
+                        <SelectPopup>
+                            <SelectItem Value="@("a")">a</SelectItem>
+                            <SelectItem Value="@("b")">b</SelectItem>
+                        </SelectPopup>
+                    </SelectPositioner>
+                </SelectPortal>
+            </SelectRoot>
+        </FieldRoot>);
+
+        Assert.Equal("field-select", cut.Find("input[aria-hidden=\"true\"]").GetAttribute("name"));
+    }
+
+    [Fact(DisplayName = "resets selected index when value is set to null without a null item")]
+    [Trait("Requirement", "SEL-STA-03")]
+    public async Task Resets_selected_index_when_value_is_set_to_null_without_a_null_item()
+    {
+        string value = null!;
+        IRenderedComponent<SelectHost> cut = RenderSelect(@<div>
+            <SelectRoot TValue="string" Value="@value" OnValueChange="e => value = e.Value">
+                <SelectTrigger data-testid="trigger">
+                    <SelectValue data-testid="value" ValueContent="InitialOrValue" />
+                </SelectTrigger>
+                <SelectPortal>
+                    <SelectPositioner>
+                        <SelectPopup>
+                            <SelectItem Value="@("1")">1</SelectItem>
+                            <SelectItem Value="@("2")">2</SelectItem>
+                        </SelectPopup>
+                    </SelectPositioner>
+                </SelectPortal>
+            </SelectRoot>
+        </div>);
+
+        await OpenAsync(cut);
+        await CloseAsync<string>(cut);
+
+        // The buttons of the Base UI test set the state the tree reads.
+        value = "1";
+        await RefreshAsync(cut);
+        Assert.Equal("1", cut.Find("[data-testid=\"value\"]").TextContent);
+
+        value = "2";
+        await RefreshAsync(cut);
+        Assert.Equal("2", cut.Find("[data-testid=\"value\"]").TextContent);
+
+        // The positive control of the absence below: the popup shows the controlled value as the selected item.
+        await OpenAsync(cut);
+        Assert.True(OptionNamed(cut, "2").HasAttribute("data-selected"));
+        await CloseAsync<string>(cut);
+
+        value = null!;
+        await RefreshAsync(cut);
+        Assert.Equal("initial", cut.Find("[data-testid=\"value\"]").TextContent);
+
+        await OpenAsync(cut);
+        Assert.NotEmpty(cut.FindAll("[role=\"option\"]"));
+        Assert.All(cut.FindAll("[role=\"option\"]"), option =>
+        {
+            Assert.False(option.HasAttribute("data-selected"));
+            Assert.Equal("false", option.GetAttribute("aria-selected"));
+        });
+    }
+
+    [Fact(DisplayName = "does not force-mount the popup on a programmatic value change")]
+    [Trait("Requirement", "SEL-STR-06")]
+    public async Task Does_not_force_mount_the_popup_on_a_programmatic_value_change()
+    {
+        string withItems = null!;
+        string withoutItems = null!;
+        Dictionary<string, string?> labels = new() { ["a"] = "Apple", ["b"] = "Banana" };
+        IRenderedComponent<SelectHost> cut = RenderSelect(@<div>
+            <SelectRoot TValue="string" ItemLabels="labels" Value="@withItems" OnValueChange="e => withItems = e.Value">
+                <SelectTrigger>
+                    <SelectValue data-testid="items-value" />
+                </SelectTrigger>
+                <SelectPortal>
+                    <SelectPositioner>
+                        <SelectPopup>
+                            <SelectItem Value="@("a")">Apple</SelectItem>
+                            <SelectItem Value="@("b")">Banana</SelectItem>
+                        </SelectPopup>
+                    </SelectPositioner>
+                </SelectPortal>
+            </SelectRoot>
+            <SelectRoot TValue="string" Value="@withoutItems" OnValueChange="e => withoutItems = e.Value">
+                <SelectTrigger>
+                    <SelectValue data-testid="plain-value" />
+                </SelectTrigger>
+                <SelectPortal>
+                    <SelectPositioner>
+                        <SelectPopup>
+                            <SelectItem Value="@("a")">a</SelectItem>
+                            <SelectItem Value="@("b")">b</SelectItem>
+                        </SelectPopup>
+                    </SelectPositioner>
+                </SelectPortal>
+            </SelectRoot>
+        </div>);
+
+        Assert.Empty(cut.FindAll("[role=\"listbox\"]"));
+
+        // The button of the Base UI test sets both values.
+        withItems = "b";
+        withoutItems = "b";
+        await RefreshAsync(cut);
+
+        // A programmatic value change must not force-mount the popup (which would leave it in the DOM permanently). The label
+        // resolves without the list mounted, with or without `items`.
+        Assert.Empty(cut.FindAll("[role=\"listbox\"]"));
+        Assert.Equal("Banana", cut.Find("[data-testid=\"items-value\"]").TextContent);
+        Assert.Equal("b", cut.Find("[data-testid=\"plain-value\"]").TextContent);
+    }
+
+    [Fact(DisplayName = "submits stringified value to onFormSubmit when itemToStringValue is provided")]
+    [Trait("Requirement", "SEL-API-21")]
+    [Trait("Requirement", "SEL-FRM-01")]
+    [Trait("Requirement", "SEL-FRM-02")]
+    public async Task Submits_stringified_value_to_onFormSubmit_when_itemToStringValue_is_provided()
+    {
+        Country[] items = [new("US", "United States"), new("CA", "Canada")];
+        List<FormValues> submitted = [];
+        IRenderedComponent<SelectHost> cut = RenderSelect(@<Form OnFormSubmit="e => submitted.Add(e.Values)">
+            <FieldRoot Name="country">
+                <SelectRoot TValue="Country" DefaultValue="@items[0]" ItemToStringLabel="@(item => item.Label)" ItemToStringValue="@(item => item.Code)">
+                    <SelectTrigger>
+                        <SelectValue />
+                    </SelectTrigger>
+                    <SelectPortal>
+                        <SelectPositioner>
+                            <SelectPopup>
+                                <SelectItem Value="@items[0]">United States</SelectItem>
+                                <SelectItem Value="@items[1]">Canada</SelectItem>
+                            </SelectPopup>
+                        </SelectPositioner>
+                    </SelectPortal>
+                </SelectRoot>
+            </FieldRoot>
+            <button type="submit">Submit</button>
+        </Form>);
+        await this.SettleFormAsync(cut);
+
+        FormSubmitAnswer answer = await this.SubmitFormAsync(cut);
+
+        FormValues values = Assert.Single(submitted);
+        Assert.Equal(["country"], values.Keys);
+        Assert.Equal("US", values["country"]);
+        Assert.Equal(FormSubmitAnswer.HandledVerdict, answer.Verdict);
+    }
+
+    // The FormData the browser builds from the `form` attribute is the browser's (L4); C# renders the attribute, the name and
+    // the value on the input the browser submits.
+    [Fact(DisplayName = "submits to an external form when `form` is provided")]
+    [Trait("Requirement", "SEL-API-08")]
+    public void Submits_to_an_external_form_when_form_is_provided()
+    {
+        IRenderedComponent<SelectHost> cut = RenderSelect(@<text>
+            <form id="external-form">
+                <button type="submit">Submit</button>
+            </form>
+            <SelectRoot TValue="string" Name="country" Form="external-form" DefaultValue="@("US")">
+                <SelectTrigger>
+                    <SelectValue />
+                </SelectTrigger>
+                <SelectPortal>
+                    <SelectPositioner>
+                        <SelectPopup>
+                            <SelectItem Value="@("US")">United States</SelectItem>
+                            <SelectItem Value="@("CA")">Canada</SelectItem>
+                        </SelectPopup>
+                    </SelectPositioner>
+                </SelectPortal>
+            </SelectRoot>
+        </text>);
+
+        IElement input = cut.Find("input[aria-hidden=\"true\"]");
+        Assert.Equal("external-form", input.GetAttribute("form"));
+        Assert.Equal("country", input.GetAttribute("name"));
+        Assert.Equal("US", input.GetAttribute("value"));
+    }
+
+    [Fact(DisplayName = "submits multiple values to an external form when `form` is provided")]
+    [Trait("Requirement", "SEL-API-08")]
+    [Trait("Requirement", "SEL-DOM-53")]
+    public void Submits_multiple_values_to_an_external_form_when_form_is_provided()
+    {
+        string[] values = ["US", "CA"];
+        IRenderedComponent<SelectHost> cut = RenderSelect(@<text>
+            <form id="external-form">
+                <button type="submit">Submit</button>
+            </form>
+            <SelectRoot TValue="string" Multiple="true" Name="countries" Form="external-form" Values="values">
+                <SelectTrigger>
+                    <SelectValue />
+                </SelectTrigger>
+                <SelectPortal>
+                    <SelectPositioner>
+                        <SelectPopup>
+                            <SelectItem Value="@("US")">United States</SelectItem>
+                            <SelectItem Value="@("CA")">Canada</SelectItem>
+                            <SelectItem Value="@("AU")">Australia</SelectItem>
+                        </SelectPopup>
+                    </SelectPositioner>
+                </SelectPortal>
+            </SelectRoot>
+        </text>);
+
+        // One hidden input per selected value, in value order, under the name and the form (the FormData is L4).
+        IReadOnlyList<IElement> inputs = cut.FindAll("input[type=\"hidden\"]");
+        Assert.Equal(["US", "CA"], inputs.Select(input => input.GetAttribute("value")));
+        Assert.All(inputs, input =>
+        {
+            Assert.Equal("countries", input.GetAttribute("name"));
+            Assert.Equal("external-form", input.GetAttribute("form"));
+        });
+    }
+
+    [Fact(DisplayName = "triggers native HTML validation on submit")]
+    [Trait("Requirement", "SEL-API-11")]
+    public async Task Triggers_native_HTML_validation_on_submit()
+    {
+        IRenderedComponent<SelectHost> cut = RenderSelect(@<Form>
+            <FieldRoot Name="test" data-testid="field">
+                <SelectRoot TValue="string" Required="true">
+                    <SelectTrigger data-testid="trigger">
+                        <SelectValue />
+                    </SelectTrigger>
+                    <SelectPortal>
+                        <SelectPositioner />
+                    </SelectPortal>
+                </SelectRoot>
+                <FieldError Match="@ValidityFlag.ValueMissing" data-testid="error">required</FieldError>
+            </FieldRoot>
+            <button type="submit">Submit</button>
+        </Form>);
+        await this.SettleFormAsync(cut);
+
+        Assert.Empty(cut.FindAll("[data-testid=\"error\"]"));
+
+        // The first invalid control receives focus (the module's, L4); C# blocks the submission and shows the error.
+        FormSubmitAnswer answer = await this.SubmitFormAsync(cut);
+
+        Assert.Equal(FormSubmitAnswer.BlockedVerdict, answer.Verdict);
+        Assert.Equal("required", cut.Find("[data-testid=\"error\"]").TextContent.Trim());
+        Assert.Equal([Trigger(cut).Id!], answer.Focus);
+    }
+
+    [Fact(DisplayName = "clears external errors on change")]
+    [Trait("Requirement", "SEL-ARIA-07")]
+    [Trait("Requirement", "SEL-EVT-13")]
+    [Trait("Requirement", "SEL-FRM-06")]
+    [Trait("Requirement", "SEL-FRM-09")]
+    [Trait("Requirement", "SEL-FRM-17")]
+    public async Task Clears_external_errors_on_change()
+    {
+        BunitJSModuleInterop transitions = this.RecordTransitions();
+        FormErrors errors = new() { ["select"] = "test" };
+        IRenderedComponent<SelectHost> cut = RenderSelect(@<Form Errors="errors">
+            <FieldRoot Name="select">
+                <SelectRoot TValue="string">
+                    <SelectTrigger data-testid="trigger">
+                        <SelectValue />
+                    </SelectTrigger>
+                    <SelectPortal>
+                        <SelectPositioner>
+                            <SelectPopup>
+                                <SelectItem Value="@("a")">a</SelectItem>
+                                <SelectItem Value="@("b")">b</SelectItem>
+                            </SelectPopup>
+                        </SelectPositioner>
+                    </SelectPortal>
+                </SelectRoot>
+                <FieldError data-testid="error" />
+            </FieldRoot>
+        </Form>);
+        await this.SettleFormAsync(cut);
+
+        Assert.Equal("test", cut.Find("[data-testid=\"error\"]").TextContent.Trim());
+        Assert.Equal("true", cut.Find("[data-testid=\"trigger\"]").GetAttribute("aria-invalid"));
+        TransitionsTwin errorTwin = this.LastTransitionsTwin(transitions);
+
+        await OpenAsync(cut);
+        await ClickOptionAsync(cut, "b");
+        await this.SettleFormAsync(cut);
+
+        // The message plays its exit before it unmounts (the transitions module's report); `aria-invalid` goes with the verdict.
+        Assert.False(cut.Find("[data-testid=\"trigger\"]").HasAttribute("aria-invalid"));
+        await this.CompleteExitAsync(cut, errorTwin);
+        Assert.Empty(cut.FindAll("[data-testid=\"error\"]"));
+    }
+
+    [Fact(DisplayName = "revalidates immediately after form submission errors")]
+    [Trait("Requirement", "SEL-FRM-01")]
+    [Trait("Requirement", "SEL-FRM-06")]
+    public async Task Revalidates_immediately_after_form_submission_errors()
+    {
+        BunitJSModuleInterop transitions = this.RecordTransitions();
+        IRenderedComponent<SelectHost> cut = RenderSelect(@<Form>
+            <FieldRoot Name="select">
+                <SelectRoot TValue="string" Required="true">
+                    <SelectTrigger data-testid="trigger">
+                        <SelectValue />
+                    </SelectTrigger>
+                    <SelectPortal>
+                        <SelectPositioner>
+                            <SelectPopup>
+                                <SelectItem Value="@("a")">a</SelectItem>
+                                <SelectItem Value="@("b")">b</SelectItem>
+                            </SelectPopup>
+                        </SelectPositioner>
+                    </SelectPortal>
+                </SelectRoot>
+                <FieldError Match="@ValidityFlag.ValueMissing" data-testid="error">required</FieldError>
+            </FieldRoot>
+            <button type="submit" data-testid="submit">Submit</button>
+        </Form>);
+        await this.SettleFormAsync(cut);
+
+        await this.SubmitFormAsync(cut);
+
+        Assert.Equal("required", cut.Find("[data-testid=\"error\"]").TextContent.Trim());
+        Assert.Equal("true", cut.Find("[data-testid=\"trigger\"]").GetAttribute("aria-invalid"));
+        TransitionsTwin errorTwin = this.LastTransitionsTwin(transitions);
+
+        await OpenAsync(cut);
+        await ClickOptionAsync(cut, "b");
+        await this.SettleFormAsync(cut);
+
+        Assert.False(cut.Find("[data-testid=\"trigger\"]").HasAttribute("aria-invalid"));
+        await this.CompleteExitAsync(cut, errorTwin);
+        Assert.Empty(cut.FindAll("[data-testid=\"error\"]"));
+    }
+
+    [Fact(DisplayName = "[data-touched]")]
+    [Trait("Requirement", "SEL-DOM-06")]
+    public async Task Data_touched()
+    {
+        IRenderedComponent<SelectHost> cut = RenderSelect(@<FieldRoot>
+            <SelectRoot TValue="string">
+                <SelectTrigger data-testid="trigger" />
+                <SelectPortal>
+                    <SelectPositioner>
+                        <SelectPopup>
+                            <SelectItem Value="@("")">Select</SelectItem>
+                            <SelectItem Value="@("1")">Option 1</SelectItem>
+                        </SelectPopup>
+                    </SelectPositioner>
+                </SelectPortal>
+            </SelectRoot>
+        </FieldRoot>);
+
+        Assert.False(Trigger(cut).HasAttribute("data-dirty"));
+        Assert.False(Trigger(cut).HasAttribute("data-touched"));
+
+        await this.FocusTriggerAsync(cut);
+        await this.BlurTriggerAsync(cut);
+
+        Assert.Equal(string.Empty, Trigger(cut).GetAttribute("data-touched"));
+    }
+
+    [Fact(DisplayName = "[data-dirty]")]
+    [Trait("Requirement", "SEL-API-22")]
+    [Trait("Requirement", "SEL-DOM-06")]
+    [Trait("Requirement", "SEL-FRM-04")]
+    public async Task Data_dirty()
+    {
+        IRenderedComponent<SelectHost> cut = RenderSelect(@<FieldRoot>
+            <SelectRoot TValue="string">
+                <SelectTrigger data-testid="trigger" />
+                <SelectPortal>
+                    <SelectPositioner>
+                        <SelectPopup>
+                            <SelectItem Value="@("")">Select</SelectItem>
+                            <SelectItem Value="@("1")">Option 1</SelectItem>
+                        </SelectPopup>
+                    </SelectPositioner>
+                </SelectPortal>
+            </SelectRoot>
+        </FieldRoot>);
+        await this.SettleFormAsync(cut);
+
+        Assert.False(Trigger(cut).HasAttribute("data-dirty"));
+
+        // ArrowDown to highlight Option 1 is the composite module's (L4); the click activates it.
+        await OpenAsync(cut);
+        await ClickOptionAsync(cut, "Option 1");
+        await this.SettleFormAsync(cut);
+
+        Assert.Equal(string.Empty, Trigger(cut).GetAttribute("data-dirty"));
+    }
+
+    [Fact(DisplayName = "adds [data-filled] attribute when filled")]
+    [Trait("Requirement", "SEL-DOM-06")]
+    [Trait("Requirement", "SEL-FRM-05")]
+    [Trait("Requirement", "SEL-STA-02")]
+    public async Task Adds_data_filled_attribute_when_filled()
+    {
+        IRenderedComponent<SelectHost> cut = RenderSelect(@<FieldRoot>
+            <SelectRoot TValue="string">
+                <SelectTrigger data-testid="trigger" />
+                <SelectPortal>
+                    <SelectPositioner>
+                        <SelectPopup>
+                            <SelectItem Value="@("")">Select</SelectItem>
+                            <SelectItem Value="@("1")">Option 1</SelectItem>
+                        </SelectPopup>
+                    </SelectPositioner>
+                </SelectPortal>
+            </SelectRoot>
+        </FieldRoot>);
+        await this.SettleFormAsync(cut);
+
+        Assert.False(Trigger(cut).HasAttribute("data-filled"));
+
+        await OpenAsync(cut);
+        await ClickOptionAsync(cut, "Option 1");
+        await this.SettleFormAsync(cut);
+
+        Assert.Equal(string.Empty, Trigger(cut).GetAttribute("data-filled"));
+
+        await CompleteTransitionAsync<string>(cut);
+        await OpenAsync(cut);
+
+        Assert.False(cut.Find("[role=\"listbox\"]").HasAttribute("data-filled"));
+    }
+
+    [Fact(DisplayName = "adds [data-filled] attribute when already filled")]
+    [Trait("Requirement", "SEL-DOM-06")]
+    [Trait("Requirement", "SEL-FRM-05")]
+    [Trait("Requirement", "SEL-STA-02")]
+    public void Adds_data_filled_attribute_when_already_filled()
+    {
+        IRenderedComponent<SelectHost> cut = RenderSelect(@<FieldRoot>
+            <SelectRoot TValue="string" DefaultValue="@("1")">
+                <SelectTrigger data-testid="trigger" />
+                <SelectPortal>
+                    <SelectPositioner>
+                        <SelectPopup>
+                            <SelectItem Value="@("1")">Option 1</SelectItem>
+                        </SelectPopup>
+                    </SelectPositioner>
+                </SelectPortal>
+            </SelectRoot>
+        </FieldRoot>);
+
+        Assert.True(Trigger(cut).HasAttribute("data-filled"));
+    }
+
+    [Fact(DisplayName = "does not add [data-filled] attribute when single value serializes to empty string")]
+    [Trait("Requirement", "SEL-DOM-06")]
+    [Trait("Requirement", "SEL-FRM-05")]
+    [Trait("Requirement", "SEL-STA-02")]
+    public async Task Does_not_add_data_filled_attribute_when_single_value_serializes_to_empty_string()
+    {
+        string value = string.Empty;
+        IRenderedComponent<SelectHost> cut = RenderSelect(@<FieldRoot>
+            <SelectRoot TValue="string" Value="@value">
+                <SelectTrigger data-testid="trigger" />
+                <SelectPortal>
+                    <SelectPositioner>
+                        <SelectPopup>
+                            <SelectItem Value="@("")">Select</SelectItem>
+                            <SelectItem Value="@("1")">Option 1</SelectItem>
+                        </SelectPopup>
+                    </SelectPositioner>
+                </SelectPortal>
+            </SelectRoot>
+        </FieldRoot>);
+
+        Assert.False(Trigger(cut).HasAttribute("data-filled"));
+
+        // The positive control of that absence: a controlled value that serializes to text fills the field.
+        value = "1";
+        await RefreshAsync(cut);
+        Assert.True(Trigger(cut).HasAttribute("data-filled"));
+    }
+
+    [Fact(DisplayName = "does not add [data-filled] attribute when a non-string value serializes to empty string")]
+    [Trait("Requirement", "SEL-DOM-06")]
+    [Trait("Requirement", "SEL-FRM-05")]
+    [Trait("Requirement", "SEL-STA-02")]
+    public async Task Does_not_add_data_filled_attribute_when_a_non_string_value_serializes_to_empty_string()
+    {
+        EmptyOption emptyValue = new(1, "Empty option");
+        EmptyOption option = new(2, "Option 1");
+        EmptyOption current = emptyValue;
+
+        // Base UI serializes every option to ''; here only the first does, so the same tree can show a value that fills the field.
+        IRenderedComponent<SelectHost> cut = RenderSelect(@<FieldRoot>
+            <SelectRoot TValue="EmptyOption" Value="@current" ItemToStringLabel="@(item => item.Label)" ItemToStringValue="@(item => item.Id == 1 ? string.Empty : item.Id.ToString(CultureInfo.InvariantCulture))">
+                <SelectTrigger data-testid="trigger" />
+                <SelectPortal>
+                    <SelectPositioner>
+                        <SelectPopup>
+                            <SelectItem Value="@emptyValue">Empty option</SelectItem>
+                            <SelectItem Value="@option">Option 1</SelectItem>
+                        </SelectPopup>
+                    </SelectPositioner>
+                </SelectPortal>
+            </SelectRoot>
+        </FieldRoot>);
+
+        Assert.False(Trigger(cut).HasAttribute("data-filled"));
+
+        // The positive control of that absence: a value that serializes to text fills the field.
+        current = option;
+        await RefreshAsync(cut);
+        Assert.True(Trigger(cut).HasAttribute("data-filled"));
+    }
+
+    [Fact(DisplayName = "does not add [data-filled] attribute when multiple value is empty")]
+    [Trait("Requirement", "SEL-DOM-06")]
+    [Trait("Requirement", "SEL-FRM-05")]
+    [Trait("Requirement", "SEL-STA-02")]
+    public async Task Does_not_add_data_filled_attribute_when_multiple_value_is_empty()
+    {
+        IRenderedComponent<SelectHost> cut = RenderSelect(@<FieldRoot>
+            <SelectRoot TValue="string" Multiple="true">
+                <SelectTrigger data-testid="trigger" />
+                <SelectPortal>
+                    <SelectPositioner>
+                        <SelectPopup>
+                            <SelectItem Value="@("")">Select</SelectItem>
+                            <SelectItem Value="@("1")">Option 1</SelectItem>
+                        </SelectPopup>
+                    </SelectPositioner>
+                </SelectPortal>
+            </SelectRoot>
+        </FieldRoot>);
+        await this.SettleFormAsync(cut);
+
+        Assert.False(Trigger(cut).HasAttribute("data-filled"));
+
+        await OpenAsync(cut);
+        await ClickOptionAsync(cut, "Option 1");
+        await this.SettleFormAsync(cut);
+
+        Assert.Equal(string.Empty, Trigger(cut).GetAttribute("data-filled"));
+
+        await ClickOptionAsync(cut, "Option 1");
+        await this.SettleFormAsync(cut);
+
+        Assert.False(Trigger(cut).HasAttribute("data-filled"));
+    }
+
+    [Fact(DisplayName = "does not add [data-filled] attribute when multiple defaultValue is empty array")]
+    [Trait("Requirement", "SEL-DOM-06")]
+    [Trait("Requirement", "SEL-FRM-05")]
+    [Trait("Requirement", "SEL-STA-02")]
+    public async Task Does_not_add_data_filled_attribute_when_multiple_defaultValue_is_empty_array()
+    {
+        IRenderedComponent<SelectHost> cut = RenderSelect(@<FieldRoot>
+            <SelectRoot TValue="string" Multiple="true" DefaultValues="@(Array.Empty<string>())">
+                <SelectTrigger data-testid="trigger" />
+                <SelectPortal>
+                    <SelectPositioner>
+                        <SelectPopup>
+                            <SelectItem Value="@("")">Select</SelectItem>
+                            <SelectItem Value="@("1")">Option 1</SelectItem>
+                        </SelectPopup>
+                    </SelectPositioner>
+                </SelectPortal>
+            </SelectRoot>
+        </FieldRoot>);
+        await this.SettleFormAsync(cut);
+
+        Assert.False(Trigger(cut).HasAttribute("data-filled"));
+
+        await OpenAsync(cut);
+        await ClickOptionAsync(cut, "Option 1");
+        await this.SettleFormAsync(cut);
+
+        Assert.Equal(string.Empty, Trigger(cut).GetAttribute("data-filled"));
+
+        await ClickOptionAsync(cut, "Option 1");
+        await this.SettleFormAsync(cut);
+
+        Assert.False(Trigger(cut).HasAttribute("data-filled"));
+    }
+
+    [Fact(DisplayName = "[data-focused]")]
+    [Trait("Requirement", "SEL-DOM-06")]
+    [Trait("Requirement", "SEL-FRM-05")]
+    [Trait("Requirement", "SEL-STA-02")]
+    public async Task Data_focused()
+    {
+        IRenderedComponent<SelectHost> cut = RenderSelect(@<FieldRoot>
+            <SelectRoot TValue="string">
+                <SelectTrigger data-testid="trigger" />
+                <SelectPortal>
+                    <SelectPositioner>
+                        <SelectPopup>
+                            <SelectItem Value="@("")">Select</SelectItem>
+                            <SelectItem Value="@("1")">Option 1</SelectItem>
+                        </SelectPopup>
+                    </SelectPositioner>
+                </SelectPortal>
+            </SelectRoot>
+        </FieldRoot>);
+
+        Assert.False(Trigger(cut).HasAttribute("data-focused"));
+
+        await this.FocusTriggerAsync(cut);
+
+        Assert.Equal(string.Empty, Trigger(cut).GetAttribute("data-focused"));
+
+        await this.BlurTriggerAsync(cut);
+
+        Assert.False(Trigger(cut).HasAttribute("data-focused"));
+    }
+
+    [Fact(DisplayName = "prop: validate")]
+    [Trait("Requirement", "SEL-ARIA-07")]
+    [Trait("Requirement", "SEL-FRM-17")]
+    public async Task Prop_validate()
+    {
+        IRenderedComponent<SelectHost> cut = RenderSelect(@<FieldRoot ValidationMode="@ValidationMode.OnBlur" Validate="@(_ => ValueTask.FromResult<FieldValidationResult?>("error"))">
+            <SelectRoot TValue="string">
+                <SelectTrigger data-testid="trigger" />
+                <SelectPortal>
+                    <SelectPositioner />
+                </SelectPortal>
+            </SelectRoot>
+        </FieldRoot>);
+        await this.SettleFormAsync(cut);
+
+        Assert.False(Trigger(cut).HasAttribute("aria-invalid"));
+
+        await this.FocusTriggerAsync(cut);
+        await this.BlurTriggerAsync(cut);
+
+        Assert.Equal("true", Trigger(cut).GetAttribute("aria-invalid"));
+
+        // SEL-ARIA-07: the hidden input carries the field's validity as well.
+        Assert.Equal("true", cut.Find("input[aria-hidden=\"true\"]").GetAttribute("aria-invalid"));
+    }
+
+    [Fact(DisplayName = "passes raw value to validate when itemToStringValue is provided")]
+    [Trait("Requirement", "SEL-FRM-02")]
+    public async Task Passes_raw_value_to_validate_when_itemToStringValue_is_provided()
+    {
+        Country[] items = [new("US", "United States"), new("CA", "Canada")];
+        List<object?> validated = [];
+        IRenderedComponent<SelectHost> cut = RenderSelect(@<FieldRoot ValidationMode="@ValidationMode.OnBlur" Validate="@(args => { validated.Add(args.Value); return ValueTask.FromResult<FieldValidationResult?>("error"); })">
+            <SelectRoot TValue="Country" DefaultValue="@items[0]" ItemToStringLabel="@(item => item.Label)" ItemToStringValue="@(item => item.Code)">
+                <SelectTrigger data-testid="trigger">
+                    <SelectValue />
+                </SelectTrigger>
+                <SelectPortal>
+                    <SelectPositioner />
+                </SelectPortal>
+            </SelectRoot>
+        </FieldRoot>);
+        await this.SettleFormAsync(cut);
+
+        await this.FocusTriggerAsync(cut);
+        await this.BlurTriggerAsync(cut);
+
+        // The validator receives the item, not its serialization.
+        object? value = Assert.Single(validated);
+        Assert.Same(items[0], value);
+        Assert.Equal("true", Trigger(cut).GetAttribute("aria-invalid"));
+    }
+
+    [Fact(DisplayName = "prop: validateMode=onSubmit")]
+    [Trait("Requirement", "SEL-FRM-17")]
+    public async Task Prop_validateMode_onSubmit()
+    {
+        IRenderedComponent<SelectHost> cut = RenderSelect(@<Form>
+            <FieldRoot Validate="@(args => ValueTask.FromResult<FieldValidationResult?>(Equals(args.Value, "2") ? "error" : null))">
+                <SelectRoot TValue="string" Required="true">
+                    <SelectTrigger />
+                    <SelectPortal>
+                        <SelectPositioner>
+                            <SelectPopup>
+                                <SelectItem Value="@("1")">Option 1</SelectItem>
+                                <SelectItem Value="@("2")">Option 2</SelectItem>
+                            </SelectPopup>
+                        </SelectPositioner>
+                    </SelectPortal>
+                </SelectRoot>
+            </FieldRoot>
+            <button type="submit">submit</button>
+        </Form>);
+        await this.SettleFormAsync(cut);
+
+        Assert.False(Trigger(cut).HasAttribute("aria-invalid"));
+
+        await this.SubmitFormAsync(cut);
+        Assert.Equal("true", Trigger(cut).GetAttribute("aria-invalid"));
+
+        // ArrowDown to highlight Option 1 (valid), and Enter, are the modules' (L4); the activation is the click.
+        await OpenAsync(cut);
+        await ClickOptionAsync(cut, "Option 1");
+        await this.SettleFormAsync(cut);
+        Assert.False(Trigger(cut).HasAttribute("aria-invalid"));
+
+        await CompleteTransitionAsync<string>(cut);
+        await OpenAsync(cut);
+        await ClickOptionAsync(cut, "Option 2");
+        await this.SettleFormAsync(cut);
+        Assert.Equal("true", Trigger(cut).GetAttribute("aria-invalid"));
+
+        await CompleteTransitionAsync<string>(cut);
+        await OpenAsync(cut);
+        await ClickOptionAsync(cut, "Option 1");
+        await this.SettleFormAsync(cut);
+        Assert.False(Trigger(cut).HasAttribute("aria-invalid"));
+    }
+
+    [Fact(DisplayName = "prop: validationMode=onChange")]
+    [Trait("Requirement", "SEL-FRM-06")]
+    public async Task Prop_validationMode_onChange()
+    {
+        IRenderedComponent<SelectHost> cut = RenderSelect(@<FieldRoot ValidationMode="@ValidationMode.OnChange" Validate="@(args => ValueTask.FromResult<FieldValidationResult?>(Equals(args.Value, "1") ? "error" : null))">
+            <SelectRoot TValue="string">
+                <SelectTrigger data-testid="trigger">
+                    <SelectValue />
+                </SelectTrigger>
+                <SelectPortal>
+                    <SelectPositioner>
+                        <SelectPopup>
+                            <SelectItem Value="@("1")">Option 1</SelectItem>
+                        </SelectPopup>
+                    </SelectPositioner>
+                </SelectPortal>
+            </SelectRoot>
+        </FieldRoot>);
+        await this.SettleFormAsync(cut);
+
+        Assert.False(Trigger(cut).HasAttribute("aria-invalid"));
+
+        // ArrowDown to highlight Option 1, and Enter, are the modules' (L4); the activation is the click.
+        await OpenAsync(cut);
+        await ClickOptionAsync(cut, "Option 1");
+        await this.SettleFormAsync(cut);
+
+        Assert.Equal("true", Trigger(cut).GetAttribute("aria-invalid"));
+    }
+
+    [Fact(DisplayName = "revalidates when the controlled value changes externally")]
+    [Trait("Requirement", "SEL-EVT-06")]
+    [Trait("Requirement", "SEL-EVT-13")]
+    [Trait("Requirement", "SEL-FRM-06")]
+    public async Task Revalidates_when_the_controlled_value_changes_externally()
+    {
+        string value = "a";
+        List<object?> validated = [];
+        IRenderedComponent<SelectHost> cut = RenderSelect(@<FieldRoot ValidationMode="@ValidationMode.OnChange" Validate="@(args => { validated.Add(args.Value); return ValueTask.FromResult<FieldValidationResult?>(Equals(args.Value, "b") ? "error" : null); })" Name="flavor">
+            <SelectRoot TValue="string" Value="@value" OnValueChange="e => value = e.Value">
+                <SelectTrigger data-testid="trigger">
+                    <SelectValue />
+                </SelectTrigger>
+                <SelectPortal>
+                    <SelectPositioner>
+                        <SelectPopup>
+                            <SelectItem Value="@("a")">Option A</SelectItem>
+                            <SelectItem Value="@("b")">Option B</SelectItem>
+                        </SelectPopup>
+                    </SelectPositioner>
+                </SelectPortal>
+            </SelectRoot>
+        </FieldRoot>);
+        await this.SettleFormAsync(cut);
+
+        Assert.False(Trigger(cut).HasAttribute("aria-invalid"));
+        int initialCallCount = validated.Count;
+
+        // The button of the Base UI test sets the value from outside.
+        value = "b";
+        await RefreshAsync(cut);
+        await this.SettleFormAsync(cut);
+
+        Assert.Equal(initialCallCount + 1, validated.Count);
+        Assert.Equal("b", validated[^1]);
+        Assert.Equal("true", Trigger(cut).GetAttribute("aria-invalid"));
+    }
+
+    [Fact(DisplayName = "Field.Label")]
+    [Trait("Requirement", "SEL-API-26")]
+    [Trait("Requirement", "SEL-ARIA-05")]
+    [Trait("Requirement", "SEL-FRM-14")]
+    public void Field_Label()
+    {
+        IRenderedComponent<SelectHost> cut = RenderSelect(@<FieldRoot>
+            <SelectRoot TValue="string">
+                <SelectTrigger data-testid="trigger" />
+                <SelectPortal>
+                    <SelectPositioner />
+                </SelectPortal>
+            </SelectRoot>
+            <FieldLabel data-testid="label" NativeLabel="false">
+                <Render><span></span></Render>
+            </FieldLabel>
+        </FieldRoot>);
+
+        string labelId = cut.Find("[data-testid=\"label\"]").GetAttribute("id")!;
+        Assert.False(string.IsNullOrEmpty(labelId));
+        Assert.Equal(labelId, Trigger(cut).GetAttribute("aria-labelledby"));
+    }
+
+    [Fact(DisplayName = "Select.Label")]
+    [Trait("Requirement", "SEL-API-10")]
+    [Trait("Requirement", "SEL-ARIA-05")]
+    [Trait("Requirement", "SEL-DOM-14")]
+    [Trait("Requirement", "SEL-EDGE-11")]
+    [Trait("Requirement", "SEL-FRM-15")]
+    public void Select_Label()
+    {
+        IRenderedComponent<SelectHost> cut = RenderSelect(@<SelectRoot TValue="string">
+            <SelectLabel data-testid="label" />
+            <SelectTrigger data-testid="trigger" />
+            <SelectPortal>
+                <SelectPositioner />
+            </SelectPortal>
+        </SelectRoot>);
+
+        string labelId = cut.Find("[data-testid=\"label\"]").GetAttribute("id")!;
+        Assert.False(string.IsNullOrEmpty(labelId));
+        Assert.Equal(labelId, Trigger(cut).GetAttribute("aria-labelledby"));
+    }
+
+    [Fact(DisplayName = "does not set fallback aria-labelledby when no label is rendered")]
+    [Trait("Requirement", "SEL-ARIA-05")]
+    public async Task Does_not_set_fallback_aria_labelledby_when_no_label_is_rendered()
+    {
+        bool labelled = false;
+        IRenderedComponent<SelectHost> cut = RenderSelect(@<SelectRoot TValue="string">
+            @if (labelled)
+            {
+                <SelectLabel data-testid="label" />
+            }
+            <SelectTrigger data-testid="trigger" aria-label="Font" />
+            <SelectPortal>
+                <SelectPositioner />
+            </SelectPortal>
+        </SelectRoot>);
+
+        Assert.False(Trigger(cut).HasAttribute("aria-labelledby"));
+        Assert.Equal("Font", Trigger(cut).GetAttribute("aria-label"));
+
+        // The positive control of that absence: a mounted label is the one source of `aria-labelledby`.
+        labelled = true;
+        await RefreshAsync(cut);
+        Assert.Equal(cut.Find("[data-testid=\"label\"]").GetAttribute("id"), Trigger(cut).GetAttribute("aria-labelledby"));
+    }
+
+    [Fact(DisplayName = "updates Select.Label linkage when root id changes")]
+    [Trait("Requirement", "SEL-API-10")]
+    [Trait("Requirement", "SEL-DOM-14")]
+    [Trait("Requirement", "SEL-FRM-15")]
+    public async Task Updates_Select_Label_linkage_when_root_id_changes()
+    {
+        string id = "first";
+        IRenderedComponent<SelectHost> cut = RenderSelect(@<SelectRoot TValue="string" Id="@id">
+            <SelectLabel data-testid="label">Theme</SelectLabel>
+            <SelectTrigger data-testid="trigger" />
+            <SelectPortal>
+                <SelectPositioner />
+            </SelectPortal>
+        </SelectRoot>);
+        Assert.Equal("first-label", cut.Find("[data-testid=\"label\"]").GetAttribute("id"));
+
+        id = "second";
+        await RefreshAsync(cut);
+
+        IElement label = cut.Find("[data-testid=\"label\"]");
+        IElement trigger = Trigger(cut);
+        Assert.Equal("second-label", trigger.GetAttribute("aria-labelledby"));
+        Assert.Equal("second", trigger.GetAttribute("id"));
+        Assert.Equal("second-label", label.GetAttribute("id"));
+    }
+
+    // The click on the label, which the browser forwards to the control and which moves focus to the popup, is L4.
+    [Fact(DisplayName = "Field.Label links to trigger and focuses it")]
+    [Trait("Requirement", "SEL-FRM-14")]
+    public void Field_Label_links_to_trigger_and_focuses_it()
+    {
+        IRenderedComponent<SelectHost> cut = RenderSelect(@<FieldRoot>
+            <FieldLabel data-testid="label">Font</FieldLabel>
+            <SelectRoot TValue="string">
+                <SelectTrigger data-testid="trigger">
+                    <SelectValue />
+                </SelectTrigger>
+                <SelectPortal>
+                    <SelectPositioner>
+                        <SelectPopup>
+                            <SelectItem Value="@("sans")">Sans-serif</SelectItem>
+                            <SelectItem Value="@("serif")">Serif</SelectItem>
+                        </SelectPopup>
+                    </SelectPositioner>
+                </SelectPortal>
+            </SelectRoot>
+        </FieldRoot>);
+
+        IElement label = cut.Find("[data-testid=\"label\"]");
+        IElement trigger = cut.Find("[data-testid=\"trigger\"]");
+
+        Assert.False(string.IsNullOrEmpty(trigger.Id));
+        Assert.Equal(trigger.Id, label.GetAttribute("for"));
+        Assert.Equal(label.GetAttribute("for"), trigger.GetAttribute("id"));
+        Assert.Equal(label.GetAttribute("id"), trigger.GetAttribute("aria-labelledby"));
+    }
+
+    [Fact(DisplayName = "Field.Label links to trigger when trigger has an explicit id")]
+    [Trait("Requirement", "SEL-API-26")]
+    [Trait("Requirement", "SEL-FRM-14")]
+    public void Field_Label_links_to_trigger_when_trigger_has_an_explicit_id()
+    {
+        IRenderedComponent<SelectHost> cut = RenderSelect(@<FieldRoot>
+            <FieldLabel data-testid="label">Font</FieldLabel>
+            <SelectRoot TValue="string">
+                <SelectTrigger data-testid="trigger" id="x-id">
+                    <SelectValue />
+                </SelectTrigger>
+                <SelectPortal>
+                    <SelectPositioner>
+                        <SelectPopup>
+                            <SelectItem Value="@("sans")">Sans-serif</SelectItem>
+                            <SelectItem Value="@("serif")">Serif</SelectItem>
+                        </SelectPopup>
+                    </SelectPositioner>
+                </SelectPortal>
+            </SelectRoot>
+        </FieldRoot>);
+
+        IElement label = cut.Find("[data-testid=\"label\"]");
+        IElement trigger = cut.Find("[data-testid=\"trigger\"]");
+
+        Assert.Equal("x-id", trigger.GetAttribute("id"));
+        Assert.Equal("x-id", label.GetAttribute("for"));
+        Assert.Equal(trigger.GetAttribute("id"), label.GetAttribute("for"));
+    }
+
+    [Fact(DisplayName = "Field.Description")]
+    [Trait("Requirement", "SEL-ARIA-07")]
+    [Trait("Requirement", "SEL-FRM-16")]
+    public void Field_Description()
+    {
+        IRenderedComponent<SelectHost> cut = RenderSelect(@<FieldRoot>
+            <SelectRoot TValue="string">
+                <SelectTrigger data-testid="trigger" aria-describedby="external-description" />
+                <SelectPortal>
+                    <SelectPositioner />
+                </SelectPortal>
+            </SelectRoot>
+            <FieldDescription data-testid="description" />
+        </FieldRoot>);
+
+        string descriptionId = cut.Find("[data-testid=\"description\"]").GetAttribute("id")!;
+        Assert.False(string.IsNullOrEmpty(descriptionId));
+        Assert.Equal($"external-description {descriptionId}", Trigger(cut).GetAttribute("aria-describedby"));
+
+        // SEL-ARIA-07: the hidden input gets the field's ids without the consumer's tokens.
+        Assert.Equal(descriptionId, cut.Find("input[aria-hidden=\"true\"]").GetAttribute("aria-describedby"));
+    }
+}

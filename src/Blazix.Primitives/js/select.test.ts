@@ -1,0 +1,659 @@
+// L3 for the `select` component module (M5 track 9, issue 173; ADR 06 §1, test-support/fake-twin.ts). The scroll-arrow
+// titles are select/scroll-arrow/SelectScrollArrow.test.tsx's, verbatim (SEL-STA-29, SEL-PTR-15..17); the module's
+// handles are attached to a DOM built as the parts render it (a positioner around a popup, a list and items with
+// `role="option"`, the arrows), with the geometry stubbed as Base UI's test stubs it.
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { styleWriter } from './dom';
+import { attach, getArrowVisibility, getTargetScrollTop, POSITIONER_PART, SCROLL_ARROW_PART, TRIGGER_PART } from './select';
+import type { TwinHandle } from './twin';
+import { createFakeTwin } from './test-support/fake-twin';
+
+// The `positioning` handle of the positioner is not attached here: `setAligned` answers as a live handle would, running
+// the aligned pass at once.
+vi.mock('./positioning', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('./positioning')>()),
+  setAligned: vi.fn((_element: Element, aligned: boolean, onPositioned?: () => void) => {
+    if (aligned) {
+      onPositioned?.();
+    }
+    return true;
+  }),
+}));
+
+const DEFAULT_ITEM_OFFSETS = [0, 40, 80, 120, 160, 200, 240, 280, 320, 360];
+
+const handles: TwinHandle[] = [];
+
+afterEach(() => {
+  for (const handle of handles.splice(0)) {
+    handle.dispose();
+  }
+  document.body.replaceChildren();
+  vi.useRealTimers();
+});
+
+function stubScroller(
+  node: HTMLElement,
+  geometry: { scrollHeight: number; clientHeight: number },
+  readScrollTop: () => number,
+  onScrollTopChange: (value: number) => void,
+): void {
+  Object.defineProperty(node, 'scrollTop', { configurable: true, get: readScrollTop, set: onScrollTopChange });
+  Object.defineProperty(node, 'scrollHeight', { value: geometry.scrollHeight, configurable: true });
+  Object.defineProperty(node, 'clientHeight', { value: geometry.clientHeight, configurable: true });
+}
+
+function stubItem(node: HTMLElement, offsetTop: number, offsetHeight: number): void {
+  Object.defineProperty(node, 'offsetTop', { value: offsetTop, configurable: true });
+  Object.defineProperty(node, 'offsetHeight', { value: offsetHeight, configurable: true });
+}
+
+function hoverArrow(arrow: HTMLElement, direction: 'up' | 'down'): void {
+  arrow.dispatchEvent(new MouseEvent('mousemove', { bubbles: true, movementX: 0, movementY: direction === 'down' ? 1 : -1 } as MouseEventInit));
+}
+
+function mouseMove(arrow: HTMLElement, movementX: number, movementY: number): void {
+  arrow.dispatchEvent(new MouseEvent('mousemove', { bubbles: true, movementX, movementY } as MouseEventInit));
+}
+
+function advanceTimers(ms: number): void {
+  vi.advanceTimersByTime(ms);
+}
+
+interface Rendered {
+  upArrow: HTMLElement;
+  downArrow: HTMLElement;
+  getScrollTop(): number;
+  getScrollWrites(): number;
+}
+
+// The parts' DOM: an open, kept-mounted select placed against its trigger (`alignItemWithTrigger={false}`), the
+// positioner's handle first, then each arrow's handle naming the positioner (the order the parts attach in).
+function renderSelect(options: {
+  withList: boolean;
+  withItems?: boolean;
+  initialScrollTop: number;
+  scrollHeight?: number;
+  clientHeight?: number;
+  itemOffsets?: number[];
+  itemHeight?: number;
+}): Rendered {
+  const { withList, withItems = true, initialScrollTop, scrollHeight = 400, clientHeight = 200, itemOffsets = DEFAULT_ITEM_OFFSETS, itemHeight = 40 } = options;
+  let scrollTop = initialScrollTop;
+  let scrollWrites = 0;
+
+  const trigger = document.createElement('button');
+  const positioner = document.createElement('div');
+  const popup = document.createElement('div');
+  const upArrow = document.createElement('div');
+  const downArrow = document.createElement('div');
+  const list = withList ? document.createElement('div') : null;
+  const scroller = list ?? popup;
+  stubScroller(scroller, { scrollHeight, clientHeight }, () => scrollTop, (value) => {
+    scrollWrites += 1;
+    scrollTop = value;
+  });
+  popup.append(upArrow);
+  if (list) {
+    popup.append(list);
+  }
+  if (withItems) {
+    itemOffsets.forEach((offsetTop, index) => {
+      const item = document.createElement('div');
+      item.setAttribute('role', 'option');
+      item.id = `item-${index}`;
+      item.textContent = `Item ${index}`;
+      stubItem(item, offsetTop, itemHeight);
+      scroller.append(item);
+    });
+  }
+  popup.append(downArrow);
+  positioner.append(popup);
+  document.body.append(trigger, positioner);
+  // collapseArrows: the arrows' own height does not shift the visible edge.
+  Object.defineProperty(downArrow, 'offsetHeight', { value: 0, configurable: true });
+  Object.defineProperty(upArrow, 'offsetHeight', { value: 0, configurable: true });
+
+  const references = list ? [trigger, popup, list] : [trigger, popup];
+  handles.push(
+    attach(
+      positioner,
+      JSON.stringify({ part: POSITIONER_PART, open: true, mounted: true, trigger: 0, popup: 1, list: list ? 2 : null }),
+      createFakeTwin().twin,
+      references,
+    ),
+  );
+  handles.push(attach(upArrow, JSON.stringify({ part: SCROLL_ARROW_PART, direction: 'up', positioner: 0 }), createFakeTwin().twin, [positioner]));
+  handles.push(attach(downArrow, JSON.stringify({ part: SCROLL_ARROW_PART, direction: 'down', positioner: 0 }), createFakeTwin().twin, [positioner]));
+  return { upArrow, downArrow, getScrollTop: () => scrollTop, getScrollWrites: () => scrollWrites };
+}
+
+describe('<Select.ScrollArrow />', () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+  });
+
+  it.each([
+    {
+      name: 'down arrow snaps hover scrolling to the true bottom when the remaining space is fractional',
+      direction: 'down' as const,
+      initialScrollTop: 19.5,
+      scrollHeight: 100.5,
+      clientHeight: 60,
+      itemOffsets: [0, 40, 80],
+      itemHeight: 20,
+      expected: 40.5,
+    },
+    {
+      name: 'down arrow keeps advancing when the next item bottom is fractionally within the visible bottom',
+      direction: 'down' as const,
+      initialScrollTop: 71.81818389892578,
+      scrollHeight: 598,
+      clientHeight: 440,
+      itemOffsets: [32, 64, 96, 128, 160, 192, 224, 256, 336, 368, 400, 432, 448, 480, 512, 544],
+      itemHeight: 32,
+      expected: 104,
+    },
+    {
+      name: 'down arrow scrolls to the bottom when trailing content extends past the last item',
+      direction: 'down' as const,
+      initialScrollTop: 390,
+      scrollHeight: 600,
+      clientHeight: 200,
+      itemOffsets: DEFAULT_ITEM_OFFSETS,
+      itemHeight: 40,
+      expected: 400,
+    },
+    {
+      name: 'up arrow keeps advancing when the previous item top is fractionally within the visible top',
+      direction: 'up' as const,
+      initialScrollTop: 72.18181610107422,
+      scrollHeight: 598,
+      clientHeight: 440,
+      itemOffsets: [32, 71.5, 110, 142],
+      itemHeight: 32,
+      expected: 32,
+    },
+    {
+      name: 'up arrow scrolls to the very top when no earlier item remains to land on',
+      direction: 'up' as const,
+      initialScrollTop: 100,
+      scrollHeight: 600,
+      clientHeight: 200,
+      itemOffsets: [300, 340, 380],
+      itemHeight: 40,
+      expected: 0,
+    },
+  ])('$name', ({ direction, expected, ...geometry }) => {
+    const { downArrow, upArrow, getScrollTop } = renderSelect({ withList: true, ...geometry });
+
+    hoverArrow(direction === 'down' ? downArrow : upArrow, direction);
+    advanceTimers(40);
+
+    expect(getScrollTop()).toBe(expected);
+  });
+
+  it('does not start auto-scrolling for a mouse move that did not move the pointer', () => {
+    const { downArrow, getScrollTop } = renderSelect({ withList: true, initialScrollTop: 0 });
+
+    mouseMove(downArrow, 0, 0);
+    advanceTimers(400);
+
+    expect(getScrollTop()).toBe(0);
+  });
+
+  it('does not let continuous pointer movement postpone the scheduled scroll', () => {
+    const { downArrow, getScrollTop } = renderSelect({ withList: true, initialScrollTop: 0 });
+
+    mouseMove(downArrow, 0, 1);
+    advanceTimers(30);
+    mouseMove(downArrow, 1, 1);
+    advanceTimers(15);
+
+    expect(getScrollTop()).toBe(40);
+  });
+
+  it('stops auto-scrolling once the pointer leaves the arrow', () => {
+    const { downArrow, getScrollTop } = renderSelect({ withList: true, initialScrollTop: 0 });
+
+    hoverArrow(downArrow, 'down');
+    advanceTimers(40);
+    expect(getScrollTop()).toBe(40);
+
+    downArrow.dispatchEvent(new MouseEvent('mouseleave'));
+    advanceTimers(400);
+    expect(getScrollTop()).toBe(40);
+  });
+
+  it('snaps a sub-pixel offset to the exact top edge and then stops scrolling', () => {
+    const { upArrow, getScrollTop, getScrollWrites } = renderSelect({ withList: true, initialScrollTop: 0.4 });
+
+    hoverArrow(upArrow, 'up');
+    advanceTimers(40);
+    expect(getScrollTop()).toBe(0);
+
+    const writesAtEdge = getScrollWrites();
+    advanceTimers(400);
+    expect(getScrollTop()).toBe(0);
+    expect(getScrollWrites()).toBe(writesAtEdge);
+  });
+
+  it('scrolls the popup itself when no Select.List is rendered', () => {
+    const { downArrow, getScrollTop } = renderSelect({ withList: false, initialScrollTop: 0 });
+
+    hoverArrow(downArrow, 'down');
+    advanceTimers(40);
+
+    expect(getScrollTop()).toBe(40);
+  });
+
+  it.each(['up' as const, 'down' as const])('reflects scrollability on the %s arrow when the popup has no registered items', (direction) => {
+    const { downArrow, upArrow } = renderSelect({ withList: false, withItems: false, initialScrollTop: 100 });
+    const arrow = direction === 'down' ? downArrow : upArrow;
+
+    hoverArrow(arrow, direction);
+    advanceTimers(40);
+
+    expect(arrow.hasAttribute('data-visible')).toBe(true);
+  });
+
+  it('hides the arrow when an item-less popup is already scrolled to its edge', () => {
+    const { downArrow } = renderSelect({ withList: false, withItems: false, initialScrollTop: 200 });
+
+    hoverArrow(downArrow, 'down');
+    advanceTimers(40);
+
+    expect(downArrow.hasAttribute('data-visible')).toBe(false);
+  });
+
+  it('ignores pointer interaction when the arrow has no scrollable popup', () => {
+    const positioner = document.createElement('div');
+    const downArrow = document.createElement('div');
+    positioner.append(downArrow);
+    document.body.append(positioner);
+    handles.push(attach(positioner, JSON.stringify({ part: POSITIONER_PART, open: true, mounted: true }), createFakeTwin().twin));
+    handles.push(attach(downArrow, JSON.stringify({ part: SCROLL_ARROW_PART, direction: 'down', positioner: 0 }), createFakeTwin().twin, [positioner]));
+
+    hoverArrow(downArrow, 'down');
+
+    expect(() => advanceTimers(400)).not.toThrow();
+  });
+});
+
+describe('select module: the scroll arrows geometry (port titles)', () => {
+  it('reports both arrows visible in the middle of a scroller and snaps within 1px of an edge (SEL-STA-29)', () => {
+    const scroller = document.createElement('div');
+    let scrollTop = 100;
+    stubScroller(scroller, { scrollHeight: 400, clientHeight: 200 }, () => scrollTop, (value) => {
+      scrollTop = value;
+    });
+    expect(getArrowVisibility(scroller)).toEqual({ up: true, down: true });
+    scrollTop = 199.5;
+    expect(getArrowVisibility(scroller)).toEqual({ up: true, down: false });
+    scrollTop = 0.5;
+    expect(getArrowVisibility(scroller)).toEqual({ up: false, down: true });
+  });
+
+  it('steps one item down past the last visible one, and to the maximum when none follows (SEL-PTR-17)', () => {
+    const items = DEFAULT_ITEM_OFFSETS.map((offsetTop) => {
+      const item = document.createElement('div');
+      stubItem(item, offsetTop, 40);
+      return item;
+    });
+    expect(getTargetScrollTop(items, false, 0, 200, 0, 200)).toBe(40);
+    expect(getTargetScrollTop(items, true, 80, 200, 0, 200)).toBe(40);
+    expect(getTargetScrollTop(items.slice(0, 1), false, 0, 200, 0, 200)).toBe(200);
+  });
+});
+
+describe('select module: aligned placement (port titles)', () => {
+  // DP1 (a) of M5 track 9 (settled by the orchestrator 2026-11-04): the `positioning` layer stands down to
+  // `position: fixed` (positioning.test.ts); the aligned band holds only the placement the steps compute.
+  it('writes only the placement in the aligned band, over the anchored layer, and clears it after (SEL-POS-07)', () => {
+    Object.defineProperty(document.documentElement, 'clientHeight', { value: 800, configurable: true });
+    Object.defineProperty(document.documentElement, 'clientWidth', { value: 1000, configurable: true });
+    const trigger = document.createElement('button');
+    const positioner = document.createElement('div');
+    const popup = document.createElement('div');
+    popup.style.border = '0px solid';
+    positioner.append(popup);
+    document.body.append(trigger, positioner);
+    trigger.getBoundingClientRect = () => new DOMRect(100, 200, 160, 40);
+    positioner.getBoundingClientRect = () => new DOMRect(110, 240, 180, 120);
+    // The `positioning` layer as it stands while told aligned.
+    const anchored = styleWriter(positioner).layer('positioning');
+    anchored.set('position', 'fixed');
+
+    const options = { part: POSITIONER_PART, open: true, mounted: true, alignItemWithTrigger: true, trigger: 0, popup: 1 };
+    const handle = attach(positioner, JSON.stringify(options), createFakeTwin().twin, [trigger, popup]);
+    handles.push(handle);
+
+    // A list that does not scroll is top-positioned: the remaining viewport below the trigger's top sets its top.
+    expect(positioner.style.position).toBe('fixed');
+    expect(positioner.style.transform).toBe('');
+    expect(positioner.style.left).toBe('100px');
+    expect(positioner.style.top).toBe('190px');
+    expect(positioner.style.bottom).toBe('');
+
+    handle.update(JSON.stringify({ ...options, open: false, mounted: false }), [trigger, popup]);
+    expect(positioner.style.position).toBe('fixed');
+    expect(positioner.style.left).toBe('');
+    expect(positioner.style.top).toBe('');
+    expect(positioner.style.bottom).toBe('');
+  });
+
+  // Interim review F3 (M5 track 9): Base UI's placement effect runs on `open`, the elements, the latch, the List,
+  // `highlightItemOnHover`, the direction and `isPositioned` (select/popup/SelectPopup.tsx:407-419), not on the items or
+  // their texts. Port deviation: a text the placement found missing that registers later re-places once (the port's texts
+  // register after its first pass can run).
+  function alignedPlacement() {
+    Object.defineProperty(document.documentElement, 'clientHeight', { value: 800, configurable: true });
+    Object.defineProperty(document.documentElement, 'clientWidth', { value: 1000, configurable: true });
+    const trigger = document.createElement('button');
+    const positioner = document.createElement('div');
+    const popup = document.createElement('div');
+    positioner.append(popup);
+    document.body.append(trigger, positioner);
+    trigger.getBoundingClientRect = () => new DOMRect(100, 200, 160, 40);
+    positioner.getBoundingClientRect = () => new DOMRect(110, 240, 180, 120);
+    const fake = createFakeTwin();
+    const options = { part: POSITIONER_PART, open: true, mounted: true, alignItemWithTrigger: true, trigger: 0, popup: 1, selectedTextId: 'text-a' };
+    const handle = attach(positioner, JSON.stringify(options), fake.twin, [trigger, popup]);
+    handles.push(handle);
+    const placements = () => fake.reports.filter((report) => report.method === 'OnPlaced').length;
+    const update = (next: Record<string, unknown>) => handle.update(JSON.stringify({ ...options, ...next }), [trigger, popup]);
+    return { positioner, placements, update };
+  }
+
+  it('keeps the placement when the item map changes while open, clearing only the heights (SEL-POS-13)', () => {
+    const { positioner, placements, update } = alignedPlacement();
+    expect(placements()).toBe(1);
+    update({ itemsRevision: 1 });
+    expect(placements()).toBe(1);
+    expect(positioner.style.height).toBe('');
+  });
+
+  it('places again on a reopen during the exit (SEL-POS-07)', () => {
+    const { placements, update } = alignedPlacement();
+    update({ open: false, ending: true });
+    update({ open: true, ending: false });
+    expect(placements()).toBe(2);
+  });
+
+  it('keeps the placement when the selected text changes while open, and places once when a missing first text registers (SEL-POS-07)', () => {
+    const { placements, update } = alignedPlacement();
+    update({ selectedTextId: 'text-b' });
+    expect(placements()).toBe(1);
+    update({ selectedTextId: 'text-b', firstTextId: 'text-first' });
+    expect(placements()).toBe(2);
+  });
+
+  // Interim review F1 (b) (M5 track 9): the first attempt found no Popup, and the Positioner was already positioned, so
+  // no pass calls back again (anchor tracking is off while aligned): the update that brings the Popup asks again.
+  it('places once the Popup arrives after a first attempt that found none (SEL-POS-07)', () => {
+    Object.defineProperty(document.documentElement, 'clientHeight', { value: 800, configurable: true });
+    Object.defineProperty(document.documentElement, 'clientWidth', { value: 1000, configurable: true });
+    const trigger = document.createElement('button');
+    const positioner = document.createElement('div');
+    const popup = document.createElement('div');
+    positioner.append(popup);
+    document.body.append(trigger, positioner);
+    trigger.getBoundingClientRect = () => new DOMRect(100, 200, 160, 40);
+    positioner.getBoundingClientRect = () => new DOMRect(110, 240, 180, 120);
+    const fake = createFakeTwin();
+    const options = { part: POSITIONER_PART, open: true, mounted: true, alignItemWithTrigger: true, trigger: 0 };
+    const handle = attach(positioner, JSON.stringify(options), fake.twin, [trigger]);
+    handles.push(handle);
+    const placements = () => fake.reports.filter((report) => report.method === 'OnPlaced').length;
+    expect(placements()).toBe(0);
+
+    handle.update(JSON.stringify({ ...options, popup: 1 }), [trigger, popup]);
+    expect(placements()).toBe(1);
+    expect(positioner.style.top).toBe('190px');
+  });
+
+  // Interim review F2 (M5 track 9): Base UI derives the layout from the List on every render (SelectPopup.tsx:457-458,
+  // SelectList.tsx:38-40), so a List that arrives after the placement started takes the functional styles from the Popup.
+  it('moves the aligned layout to a List that arrives after the placement started (SEL-DOM-27, SEL-DOM-32)', () => {
+    Object.defineProperty(document.documentElement, 'clientHeight', { value: 800, configurable: true });
+    Object.defineProperty(document.documentElement, 'clientWidth', { value: 1000, configurable: true });
+    const trigger = document.createElement('button');
+    const positioner = document.createElement('div');
+    const popup = document.createElement('div');
+    const list = document.createElement('div');
+    positioner.append(popup);
+    document.body.append(trigger, positioner);
+    trigger.getBoundingClientRect = () => new DOMRect(100, 200, 160, 40);
+    positioner.getBoundingClientRect = () => new DOMRect(110, 240, 180, 120);
+
+    const options = { part: POSITIONER_PART, open: true, mounted: true, alignItemWithTrigger: true, trigger: 0, popup: 1 };
+    const handle = attach(positioner, JSON.stringify(options), createFakeTwin().twin, [trigger, popup]);
+    handles.push(handle);
+    expect(popup.style.overflowY).toBe('auto');
+
+    popup.append(list);
+    handle.update(JSON.stringify({ ...options, list: 2 }), [trigger, popup, list]);
+
+    expect([list.style.position, list.style.maxHeight, list.style.overflowX, list.style.overflowY]).toEqual(['relative', '100%', 'hidden', 'auto']);
+    expect(popup.style.height).toBe('100%');
+    expect([popup.style.position, popup.style.maxHeight, popup.style.overflowX, popup.style.overflowY]).toEqual(['', '', '', '']);
+  });
+
+  // Interim review F4 (M5 track 9): the fallback holds until the unmount, as Base UI's state does
+  // (select/positioner/SelectPositioner.tsx:70-82), so an update sent before C# latched it re-runs nothing.
+  it('falls back once and holds it until the unmount, whatever an update still in flight says (SEL-POS-04)', () => {
+    Object.defineProperty(document.documentElement, 'clientHeight', { value: 800, configurable: true });
+    Object.defineProperty(document.documentElement, 'clientWidth', { value: 1000, configurable: true });
+    const trigger = document.createElement('button');
+    const positioner = document.createElement('div');
+    const popup = document.createElement('div');
+    positioner.append(popup);
+    document.body.append(trigger, positioner);
+    // Within 20 px of the viewport's top edge: the collision fallback.
+    trigger.getBoundingClientRect = () => new DOMRect(100, 10, 160, 40);
+    positioner.getBoundingClientRect = () => new DOMRect(110, 50, 180, 120);
+
+    const fake = createFakeTwin();
+    const options = { part: POSITIONER_PART, open: true, mounted: true, alignItemWithTrigger: true, trigger: 0, popup: 1 };
+    const handle = attach(positioner, JSON.stringify(options), fake.twin, [trigger, popup]);
+    handles.push(handle);
+    const fallbacks = () => fake.reports.filter((report) => report.method === 'OnAlignedChange').length;
+    expect(fallbacks()).toBe(1);
+
+    // An update C# sent before it latched the fallback.
+    handle.update(JSON.stringify({ ...options, highlightItemOnHover: false }), [trigger, popup]);
+    expect(fallbacks()).toBe(1);
+
+    // The next session is aligned again.
+    handle.update(JSON.stringify({ ...options, open: false, mounted: false }), [trigger, popup]);
+    trigger.getBoundingClientRect = () => new DOMRect(100, 200, 160, 40);
+    handle.update(JSON.stringify(options), [trigger, popup]);
+    expect(fallbacks()).toBe(1);
+    expect(fake.reports.some((report) => report.method === 'OnPlaced')).toBe(true);
+  });
+});
+
+describe('select module: attach order (port titles)', () => {
+  // Interim review B2 (M5 track 9): a kept-mounted scroll arrow's handle can attach before the positioner's `select`
+  // handle; the positioner adopts it when it attaches, so the arrow follows the list's scrolls from then on.
+  it('links a scroll arrow that attached before its positioner, so a scroll updates its visibility (SEL-STA-29)', () => {
+    const trigger = document.createElement('button');
+    const positioner = document.createElement('div');
+    const popup = document.createElement('div');
+    const upArrow = document.createElement('div');
+    let scrollTop = 0;
+    stubScroller(popup, { scrollHeight: 400, clientHeight: 200 }, () => scrollTop, (value) => {
+      scrollTop = value;
+    });
+    popup.append(upArrow);
+    positioner.append(popup);
+    document.body.append(trigger, positioner);
+
+    handles.push(attach(upArrow, JSON.stringify({ part: SCROLL_ARROW_PART, direction: 'up', positioner: 0 }), createFakeTwin().twin, [positioner]));
+    handles.push(
+      attach(positioner, JSON.stringify({ part: POSITIONER_PART, open: true, mounted: true, trigger: 0, popup: 1 }), createFakeTwin().twin, [trigger, popup]),
+    );
+
+    scrollTop = 100;
+    popup.dispatchEvent(new Event('scroll'));
+
+    expect(upArrow.hasAttribute('data-visible')).toBe(true);
+  });
+});
+
+describe('select module: the arrows on unmount (port titles)', () => {
+  // SelectRoot.test.tsx "clears scroll arrow visibility when manually unmounted": the unmount resets both flags
+  // (SelectRoot.tsx:206-214), and a kept arrow (the portal stays force-mounted) shows them while the popup is unmounted.
+  it('clears the arrows on unmount and keeps them clear while unmounted (SEL-STA-29)', () => {
+    const trigger = document.createElement('button');
+    const positioner = document.createElement('div');
+    const popup = document.createElement('div');
+    const upArrow = document.createElement('div');
+    const downArrow = document.createElement('div');
+    let scrollTop = 0;
+    stubScroller(popup, { scrollHeight: 400, clientHeight: 200 }, () => scrollTop, (value) => {
+      scrollTop = value;
+    });
+    popup.append(upArrow, downArrow);
+    positioner.append(popup);
+    document.body.append(trigger, positioner);
+    const options = { part: POSITIONER_PART, open: true, mounted: true, trigger: 0, popup: 1 };
+    const handle = attach(positioner, JSON.stringify(options), createFakeTwin().twin, [trigger, popup]);
+    handles.push(handle);
+    const up = attach(upArrow, JSON.stringify({ part: SCROLL_ARROW_PART, direction: 'up', positioner: 0 }), createFakeTwin().twin, [positioner]);
+    const down = attach(downArrow, JSON.stringify({ part: SCROLL_ARROW_PART, direction: 'down', positioner: 0 }), createFakeTwin().twin, [positioner]);
+    handles.push(up, down);
+    scrollTop = 100;
+    popup.dispatchEvent(new Event('scroll'));
+    expect([upArrow.hasAttribute('data-visible'), downArrow.hasAttribute('data-visible')]).toEqual([true, true]);
+
+    // The close keeps the popup mounted (`preventUnmountOnClose`), then the manual unmount.
+    handle.update(JSON.stringify({ ...options, open: false }), [trigger, popup]);
+    expect([upArrow.hasAttribute('data-visible'), downArrow.hasAttribute('data-visible')]).toEqual([true, true]);
+    handle.update(JSON.stringify({ ...options, open: false, mounted: false }), [trigger, popup]);
+    expect([upArrow.hasAttribute('data-visible'), downArrow.hasAttribute('data-visible')]).toEqual([false, false]);
+
+    // The arrows' own re-render while unmounted writes nothing back.
+    up.update(JSON.stringify({ part: SCROLL_ARROW_PART, direction: 'up', positioner: 0 }), [positioner]);
+    down.update(JSON.stringify({ part: SCROLL_ARROW_PART, direction: 'down', positioner: 0 }), [positioner]);
+    expect([upArrow.hasAttribute('data-visible'), downArrow.hasAttribute('data-visible')]).toEqual([false, false]);
+  });
+});
+
+describe('select module: the trigger (port titles)', () => {
+  // Interim review F5 (M5 track 9): Base UI reads the positioner live on the release (SelectTrigger.tsx:186-191), so a
+  // Positioner that mounted after the trigger's last update still holds the press: the open's batch mounts it, and the
+  // trigger's after-render runs before the Positioner's.
+  it('keeps a press open when it is released over a Positioner that mounted after the trigger last updated (SEL-PTR-04)', () => {
+    vi.useFakeTimers();
+    const trigger = document.createElement('button');
+    const positioner = document.createElement('div');
+    const label = document.createElement('div');
+    positioner.append(label);
+    document.body.append(trigger, positioner);
+    trigger.getBoundingClientRect = () => new DOMRect(0, 0, 100, 40);
+    const fake = createFakeTwin();
+    handles.push(attach(trigger, JSON.stringify({ part: TRIGGER_PART, open: false }), fake.twin, []));
+    handles.push(attach(positioner, JSON.stringify({ part: POSITIONER_PART, open: true, mounted: true, trigger: 0 }), createFakeTwin().twin, [trigger]));
+
+    trigger.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }));
+    vi.advanceTimersByTime(0);
+    label.dispatchEvent(new MouseEvent('mouseup', { bubbles: true, clientX: 300, clientY: 300 }));
+
+    expect(fake.reports.filter((report) => report.method === 'OnCancelOpen')).toEqual([]);
+  });
+});
+
+describe('select module: press and release (port titles)', () => {
+  // Interim review F10 (M5 track 9): the brief's port titles for the release gates, the drag and the trigger's slip.
+  function pointer(type: string, init: { pointerType: string; buttons?: number; movementY?: number }): MouseEvent {
+    const event = new MouseEvent(type, { bubbles: true, buttons: init.buttons ?? 0 });
+    Object.defineProperty(event, 'pointerType', { value: init.pointerType });
+    Object.defineProperty(event, 'movementY', { value: init.movementY ?? 0 });
+    return event;
+  }
+
+  function openPositioner() {
+    vi.useFakeTimers();
+    const trigger = document.createElement('button');
+    const positioner = document.createElement('div');
+    const popup = document.createElement('div');
+    const item = (label: string, selected: boolean): HTMLElement => {
+      const element = document.createElement('div');
+      element.setAttribute('role', 'option');
+      element.setAttribute('aria-selected', String(selected));
+      element.id = `item-${label}`;
+      popup.append(element);
+      return element;
+    };
+    const items: [HTMLElement, HTMLElement, HTMLElement] = [item('one', true), item('two', false), item('three', false)];
+    positioner.append(popup);
+    document.body.append(trigger, positioner);
+    const fake = createFakeTwin();
+    const options = { part: POSITIONER_PART, open: true, mounted: true, trigger: 0, popup: 1 };
+    const handle = attach(positioner, JSON.stringify(options), fake.twin, [trigger, popup]);
+    handles.push(handle);
+    const activations = () => fake.reports.filter((report) => report.method === 'OnActivate').length;
+    return { trigger, items, handle, options, activations, references: [trigger, popup] };
+  }
+
+  it('keeps a release on an item from selecting until 400 ms after the open, and resets on the close (SEL-PTR-05, SEL-PTR-07)', () => {
+    const { items, handle, options, activations, references } = openPositioner();
+    vi.advanceTimersByTime(399);
+    items[1].dispatchEvent(new MouseEvent('mouseup', { bubbles: true }));
+    expect(activations()).toBe(0);
+
+    vi.advanceTimersByTime(1);
+    items[1].dispatchEvent(new MouseEvent('mouseup', { bubbles: true }));
+    expect(activations()).toBe(1);
+
+    handle.update(JSON.stringify({ ...options, open: false }), references);
+    handle.update(JSON.stringify(options), references);
+    items[2].dispatchEvent(new MouseEvent('mouseup', { bubbles: true }));
+    expect(activations()).toBe(1);
+  });
+
+  it('lets a release on an unselected item select early once the held pointer moved 8 px over items, but not the selected one (SEL-PTR-06)', () => {
+    const { items, activations } = openPositioner();
+    items[1].dispatchEvent(pointer('pointermove', { pointerType: 'mouse', buttons: 1, movementY: 4 }));
+    items[1].dispatchEvent(new MouseEvent('mouseup', { bubbles: true }));
+    expect(activations()).toBe(0);
+
+    items[1].dispatchEvent(pointer('pointermove', { pointerType: 'mouse', buttons: 1, movementY: 4 }));
+    items[0].dispatchEvent(new MouseEvent('mouseup', { bubbles: true }));
+    expect(activations()).toBe(0);
+    items[2].dispatchEvent(pointer('pointermove', { pointerType: 'mouse', buttons: 1, movementY: 8 }));
+    items[2].dispatchEvent(new MouseEvent('mouseup', { bubbles: true }));
+    expect(activations()).toBe(1);
+  });
+
+  it('ignores a release on an item the press started on, or that a touch reached (SEL-PTR-09, SEL-PTR-22)', () => {
+    const { items, activations } = openPositioner();
+    vi.advanceTimersByTime(400);
+    items[1].dispatchEvent(pointer('pointerdown', { pointerType: 'mouse', buttons: 1 }));
+    items[1].dispatchEvent(new MouseEvent('mouseup', { bubbles: true }));
+    items[2].dispatchEvent(pointer('pointerover', { pointerType: 'touch' }));
+    items[2].dispatchEvent(new MouseEvent('mouseup', { bubbles: true }));
+    expect(activations()).toBe(0);
+  });
+
+  it('keeps a press open when it is released within 5 px of the trigger, and cancels it beyond (SEL-PTR-04)', () => {
+    vi.useFakeTimers();
+    const trigger = document.createElement('button');
+    document.body.append(trigger);
+    trigger.getBoundingClientRect = () => new DOMRect(100, 100, 100, 40);
+    const fake = createFakeTwin();
+    handles.push(attach(trigger, JSON.stringify({ part: TRIGGER_PART, open: false }), fake.twin, []));
+    const cancels = () => fake.reports.filter((report) => report.method === 'OnCancelOpen').length;
+
+    trigger.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }));
+    vi.advanceTimersByTime(0);
+    document.body.dispatchEvent(new MouseEvent('mouseup', { bubbles: true, clientX: 204, clientY: 120 }));
+    expect(cancels()).toBe(0);
+
+    trigger.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }));
+    vi.advanceTimersByTime(0);
+    document.body.dispatchEvent(new MouseEvent('mouseup', { bubbles: true, clientX: 206, clientY: 120 }));
+    expect(cancels()).toBe(1);
+  });
+});

@@ -8,6 +8,7 @@
 | Docs page | `docs/src/app/(docs)/react/components/select/page.mdx` |
 | Prefix | `SEL` |
 | Status | approved |
+| Revised | 2026-11-11 |
 | Builds on | none |
 | Derived by | none |
 | Depends on | [rendering-and-composition](../architecture/rendering-and-composition.md), [event-details-and-reasons](../architecture/event-details-and-reasons.md), [button-behavior](../architecture/button-behavior.md), [field-and-form-infrastructure](../architecture/field-and-form-infrastructure.md), [composite-and-list-navigation](../architecture/composite-and-list-navigation.md), [floating-and-positioning](../architecture/floating-and-positioning.md), [popup-store-and-handles](../architecture/popup-store-and-handles.md), [transitions-and-mounting](../architecture/transitions-and-mounting.md), [shared-utilities](../architecture/shared-utilities.md) |
@@ -143,6 +144,7 @@ If `Select.Value` is omitted the trigger shows only its own children; the aligne
   Source: `select/root/SelectRoot.tsx:68,99,250,365,372,391,505,575`, `select/item/SelectItem.tsx:61`. Test: [L2] `SelectRoot.test.tsx` "sets the disabled state", "updates the disabled state when the disabled prop changes", "should receive disabled prop from Field.Root", "does not submit multiple values when disabled"; `SelectItem.test.tsx` "inherits the disabled state from the root".
 - **SEL-API-14** — MUST. `multiple` defaults to `false`. When `true`: the value is an array (SEL-STA-11), activating an item toggles its membership (SEL-EVT-05), the popup stays open after activation (SEL-DIS-07), the listbox carries `aria-multiselectable="true"`, per-value hidden inputs are rendered (SEL-DOM-53), closed-trigger typeahead is disabled (SEL-KEY-04) and autofill is ignored (SEL-FRM-19). The `multiple` prop MUST NOT change after mount (the type is a generic parameter; the hint "conditional `multiple`" refers only to typing).
   Source: `select/root/SelectRoot.tsx:76,104,229,391,443-448,536-539`. Test: [L2] `SelectRoot.test.tsx` "prop: multiple" (all tests).
+  Port note 2026-11-11 (M5 track 9, [issue 173](https://github.com/JakeMurrayDev/Blazix.Primitives/issues/173); design point N1, settled by the orchestrator 2026-11-04): a label is a string in the port, so `SelectValue.test.tsx` "supports ReactNode labels for multiple selections" (`:506`) is not ported; the string labels of multiple selections are covered by the titles beside it in `SelectValueTests.razor`.
 - **SEL-API-15** — MUST. `highlightItemOnHover` defaults to `true` and is passed to list navigation as `focusItemOnHover` (CMP-API-03). It additionally gates the automatic first-item highlight of aligned positioning (SEL-POS-10).
   Source: `select/root/SelectRoot.tsx:80,385`, `select/popup/SelectPopup.tsx:396-403`. Test: [L4] `SelectRoot.test.tsx` "prop: highlightItemOnHover" (all tests).
 - **SEL-API-16** — MUST. `modal` defaults to `true`. When `true` and the popup is mounted, the internal backdrop is rendered (SEL-STR-07) and page scroll is locked while open (SEL-POS-21). It does not trap focus (SEL-FOC-09). When `false`, neither backdrop nor scroll lock is applied unless aligned positioning is active.
@@ -151,8 +153,10 @@ If `Select.Value` is omitted the trigger shows only its own children; the aligne
   Source: `select/root/SelectRoot.tsx:317-328,741-744`. Test: [L2] `SelectRoot.test.tsx` "manual unmount lifecycle" (all tests), "unmounts the select when the `unmount` method is called", "does not call `onOpenChange` when the `close` action is called while closed".
 - **SEL-API-18** — MUST. `inputRef` MUST receive the hidden form-participation input element (shared with the field's validation input handle).
   Source: `select/root/SelectRoot.tsx:487,578`. Test: none.
+  Port: withdrawn (ADR 02 Amendments). Note 2026-11-10 (M5 track 9, [issue 173](https://github.com/JakeMurrayDev/Blazix.Primitives/issues/173); ADR 12 Amendments 2026-11-04, chosen by the user 2026-11-04): the port has no `inputRef`; the hidden input stays internal (ADR 02 Amendments 2026-10-18). The ID is kept.
 - **SEL-API-19** — MUST. `items` accepts (a) a record whose keys are string values and whose entries are labels, (b) an array of `{ value, label }` objects, or (c) an array of group objects `{ items: ReadonlyArray<...>, ...anything }` whose `items` are `{ value, label }` objects; `undefined` means "no lookup". It affects only label resolution in `Select.Value` (SEL-DOM-10) and the placeholder decision (SEL-DOM-11); it does not render items.
   Source: `select/root/SelectRoot.tsx:698-702`, `internals/resolveValueLabel.tsx:5-36`. Test: [L2] `SelectValue.test.tsx` "prop: items (object format)" (5 tests), "prop: items (array format)" (5 tests); `SelectRoot.spec.tsx` (grouped readonly items type-check).
+  Port note 2026-11-11 (M5 track 9, [issue 173](https://github.com/JakeMurrayDev/Blazix.Primitives/issues/173); design point N1, settled by the orchestrator 2026-11-04): a label is a string in the port, so "supports ReactNode labels in items object" (`SelectValue.test.tsx:143`) and "supports ReactNode labels in items array" (`:260`) are not ported; the string labels of both formats are covered by the other titles of the two describes in `SelectValueTests.razor`.
 - **SEL-API-20** — MUST. `itemToStringLabel`, when given, is used to produce the display text of a non-null value (SEL-DOM-10) and the label matched by autofill (SEL-FRM-18). It MUST NOT be invoked with `null`/`undefined`, nor with the whole value array in multiple mode.
   Source: `select/root/SelectRoot.tsx:548,707`, `internals/resolveValueLabel.tsx:68-71,102-104,142-158`. Test: [L2] `SelectRoot.test.tsx` "uses itemToStringLabel for trigger text when value is object", "updates trigger text with itemToStringLabel after selecting object item"; `SelectValue.test.tsx` "uses custom itemToStringLabel function".
 - **SEL-API-21** — MUST. `itemToStringValue`, when given, is used to serialize each non-null value for form submission, the `filled`/placeholder decision and autofill matching. It MUST NOT be invoked with `null`/`undefined`, nor with the whole value array in multiple mode (each member is stringified separately).
@@ -431,6 +435,7 @@ None.
 
 - **SEL-API-39** — MUST. `finalFocus` is passed as the focus manager's `returnFocus` (FLT-API-05, FLT-FOC-21) and resolved when the popup closes: `false`/`undefined` → focus is not moved; `true`/`null` → the default target (SEL-FOC-04); a DOM handle → its element; a function → called once with the close interaction type (`'mouse' | 'touch' | 'pen' | 'keyboard' | ''`) and its result interpreted the same way. There is no `initialFocus` prop.
   Source: `select/popup/SelectPopup.tsx:51,479-486,495-508`; see FLT-API-05, FLT-FOC-21. Test: [L4] `SelectPopup.test.tsx` `popupFocusPropsTests` (options: `initialFocus: false`, `triggerRole: 'combobox'`, `alwaysMounted: true`, `mouseCloseType: ''`). Docs: `CHANGELOG.md v1.2.0 "Add \`finalFocus\` prop"`.
+  Port note 2026-11-11 (M5 track 9, [issue 173](https://github.com/JakeMurrayDev/Blazix.Primitives/issues/173); design point N3, settled by the orchestrator 2026-11-11 under the user's "Do recommended for decisions", on the M5 plan's quirk precedent, decision 14; the user may overturn it): the port replicates Base UI's known gap (§16 Q5): a `finalFocus` function receives `''` for an item press's close. The store records whether the last committed close was an item press (`CloseByItemPress`) and the Popup's return-focus resolver passes `InteractionType.Unknown`; `select.spec.ts` runs `popupFocusPropsTests` with `mouseCloseType: ''` as cited.
 
 #### State object
 
@@ -680,6 +685,8 @@ Invariants: at most one item is highlighted; in single mode at most one item is 
 
 ## 5. Rendered DOM and ARIA
 
+Note 2026-11-04 (M5 track 9, [issue 173](https://github.com/JakeMurrayDev/Blazix.Primitives/issues/173); ADR 04 §2 and Amendments 2026-10-27): Writer tables were added to §5.6, §5.7, §5.9, §5.10, §5.12, §5.13 and §5.15, and the Popup's two grouped rows were split by attribute, so the ownership lint reads every part a module writes. The writers: `transitions` for the transition attributes and `transition: none`; `positioning` for the Positioner's and the Arrow's placement, style and CSS variables from attach; `composite` for the items' `data-highlighted` and `tabindex`; `popup` for the internal backdrop's `clip-path`; `select` for the aligned placement and layout styles, `--transform-origin`, the List's style under them and the scroll arrows' `data-visible`.
+
 ### 5.1 Trigger element
 
 | Attribute | Value / present when | Req | Writer |
@@ -734,6 +741,7 @@ Invariants: at most one item is highlighted; in single mode at most one item is 
 
 - **SEL-DOM-14** — MUST. `Select.Label` renders a `<div>` whose `id` is the registered label id — `${rootId}-label` by default (FFI-ARIA-07) — and publishes that id to the Root (for SEL-ARIA-05) and to the labelable scope; it carries the field state attributes of FFI-DOM-01.
   Source: `select/label/SelectLabel.tsx:30-49`, `utils/resolveAriaLabelledBy.ts:3-5`. Test: [L2] `SelectRoot.test.tsx` "Select.Label", "updates Select.Label linkage when root id changes", "does not link Select.Label before hydration".
+  Port note 2026-11-10 (M5 track 9; ADR 01 Amendments 2026-10-22, the FST-DOM-08 precedent): the Label publishes its id in the render that creates it, so the trigger's `aria-labelledby` is in the first render, which prerendering emits; the clause "no `aria-labelledby` until hydration" does not hold for the port. Base UI's "does not link Select.Label before hydration" is restated at L2 as "port: links Select.Label in the first render, which prerendering emits" (`SelectRootLifecycleTests.razor`).
 - **SEL-DOM-15** — MUST. The Label behaves as a non-native label (FFI-PTR-01): `pointerdown` is default-prevented and `click` focuses the control (the trigger element when attached, looked up by id with `focus({ focusVisible: true })`) without opening the popup; clicks whose target is a `button`/`input`/`select`/`textarea` descendant are ignored; a double click is default-prevented.
   Source: `select/label/SelectLabel.tsx:34-42`, `internals/labelable-provider/useLabel.ts:30-76`. Test: [L4] `SelectRoot.test.tsx` "Select.Label focuses trigger without opening". Docs: `components/select/page.mdx` §Labeling a select; `CHANGELOG.md v1.9.0 "Fix label focus in Shadow DOM"`.
 
@@ -744,10 +752,29 @@ Invariants: at most one item is highlighted; in single mode at most one item is 
 
 ### 5.6 Backdrop element
 
+| Attribute / style | Value / present when | Req | Writer |
+|---|---|---|---|
+| `role="presentation"`, inline `user-select: none` | always | SEL-DOM-17 | C# |
+| `hidden` | the popup is not mounted | SEL-DOM-17 | C# |
+| `data-open` / `data-closed` | open / closed | SEL-DOM-17 | C# |
+| `data-starting-style` / `data-ending-style` | transition status | SEL-DOM-17 | JS |
+
 - **SEL-DOM-17** — MUST. `Select.Backdrop` renders `<div role="presentation">` with inline `user-select: none; -webkit-user-select: none`, the `hidden` attribute while the popup is not mounted, `data-open=""`/`data-closed=""` (PSH-DOM-03) and the transition attributes (TRN-DOM-01…03).
   Source: `select/backdrop/SelectBackdrop.tsx:11-14,39-54`. Test: [L2] `SelectBackdrop.test.tsx` conformance suite (L4 for the transition-attribute clause).
 
 ### 5.7 Positioner element
+
+| Attribute / style | Value / present when | Req | Writer |
+|---|---|---|---|
+| `role="presentation"`, `hidden` | always; `hidden` while not mounted | SEL-DOM-18 | C# |
+| inline `pointer-events: none` | effective open is `false` | SEL-DOM-18 | C# → JS |
+| `data-open` / `data-closed` | open / closed | SEL-DOM-19 | C# |
+| `data-side`, `data-align` | resolved placement; `data-side="none"` while aligned | SEL-DOM-19 | C# → JS |
+| `data-anchor-hidden` | anchor hidden | SEL-DOM-19 | JS |
+| positioning styles and CSS variables | FLT | SEL-DOM-20, SEL-DOM-22 | C# → JS |
+| aligned placement styles | aligned mode: `position: fixed`, the offsets, `height`, `max-height`, the margins | SEL-DOM-20 | JS |
+| inline `transition: none` | `transitionStatus === 'starting'` | SEL-DOM-21 | JS |
+| internal backdrop `clip-path` | cut-out of the trigger | SEL-DOM-54 | JS |
 
 - **SEL-DOM-18** — MUST. `Select.Positioner` renders `<div role="presentation">` (shared positioner host, FLT `usePositioner`) with the `hidden` attribute while not mounted and inline `pointer-events: none` while not open (so a closing popup ignores pointer input).
   Source: `select/positioner/SelectPositioner.tsx:130-137`, `utils/usePositioner.tsx:21-42`. Test: [L2] `SelectPositioner.test.tsx` "does not retain stale coordinates while closed" (`hidden`); `SelectItem.test.tsx` "should select the item and close popup when clicked" (not visible after close) (L4 for the `pointer-events` clause).
@@ -770,8 +797,10 @@ Invariants: at most one item is highlighted; in single mode at most one item is 
 | `aria-readonly` | `"true"` when readOnly, no List | SEL-DOM-23 | C# |
 | `tabindex` | `-1` | SEL-DOM-25 | C# |
 | `data-base-ui-focusable` | `""` | SEL-DOM-25 | C# |
-| data attributes | `data-open`/`data-closed`, `data-starting-style`/`data-ending-style`, `data-side`, `data-align` | SEL-DOM-26 | C#; JS for `data-starting-style`/`data-ending-style` |
-| inline style | aligned mode: `height: 100%` (with List) or `position: relative; max-height: 100%; overflow-x: hidden; overflow-y: auto` (without List); `transition: none` while starting | SEL-DOM-27/30 | C# → JS |
+| `data-open` / `data-closed`, `data-side`, `data-align` | open / closed; the positioner's placement (`"none"` while aligned) | SEL-DOM-26 | C# |
+| `data-starting-style` / `data-ending-style` | transition status | SEL-DOM-26 | JS |
+| aligned layout styles | aligned mode: `height: 100%` (with List) or `position: relative; max-height: 100%; overflow-x: hidden; overflow-y: auto` (without List) | SEL-DOM-27 | JS |
+| inline `transition: none` | `transitionStatus === 'starting'` | SEL-DOM-30 | JS |
 | class | `base-ui-disable-scrollbar` when aligned and no List | SEL-DOM-28 | C# |
 | `--transform-origin` | inline, aligned mode | SEL-DOM-29 | JS |
 
@@ -794,6 +823,12 @@ Invariants: at most one item is highlighted; in single mode at most one item is 
 
 ### 5.9 List element
 
+| Attribute / style | Value / present when | Req | Writer |
+|---|---|---|---|
+| `id`, `role="listbox"`, `aria-multiselectable`, `aria-readonly` | always; the last two when set | SEL-DOM-31 | C# |
+| `style` | the consumer's; under the aligned layout styles while aligned | SEL-DOM-32 | C# → JS |
+| class | `base-ui-disable-scrollbar` per SEL-DOM-33 | SEL-DOM-33 | C# |
+
 - **SEL-DOM-31** — MUST. `Select.List` renders `<div id="${rootId}-list" role="listbox">` with `aria-multiselectable="true"` iff `multiple` and `aria-readonly="true"` iff `readOnly`, and no `aria-orientation`.
   Source: `select/list/SelectList.tsx:31-35`. Test: [L2] `SelectPopup.test.tsx` "places aria attributes on Select.List instead if it is present"; `SelectRoot.test.tsx` "marks the listbox as readonly when rendered with Select.List".
 - **SEL-DOM-32** — MUST. While aligned positioning is active the List's built-in inline style is `position: relative; max-height: 100%; overflow-x: hidden; overflow-y: auto`; otherwise none.
@@ -802,6 +837,13 @@ Invariants: at most one item is highlighted; in single mode at most one item is 
   Source: `select/list/SelectList.tsx:42-43`. Test: none. Docs: `CHANGELOG.md v1.8.0 "Hide group labels and scrollbars from the accessibility tree"`.
 
 ### 5.10 Item element
+
+| Attribute / style | Value / present when | Req | Writer |
+|---|---|---|---|
+| `role="option"`, `aria-selected`, `aria-disabled` | always; `aria-disabled` while disabled | SEL-DOM-34, SEL-DOM-37 | C# |
+| `data-selected`, `data-disabled` | selected / disabled | SEL-DOM-35 | C# |
+| `data-highlighted` | highlighted | SEL-DOM-35 | JS |
+| `tabindex` | `0` while open and highlighted, `-1` otherwise | SEL-DOM-36 | C# → JS |
 
 - **SEL-DOM-34** — MUST. `Select.Item` renders `<div role="option">` (the button mechanism's `role="button"` is overridden, UBT-DOM-09) with `aria-selected="true"`/`"false"` (SEL-ARIA-09).
   Source: `select/item/SelectItem.tsx:158-159,239-243`. Test: [L2] `SelectItem.test.tsx` conformance suite; `SelectPopup.test.tsx` "places aria attributes on Select.List instead if it is present" (options found by role).
@@ -819,10 +861,22 @@ Invariants: at most one item is highlighted; in single mode at most one item is 
 
 ### 5.12 ItemIndicator element
 
+| Attribute / style | Value / present when | Req | Writer |
+|---|---|---|---|
+| `aria-hidden="true"`, `data-selected` | always; `data-selected` while selected | SEL-DOM-39 | C# |
+| `data-starting-style` / `data-ending-style` | transition status | SEL-DOM-39 | JS |
+
 - **SEL-DOM-39** — MUST. `Select.ItemIndicator` renders the shared indicator: `<span aria-hidden="true">` with default content `✔️`, `data-selected=""` while selected, the transition attributes, and no `selected` attribute (RND-DOM-50…52, RND-ARIA-01).
   Source: `select/item-indicator/SelectItemIndicator.tsx:25`, `utils/ItemIndicator.tsx:16-39`. Test: [L2] `SelectItemIndicator.test.tsx` "mounts only while selected when keepMounted is false" (L4 for the transition-attribute clause).
 
 ### 5.13 Arrow element
+
+| Attribute / style | Value / present when | Req | Writer |
+|---|---|---|---|
+| `aria-hidden="true"`, `data-open` / `data-closed` | always | SEL-DOM-40 | C# |
+| `data-side`, `data-align` | resolved placement | SEL-DOM-40 | C# → JS |
+| `data-uncentered` | arrow not centered on the anchor | SEL-DOM-40 | C# → JS |
+| `style` | arrow position | SEL-DOM-40 | C# → JS |
 
 - **SEL-DOM-40** — MUST. `Select.Arrow` renders `<div aria-hidden="true">` with the mechanism's arrow position styles inline (FLT), `data-open`/`data-closed`, `data-side` (`"none"` is impossible here because the part renders nothing while aligned), `data-align` and `data-uncentered=""` while the arrow cannot be centered; it never carries `data-anchor-hidden` or transition attributes (not in its state).
   Source: `select/arrow/SelectArrow.tsx:28-40`, `select/arrow/SelectArrowDataAttributes.ts:1-24`. Test: [L4] `SelectArrow.test.tsx` conformance suite.
@@ -835,6 +889,12 @@ Invariants: at most one item is highlighted; in single mode at most one item is 
   Source: `select/group-label/SelectGroupLabel.tsx:32-35`. Test: [L2] `SelectGroupLabel.test.tsx` "is hidden from the accessibility tree by default", "allows overriding aria-hidden".
 
 ### 5.15 Scroll-arrow elements
+
+| Attribute / style | Value / present when | Req | Writer |
+|---|---|---|---|
+| `aria-hidden="true"`, inline `position: absolute`, `data-direction`, `data-side` | always | SEL-DOM-43, SEL-DOM-44 | C# |
+| `data-visible` | the list scrolls further in the arrow's direction | SEL-DOM-44 | C# → JS |
+| `data-starting-style` / `data-ending-style` | the arrow's transition status | SEL-DOM-45 | JS |
 
 - **SEL-DOM-43** — MUST. Each scroll arrow renders `<div aria-hidden="true">` with inline `position: absolute` and default content `▲` (up) / `▼` (down).
   Source: `select/scroll-arrow/SelectScrollArrow.tsx:80-85`. Test: [L2] `SelectRoot.test.tsx` "normalizes overlapping fractional scroll ranges…" (found by `▲`/`▼`).
@@ -858,7 +918,7 @@ Invariants: at most one item is highlighted; in single mode at most one item is 
 | `id` | `${rootId}-hidden-input` when the input has no `name`; absent otherwise | SEL-DOM-48 | C# |
 | `name` | effective name in single mode; absent in multiple mode | SEL-DOM-47 | C# |
 | `form`, `autocomplete` | from props | SEL-API-08/09 | C# |
-| `value` | serialized value (single); `""` (multiple) | SEL-DOM-51 | C# |
+| `value` | serialized value (single); `""` (multiple) | SEL-DOM-51 | C# → JS |
 | `disabled`, `readonly` | from effective disabled / `readOnly` | SEL-DOM-47 | C# |
 | `required` | `required && !(multiple && hasSelectedValue)` | SEL-DOM-50 | C# |
 | `aria-describedby`, `aria-invalid` | FFI-ARIA-03 | SEL-ARIA-07 | C# |
@@ -874,6 +934,7 @@ Invariants: at most one item is highlighted; in single mode at most one item is 
   Source: `select/root/SelectRoot.tsx:576`. Test: [L2] `SelectRoot.test.tsx` "does not mark the hidden input as required when selection exists", "keeps the hidden input required when no selection exists". Docs: `CHANGELOG.md v1.0.0-beta.5 "Fix \`required\` form submission with multiple values"`.
 - **SEL-DOM-51** — MUST. In single mode the hidden input's `value` is `stringifyAsValue(value, itemToStringValue)` (UTL): `''` for nullish; `itemToStringValue(value) ?? ''` when the function is given; the serialized `value` member of a `{ value, label }` object; else `serializeValue` (string as-is, otherwise JSON). In multiple mode it is always `""`.
   Source: `select/root/SelectRoot.tsx:225-233,574`, `internals/resolveValueLabel.tsx:83-91`. Test: [L2] `SelectRoot.test.tsx` "uses itemToStringValue for form submission", "should serialize empty array as empty string in multiple mode"; `SelectValue.test.tsx` "falls back to label/value properties when functions are not provided".
+  Port note 2026-11-11 (M5 track 9, [issue 173](https://github.com/JakeMurrayDev/Blazix.Primitives/issues/173); ADR 16 rule 1, design point N1): the port has no structural `{ value, label }` member fallback; `ItemToStringValue` (and `ItemToStringLabel`) replace it, so `SelectValue.test.tsx` "falls back to label/value properties when functions are not provided" (`:362`) is not ported, and the port titles of `SelectValueTests.razor` that pass both functions cover the serialization.
 - **SEL-DOM-52** — MUST. In multiple mode the shared hidden input is nameless (so it never submits and `itemToStringValue` is never invoked with the array).
   Source: `select/root/SelectRoot.tsx:226-230,489`. Test: [L2] `SelectRoot.test.tsx` "does not invoke itemToStringValue with the value array in multiple mode".
 
@@ -1174,6 +1235,7 @@ Select renders the Popup inside the shared focus manager (FLT `FloatingFocusMana
   Source: `internals/resolveValueLabel.tsx:68-71,83-86`. Test: [L2] `SelectRoot.test.tsx` "does not invoke itemToStringValue with the value array in multiple mode".
 - **SEL-EVT-17** — MUST. A `finalFocus` function is called exactly once per close with the close interaction type derived from the closing event (`'keyboard'` for Escape/Tab; `'mouse'`/`'touch'`/`'pen'` for pointer-initiated closes that carry a pointer event); an item-press close reports `''` because the item's own close request carries a click whose pointer type is not retained (known gap, §16 Q5). The function is not called again when the popup is already closed.
   Source: `floating-ui-react/components/FloatingFocusManager.tsx:795-800,846-853`. Test: [L4] `SelectPopup.test.tsx` focus-props suite "passes the close type to a function" (`mouseCloseType: ''`).
+  Port note 2026-11-11 (M5 track 9, [issue 173](https://github.com/JakeMurrayDev/Blazix.Primitives/issues/173); design point N3, settled by the orchestrator 2026-11-11 under the user's "Do recommended for decisions", on the M5 plan's quirk precedent, decision 14; the user may overturn it): replicated as SEL-API-39's note says; the focus-props suite's "passes the close type to a function" asserts `''` then `'keyboard'` on Server and WebAssembly.
 
 ## 8. Form integration
 
@@ -1209,6 +1271,7 @@ Select registers with the enclosing field as described in FFI §6.3 (Table A/B/C
   Source: `select/root/SelectRoot.tsx:97`, `select/trigger/SelectTrigger.tsx:86`. Test: [L2] `SelectRoot.test.tsx` "applies the root id to the trigger", "Field.Label", "Field.Label links to trigger and focuses it", "Field.Label links to trigger when trigger has an explicit id" (L4 for the label-click focus clause).
 - **SEL-FRM-15** — MUST. `Select.Label` provides the accessible name when no `Field.Label` exists (SEL-ARIA-05, FFI-ARIA-07) and follows Root id changes (`${newId}-label`); in server-rendered markup the trigger has no `aria-labelledby` until hydration (FFI-FRM-34).
   Source: `select/label/SelectLabel.tsx:30-42`. Test: [L2] `SelectRoot.test.tsx` "Select.Label", "updates Select.Label linkage when root id changes", "does not link Select.Label before hydration".
+  Port note 2026-11-10 (M5 track 9; ADR 01 Amendments 2026-10-22, the FST-DOM-08 precedent): the Label publishes its id in the render that creates it, so the trigger's `aria-labelledby` is in the first render, which prerendering emits; the clause "no `aria-labelledby` until hydration" does not hold for the port. Base UI's "does not link Select.Label before hydration" is restated at L2 as "port: links Select.Label in the first render, which prerendering emits" (`SelectRootLifecycleTests.razor`).
 - **SEL-FRM-16** — MUST. `Field.Description` / `Field.Error` ids are composed into the trigger's and hidden input's `aria-describedby` after any consumer-supplied ids (FFI-ARIA-01).
   Source: `select/trigger/SelectTrigger.tsx:212`. Test: [L2] `SelectRoot.test.tsx` "Field.Description".
 - **SEL-FRM-17** — MUST. `aria-invalid="true"` appears on the trigger (and hidden input) while the field is invalid and the control not disabled, and disappears when validity is restored (FFI-ARIA-03).
@@ -1286,6 +1349,7 @@ The Positioner uses the shared anchor-positioning mechanism (FLT) with the props
   Source: `select/positioner/SelectPositioner.tsx:111`, `internals/useAnchorPositioning.ts:455-470,582-586`. Test: [L4] `SelectPositioner.test.tsx` "does not retain stale coordinates while closed".
 - **SEL-POS-03** — MUST. *Aligned mode is active* iff the popup is mounted, the latched `alignItemWithTrigger` (SEL-POS-05) is `true`, and the rendered open method is not `touch`. While active: the Positioner's and Popup's `side` state is `'none'` (`data-side="none"`), the Arrow renders nothing, the positioner's built-in style is `position: fixed` (SEL-DOM-20), anchor tracking is disabled, the scroll lock applies (SEL-POS-21), the window-resize close applies (SEL-DIS-06), and the trigger-focus close applies (SEL-FOC-07).
   Source: `select/positioner/SelectPositioner.tsx:75-94,109,114-115`, `select/popup/SelectPopup.tsx:421-433`. Test: [L4] `SelectPopup.test.tsx` "keeps alignItemWithTrigger active at browser zoom"; `SelectTrigger.test.tsx` "closes an aligned popup when focus lands on the trigger so it is not obscured". Docs: `components/select/page.mdx` §Positioning.
+  Port note 2026-11-11 (M5 track 9, [issue 173](https://github.com/JakeMurrayDev/Blazix.Primitives/issues/173); PR 205's final review F4, option (a), settled by the orchestrator 2026-11-11): the `select` handle attaches when the force-mounted Popup renders, so it can ask for aligned mode before the `positioning` handle, which only an open attaches, exists. `setAligned` then holds the request on the Positioner element and applies it at that handle's attach, before its first pass; a stand-down before then clears it (`js/positioning.ts`; [L3] `positioning.test.ts` "holds an aligned request made before its handle attaches and applies it at attach, and a stand-down clears it"). The order no longer depends on which handle attached first, and the `select` handle, which classifies the items' clicks, is not delayed ([L4] `select.spec.ts` "port: selects an item clicked right after the open on a slow circuit", Server).
 - **SEL-POS-04** — MUST. *Fallback.* During placement (SEL-POS-07) aligned mode MUST be abandoned — restoring the positioner's original inline `top`/`left`/`right`/`height`/`bottom`/`min-height`/`max-height`/`margin-top`/`margin-bottom` captured when the positioner was first measured (`top`/`left` default `'0'`), and latching `alignItemWithTrigger` to `false` — when any of: the trigger's top is less than 20 px from the viewport top; the trigger's bottom is less than 20 px from the usable viewport bottom; the computed popup height (rounded up) + 1 px is less than `min(scrollHeight of the scroller, minHeight)` where `minHeight` is the positioner's computed `min-height` in px or `100` when unset/0; or the browser is pinch-zoomed (`visualViewport.scale !== 1`) on a WebKit engine (UTL-EDGE-01).
   Source: `select/popup/SelectPopup.tsx:195-215,348-362`. Test: [L4] `SelectPopup.test.tsx` "keeps alignItemWithTrigger active when the aligned height is fractionally below minHeight", "ignores a pinch-zoomed visual viewport outside WebKit". Docs: `components/select/page.mdx` §Positioning; `CHANGELOG.md v1.0.0-alpha.5 "Fallback to standard positioning when pinch-zoomed in Safari"`.
 - **SEL-POS-05** — MUST. The latched `alignItemWithTrigger` starts as the prop value and is re-synchronized to the prop only while the popup is **not mounted**; a fallback (SEL-POS-04) therefore lasts until the popup has fully closed, after which the next open tries aligned mode again. A prop change while mounted takes effect after the close.
@@ -1304,6 +1368,8 @@ The Positioner uses the shared anchor-positioning mechanism (FLT) with the props
   9. With a text element write the popup's `--transform-origin` (SEL-DOM-29).
   10. Mark *reached max height* when `max(minHeight, height) === viewportHeight` or `height ≥ popup max height`; recompute scroll-arrow visibility; and, when `highlightItemOnHover`, no selected index, no highlighted item and a first item exists, highlight the first item (SEL-POS-10).
   Source: `select/popup/SelectPopup.tsx:227-419,535-592`. Test: [L4] `SelectPopup.test.tsx` "aligns the selected item with the trigger inline start in ltr", "… when popup padding shifts the item text", "aligns the selected item with the trigger inline end in rtl", "aligns the popup with the trigger inline end in rtl when no selected item text is available", "keeps item text aligned with the trigger after reopening", "aligns the selected item with the trigger inline end on first open in the docs-style rtl layout", "treats short popups as top-positioned when maxScrollTop is off by 1px", "anchors the popup to the viewport bottom when the selection sits near the list top", "restores transform-related inline styles after measurement"; `SelectRoot.test.tsx` "aligns the first selected item with the trigger when alignItemWithTrigger is active", "resets aligned positioning after controlled value reset and option replacement" (and its two sibling tests). Docs: `CHANGELOG.md v1.4.0 "Fix RTL-aligned popup positioning with \`alignItemWithTrigger\`"`, `v1.3.0 "Fix \`alignItemWithTrigger\` fallback with browser zoom"`, `v1.2.0 "Fix \`alignItemWithTrigger\` transform with CSS animations"`.
+  Port note 2026-11-11 (M5 track 9, [issue 173](https://github.com/JakeMurrayDev/Blazix.Primitives/issues/173); interim review F3): the module re-runs the placement on the inputs this row lists and on each open session, not on the items or the texts. One port deviation: a selected or first text that was missing when the placement ran and registers later places once more, because C# registers the texts in its render, after the first positioning pass can run (`js/select.ts`, the placement key; `select.test.ts` "keeps the placement when the selected text changes while open, and places once when a missing first text registers"). Open by ID: `select-aligned.spec.ts` "keeps item text aligned with the trigger after reopening" and `select-nav.spec.ts` "resets aligned positioning when value reset, option replacement, and controlled open happen together" are red on both modes: the selected text is resolved from `SelectedIndex`, which is null after the items remount on a reopen, and five measured fixes either re-rendered every item on a value change or broke the aligned titles (the track's design point, settled by the orchestrator 2026-11-10: leave both red).
+  Port note 2026-11-11 (M5 track 9, [issue 173](https://github.com/JakeMurrayDev/Blazix.Primitives/issues/173); settled by the orchestrator 2026-11-11, so that a red gate does not block the merge): the two titles are marked `test.fixme` with the row ID and this reason in an `open` annotation. They are not `@quarantine`, which ADR 11 §4 keeps for flakes, so the gate no longer runs them. The row stays open by ID until the selected text is resolved after a reopen.
 - **SEL-POS-08** — MUST. The constants of SEL-POS-07 are normative: horizontal padding 5 px each side; trigger-to-viewport collision threshold 20 px; default margins 10 px; default `min-height` 100 px; edge tolerance 1 px (UTL `SCROLL_EDGE_TOLERANCE_PX`); a literal `0` for margin/min-height/max-height takes the default (the `|| N` fallback).
   Source: `select/popup/SelectPopup.tsx:286-297,535-538`, `utils/scrollEdges.ts:3`. Test: [L4] `SelectPopup.test.tsx` "treats a zero max-height as unconstrained rather than collapsing the popup".
 - **SEL-POS-09** — MUST. The placement runs once per open (it is skipped while `'ending'`) and again whenever its inputs change while open (list element appearing, direction change, the mechanism re-positioning); each run starts from the current inline values, so a re-run after items were replaced must first clear the positioner's and popup's inline `height` (SEL-POS-13).
@@ -1315,6 +1381,7 @@ The Positioner uses the shared anchor-positioning mechanism (FLT) with the props
   (b) otherwise write `height = ceil(nextHeight)` (never `0`); then if `maxAvailable − nextHeight > 1` scroll to the edge (max / `0`), else if bottom-positioned and not at max scroll to `scrollTop − (diff − overshoot)` where `overshoot = currentHeight + diff − maxAvailable`; the target is clamped to the recomputed range and only written when it differs by more than 1 px; mark reached-max when `ceil(nextHeight) ≥ maxAvailable − 1`; update arrow visibility.
   Once reached-max is `true`, or when the positioner is neither top- nor bottom-positioned, a scroll only updates arrow visibility.
   Source: `select/popup/SelectPopup.tsx:85-176`, `select/list/SelectList.tsx:36-38`, `select/popup/SelectPopup.tsx:451-456`. Test: [L4] `SelectPopup.test.tsx` "aligned popup scroll resizing" (all fourteen tests), "keeps scrolling the aligned list at browser zoom after the popup fills the available height"; `SelectRoot.test.tsx` "keeps the highlighted item visible while keyboard navigation grows the popup", "does not move the popup or its list when hovering items at its edges". Docs: `CHANGELOG.md v1.2.0 "Fix scroll height loop"`, `v1.1.0 "Fix support for \`max-height\` popup style when \`alignItemWithTrigger\` is active"`.
+  Correction of record 2026-11-10 (M5 track 9): `SelectPopup.test.tsx`'s "aligned popup scroll resizing" describe has fifteen titles (`:1299-1705`), not fourteen.
 - **SEL-POS-12** — MUST. Outside aligned mode, scroll-arrow visibility is computed on the next frame after placement (the List, when present, may mount after the Popup) and on every scroll of the scroller afterwards.
   Source: `select/popup/SelectPopup.tsx:247-254`. Test: [L4] `SelectRoot.test.tsx` "normalizes overlapping fractional scroll ranges when toggling scroll arrow visibility".
 - **SEL-POS-13** — MUST. When the popup closes (or aligned mode deactivates) the placement flags are reset and the positioner's original inline styles (SEL-POS-04 list) restored; when the item map changes while open and aligned, both scroll-arrow flags are cleared and the inline `height` of positioner and popup is cleared before the next placement.
@@ -1370,6 +1437,7 @@ The `select/` sources contain no component-specific `warn(`, `console.error(` or
   Source: `select/root/SelectRoot.tsx:99,250,365,372,391,505,528,575`, `select/item/SelectItem.tsx:61,136`. Test: [L4] `SelectRoot.test.tsx` "sets the disabled state", "does not commit item selection when root is disabled and forced open", "ignores hidden-input autofill when disabled $label"; `SelectItem.test.tsx` "inherits the disabled state from the root".
 - **SEL-EDGE-05** — MUST. *Read-only summary.* With `readOnly` (SEL-API-12): everything opens and navigates normally; item activation (click, drag-release, Enter, Space) commits nothing and in single mode still requests the close (SEL-EVT-12); closed-trigger typeahead is off; autofill is ignored; the hidden input is `readonly`; `aria-readonly` appears on trigger and listbox.
   Source: `select/root/SelectRoot.tsx:361-367,388-391,528,577`, `select/item/SelectItem.tsx:136-138`. Test: [L4] `SelectRoot.test.tsx` "prop: readOnly" (all tests), "does not commit item selection when root is readOnly and forced open".
+  Correction of record 2026-11-10 (M5 track 9): `select/item/SelectItem.tsx:128-138` returns before both the value request and the close when the Root is read-only, so a read-only activation commits nothing and does not request the close; the clause "in single mode still requests the close (SEL-EVT-12)" does not match the pinned source, and the port follows the source.
 - **SEL-EDGE-06** — MUST. When the popup is forced open by the consumer while the Root is disabled or `readOnly`, item activation MUST neither invoke `onValueChange` nor mark the item selected (the commit itself re-checks both flags, independently of the interaction gates).
   Source: `select/item/SelectItem.tsx:133-138`. Test: [L2] `SelectRoot.test.tsx` "does not commit item selection when root is %s and forced open".
 - **SEL-EDGE-07** — MUST. Typeahead treats attribute-disabled items as unavailable: a keystroke whose only matches are disabled commits/highlights nothing, a disabled item whose label starts with a doubled letter does not disable rapid same-letter cycling among the enabled items, and after a closed-state value reset the search starts from the first match again.
@@ -1382,6 +1450,7 @@ The `select/` sources contain no component-specific `warn(`, `console.error(` or
   Source: `floating-ui-react/utils/composite.ts` (index helpers skip `null` slots), `select/positioner/SelectPositioner.tsx:141-207`. Test: [L4] `SelectRoot.test.tsx` "skips null items when navigating", "unselects the selected item if removed".
 - **SEL-EDGE-11** — MUST. Server-rendered output contains the trigger (with its generated id), the Label (with `${id}-label`) and the hidden input, but no `aria-labelledby` on the trigger (FFI-FRM-34) and no popup subtree unless the Select is initially open; the first client render matches.
   Source: `select/portal/SelectPortal.tsx:18-25`, `select/label/SelectLabel.tsx:34-42`. Test: [L2] `SelectRoot.test.tsx` "does not link Select.Label before hydration".
+  Port note 2026-11-10 (M5 track 9; ADR 01 Amendments 2026-10-22, the FST-DOM-08 precedent): the Label publishes its id in the render that creates it, so the trigger's `aria-labelledby` is in the first render, which prerendering emits; the clause "no `aria-labelledby` until hydration" does not hold for the port. Base UI's "does not link Select.Label before hydration" is restated at L2 as "port: links Select.Label in the first render, which prerendering emits" (`SelectRootLifecycleTests.razor`).
 - **SEL-EDGE-12** — MUST. Inside a `Toolbar.Root` with the Trigger rendered through `Toolbar.Button`: the trigger keeps `role="combobox"` (SEL-ARIA-01), the toolbar's roving `tabindex` applies to it (UBT composite inference), opening with Enter focuses the selected item, and composite keys inside the popup do not reach the toolbar (SEL-KEY-14).
   Source: `select/trigger/SelectTrigger.tsx:214-216`, `select/popup/SelectPopup.tsx:65,446-450`. Test: [L4] `SelectPopup.test.tsx` "keeps arrow keys inside the popup when the trigger lives in a toolbar".
 - **SEL-EDGE-13** — MUST. Inside another popup (Popover, Dialog): the Select is a child in the popup tree, so its Escape does not close the parent (SEL-KEY-10), its outside-press bookkeeping does not consume the parent's next outside press (SEL-DIS-10), focus returns to the opener inside the parent after a programmatic open (SEL-FOC-04), and the trigger-release listener (SEL-PTR-04) is cleared on close so a native drag that ends outside does not leave a stale listener.
@@ -2025,7 +2094,7 @@ Every ID in this document, grouped by AREA (conventions §3.3 order) and numeric
 2. **Unchanged-value `onValueChange` (SEL-EVT-04).** Confirmed from `select/item/SelectItem.tsx:147-149`: activating the already-selected item in single mode calls `onValueChange` with the same value (no equality guard), matching EVD §4.3 "Select onValueChange (single, item press)" and EVD §10 Q6. No test covers it; a port should preserve the call (consumers may rely on it to re-close) unless upstream adds a guard.
 3. **Close after a canceled value change (SEL-EVT-12).** `select/item/SelectItem.tsx:146-149` issues the `item-press` close with a separate details object after `setValue`, without checking `isCanceled`; canceling `onValueChange` therefore does not keep the popup open. EVD-EVT-08 lists "the item-press close of Combobox/Select (`onOpenChange` not requested after a canceled selection)" — true for Combobox, not for Select in 1.9.0. The EVD author should narrow that clause. Resolved (QA 2026-10-14): EVD-EVT-08 now records Select as the exception (`select/item/SelectItem.tsx:146-149` re-verified); SEL-EVT-12 cites it.
 4. **`SelectFloatingContext` error (SEL-EDGE-01).** `select/root/SelectRootContext.ts:21-29` defines a second error message for the floating context; since the Root always provides both contexts, the message is unreachable on its own (the root-context check runs first in every part). Documented verbatim for completeness.
-5. **`finalFocus` close type for item presses (SEL-EVT-17).** `select/popup/SelectPopup.test.tsx:1733-1735` documents a "known gap": an item press closes through the Root's own `setOpen`, so the focus manager never records a pointer close type and the function receives `''` instead of `'mouse'`. Ports should reproduce `''` to pass the suite, but this looks like a bug upstream.
+5. **`finalFocus` close type for item presses (SEL-EVT-17).** `select/popup/SelectPopup.test.tsx:1733-1735` documents a "known gap": an item press closes through the Root's own `setOpen`, so the focus manager never records a pointer close type and the function receives `''` instead of `'mouse'`. Ports should reproduce `''` to pass the suite, but this looks like a bug upstream. Resolved 2026-11-11 (M5 track 9; design point N3, settled by the orchestrator 2026-11-11): replicated, SEL-API-39's and SEL-EVT-17's port notes.
 6. **`data-required` on the trigger (SEL-DOM-03).** `select/trigger/SelectTriggerDataAttributes.ts:24-27` and the API outline list `data-required`, but `SelectTriggerState` (`select/trigger/SelectTrigger.tsx:236-257`) has no `required` field and the state object built at `:218-226` does not include it, so the attribute is never rendered (`required` is read only for `aria-required`). Either the attribute export/docs are wrong or the state is missing a field. The doc follows the runtime.
 7. **Outline discrepancies.** `components/page.mdx` lists no data attributes for `Select.Label`, yet it renders the field attributes (`data-disabled`, `data-touched`, `data-dirty`, `data-filled`, `data-focused`, `data-valid`, `data-invalid`, SEL-DOM-14). `Select.Trigger` accepts an `id` prop (`select/trigger/SelectTrigger.tsx:50`) not listed in the outline (SEL-API-26). `Select.Icon` and `Select.ScrollUpArrow`/`ScrollDownArrow` accept `children` (not listed). `Select.Item` omits `id` from its type but forwards it at runtime (SEL-API-44).
 8. **`Field.Label` vs `Select.Label` click (SEL-PTR-24).** A native `Field.Label` click opens the popup (the browser's forwarded activation click reaches the trigger's click handler with no recorded pointer type), while `Select.Label` only focuses the trigger. `SelectRoot.test.tsx` "Field.Label links to trigger and focuses it" (`select/root/SelectRoot.test.tsx:4387`) asserts the *listbox* has focus, i.e. the popup opened, while "Select.Label focuses trigger without opening" (`:4363`) asserts the opposite for `Select.Label`. The docs page says a label click "focuses the select trigger without opening the popup" only for `Select.Label`. Intended asymmetry?

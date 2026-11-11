@@ -1,0 +1,37 @@
+@namespace Blazix.Primitives.Fixtures.Client.FieldFixtures
+@using Blazix.Primitives
+
+@*
+    The `field-select-prerender` fixture (tests/browser/field.spec.ts; M5 track 9, final review B2), prerendered: FieldRoot.test.tsx
+    "keeps `aria-labelledby` valid when toggling from Checkbox.Root to Select.Root after hydration" (FFI-FRM-34). A Field
+    holds a non-native FieldLabel "Label" rendered as a `div` and, by the Toggle button, a CheckboxRoot or a SelectRoot
+    whose trigger shows a placeholder. The static response is the server's render; the label's registration runs after the
+    render, so the association appears once the runtime has taken over.
+*@
+<FixtureContainer Name="field-select-prerender">
+    <FieldRoot>
+        <FieldLabel NativeLabel="false" data-testid="label">
+            <Render><div></div></Render>
+            <ChildContent>Label</ChildContent>
+        </FieldLabel>
+        @if (showSelect)
+        {
+            <SelectRoot TValue="string">
+                <SelectTrigger data-testid="trigger">
+                    <SelectValue>
+                        <Placeholder>Pick one</Placeholder>
+                    </SelectValue>
+                </SelectTrigger>
+            </SelectRoot>
+        }
+        else
+        {
+            <CheckboxRoot data-testid="checkbox" />
+        }
+    </FieldRoot>
+    <button type="button" @onclick="() => showSelect = !showSelect">Toggle</button>
+</FixtureContainer>
+
+@code {
+    private bool showSelect;
+}
