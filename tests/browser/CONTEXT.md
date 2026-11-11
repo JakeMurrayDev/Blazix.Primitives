@@ -45,6 +45,7 @@ Specs: `smoke.spec.ts` (the probe twin, the harness canary, and the button twin)
 - Each title keeps Base UI's wording and its `@verifies` tag where a verification item applies.
 - Gesture tests use real Playwright mouse and touch input, not `dispatchEvent`; driving a fixture's own control with `pressControl` is not the gesture under test.
 - `retries` stays 0; a flaky test is quarantined with `test.fixme`, `@quarantine` and an issue, for at most 14 days. The nightly summary counts the quarantined specs and reports any flaky result (there can be none while `retries` is 0).
+- A `test.fixme` with an `open` annotation (`{ type: 'open', description }`, naming the row and where it was settled) marks a settled open row, not a quarantine: it carries no `@quarantine` tag and no 14-day limit (ADR 11 §4).
 - A test that needs frozen time pauses the clock itself; nothing waits on a timeout.
 
 `context-menu.spec.ts` (M5 track 7, [issue 194](https://github.com/JakeMurrayDev/Blazix.Primitives/issues/194); the plan's §Settled; the dialog.spec.ts precedent), dated note 2026-11-11 on the real-input rule above:

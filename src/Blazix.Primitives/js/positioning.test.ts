@@ -924,6 +924,53 @@ describe('positioning module: the adaptive origin (FLT-ALG-12, FLT-ANI-03)', () 
     document.body.append(top.elements.floating);
     expect(await adaptiveOrigin.fn(top)).toEqual({ x: 40, y: 800 - (60 + 24), data: { sideX: 'left', sideY: 'bottom' } });
   });
+
+  // Issue 207: the starting phase's `transition: none` hides the Positioner's transition from every pass of that phase.
+  // Base UI's last pass of an open lands after the phase ends (useTransitionStatus.ts:64-68 ends it a frame after the
+  // open, and floating-ui's autoUpdate re-observes the floating element a frame after its first resize delivery); the
+  // port's end of the phase arrives with C#'s update, after a circuit round trip on Server, so it runs that pass itself.
+  it('port: the end of the starting phase runs one pass with the adaptive origin on, which anchors from the far edge', async () => {
+    stubViewport();
+    // jsdom expands neither the `transition` shorthand of a rule nor the layer's inline `transition: none` into
+    // `transition-duration`, so the rule sets the longhand and drops out while the inline override is present, as the
+    // override wins in a browser.
+    const sheet = document.createElement('style');
+    sheet.textContent = '[role="presentation"]:not([style*="transition: none"]) { transition-duration: 100ms; }';
+    document.head.append(sheet);
+    try {
+      const { positioner, update } = setup({ side: 'left', adaptiveOrigin: true, transitionStatus: 'starting' });
+      await settle();
+      expect(positioner.style.getPropertyValue('transition')).toBe('none');
+      expect(positioner.style.left).not.toBe('');
+      expect(positioner.style.right).toBe('');
+      spies.computePosition.mockClear();
+
+      update({ transitionStatus: null });
+      await settle();
+
+      expect(spies.computePosition).toHaveBeenCalledTimes(1);
+      expect(positioner.style.right).not.toBe('');
+      expect(positioner.style.left).toBe('');
+
+      // Controls (ADR 11 §3): an update that does not end the phase runs no pass, and nor does the end of the phase
+      // without the adaptive origin, whose passes do not read the transition.
+      update({ transitionStatus: 'starting' });
+      await settle();
+      spies.computePosition.mockClear();
+      update({ transitionStatus: 'starting' });
+      await settle();
+      expect(spies.computePosition).not.toHaveBeenCalled();
+
+      update({ adaptiveOrigin: false });
+      await settle();
+      spies.computePosition.mockClear();
+      update({ transitionStatus: null });
+      await settle();
+      expect(spies.computePosition).not.toHaveBeenCalled();
+    } finally {
+      sheet.remove();
+    }
+  });
 });
 
 describe('positioning module: logical sides (FLT-I18N-02)', () => {
