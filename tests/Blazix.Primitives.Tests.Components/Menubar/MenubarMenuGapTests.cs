@@ -38,6 +38,20 @@ public sealed class MenubarMenuGapTests : BunitContext
         cut.WaitForAssertion(() => Assert.True(Bar(cut).HasAttribute("data-has-submenu-open")), TimeSpan.FromSeconds(2));
     }
 
+    // MenuPortal.tsx:29-32: the owner's role follows the Root's position, not the parent a detached trigger forwards to
+    // the store, so a Root outside the bar renders its owner with no role while a bar trigger holds its popup.
+    [Fact(DisplayName = "port: a detached bar menu's portal owner takes its role from the Root's position, outside the bar")]
+    [Trait("Requirement", "MBR-ARIA-04")]
+    public void A_detached_bar_menus_portal_owner_takes_its_role_from_the_roots_position()
+    {
+        IRenderedComponent<MenubarMenuGapHost> cut = Render<MenubarMenuGapHost>(p => p.Add(x => x.Case, "detached"));
+
+        Assert.Equal("bar", cut.Find("[data-testid=\"popup\"]").GetAttribute("data-rootownerid"));
+        // A later render of the Root's content passes the Portal its parameters again, after the forward.
+        cut.Render();
+        Assert.False(cut.Find("span[aria-owns]").HasAttribute("role"));
+    }
+
     // MenuRoot.tsx:193, 516-568: the Root's list reads the store's parent, so a detached menu held by a bar trigger
     // navigates as the bar's nested list (the contained case is the control).
     [Theory(DisplayName = "port: a bar menu navigates as a nested list of the bar, detached or contained")]

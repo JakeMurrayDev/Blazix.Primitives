@@ -14,7 +14,11 @@
     renders the menu its trigger's payload names (`file`, `edit`, `view`), its open changes in `data-file-changes`.
     `case=first-disabled`: a bar whose File trigger is disabled, then Edit. `case=consumer`: a bar whose File trigger has a consumer `onmousedown` (calling PreventPartHandler() with
     `veto`) and `onclick`, recorded in `data-handler-calls`. `case=disabled-open`: a disabled bar
-    whose File menu is held open by `Open`, its item recording its clicks (`data-item-clicks`). `orientation=vertical` turns the bar, `loopFocus=false` stops the arrow keys at the ends, `disabled` disables it, and `dir=rtl` puts it in a right-to-left DirectionProvider. A "Before" button precedes the bar for Tab. The container records each
+    whose File menu is held open by `Open`, its item recording its clicks (`data-item-clicks`). `case=triggerless`: an
+    Outside button and a bar whose one menu has no trigger, is bound open and kept mounted (Menubar.test.tsx:119).
+    `case=scroll-lock`: a modal bar of File (`fileWidth=narrow` makes its positioner 240px wide, else the viewport less
+    10px) and Edit (240px) (`:821-927`). `case=open-side`: a bar (`orientation`) whose File menu is open, for
+    MenuPositioner.test.tsx's "Menubar parent" titles. `orientation=vertical` turns the bar, `loopFocus=false` stops the arrow keys at the ends, `disabled` disables it, and `dir=rtl` puts it in a right-to-left DirectionProvider. A "Before" button precedes the bar for Tab. The container records each
     menu's open changes (`data-file-changes`, `data-edit-changes`, `data-view-changes`, `open:reason`).
 *@
 <FixtureContainer Name="menubar-root" data-attached="@(Attached ? "true" : "false")" data-sync="@Sync"
@@ -42,6 +46,48 @@
                     <MenuTrigger TPayload="NoPayload" @ref="fileTrigger" data-testid="file-trigger"
                                  @onmousedown="@OnConsumerMouseDown" @onclick="@(() => handlerCalls.Add("click"))">File</MenuTrigger>
                     <MenuPortal><MenuPositioner data-testid="file-menu"><MenuPopup><MenuItem>Open</MenuItem></MenuPopup></MenuPositioner></MenuPortal>
+                </MenuRoot>
+            </Menubar>
+            break;
+        case "triggerless":
+            <button type="button" data-testid="outside">Outside</button>
+            <Menubar @ref="bar">
+                <MenuRoot TPayload="NoPayload" @ref="file" @bind-Open="triggerlessOpen">
+                    <MenuPortal KeepMounted="true">
+                        <MenuPositioner>
+                            <MenuPopup data-testid="triggerless-menu"><MenuItem>Item</MenuItem></MenuPopup>
+                        </MenuPositioner>
+                    </MenuPortal>
+                </MenuRoot>
+            </Menubar>
+            break;
+        case "scroll-lock":
+            <Menubar @ref="bar" Modal="true" style="display: flex">
+                <MenuRoot TPayload="NoPayload" @ref="file" OnOpenChange="@((ValueChangeEventArgs<bool> args) => Record(fileChanges, args))">
+                    <MenuTrigger TPayload="NoPayload" @ref="fileTrigger" data-testid="file-trigger">File</MenuTrigger>
+                    <MenuPortal>
+                        <MenuPositioner data-testid="file-menu" style="@(Query("fileWidth") == "narrow" ? "width: 240px" : "width: calc(100vw - 10px)")">
+                            <MenuPopup><MenuItem>Open</MenuItem></MenuPopup>
+                        </MenuPositioner>
+                    </MenuPortal>
+                </MenuRoot>
+                <MenuRoot TPayload="NoPayload" @ref="edit" OnOpenChange="@((ValueChangeEventArgs<bool> args) => Record(editChanges, args))">
+                    <MenuTrigger TPayload="NoPayload" @ref="editTrigger" data-testid="edit-trigger">Edit</MenuTrigger>
+                    <MenuPortal>
+                        <MenuPositioner data-testid="edit-menu" style="width: 240px">
+                            <MenuPopup><MenuItem>Copy</MenuItem></MenuPopup>
+                        </MenuPositioner>
+                    </MenuPortal>
+                </MenuRoot>
+            </Menubar>
+            break;
+        case "open-side":
+            <Menubar @ref="bar" Orientation="@orientation">
+                <MenuRoot TPayload="NoPayload" @ref="file" Open="true">
+                    <MenuTrigger TPayload="NoPayload" @ref="fileTrigger" style="width: 72px; height: 36px">File</MenuTrigger>
+                    <MenuPortal>
+                        <MenuPositioner data-testid="positioner"><MenuPopup style="width: 52px; height: 24px">Open</MenuPopup></MenuPositioner>
+                    </MenuPortal>
                 </MenuRoot>
             </Menubar>
             break;
@@ -120,6 +166,7 @@
     private readonly List<string> viewChanges = [];
     private readonly List<string> itemClicks = [];
     private readonly List<string> handlerCalls = [];
+    private bool triggerlessOpen = true;
     private Menubar? bar;
     private MenuRoot<NoPayload>? file;
     private MenuRoot<NoPayload>? edit;

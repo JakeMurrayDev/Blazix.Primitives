@@ -1,6 +1,6 @@
-import { type Locator } from '@playwright/test';
-import { delayCircuit, expect, test, type Page, type RenderMode } from './helpers';
-import { moveTo, parkPointer } from './menu.helpers';
+import { type CDPSession, type Locator } from '@playwright/test';
+import { delayCircuit, expect, isScrollLocked, test, type Page, type RenderMode } from './helpers';
+import { center, moveTo, parkPointer } from './menu.helpers';
 import { gotoPopupFixture, settle, type PopupFixtureOptions } from './suites/popupFixture';
 
 // The L4 titles of Menubar.test.tsx (M5 track 8, issue 195; docs/components/menubar.md), titles verbatim, on both render
@@ -27,6 +27,31 @@ const SETUPS = [
 /** Opens the fixture outside the setups (the contained bar, or a `case`). */
 const render = renderFixture;
 
+// Base UI's `pressWithTouch` fires `pointerdown` (touch) and `mousedown`. Here a touch is a real tap, as in
+// select-lifecycle.spec.ts: CDP touch emulation and `Input.dispatchTouchEvent` at the element's center once its popup has
+// its position, which the browser turns into a touch `pointerdown`, the `touchend` and the compatibility mouse events.
+async function touchSession(page: Page): Promise<CDPSession> {
+  const cdp = await page.context().newCDPSession(page);
+  await cdp.send('Emulation.setTouchEmulationEnabled', { enabled: true, maxTouchPoints: 1 });
+  return cdp;
+}
+
+async function tap(cdp: CDPSession, target: Locator): Promise<void> {
+  const { x, y } = await center(target);
+  await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x, y }] });
+  await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+}
+
+/**
+ * Waits until the focus is inside the open menu whose Positioner has `testId`. ADR 01's "A popup element the opening
+ * render creates" row: the popup takes its initial focus once its handles attach (a round trip after the open on Server,
+ * after the open's render on WebAssembly), and a key pressed before then lands on the trigger. Base UI's jsdom titles
+ * focus in the open's commit.
+ */
+async function focusInside(page: Page, testId: string): Promise<void> {
+  await expect.poll(() => page.evaluate((id) => !!document.activeElement?.closest(`[data-testid="${id}"]`), testId)).toBe(true);
+}
+
 test.describe('<Menubar />', () => {
   test('renders contained top-level portal ownership as an allowed menubar child', async ({ page, mode }) => {
     await render(page, mode);
@@ -40,6 +65,60 @@ test.describe('<Menubar />', () => {
     await expect(owner).toHaveAttribute('role', 'group');
     await expect(owner).not.toHaveAttribute('aria-hidden');
     await expect(owner).toHaveAttribute('aria-owns', portalId);
+  });
+
+  test('renders detached top-level portal ownership without an accessibility role', async ({ page, mode }) => {
+    await render(page, mode, { setup: 'detached' });
+    await page.getByTestId('file-trigger').click();
+    const fileMenu = page.getByTestId('file-menu');
+    await expect(fileMenu).toBeVisible();
+
+    const portalId = await fileMenu.evaluate((element) => element.closest('[data-base-ui-portal]')?.id ?? '');
+    const owner = page.locator('span[aria-owns]');
+    expect(portalId).not.toBe('');
+    await expect(owner).toHaveAttribute('aria-owns', portalId);
+    // The portal renders outside the menubar, so the `group` workaround would only add a stray accessible group.
+    await expect(page.getByRole('menubar').locator('span[aria-owns]')).toHaveCount(0);
+    await expect(owner).not.toHaveAttribute('role');
+  });
+
+  test('keeps focus on an outside target when a triggerless menubar menu closes', async ({ page, mode }) => {
+    const fixture = await render(page, mode, { case: 'triggerless' });
+    const outside = page.getByTestId('outside');
+    // The menu is open from the first render; a settled round trip has its popup's handles attached (on Server they attach
+    // a round trip after the render), so the press below meets an outside-press listener.
+    await expect(page.getByTestId('triggerless-menu')).toHaveAttribute('data-open', '');
+    await settle(fixture);
+
+    // Base UI's `user.click` dispatches the press to the button itself. A real click there lands on the modal bar's
+    // backdrop (MBR-DOM-08), so the port dispatches the same sequence user-event does: the pointer and mouse presses,
+    // the focus, the releases and the click.
+    await outside.evaluate((button: HTMLElement) => {
+      const init = { bubbles: true, cancelable: true, composed: true, button: 0, pointerType: 'mouse', isPrimary: true };
+      button.dispatchEvent(new PointerEvent('pointerdown', init));
+      button.dispatchEvent(new MouseEvent('mousedown', init));
+      button.focus();
+      button.dispatchEvent(new PointerEvent('pointerup', init));
+      button.dispatchEvent(new MouseEvent('mouseup', init));
+      button.dispatchEvent(new MouseEvent('click', { ...init, detail: 1 }));
+    });
+
+    await expect(page.getByTestId('triggerless-menu')).not.toHaveAttribute('data-open');
+    await expect(outside).toBeFocused();
+  });
+
+  // MenuPositioner.test.tsx's "Menubar parent" titles (MBR-POS-02; MNU-POS-02's bar half). Base UI reads the side its
+  // `sideOffset` callback receives; the port reads the side the Positioner resolved, its `data-side`.
+  test.describe('MenuPositioner: Menubar parent', () => {
+    test('uses bottom as the default side when the menubar is horizontal', async ({ page, mode }) => {
+      await render(page, mode, { case: 'open-side' });
+      await expect(page.getByTestId('positioner')).toHaveAttribute('data-side', 'bottom');
+    });
+
+    test('uses inline-end as the default side when the menubar is vertical', async ({ page, mode }) => {
+      await render(page, mode, { case: 'open-side', orientation: 'vertical' });
+      await expect(page.getByTestId('positioner')).toHaveAttribute('data-side', 'inline-end');
+    });
   });
 
   // Deliverable 6 of M5 track 8's brief (MBR-PTR-01, PTR-02; PSH-PTR-04, ALG-20): the mixed toggle with consumer handlers.
@@ -315,6 +394,44 @@ test.describe('<Menubar />', () => {
         await expect(shareTrigger).toBeFocused();
       });
 
+      test('closes open submenus when navigating to the next menubar item with ArrowRight', async ({ page, mode }) => {
+        // Base UI renders its own contained bar here (`SpyMenubar`), in every setup. Its File menu has one item before
+        // Share, the fixture's two, so the focus takes two ArrowDown presses to reach Share.
+        const fixture = await renderFixture(page, mode);
+        await page.getByTestId('file-trigger').focus();
+        await page.keyboard.press('Enter');
+        await expect(page.getByTestId('file-menu')).toBeVisible();
+        await expect(page.getByTestId('file-item-1')).toBeFocused();
+
+        await page.keyboard.press('ArrowDown');
+        await expect(page.getByTestId('file-item-2')).toBeFocused();
+        await page.keyboard.press('ArrowDown');
+        await expect(page.getByTestId('share-trigger')).toBeFocused();
+
+        await page.keyboard.press('ArrowRight');
+        await expect(page.getByTestId('share-menu')).toBeVisible();
+        await expect(page.getByTestId('share-item-1')).toBeFocused();
+
+        await page.keyboard.press('ArrowRight');
+        await expect(page.getByTestId('edit-menu')).toBeVisible();
+        await expect(page.getByTestId('share-menu')).toHaveCount(0);
+        await expect(page.getByTestId('file-menu')).toHaveCount(0);
+        await expect(fixture).toHaveAttribute('data-file-changes', /(^| )false:[a-z-]+$/);
+        await expect(fixture).toHaveAttribute('data-edit-changes', /(^| )true:[a-z-]+$/);
+      });
+
+      test('should navigate between menus using left/right arrow keys when menus are open', async ({ page, mode }) => {
+        await render(page, mode);
+        await page.getByTestId('file-trigger').focus();
+        await page.keyboard.press('Enter');
+        await expect(page.getByTestId('file-menu')).toBeVisible();
+        await focusInside(page, 'file-menu');
+
+        await page.keyboard.press('ArrowRight');
+        await expect(page.getByTestId('file-menu')).toHaveCount(0);
+        await expect(page.getByTestId('edit-menu')).toBeVisible();
+      });
+
       test('moves focus to the first and last triggers with Home and End', async ({ page, mode }) => {
         await render(page, mode);
         await page.getByTestId('file-trigger').focus();
@@ -324,6 +441,89 @@ test.describe('<Menubar />', () => {
 
         await page.keyboard.press('Home');
         await expect(page.getByTestId('file-trigger')).toBeFocused();
+      });
+    });
+
+    test.describe('mixed mouse and keyboard interactions', () => {
+      test('should allow keyboard navigation after opening a menu with mouse click', async ({ page, mode }) => {
+        await render(page, mode);
+        await page.getByTestId('file-trigger').click();
+        await expect(page.getByTestId('file-menu')).toBeVisible();
+
+        await page.keyboard.press('ArrowDown');
+        await expect(page.getByTestId('file-item-1')).toBeFocused();
+
+        await page.keyboard.press('ArrowDown');
+        await expect(page.getByTestId('file-item-2')).toBeFocused();
+      });
+
+      test('should allow clicking a menu trigger then navigating to another menu with keyboard', async ({ page, mode }) => {
+        await render(page, mode);
+        await page.getByTestId('file-trigger').click();
+        await expect(page.getByTestId('file-menu')).toBeVisible();
+        await focusInside(page, 'file-menu');
+
+        await page.keyboard.press('ArrowRight');
+        await expect(page.getByTestId('file-menu')).toHaveCount(0);
+        await expect(page.getByTestId('edit-menu')).toBeVisible();
+      });
+    });
+
+    test.describe('touch interactions', () => {
+      test('closes the entire tree on a single outside press after opening a submenu', async ({ page, mode }) => {
+        await render(page, mode);
+        const cdp = await touchSession(page);
+
+        await tap(cdp, page.getByTestId('file-trigger'));
+        await expect(page.getByTestId('file-menu')).toBeVisible();
+        await tap(cdp, page.getByTestId('share-trigger'));
+        await expect(page.getByTestId('share-menu')).toBeVisible();
+
+        await tap(cdp, page.getByTestId('before'));
+        // The submenu lives inside the file menu, so it is gone once the file menu closes.
+        await expect(page.getByTestId('file-menu')).toHaveCount(0);
+        await expect(page.getByTestId('share-menu')).toHaveCount(0);
+      });
+    });
+
+    test.describe('scroll locking', () => {
+      // Base UI renders its own modal bar here, in every setup.
+      test('applies scroll lock when a touch-opened submenu covers the viewport width', async ({ page, mode }) => {
+        await renderFixture(page, mode, { case: 'scroll-lock' });
+        const cdp = await touchSession(page);
+
+        await tap(cdp, page.getByTestId('file-trigger'));
+        await expect(page.getByRole('menu')).toBeVisible();
+
+        await expect.poll(() => isScrollLocked(page)).toBe(true);
+      });
+
+      test('does not apply scroll lock when a touch-opened submenu is narrower than the viewport', async ({ page, mode }) => {
+        const fixture = await renderFixture(page, mode, { case: 'scroll-lock', fileWidth: 'narrow' });
+        const cdp = await touchSession(page);
+
+        await tap(cdp, page.getByTestId('file-trigger'));
+        await expect(page.getByRole('menu')).toBeVisible();
+        // The positioned popup and a settled round trip: the lock's decision has run (its control is the title above).
+        await center(page.getByRole('menu'));
+        await settle(fixture);
+
+        expect(await isScrollLocked(page)).toBe(false);
+      });
+
+      test('updates scroll lock when handing off between top-level touch-opened menus', async ({ page, mode }) => {
+        await renderFixture(page, mode, { case: 'scroll-lock' });
+        const cdp = await touchSession(page);
+
+        await tap(cdp, page.getByTestId('file-trigger'));
+        await expect(page.getByTestId('file-menu')).toBeVisible();
+        await expect.poll(() => isScrollLocked(page)).toBe(true);
+
+        await tap(cdp, page.getByTestId('edit-trigger'));
+        await expect(page.getByTestId('edit-menu')).toBeVisible();
+        await expect(page.getByTestId('file-menu')).toHaveCount(0);
+
+        await expect.poll(() => isScrollLocked(page)).toBe(false);
       });
     });
 
