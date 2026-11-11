@@ -263,14 +263,7 @@ internal sealed class ComboboxListBehavior<TValue> : IAsyncDisposable
             return;
         }
 
-        IReadOnlyList<CompositeItemBehavior> ordered = composite.OrderedItems;
-        ItemSlot<TValue>[] slots = new ItemSlot<TValue>[ordered.Count];
-        for (int i = 0; i < slots.Length; i++)
-        {
-            slots[i] = store.RenderedValueOf(ordered[i]);
-        }
-
-        store.SetRenderedValues(slots, ordered);
+        store.SetRenderedValues(composite.OrderedItems);
     }
 
     private async Task Observe(Task task)

@@ -1013,17 +1013,31 @@ internal sealed class ComboboxStore<TValue> : ComboboxStore
     public ItemSlot<TValue> RenderedValueOf(CompositeItemBehavior item) =>
         itemValues.TryGetValue(item, out TValue? value) ? new ItemSlot<TValue>(value, true) : new ItemSlot<TValue>(default!, false);
 
-    /// <summary>Records the values of the items that rendered, in order, for a list without <c>Items</c>.</summary>
-    /// <param name="values">The rendered items' values joined to the reported order.</param>
-    /// <param name="order">The items, in the reported order.</param>
-    public void SetRenderedValues(ItemSlot<TValue>[] values, IReadOnlyList<CompositeItemBehavior> order)
+    // ComboboxItem.tsx:98-109 (useCompositeListItem's index): an item given an explicit index writes its value at that index,
+    // as the module's registry places it, so the registry has holes where an indexed item is not mounted.
+    /// <summary>Records the values of the items that rendered, for a list without <c>Items</c>.</summary>
+    /// <param name="order">The items, in the reported order; an item with an explicit index holds that position.</param>
+    public void SetRenderedValues(IReadOnlyList<CompositeItemBehavior> order)
     {
-        renderedValues = values;
+        int length = order.Count;
+        for (int i = 0; i < order.Count; i++)
+        {
+            if (order[i].Registration.Index is int explicitIndex && explicitIndex >= length)
+            {
+                length = explicitIndex + 1;
+            }
+        }
+
+        ItemSlot<TValue>[] values = new ItemSlot<TValue>[length];
         renderedPositions.Clear();
         for (int i = 0; i < order.Count; i++)
         {
-            renderedPositions[order[i]] = i;
+            int position = order[i].Registration.Index is int explicitIndex && explicitIndex >= 0 ? explicitIndex : i;
+            renderedPositions[order[i]] = position;
+            values[position] = RenderedValueOf(order[i]);
         }
+
+        renderedValues = values;
 
         SyncSelectedIndex();
         ReassertSelectedIndex();
