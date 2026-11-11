@@ -308,8 +308,19 @@ function attachList(list: HTMLElement, initial: MenuFilterOptions, channel: Twin
     }
   };
 
+  // PTR-20 (useMenuItemCommonProps.ts:12-14, 84): under virtual focus pressing an item keeps focus on the input. The
+  // list's own background is not an item: a scrollbar press may focus the list, which the Popup's refocus handles.
+  const onMouseDown = (event: MouseEvent): void => {
+    const target = event.target;
+    const item = target instanceof Element ? target.closest('[role^="menuitem"]') : null;
+    if (item !== null && list.contains(item)) {
+      event.preventDefault();
+    }
+  };
+
   const observer = new MutationObserver(reportTexts);
   observer.observe(list, { subtree: true, childList: true, characterData: true });
+  list.addEventListener('mousedown', onMouseDown);
   reportTexts();
 
   return {
@@ -326,6 +337,7 @@ function attachList(list: HTMLElement, initial: MenuFilterOptions, channel: Twin
       }
       disposed = true;
       observer.disconnect();
+      list.removeEventListener('mousedown', onMouseDown);
     },
   };
 }
