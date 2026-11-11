@@ -75,7 +75,7 @@ public sealed class ComboboxChip : PartBase<ComboboxChipState>
     protected override void OnParametersSet()
     {
         ComboboxChipBehavior chip = behavior!;
-        chip.Apply(Id);
+        chip.Apply(Id, AdditionalAttributes);
         RenderFragment? content = ChildContent;
         ChildContent = builder => chip.BuildContent(builder, content);
     }
@@ -99,4 +99,7 @@ public sealed class ComboboxChip : PartBase<ComboboxChipState>
 
     /// <inheritdoc />
     protected override void AddPartAttributes(AttributeList attributes) => behavior!.AddPartAttributes(attributes);
+
+    /// <inheritdoc />
+    protected override bool ForwardsConsumerHandler(string eventName) => behavior!.ForwardsConsumerHandler(eventName);
 }

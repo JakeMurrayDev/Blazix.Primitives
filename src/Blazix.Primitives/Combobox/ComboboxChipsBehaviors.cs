@@ -227,9 +227,22 @@ internal sealed class ComboboxChipsBehavior : IAsyncDisposable
 /// <summary>The behavior of a combobox chip.</summary>
 internal sealed class ComboboxChipBehavior : IDisposable
 {
+    private static readonly ComboboxOptions s_chipOptions = new() { Part = ComboboxTwin.ChipPart };
+
     private readonly ComboboxPartServices services;
 
     private readonly ComboboxChipContext context = new();
+
+    // CMB-KEY-10, PTR-08 (ComboboxChip.tsx:100-127 with mergeProps; ADR 04 Amendments 2026-11-11, option (a) settled by the
+    // orchestrator 2026-11-11): the consumer's onKeyDown and onMouseDown run before the chip's own key handling and the Chips'
+    // press, and its PreventPartHandler() skips them. The chips module stops those keys and decides the press before Blazor's
+    // document-level dispatch, so the chip declines the two handlers and runs them in its own handle's `navigate` and `press`
+    // points; on Server the handle reports the event and they run a round trip late.
+    private readonly FieldConsumerHandlers consumerHandlers = new("onkeydown", "onmousedown");
+
+    private readonly ComboboxHandleSync<ComboboxTwin, ComboboxOptions> sync = new();
+
+    private ComboboxTwin? twin;
 
     private ComboboxStore? store;
 
@@ -265,6 +278,11 @@ internal sealed class ComboboxChipBehavior : IDisposable
         disposed = true;
         item?.Dispose();
         chips?.Remove(context);
+        if (twin is not null)
+        {
+            twin.Decider = null;
+            _ = Observe(twin.DisposeAsync().AsTask());
+        }
     }
 
     /// <summary>Reads the root and the chips and subscribes the part.</summary>
@@ -284,8 +302,10 @@ internal sealed class ComboboxChipBehavior : IDisposable
 
     /// <summary>Applies the id the part renders and registers it.</summary>
     /// <param name="id">The consumer's id or a generated one.</param>
-    public void Apply(string? id)
+    /// <param name="consumerAttributes">The consumer's attributes, for the declined <c>onkeydown</c> and <c>onmousedown</c>.</param>
+    public void Apply(string? id, IReadOnlyDictionary<string, object>? consumerAttributes)
     {
+        consumerHandlers.Set(consumerAttributes);
         item!.SetRegistration(id);
         if (!string.Equals(context.Id, item.Id, StringComparison.Ordinal))
         {
@@ -328,7 +348,58 @@ internal sealed class ComboboxChipBehavior : IDisposable
     /// <summary>Sends the chip's element to the registry.</summary>
     /// <param name="element">The chip's element.</param>
     /// <returns>A task that completes when the registry has it.</returns>
-    public Task AfterRenderAsync(ElementReference? element) => disposed || item is null ? Task.CompletedTask : item.AfterRenderAsync(element);
+    public Task AfterRenderAsync(ElementReference? element) => disposed || item is null ? Task.CompletedTask : Task.WhenAll(item.AfterRenderAsync(element), SyncTwinAsync(element));
+
+    /// <summary>Determines whether the consumer's handler for an event renders on the element.</summary>
+    /// <param name="eventName">The event's attribute name.</param>
+    /// <returns><see langword="false"/> for the <c>onkeydown</c> and <c>onmousedown</c> the chip runs itself.</returns>
+    public bool ForwardsConsumerHandler(string eventName) => !consumerHandlers.Declines(eventName);
+
+    // A chip whose consumer gave neither handler attaches no handle (ADR 16 rule 7).
+    private Task SyncTwinAsync(ElementReference? element)
+    {
+        if (!consumerHandlers.Any || element is not { } target)
+        {
+            return Task.CompletedTask;
+        }
+
+        if (twin is null)
+        {
+            twin = new ComboboxTwin(services.JSRuntime) { Decider = Decide };
+            twin.ChipEventReported += snapshot => _ = Observe(services.InvokeAsync(() => RunReportedAsync(snapshot)));
+        }
+
+        return sync.SyncAsync(twin, target, s_chipOptions);
+    }
+
+    // On WebAssembly, inside the dispatch: a PreventPartHandler() stops the chip's own key handling or the Chips' press.
+    private DecisionPolicy Decide(string point, EventSnapshot snapshot)
+    {
+        bool prevented = point switch
+        {
+            ComboboxTwin.NavigatePoint => consumerHandlers.RunSynchronously("onkeydown", snapshot.ToKeyboardEventArgs(), services.DispatchException),
+            ComboboxTwin.PressPoint => consumerHandlers.RunSynchronously("onmousedown", FieldConsumerHandlers.ToMouseEventArgs(snapshot), services.DispatchException),
+            _ => false,
+        };
+        return prevented ? DecisionPolicy.Stop : DecisionPolicy.Run;
+    }
+
+    // On Server the module's handling has run; the handler runs a round trip late and can no longer veto it.
+    private Task RunReportedAsync(EventSnapshot snapshot) => string.Equals(snapshot.Type, "mousedown", StringComparison.Ordinal)
+        ? consumerHandlers.RunAsync("onmousedown", FieldConsumerHandlers.ToMouseEventArgs(snapshot))
+        : consumerHandlers.RunAsync("onkeydown", snapshot.ToKeyboardEventArgs());
+
+    private async Task Observe(Task task)
+    {
+        try
+        {
+            await task;
+        }
+        catch (Exception exception) when (!task.IsCanceled)
+        {
+            await services.DispatchException(exception);
+        }
+    }
 
     private void OnIndexChanged()
     {

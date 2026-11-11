@@ -44,6 +44,9 @@ internal sealed class ComboboxTwin(IJSRuntime jsRuntime)
     /// <summary>Represents the part literal of a chip remove button's handle.</summary>
     public const string ChipRemovePart = "chip-remove";
 
+    /// <summary>Represents the part literal of the handle of a chip with a consumer <c>onkeydown</c> or <c>onmousedown</c>.</summary>
+    public const string ChipPart = "chip";
+
     /// <summary>Represents the part literal of a list's handle.</summary>
     public const string ListPart = "list";
 
@@ -85,6 +88,9 @@ internal sealed class ComboboxTwin(IJSRuntime jsRuntime)
 
     /// <summary>Occurs when the trigger lost the focus to an element outside the popup.</summary>
     public event Action<EventSnapshot>? Blurred;
+
+    /// <summary>Occurs when a chip's keydown or mousedown is reported, on Server, for its declined consumer handler.</summary>
+    public event Action<EventSnapshot>? ChipEventReported;
 
     /// <summary>Gets or sets the C# chain of the <c>clear</c> and <c>remove</c> points on WebAssembly.</summary>
     /// <value>A function from the point and the event to the verdict, or <see langword="null"/> for each point's fallback.</value>
@@ -149,6 +155,11 @@ internal sealed class ComboboxTwin(IJSRuntime jsRuntime)
     /// <param name="payloadJson">The JSON of an <see cref="EventSnapshot"/>.</param>
     [JSInvokable]
     public void OnBlur(string payloadJson) => Blurred?.Invoke(Deserialize(payloadJson, BlazixJsonContext.Default.EventSnapshot));
+
+    /// <summary>Receives a chip's keydown or mousedown, which C# did not decide inside the dispatch.</summary>
+    /// <param name="payloadJson">The JSON of an <see cref="EventSnapshot"/>.</param>
+    [JSInvokable]
+    public void OnChipEvent(string payloadJson) => ChipEventReported?.Invoke(Deserialize(payloadJson, BlazixJsonContext.Default.EventSnapshot));
 
     /// <inheritdoc />
     /// <remarks>

@@ -594,6 +594,13 @@ test.describe('<Combobox.Chips />', () => {
     await settle(fixture);
 
     expect(await recorded(fixture, 'data-chip-mousedowns')).toHaveLength(1);
+    if (mode === 'server') {
+      // ADR 01 Amendments 2026-11-10 (press) and ADR 04 Amendments 2026-11-11 (the chip's handle): on Server the chip's veto
+      // falls back to run. The press focuses and opens, and the chip's handler still ran once, from its handle's report.
+      await expect(page.getByTestId('input')).toBeFocused();
+      await expect(listbox(page)).toBeVisible();
+      return;
+    }
     await expect(page.getByTestId('input')).not.toBeFocused();
     await expect(listbox(page)).toHaveCount(0);
   });

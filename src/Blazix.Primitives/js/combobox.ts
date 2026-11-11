@@ -60,6 +60,7 @@ export const CHIPS_PART = 'chips';
 export const CHIP_REMOVE_PART = 'chip-remove';
 export const LIST_PART = 'list';
 export const POPUP_PART = 'popup';
+export const CHIP_PART = 'chip';
 
 /** The options of a `combobox` handle; mirrors `ComboboxOptions` in C#. */
 export interface ComboboxOptions extends TwinOptions {
@@ -175,6 +176,10 @@ function stopEvent(event: Event): void {
   event.preventDefault();
   event.stopPropagation();
 }
+
+// Base UI's `baseUIHandlerPrevented` (handleInputPress.ts:14-16; mergeProps' preventBaseUIHandler()): the keydowns and
+// mousedowns a chip's consumer handler vetoed in its own handle, which the Chips' key handling and press then skip.
+const baseHandlerPrevented = new WeakSet<Event>();
 
 function isStopVerdict(verdict: DecisionPolicy): boolean {
   return verdict === 'stop' || verdict === 'prevent-and-stop';
@@ -678,7 +683,7 @@ function attachChips(element: ComboboxElement, initial: ComboboxOptions, channel
   const press = attachInputPress(element, initial, channel, false);
   const doc = element.ownerDocument;
   const onKeyDown = (event: KeyboardEvent): void => {
-    if (options.disabled || options.readOnly) {
+    if (options.disabled || options.readOnly || baseHandlerPrevented.has(event)) {
       return;
     }
     const ids = options.chipIds ?? [];
@@ -730,6 +735,33 @@ function attachChips(element: ComboboxElement, initial: ComboboxOptions, channel
       element.removeEventListener('keydown', onKeyDown);
       delete element[chipIdsKey];
       press.dispose();
+    },
+  };
+}
+
+// A chip with a consumer onkeydown or onmousedown (KEY-10, PTR-08; ComboboxChip.tsx:100-127 with mergeProps; ADR 04 Amendments
+// 2026-11-11): the consumer's handler runs first, in `navigate` for a keydown and `press` for a mousedown (fallback `run`),
+// and a stop verdict marks the event, which the Chips' key handling and press skip. On Server the event is reported and the
+// handler runs a round trip late. The listener is the chip element's, so it hears a descendant's keydown that was not stopped.
+function attachChip(element: HTMLElement, channel: TwinChannel): TwinHandle {
+  const decide = (point: string, event: Event): void => {
+    const verdict = channel.decide(point, event, 'run');
+    if (!channel.lastDecisionWasSynchronous) {
+      channel.report('OnChipEvent', eventInfo(event));
+    }
+    if (isStopVerdict(verdict)) {
+      baseHandlerPrevented.add(event);
+    }
+  };
+  const onKeyDown = (event: KeyboardEvent): void => decide(NAVIGATE_POINT, event);
+  const onMouseDown = (event: MouseEvent): void => decide(PRESS_POINT, event);
+  element.addEventListener('keydown', onKeyDown);
+  element.addEventListener('mousedown', onMouseDown);
+  return {
+    update() {},
+    dispose() {
+      element.removeEventListener('keydown', onKeyDown);
+      element.removeEventListener('mousedown', onMouseDown);
     },
   };
 }
@@ -790,6 +822,10 @@ function attachInputPress(element: HTMLElement, initial: ComboboxOptions, channe
     // ADR 04 Amendments 2026-11-10: the consumer's onMouseDown runs first, and its preventBaseUIHandler() skips the press
     // (handleInputPress.ts:9); on Server the point falls back to `run`.
     if (options.decidesPress && isStopVerdict(channel.decide(PRESS_POINT, event, 'run'))) {
+      return;
+    }
+    // A nested chip's consumer onMouseDown vetoed the press in its own handle (handleInputPress.ts:14-16).
+    if (baseHandlerPrevented.has(event)) {
       return;
     }
     const target = getTarget(event);
@@ -888,6 +924,9 @@ export function createAttach(platform: Platform): typeof attach {
         break;
       case CHIP_REMOVE_PART:
         handle = attachChipRemove(element, options, channel);
+        break;
+      case CHIP_PART:
+        handle = attachChip(element, channel);
         break;
       default:
         handle = attachPressDefault(element, options);
