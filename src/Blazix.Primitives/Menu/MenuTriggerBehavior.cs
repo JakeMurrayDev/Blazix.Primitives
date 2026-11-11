@@ -414,11 +414,13 @@ internal sealed class MenuTriggerBehavior<TPayload> : IAsyncDisposable, IMenuTri
     }
 
     // MenuRoot.tsx:604-636: the active trigger carries the list's reference handle, an inactive or detached one the trigger
-    // handle (track 1's roles).
+    // handle (track 1's roles). In a filterable menu the Input is the reference under virtual focus, so every trigger takes
+    // the trigger role, whose focus seeds no highlight there (MenuRoot.tsx:622-634; M5 track 12, granted by the
+    // orchestrator 2026-11-11).
     private void SyncList()
     {
         MenuStore<TPayload> store = trigger.Store;
-        CompositeListRole role = store.Popup.IsTriggerActive(id) ? CompositeListRole.Reference : CompositeListRole.Trigger;
+        CompositeListRole role = store.Popup.IsTriggerActive(id) && store.Context?.Filter is null ? CompositeListRole.Reference : CompositeListRole.Trigger;
         reference.SetList(store.Context?.List, role);
     }
 
