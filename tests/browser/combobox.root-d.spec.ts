@@ -284,7 +284,7 @@ test.describe('<Combobox.Root />', () => {
         const positions: Record<string, number> = { apple: 0, banana: 1, cherry: 2 };
         const inconsistent = highlights
           .filter(([item]) => item !== 'null')
-          .filter(([item, , index]) => String(positions[item]) !== index)
+          .filter(([item = '', , index]) => String(positions[item]) !== index)
           .map(([item, , index]) => `${item}@${index}`);
         expect(inconsistent).toEqual([]);
       });
