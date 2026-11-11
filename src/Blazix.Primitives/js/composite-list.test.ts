@@ -2408,17 +2408,18 @@ describe('useListNavigation (WebKit)', () => {
 describe('list navigation rows without a Base UI title (port)', () => {
   // `:45`/`:63` (settled by the orchestrator 2026-11-11, option (a)): on Server the floating list attaches a round trip after
   // the open, so a navigation key pressed meanwhile is kept, the newest only, and replayed once the list attaches.
-  // One title, so the red check runs the guards against the base too: without the replay its first half fails.
-  it('port: a navigation key pressed on the open reference before the list attaches is replayed once it attaches, the newest only; a key the list does not navigate with is not kept, and a close drops the kept key', async () => {
+  // One title, so the red check runs the guards against the base too: without the replay its first half fails. The bound
+  // (settled 2026-11-11): the newest key only, dropped by a close or by any newer key (PR 193 delta review F1).
+  it('port: a navigation key pressed on the open reference before the list attaches is replayed once it attaches, the newest only; a key the list does not navigate with is not kept, and a close or a newer key drops the kept key', async () => {
     const harness = app({ reference: 'input', floatingRole: 'listbox', items: ['a', 'b', 'c'], list: { virtual: true, focusItemOnOpen: false } });
     harness.reference.focus();
     // C# commits the open; its render, which mounts the list, comes later.
     harness.popup.setOpen(true, 'none');
     expect(harness.floating).toBeNull();
 
-    const kept = [keyDown(harness.reference, 'ArrowDown'), keyDown(harness.reference, 'ArrowDown')];
     // EDGE-09's toolbar arrow: ArrowLeft on a vertical list is not the list's, so it is neither stopped nor kept.
     const left = keyDown(harness.reference, 'ArrowLeft');
+    const kept = [keyDown(harness.reference, 'ArrowDown'), keyDown(harness.reference, 'ArrowDown')];
     harness.setOpen(true);
 
     await waitFor(() => {
@@ -2434,8 +2435,17 @@ describe('list navigation rows without a Base UI title (port)', () => {
     closed.popup.setOpen(true, 'none');
     closed.setOpen(true);
     await new Promise((resolve) => setTimeout(resolve, 0));
-
     expect(closed.highlights).toEqual([]);
+
+    // A typed character after the arrow: Base UI's highlight would be cleared by the typing, so the arrow is not replayed.
+    const typed = app({ reference: 'input', floatingRole: 'listbox', items: ['a', 'b', 'c'], list: { virtual: true, focusItemOnOpen: false } });
+    typed.reference.focus();
+    typed.popup.setOpen(true, 'none');
+    keyDown(typed.reference, 'ArrowDown');
+    keyDown(typed.reference, 'e');
+    typed.setOpen(true);
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(typed.highlights).toEqual([]);
   });
 
   it('port: in grid mode a typeable combobox input with no highlight keeps ArrowLeft and ArrowRight for its caret (CMB-KEY-13)', () => {
