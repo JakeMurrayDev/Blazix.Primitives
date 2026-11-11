@@ -65,6 +65,16 @@ internal sealed class MenubarContext : IMenuParentContext, IFloatingNodeContext
     /// <inheritdoc />
     public string? SessionToken { get; init; }
 
+    // MBR-EDGE-01 (menubar/MenubarContext.ts:24-30): the required read throws Base UI's message in the port's form. Menu's
+    // parts read the context optionally and never call it.
+    /// <summary>Returns the nearest menubar context, or throws when there is none.</summary>
+    /// <param name="parent">The cascaded parent context, or <see langword="null"/>.</param>
+    /// <returns>The menubar context.</returns>
+    /// <exception cref="InvalidOperationException"><paramref name="parent"/> is not a menubar's context.</exception>
+    public static MenubarContext Require(IMenuParentContext? parent) =>
+        parent as MenubarContext ?? throw new InvalidOperationException(
+            "Blazix: The `Menubar` context is missing. Menubar parts must be placed within `<Menubar>`.");
+
     /// <summary>Writes the bar's values from its parameters, notifying the subscribers when one changed.</summary>
     /// <param name="modal">The bar's <c>Modal</c>.</param>
     /// <param name="disabled">The bar's <c>Disabled</c>.</param>
