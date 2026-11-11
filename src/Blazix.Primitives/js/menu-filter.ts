@@ -279,6 +279,57 @@ function attachInput(input: HTMLInputElement, initial: MenuFilterOptions, channe
   };
 }
 
+// The List's item texts (design point 2 (b′), settled by the orchestrator 2026-11-11): C# names the items it has no label
+// for, and the List reports what each renders, as useFilterDropdownItem.ts:100-140 reads it (`textContent`, empty when the
+// item renders none). Only a changed text is reported; an id the list does not render is skipped, so a filtered-out item
+// keeps the text C# cached. A mutation under the list re-reads the named items (an item's text can change without C#).
+function attachList(list: HTMLElement, initial: MenuFilterOptions, channel: TwinChannel): TwinHandle {
+  let options = initial;
+  let disposed = false;
+  const reported = new Map<string, string>();
+
+  const reportTexts = (): void => {
+    const ids: string[] = [];
+    const texts: string[] = [];
+    for (const id of options.textIds ?? []) {
+      const item = list.ownerDocument.getElementById(id);
+      if (item === null || !list.contains(item)) {
+        continue;
+      }
+      const text = item.textContent ?? '';
+      if (reported.get(id) !== text) {
+        reported.set(id, text);
+        ids.push(id);
+        texts.push(text);
+      }
+    }
+    if (ids.length > 0) {
+      channel.report('OnTexts', { ids, texts });
+    }
+  };
+
+  const observer = new MutationObserver(reportTexts);
+  observer.observe(list, { subtree: true, childList: true, characterData: true });
+  reportTexts();
+
+  return {
+    update(optionsJson: string): void {
+      if (disposed) {
+        return;
+      }
+      options = parseOptions<MenuFilterOptions>(optionsJson);
+      reportTexts();
+    },
+    dispose(): void {
+      if (disposed) {
+        return;
+      }
+      disposed = true;
+      observer.disconnect();
+    },
+  };
+}
+
 /**
  * Attaches a `menu-filter` handle to a part's element.
  * @param elementOrId The part's element, or its id.
@@ -307,6 +358,9 @@ export function attach(
   switch (options.part) {
     case 'input':
       inner = attachInput(element as HTMLInputElement, options, channel);
+      break;
+    case 'list':
+      inner = attachList(element, options, channel);
       break;
     default:
       throw new Error(`menu-filter: the ${options.part} part is not implemented`);
