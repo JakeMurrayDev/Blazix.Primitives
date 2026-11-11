@@ -42,6 +42,7 @@ public sealed class MenuInput : PartBase<MenuInputState>
     private MenuSelection<bool>? open;
     private MenuSelection<bool>? keyboardOpen;
     private IDisposable? filterSubscription;
+    private IDisposable? inputRegistration;
     private string frozenValue = "";
 
     [Inject]
@@ -79,6 +80,7 @@ public sealed class MenuInput : PartBase<MenuInputState>
         open = subscription.Select(MenuSelectors.Open);
         keyboardOpen = subscription.Select(MenuSelectors.KeyboardOpen);
         filterSubscription = current.Subscribe(RequestRender);
+        inputRegistration = current.RegisterInput();
         module = new MenuFilterModuleAttachment(JSRuntime);
         module.Twin.ValueChanged += change => _ = InvokeAsync(() => current.RequestQueryAsync(
             change.Value,
@@ -115,6 +117,7 @@ public sealed class MenuInput : PartBase<MenuInputState>
         {
             subscription?.Dispose();
             filterSubscription?.Dispose();
+            inputRegistration?.Dispose();
             if (module is not null)
             {
                 _ = module.DisposeAsync().AsTask();

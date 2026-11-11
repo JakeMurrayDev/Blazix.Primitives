@@ -79,6 +79,18 @@ public sealed class MenuFilterGroupsTests : BunitContext
         Assert.False(cut.Find("[data-testid=outer-group]").HasAttribute("hidden"));
     }
 
+    [Fact(DisplayName = "port: a filterable submenu's list keeps its items out of the parent menu's group")]
+    [Trait("Requirement", "MNU-STA-24")]
+    public async Task A_nested_filter_root_keeps_its_items_out_of_the_group()
+    {
+        IRenderedComponent<MenuFilterGroupsHost> cut = await RenderWithTexts("nested-root");
+
+        await Type(cut, "zzz");
+
+        // Save and Share are filtered out; Email belongs to the submenu's own query, not to the parent's group.
+        Assert.True(cut.Find("[data-testid=share-group]").HasAttribute("hidden"));
+    }
+
     private static string[] Items(IRenderedComponent<MenuFilterGroupsHost> cut) =>
         [.. cut.FindAll("[role=menuitem], [role=menuitemradio]").Select(item => item.TextContent.Trim())];
 
@@ -89,13 +101,19 @@ public sealed class MenuFilterGroupsTests : BunitContext
         IReadOnlyList<IElement> items = cut.FindAll("[role=menuitem], [role=menuitemradio]");
         string ids = string.Join(",", items.Select(item => $"\"{item.Id}\""));
         string texts = string.Join(",", items.Select(item => $"\"{item.TextContent.Trim()}\""));
-        await cut.InvokeAsync(() => Twin("list").OnTexts($$"""{"ids":[{{ids}}],"texts":[{{texts}}]}"""));
+        // Each filterable menu's List reports for its own items; a list ignores the ids it does not hold.
+        foreach (MenuFilterTwin list in Twins("list"))
+        {
+            await cut.InvokeAsync(() => list.OnTexts($$"""{"ids":[{{ids}}],"texts":[{{texts}}]}"""));
+        }
+
         return cut;
     }
 
+    // The parent menu's input, attached first.
     private Task Type(IRenderedComponent<MenuFilterGroupsHost> cut, string value) =>
-        cut.InvokeAsync(() => Twin("input").OnValueChange($$"""{"value":"{{value}}","reason":"{{(value.Length == 0 ? "input-clear" : "input-change")}}","event":null}"""));
+        cut.InvokeAsync(() => Twins("input").First().OnValueChange($$"""{"value":"{{value}}","reason":"{{(value.Length == 0 ? "input-clear" : "input-change")}}","event":null}"""));
 
-    private MenuFilterTwin Twin(string part) =>
-        ((DotNetObjectReference<MenuFilterTwin>)module.Invocations["attach"].Last(i => ((string)i.Arguments[1]!).Contains($"\"part\":\"{part}\"", StringComparison.Ordinal)).Arguments[2]!).Value;
+    private IEnumerable<MenuFilterTwin> Twins(string part) =>
+        module.Invocations["attach"].Where(i => ((string)i.Arguments[1]!).Contains($"\"part\":\"{part}\"", StringComparison.Ordinal)).Select(i => ((DotNetObjectReference<MenuFilterTwin>)i.Arguments[2]!).Value).ToList();
 }
