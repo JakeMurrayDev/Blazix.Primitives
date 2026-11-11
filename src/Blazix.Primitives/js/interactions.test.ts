@@ -2589,11 +2589,11 @@ describe('useDismiss', () => {
       outer.attachFloating(outerFloating);
       const inner = harness({ commit: false });
       inner.attachSession({ session: { dismiss: {}, parentToken: outer.token } });
-      // The nested popup's trigger is an item of the parent's popup, as a DialogTrigger rendered as a menu item is.
+      // The nested popup's trigger is an item of the parent's popup, as a DialogTrigger rendered as a menu item is. Its
+      // floating element's handle, which makes it a node of the forest, attaches only after the commit's render.
       const trigger = element('button');
       outerFloating.append(trigger);
       inner.attachTrigger(trigger, { trigger: { click: {} } });
-      inner.attachFloating(element('div'));
 
       userClick(trigger);
       expect(inner.open).toBe(false);
@@ -2619,7 +2619,6 @@ describe('useDismiss', () => {
       const childTrigger = element('button');
       parentFloating.append(childTrigger);
       child.attachTrigger(childTrigger, { trigger: { click: {} } });
-      child.attachFloating(element('div'));
 
       userClick(childTrigger);
       expect(child.open).toBe(false);
@@ -2629,6 +2628,28 @@ describe('useDismiss', () => {
       expect(child.requests.map((request) => request.payload.reason)).toEqual(['trigger-press']);
       child.dispose();
       parent.dispose();
+    });
+
+    // ADR 04 Amendments 2026-11-11 (menu.others.spec.ts:205 on Server): the dialog's session was open at the Escape, but
+    // its node joins the forest with its floating element's handle, which attached later; the menu found no open child.
+    it('port: an open nested popup whose floating element\'s handle has not attached yet blocks its parent\'s Escape, under the parent token its root sent', async () => {
+      await inBothModes((synchronous) => {
+        const outer = harness({ open: true, synchronous });
+        outer.attachSession({ session: { dismiss: {} } });
+        const outerFloating = element('div');
+        outer.attachFloating(outerFloating);
+        const inner = harness({ open: true, synchronous });
+        inner.attachSession({ session: { dismiss: {}, parentToken: outer.token } });
+
+        keyDown(outerFloating);
+
+        expect(outer.open).toBe(true);
+        expect(outer.requests).toEqual([]);
+        expect(outer.decisions).toEqual([]);
+        expect(inner.open).toBe(false);
+        inner.dispose();
+        outer.dispose();
+      });
     });
 
     it('port: one close per keydown: a script-dispatched Escape that the floating element lets propagate reaches the session\'s document listener, which asks nothing more', async () => {
