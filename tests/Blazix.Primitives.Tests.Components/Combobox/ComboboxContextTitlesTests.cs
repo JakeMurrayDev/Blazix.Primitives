@@ -101,6 +101,35 @@ public sealed class ComboboxContextTitlesTests : IDisposable
         Assert.Contains("Select an option", cut.Find("[data-testid=value]").TextContent, StringComparison.Ordinal);
     }
 
+    // CMB-API-36 (actionsRef.unmount(); as Select's titles): an unmount while open does nothing, and the popup still unmounts
+    // on a later close.
+    [Fact(DisplayName = "ignores `unmount` while the popup is open")]
+    [Trait("Requirement", "CMB-API-36")]
+    public async Task Ignores_unmount_while_the_popup_is_open()
+    {
+        IRenderedComponent<ComboboxHarness> cut = test.Context.Render<ComboboxHarness>(p => p.Add(x => x.RootParameters, new Dictionary<string, object?> { ["DefaultOpen"] = true, ["Items"] = (IReadOnlyList<string>)["apple"] }));
+        string? listId = cut.Find("[data-testid=list]").Id;
+
+        await cut.InvokeAsync(cut.Instance.Root!.Unmount);
+
+        Assert.Equal(listId, cut.Find("[data-testid=list]").Id);
+        Assert.Equal("true", cut.Find("[data-testid=input]").GetAttribute("aria-expanded"));
+    }
+
+    [Fact(DisplayName = "still unmounts on a later close after `unmount` was called while open")]
+    [Trait("Requirement", "CMB-API-36")]
+    public async Task Still_unmounts_on_a_later_close_after_unmount_was_called_while_open()
+    {
+        IRenderedComponent<ComboboxHarness> cut = test.Context.Render<ComboboxHarness>(p => p.Add(x => x.RootParameters, new Dictionary<string, object?> { ["DefaultOpen"] = true, ["Items"] = (IReadOnlyList<string>)["apple"] }));
+
+        await cut.InvokeAsync(cut.Instance.Root!.Unmount);
+        Assert.NotEmpty(cut.FindAll("[data-testid=list]"));
+        await test.DismissAsync(cut, "escape-key");
+        await cut.InvokeAsync(() => cut.Instance.Root!.Store.CompleteTransitionAsync(false));
+
+        Assert.Empty(cut.FindAll("[data-testid=list]"));
+    }
+
     private IRenderedComponent<ComboboxRoot<string>> RenderInRoot(RenderFragment content) =>
         test.Context.Render<ComboboxRoot<string>>(p => p.Add(x => x.Open, true).Add(x => x.ChildContent, content));
 }
