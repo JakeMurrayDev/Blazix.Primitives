@@ -285,6 +285,32 @@ public sealed class ContextMenuTests : BunitContext
         cut.WaitForAssertion(() => Assert.Equal((true, EventReason.TriggerPress, "touchstart"), Assert.Single(cut.Instance.OpenChanges)), TimeSpan.FromSeconds(2));
     }
 
+    // WebAssembly decides a veto through `press`, so the module reports no open for that gesture; nothing is left for a
+    // later open of the same pointer type to consume once the consumer removed the handler.
+    [Fact(DisplayName = "port: a veto decided through press leaves nothing behind for the next open")]
+    [Trait("Requirement", "CTX-API-06")]
+    public async Task A_veto_decided_through_press_leaves_nothing_behind()
+    {
+        IRenderedComponent<ContextMenuHost> cut = Render<ContextMenuHost>(p => p.Add(x => x.TriggerAttributes, new Dictionary<string, object>
+        {
+            ["oncontextmenu"] = EventCallback.Factory.Create<MouseEventArgs>(this, (MouseEventArgs e) => e.PreventPartHandler()),
+        }));
+        ContextMenuTrigger trigger = cut.FindComponent<ContextMenuTrigger>().Instance;
+        string press = $$"""{"clientX":10,"clientY":20,"screenX":0,"screenY":0,"pageX":10,"pageY":20,"offsetX":0,"offsetY":0,"button":2,"buttons":2,"touches":null,"targetTouches":null,"changedTouches":null,"event":{{ContextMenuEvent}}}""";
+
+        string verdict = await cut.InvokeAsync(() =>
+        {
+            trigger.ModuleTwin.OnPressing(press);
+            return trigger.ModuleTwin.Decide(ContextMenuTwin.PressPoint, ContextMenuEvent);
+        });
+        Assert.Equal("stop", verdict);
+
+        cut.Render(p => p.Add(x => x.TriggerAttributes, null));
+        await cut.InvokeAsync(() => trigger.ModuleTwin.OnOpen($$"""{"x":10,"y":20,"pointerType":"mouse","event":{{ContextMenuEvent}}}"""));
+
+        cut.WaitForAssertion(() => Assert.Equal((true, EventReason.TriggerPress, "contextmenu"), Assert.Single(cut.Instance.OpenChanges)), TimeSpan.FromSeconds(2));
+    }
+
     [Fact(DisplayName = "uses the layout viewport for a root context menu")]
     [Trait("Requirement", "CTX-POS-03")]
     [Trait("Requirement", "CTX-API-12")]
