@@ -36,7 +36,7 @@ public sealed class MenuFilterInputHandleTests : BunitContext
     {
         IRenderedComponent<MenuFilterInputHost> cut = Render<MenuFilterInputHost>(p => p.Add(x => x.DefaultQuery, "re"));
 
-        JSRuntimeInvocation attach = Assert.Single(module.Invocations["attach"]);
+        JSRuntimeInvocation attach = Assert.Single(module.Invocations["attach"], IsInput);
         Assert.Equal(cut.Find("input").GetAttribute("blazor:elementreference"), ((ElementReference)attach.Arguments[0]!).Id);
         string options = (string)attach.Arguments[1]!;
         Assert.Contains("\"part\":\"input\"", options, StringComparison.Ordinal);
@@ -122,7 +122,11 @@ public sealed class MenuFilterInputHandleTests : BunitContext
         Assert.Contains("\"open\":false", LastUpdate(), StringComparison.Ordinal);
     }
 
-    private MenuFilterTwin Twin() => ((DotNetObjectReference<MenuFilterTwin>)module.Invocations["attach"][^1].Arguments[2]!).Value;
+    // The List attaches its own handle (its texts), so the input's attach and updates are told apart by their part.
+    private static bool IsInput(JSRuntimeInvocation invocation) =>
+        invocation.Arguments.Count > 0 && invocation.Arguments[^1] is not null && ((invocation.Arguments.FirstOrDefault(a => a is string) as string)?.Contains("\"part\":\"input\"", StringComparison.Ordinal) ?? false);
 
-    private string LastUpdate() => (string)handle.Invocations["update"][^1].Arguments[0]!;
+    private MenuFilterTwin Twin() => ((DotNetObjectReference<MenuFilterTwin>)module.Invocations["attach"].Last(IsInput).Arguments[2]!).Value;
+
+    private string LastUpdate() => (string)handle.Invocations["update"].Last(IsInput).Arguments[0]!;
 }

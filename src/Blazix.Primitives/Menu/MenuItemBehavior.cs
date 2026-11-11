@@ -188,7 +188,7 @@ internal sealed class MenuItemBehavior : IDisposable
         this.parameters = parameters;
         this.id = id;
         this.attributes = attributes;
-        filterSlot?.Apply(parameters.Label);
+        filterSlot?.Apply(parameters.Label, id);
         Register();
     }
 

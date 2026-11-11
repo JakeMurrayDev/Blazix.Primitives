@@ -49,6 +49,9 @@ internal sealed class MenuFilterItem
     /// <summary>Gets or sets the item's rendered text as last reported, or <see langword="null"/> before the first report.</summary>
     public string? Text { get; set; }
 
+    /// <summary>Gets or sets the item's rendered id, by which the List's handle reports its text (design point 2 (b′)).</summary>
+    public string? Id { get; set; }
+
     /// <summary>Gets the text the filter matches: the label, else the reported text, else <see langword="null"/>.</summary>
     public string? FilterText => Label ?? Text;
 
@@ -79,6 +82,9 @@ internal sealed class MenuFilterEngine
 
     /// <summary>Gets the number of registered items, updated as items register and unregister.</summary>
     public int RegisteredCount => items.Count;
+
+    // The registered items, in registration order.
+    public IReadOnlyList<MenuFilterItem> Items => items;
 
     /// <summary>Gets a value indicating whether a visible set exists: <see langword="false"/> while the query is empty or matching is off.</summary>
     public bool HasVisibleSet => visibleItems is not null;
@@ -229,6 +235,9 @@ internal sealed class MenuFilterRootContext
     private readonly MenuRootContext root;
     private readonly List<Action> subscribers = [];
     private readonly List<Action> partSubscribers = [];
+    private IReadOnlyList<string> textIds = [];
+    private bool textIdsDirty;
+    private Action? textIdsChanged;
     private string inputText;
     private string? flushedQuery;
     private bool dirty;
@@ -286,6 +295,35 @@ internal sealed class MenuFilterRootContext
     /// <summary>Gets the input's element, the list's reference and the nested menus' return target, or <see langword="null"/>.</summary>
     public ElementReference? InputElement { get; private set; }
 
+    // Design point 2 (b′): the ids of the registered items without a label, whose rendered text the List's handle reports;
+    // the same instance while the set is unchanged, so an unchanged options record sends nothing.
+    /// <summary>Gets the ids of the registered items whose rendered text the filter needs, in registration order.</summary>
+    public IReadOnlyList<string> TextIds
+    {
+        get
+        {
+            if (textIdsDirty)
+            {
+                textIdsDirty = false;
+                List<string> next = [];
+                foreach (MenuFilterItem item in Engine.Items)
+                {
+                    if (item.Label is null && item.Id is { Length: > 0 } id)
+                    {
+                        next.Add(id);
+                    }
+                }
+
+                if (!next.SequenceEqual(textIds))
+                {
+                    textIds = next;
+                }
+            }
+
+            return textIds;
+        }
+    }
+
     /// <summary>Gets the highlight the last recompute asked for, which the list's virtual focus applies.</summary>
     public MenuFilterHighlight PendingHighlight { get; private set; }
 
@@ -339,14 +377,61 @@ internal sealed class MenuFilterRootContext
         return new Subscription(subscribers, changed, query);
     }
 
+    /// <summary>Subscribes the List to changes of <see cref="TextIds"/>.</summary>
+    /// <param name="changed">The callback run when the set of ids may have changed.</param>
+    /// <returns>The subscription; disposing it unsubscribes.</returns>
+    public IDisposable SubscribeTextIds(Action changed)
+    {
+        textIdsChanged = changed;
+        return new TextIdsSubscription(this, changed);
+    }
+
     /// <summary>Registers an item with the engine and sets its visibility for its first render.</summary>
-    /// <param name="item">The item, its label already set.</param>
+    /// <param name="item">The item, its label and id already set.</param>
     /// <returns>The registration; disposing it unregisters the item.</returns>
     public IDisposable RegisterItem(MenuFilterItem item)
     {
         item.Seed(Matches(item));
         dirty = true;
-        return new ItemRegistration(this, Engine.Register(item));
+        IDisposable registration = Engine.Register(item);
+        TextIdsChanged();
+        return new ItemRegistration(this, registration);
+    }
+
+    /// <summary>Records that an item's label or id changed, which may change <see cref="TextIds"/>.</summary>
+    public void TextIdsChanged()
+    {
+        textIdsDirty = true;
+        textIdsChanged?.Invoke();
+    }
+
+    // Design point 2 (b′): the List's report of what items render; a changed text sets the item's visibility at once and
+    // the visible set is recomputed (useFilterDropdownItem.ts:150-158, re-registering on a text change).
+    /// <summary>Applies the rendered texts the List's handle reported.</summary>
+    /// <param name="ids">The items' ids.</param>
+    /// <param name="texts">Their texts, in the same order.</param>
+    public void SetTexts(IReadOnlyList<string> ids, IReadOnlyList<string> texts)
+    {
+        IReadOnlyList<MenuFilterItem> items = Engine.Items;
+        for (int i = 0; i < ids.Count && i < texts.Count; i++)
+        {
+            for (int j = 0; j < items.Count; j++)
+            {
+                MenuFilterItem item = items[j];
+                if (string.Equals(item.Id, ids[i], StringComparison.Ordinal))
+                {
+                    if (!string.Equals(item.Text, texts[i], StringComparison.Ordinal))
+                    {
+                        item.Text = texts[i];
+                        ItemChanged(item);
+                    }
+
+                    break;
+                }
+            }
+        }
+
+        Flush();
     }
 
     /// <summary>Records that an item's label or text changed, and sets its visibility at once.</summary>
@@ -433,6 +518,18 @@ internal sealed class MenuFilterRootContext
         }
     }
 
+    private sealed class TextIdsSubscription(MenuFilterRootContext owner, Action changed) : IDisposable
+    {
+        /// <inheritdoc />
+        public void Dispose()
+        {
+            if (owner.textIdsChanged == changed)
+            {
+                owner.textIdsChanged = null;
+            }
+        }
+    }
+
     // An unregistered item changes the registry; the subscribers re-render and their next render's Flush recomputes once.
     private sealed class ItemRegistration(MenuFilterRootContext owner, IDisposable registration) : IDisposable
     {
@@ -449,6 +546,7 @@ internal sealed class MenuFilterRootContext
             disposed = true;
             registration.Dispose();
             owner.dirty = true;
+            owner.TextIdsChanged();
             owner.Notify();
         }
     }
@@ -478,19 +576,29 @@ internal sealed class MenuFilterItemSlot : IDisposable
     /// <inheritdoc />
     public void Dispose() => registration?.Dispose();
 
-    /// <summary>Registers the item on the first call, and applies a changed label afterwards.</summary>
+    /// <summary>Registers the item on the first call, and applies a changed label or id afterwards.</summary>
     /// <param name="label">The item's <c>Label</c>.</param>
-    public void Apply(string? label)
+    /// <param name="id">The item's rendered id.</param>
+    public void Apply(string? label, string? id)
     {
         if (registration is null)
         {
             item.Label = label;
+            item.Id = id;
             registration = filter.RegisterItem(item);
+            return;
         }
-        else if (!string.Equals(item.Label, label, StringComparison.Ordinal))
+
+        bool labelChanged = !string.Equals(item.Label, label, StringComparison.Ordinal);
+        if (labelChanged || !string.Equals(item.Id, id, StringComparison.Ordinal))
         {
             item.Label = label;
-            filter.ItemChanged(item);
+            item.Id = id;
+            filter.TextIdsChanged();
+            if (labelChanged)
+            {
+                filter.ItemChanged(item);
+            }
         }
     }
 

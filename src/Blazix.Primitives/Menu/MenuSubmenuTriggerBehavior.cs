@@ -203,7 +203,7 @@ internal sealed class MenuSubmenuTriggerBehavior : IAsyncDisposable
         MenuStore<NoPayload> store = submenu!.Store;
         trigger!.Apply(store, null, id, element, false, default, MenuParts.MissingSubmenuRoot(familyName).Message);
         bool disabled = Disabled;
-        filterSlot?.Apply(parameters.Item.Label);
+        filterSlot?.Apply(parameters.Item.Label, id);
         Register();
         item!.SetConsumerAttributes(attributes);
         if (id is not null && !FilteredOut)
