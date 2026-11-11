@@ -545,8 +545,10 @@ test.describe('<Combobox.Root />', () => {
       const popup = page.getByRole('dialog');
       await expect(popup).toBeFocused();
 
-      // Deviation (2026-11-10): the popup's blur with `relatedTarget` outside is a real focus move to the outside button.
-      await outside.focus();
+      // Deviation (2026-11-11): Base UI fires a bare `blur` with the outside button as `relatedTarget`, which closes the popup only under
+      // jsdom; in a browser the portalled popup's focus manager closes on focus-out only after a pointerdown outside
+      // (`FloatingFocusManager.tsx:571-595`), so the outside button is pressed for real (pointerdown, then the click that focuses it).
+      await outside.click();
 
       await expect.poll(async () => (await recorded(fixture, 'data-validate-calls')).length).toBe(1);
 
