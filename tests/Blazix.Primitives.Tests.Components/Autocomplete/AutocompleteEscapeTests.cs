@@ -27,6 +27,7 @@ public sealed class AutocompleteEscapeTests : IDisposable
             .Add(x => x.RootParameters, new Dictionary<string, object?> { ["Items"] = s_items, ["DefaultOpen"] = true }));
         await cut.InvokeAsync(() => cut.Find("[data-testid=item-banana]").Click());
         Assert.Equal("banana", cut.Instance.Root!.Store.State.InputValue);
+        Assert.Contains("\"hasValue\":true", test.LastInputOptions(), StringComparison.Ordinal);
         ComboboxTwin input = test.TwinOf(ComboboxTwin.InputPart);
 
         string first = await cut.InvokeAsync(() => input.Decide(ComboboxTwin.ClearPoint, ComboboxTestContext.Key("Escape")));
@@ -37,6 +38,7 @@ public sealed class AutocompleteEscapeTests : IDisposable
         Assert.Equal(string.Empty, cut.Instance.Root!.Store.State.InputValue);
         Assert.Contains((string.Empty, EventReason.EscapeKey), cut.Instance.ValueChanges);
         Assert.False(cut.Instance.Root!.Store.State.HasSelectedValue);
+        Assert.Contains("\"hasValue\":false", test.LastInputOptions(), StringComparison.Ordinal);
     }
 
     [Fact(DisplayName = "port: the closed Escape does not stop before any item was activated, and never while inline")]
