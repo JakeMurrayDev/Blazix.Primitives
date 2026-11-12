@@ -167,9 +167,9 @@ test.describe('<Autocomplete.Root />', () => {
   });
 
   test('submits the typed input value when name is provided on Autocomplete.Root', async ({ page, mode }) => {
-    await goto(page, mode);
+    const fixture = await goto(page, mode);
     await typeText(page, 'xyz');
-    await input(page).press('Escape');
+    await expect.poll(() => recorded(fixture, 'data-value-changes')).toContain('xyz:input-change');
 
     const entries = await page.evaluate(() => new FormData(document.querySelector('[data-testid=form]') as HTMLFormElement).getAll('tag').map(String));
     expect(entries).toEqual(['xyz']);
