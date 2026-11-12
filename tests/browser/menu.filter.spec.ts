@@ -1568,3 +1568,27 @@ test.describe('the input keeps its caret keys', () => {
     await expect(input(page)).toHaveAttribute('aria-activedescendant', renameId);
   });
 });
+
+// MenuFilterRoot.test.tsx's KeyboardNavigationMenu (MNU-EDGE-14) on `menu-filter-root` (Rename, Delete, Duplicate),
+// which opens without the keyboard: two arrows reach the middle item where Base UI's keyboard open takes one.
+test.describe('the highlight cursor across a refocus', () => {
+  test('keeps the highlight index in step with the highlighted item after the input is refocused', async ({ page, mode }) => {
+    await page.goto(`/${mode}/menu-filter-root`, { waitUntil: 'commit' });
+    await page.locator(Fixture.started).waitFor({ state: 'attached' });
+    await expect(page.locator(Fixture.interactive('menu-filter-root'))).toHaveAttribute('data-attached', 'true');
+    await input(page).focus();
+    await page.keyboard.press('ArrowDown');
+    await page.keyboard.press('ArrowDown');
+    await expect(item(page, 'Delete')).toHaveAttribute('data-highlighted', '');
+
+    // Refocusing the input keeps the highlight, and list navigation keeps its cursor on the same item.
+    await input(page).evaluate((element: HTMLInputElement) => {
+      element.blur();
+      element.focus();
+    });
+    await expect(input(page)).toHaveAttribute('aria-activedescendant', (await item(page, 'Delete').getAttribute('id')) ?? 'missing');
+
+    await page.keyboard.press('ArrowDown');
+    await expect(item(page, 'Duplicate')).toHaveAttribute('data-highlighted', '');
+  });
+});
