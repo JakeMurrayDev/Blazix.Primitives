@@ -43,6 +43,6 @@ internal sealed record MenuFilterOptions : TwinOptions
     /// <summary>Gets the ids of the registered items whose rendered text C# needs; the List's.</summary>
     public IReadOnlyList<string>? TextIds { get; init; }
 
-    /// <summary>Gets a value indicating whether the automatic highlight applies, which an item-set change follows; the List's.</summary>
-    public bool? AutoHighlight { get; init; }
+    /// <summary>Gets the automatic highlight mode an item-set change follows, <c>true</c> or <c>always</c>, or <see langword="null"/> for none; the List's.</summary>
+    public string? AutoHighlight { get; init; }
 }

@@ -63,8 +63,8 @@ export interface MenuFilterOptions extends TwinOptions {
   decidesKeyDown?: boolean | null;
   /** The ids of the registered items whose rendered text C# needs; the List's. */
   textIds?: readonly string[] | null;
-  /** Whether the automatic highlight applies, which an item-set change follows; the List's. */
-  autoHighlight?: boolean | null;
+  /** The automatic highlight mode an item-set change follows, `true` or `always`; the List's. */
+  autoHighlight?: 'true' | 'always' | null;
 }
 
 /**
@@ -515,10 +515,12 @@ function attachList(list: HTMLElement, initial: MenuFilterOptions, channel: Twin
     if (activeIndex !== -1 && items[activeIndex] === previous[activeIndex]) {
       return;
     }
-    if (activeIndex === -1 && options.autoHighlight !== true) {
+    // FilterDropdownRoot.tsx:89-90: from the query the input holds now.
+    const autoHighlight = options.autoHighlight === 'always' || (options.autoHighlight === 'true' && owner.value.trim() !== '');
+    if (activeIndex === -1 && !autoHighlight) {
       return;
     }
-    highlightListEdge(owner, options.autoHighlight === true && items.length > 0 ? 'first' : null, undefined);
+    highlightListEdge(owner, autoHighlight && items.length > 0 ? 'first' : null, undefined);
   };
 
   const observer = new MutationObserver(() => {
