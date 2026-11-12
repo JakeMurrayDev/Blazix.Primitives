@@ -20,12 +20,15 @@
     (`data-testid="parent-list"`, as a filterable root's list is). `detached=true` replaces the root's trigger with two
     detached triggers before the menu, "First trigger" and "Second trigger", on a handle. `shadow=true` portals the
     submenu into an open shadow root on `[data-shadow-host]`, created after the first render. `exiting=true` gives both
-    popups the class `exiting`, a 300 ms opacity exit (open the page with `animations=1` for it to run). Each highlight report of the root is recorded as
+    popups the class `exiting`, a 300 ms opacity exit (open the page with `animations=1` for it to run). `childOpen=true`
+    starts the submenu open; `childQuery` makes the filterable submenu's query controlled, starting at that text;
+    `childDefault` sets its uncontrolled DefaultValue; `childCancel=true` cancels every change of it. Each submenu query
+    request is recorded as `value:reason` in `data-child-value-changes` (`|`-separated). Each highlight report of the root is recorded as
     `label:reason:key` (`none` for no item) in `data-highlights`, and each submenu open request as `open:reason` in
     `data-submenu-changes` (`|`-separated). `data-attached` turns "true" once the root's session has attached and, for a
     filterable root that starts open, its input's and list's `menu-filter` handles.
 *@
-<FixtureContainer Name="menu-filter-submenu" data-attached="@(attached ? "true" : "false")" data-highlights="@string.Join('|', highlights)" data-submenu-changes="@string.Join('|', submenuChanges)">
+<FixtureContainer Name="menu-filter-submenu" data-attached="@(attached ? "true" : "false")" data-highlights="@string.Join('|', highlights)" data-submenu-changes="@string.Join('|', submenuChanges)" data-child-value-changes="@string.Join('|', childValueChanges)">
     @if (Detached)
     {
         <MenuTrigger TPayload="NoPayload" Handle="@handle">First trigger</MenuTrigger>
@@ -51,6 +54,8 @@
 @code {
     private readonly List<string> highlights = [];
     private readonly List<string> submenuChanges = [];
+    private readonly List<string> childValueChanges = [];
+    private string? childQuery;
     private readonly MenuHandle<NoPayload> handle = new();
     private ElementReference shadowHost;
     private PortalContainerValue? submenuContainer;
@@ -129,6 +134,47 @@
     [SupplyParameterFromQuery(Name = "shadow")]
     public bool Shadow { get; set; }
 
+    [SupplyParameterFromQuery(Name = "childOpen")]
+    public bool ChildOpen { get; set; }
+
+    [SupplyParameterFromQuery(Name = "childQuery")]
+    public string? ChildQuery { get; set; }
+
+    [SupplyParameterFromQuery(Name = "childDefault")]
+    public string? ChildDefault { get; set; }
+
+    [SupplyParameterFromQuery(Name = "childCancel")]
+    public bool ChildCancel { get; set; }
+
+    // The filterable submenu's provider: a controlled query when `childQuery` is given, else uncontrolled.
+    private Dictionary<string, object> ChildProviderParameters
+    {
+        get
+        {
+            Dictionary<string, object> parameters = new() { ["OnValueChange"] = EventCallback.Factory.Create<ValueChangeEventArgs<string>>(this, RecordChildValue) };
+            if (ChildQuery is not null)
+            {
+                parameters["Value"] = childQuery ??= ChildQuery;
+                parameters["ValueChanged"] = EventCallback.Factory.Create<string>(this, value => childQuery = value);
+            }
+            else if (ChildDefault is not null)
+            {
+                parameters["DefaultValue"] = ChildDefault;
+            }
+
+            return parameters;
+        }
+    }
+
+    private void RecordChildValue(ValueChangeEventArgs<string> args)
+    {
+        childValueChanges.Add($"{args.Value}:{args.Details.Reason.ToLiteral()}");
+        if (ChildCancel)
+        {
+            args.Details.Cancel();
+        }
+    }
+
     [SupplyParameterFromQuery(Name = "hover")]
     public string? Hover { get; set; }
 
@@ -183,7 +229,7 @@
         }
         else
         {
-            <MenuFilterProvider AutoHighlight="@AutoHighlight">@Submenu</MenuFilterProvider>
+            <MenuFilterProvider AutoHighlight="@AutoHighlight" @attributes="ChildProviderParameters">@Submenu</MenuFilterProvider>
         }
         @foreach (string name in Names(After, "Delete"))
         {
@@ -212,7 +258,7 @@
         }
     </text>;
 
-    private RenderFragment Submenu => @<MenuSubmenuRoot OnOpenChange="RecordSubmenu">
+    private RenderFragment Submenu => @<MenuSubmenuRoot OnOpenChange="RecordSubmenu" DefaultOpen="@ChildOpen">
         <MenuSubmenuTrigger data-testid="submenu-trigger" Delay="@(Delay is { } ms ? (Duration?)ms : null)" CloseDelay="@(CloseDelay is { } close ? (Duration?)close : null)" OpenOnHover="@(Hover != "false")">@(Label ?? "Move to")</MenuSubmenuTrigger>
         <MenuPortal Container="@submenuContainer">
             <MenuPositioner>

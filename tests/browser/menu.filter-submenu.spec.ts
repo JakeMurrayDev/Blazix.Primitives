@@ -959,3 +959,28 @@ test.describe('<Menu.FilterProvider> scoping with a submenu', () => {
     await expect(item(page, 'Rename')).toBeVisible();
   });
 });
+
+// MenuFilterSubmenuRoot.test.tsx's "prop: value" (MNU-API-57, EVT-16): the submenu's own provider, opened at once.
+test.describe('<Menu.FilterProvider><Menu.SubmenuRoot/></Menu.FilterProvider> prop: value', () => {
+  test('renders the controlled query and reports changes', async ({ page, mode }) => {
+    const fixture = await render(page, mode, { childOpen: true, childQuery: 'pro', after: '', hover: false });
+    const input = submenuInput(page);
+    await expect(input).toHaveValue('pro');
+    await expect(item(page, 'Archive')).toHaveCount(0);
+
+    await input.fill('');
+
+    await expect(fixture).toHaveAttribute('data-child-value-changes', /(^|\|):input-clear$/);
+    await expect(item(page, 'Archive')).toHaveCount(1);
+  });
+
+  test('keeps the uncontrolled query when the change is canceled', async ({ page, mode }) => {
+    await render(page, mode, { childOpen: true, childDefault: 'pro', childCancel: true, after: '', hover: false, children: 'Projects' });
+    const input = submenuInput(page);
+    await input.focus();
+
+    await page.keyboard.type('x');
+
+    await expect(input).toHaveValue('pro');
+  });
+});
