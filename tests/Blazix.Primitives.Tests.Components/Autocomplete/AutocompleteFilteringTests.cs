@@ -12,7 +12,7 @@ namespace Blazix.Primitives.Tests.Components;
 /// <summary>Autocomplete's filtering of object items and its culture at L2.</summary>
 public sealed class AutocompleteFilteringTests : IDisposable
 {
-    private readonly ComboboxTestContext test = new();
+    private readonly ComboboxTestContext test = AutocompleteTesting.CreateContext();
 
     /// <inheritdoc />
     public void Dispose() => test.Dispose();

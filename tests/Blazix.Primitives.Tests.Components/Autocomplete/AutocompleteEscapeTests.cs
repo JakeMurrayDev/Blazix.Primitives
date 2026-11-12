@@ -13,7 +13,7 @@ public sealed class AutocompleteEscapeTests : IDisposable
 {
     private static readonly IReadOnlyList<string> s_items = ["apple", "banana", "cherry"];
 
-    private readonly ComboboxTestContext test = new();
+    private readonly ComboboxTestContext test = AutocompleteTesting.CreateContext();
 
     /// <inheritdoc />
     public void Dispose() => test.Dispose();
@@ -52,7 +52,7 @@ public sealed class AutocompleteEscapeTests : IDisposable
         Assert.Equal("run", await cut.InvokeAsync(() => input.Decide(ComboboxTwin.ClearPoint, ComboboxTestContext.Key("Escape"))));
         Assert.Equal(string.Empty, cut.Instance.Root!.Store.State.InputValue);
 
-        using ComboboxTestContext inlineTest = new();
+        using ComboboxTestContext inlineTest = AutocompleteTesting.CreateContext();
         IRenderedComponent<AutocompleteHarness> inline = inlineTest.Context.Render<AutocompleteHarness>(p => p
             .Add(x => x.RootParameters, new Dictionary<string, object?> { ["Items"] = s_items, ["Inline"] = true, ["Open"] = true }));
         await inline.InvokeAsync(() => inline.Find("[data-testid=item-apple]").Click());

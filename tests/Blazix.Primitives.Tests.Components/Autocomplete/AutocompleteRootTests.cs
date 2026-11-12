@@ -13,7 +13,7 @@ public sealed class AutocompleteRootTests : IDisposable
 {
     private static readonly IReadOnlyList<string> s_items = ["apple", "banana", "cherry"];
 
-    private readonly ComboboxTestContext test = new();
+    private readonly ComboboxTestContext test = AutocompleteTesting.CreateContext();
 
     /// <inheritdoc />
     public void Dispose() => test.Dispose();
@@ -121,7 +121,7 @@ public sealed class AutocompleteRootTests : IDisposable
                 parameters["Filter"] = null;
             }
 
-            using ComboboxTestContext context = new();
+            using ComboboxTestContext context = AutocompleteTesting.CreateContext();
             IRenderedComponent<AutocompleteHarness> cut = context.Context.Render<AutocompleteHarness>(p => p.Add(x => x.RootParameters, parameters));
             await TypeAsync(context, cut, "cher");
 

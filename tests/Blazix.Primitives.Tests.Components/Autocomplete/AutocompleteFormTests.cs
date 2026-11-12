@@ -14,7 +14,7 @@ public sealed class AutocompleteFormTests : IDisposable
 {
     private static readonly IReadOnlyList<string> s_items = ["apple", "banana", "cherry"];
 
-    private readonly ComboboxTestContext test = new();
+    private readonly ComboboxTestContext test = AutocompleteTesting.CreateContext();
 
     /// <inheritdoc />
     public void Dispose() => test.Dispose();

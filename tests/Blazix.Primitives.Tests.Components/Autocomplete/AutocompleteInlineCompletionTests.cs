@@ -15,7 +15,7 @@ public sealed class AutocompleteInlineCompletionTests : IDisposable
 {
     private static readonly IReadOnlyList<string> s_items = ["apple", "banana", "cherry"];
 
-    private readonly ComboboxTestContext test = new();
+    private readonly ComboboxTestContext test = AutocompleteTesting.CreateContext();
 
     /// <inheritdoc />
     public void Dispose() => test.Dispose();
@@ -69,7 +69,7 @@ public sealed class AutocompleteInlineCompletionTests : IDisposable
     {
         foreach ((AutocompleteMode mode, string expected) in new[] { (AutocompleteMode.Inline, "banana"), (AutocompleteMode.List, "a"), (AutocompleteMode.None, "a") })
         {
-            using ComboboxTestContext context = new();
+            using ComboboxTestContext context = AutocompleteTesting.CreateContext();
             IRenderedComponent<AutocompleteHarness> cut = context.Context.Render<AutocompleteHarness>(p => p.Add(x => x.RootParameters, Parameters(mode)));
             await TypeAsync(context, cut, "a");
 
