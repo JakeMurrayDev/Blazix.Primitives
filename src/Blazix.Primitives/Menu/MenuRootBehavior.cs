@@ -71,6 +71,9 @@ internal sealed class MenuRootBehavior<TPayload> : IAsyncDisposable
     private IDisposable? childRegistration;
     private MenuSubscription? parentMenuSubscription;
     private IDisposable? parentContextSubscription;
+    private IMenuParentContext? subscribedContext;
+    private IDisposable? parentObservation;
+    private string? positionParentToken;
     private MenuParent parent;
     private EventCallback<MenuItemHighlightedEventArgs> onItemHighlighted;
     private string? rootId;
@@ -87,7 +90,8 @@ internal sealed class MenuRootBehavior<TPayload> : IAsyncDisposable
     /// <param name="requestRender">Asks the root to render.</param>
     /// <param name="invokeAsync">Runs work on the root's renderer.</param>
     /// <param name="dispatchException">Routes an exception to the root.</param>
-    public MenuRootBehavior(string familyName, bool isSubmenu, IJSRuntime jsRuntime, PlatformFlags platform, Action requestRender, Func<Func<Task>, Task> invokeAsync, Func<Exception, Task> dispatchException)
+    /// <param name="timeProvider">The clock of the store's touch guard, or <see langword="null"/> for the system's.</param>
+    public MenuRootBehavior(string familyName, bool isSubmenu, IJSRuntime jsRuntime, PlatformFlags platform, Action requestRender, Func<Func<Task>, Task> invokeAsync, Func<Exception, Task> dispatchException, TimeProvider? timeProvider = null)
     {
         this.familyName = familyName;
         this.isSubmenu = isSubmenu;
@@ -95,7 +99,7 @@ internal sealed class MenuRootBehavior<TPayload> : IAsyncDisposable
         this.platform = platform;
         this.invokeAsync = invokeAsync;
         this.dispatchException = dispatchException;
-        root = new((popupId, token, logger) => new MenuStore<TPayload>(popupId, token, logger: logger), requestRender);
+        root = new((popupId, token, logger) => new MenuStore<TPayload>(popupId, token, logger: logger, timeProvider: timeProvider), requestRender);
         contextCascade = RenderContextCascade;
         listCascade = RenderListCascade;
         storeCascade = root.BuildRenderTree;
@@ -149,6 +153,7 @@ internal sealed class MenuRootBehavior<TPayload> : IAsyncDisposable
         childRegistration?.Dispose();
         parentMenuSubscription?.Dispose();
         parentContextSubscription?.Dispose();
+        parentObservation?.Dispose();
         context?.Release();
         if (list is not null)
         {
@@ -226,8 +231,13 @@ internal sealed class MenuRootBehavior<TPayload> : IAsyncDisposable
         store.SetParent(parent);
         store.SetRootFields(parameters.Disabled, parameters.Modal, rootId, parameters.HighlightItemOnHover);
         WarnNestedModal(parameters.Modal, store.Logger);
-        session!.ParentToken = floatingParent?.SessionToken;
+        positionParentToken = floatingParent?.SessionToken;
+        session!.ParentToken = ParentTokenOf(store.State.Parent);
         SetListOptions(parameters, direction);
+
+        // MenuRoot.tsx:193: the root reads the store's parent, which the trigger holding the popup may have forwarded
+        // (design point 2 (i) of M5 track 8, settled by the orchestrator 2026-11-11); the list and the subscription follow it.
+        parentObservation ??= store.Observe(static state => state.Parent, (effective, _, _) => OnEffectiveParentChanged(effective));
     }
 
     // MNU-API-12 (actionsRef.close).
@@ -274,6 +284,7 @@ internal sealed class MenuRootBehavior<TPayload> : IAsyncDisposable
         else if (resolved.Context is { } parentContext)
         {
             parentContextSubscription = parentContext.Subscribe(store.NotifyParentChanged);
+            subscribedContext = parentContext;
         }
     }
 
@@ -298,17 +309,56 @@ internal sealed class MenuRootBehavior<TPayload> : IAsyncDisposable
         navigation.Orientation = orientation;
         navigation.TriggerOrientation = orientation;
         navigation.Rtl = DirectionProviderContext.Read(direction) == TextDirection.Rtl;
-        navigation.Nested = parent.Kind is not null;
-        navigation.ParentOrientation = parent.Kind == MenuParentKind.Menubar
-            ? (parent.Context!.Orientation == Orientation.Horizontal ? "horizontal" : "vertical")
-            : null;
-        navigation.OpenOnArrowKeyDown = parent.Kind != MenuParentKind.ContextMenu;
+        ApplyParentToList(navigation, state.Parent);
         navigation.FocusItemOnHover = parameters.HighlightItemOnHover;
         navigation.ResetOnPointerLeave = true;
         navigation.DisabledIndices = s_noDisabledIndices;
-        navigation.KeepOpenOnCrossOrientationKey = parent.Context?.KeepOpenOnCrossOrientationKey ?? false;
-        navigation.RelayTarget = RelayTargetOf(parent);
         navigation.SetTypeahead(!disabled, TypeaheadResetMs, "element");
+    }
+
+    // The list's parent-dependent options, from the store's parent (MenuRoot.tsx:516-568).
+    private static void ApplyParentToList(ListNavigationBehavior navigation, MenuParent effective)
+    {
+        navigation.Nested = effective.Kind is not null;
+        navigation.ParentOrientation = effective.Kind == MenuParentKind.Menubar
+            ? (effective.Context!.Orientation == Orientation.Horizontal ? "horizontal" : "vertical")
+            : null;
+        navigation.OpenOnArrowKeyDown = effective.Kind != MenuParentKind.ContextMenu;
+        navigation.KeepOpenOnCrossOrientationKey = effective.Context?.KeepOpenOnCrossOrientationKey ?? false;
+        navigation.RelayTarget = RelayTargetOf(effective);
+    }
+
+    // MenuTrigger.tsx:95-108: a menubar parent forwarded by the trigger holding the popup brings the bar's floating node, so
+    // a detached Root names the bar's session as its parent; otherwise the enclosing popup's, from the Root's position.
+    private string? ParentTokenOf(MenuParent effective) =>
+        effective is { Kind: MenuParentKind.Menubar, Context: IFloatingNodeContext bar } ? bar.SessionToken : positionParentToken;
+
+    // A forwarded parent: the list's options, the parent token and the subscription to the menubar's or context menu's
+    // values follow it.
+    private void OnEffectiveParentChanged(MenuParent effective)
+    {
+        if (list is { } navigation)
+        {
+            ApplyParentToList(navigation, effective);
+        }
+
+        if (session is { } current)
+        {
+            current.ParentToken = ParentTokenOf(effective);
+
+            // A forward after the Root's render (the trigger's own after-render) reaches the module now, as OnCommitted does.
+            if (rendered)
+            {
+                _ = current.AfterRenderAsync();
+            }
+        }
+
+        if (effective.Kind != MenuParentKind.Menu && !ReferenceEquals(subscribedContext, effective.Context))
+        {
+            parentContextSubscription?.Dispose();
+            subscribedContext = effective.Context;
+            parentContextSubscription = subscribedContext?.Subscribe(root.Store.NotifyParentChanged);
+        }
     }
 
     // An interactions or list request (a press, a hover, Escape, an outside press, a focus-out, a navigation key): a

@@ -1,0 +1,50 @@
+@namespace Blazix.Primitives.Tests.Components
+@* The Menu paths a bar reads (design points 1-3 of M5 track 8), on the real Menubar (`id="bar"`), by `Case`:
+   - `initial-open`: a bar menu open at its first render (`DefaultOpen`), with its Positioner.
+   - `detached`: a trigger inside the bar bound by a handle to a Root outside it, open at its first render on that trigger.
+   - `no-positioner`: a bar menu controlled by `Open`, with a Portal and no Positioner. *@
+@switch (Case)
+{
+    case "detached":
+        <Menubar id="bar">
+            <MenuTrigger TPayload="NoPayload" Handle="handle" id="bar-trigger">File</MenuTrigger>
+        </Menubar>
+        <MenuRoot TPayload="NoPayload" Handle="handle" DefaultOpen="true" DefaultTriggerId="bar-trigger">
+            <MenuPortal>
+                <MenuPositioner>
+                    <MenuPopup data-testid="popup" />
+                </MenuPositioner>
+            </MenuPortal>
+        </MenuRoot>
+        break;
+    case "no-positioner":
+        <Menubar id="bar">
+            <MenuRoot TPayload="NoPayload" Open="Open">
+                <MenuTrigger TPayload="NoPayload">File</MenuTrigger>
+                <MenuPortal />
+            </MenuRoot>
+        </Menubar>
+        break;
+    default:
+        <Menubar id="bar">
+            <MenuRoot TPayload="NoPayload" DefaultOpen="true">
+                <MenuTrigger TPayload="NoPayload">File</MenuTrigger>
+                <MenuPortal>
+                    <MenuPositioner>
+                        <MenuPopup data-testid="popup" />
+                    </MenuPositioner>
+                </MenuPortal>
+            </MenuRoot>
+        </Menubar>
+        break;
+}
+
+@code {
+    private readonly MenuHandle<NoPayload> handle = new();
+
+    [Parameter]
+    public string Case { get; set; } = "initial-open";
+
+    [Parameter]
+    public bool Open { get; set; }
+}

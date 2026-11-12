@@ -264,6 +264,8 @@ export interface MenuTriggerOptions {
   trackMouseEnter?: boolean | null;
   /** Whether focus returning to the trigger through the guard before the open popup closes it with `focus-out`. */
   closeOnGuardReturn?: boolean | null;
+  /** Whether the tree stays armed when this trigger's open ends (a menubar's trigger). */
+  keepArmedWhenClosed?: boolean | null;
 }
 
 // FLT §6.8
@@ -3118,6 +3120,76 @@ function hoverSessionState(record: SessionRecord): HoverSessionState {
 // triggers and press cancel (tooltip/trigger/TooltipTrigger.tsx:92-258)
 // ---------------------------------------------------------------------------------------------------------------
 
+// Design point 5 of M5 track 8 (settled by the orchestrator 2026-11-11; MBR-PTR-07; ADR 04 Amendments 2026-11-11): the
+// last `mouseover` per document, with the pointer type of the `pointerover` before it. On Server a trigger's handle attaches
+// a round trip after its element appears, so a pointer that entered it meanwhile reached no listener. Base UI attaches its
+// listeners in an effect React flushes before the next input (useHoverReferenceInteraction.ts:189-397), so it never misses
+// the entry. A `mouseout` out of the record's target (into an element outside it, or out of the window) clears the record;
+// the handle that runs it consumes it.
+interface HoverEntry {
+  readonly event: MouseEvent;
+  readonly target: Element;
+  readonly pointerType: string | undefined;
+}
+
+const hoverEntries = new WeakMap<Document, HoverEntry>();
+const hoverEntryDocuments = new WeakSet<Document>();
+
+function trackHoverEntries(doc: Document): void {
+  if (hoverEntryDocuments.has(doc)) {
+    return;
+  }
+  hoverEntryDocuments.add(doc);
+  let pointerType: string | undefined;
+  doc.addEventListener('pointerover', (event) => {
+    pointerType = event.pointerType;
+  }, true);
+  doc.addEventListener('mouseover', (event) => {
+    const target = getTarget(event);
+    if (isElement(target)) {
+      hoverEntries.set(doc, { event, target, pointerType });
+    }
+  }, true);
+  doc.addEventListener('mouseout', (event) => {
+    const entry = hoverEntries.get(doc);
+    if (entry !== undefined && !contains(entry.target, event.relatedTarget as Element | null)) {
+      hoverEntries.delete(doc);
+    }
+  }, true);
+}
+
+/** Reads the document's recorded entry when its target is inside `element`; `consume` removes it. */
+function takeHoverEntry(element: Element, consume = true): HoverEntry | null {
+  const doc = ownerDocument(element);
+  const entry = hoverEntries.get(doc);
+  if (entry === undefined || !contains(element, entry.target)) {
+    return null;
+  }
+  if (consume) {
+    hoverEntries.delete(doc);
+  }
+  return entry;
+}
+
+/**
+ * A view of a dispatched event as the live listener it replays would receive it: its `currentTarget` is the element the
+ * listener runs for and its `type` the event that listener handles (`mouseenter`, `mousemove`).
+ */
+function retargetEvent<T extends Event>(event: T, currentTarget: EventTarget, type: string = event.type): T {
+  return new Proxy(event, {
+    get(target, property) {
+      if (property === 'currentTarget') {
+        return currentTarget;
+      }
+      if (property === 'type') {
+        return type;
+      }
+      const value: unknown = Reflect.get(target, property, target);
+      return typeof value === 'function' ? (value as (...args: unknown[]) => unknown).bind(target) : value;
+    },
+  });
+}
+
 function hoverListenerKey(options: HoverOptions | null): string | null {
   return options === null ? null : [options.move !== false, options.guardStaleOpen === true, options.nestedTooltipTriggers === true].join();
 }
@@ -3134,6 +3206,7 @@ function createHoverReferenceController(context: HandleContext): Controller {
   const { record, channel } = context;
   const element = context.element as HTMLElement;
   const instance = getHoverInteraction(record);
+  trackHoverEntries(ownerDocument(element));
   const session = hoverSessionState(record);
   // useHoverReferenceInteraction.ts:99: whether the last close was hover-initiated (FLT-PTR-13, FLT-PTR-17).
   let isHoverCloseActive = false;
@@ -3505,6 +3578,16 @@ function createHoverReferenceController(context: HandleContext): Controller {
     instance.restTimeoutPending = false;
   };
 
+  // The hook's once-`mousemove` open (useHoverReferenceInteraction.ts:377-378), taken once per install, so a replayed
+  // entry takes it as the live first move would.
+  let firstMoveTaken = false;
+  const onFirstMouseMove = (event: MouseEvent) => {
+    if (!firstMoveTaken) {
+      firstMoveTaken = true;
+      onMouseEnter(event);
+    }
+  };
+
   // FLT-PTR-11: useHoverReferenceInteraction.ts:419-421.
   const setPointerRef = (event: PointerEvent) => {
     instance.pointerType = event.pointerType;
@@ -3684,10 +3767,11 @@ function createHoverReferenceController(context: HandleContext): Controller {
     }
     const nested = options.nestedTooltipTriggers === true;
     hoverKey = hoverListenerKey(options);
+    firstMoveTaken = false;
     record.events.on('openchange', onOpenChange);
     // The hook's native listeners first, then its prop bag, then Tooltip's handlers (React runs delegated handlers last).
     hoverCleanup = mergeCleanups(
-      options.move !== false && listen(element, 'mousemove', onMouseEnter, { once: true }),
+      options.move !== false && listen(element, 'mousemove', onFirstMouseMove, { once: true }),
       // NavigationMenu's own lock decides on the state before this event's switch (Base UI reads the render's `value`), so
       // its listener runs before the hover hook's.
       options.blockPointerEventsOnEnter === true && listen(element, 'mouseenter', lockOnEnter),
@@ -3743,10 +3827,46 @@ function createHoverReferenceController(context: HandleContext): Controller {
     }
   };
 
+  // Design point 5 of M5 track 8: at the attach only, an entry the pointer made before the handle existed runs the live
+  // listeners in the browser's order (pointerenter, mouseover, mouseenter, mousemove) with the trigger as currentTarget,
+  // so every live guard applies: the pointer type, the disabled gate, the delays and the rest time counted from now, the
+  // nested triggers, the locks and the delay group. A handle whose hover is off now takes nothing.
+  const replayEntry = () => {
+    const options = hoverOptions();
+    if (hoverCleanup === null || options === null) {
+      return;
+    }
+    const entry = takeHoverEntry(element);
+    if (entry === null) {
+      return;
+    }
+    const over = retargetEvent(entry.event, element);
+    const enter = retargetEvent(entry.event, element, 'mouseenter');
+    const move = retargetEvent(entry.event, element, 'mousemove');
+    if (entry.pointerType !== undefined) {
+      instance.pointerType = entry.pointerType;
+      if (options.nestedTooltipTriggers === true) {
+        triggerPointerType = entry.pointerType;
+      }
+    }
+    if (options.nestedTooltipTriggers === true) {
+      handleNestedTriggerHover(over);
+    }
+    if (options.blockPointerEventsOnEnter === true) {
+      lockOnEnter(enter);
+    }
+    onMouseEnter(enter);
+    if (options.move !== false) {
+      onFirstMouseMove(move);
+    }
+    onMouseMove(move);
+  };
+
   syncGate();
   refreshHandleClose();
   installHover();
   installPress();
+  replayEntry();
   return {
     update() {
       syncGate();
@@ -3786,6 +3906,7 @@ function createHoverFloatingController(context: HandleContext): Controller {
   const { record, channel } = context;
   const floatingElement = context.element as HTMLElement;
   const instance = getHoverInteraction(record);
+  trackHoverEntries(ownerDocument(floatingElement));
   const childClosedTimeout = createTimer();
   let cleanup: Cleanup | null = null;
   let pointerEventsCleanup: Cleanup | null = null;
@@ -4033,6 +4154,11 @@ function createHoverFloatingController(context: HandleContext): Controller {
   syncGate();
   runLayoutEffects(record.open, record.domReferenceElement, true);
   install();
+  // Design point 5 of M5 track 8, the floating side: at the attach, a pointer already inside the popup runs its enter, which
+  // cancels a pending close. The record is read, not consumed, so a trigger inside the popup that attaches later takes it.
+  if (cleanup !== null && takeHoverEntry(floatingElement, false) !== null) {
+    onFloatingMouseEnter();
+  }
   return {
     update() {
       syncGate();
@@ -4086,6 +4212,11 @@ interface MenuReleaseSlot {
 // Sessions whose floating handle carries Menu's options: every menu Positioner sends them (`floating.menu`).
 const menuSessions = new WeakSet<SessionRecord>();
 
+// Sessions a menubar trigger's menu names as its parent (`trigger.menu.keepArmedWhenClosed`): the bar's elementless
+// session, which holds the slot its menus share (MenuStore.ts:173-181, MenubarContext.ts:19-30; MBR-STA-07; Deliverable 4
+// of M5 track 8).
+const menuForestRoots = new WeakSet<SessionRecord>();
+
 // MenuStore.ts:173-181: Base UI's `allowMouseUpTriggerRef` belongs to the top-level menu, and a submenu, a menubar's menu
 // or a context menu's shares its parent's (the interim review of PR 183, F8). The slot is the outermost session of the
 // chain of menu sessions, so two top-level menus inside one popup of another family keep their own.
@@ -4095,7 +4226,7 @@ function menuTreeRoot(record: SessionRecord): SessionRecord {
   while (current.parentToken !== null && !seen.has(current)) {
     seen.add(current);
     const parent = sessions.get(current.parentToken);
-    if (!parent || !menuSessions.has(parent)) {
+    if (!parent || !(menuSessions.has(parent) || menuForestRoots.has(parent))) {
       break;
     }
     current = parent;
@@ -4243,6 +4374,14 @@ function createMenuTriggerController(context: HandleContext): Controller {
     lastReason = details.reason;
   };
 
+  // A menubar's trigger: the session its menu names as parent is the bar's, whose slot the bar's menus share.
+  const markForestRoot = () => {
+    const parent = menuOptions()?.keepArmedWhenClosed === true && record.parentToken !== null ? sessions.get(record.parentToken) : undefined;
+    if (parent !== undefined) {
+      menuForestRoots.add(parent);
+    }
+  };
+
   // The guard is observed on the positioner, as the trigger's focus event can report a shadow host as `relatedTarget`.
   const onGuardFocusOut = (event: FocusEvent) => {
     const guard = guardPositioner?.querySelector(`[${FOCUS_GUARD_ATTRIBUTE}][data-type="inside"]`) ?? null;
@@ -4272,8 +4411,10 @@ function createMenuTriggerController(context: HandleContext): Controller {
   };
 
   // MenuTrigger.tsx:120-124, 159-171: when this trigger's open ends, the tree is disarmed and the listener removed; a
-  // hover open by this trigger listens for the release.
+  // hover open by this trigger listens for the release. A trigger with a parent, a menubar's, keeps the arm
+  // (`keepArmedWhenClosed`; design point 1 (a) of M5 track 8, settled by the orchestrator 2026-11-11; MBR §16 Q9).
   const onSessionApplied = () => {
+    markForestRoot();
     syncGuardFocusOut();
     const opened = record.open && record.domReferenceElement === element;
     if (opened === openedByThisTrigger) {
@@ -4284,7 +4425,9 @@ function createMenuTriggerController(context: HandleContext): Controller {
       return;
     }
     if (!opened) {
-      menuReleaseSlot(record).armed = false;
+      if (menuOptions()?.keepArmedWhenClosed !== true) {
+        menuReleaseSlot(record).armed = false;
+      }
       removeDocumentMouseUp();
     } else if (lastReason === 'trigger-hover') {
       addDocumentMouseUp();
@@ -4298,8 +4441,12 @@ function createMenuTriggerController(context: HandleContext): Controller {
     listen(element, 'mousedown', onMouseDown),
     listen(element, 'focus', onFocus),
   );
+  markForestRoot();
   syncGuardFocusOut();
   return {
+    update() {
+      markForestRoot();
+    },
     dispose() {
       cleanup();
       stopListening();
@@ -4922,6 +5069,12 @@ function createFocusController(context: HandleContext): Controller {
         return;
       }
       if (contains(record.dataRef.current.floatingContext?.elements.floating, activeEl) || contains(domReference, activeEl) || movedToFocusGuard) {
+        return;
+      }
+      // The popup the session names by its floating id, before the positioner's floating handle attaches (Base UI's
+      // floating ref is set at commit; on a slow host the focus manager can focus inside first, M5 track 8).
+      const named = record.floatingId ? ownerDocument(element).getElementById(record.floatingId) : null;
+      if (contains(named, activeEl)) {
         return;
       }
       const nextFocusedElement = relatedTarget ?? activeEl;

@@ -22,6 +22,7 @@ using Blazix.Primitives.Fixtures.Client.Interactions;
 using Blazix.Primitives.Fixtures.Client.KeepAlive;
 using Blazix.Primitives.Fixtures.Client.MeterFixtures;
 using Blazix.Primitives.Fixtures.Client.MenuFixtures;
+using Blazix.Primitives.Fixtures.Client.MenubarFixtures;
 using Blazix.Primitives.Fixtures.Client.NavigationMenuFixtures;
 using Blazix.Primitives.Fixtures.Client.PopoverFixtures;
 using Blazix.Primitives.Fixtures.Client.SelectFixtures;
@@ -204,6 +205,7 @@ public static class FixtureCatalog
         ["menu-measure"] = new(typeof(MenuMeasureFixture)),
         ["menu-root"] = new(typeof(MenuRootFixture)),
         ["context-menu-root"] = new(typeof(ContextMenuRootFixture)),
+        ["menubar-root"] = new(typeof(MenubarRootFixture)),
         ["menu-dialog"] = new(typeof(MenuDialogFixture)),
         ["menu-transition"] = new(typeof(MenuTransitionFixture)),
         ["menu-triggerless"] = new(typeof(MenuTriggerlessFixture)),

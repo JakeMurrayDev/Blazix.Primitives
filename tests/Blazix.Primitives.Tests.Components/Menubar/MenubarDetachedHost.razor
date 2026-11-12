@@ -1,0 +1,17 @@
+@namespace Blazix.Primitives.Tests.Components
+@* MBR-STR-04's detached setup: a trigger inside the bar bound by a handle to a Root outside it, open at its first render
+   on that trigger. *@
+<Menubar id="bar">
+    <MenuTrigger TPayload="NoPayload" Handle="handle" id="bar-trigger">File</MenuTrigger>
+</Menubar>
+<MenuRoot TPayload="NoPayload" Handle="handle" DefaultOpen="true" DefaultTriggerId="bar-trigger">
+    <MenuPortal>
+        <MenuPositioner>
+            <MenuPopup data-testid="popup" />
+        </MenuPositioner>
+    </MenuPortal>
+</MenuRoot>
+
+@code {
+    private readonly MenuHandle<NoPayload> handle = new();
+}

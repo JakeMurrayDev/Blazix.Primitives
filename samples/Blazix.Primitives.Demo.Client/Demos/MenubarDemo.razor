@@ -1,0 +1,96 @@
+<DemoFrame Slug="menubar" Note="Click a menu, then move across the bar: while one menu is open, hovering or focusing another trigger opens it. The arrow keys move between the triggers and open a menu; Escape closes it. Help is disabled. Each click on an item is logged below.">
+    <Hero>
+        <Menubar class="flex items-center">
+            <MenuRoot TPayload="NoPayload">
+                <MenuTrigger TPayload="NoPayload" class="@TriggerClass">File</MenuTrigger>
+                <MenuPortal>
+                    <MenuPositioner class="outline-none" SideOffset="4">
+                        <MenuPopup class="@PopupClass">
+                            <MenuItem class="@ItemClass" @onclick="@(() => Log("New"))">New</MenuItem>
+                            <MenuItem class="@ItemClass" @onclick="@(() => Log("Open"))">Open</MenuItem>
+                            <MenuItem class="@ItemClass" @onclick="@(() => Log("Save"))">Save</MenuItem>
+                            <MenuSubmenuRoot>
+                                <MenuSubmenuTrigger class="@SubmenuTriggerClass">
+                                    Export <CaretRightIcon />
+                                </MenuSubmenuTrigger>
+                                <MenuPortal>
+                                    <MenuPositioner class="outline-none" SideOffset="-4" AlignOffset="-4">
+                                        <MenuPopup class="@PopupClass">
+                                            <MenuItem class="@ItemClass" @onclick="@(() => Log("PDF"))">PDF</MenuItem>
+                                            <MenuItem class="@ItemClass" @onclick="@(() => Log("PNG"))">PNG</MenuItem>
+                                            <MenuItem class="@ItemClass" @onclick="@(() => Log("SVG"))">SVG</MenuItem>
+                                        </MenuPopup>
+                                    </MenuPositioner>
+                                </MenuPortal>
+                            </MenuSubmenuRoot>
+                            <MenuSeparator class="@SeparatorClass" />
+                            <MenuItem class="@ItemClass" @onclick="@(() => Log("Print"))">Print</MenuItem>
+                        </MenuPopup>
+                    </MenuPositioner>
+                </MenuPortal>
+            </MenuRoot>
+            <MenuRoot TPayload="NoPayload">
+                <MenuTrigger TPayload="NoPayload" class="@TriggerClass">Edit</MenuTrigger>
+                <MenuPortal>
+                    <MenuPositioner class="outline-none" SideOffset="4">
+                        <MenuPopup class="@PopupClass">
+                            <MenuItem class="@ItemClass" @onclick="@(() => Log("Cut"))">Cut</MenuItem>
+                            <MenuItem class="@ItemClass" @onclick="@(() => Log("Copy"))">Copy</MenuItem>
+                            <MenuItem class="@ItemClass" @onclick="@(() => Log("Paste"))">Paste</MenuItem>
+                        </MenuPopup>
+                    </MenuPositioner>
+                </MenuPortal>
+            </MenuRoot>
+            <MenuRoot TPayload="NoPayload">
+                <MenuTrigger TPayload="NoPayload" class="@TriggerClass">View</MenuTrigger>
+                <MenuPortal>
+                    <MenuPositioner class="outline-none" SideOffset="4">
+                        <MenuPopup class="@PopupClass">
+                            <MenuItem class="@ItemClass" @onclick="@(() => Log("Zoom In"))">Zoom In</MenuItem>
+                            <MenuItem class="@ItemClass" @onclick="@(() => Log("Zoom Out"))">Zoom Out</MenuItem>
+                            <MenuSubmenuRoot>
+                                <MenuSubmenuTrigger class="@SubmenuTriggerClass">
+                                    Layout <CaretRightIcon />
+                                </MenuSubmenuTrigger>
+                                <MenuPortal>
+                                    <MenuPositioner class="outline-none" SideOffset="-4" AlignOffset="-4">
+                                        <MenuPopup class="@PopupClass">
+                                            <MenuItem class="@ItemClass" @onclick="@(() => Log("Single Page"))">Single Page</MenuItem>
+                                            <MenuItem class="@ItemClass" @onclick="@(() => Log("Two Pages"))">Two Pages</MenuItem>
+                                            <MenuItem class="@ItemClass" @onclick="@(() => Log("Continuous"))">Continuous</MenuItem>
+                                        </MenuPopup>
+                                    </MenuPositioner>
+                                </MenuPortal>
+                            </MenuSubmenuRoot>
+                            <MenuSeparator class="@SeparatorClass" />
+                            <MenuItem class="@ItemClass" @onclick="@(() => Log("Full Screen"))">Full Screen</MenuItem>
+                        </MenuPopup>
+                    </MenuPositioner>
+                </MenuPortal>
+            </MenuRoot>
+            <MenuRoot TPayload="NoPayload" Disabled="true">
+                <MenuTrigger TPayload="NoPayload" class="@TriggerClass">Help</MenuTrigger>
+            </MenuRoot>
+        </Menubar>
+        <ul class="mt-4 text-sm" aria-live="polite">
+            @foreach (string entry in log)
+            {
+                <li>@entry clicked</li>
+            }
+        </ul>
+    </Hero>
+</DemoFrame>
+
+@code {
+    // The Base UI docs' hero demo (menubar/demos/hero/tailwind), its classes unchanged; each item click is logged on the page,
+    // where the demo logs it to the console.
+    private const string TriggerClass = "h-8 border-0 bg-transparent px-3 font-[inherit] text-sm font-normal text-neutral-950 select-none data-pressed:bg-neutral-100 data-disabled:text-neutral-500 dark:text-white dark:focus-visible:bg-neutral-800 dark:data-pressed:bg-neutral-800 dark:data-disabled:text-neutral-400 focus-visible:bg-neutral-100 focus-visible:outline-2 focus-visible:-outline-offset-1 focus-visible:outline-neutral-950 focus-visible:relative dark:focus-visible:outline-white";
+    private const string PopupClass = "origin-[var(--transform-origin)] border border-neutral-950 bg-white py-1 text-neutral-950 shadow-[0.25rem_0.25rem_0] shadow-black/12 outline-none transition-[scale,opacity] duration-100 ease-out data-ending-style:scale-[0.98] data-ending-style:opacity-0 data-instant:transition-none data-starting-style:scale-[0.98] data-starting-style:opacity-0 dark:border-white dark:bg-neutral-950 dark:text-white dark:shadow-none";
+    private const string ItemClass = "flex cursor-default items-center justify-between gap-4 py-2 pr-4 pl-4 text-sm leading-4 font-normal outline-none select-none data-highlighted:relative data-highlighted:z-0 data-highlighted:text-white data-highlighted:before:absolute data-highlighted:before:inset-x-1 data-highlighted:before:inset-y-0 data-highlighted:before:z-[-1] data-highlighted:before:bg-neutral-950 data-highlighted:before:content-[''] dark:data-highlighted:text-neutral-950 dark:data-highlighted:before:bg-white";
+    private const string SubmenuTriggerClass = "flex cursor-default items-center justify-between gap-4 py-2 pr-2 pl-4 text-sm leading-4 font-normal outline-none select-none data-popup-open:relative data-popup-open:z-0 data-popup-open:before:absolute data-popup-open:before:inset-x-1 data-popup-open:before:inset-y-0 data-popup-open:before:z-[-1] data-popup-open:before:bg-neutral-100 data-popup-open:before:content-[''] data-highlighted:relative data-highlighted:z-0 data-highlighted:text-white data-highlighted:before:absolute data-highlighted:before:inset-x-1 data-highlighted:before:inset-y-0 data-highlighted:before:z-[-1] data-highlighted:before:bg-neutral-950 data-highlighted:before:content-[''] data-highlighted:data-popup-open:before:bg-neutral-950 dark:data-popup-open:before:bg-neutral-800 dark:data-highlighted:text-neutral-950 dark:data-highlighted:before:bg-white dark:data-highlighted:data-popup-open:before:bg-white";
+    private const string SeparatorClass = "mx-1 my-1 h-px bg-neutral-950 dark:bg-white";
+
+    private readonly List<string> log = [];
+
+    private void Log(string item) => log.Insert(0, item);
+}
