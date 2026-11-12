@@ -59,6 +59,11 @@ internal abstract class ComboboxStore : PopupLifecycleStore<ComboboxStoreState>,
     /// <summary>Gets the engine's ARIA autocomplete mode.</summary>
     public abstract ComboboxAriaAutoComplete AriaAutoComplete { get; }
 
+    // AUT-STA-08, KEY-07 (AriaCombobox.tsx:854-877, ComboboxInput.tsx:351-364; design point 1 (ii) of M5 track 11, settled by
+    // the orchestrator 2026-11-12): in None mode the engine keeps the last activated item's value, which no part exposes.
+    /// <summary>Gets a value indicating whether a selection-less root keeps the value of an item activated since the last closed Escape.</summary>
+    public abstract bool HasActivatedValue { get; }
+
     /// <summary>Gets a value indicating whether the consumer owns the input text.</summary>
     public abstract bool InputControlled { get; }
 
@@ -472,6 +477,9 @@ internal sealed class ComboboxStore<TValue> : ComboboxStore
     public override ComboboxAriaAutoComplete AriaAutoComplete => inputs.AriaAutoComplete;
 
     /// <inheritdoc />
+    public override bool HasActivatedValue => State.SelectionMode == ComboboxSelectionMode.None && singlePresent;
+
+    /// <inheritdoc />
     public override ComboboxAutoHighlightMode AutoHighlight => inputs.AutoHighlight;
 
     /// <inheritdoc />
@@ -683,6 +691,13 @@ internal sealed class ComboboxStore<TValue> : ComboboxStore
         else if (Single)
         {
             await SetSelectedValueAsync(default!, details, present: false);
+        }
+        else
+        {
+            // AUT-STA-08 (design point 1 (ii)): the internal value resets to null, which no callback reports.
+            singlePresent = false;
+            valueState.SetValueIfUncontrolled(default!);
+            Write(State with { SelectionRevision = State.SelectionRevision + 1 });
         }
 
         return details;
