@@ -798,6 +798,15 @@ test.describe('filterable menu keys and semantics', () => {
     await expect(page.getByTestId('after')).toBeFocused();
   });
 
+  // MNU-PTR-20 (useMenuItemCommonProps.ts:12-14, 84): a press on an item keeps focus on the input.
+  test('preserves input focus on item presses', async ({ page, mode }) => {
+    await renderWith(page, mode);
+
+    const prevented = await item(page, 'Rename').evaluate((element) => !element.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, cancelable: true })));
+
+    expect(prevented).toBe(true);
+  });
+
   // MNU-KEY-05.
   test('uses Home and End for list navigation after an item is highlighted', async ({ page, mode }) => {
     await renderWith(page, mode);
