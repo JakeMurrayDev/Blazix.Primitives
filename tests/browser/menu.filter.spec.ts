@@ -312,6 +312,17 @@ test.describe('filterable menu initial highlight', () => {
 
   });
 
+  // MNU-API-04, EVT-06, ANI-06 (MenuFilterRoot.test.tsx); the fixture records each completion in data-open-completes.
+  test('calls onOpenChangeComplete when the menu opens and closes', async ({ page, mode }) => {
+    const fixture = await open(page, mode);
+
+    await trigger(page).click();
+    await expect(fixture).toHaveAttribute('data-open-completes', /(^| )true( |$)/);
+
+    await page.keyboard.press('Escape');
+    await expect(fixture).toHaveAttribute('data-open-completes', /(^| )false( |$)/);
+  });
+
   // MNU-STA-01, EVT-02 (MenuFilterRoot.test.tsx).
   test('stays closed when onOpenChange is canceled', async ({ page, mode }) => {
     await page.goto(`/${mode}/menu-filter-initial?cancelOpen=true`, { waitUntil: 'commit' });

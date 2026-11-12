@@ -12,7 +12,7 @@
     "No actions found.", and a list of a disabled Unavailable, Rename and Delete. `data-attached` turns "true" once the
     menu's session has attached, and `data-input-attached` once the open popup's input has its `menu-filter` handle.
 *@
-<FixtureContainer Name="menu-filter-initial" data-attached="@(attached ? "true" : "false")" data-input-attached="@(inputAttached ? "true" : "false")" data-trigger-clicks="@triggerClicks" data-input-keydowns="@inputKeyDowns" data-popup-keydowns="@popupKeyDowns">
+<FixtureContainer Name="menu-filter-initial" data-attached="@(attached ? "true" : "false")" data-input-attached="@(inputAttached ? "true" : "false")" data-trigger-clicks="@triggerClicks" data-input-keydowns="@inputKeyDowns" data-popup-keydowns="@popupKeyDowns" data-open-completes="@string.Join(' ', openCompletes)">
     <MenuFilterProvider>
         <MenuRoot TPayload="NoPayload" Orientation="@(OrientationName == "horizontal" ? Orientation.Horizontal : Orientation.Vertical)" OnOpenChangeComplete="OnOpenChangeComplete" OnOpenChange="CancelOpen" @ref="root">
             <MenuTrigger TPayload="NoPayload" OpenOnHover="@Hover" Delay="0" @attributes="TriggerAttributes">Actions</MenuTrigger>
@@ -108,8 +108,11 @@
     [SupplyParameterFromQuery(Name = "after")]
     public bool After { get; set; }
 
-    // An open or close renders this component again, so its after-render finds the popup's input.
-    private void OnOpenChangeComplete(bool open) => _ = open;
+    // An open or close renders this component again, so its after-render finds the popup's input; each completion is
+    // recorded in `data-open-completes` (space-separated).
+    private void OnOpenChangeComplete(bool open) => openCompletes.Add(open ? "true" : "false");
+
+    private readonly List<string> openCompletes = [];
 
     /// <inheritdoc />
     protected override async Task OnAfterRenderAsync(bool firstRender)
