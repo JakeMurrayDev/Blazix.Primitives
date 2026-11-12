@@ -1,7 +1,7 @@
 import { type Locator } from '@playwright/test';
 import { expect, fixtureUrl, test, type Page, type RenderMode } from './helpers';
-import { gotoCombobox, recorded } from './combobox.helpers';
-import { settle } from './suites/popupFixture';
+import { center, gotoCombobox, recorded } from './combobox.helpers';
+import { openChangeCompletes, openChanges, pressControl, settle } from './suites/popupFixture';
 
 // Base UI's AutocompleteRoot.test.tsx at L4 (M5 track 11, issue 196), titles verbatim where the title is Base UI's, on the
 // `autocomplete-root` fixture (tests/Blazix.Primitives.Fixtures.Client/Autocomplete/L4/AutocompleteRootL4Fixture.razor): the
@@ -368,6 +368,131 @@ test.describe('<Autocomplete.Root />', () => {
     }
     await expect(input(page)).toHaveValue('item 19');
     await expect.poll(() => page.getByTestId('list').evaluate((element) => element.scrollTop)).toBeGreaterThan(0);
+  });
+});
+
+// AUT-ANI-01, EVT-03, DIS-01: AutocompleteRoot.test.tsx's "manual unmount lifecycle" on `autocomplete-unmount`, the titles
+// Combobox ports at L4 (combobox.root-a.spec.ts), each the same engine path under the Autocomplete parts. The other five of
+// Base UI's twelve are L2 titles (AutocompleteLifecycleTests).
+test.describe('<Autocomplete.Root /> manual unmount lifecycle', () => {
+  // ADR 01 relaxation (CMB-STA-29, Server, adopted): a popup held mounted by `preventUnmountOnClose` carries the convergent
+  // `hidden`, so Base UI's `queryByRole('listbox')` is a presence check that includes hidden elements.
+  const mountedListbox = (target: Page) => target.getByRole('listbox', { includeHidden: true });
+  const completedClosings = async (fixture: Locator) => (await openChangeCompletes(fixture)).filter((open) => open === 'false');
+  const unmountFixture = (page: Page, mode: RenderMode, options: Record<string, string | boolean> = {}) =>
+    gotoCombobox(page, mode, 'autocomplete-unmount', options);
+
+  async function pressOption(option: Locator): Promise<void> {
+    const point = await center(option);
+    await option.page().mouse.click(point.x, point.y);
+  }
+
+  test('automatically unmounts with an actions ref and completes closing once', async ({ page, mode }) => {
+    const fixture = await unmountFixture(page, mode);
+
+    expect(await openChangeCompletes(fixture)).toEqual([]);
+    await page.getByRole('combobox').click();
+    await expect(page.getByRole('listbox')).toBeVisible();
+    await page.keyboard.press('Escape');
+    await expect(mountedListbox(page)).toHaveCount(0);
+    await settle(fixture);
+    expect(await completedClosings(fixture)).toHaveLength(1);
+
+    await pressControl(fixture.locator('[data-unmount]'));
+    await settle(fixture);
+    expect(await completedClosings(fixture)).toHaveLength(1);
+  });
+
+  test('keeps the popup mounted until the unmount action completes closing', async ({ page, mode }) => {
+    const fixture = await unmountFixture(page, mode, { defaultOpen: true, retainEveryClose: true });
+
+    await pressOption(page.getByRole('option'));
+    await settle(fixture);
+    await expect(mountedListbox(page)).toHaveCount(1);
+    expect(await openChangeCompletes(fixture)).not.toContain('false');
+    await pressControl(fixture.locator('[data-unmount]'));
+    await expect(mountedListbox(page)).toHaveCount(0);
+    await settle(fixture);
+    expect(await completedClosings(fixture)).toHaveLength(1);
+
+    await pressControl(fixture.locator('[data-set-open="true"]'));
+    await expect(page.getByRole('listbox')).toBeVisible();
+    await pressControl(fixture.locator('[data-set-open="false"]'));
+    await expect(mountedListbox(page)).toHaveCount(0);
+    await settle(fixture);
+    expect(await completedClosings(fixture)).toHaveLength(2);
+  });
+
+  test('clears the opt-out when a controlled reopen interrupts a pending unmount', async ({ page, mode }) => {
+    const fixture = await unmountFixture(page, mode, { defaultOpen: true, retainEveryClose: true });
+
+    await pressOption(page.getByRole('option'));
+    await settle(fixture);
+    await expect(mountedListbox(page)).toHaveCount(1);
+    expect(await openChangeCompletes(fixture)).not.toContain('false');
+    await pressControl(fixture.locator('[data-set-open="true"]'));
+    await expect(page.getByRole('combobox')).toHaveAttribute('aria-expanded', 'true');
+    await pressControl(fixture.locator('[data-set-open="false"]'));
+    await expect(mountedListbox(page)).toHaveCount(0);
+    await settle(fixture);
+    expect(await completedClosings(fixture)).toHaveLength(1);
+  });
+
+  test('ignores an opt-out on a canceled close', async ({ page, mode }) => {
+    const fixture = await unmountFixture(page, mode, { defaultOpen: true, cancelFirst: true });
+
+    await pressOption(page.getByRole('option'));
+    await settle(fixture);
+    await expect(page.getByRole('combobox')).toHaveAttribute('aria-expanded', 'true');
+    await expect(mountedListbox(page)).toHaveCount(1);
+
+    await pressControl(fixture.locator('[data-set-cancel="false"]'));
+    await pressOption(page.getByRole('option'));
+    await expect(mountedListbox(page)).toHaveCount(0);
+  });
+
+  // Deviation (Combobox's, 2026-11-10): Base UI applies the controlled close in React.startTransition; Blazor has no
+  // transitions, so the fixture applies it in the callback.
+  test('keeps the opt-out when a controlled close is applied in a transition', async ({ page, mode }) => {
+    const fixture = await unmountFixture(page, mode, { defaultOpen: true, retainEveryClose: true });
+
+    await pressOption(page.getByRole('option'));
+    await expect(page.getByRole('combobox')).toHaveAttribute('aria-expanded', 'false');
+    await settle(fixture);
+    await expect(mountedListbox(page)).toHaveCount(1);
+    expect(await openChangeCompletes(fixture)).not.toContain('false');
+
+    await pressControl(fixture.locator('[data-unmount]'));
+    await expect(mountedListbox(page)).toHaveCount(0);
+    await settle(fixture);
+    expect(await completedClosings(fixture)).toHaveLength(1);
+  });
+
+  test('closes through the `close` action so `onOpenChange` can opt out', async ({ page, mode }) => {
+    const fixture = await unmountFixture(page, mode, { defaultOpen: true, retainEveryClose: true });
+    await expect(page.getByRole('listbox')).toBeVisible();
+
+    await pressControl(fixture.locator('[data-close]'));
+    await expect(page.getByRole('combobox')).toHaveAttribute('aria-expanded', 'false');
+    await settle(fixture);
+    expect(await openChanges(fixture)).toEqual(['false:imperative-action']);
+    await expect(mountedListbox(page)).toHaveCount(1);
+
+    await pressControl(fixture.locator('[data-unmount]'));
+    await expect(mountedListbox(page)).toHaveCount(0);
+  });
+
+  test('completes closing once when `unmount` is called twice in one batch', async ({ page, mode }) => {
+    const fixture = await unmountFixture(page, mode, { defaultOpen: true, retainEveryClose: true });
+
+    await pressOption(page.getByRole('option'));
+    await settle(fixture);
+    await expect(mountedListbox(page)).toHaveCount(1);
+
+    await pressControl(fixture.locator('[data-unmount-twice]'));
+    await expect(mountedListbox(page)).toHaveCount(0);
+    await settle(fixture);
+    expect(await completedClosings(fixture)).toHaveLength(1);
   });
 });
 
