@@ -137,6 +137,12 @@ public sealed class AutocompleteRoot<TValue> : ComponentBase, IAsyncDisposable
     [Parameter]
     public AutocompleteMode Mode { get; set; }
 
+    // AUT-API-05, STA-11, STA-12 (design point 4: track 12's AutoHighlightValue)
+    /// <summary>Gets or sets whether the first matching item is highlighted: <see langword="true"/> after the user types, <see cref="AutoHighlightValue.Always"/> whenever the list has items.</summary>
+    /// <value><see langword="null"/>, the default, or <see langword="false"/> for no automatic highlight.</value>
+    [Parameter]
+    public AutoHighlightValue? AutoHighlight { get; set; }
+
     // AUT-API-04
     /// <summary>Gets or sets a value indicating whether the highlight is kept when the pointer leaves the list.</summary>
     [Parameter]
@@ -359,6 +365,10 @@ public sealed class AutocompleteRoot<TValue> : ComponentBase, IAsyncDisposable
         inputs.FillInputOnItemPress = true;
         inputs.SubmitOnItemClick = SubmitOnItemClick;
         inputs.KeepHighlight = KeepHighlight;
+        inputs.AutoHighlight = AutoHighlight is not { } autoHighlight ? ComboboxAutoHighlightMode.Off
+            : autoHighlight.IsAlways ? ComboboxAutoHighlightMode.Always
+            : autoHighlight.IsEnabled ? ComboboxAutoHighlightMode.InputChange
+            : ComboboxAutoHighlightMode.Off;
         inputs.DefaultOpen = DefaultOpen;
         inputs.OnOpenChange = OnOpenChange;
         inputs.OpenChanged = OpenChanged;
