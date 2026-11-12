@@ -925,7 +925,7 @@ test.describe('filterable menu keys and semantics', () => {
     const renameId = (await item(page, 'Rename').getAttribute('id')) ?? 'missing';
     await expect(input(page)).toHaveAttribute('aria-activedescendant', renameId);
 
-    const dispatch = (init: KeyboardEventInit): Promise<boolean> =>
+    const dispatch = (init: { key: string; shiftKey?: boolean; altKey?: boolean; metaKey?: boolean }): Promise<boolean> =>
       input(page).evaluate((element, options) => element.dispatchEvent(new KeyboardEvent('keydown', { bubbles: true, cancelable: true, ...options })), init);
 
     expect(await dispatch({ key: 'ArrowDown', shiftKey: true })).toBe(true);
