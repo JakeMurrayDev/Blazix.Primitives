@@ -380,6 +380,10 @@ internal sealed class MenuRootBehavior<TPayload> : IAsyncDisposable
         // autoHighlight "always" it goes to the first item, with true to the first item while the input holds a query (the
         // module reads it, since C# learns the query a round trip later), and otherwise it is cleared.
         navigation.ItemsChangeHighlight = autoHighlight.IsAlways ? "first" : autoHighlight.IsEnabled ? "auto" : "clear";
+
+        // MNU-ARIA-06 (useMenuFilterPopup.ts:97-101; the orchestrator's 2026-11-12 grant): the popup is a dialog, which
+        // carries no aria-activedescendant; the Input does.
+        navigation.FloatingActiveDescendant = false;
     }
 
     // The list's parent-dependent options, from the store's parent (MenuRoot.tsx:516-568).

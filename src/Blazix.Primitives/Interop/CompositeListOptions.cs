@@ -69,6 +69,11 @@ internal sealed record CompositeListOptions
     /// <value><see langword="null"/>, the default, to keep the index.</value>
     public string? ItemsChangeHighlight { get; init; }
 
+    // MNU-ARIA-06 (M5 track 12, the orchestrator's 2026-11-12 grant): a filterable menu's list sends false.
+    /// <summary>Gets a value indicating whether the floating element carries <c>aria-activedescendant</c> under virtual focus.</summary>
+    /// <value><see langword="false"/> to leave it out; <see langword="null"/>, the default, writes it.</value>
+    public bool? FloatingActiveDescendant { get; init; }
+
     // SEL-STA-07 (Select's finding; queued by the orchestrator 2026-11-10): Base UI's Select ignores the close's reset.
     /// <summary>Gets a value indicating whether the highlight survives the close's reset while the popup animates out.</summary>
     /// <value><see langword="true"/> for Select's list; the default <see langword="false"/> is not sent.</value>

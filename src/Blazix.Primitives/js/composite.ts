@@ -1208,6 +1208,11 @@ export interface CompositeListOptions {
    * index is kept.
    */
   itemsChangeHighlight?: 'first' | 'clear' | 'auto' | undefined;
+  /**
+   * Whether the floating element carries `aria-activedescendant` under virtual focus; `true` by default. A filterable
+   * menu's popup is a dialog, which carries none (MNU-ARIA-06; the orchestrator's 2026-11-12 grant).
+   */
+  floatingActiveDescendant?: boolean | undefined;
   /** Whether the list is nested in another list; absent for `false`. */
   nested?: boolean | undefined;
   /** The parent list's orientation; absent to read what the parent popup's list published. */
@@ -2544,7 +2549,7 @@ function writeHighlight(state: ListState, handle: ListHandle): void {
     if (reference) {
       targets.set(reference, descendant);
     }
-    if (floating) {
+    if (floating && list.floatingActiveDescendant !== false) {
       targets.set(floating.element, isTypeableCombobox(reference) ? null : descendant);
     }
   }
