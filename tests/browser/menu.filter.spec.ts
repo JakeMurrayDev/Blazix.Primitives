@@ -247,6 +247,49 @@ test.describe('filterable menu initial highlight', () => {
     await expect(input(page)).not.toHaveAttribute('aria-activedescendant');
   });
 
+  // iOS VoiceOver presses with a touch whose contact is under a pixel and carries no pressure; Base UI's firePointer and
+  // fireEvent calls are dispatched in the page.
+  async function dispatchPress(locator: Locator, init: { pointerType: string; width?: number; height?: number; pressure?: number }): Promise<void> {
+    await locator.evaluate((element, { pointerType, width = 1, height = 1, pressure = 0.5 }) => {
+      const pointer = { bubbles: true, cancelable: true, isPrimary: true, pointerType, width, height, pressure };
+      element.dispatchEvent(new PointerEvent('pointerdown', pointer));
+      element.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, cancelable: true, detail: 1 }));
+      element.dispatchEvent(new PointerEvent('pointerup', pointer));
+      element.dispatchEvent(new MouseEvent('mouseup', { bubbles: true, cancelable: true, detail: 1 }));
+      element.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, detail: 1 }));
+    }, init);
+  }
+
+  // MNU-PTR-19.
+  test('focuses the input when a screen reader press opens the menu', async ({ page, mode }) => {
+    await open(page, mode);
+    await trigger(page).focus();
+
+    await dispatchPress(trigger(page), { pointerType: 'touch', width: 0.333, height: 0.333, pressure: 0 });
+
+    await expect(input(page)).toBeFocused();
+  });
+
+  // MNU-PTR-19. The fixture records no input focus handler; the input not holding focus after the tap is the check.
+  test('does not focus the input when an item is tapped after a touch open', async ({ page, mode }) => {
+    await open(page, mode);
+
+    await dispatchPress(trigger(page), { pointerType: 'touch' });
+    const rename = item(page, 'Rename');
+    await expect(rename).toBeVisible();
+    await page.evaluate(() => new Promise((resolve) => requestAnimationFrame(resolve)));
+    // A tap fires compatibility mouse events, including a mousemove, before its mousedown.
+    await rename.evaluate((element) => {
+      element.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, cancelable: true, isPrimary: true, pointerType: 'touch' }));
+      element.dispatchEvent(new PointerEvent('pointerup', { bubbles: true, cancelable: true, isPrimary: true, pointerType: 'touch' }));
+      element.dispatchEvent(new MouseEvent('mouseover', { bubbles: true }));
+      element.dispatchEvent(new MouseEvent('mousemove', { bubbles: true }));
+    });
+    await page.evaluate(() => new Promise((resolve) => requestAnimationFrame(resolve)));
+
+    await expect(input(page)).not.toBeFocused();
+  });
+
   test('does not focus the input when opened on hover', async ({ page, mode }) => {
     await open(page, mode, true);
 
@@ -293,6 +336,21 @@ test.describe('filterable menu initial highlight', () => {
       element.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, cancelable: true, pointerType: '' }));
       element.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, cancelable: true }));
       element.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, detail: 1 }));
+    });
+
+    await expect(page.getByTestId('popup')).toBeVisible();
+    expect(await hiddenFromAssistiveTechnology(page.getByTestId('after'))).toBe(false);
+  });
+
+  // Base UI's tree puts the input "after" before the trigger; the fixture's follows the menu.
+  test('does not trap a menu opened by touch', async ({ page, mode }) => {
+    await page.goto(`/${mode}/menu-filter-initial?after=true`, { waitUntil: 'commit' });
+    await page.locator(Fixture.started).waitFor({ state: 'attached' });
+    await expect(page.locator(Fixture.interactive('menu-filter-initial'))).toHaveAttribute('data-attached', 'true');
+
+    await trigger(page).evaluate((element) => {
+      element.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, cancelable: true, pointerType: 'touch' }));
+      element.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, cancelable: true }));
     });
 
     await expect(page.getByTestId('popup')).toBeVisible();
