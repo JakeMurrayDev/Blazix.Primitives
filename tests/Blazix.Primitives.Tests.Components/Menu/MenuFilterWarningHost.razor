@@ -1,9 +1,9 @@
 @namespace Blazix.Primitives.Tests.Components
 @* MenuFilterRoot.scoping.test.tsx's missing-input trees (MNU-EDGE-05): an open filterable menu with a list of one item,
-   and a Menu.Input only when `HasInput`. *@
+   and a Menu.Input only when `HasInput`; with `Detached`, the trigger and the root share a handle. *@
 <MenuFilterProvider>
-    <MenuRoot TPayload="NoPayload" DefaultOpen="true">
-        <MenuTrigger TPayload="NoPayload">Actions</MenuTrigger>
+    <MenuRoot TPayload="NoPayload" DefaultOpen="true" Handle="@(Detached ? handle : null)">
+        <MenuTrigger TPayload="NoPayload" Handle="@(Detached ? handle : null)">Actions</MenuTrigger>
         <MenuPortal>
             <MenuPositioner>
                 <MenuPopup>
@@ -21,6 +21,11 @@
 </MenuFilterProvider>
 
 @code {
+    private readonly MenuHandle<NoPayload> handle = new();
+
     [Parameter]
     public bool HasInput { get; set; }
+
+    [Parameter]
+    public bool Detached { get; set; }
 }

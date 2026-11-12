@@ -42,4 +42,14 @@ public sealed class MenuFilterWarningTests : BunitContext
         cut.WaitForAssertion(() => Assert.Single(cut.FindAll("[role=menuitem]")));
         Assert.DoesNotContain(logger.Entries, entry => entry.Message.Contains("without a `<MenuInput>`", StringComparison.Ordinal));
     }
+
+    [Fact(DisplayName = "does not warn for a filterable menu with an input and a detached trigger")]
+    [Trait("Requirement", "MNU-EDGE-05")]
+    public void Does_not_warn_with_an_input_and_a_detached_trigger()
+    {
+        IRenderedComponent<MenuFilterWarningHost> cut = Render<MenuFilterWarningHost>(p => p.Add(x => x.HasInput, true).Add(x => x.Detached, true));
+
+        cut.WaitForAssertion(() => Assert.Single(cut.FindAll("[role=menuitem]")));
+        Assert.DoesNotContain(logger.Entries, entry => entry.Message.Contains("without a `<MenuInput>`", StringComparison.Ordinal));
+    }
 }
