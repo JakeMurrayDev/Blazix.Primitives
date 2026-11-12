@@ -13,7 +13,13 @@
 // Interface commit: the option and report names; every acting body throws until its red-first commit.
 
 import { dispatchClickWithModifiers } from './button';
-import { isCrossOrientationCloseKey, isCrossOrientationOpenKey, isMainOrientationKey, skipListNavigation } from './composite';
+import {
+  highlightListEdge,
+  isCrossOrientationCloseKey,
+  isCrossOrientationOpenKey,
+  isMainOrientationKey,
+  skipListNavigation,
+} from './composite';
 import { eventInfo } from './event-info';
 import { platform } from './platform';
 import {
@@ -249,10 +255,10 @@ function attachInput(input: HTMLInputElement, initial: MenuFilterOptions, channe
     keyboardModality = true;
     syncHighlighted();
   };
-  // KEY-22, KEY-25, KEY-26, KEY-29, KEY-30 (useMenuFilterKeyDown.ts:103-192): the router. A key the table gives to the
+  // KEY-22, KEY-24, KEY-25, KEY-26, KEY-29, KEY-30 (useMenuFilterKeyDown.ts:103-192): the router. A key the table gives to the
   // input (`edit`) or to no one (`ignore`) is marked before composite's reference handle runs, so it moves the caret, not
-  // the highlight; an `activate` key clicks the highlighted item, a `submenu` key is dispatched on it, and `close` reports
-  // a focus-out. `enter-list` follows with highlightListEdge.
+  // the highlight; `enter-list` highlights the list's edge, an `activate` key clicks the highlighted item, a `submenu` key
+  // is dispatched on it, and `close` reports a focus-out.
   const onKeyDownCapture = (event: KeyboardEvent): void => {
     if (options.open !== true) {
       return;
@@ -270,6 +276,14 @@ function attachInput(input: HTMLInputElement, initial: MenuFilterOptions, channe
       case 'edit':
       case 'ignore':
         skipListNavigation(event);
+        break;
+      // KEY-24 (:155-167): in a horizontal menu with nothing highlighted, ArrowDown highlights the first item and ArrowUp the
+      // last, and the key is prevented only when an item was highlighted.
+      case 'enter-list':
+        skipListNavigation(event);
+        if (highlightListEdge(input, event.key === 'ArrowDown' ? 'first' : 'last', event)) {
+          event.preventDefault();
+        }
         break;
       // KEY-25 (:173-176): Enter on a highlighted item clicks it, with the key's modifiers.
       case 'activate':

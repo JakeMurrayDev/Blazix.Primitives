@@ -1368,9 +1368,14 @@ const attachedHandle = Symbol('blazix.composite.handle');
 // registry is needed (ADR 04 §3).
 const keyboardRelay = Symbol('blazix.composite.relay');
 
+// MNU-KEY-24 (M5 track 12, issue 197; granted by the orchestrator 2026-11-12): a list handle publishes its edge highlight on
+// its element, as a root publishes its relay, for the menu-filter Input's `enter-list` (useMenuFilterKeyDown.ts:155-167).
+const listEdgeHighlight = Symbol('blazix.composite.list-edge');
+
 interface AttachedElement extends HTMLElement {
   [attachedHandle]?: TwinHandle;
   [keyboardRelay]?: (event: KeyboardEvent) => boolean;
+  [listEdgeHighlight]?: (edge: 'first' | 'last', event: KeyboardEvent) => boolean;
 }
 
 /**
@@ -2141,6 +2146,19 @@ const skippedListKeys = new WeakSet<KeyboardEvent>();
  */
 export function skipListNavigation(event: KeyboardEvent): void {
   skippedListKeys.add(event);
+}
+
+/**
+ * Highlights the first or the last item of the list whose handle is attached to the element, as a keyboard highlight. No
+ * item counts as disabled.
+ * @param element An element with an attached list handle, such as the list's reference.
+ * @param edge Which end of the list.
+ * @param event The keydown that asked.
+ * @returns `true` when an item was highlighted.
+ */
+export function highlightListEdge(element: Element | null | undefined, edge: 'first' | 'last', event: KeyboardEvent): boolean {
+  const highlight = (element as AttachedElement | null | undefined)?.[listEdgeHighlight];
+  return highlight ? highlight(edge, event) : false;
 }
 
 // CMP-ALG-20 (useListNavigation.ts:59-100), exported for Menu's filter keydown (fact sheet A contradiction 8).
@@ -3765,6 +3783,7 @@ function attachList(
       }
       disposed = true;
       delete element[attachedHandle];
+      delete element[listEdgeHighlight];
       for (const [type, listener, capture] of listeners) {
         element.removeEventListener(type, listener, capture);
       }
@@ -3782,6 +3801,17 @@ function attachList(
       releaseListState(state, session);
       releaseSession(session);
     },
+  };
+  // useMenuFilterKeyDown.ts:157-165: the edge index over an empty disabled list, highlighted with the keydown.
+  element[listEdgeHighlight] = (edge, event) => {
+    const elements = elementsOf(state);
+    const index = edge === 'first' ? getMinListIndex(elements, []) : getMaxListIndex(elements, []);
+    if (!elements[index]) {
+      return false;
+    }
+    state.index = index;
+    navigateTo(state, handle, event);
+    return true;
   };
   element[attachedHandle] = twinHandle;
   return twinHandle;
