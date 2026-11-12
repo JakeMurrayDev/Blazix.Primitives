@@ -1960,12 +1960,18 @@ internal sealed class ComboboxStore<TValue> : ComboboxStore
 
                 restoreWaitedOn = null;
                 pendingHighlight = null;
+
+                // AriaCombobox.tsx:1129-1137 (design point 11 of M5 track 11, settled by the orchestrator 2026-11-12): the first-item
+                // reset of an always-highlighted Autocomplete is synchronous in Base UI, before a directly rendered list closes,
+                // so a list with no Popup part, which stays visible after the clear's close, takes it too.
+                if ((navigable || !PopupMounted) && inputs.AutoHighlight == ComboboxAutoHighlightMode.Always && !pending.Selection
+                    && State.SelectionMode == ComboboxSelectionMode.None)
+                {
+                    await SetIndicesAsync(0, null, fromModule: false);
+                }
+
                 if (navigable)
                 {
-                    if (inputs.AutoHighlight == ComboboxAutoHighlightMode.Always && !pending.Selection && State.SelectionMode == ComboboxSelectionMode.None)
-                    {
-                        await SetIndicesAsync(0, null, fromModule: false);
-                    }
 
                     bool hasSelection = Multiple ? SelectedValues.Count > 0 : Single && singlePresent;
                     if (hasSelection)
