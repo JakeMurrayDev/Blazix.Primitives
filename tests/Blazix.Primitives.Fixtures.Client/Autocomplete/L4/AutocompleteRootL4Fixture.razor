@@ -9,7 +9,7 @@
     (SubmitOnItemClick inside a form whose input is named `tag`; the page reads its FormData), `keepHighlight`, `insidePopup`
     (a Trigger showing the Value, the Input inside the popup). Recorded through `Records`: `value-changes` (`text:reason`),
     `highlights` (`value:reason:index`), `highlight-events` (each highlight's event type), `item-clicks` (the Items' consumer
-    onclick), and the base's open changes. A button follows the Input (Base UI's Tab target) and the form has a submit button. `autoHighlight` (true or always) sets AutoHighlight, `required` sets Required. `many` gives 50 items (`item 0`..`item 49`) in a list 100 px high that scrolls.
+    onclick), and the base's open changes. A button follows the Input (Base UI's Tab target) and the form has a submit button. `autoHighlight` (true or always) sets AutoHighlight, `required` sets Required, `defaultOpen` sets DefaultOpen. `many` gives 50 items (`item 0`..`item 49`) in a list 100 px high that scrolls.
 *@
 <FixtureContainer Name="autocomplete-root" data-attached="@(Attached ? "true" : "false")" data-sync="@Sync"
                   data-open-changes="@OpenChanges" data-open-change-completes="@OpenChangeCompletes" @attributes="Records">
@@ -77,6 +77,7 @@
             ["SubmitOnItemClick"] = QueryFlag("submit") == true,
             ["KeepHighlight"] = QueryFlag("keepHighlight") == true,
             ["Required"] = QueryFlag("required") == true,
+            ["DefaultOpen"] = QueryFlag("defaultOpen") == true,
             ["AutoHighlight"] = Query("autoHighlight") switch { "true" => (AutoHighlightValue?)true, "always" => AutoHighlightValue.Always, _ => null },
             ["Name"] = "tag",
             ["OnValueChange"] = EventCallback.Factory.Create<ValueChangeEventArgs<string>>(this, RecordValueChange),
