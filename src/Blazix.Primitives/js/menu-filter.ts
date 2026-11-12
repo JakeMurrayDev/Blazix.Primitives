@@ -334,12 +334,20 @@ function attachInput(input: HTMLInputElement, initial: MenuFilterOptions, channe
   let highlighted = false;
   let lastRevision = options.valueRevision ?? null;
 
-  // FilterDropdownInput.tsx:45-53: an edit made while the popup animates out would land after the close reset the query.
+  // The text the input last showed as the query: what it reported, or what C# wrote.
+  let shownValue = input.value;
+
+  // FilterDropdownInput.tsx:45-53: an edit made while the popup animates out would land after the close reset the query,
+  // so it is dropped; React's controlled input then shows the query again, which the port restores itself (MNU-STA-21).
   const commit = (event: Event): void => {
     if (options.open !== true) {
+      if (input.value !== shownValue) {
+        input.value = shownValue;
+      }
       return;
     }
     const value = input.value;
+    shownValue = value;
     channel.report('OnValueChange', { value, reason: value === '' ? 'input-clear' : 'input-change', event: eventInfo(event) });
   };
 
@@ -379,6 +387,7 @@ function attachInput(input: HTMLInputElement, initial: MenuFilterOptions, channe
     }
     lastRevision = revision;
     const value = options.value ?? '';
+    shownValue = value;
     if (!composing && input.value !== value) {
       input.value = value;
     }
