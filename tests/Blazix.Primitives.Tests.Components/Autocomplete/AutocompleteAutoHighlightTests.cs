@@ -86,6 +86,30 @@ public sealed class AutocompleteAutoHighlightTests : IDisposable
         Assert.Equal([("b", EventReason.InputChange)], cut.Instance.ValueChanges);
     }
 
+    // §16 Q3, AUT-STA-08 (ComboboxItem.tsx:110-135; design point 1 (ii), settled by the orchestrator 2026-11-12): without
+    // `Items`, a mounted Item equal to the activated value registers its index as the selected index, which an opening arrow
+    // with AutoHighlight highlights; no Item is ever selected.
+    [Fact(DisplayName = "port: without items, a remounted item equal to the activated value registers its index as the selected index")]
+    [Trait("Requirement", "AUT-STA-08")]
+    [Trait("Requirement", "AUT-STA-03")]
+    public async Task A_remounted_item_registers_the_activated_value_as_the_selected_index()
+    {
+        IRenderedComponent<AutocompleteStaticHost> cut = test.Context.Render<AutocompleteStaticHost>(p => p
+            .Add(x => x.RootParameters, new Dictionary<string, object?> { ["DefaultOpen"] = true, ["AutoHighlight"] = (AutoHighlightValue?)true }));
+        await cut.InvokeAsync(() => cut.Find("[data-testid=item-banana]").Click());
+        Assert.False(cut.Instance.Root!.Store.State.Lifecycle.EffectiveOpen);
+        await cut.InvokeAsync(() => cut.Instance.Root!.Unmount());
+        Assert.Empty(cut.FindAll("[role=option]"));
+
+        string reopen = $$"""{"open":true,"reason":"trigger-press","event":{{ComboboxTestContext.Click}},"triggerId":null}""";
+        Blazix.Primitives.Interop.InteractionsTwin session = test.SessionTwin;
+        await cut.InvokeAsync(() => session.OnRequest(reopen));
+
+        Assert.Equal(3, cut.FindAll("[role=option]").Count);
+        Assert.Equal(1, cut.Instance.Root!.Store.State.SelectedIndex);
+        Assert.All(cut.FindAll("[role=option]"), item => Assert.False(item.HasAttribute("data-selected")));
+    }
+
     private IRenderedComponent<AutocompleteHarness> Render(Dictionary<string, object?> parameters) =>
         test.Context.Render<AutocompleteHarness>(p => p.Add(x => x.RootParameters, parameters));
 
