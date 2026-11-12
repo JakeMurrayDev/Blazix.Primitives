@@ -1,0 +1,65 @@
+@namespace Blazix.Primitives.Tests.Components
+@* Base UI's `Popup` of AutocompleteRoot.test.tsx's manual unmount lifecycle (M5 track 11): a root opened on input click over the
+   host's open state, which a change the callback does not cancel writes back, an Input and one Item, apple. The open changes'
+   reasons and the completions are recorded; `OnOpen` and `OnComplete` let a test act inside the callbacks. *@
+<AutocompleteRoot TValue="string" @ref="Root" OpenOnInputClick="true" Open="@open" OnOpenChange="HandleOpenChange" OnOpenChangeComplete="HandleComplete">
+    <AutocompleteInput data-testid="input" />
+    <AutocompletePortal>
+        <AutocompletePositioner>
+            <AutocompletePopup>
+                <AutocompleteList TValue="string" data-testid="list">
+                    <AutocompleteItem TValue="string" Value="@("apple")" data-testid="item-apple">Apple</AutocompleteItem>
+                </AutocompleteList>
+            </AutocompletePopup>
+        </AutocompletePositioner>
+    </AutocompletePortal>
+</AutocompleteRoot>
+
+@code {
+    private bool open;
+
+    [Parameter]
+    public bool InitialOpen { get; set; }
+
+    /// <summary>Gets the rendered root.</summary>
+    public AutocompleteRoot<string>? Root { get; private set; }
+
+    /// <summary>Gets the open changes' reasons.</summary>
+    public List<EventReason> OpenChanges { get; } = [];
+
+    /// <summary>Gets the completions.</summary>
+    public List<bool> Completes { get; } = [];
+
+    /// <summary>Gets or sets an action run inside the open-change callback, before the host writes the state back.</summary>
+    public Action<ValueChangeEventArgs<bool>>? OnOpen { get; set; }
+
+    /// <summary>Gets or sets an action run inside the completion callback.</summary>
+    public Action<bool>? OnComplete { get; set; }
+
+    /// <summary>Sets the host's open state and renders.</summary>
+    /// <param name="value">The state.</param>
+    public void SetOpenState(bool value)
+    {
+        open = value;
+        StateHasChanged();
+    }
+
+    /// <inheritdoc />
+    protected override void OnInitialized() => open = InitialOpen;
+
+    private void HandleOpenChange(ValueChangeEventArgs<bool> args)
+    {
+        OpenChanges.Add(args.Details.Reason);
+        OnOpen?.Invoke(args);
+        if (!args.Details.IsCanceled)
+        {
+            open = args.Value;
+        }
+    }
+
+    private void HandleComplete(bool opened)
+    {
+        Completes.Add(opened);
+        OnComplete?.Invoke(opened);
+    }
+}

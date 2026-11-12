@@ -1,0 +1,78 @@
+<DemoFrame Slug="autocomplete" Note="Type to filter the tags; the text is the value. The arrow keys move the highlight while the focus stays in the input, and Enter or a click fills the input with the tag. Escape closes the list.">
+    <Hero>
+        <AutocompleteRoot Items="s_tags" ItemToStringValue="@(static t => t.Value)">
+            <label class="flex flex-col gap-1 text-sm font-bold text-neutral-950 dark:text-white">
+                Search tags
+                <AutocompleteInput placeholder="e.g. feature" class="h-8 w-[16rem] border border-neutral-950 bg-white dark:bg-neutral-950 px-2 text-sm any-pointer-coarse:text-base font-normal text-neutral-950 placeholder:opacity-100 placeholder:text-neutral-500 placeholder:[-webkit-text-fill-color:var(--color-neutral-500)] dark:placeholder:text-neutral-400 dark:placeholder:[-webkit-text-fill-color:var(--color-neutral-400)] focus:outline-2 focus:-outline-offset-1 focus:outline-neutral-950 dark:focus:outline-white dark:border-white dark:text-white" />
+            </label>
+
+            <AutocompletePortal>
+                <AutocompletePositioner class="outline-hidden" SideOffset="4">
+                    <AutocompletePopup class="w-[var(--anchor-width)] max-w-[var(--available-width)] border border-neutral-950 bg-white text-neutral-950 shadow-[0.25rem_0.25rem_0] shadow-black/12 dark:border-white dark:bg-neutral-950 dark:text-white dark:shadow-none">
+                        <AutocompleteEmpty>
+                            <div class="py-4 pr-4 pl-2 text-sm leading-4 text-neutral-500 dark:text-neutral-400">
+                                No tags found.
+                            </div>
+                        </AutocompleteEmpty>
+                        <AutocompleteList class="outline-0 overflow-y-auto scroll-py-[0.25rem] py-1 overscroll-contain max-h-[min(22.5rem,var(--available-height))] data-empty:p-0">
+                            <ItemContent>
+                                <AutocompleteItem Value="@context.Value" class="flex cursor-default items-center gap-2 py-2 pr-2 pl-2 text-sm leading-4 outline-hidden select-none data-highlighted:relative data-highlighted:z-0 data-highlighted:text-white data-highlighted:before:absolute data-highlighted:before:inset-x-0 data-highlighted:before:inset-y-0 data-highlighted:before:z-[-1] data-highlighted:before:bg-neutral-950 dark:data-highlighted:text-neutral-950 dark:data-highlighted:before:bg-white" @key="context.Value.Id">
+                                    @context.Value.Value
+                                </AutocompleteItem>
+                            </ItemContent>
+                        </AutocompleteList>
+                    </AutocompletePopup>
+                </AutocompletePositioner>
+            </AutocompletePortal>
+        </AutocompleteRoot>
+    </Hero>
+</DemoFrame>
+
+@code {
+    private static readonly Tag[] s_tags =
+    [
+        new("t1", "feature"),
+        new("t2", "fix"),
+        new("t3", "bug"),
+        new("t4", "docs"),
+        new("t5", "internal"),
+        new("t6", "mobile"),
+        new("c-accordion", "component: accordion"),
+        new("c-alert-dialog", "component: alert dialog"),
+        new("c-autocomplete", "component: autocomplete"),
+        new("c-avatar", "component: avatar"),
+        new("c-checkbox", "component: checkbox"),
+        new("c-checkbox-group", "component: checkbox group"),
+        new("c-collapsible", "component: collapsible"),
+        new("c-combobox", "component: combobox"),
+        new("c-context-menu", "component: context menu"),
+        new("c-dialog", "component: dialog"),
+        new("c-field", "component: field"),
+        new("c-fieldset", "component: fieldset"),
+        new("c-filterable-menu", "component: filterable menu"),
+        new("c-form", "component: form"),
+        new("c-input", "component: input"),
+        new("c-menu", "component: menu"),
+        new("c-menubar", "component: menubar"),
+        new("c-meter", "component: meter"),
+        new("c-navigation-menu", "component: navigation menu"),
+        new("c-number-field", "component: number field"),
+        new("c-popover", "component: popover"),
+        new("c-preview-card", "component: preview card"),
+        new("c-progress", "component: progress"),
+        new("c-radio", "component: radio"),
+        new("c-scroll-area", "component: scroll area"),
+        new("c-select", "component: select"),
+        new("c-separator", "component: separator"),
+        new("c-slider", "component: slider"),
+        new("c-switch", "component: switch"),
+        new("c-tabs", "component: tabs"),
+        new("c-toast", "component: toast"),
+        new("c-toggle", "component: toggle"),
+        new("c-toggle-group", "component: toggle group"),
+        new("c-toolbar", "component: toolbar"),
+        new("c-tooltip", "component: tooltip"),
+    ];
+
+    private sealed record Tag(string Id, string Value);
+}

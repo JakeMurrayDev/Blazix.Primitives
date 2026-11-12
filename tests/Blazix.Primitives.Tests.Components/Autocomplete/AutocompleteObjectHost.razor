@@ -1,0 +1,29 @@
+@namespace Blazix.Primitives.Tests.Components
+@typeparam TItem
+@* An Autocomplete over object items (M5 track 11; AUT-API-08, API-10): the root's Items with the parameters a test gives, an
+   Input and a List rendering each item's text through the root's ItemToStringValue. *@
+<AutocompleteRoot TValue="TItem" @ref="Root" @attributes="RootParameters">
+    <AutocompleteInput data-testid="input" />
+    <AutocompletePortal>
+        <AutocompletePositioner>
+            <AutocompletePopup>
+                <AutocompleteList TValue="TItem">
+                    <ItemContent>
+                        <AutocompleteItem TValue="TItem" Value="@context.Value">@Text(context.Value)</AutocompleteItem>
+                    </ItemContent>
+                </AutocompleteList>
+            </AutocompletePopup>
+        </AutocompletePositioner>
+    </AutocompletePortal>
+</AutocompleteRoot>
+
+@code {
+    [Parameter]
+    public Dictionary<string, object?> RootParameters { get; set; } = [];
+
+    [Parameter]
+    public Func<TItem, string> Text { get; set; } = static item => item?.ToString() ?? string.Empty;
+
+    /// <summary>Gets the rendered root.</summary>
+    public AutocompleteRoot<TItem>? Root { get; private set; }
+}

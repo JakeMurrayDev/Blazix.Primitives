@@ -19,6 +19,8 @@ internal abstract class ComboboxStore : PopupLifecycleStore<ComboboxStoreState>,
 {
     private int emptyParts;
 
+    private int popupParts;
+
     private bool inputFocusPending;
 
     /// <summary>Occurs when a part that the session's options read registered or left, such as an empty state.</summary>
@@ -59,6 +61,11 @@ internal abstract class ComboboxStore : PopupLifecycleStore<ComboboxStoreState>,
     /// <summary>Gets the engine's ARIA autocomplete mode.</summary>
     public abstract ComboboxAriaAutoComplete AriaAutoComplete { get; }
 
+    // AUT-STA-08, KEY-07 (AriaCombobox.tsx:854-877, ComboboxInput.tsx:351-364; design point 1 (ii) of M5 track 11, settled by
+    // the orchestrator 2026-11-12): in None mode the engine keeps the last activated item's value, which no part exposes.
+    /// <summary>Gets a value indicating whether a selection-less root keeps the value of an item activated since the last closed Escape.</summary>
+    public abstract bool HasActivatedValue { get; }
+
     /// <summary>Gets a value indicating whether the consumer owns the input text.</summary>
     public abstract bool InputControlled { get; }
 
@@ -87,6 +94,10 @@ internal abstract class ComboboxStore : PopupLifecycleStore<ComboboxStoreState>,
 
     /// <summary>Gets a value indicating whether an empty-state part is mounted.</summary>
     public bool EmptyMounted => emptyParts > 0;
+
+    // AUT-PTR-02 (AriaCombobox.tsx:866-868, popupRef.current; design point 1 (iii) of M5 track 11).
+    /// <summary>Gets a value indicating whether a popup part is mounted.</summary>
+    public bool PopupMounted => popupParts > 0;
 
     /// <summary>Gets the id of the trigger a press made the floating root's DOM reference, or <see langword="null"/>.</summary>
     public string? DomReferenceTriggerId { get; private set; }
@@ -203,6 +214,14 @@ internal abstract class ComboboxStore : PopupLifecycleStore<ComboboxStoreState>,
         return new EmptyRegistration(this);
     }
 
+    /// <summary>Registers a mounted popup part.</summary>
+    /// <returns>A registration whose disposal records the part's removal.</returns>
+    public IDisposable RegisterPopup()
+    {
+        popupParts++;
+        return new PopupRegistration(this);
+    }
+
     /// <summary>Mounts the list while closed, for typeahead or autofill.</summary>
     public abstract void ForceMount();
 
@@ -263,7 +282,22 @@ internal abstract class ComboboxStore : PopupLifecycleStore<ComboboxStoreState>,
 
             store.NotifySessionInputsChanged();
         }
-}
+    }
+
+    private sealed class PopupRegistration(ComboboxStore store) : IDisposable
+    {
+        private bool disposed;
+
+        /// <inheritdoc />
+        public void Dispose()
+        {
+            if (!disposed)
+            {
+                disposed = true;
+                store.popupParts--;
+            }
+        }
+    }
 }
 
 // The value half (store.ts's selectedValue, items, isItemEqualToValue, itemToStringLabel; AriaCombobox.tsx's derivations):
@@ -363,6 +397,9 @@ internal sealed class ComboboxStore<TValue> : ComboboxStore
     private string? handlerQuery;
 
     private int? savedActiveIndex;
+
+    // The inline input's last reported focus; null until it reports one (CMB-STA-26, design point 9 of M5 track 11).
+    private bool? inlineInputFocused;
 
     private (string Text, ChangeEventDetails Details)? pendingAutofill;
 
@@ -470,6 +507,9 @@ internal sealed class ComboboxStore<TValue> : ComboboxStore
 
     /// <inheritdoc />
     public override ComboboxAriaAutoComplete AriaAutoComplete => inputs.AriaAutoComplete;
+
+    /// <inheritdoc />
+    public override bool HasActivatedValue => State.SelectionMode == ComboboxSelectionMode.None && singlePresent;
 
     /// <inheritdoc />
     public override ComboboxAutoHighlightMode AutoHighlight => inputs.AutoHighlight;
@@ -684,6 +724,13 @@ internal sealed class ComboboxStore<TValue> : ComboboxStore
         {
             await SetSelectedValueAsync(default!, details, present: false);
         }
+        else
+        {
+            // AUT-STA-08 (design point 1 (ii)): the internal value resets to null, which no callback reports.
+            singlePresent = false;
+            valueState.SetValueIfUncontrolled(default!);
+            Write(State with { SelectionRevision = State.SelectionRevision + 1 });
+        }
 
         return details;
     }
@@ -797,6 +844,7 @@ internal sealed class ComboboxStore<TValue> : ComboboxStore
             return;
         }
 
+        inlineInputFocused = focused;
         if (focused)
         {
             int? saved = savedActiveIndex;
@@ -855,8 +903,14 @@ internal sealed class ComboboxStore<TValue> : ComboboxStore
             valuesState.Update(valuesSupplied, values ?? [], true, defaults ?? []);
         }
 
-        bool inputSupplied = parameters.TryGetValue(names.InputValue, out string? inputValue);
-        bool defaultInputSupplied = parameters.TryGetValue(names.DefaultInputValue, out string? defaultInputValue);
+        // A root that gives its text as InputText names no input parameters (ApplyInputs reads it).
+        if (names.InputValue is not { } inputName || names.DefaultInputValue is not { } defaultInputName)
+        {
+            return;
+        }
+
+        bool inputSupplied = parameters.TryGetValue(inputName, out string? inputValue);
+        bool defaultInputSupplied = parameters.TryGetValue(defaultInputName, out string? defaultInputValue);
 
         // CMB-STA-19 (AriaCombobox.tsx:283, read at every render): hasInputValue is a given text, InputValue or
         // DefaultInputValue. InputValue is controlled iff supplied at the first parameter set, and a supplied null shows the
@@ -878,6 +932,15 @@ internal sealed class ComboboxStore<TValue> : ComboboxStore
         bool firstSet = !initialized;
         ComboboxRootInputs<TValue> previous = inputs;
         inputs = next;
+
+        // AUT-STA-09 (AutocompleteRoot.tsx:107-125, AriaCombobox.tsx:283; design point 1 (i) of M5 track 11, settled by the
+        // orchestrator 2026-11-12): a given text is a controlled input value at every set, so a popup input never blanks it.
+        if (next.InputText is { } given)
+        {
+            HasInputValueParameter = true;
+            inputNullControlled = false;
+            inputValueState.Update(true, given, false, default!);
+        }
         if (!collatorCreated || !Equals(collatorCulture, next.Culture))
         {
             collatorCreated = true;
@@ -1154,6 +1217,10 @@ internal sealed class ComboboxStore<TValue> : ComboboxStore
         {
             ComboboxSelectionMode.Single when singlePresent => ItemEquality.FindSelectionIndex(registry, valueState.Value, inputs.IsItemEqualToValue),
             ComboboxSelectionMode.Multiple => ItemEquality.FindSelectionIndex(registry, SelectedValues, inputs.IsItemEqualToValue),
+
+            // AUT-STA-08, §16 Q3 (ComboboxItem.tsx:110-135; design point 1 (ii) of M5 track 11, settled by the orchestrator
+            // 2026-11-12): without Items, the rendered item equal to the activated value is the selected index.
+            ComboboxSelectionMode.None when singlePresent && !State.HasItems => ItemEquality.FindSelectionIndex(registry, valueState.Value, inputs.IsItemEqualToValue),
             _ => null,
         };
     }
@@ -1520,7 +1587,9 @@ internal sealed class ComboboxStore<TValue> : ComboboxStore
         // consumer's change (useValueChanged(selectedValue) runs on a change only).
         OnSelectionCommitted(ObserveSelectedValue());
 
-        bool fillInput = (State.SelectionMode == ComboboxSelectionMode.None && inputs.FillInputOnItemPress) || (Single && !State.InputInsidePopup);
+        // AUT-PTR-02, §16 Q7 (AriaCombobox.tsx:866-868; design point 1 (iii) of M5 track 11, settled by the orchestrator
+        // 2026-11-12): None mode fills only while a Popup part is mounted (popupRef.current), so an inline list without one never fills.
+        bool fillInput = (State.SelectionMode == ComboboxSelectionMode.None && PopupMounted && inputs.FillInputOnItemPress) || (Single && !State.InputInsidePopup);
         if (fillInput)
         {
             await SetInputValueAsync(present ? LabelOf(value) : string.Empty, CreateDetails(details.Reason, details.Event));
@@ -1857,7 +1926,10 @@ internal sealed class ComboboxStore<TValue> : ComboboxStore
             bool navigable = IsOpen || State.Inline;
             if (pending.HasQuery)
             {
-                if (inputs.AutoHighlight == ComboboxAutoHighlightMode.Off || State.InputValue.Trim().Length == 0)
+                // AriaCombobox.tsx:1104-1113 (design point 9 of M5 track 11, settled by the orchestrator 2026-11-12): nor is an
+                // inline highlight restored after the focus left the input, unless the highlight is always on.
+                bool blurredInline = State.Inline && inputs.AutoHighlight != ComboboxAutoHighlightMode.Always && inlineInputFocused == false;
+                if (inputs.AutoHighlight == ComboboxAutoHighlightMode.Off || State.InputValue.Trim().Length == 0 || blurredInline)
                 {
                     pendingHighlight = null;
                 }
@@ -1888,12 +1960,18 @@ internal sealed class ComboboxStore<TValue> : ComboboxStore
 
                 restoreWaitedOn = null;
                 pendingHighlight = null;
+
+                // AriaCombobox.tsx:1129-1137 (design point 11 of M5 track 11, settled by the orchestrator 2026-11-12): the first-item
+                // reset of an always-highlighted Autocomplete is synchronous in Base UI, before a directly rendered list closes,
+                // so a list with no Popup part, which stays visible after the clear's close, takes it too.
+                if ((navigable || !PopupMounted) && inputs.AutoHighlight == ComboboxAutoHighlightMode.Always && !pending.Selection
+                    && State.SelectionMode == ComboboxSelectionMode.None)
+                {
+                    await SetIndicesAsync(0, null, fromModule: false);
+                }
+
                 if (navigable)
                 {
-                    if (inputs.AutoHighlight == ComboboxAutoHighlightMode.Always && !pending.Selection && State.SelectionMode == ComboboxSelectionMode.None)
-                    {
-                        await SetIndicesAsync(0, null, fromModule: false);
-                    }
 
                     bool hasSelection = Multiple ? SelectedValues.Count > 0 : Single && singlePresent;
                     if (hasSelection)
@@ -2000,7 +2078,7 @@ internal sealed class ComboboxStore<TValue> : ComboboxStore
     // item); with no match a single root keeps its index.
     private void ReassertSelectedIndex()
     {
-        if (!IsOpen || State.HasItems || State.SelectionMode == ComboboxSelectionMode.None || FindSelectedIndex() is not int index)
+        if (!IsOpen || State.HasItems || FindSelectedIndex() is not int index)
         {
             return;
         }

@@ -1,6 +1,7 @@
 using Blazix.Primitives.Fixtures.Client.AccordionFixtures;
 using Blazix.Primitives.Fixtures.Client.AlertDialogFixtures;
 using Blazix.Primitives.Fixtures.Client.Allocation;
+using Blazix.Primitives.Fixtures.Client.AutocompleteFixtures;
 using Blazix.Primitives.Fixtures.Client.AvatarFixtures;
 using Blazix.Primitives.Fixtures.Client.ButtonBehavior;
 using Blazix.Primitives.Fixtures.Client.ButtonFixtures;
@@ -348,5 +349,8 @@ public static class FixtureCatalog
         ["combobox-live-regions"] = new(typeof(ComboboxLiveRegionsL4Fixture)),
         ["combobox-form"] = new(typeof(ComboboxFormL4Fixture)),
         ["combobox-virtualize"] = new(typeof(ComboboxVirtualizeL4Fixture)),
+        ["autocomplete-root"] = new(typeof(AutocompleteRootL4Fixture)),
+        ["autocomplete-prerender"] = new(typeof(AutocompletePrerenderFixture), Prerender: true),
+        ["autocomplete-unmount"] = new(typeof(AutocompleteUnmountL4Fixture)),
     };
 }

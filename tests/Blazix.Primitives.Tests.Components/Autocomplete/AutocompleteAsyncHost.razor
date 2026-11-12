@@ -1,0 +1,63 @@
+@namespace Blazix.Primitives.Tests.Components
+@* Base UI's `AsyncAutocomplete` (AutocompleteRoot.test.tsx "asynchronous items", M5 track 11): a root over `Items` the test
+   replaces, with AutoHighlight and a null Filter unless `RootParameters` says otherwise, an Input, a Trigger and a Clear, and a
+   Portal (KeepMounted) > Positioner > Popup > List. `InlineLayout` renders the Input and List under an inline root instead,
+   with a button to blur to. *@
+<AutocompleteRoot TValue="string" @ref="Root" @attributes="Parameters">
+    <AutocompleteInput data-testid="input" />
+    @if (InlineLayout)
+    {
+        <AutocompleteList TValue="string">
+            <ItemContent><AutocompleteItem TValue="string" Value="@context.Value">@context.Value</AutocompleteItem></ItemContent>
+        </AutocompleteList>
+    }
+    else
+    {
+        <AutocompleteTrigger data-testid="trigger" />
+        <AutocompleteClear data-testid="clear" />
+        <AutocompletePortal KeepMounted="KeepMounted">
+            <AutocompletePositioner>
+                <AutocompletePopup>
+                    <AutocompleteList TValue="string">
+                        <ItemContent><AutocompleteItem TValue="string" Value="@context.Value">@context.Value</AutocompleteItem></ItemContent>
+                    </AutocompleteList>
+                </AutocompletePopup>
+            </AutocompletePositioner>
+        </AutocompletePortal>
+    }
+</AutocompleteRoot>
+<button type="button" data-testid="blur-target">Blur target</button>
+
+@code {
+    [Parameter]
+    public IReadOnlyList<string> Items { get; set; } = [];
+
+    [Parameter]
+    public Dictionary<string, object?> RootParameters { get; set; } = [];
+
+    [Parameter]
+    public bool KeepMounted { get; set; }
+
+    [Parameter]
+    public bool InlineLayout { get; set; }
+
+    /// <summary>Gets the rendered root.</summary>
+    public AutocompleteRoot<string>? Root { get; private set; }
+
+    private Dictionary<string, object?> Parameters
+    {
+        get
+        {
+            Dictionary<string, object?> parameters = InlineLayout
+                ? new() { ["Inline"] = true, ["DefaultOpen"] = true, ["AutoHighlight"] = (AutoHighlightValue?)true }
+                : new() { ["AutoHighlight"] = (AutoHighlightValue?)true, ["Filter"] = null };
+            foreach ((string key, object? value) in RootParameters)
+            {
+                parameters[key] = value;
+            }
+
+            parameters["Items"] = Items;
+            return parameters;
+        }
+    }
+}
