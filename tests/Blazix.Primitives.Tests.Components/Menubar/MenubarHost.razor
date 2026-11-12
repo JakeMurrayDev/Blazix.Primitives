@@ -1,0 +1,28 @@
+@namespace Blazix.Primitives.Tests.Components
+@* A Menubar (`Orientation`, `Modal`) holding the File menu, open at its first render with `DefaultOpen`, its Root given
+   `RootModal` when supplied, and a plain button that is no item. *@
+<Menubar id="bar" Orientation="Orientation" Modal="Modal">
+    <MenuRoot TPayload="NoPayload" DefaultOpen="DefaultOpen" Modal="RootModal">
+        <MenuTrigger TPayload="NoPayload" data-testid="file">File</MenuTrigger>
+        <MenuPortal>
+            <MenuPositioner data-testid="file-positioner">
+                <MenuPopup data-testid="file-popup" />
+            </MenuPositioner>
+        </MenuPortal>
+    </MenuRoot>
+    <button type="button" data-testid="plain">Plain</button>
+</Menubar>
+
+@code {
+    [Parameter]
+    public Blazix.Primitives.Orientation Orientation { get; set; } = Blazix.Primitives.Orientation.Horizontal;
+
+    [Parameter]
+    public bool Modal { get; set; } = true;
+
+    [Parameter]
+    public bool DefaultOpen { get; set; }
+
+    [Parameter]
+    public bool? RootModal { get; set; }
+}

@@ -512,6 +512,19 @@ public sealed class InteractionsTwinContractTests
         Assert.NotEqual(new InteractionsMenuTriggerOptions { CloseOnGuardReturn = true }, new InteractionsMenuTriggerOptions());
     }
 
+    // Design point 1 (a) of M5 track 8 (settled by the orchestrator 2026-11-11): a menubar trigger's keep-armed option.
+    [Fact(DisplayName = "port: the keep-armed option is written by its module name, only when true, and a change is a changed option")]
+    [Trait("Requirement", "MBR-STA-07")]
+    public void The_keep_armed_option_is_written_by_its_module_name_only_when_true_and_a_change_is_a_changed_option()
+    {
+        string set = Serialize(new InteractionsOptions { Trigger = new InteractionsTriggerOptions { Menu = new InteractionsMenuTriggerOptions { KeepArmedWhenClosed = true } } });
+        string unset = Serialize(new InteractionsOptions { Trigger = new InteractionsTriggerOptions { Menu = new InteractionsMenuTriggerOptions() } });
+
+        Assert.Contains("\"menu\":{\"keepArmedWhenClosed\":true}", set, StringComparison.Ordinal);
+        Assert.DoesNotContain("keepArmedWhenClosed", unset, StringComparison.Ordinal);
+        Assert.NotEqual(new InteractionsMenuTriggerOptions { KeepArmedWhenClosed = true }, new InteractionsMenuTriggerOptions());
+    }
+
     private static string Serialize(InteractionsOptions options) => System.Text.Json.JsonSerializer.Serialize(options, BlazixJsonContext.Default.InteractionsOptions);
 
     private static (BunitJSModuleInterop Module, BunitJSModuleInterop Handle) Setup(BunitContext context)

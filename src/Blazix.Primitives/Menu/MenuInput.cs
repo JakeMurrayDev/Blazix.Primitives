@@ -1,6 +1,7 @@
 using Blazix.Primitives.Interop;
 using Blazix.Primitives.Rendering;
 using Microsoft.AspNetCore.Components;
+using Microsoft.AspNetCore.Components.Web;
 using Microsoft.JSInterop;
 
 namespace Blazix.Primitives;
@@ -35,6 +36,8 @@ public static class MenuInputDataAttributes
 /// <remarks>It must be placed in a menu wrapped in <see cref="MenuFilterProvider"/>.</remarks>
 public sealed class MenuInput : PartBase<MenuInputState>
 {
+    private readonly EventCallback onKeyDown;
+    private CompositeRootBehavior? reference;
     private MenuInputState state = new(false);
     private MenuFilterRootContext? filter;
     private MenuFilterModuleAttachment? module;
@@ -45,8 +48,17 @@ public sealed class MenuInput : PartBase<MenuInputState>
     private IDisposable? inputRegistration;
     private string frozenValue = "";
 
+    /// <summary>Initializes a new instance of the <see cref="MenuInput"/> class.</summary>
+    public MenuInput()
+    {
+        onKeyDown = CreateHandler<KeyboardEventArgs>("onkeydown", e => reference!.HandleKeyDownAsync(e));
+    }
+
     [Inject]
     private IJSRuntime JSRuntime { get; set; } = null!;
+
+    [Inject]
+    private PartIdGenerator IdGenerator { get; set; } = null!;
 
     [CascadingParameter]
     private MenuRootContext? RootContext { get; set; }
@@ -91,12 +103,20 @@ public sealed class MenuInput : PartBase<MenuInputState>
             change.Event));
         module.Twin.HighlightedChanged += highlighted => _ = InvokeAsync(() => SetHighlighted(highlighted));
 
+        // MenuRoot.tsx:622-638 (M5 track 12, granted by the orchestrator 2026-11-11): under virtual focus the Input holds
+        // real focus and carries the list's reference handle (aria-activedescendant, the navigation keys).
+        reference = new CompositeRootBehavior(JSRuntime, IdGenerator, StateHasChanged, DispatchExceptionAsync, onKeyDown);
+        reference.SetList(RootContext.List, CompositeListRole.Reference);
+
         // MNU-KEY-26 (useMenuFilterKeyDown.ts:179-192): Shift+Tab in the input closes the menu with focus-out; the focus
         // manager returns focus on the close.
         module.Twin.FocusedOut += report => _ = InvokeAsync(() =>
             RootContext.RequestOpenAsync(false, new OpenChangeEventDetails(EventReason.FocusOut, report.Event)));
         base.OnInitialized();
     }
+
+    /// <inheritdoc />
+    protected override void OnParametersSet() => reference!.SetConsumerAttributes(AdditionalAttributes);
 
     /// <inheritdoc />
     protected override async Task OnAfterRenderAsync(bool firstRender)
@@ -107,6 +127,7 @@ public sealed class MenuInput : PartBase<MenuInputState>
         }
 
         await PopupPortalContext.WhenMoved(Portal);
+        Task referenceSync = reference!.AfterRenderAsync(Enabled, element, Id);
         await module!.SyncAsync(element, new MenuFilterOptions
         {
             Part = MenuFilterTwin.InputPart,
@@ -116,6 +137,7 @@ public sealed class MenuInput : PartBase<MenuInputState>
             Open = open!.Value,
             KeyboardOpen = keyboardOpen!.Value,
         });
+        await referenceSync;
     }
 
     /// <inheritdoc />
@@ -125,6 +147,7 @@ public sealed class MenuInput : PartBase<MenuInputState>
         {
             subscription?.Dispose();
             filterSubscription?.Dispose();
+            reference?.Dispose();
             inputRegistration?.Dispose();
             if (module is not null)
             {
@@ -161,7 +184,11 @@ public sealed class MenuInput : PartBase<MenuInputState>
         }
 
         attributes.Set("value", frozenValue);
+        reference!.AddAttributes(attributes, Id);
     }
+
+    /// <inheritdoc />
+    protected override bool ForwardsConsumerHandler(string eventName) => reference!.ForwardsConsumerHandler(eventName);
 
     private void RequestRender() => _ = InvokeAsync(StateHasChanged);
 

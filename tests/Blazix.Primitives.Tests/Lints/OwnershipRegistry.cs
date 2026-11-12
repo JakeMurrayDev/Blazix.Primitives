@@ -312,6 +312,9 @@ internal static class OwnershipRegistry
         new("menu", "Viewport", "data-activation-direction", Writer.Js, "MenuViewportState.ActivationDirection"),
         new("menu", "Viewport", "data-transitioning", Writer.Js, "MenuViewportState.Transitioning"),
         new("menu", "Viewport", "data-previous", Writer.Js),
+        // Menubar (M5 track 8, issue 195; sheet C contradiction 6, Q14 (a); ADR 04 §2's tabindex cell): inside a bar, the bar's
+        // composite handle writes each Trigger's roving tabindex from attach; C# renders "-1" until then (CMP-STA-15).
+        new("menu", "Trigger", "tabindex", Writer.CsharpToJs),
         new("menu", "Viewport", "--popup-width", Writer.Js),
         new("menu", "Viewport", "--popup-height", Writer.Js),
         new("menu", "Item", "data-highlighted", Writer.CsharpToJs, "MenuItemState.Highlighted"),

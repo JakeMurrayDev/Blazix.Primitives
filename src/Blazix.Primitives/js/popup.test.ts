@@ -549,6 +549,28 @@ describe('the positioner', () => {
     expect(backdrop.style.clipPath).toBe(cutoutPolygon({ left: 10, top: 20, right: 40, bottom: 60 }));
   });
 
+  // Issue 237 (MBR-EDGE-03 on Server): a closing menu's focus manager releases its outside marking, which removes the
+  // backdrop's `data-base-ui-inert` until the reopened menu marks it again (Base UI's markOthers removes the marker it set,
+  // whoever rendered it; markOthers.ts:160-170). A positioning pass in that window found no backdrop and dropped the cut-out,
+  // and nothing cut it again when the marker came back. Base UI's backdrop renders its own clip-path, so it never loses it.
+  it('port: the backdrop keeps its cut-out through a positioning pass while its inert marker is briefly removed', async () => {
+    const { positioner, backdrop } = renderPositioner();
+    const bar = withRect(document.createElement('div'), 0, 0, 300, 32);
+    bar.id = 'menubar-237';
+    document.body.appendChild(bar);
+    attachTo(positioner, { positioner: { watchTriggerChange: true, cutout: true, cutoutElementId: 'menubar-237', activeTriggerId: 'trigger' } as never }, createFakeTwin());
+    const cutout = cutoutPolygon({ left: 0, top: 0, right: 300, bottom: 32 });
+    expect(backdrop.style.clipPath).toBe(cutout);
+
+    backdrop.removeAttribute('data-base-ui-inert');
+    positioner.style.setProperty('transform', 'translate(1px, 2px)');
+    await settle();
+    backdrop.setAttribute('data-base-ui-inert', '');
+    await settle();
+
+    expect(backdrop.style.clipPath).toBe(cutout);
+  });
+
   it('port: the cut-out polygon is the backdrop with a hole at the trigger', () => {
     expect(cutoutPolygon({ left: 1, top: 2, right: 3, bottom: 4 })).toBe('polygon(0% 0%,100% 0%,100% 100%,0% 100%,0% 0%,1px 2px,1px 4px,3px 4px,3px 2px,1px 2px)');
   });

@@ -37,9 +37,10 @@ const inertPrefixes = [
 // behaviours' folder also runs the dependents' specs (design point 1 of M4 track 9, settled by the orchestrator
 // 2026-10-27). The dependence runs one way: a change to a dependent's own folder or spec scopes to that family alone.
 // M5 track 7 (issue 194): ContextMenu's parts are sealed shells over Menu's behaviours (decision 12 of the M5 plan).
+// M5 track 8 (issue 195; design point 4 (a), settled by the orchestrator 2026-11-11): Menubar's menus are Menu's parts.
 const dependentFamilies = new Map([
   ['dialog', ['alert-dialog']],
-  ['menu', ['context-menu']],
+  ['menu', ['context-menu', 'menubar']],
 ]);
 
 /** @param {string} stem a document stem such as `alert-dialog` @returns {string} the family folder, `AlertDialog` (ADR 08) */

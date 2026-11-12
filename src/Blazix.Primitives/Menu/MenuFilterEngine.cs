@@ -301,6 +301,9 @@ internal sealed class MenuFilterRootContext
     /// </summary>
     public int QueryRevision { get; private set; }
 
+    /// <summary>Gets the provider's automatic highlight mode.</summary>
+    public AutoHighlightValue AutoHighlight => provider.AutoHighlight;
+
     /// <summary>Gets a value indicating whether the Clear button renders: the query is not empty.</summary>
     public bool ShowsClear => Query.Length > 0;
 

@@ -151,6 +151,7 @@ internal sealed class MenuPositionerBehavior : IAsyncDisposable
         this.element = element;
         MenuRootContext menu = root!;
         menu.SetPositionerElement(element);
+        menu.SetPositionerRegistered(element is not null);
         bool isOpen = open!.Value;
         string? triggerId = activeTriggerId!.Value;
         if (!isOpen)
@@ -178,6 +179,7 @@ internal sealed class MenuPositionerBehavior : IAsyncDisposable
         subscription?.Dispose();
         subscription = null;
         positioner.Dispose();
+        root?.SetPositionerRegistered(false);
         if (root is not null && root.State.Mounted)
         {
             root.SetPositionerElement(null);
@@ -366,7 +368,9 @@ internal sealed class MenuPositionerBehavior : IAsyncDisposable
             Positioner = new PopupPositionerOptions
             {
                 WatchTriggerChange = isOpen,
-                Cutout = backdropRendered && kind is null,
+                // MenuPositioner.tsx:271-276: a bar menu's backdrop cuts the bar out, a top-level menu's its trigger (the
+                // orchestrator's grant of 2026-11-11, M5 track 8).
+                Cutout = backdropRendered && kind is null or MenuParentKind.Menubar,
                 CutoutElementId = backdropRendered && kind == MenuParentKind.Menubar ? root!.Parent.Context!.CutoutElementId : null,
                 ScrollLock = isOpen && (menubarModal || popupModal),
                 TouchOpen = openMethod!.Value == InteractionType.Touch,

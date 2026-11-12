@@ -114,6 +114,9 @@ internal sealed class MenuTriggerBehavior<TPayload> : IAsyncDisposable, IMenuTri
 
     private bool HasFocusGuards => !InBar && (focusGuards?.Value ?? false);
 
+    // MenuTrigger.tsx:394-411: the parent a trigger forwards to the store while it holds the popup.
+    private MenuParent OwnParent => parent is { } bar ? new MenuParent(MenuParentKind.Menubar, null, bar) : MenuParent.None;
+
     private int CloseDelayMilliseconds => (int)(parameters.CloseDelay?.ToMilliseconds() ?? 0);
 
     /// <summary>Gets the store the trigger belongs to: its handle's, else its root's.</summary>
@@ -149,6 +152,7 @@ internal sealed class MenuTriggerBehavior<TPayload> : IAsyncDisposable, IMenuTri
         if (trigger.IsMountedByTrigger)
         {
             store.ForwardTriggerState(CloseDelayMilliseconds);
+            store.ForwardTriggerParent(OwnParent);
         }
 
         SyncInteractions();
@@ -243,6 +247,7 @@ internal sealed class MenuTriggerBehavior<TPayload> : IAsyncDisposable, IMenuTri
         if (store.Popup.IsTriggerActive(id) && store.Popup.EffectiveOpen)
         {
             store.ForwardTriggerState(CloseDelayMilliseconds);
+            store.ForwardTriggerParent(OwnParent);
         }
 
         bool disabled = Disabled;
@@ -403,7 +408,9 @@ internal sealed class MenuTriggerBehavior<TPayload> : IAsyncDisposable, IMenuTri
                 PatientClick = topLevel,
                 MouseDownAction = InBar ? "open" : null,
             };
-        InteractionsMenuTriggerOptions menu = new() { RootId = state.RootId, Release = topLevel, TrackMouseEnter = true };
+        // Design point 1 (a) of M5 track 8 (settled by the orchestrator 2026-11-11): a bar trigger arms the release too, and
+        // keeps the arm when its menu closes (MenuTrigger.tsx:120-124, 240-256; MBR §16 Q9).
+        InteractionsMenuTriggerOptions menu = new() { RootId = state.RootId, Release = topLevel || InBar, TrackMouseEnter = true, KeepArmedWhenClosed = InBar };
         InteractionsFocusOptions? focus = !disabled && barMenuOpen ? s_focus : null;
         InteractionsTriggerOptions current = interactions.Options;
         if (!string.Equals(current.TriggerId, id, StringComparison.Ordinal) || !Equals(current.Click, click) || !Equals(current.Hover, hoverOptions)
@@ -414,11 +421,13 @@ internal sealed class MenuTriggerBehavior<TPayload> : IAsyncDisposable, IMenuTri
     }
 
     // MenuRoot.tsx:604-636: the active trigger carries the list's reference handle, an inactive or detached one the trigger
-    // handle (track 1's roles).
+    // handle (track 1's roles). In a filterable menu the Input is the reference under virtual focus, so every trigger takes
+    // the trigger role, whose focus seeds no highlight there (MenuRoot.tsx:622-634; M5 track 12, granted by the
+    // orchestrator 2026-11-11).
     private void SyncList()
     {
         MenuStore<TPayload> store = trigger.Store;
-        CompositeListRole role = store.Popup.IsTriggerActive(id) ? CompositeListRole.Reference : CompositeListRole.Trigger;
+        CompositeListRole role = store.Popup.IsTriggerActive(id) && store.Context?.Filter is null ? CompositeListRole.Reference : CompositeListRole.Trigger;
         reference.SetList(store.Context?.List, role);
     }
 
