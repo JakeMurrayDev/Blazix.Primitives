@@ -4,7 +4,7 @@
 @*
     The `menu-filter-initial` fixture (tests/browser/menu.filter.spec.ts, M5 track 12): MenuFilterRoot.initialHighlight
     .test.tsx's Test, closed: a trigger "Actions" (`hover=true` opens it on hover with no delay; `orientation=horizontal`
-    sets the root's orientation), an input, Empty reading
+    sets the root's orientation; `plain=true` drops the disabled item), an input, Empty reading
     "No actions found.", and a list of a disabled Unavailable, Rename and Delete. `data-attached` turns "true" once the
     menu's session has attached.
 *@
@@ -18,7 +18,10 @@
                         <MenuInput aria-label="Filter actions" />
                         <MenuEmpty>No actions found.</MenuEmpty>
                         <MenuList>
-                            <MenuItem Disabled="true">Unavailable</MenuItem>
+                            @if (!Plain)
+                            {
+                                <MenuItem Disabled="true">Unavailable</MenuItem>
+                            }
                             <MenuItem>Rename</MenuItem>
                             <MenuItem>Delete</MenuItem>
                         </MenuList>
@@ -39,6 +42,9 @@
 
     [SupplyParameterFromQuery(Name = "orientation")]
     public string? OrientationName { get; set; }
+
+    [SupplyParameterFromQuery(Name = "plain")]
+    public bool Plain { get; set; }
 
     /// <inheritdoc />
     protected override async Task OnAfterRenderAsync(bool firstRender)

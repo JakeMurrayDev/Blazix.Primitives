@@ -593,3 +593,51 @@ test.describe('horizontal list without autoHighlight', () => {
     await expect(input(page)).toHaveAttribute('aria-activedescendant', await idOf(item(page, 'Rename')));
   });
 });
+
+// MenuFilterRoot.scoping.test.tsx's "trigger key relay" (MNU-KEY-28; MenuFilterDropdown.tsx:124-150; M5 track 12) on
+// `menu-filter-initial` with `hover=true&plain=true`, titles verbatim: a hover open leaves focus on the trigger, and the
+// trigger relays the vertical arrows and typed characters to the input. "lets a consumer onKeyDown cancel the relay"
+// needs the `navigate` decision point (design point 6), which is not built.
+test.describe('trigger key relay', () => {
+  async function openByHover(page: Page, mode: RenderMode): Promise<Locator> {
+    await page.goto(`/${mode}/menu-filter-initial?hover=true&plain=true`, { waitUntil: 'commit' });
+    await page.locator(Fixture.started).waitFor({ state: 'attached' });
+    await expect(page.locator(Fixture.interactive('menu-filter-initial'))).toHaveAttribute('data-attached', 'true');
+    const trigger = page.getByRole('button', { name: 'Actions' });
+    await trigger.focus();
+    await trigger.hover();
+    await expect(input(page)).toBeVisible();
+    // A hover open shows the popup without moving focus off the trigger.
+    await expect(trigger).toBeFocused();
+    return trigger;
+  }
+
+  test('moves ArrowDown from the trigger into the input and highlights the first item', async ({ page, mode }) => {
+    await openByHover(page, mode);
+
+    await page.keyboard.press('ArrowDown');
+
+    await expect(input(page)).toBeFocused();
+    await expect(input(page)).toHaveAttribute('aria-activedescendant', (await item(page, 'Rename').getAttribute('id')) ?? 'missing');
+  });
+
+  test('moves a typed character from the trigger into the input', async ({ page, mode }) => {
+    await openByHover(page, mode);
+
+    await page.keyboard.press('r');
+
+    await expect(input(page)).toBeFocused();
+  });
+
+  // Ctrl+R is dispatched, as user-event does, since a real one reloads the page.
+  test('keeps focus on the trigger for modified keys and cross-axis arrows', async ({ page, mode }) => {
+    const trigger = await openByHover(page, mode);
+
+    await trigger.evaluate((element) => element.dispatchEvent(new KeyboardEvent('keydown', { key: 'r', ctrlKey: true, bubbles: true, cancelable: true })));
+    await expect(trigger).toBeFocused();
+
+    await page.keyboard.press('ArrowRight');
+    await expect(trigger).toBeFocused();
+    await expect(input(page)).not.toHaveAttribute('aria-activedescendant', /.+/);
+  });
+});
