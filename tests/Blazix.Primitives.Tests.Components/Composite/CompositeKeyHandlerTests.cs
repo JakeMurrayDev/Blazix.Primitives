@@ -1,3 +1,4 @@
+using System.Text.Json;
 using Blazix.Primitives.Interop;
 using Bunit;
 using Microsoft.AspNetCore.Components;
@@ -71,6 +72,41 @@ public sealed class CompositeKeyHandlerTests : IDisposable
 
         Assert.Equal("run", host.Twin.Decide(CompositeTwin.NavigatePoint, KeyDownJson("ArrowUp", second)));
         Assert.Equal(["item b: ArrowUp", "root: ArrowUp"], runs);
+    }
+
+    // M5 track 12's design point 6 (a) (ADR 04 Amendments 2026-11-10's pattern; the orchestrator's 2026-11-12 grant): a part
+    // whose own module asks before composite's handle (Menu's filter input and trigger) decides the keydown once, and
+    // composite's handle reads that verdict for the same event.
+    [Fact(DisplayName = "port: DecideKeyDownOnce runs the consumer's onkeydown once and serves its verdict to the composite handle for the same keydown")]
+    [Trait("Requirement", "CMP-EVT-12")]
+    public void DecideKeyDownOnce_serves_its_verdict_to_the_composite_handle()
+    {
+        IRenderedComponent<TestCompositeRoot> cut = Context.Render<TestCompositeRoot>(p => p
+            .AddUnmatched("onkeydown", RootHandler(veto: true))
+            .AddChildContent(Items(itemHandler: false)));
+        string first = cut.FindAll("[data-item]")[0].Id!;
+        EventSnapshot snapshot = JsonSerializer.Deserialize(KeyDownJson("ArrowDown", first), BlazixJsonContext.Default.EventSnapshot)!;
+
+        Assert.Equal(DecisionPolicy.Stop, cut.Instance.Behavior.DecideKeyDownOnce(snapshot));
+        Assert.Equal("stop", host.Twin.Decide(CompositeTwin.NavigatePoint, KeyDownJson("ArrowDown", first)));
+        Assert.Equal(["root: ArrowDown"], runs);
+    }
+
+    [Fact(DisplayName = "port: DecideKeyDownOnce's verdict is keyed by the event, so a later keydown runs the consumer's onkeydown again")]
+    [Trait("Requirement", "CMP-EVT-12")]
+    public void DecideKeyDownOnce_does_not_carry_a_verdict_to_a_later_keydown()
+    {
+        IRenderedComponent<TestCompositeRoot> cut = Context.Render<TestCompositeRoot>(p => p
+            .AddUnmatched("onkeydown", RootHandler(veto: true))
+            .AddChildContent(Items(itemHandler: false)));
+        string first = cut.FindAll("[data-item]")[0].Id!;
+        EventSnapshot snapshot = JsonSerializer.Deserialize(KeyDownJson("ArrowDown", first), BlazixJsonContext.Default.EventSnapshot)!;
+        Assert.Equal(DecisionPolicy.Stop, cut.Instance.Behavior.DecideKeyDownOnce(snapshot));
+
+        string later = KeyDownJson("ArrowDown", first).Replace("\"timeStamp\":3", "\"timeStamp\":4", StringComparison.Ordinal);
+
+        Assert.Equal("stop", host.Twin.Decide(CompositeTwin.NavigatePoint, later));
+        Assert.Equal(["root: ArrowDown", "root: ArrowDown"], runs);
     }
 
     [Fact(DisplayName = "a PreventPartHandler() in the item's onkeydown stops the key, and the root's handler still runs")]

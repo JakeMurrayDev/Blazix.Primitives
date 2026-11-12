@@ -356,6 +356,42 @@ describe('the key router', () => {
     await vi.waitFor(() => expect(input.getAttribute('aria-activedescendant')).toBe(harness.item(index).id), { timeout: 1000, interval: 5 });
   });
 
+  // Design point 6 (a) (ADR 04 Amendments 2026-11-10's pattern): while C# holds the input's consumer onkeydown, the router
+  // asks `navigate` first; a stop verdict skips the router's action and the list navigation.
+  it('port: a stop verdict from the navigate point skips the router and the list navigation', async () => {
+    const { harness, input } = await openFilterMenu();
+    const decider = createFakeTwin({ synchronous: true, verdict: 'stop' });
+    handles.splice(0).forEach((handle) => handle.dispose());
+    handles.push(attach(input, JSON.stringify({ part: 'input', menuKey: 'menu-1', open: true, orientation: 'vertical', decidesKeyDown: true }), decider.twin));
+    const clicks: Event[] = [];
+    harness.item(0).addEventListener('click', (event) => clicks.push(event));
+
+    const enter = keyDown(input, 'Enter');
+    const down = keyDown(input, 'ArrowDown');
+
+    expect(decider.decisions.map((decision) => decision.point)).toEqual(['navigate', 'navigate']);
+    expect(clicks).toHaveLength(0);
+    expect(enter.defaultPrevented).toBe(false);
+    expect(down.defaultPrevented).toBe(false);
+    expect(input.getAttribute('aria-activedescendant')).toBe(harness.item(0).id);
+  });
+
+  // KEY-28 with design point 6 (a): the trigger's relay asks `navigate` first; a stop verdict leaves the key on the trigger.
+  it('port: a stop verdict from the navigate point leaves the key on the trigger', async () => {
+    const { input } = await openFilterMenu();
+    const trigger = document.createElement('button');
+    document.body.append(trigger);
+    const decider = createFakeTwin({ synchronous: true, verdict: 'stop' });
+    handles.push(attach(trigger, JSON.stringify({ part: 'trigger', menuKey: 'menu-1', open: true, decidesKeyDown: true }), decider.twin));
+    trigger.focus();
+
+    keyDown(trigger, 'ArrowDown');
+
+    expect(decider.decisions.map((decision) => decision.point)).toEqual(['navigate']);
+    expect(document.activeElement).toBe(trigger);
+    expect(input.getAttribute('aria-activedescendant')).not.toBe(null);
+  });
+
   // KEY-26 (useMenuFilterKeyDown.ts:179-192): Shift+Tab in the input asks C# to close with focus-out.
   it('port: Shift+Tab in the input reports a focus-out close', async () => {
     const { input, fake } = await openFilterMenu();
