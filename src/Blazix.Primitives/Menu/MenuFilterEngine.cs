@@ -275,6 +275,7 @@ internal sealed class MenuFilterRootContext
     private int inputs;
     private bool inputCheckPending;
     private bool openedWithoutHighlight;
+    private int pendingRequests;
 
     /// <summary>Initializes a new instance of the <see cref="MenuFilterRootContext"/> class.</summary>
     /// <param name="provider">The provider the root consumed.</param>
@@ -576,9 +577,27 @@ internal sealed class MenuFilterRootContext
             inputText = value;
         }
 
-        await provider.RequestValueAsync(value, reason, snapshot);
+        pendingRequests++;
+        try
+        {
+            await provider.RequestValueAsync(value, reason, snapshot);
+        }
+        finally
+        {
+            pendingRequests--;
+        }
+
+        // A canceled or rewritten request moves the revision only now, after the parts heard the provider: they hear it again.
+        int revision = QueryRevision;
         Track();
         Flush();
+        if (QueryRevision != revision)
+        {
+            for (int i = 0; i < partSubscribers.Count; i++)
+            {
+                partSubscribers[i]();
+            }
+        }
     }
 
     private void ApplyTexts(IReadOnlyList<string> ids, IReadOnlyList<string> texts)
@@ -723,6 +742,14 @@ internal sealed class MenuFilterRootContext
 
     private void Track()
     {
+        // MNU-EVT-16: a consumer whose OnValueChange re-renders the provider re-applies it inside the request, before the
+        // commit, when the query is still the old one; the input already shows the edit, so the request's own Track after
+        // the commit (or the cancel) decides whether anything is written back.
+        if (pendingRequests > 0)
+        {
+            return;
+        }
+
         string query = Query;
         if (!string.Equals(query, inputText, StringComparison.Ordinal))
         {
