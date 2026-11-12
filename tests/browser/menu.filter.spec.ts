@@ -764,17 +764,18 @@ test.describe('horizontal list without autoHighlight', () => {
 
 // MenuFilterRoot.scoping.test.tsx's "trigger key relay" (MNU-KEY-28; MenuFilterDropdown.tsx:124-150; M5 track 12) on
 // `menu-filter-initial` with `hover=true&plain=true`, titles verbatim: a hover open leaves focus on the trigger, and the
-// trigger relays the vertical arrows and typed characters to the input. "lets a consumer onKeyDown cancel the relay"
-// needs the `navigate` decision point (design point 6), which is not built.
+// trigger relays the vertical arrows and typed characters to the input.
 test.describe('trigger key relay', () => {
-  async function openByHover(page: Page, mode: RenderMode): Promise<Locator> {
-    await page.goto(`/${mode}/menu-filter-initial?hover=true&plain=true`, { waitUntil: 'commit' });
+  async function openByHover(page: Page, mode: RenderMode, extra = ''): Promise<Locator> {
+    await page.goto(`/${mode}/menu-filter-initial?hover=true&plain=true${extra}`, { waitUntil: 'commit' });
     await page.locator(Fixture.started).waitFor({ state: 'attached' });
     await expect(page.locator(Fixture.interactive('menu-filter-initial'))).toHaveAttribute('data-attached', 'true');
     const trigger = page.getByRole('button', { name: 'Actions' });
     await trigger.focus();
     await trigger.hover();
     await expect(input(page)).toBeVisible();
+    // The trigger relays only to an attached input, which on Server attaches a leg after the popup shows.
+    await expect(page.locator(Fixture.interactive('menu-filter-initial'))).toHaveAttribute('data-input-attached', 'true');
     // A hover open shows the popup without moving focus off the trigger.
     await expect(trigger).toBeFocused();
     return trigger;
@@ -807,6 +808,26 @@ test.describe('trigger key relay', () => {
     await page.keyboard.press('ArrowRight');
     await expect(trigger).toBeFocused();
     await expect(input(page)).not.toHaveAttribute('aria-activedescendant', /.+/);
+  });
+
+  // Design point 6 (a): the consumer's onKeyDown vetoes through the `navigate` decision point, asked once per keydown.
+  // ADR 01's row "C#-origin consumer vetoes": synchronous on WebAssembly, a round trip late on Server (fallback "run").
+  test('lets a consumer onKeyDown cancel the relay', async ({ page, mode }) => {
+    test.skip(mode === 'server', "ADR 01: a C# consumer's veto is a round trip late on Server; the port title below asserts it");
+    const trigger = await openByHover(page, mode, '&cancelArrow=true');
+
+    await page.keyboard.press('ArrowDown');
+
+    await expect(trigger).toBeFocused();
+  });
+
+  test("port: on Server the trigger relays the key before the consumer's C# onKeyDown can cancel it", async ({ page, mode }) => {
+    test.skip(mode !== 'server', 'Server only: the circuit between the browser and C#');
+    await openByHover(page, mode, '&cancelArrow=true');
+
+    await page.keyboard.press('ArrowDown');
+
+    await expect(input(page)).toBeFocused();
   });
 });
 

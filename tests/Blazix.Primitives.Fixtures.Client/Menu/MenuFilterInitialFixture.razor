@@ -1,22 +1,24 @@
 @namespace Blazix.Primitives.Fixtures.Client.MenuFixtures
 @using Blazix.Primitives
+@using Microsoft.AspNetCore.Components.Web
 
 @*
     The `menu-filter-initial` fixture (tests/browser/menu.filter.spec.ts, M5 track 12): MenuFilterRoot.initialHighlight
     .test.tsx's Test, closed: a trigger "Actions" (`hover=true` opens it on hover with no delay; `orientation=horizontal`
     sets the root's orientation; `plain=true` drops the disabled item; `after=true` adds an input "After"
-    (`data-testid="after"`) after the menu), an input, Empty reading
+    (`data-testid="after"`) after the menu; `cancelArrow=true` gives the trigger a consumer onKeyDown that cancels the
+    part's handling of ArrowDown), an input, Empty reading
     "No actions found.", and a list of a disabled Unavailable, Rename and Delete. `data-attached` turns "true" once the
-    menu's session has attached.
+    menu's session has attached, and `data-input-attached` once the open popup's input has its `menu-filter` handle.
 *@
-<FixtureContainer Name="menu-filter-initial" data-attached="@(attached ? "true" : "false")">
+<FixtureContainer Name="menu-filter-initial" data-attached="@(attached ? "true" : "false")" data-input-attached="@(inputAttached ? "true" : "false")">
     <MenuFilterProvider>
-        <MenuRoot TPayload="NoPayload" Orientation="@(OrientationName == "horizontal" ? Orientation.Horizontal : Orientation.Vertical)" @ref="root">
-            <MenuTrigger TPayload="NoPayload" OpenOnHover="@Hover" Delay="0">Actions</MenuTrigger>
+        <MenuRoot TPayload="NoPayload" Orientation="@(OrientationName == "horizontal" ? Orientation.Horizontal : Orientation.Vertical)" OnOpenChangeComplete="OnOpenChangeComplete" @ref="root">
+            <MenuTrigger TPayload="NoPayload" OpenOnHover="@Hover" Delay="0" @attributes="TriggerAttributes">Actions</MenuTrigger>
             <MenuPortal>
                 <MenuPositioner>
                     <MenuPopup data-testid="popup">
-                        <MenuInput aria-label="Filter actions" />
+                        <MenuInput aria-label="Filter actions" @ref="input" />
                         <MenuEmpty>No actions found.</MenuEmpty>
                         <MenuList>
                             @if (!Plain)
@@ -39,8 +41,28 @@
 
 @code {
     private MenuRoot<NoPayload>? root;
+    private MenuInput? input;
     private bool attached;
     private bool attaching;
+    private bool inputAttached;
+    private bool inputAttaching;
+
+    [SupplyParameterFromQuery(Name = "cancelArrow")]
+    public bool CancelArrow { get; set; }
+
+    // `cancelArrow=true`: the consumer's onKeyDown keeps ArrowDown from the trigger's own handling (preventBaseUIHandler).
+    // Only then does the trigger carry a consumer handler, which makes each of its keydowns ask C# (design point 6).
+    private Dictionary<string, object>? TriggerAttributes => CancelArrow
+        ? new() { ["onkeydown"] = EventCallback.Factory.Create<KeyboardEventArgs>(this, OnTriggerKeyDown) }
+        : null;
+
+    private void OnTriggerKeyDown(KeyboardEventArgs args)
+    {
+        if (CancelArrow && args.Key == "ArrowDown")
+        {
+            args.PreventPartHandler();
+        }
+    }
 
     [SupplyParameterFromQuery(Name = "hover")]
     public bool Hover { get; set; }
@@ -54,10 +76,29 @@
     [SupplyParameterFromQuery(Name = "after")]
     public bool After { get; set; }
 
+    // An open or close renders this component again, so its after-render finds the popup's input.
+    private void OnOpenChangeComplete(bool open) => _ = open;
+
     /// <inheritdoc />
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
-        if (attached || attaching || !RendererInfo.IsInteractive || root is null)
+        if (!RendererInfo.IsInteractive || root is null)
+        {
+            return;
+        }
+
+        // The input renders with the open popup; its handle attaches after the portal's move, a leg later on Server, and the
+        // trigger relays keys only to an attached input.
+        if (attached && !inputAttached && !inputAttaching && input is not null)
+        {
+            inputAttaching = true;
+            await input.FilterAttached;
+            inputAttached = true;
+            StateHasChanged();
+            return;
+        }
+
+        if (attached || attaching)
         {
             return;
         }
