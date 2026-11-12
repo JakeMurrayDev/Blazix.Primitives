@@ -3,7 +3,9 @@
    - `label`: an item labelled "Apple" that renders "Fruit one", and Banana;
    - `submenu-label`: Rename and a closed filterable submenu whose trigger is labelled "Move to directory" and renders
      "Move to folder";
-   - `checkbox`: an uncontrolled checkbox item "Show details", checked by default, and Rename. *@
+   - `checkbox`: an uncontrolled checkbox item "Show details", checked by default, and Rename;
+   - `checkbox-cancel`: a checkbox item "Show hidden" whose every change is canceled;
+   - `checkbox-controlled`: a checkbox item "Show hidden" whose checked state is this host's. *@
 <MenuFilterProvider>
     <MenuRoot TPayload="NoPayload" DefaultOpen="true">
         <MenuTrigger TPayload="NoPayload">Actions</MenuTrigger>
@@ -27,6 +29,12 @@
                                     </MenuSubmenuRoot>
                                 </MenuFilterProvider>
                                 break;
+                            case "checkbox-cancel":
+                                <MenuCheckboxItem CloseOnClick="false" OnCheckedChange="@((ValueChangeEventArgs<bool> e) => e.Details.Cancel())">Show hidden</MenuCheckboxItem>
+                                break;
+                            case "checkbox-controlled":
+                                <MenuCheckboxItem CloseOnClick="false" @bind-Checked="controlledChecked">Show hidden</MenuCheckboxItem>
+                                break;
                             case "checkbox":
                                 <MenuCheckboxItem DefaultChecked="true">Show details</MenuCheckboxItem>
                                 <MenuItem>Rename</MenuItem>
@@ -40,6 +48,8 @@
 </MenuFilterProvider>
 
 @code {
+    private bool controlledChecked;
+
     [Parameter]
     public string? Case { get; set; }
 }

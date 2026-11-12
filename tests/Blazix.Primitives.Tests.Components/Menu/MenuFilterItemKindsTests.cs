@@ -69,6 +69,31 @@ public sealed class MenuFilterItemKindsTests : BunitContext
         cut.WaitForAssertion(() => Assert.Equal("false", cut.Find("[role=menuitemcheckbox]").GetAttribute("aria-checked")));
     }
 
+    [Fact(DisplayName = "leaves a checkbox item unchecked when onCheckedChange is canceled")]
+    [Trait("Requirement", "MNU-API-42")]
+    [Trait("Requirement", "MNU-EVT-08")]
+    public void Leaves_a_canceled_checkbox_unchecked()
+    {
+        IRenderedComponent<MenuFilterItemKindsHost> cut = Render<MenuFilterItemKindsHost>(p => p.Add(x => x.Case, "checkbox-cancel"));
+
+        cut.Find("[role=menuitemcheckbox]").Click();
+
+        Assert.Equal("false", cut.Find("[role=menuitemcheckbox]").GetAttribute("aria-checked"));
+    }
+
+    [Fact(DisplayName = "tracks a controlled checkbox item")]
+    [Trait("Requirement", "MNU-API-41")]
+    [Trait("Requirement", "MNU-EVT-08")]
+    public void Tracks_a_controlled_checkbox_item()
+    {
+        IRenderedComponent<MenuFilterItemKindsHost> cut = Render<MenuFilterItemKindsHost>(p => p.Add(x => x.Case, "checkbox-controlled"));
+        Assert.Equal("false", cut.Find("[role=menuitemcheckbox]").GetAttribute("aria-checked"));
+
+        cut.Find("[role=menuitemcheckbox]").Click();
+
+        cut.WaitForAssertion(() => Assert.Equal("true", cut.Find("[role=menuitemcheckbox]").GetAttribute("aria-checked")));
+    }
+
     private static string[] MenuItems(IRenderedComponent<MenuFilterItemKindsHost> cut) =>
         [.. cut.FindAll("[role^=menuitem]").Select(item => item.TextContent.Trim())];
 
