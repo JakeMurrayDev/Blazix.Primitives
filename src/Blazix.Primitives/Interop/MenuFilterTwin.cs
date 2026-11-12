@@ -31,6 +31,9 @@ internal sealed class MenuFilterTwin(IJSRuntime jsRuntime)
     /// <summary>The part name of the Clear's handle.</summary>
     public const string ClearPart = "clear";
 
+    /// <summary>The part name of a filterable submenu's trigger handle.</summary>
+    public const string SubmenuTriggerPart = "submenu-trigger";
+
     /// <summary>Occurs when the input reported a change of the query.</summary>
     public event Action<MenuFilterValueChange>? ValueChanged;
 
@@ -42,6 +45,9 @@ internal sealed class MenuFilterTwin(IJSRuntime jsRuntime)
 
     /// <summary>Occurs when the input reported a focus-out close.</summary>
     public event Action<MenuFilterFocusOut>? FocusedOut;
+
+    /// <summary>Occurs when a filterable submenu's trigger or popup reported its open or close key.</summary>
+    public event Action<MenuFilterSubmenuKey>? SubmenuKey;
 
     /// <summary>Gets or sets the chain the <c>navigate</c> decision runs on WebAssembly: the consumer's key handler.</summary>
     public Func<EventSnapshot, DecisionPolicy>? NavigationDecider { get; set; }
@@ -65,6 +71,11 @@ internal sealed class MenuFilterTwin(IJSRuntime jsRuntime)
     /// <param name="payloadJson">The <see cref="MenuFilterFocusOut"/> JSON.</param>
     [JSInvokable]
     public void OnFocusOut(string payloadJson) => FocusedOut?.Invoke(Deserialize(payloadJson, BlazixJsonContext.Default.MenuFilterFocusOut));
+
+    /// <summary>Receives a filterable submenu's open or close key.</summary>
+    /// <param name="payloadJson">The <see cref="MenuFilterSubmenuKey"/> JSON.</param>
+    [JSInvokable]
+    public void OnSubmenuKey(string payloadJson) => SubmenuKey?.Invoke(Deserialize(payloadJson, BlazixJsonContext.Default.MenuFilterSubmenuKey));
 
     /// <inheritdoc />
     protected override DecisionPolicy OnDecide(string point, EventSnapshot snapshot) =>

@@ -45,4 +45,10 @@ internal sealed record MenuFilterOptions : TwinOptions
 
     /// <summary>Gets the automatic highlight mode an item-set change follows, <c>true</c> or <c>always</c>, or <see langword="null"/> for none; the List's.</summary>
     public string? AutoHighlight { get; init; }
+
+    /// <summary>Gets the parent menu's session token, whose input a filterable submenu returns to; a submenu's trigger and popup.</summary>
+    public string? ParentKey { get; init; }
+
+    /// <summary>Gets the parent menu's orientation, <c>horizontal</c> or <c>vertical</c>; a submenu's trigger.</summary>
+    public string? ParentOrientation { get; init; }
 }

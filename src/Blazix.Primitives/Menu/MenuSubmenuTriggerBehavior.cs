@@ -33,6 +33,8 @@ internal sealed class MenuSubmenuTriggerBehavior : IAsyncDisposable
     private static readonly InteractionsMenuTriggerOptions s_menu = new() { CloseOnGuardReturn = true };
 
     private readonly string familyName;
+    private readonly IJSRuntime jsRuntime;
+    private readonly Func<Func<Task>, Task> invokeAsync;
     private readonly PlatformFlags platform;
     private readonly Action requestRender;
     private readonly EventCallback onKeyDown;
@@ -42,6 +44,7 @@ internal sealed class MenuSubmenuTriggerBehavior : IAsyncDisposable
     private PopupTriggerBehavior<MenuStore<NoPayload>, MenuStoreState<NoPayload>, NoPayload>? trigger;
     private CompositeItemBehavior? item;
     private MenuRootContext<NoPayload>? submenu;
+    private MenuFilterModuleAttachment? submenuModule;
     private MenuSubscription? parentSubscription;
     private MenuSelection<bool>? parentDisabled;
     private MenuSubmenuTriggerParameters parameters;
@@ -86,7 +89,8 @@ internal sealed class MenuSubmenuTriggerBehavior : IAsyncDisposable
         EventCallback onKeyUp)
     {
         _ = owner;
-        _ = invokeAsync;
+        this.invokeAsync = invokeAsync;
+        this.jsRuntime = jsRuntime;
         this.familyName = familyName;
         this.platform = platform;
         this.requestRender = requestRender;
@@ -145,6 +149,7 @@ internal sealed class MenuSubmenuTriggerBehavior : IAsyncDisposable
         await interactionsSync;
         await referenceSync;
         await itemSync;
+        await SyncSubmenuModuleAsync(element);
     }
 
     /// <inheritdoc />
@@ -164,6 +169,10 @@ internal sealed class MenuSubmenuTriggerBehavior : IAsyncDisposable
         reference.Dispose();
         item?.Dispose();
         await interactions.DisposeAsync();
+        if (submenuModule is not null)
+        {
+            await submenuModule.DisposeAsync();
+        }
     }
 
     /// <summary>Checks the part's placement and subscribes to both menus, once.</summary>
@@ -413,5 +422,35 @@ internal sealed class MenuSubmenuTriggerBehavior : IAsyncDisposable
         }
 
         requestRender();
+    }
+
+    // MenuFilterSubmenuRoot.tsx:240-276 (MNU-KEY-29, KEY-31..33; the orchestrator's 2026-11-12 grants): a filterable submenu's
+    // trigger carries a `menu-filter` handle, which opens the submenu on the parent's cross-axis open key and closes it on
+    // its own close key, through the list-navigation reason; the module moves focus and the parent's highlight itself.
+    private async Task SyncSubmenuModuleAsync(ElementReference? element)
+    {
+        MenuRootContext<NoPayload> menu = submenu!;
+        if (element is not { } target || menu.Filter is null)
+        {
+            return;
+        }
+
+        if (submenuModule is null)
+        {
+            submenuModule = new MenuFilterModuleAttachment(jsRuntime);
+            submenuModule.Twin.SubmenuKey += report => _ = invokeAsync(() =>
+                submenu!.RequestOpenAsync(report.Open, new OpenChangeEventDetails(EventReason.ListNavigation, report.Event)));
+        }
+
+        MenuRootContext? parent = menu.Parent.Menu;
+        await submenuModule.SyncAsync(target, new MenuFilterOptions
+        {
+            Part = MenuFilterTwin.SubmenuTriggerPart,
+            MenuKey = menu.SessionToken,
+            ParentKey = parent?.SessionToken,
+            Open = menu.State.Open,
+            Orientation = menu.Orientation == Orientation.Horizontal ? "horizontal" : "vertical",
+            ParentOrientation = parent?.Orientation == Orientation.Horizontal ? "horizontal" : "vertical",
+        });
     }
 }

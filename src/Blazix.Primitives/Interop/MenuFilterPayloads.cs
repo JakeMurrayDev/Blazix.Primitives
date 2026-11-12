@@ -26,3 +26,8 @@ internal sealed record MenuFilterHighlightedChange(bool Highlighted);
 /// <summary>Represents a focus-out close the input reported.</summary>
 /// <param name="Event">The keyboard event.</param>
 internal sealed record MenuFilterFocusOut(EventSnapshot? Event);
+
+/// <summary>Represents a filterable submenu's open or close key, reported by its trigger's or popup's handle.</summary>
+/// <param name="Open">The requested open state.</param>
+/// <param name="Event">The keydown, or <see langword="null"/>.</param>
+internal sealed record MenuFilterSubmenuKey(bool Open, EventSnapshot? Event);

@@ -152,6 +152,10 @@ internal sealed class MenuPopupBehavior : IAsyncDisposable
                 Part = MenuFilterTwin.PopupPart,
                 MenuKey = menu.SessionToken,
                 Open = open!.Value,
+
+                // MenuFilterSubmenuRoot.tsx:278-292: a filterable submenu's popup closes on its close key, back to the parent.
+                Submenu = menu.Parent.Kind == MenuParentKind.Menu ? true : null,
+                ParentKey = menu.Parent.Kind == MenuParentKind.Menu ? menu.Parent.Menu?.SessionToken : null,
             }) ?? Task.CompletedTask;
 
             // The list's handle waits for the session inside track 1's behavior; the batch boundary does not wait for it.

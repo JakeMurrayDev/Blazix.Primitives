@@ -15,9 +15,11 @@
 import { dispatchClickWithModifiers } from './button';
 import {
   highlightListEdge,
+  highlightListItem,
   isCrossOrientationCloseKey,
   isCrossOrientationOpenKey,
   isMainOrientationKey,
+  moveListHighlightFrom,
   skipListNavigation,
 } from './composite';
 import { eventInfo } from './event-info';
@@ -36,7 +38,7 @@ import {
 } from './twin';
 
 /** The part names, as `MenuFilterTwin`'s constants. */
-export type MenuFilterPart = 'input' | 'trigger' | 'list' | 'popup' | 'clear';
+export type MenuFilterPart = 'input' | 'trigger' | 'list' | 'popup' | 'clear' | 'submenu-trigger';
 
 /** The options of a `menu-filter` handle, as `MenuFilterOptions` serializes them. */
 export interface MenuFilterOptions extends TwinOptions {
@@ -66,6 +68,10 @@ export interface MenuFilterOptions extends TwinOptions {
   textIds?: readonly string[] | null;
   /** The automatic highlight mode an item-set change follows, `true` or `always`; the List's. */
   autoHighlight?: 'true' | 'always' | null;
+  /** The parent menu's session token, whose input a filterable submenu returns to; a submenu's trigger and popup. */
+  parentKey?: string | null;
+  /** The parent menu's orientation; a submenu's trigger. */
+  parentOrientation?: 'horizontal' | 'vertical' | null;
 }
 
 /**
@@ -174,6 +180,26 @@ interface FocusOwner {
 }
 
 const owners = new Map<string, FocusOwner>();
+
+// The keys the Input keeps for its caret (the router's `edit`), which Base UI stops from reaching the popup
+// (useMenuFilterKeyDown.ts:138-140); a submenu popup's close key ignores them.
+const inputOwnedKeys = new WeakSet<KeyboardEvent>();
+
+// MenuFilterSubmenuRoot.tsx:41-49, 172-207 (MNU-KEY-31..33): leaving a filterable submenu returns focus to the parent's
+// input and highlights the submenu's trigger there; a plain parent gets the trigger focused. A close key that is also
+// the parent's main-axis key then moves on in the parent from the trigger.
+function exitSubmenu(trigger: HTMLElement, parentKey: string | null | undefined, parentOrientation: 'horizontal' | 'vertical', event: KeyboardEvent): void {
+  const parent = parentKey ? owners.get(parentKey) : undefined;
+  if (parent === undefined) {
+    trigger.focus({ preventScroll: true });
+    return;
+  }
+  refocusOwner(parent.input);
+  highlightListItem(parent.input, trigger, event);
+  if (isMainOrientationKey(event.key, parentOrientation)) {
+    moveListHighlightFrom(parent.input, trigger, event);
+  }
+}
 
 // isTypeableElement (floating-ui-react/utils): a key on a text field is the field's.
 function isTypeable(target: EventTarget | null): boolean {
@@ -339,6 +365,9 @@ function attachInput(input: HTMLInputElement, initial: MenuFilterOptions, channe
     });
     switch (action) {
       case 'edit':
+        inputOwnedKeys.add(event);
+        skipListNavigation(event);
+        break;
       case 'ignore':
         skipListNavigation(event);
         break;
@@ -653,12 +682,72 @@ function attachTrigger(trigger: HTMLElement, initial: MenuFilterOptions, channel
   };
 }
 
+// A filterable submenu's trigger (MenuFilterSubmenuRoot.tsx:240-276, MNU-KEY-29, KEY-31..33): the parent's cross-axis open
+// key opens the submenu through the list-navigation reason, after clearing the parent's highlight (handleSubmenuEnter), or
+// re-enters an open one; the submenu's close key closes it and returns to the parent. A key of an IME composition is the
+// input's (MNU-EVT-19). The key reaches the trigger re-dispatched by the parent's router, or on its real focus in a plain
+// parent; the trigger's own list handles skip it.
+function attachSubmenuTrigger(trigger: HTMLElement, initial: MenuFilterOptions, channel: TwinChannel): TwinHandle {
+  let options = initial;
+  let disposed = false;
+
+  const onKeyDown = (event: KeyboardEvent): void => {
+    if (event.isComposing || event.keyCode === 229) {
+      return;
+    }
+    const parent = options.parentKey ? owners.get(options.parentKey) : undefined;
+    const rtl = parent?.options().rtl === true;
+    const parentOrientation = options.parentOrientation ?? 'vertical';
+    if (options.open === true && isCrossOrientationCloseKey(event.key, options.orientation ?? 'vertical', rtl, false)) {
+      skipListNavigation(event);
+      event.preventDefault();
+      event.stopPropagation();
+      channel.report('OnSubmenuKey', { open: false, event: eventInfo(event) });
+      exitSubmenu(trigger, options.parentKey, parentOrientation, event);
+      return;
+    }
+    if (!isCrossOrientationOpenKey(event.key, parentOrientation, rtl)) {
+      return;
+    }
+    skipListNavigation(event);
+    event.preventDefault();
+    event.stopPropagation();
+    if (parent !== undefined) {
+      highlightListEdge(parent.input, null, event);
+    }
+    if (options.open === true) {
+      const own = options.menuKey ? owners.get(options.menuKey) : undefined;
+      if (own !== undefined) {
+        refocusOwner(own.input);
+      }
+      return;
+    }
+    channel.report('OnSubmenuKey', { open: true, event: eventInfo(event) });
+  };
+
+  trigger.addEventListener('keydown', onKeyDown, true);
+
+  return {
+    update(optionsJson: string): void {
+      if (!disposed) {
+        options = parseOptions<MenuFilterOptions>(optionsJson);
+      }
+    },
+    dispose(): void {
+      if (!disposed) {
+        disposed = true;
+        trigger.removeEventListener('keydown', onKeyDown, true);
+      }
+    },
+  };
+}
+
 // The Popup (useMenuFilterPopup.ts): the input holds real focus while the menu filters. A press on the popup's own
 // background keeps it there (PTR-22); a mouse moving over the popup returns it to the input when it is outside the popup
 // (FOC-14); focus landing on the popup itself, the focus manager's fallback, moves on to the input; and the cross-axis
 // close key on another control returns focus to the input (KEY-33). A nested popup is portaled outside this one in the
 // DOM, so its events never reach this handle.
-function attachPopup(popup: HTMLElement, initial: MenuFilterOptions): TwinHandle {
+function attachPopup(popup: HTMLElement, initial: MenuFilterOptions, channel: TwinChannel): TwinHandle {
   let options = initial;
   let disposed = false;
   // A tap fires compatibility mouse events, which must not focus the input and raise the on-screen keyboard.
@@ -727,6 +816,22 @@ function attachPopup(popup: HTMLElement, initial: MenuFilterOptions): TwinHandle
   };
   const onKeyDown = (event: KeyboardEvent): void => {
     const owner = ownerOf();
+    // MenuFilterSubmenuRoot.tsx:278-292 (MNU-KEY-32): a filterable submenu's popup closes on its cross-axis close key and
+    // returns to the parent; a key the input keeps for its caret, or of an IME composition, does not count.
+    if (options.submenu === true && owner !== undefined && !inputOwnedKeys.has(event) && !event.isComposing && event.keyCode !== 229) {
+      const ownerOptions = owner.options();
+      if (isCrossOrientationCloseKey(event.key, ownerOptions.orientation ?? 'vertical', ownerOptions.rtl === true, false)) {
+        const trigger = popup.id ? popup.ownerDocument.querySelector<HTMLElement>(`[aria-controls="${CSS.escape(popup.id)}"]`) : null;
+        skipListNavigation(event);
+        event.preventDefault();
+        event.stopPropagation();
+        channel.report('OnSubmenuKey', { open: false, event: eventInfo(event) });
+        if (trigger !== null) {
+          exitSubmenu(trigger, options.parentKey, ownerOptions.orientation ?? 'vertical', event);
+        }
+        return;
+      }
+    }
     if (owner === undefined || event.target === owner.input || isTypeable(event.target)) {
       return;
     }
@@ -803,13 +908,16 @@ export function attach(
       inner = attachList(element, options, channel);
       break;
     case 'popup':
-      inner = attachPopup(element, options);
+      inner = attachPopup(element, options, channel);
       break;
     case 'trigger':
       inner = attachTrigger(element, options, channel);
       break;
     case 'clear':
       inner = attachClear(element, options);
+      break;
+    case 'submenu-trigger':
+      inner = attachSubmenuTrigger(element, options, channel);
       break;
     default:
       throw new Error(`menu-filter: the ${options.part} part is not implemented`);
