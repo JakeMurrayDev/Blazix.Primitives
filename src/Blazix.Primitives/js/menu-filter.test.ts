@@ -338,6 +338,24 @@ describe('the key router', () => {
     expect(input.getAttribute('aria-activedescendant')).toBe(harness.item(0).id);
   });
 
+  // KEY-24 (useMenuFilterKeyDown.ts:155-167): in a horizontal menu with nothing highlighted, ArrowDown highlights the first
+  // item and ArrowUp the last.
+  it.each([
+    ['ArrowDown', 0],
+    ['ArrowUp', 2],
+  ] as const)('port: %s in a horizontal menu with nothing highlighted enters the list at its edge', async (key, index) => {
+    const harness = createListHarness({ reference: 'input', list: { virtual: true, orientation: 'horizontal' }, session: { open: true } });
+    harnesses.push(harness);
+    const input = harness.reference as HTMLInputElement;
+    handles.push(attach(input, JSON.stringify({ part: 'input', menuKey: 'menu-1', open: true, orientation: 'horizontal' }), createFakeTwin().twin));
+    input.focus();
+
+    const event = keyDown(input, key);
+
+    expect(event.defaultPrevented).toBe(true);
+    await vi.waitFor(() => expect(input.getAttribute('aria-activedescendant')).toBe(harness.item(index).id), { timeout: 1000, interval: 5 });
+  });
+
   // KEY-26 (useMenuFilterKeyDown.ts:179-192): Shift+Tab in the input asks C# to close with focus-out.
   it('port: Shift+Tab in the input reports a focus-out close', async () => {
     const { input, fake } = await openFilterMenu();
