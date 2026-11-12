@@ -2923,6 +2923,26 @@ describe('highlightListEdge (port)', () => {
     });
   });
 
+  // MNU-STA-20 (FilterDropdownRoot.tsx:109-125; the orchestrator's 2026-11-12 grant): a list with itemsChangeHighlight
+  // does not let another item take the highlighted index when its items change; 'clear' clears, before any report.
+  it('port: itemsChangeHighlight clears a highlight another item would take, without reporting that item', async () => {
+    const harness = app({ reference: 'input', list: { virtual: true, itemsChangeHighlight: 'clear' }, session: { open: true } });
+    harness.reference.focus();
+    highlightListEdge(harness.reference, 'first', new KeyboardEvent('keydown', { key: 'ArrowDown' }));
+    keyDown(harness.reference, 'ArrowDown');
+    await waitFor(() => {
+      expect(descendantOf(harness.reference)).toBe(harness.item(1).id);
+    });
+    const before = harness.highlights.length;
+
+    harness.setItems(['zero', 'one', 'two', 'three']);
+
+    await waitFor(() => {
+      expect(descendantOf(harness.reference)).toBe(null);
+    });
+    expect(harness.highlights.slice(before).map((report) => report.index ?? null)).toEqual([null]);
+  });
+
   it('port: highlightListEdge does nothing on an element without a list handle', () => {
     const element = document.createElement('input');
 
