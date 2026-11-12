@@ -1003,6 +1003,26 @@ describe('list virtual focus (port)', () => {
     expect(harness.item(1).getAttribute('tabindex')).toBe('-1');
   });
 
+  // MNU-ARIA-06 (M5 track 12, the orchestrator's 2026-11-12 grant): a filterable menu's popup is a dialog, which carries no
+  // aria-activedescendant (useMenuFilterPopup.ts:97-101); floatingActiveDescendant false leaves the floating element out.
+  it('port: floatingActiveDescendant false writes aria-activedescendant on the reference only, and the default writes the floating element too', async () => {
+    const off = app({ list: { virtual: true, floatingActiveDescendant: false } });
+    off.reference.focus();
+    keyDown(off.reference, 'ArrowDown');
+    await waitFor(() => {
+      expect(descendantOf(off.reference)).toBe(off.item(0).id);
+    });
+    expect(menu(off).hasAttribute('aria-activedescendant')).toBe(false);
+
+    const byDefault = app({ list: { virtual: true } });
+    byDefault.reference.focus();
+    keyDown(byDefault.reference, 'ArrowDown');
+    await waitFor(() => {
+      expect(descendantOf(byDefault.reference)).toBe(byDefault.item(0).id);
+    });
+    expect(descendantOf(menu(byDefault))).toBe(byDefault.item(0).id);
+  });
+
   it('port: under virtual focus with a typeable combobox reference writes aria-activedescendant on the reference only', async () => {
     const harness = app({ reference: 'input', list: { virtual: true } });
     harness.reference.focus();

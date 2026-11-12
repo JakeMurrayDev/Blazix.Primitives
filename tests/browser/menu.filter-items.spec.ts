@@ -113,6 +113,43 @@ test.describe('filtered Menu items', () => {
     });
   });
 
+  // MNU-PTR-20, KEY-25 (MenuFilterRoot.test.tsx).
+  test('filters items and selects the active item while focus remains on the input', async ({ page, mode }) => {
+    const fixture = await render(page, mode, { case: 'fruit' });
+    const trigger = page.getByRole('button', { name: 'Fruit' });
+
+    await trigger.click();
+
+    const popup = page.getByRole('dialog');
+    const list = page.getByTestId('list');
+    const fruitInput = input(page, 'Filter fruit');
+    await expect(trigger).toHaveAttribute('aria-haspopup', 'dialog');
+    await expect(popup.getByTestId('list')).toHaveCount(1);
+    await expect(fruitInput).toBeFocused();
+    await expect(page.getByText('Apple')).not.toHaveAttribute('data-highlighted');
+    await expect(fruitInput).not.toHaveAttribute('aria-activedescendant', /.+/);
+    await expect(page.getByText('Apple')).toHaveAttribute('tabindex', '-1');
+    await expect(page.getByText('Banana')).toHaveAttribute('tabindex', '-1');
+
+    await page.keyboard.type('ban');
+    await expect(item(page, 'Apple')).toHaveCount(0);
+    await expect(page.getByText('Banana')).toBeVisible();
+
+    await page.keyboard.press('ArrowDown');
+
+    await expect(fruitInput).toBeFocused();
+    const activeItem = item(page, 'Banana');
+    await expect(activeItem).toHaveAttribute('data-highlighted', '');
+    await expect(activeItem).toHaveAttribute('tabindex', '-1');
+    await expect(fruitInput).toHaveAttribute('aria-activedescendant', (await activeItem.getAttribute('id')) ?? 'missing');
+    await expect(popup).not.toHaveAttribute('aria-activedescendant', /.+/);
+    await expect(list).toBeVisible();
+
+    await page.keyboard.press('Enter');
+
+    await expect(fixture).toHaveAttribute('data-presses', 'Banana');
+  });
+
   // MNU-STA-17 (MenuFilterRoot.test.tsx).
   test('keeps component-rendered item text after the item is filtered out', async ({ page, mode }) => {
     await render(page, mode, { case: 'label' });
