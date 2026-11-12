@@ -916,3 +916,46 @@ test.describe('<Menu.SubmenuTrigger />', () => {
     await expect(submenuInput(page)).toBeFocused();
   });
 });
+
+// MenuFilterRoot.scoping.test.tsx's FilterableMenu with a submenu (MNU-STR-14, ARIA-13); the row tags them [L2], and their
+// press, typing and arrow steps are the browser's (ADR 13 §3 re-tag note on STR-14). The fixture's items before the
+// trigger stand for FilterableMenu's Rename, Delete and Duplicate.
+test.describe('<Menu.FilterProvider> scoping with a submenu', () => {
+  const parentInput = (page: Page): Locator => page.getByRole('searchbox', { name: 'Filter actions' });
+
+  test('does not extend to a plain submenu inside the filterable menu', async ({ page, mode }) => {
+    await render(page, mode, { child: 'plain', before: 'Rename,Delete,Duplicate', after: '', hover: false });
+    const submenuTrigger = item(page, 'Move to');
+    await expect(submenuTrigger).toHaveAttribute('aria-haspopup', 'menu');
+
+    await submenuTrigger.click();
+    await expect(page.getByRole('menu', { name: 'Move to' })).toBeVisible();
+    await expect(page.getByRole('searchbox')).toHaveCount(1);
+
+    // The trigger is still an item of the filterable parent list, so the parent query hides it.
+    await parentInput(page).focus();
+    await page.keyboard.type('ren');
+
+    await expect(item(page, 'Move to')).toHaveCount(0);
+  });
+
+  test('filters a submenu that uses FilterSubmenuRoot', async ({ page, mode }) => {
+    await render(page, mode, { before: 'Rename,Delete,Duplicate', after: '', hover: false });
+    const submenuTrigger = item(page, 'Move to');
+    await expect(submenuTrigger).toHaveAttribute('aria-haspopup', 'dialog');
+    await parentInput(page).focus();
+
+    for (let i = 0; i < 4; i += 1) {
+      await page.keyboard.press('ArrowDown');
+    }
+    await expect(parentInput(page)).toHaveAttribute('aria-activedescendant', (await submenuTrigger.getAttribute('id')) ?? 'missing');
+    await page.keyboard.press('ArrowRight');
+    await expect(submenuInput(page)).toBeFocused();
+    await page.keyboard.type('arch');
+
+    await expect(item(page, 'Projects')).toHaveCount(0);
+    await expect(item(page, 'Archive')).toBeVisible();
+    // The parent list is untouched by the submenu query.
+    await expect(item(page, 'Rename')).toBeVisible();
+  });
+});
