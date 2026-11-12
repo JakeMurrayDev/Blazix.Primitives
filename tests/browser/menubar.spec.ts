@@ -1169,6 +1169,14 @@ test.describe('filterable menubar menus', () => {
     });
   }
 
+  // ARIA-03's filter clause (MenuFilterDropdown.tsx:128): a filterable bar menu's trigger announces a dialog.
+  test('port: a filterable bar menu\'s trigger announces a dialog', async ({ page, mode }) => {
+    await renderFilterBar(page, mode);
+
+    await expect(page.getByRole('menuitem', { name: 'File' })).toHaveAttribute('aria-haspopup', 'dialog');
+    await expect(page.getByRole('menuitem', { name: 'Edit' })).toHaveAttribute('aria-haspopup', 'menu');
+  });
+
   // FOC-04's filter clause (MenuFilterPopup.tsx:27-48): a press open focuses the input.
   test('port: a press on a filterable bar menu\'s trigger focuses its input', async ({ page, mode }) => {
     await renderFilterBar(page, mode);
