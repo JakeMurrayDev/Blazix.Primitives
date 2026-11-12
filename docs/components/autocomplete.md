@@ -394,8 +394,10 @@ None.
 
 - **AUT-API-19** — MUST. `Autocomplete.useFilter(options)` is the shared collator filter factory itself (`getFilter`, UTL-I18N-08…13): it accepts `locale` plus any `Intl.CollatorOptions` (defaults `usage: 'search'`, `sensitivity: 'base'`, `ignorePunctuation: true`, caller options win), returns `{ contains, startsWith, endsWith }`, and returns the same cached object for equal locale/options. It has **no** `multiple`/`value` options and none of `Combobox.useFilter`'s selection-aware behavior. It is intended for external filtering through `filteredItems` (docs §useFilter).
   Source: `autocomplete/index.parts.ts:24`; `combobox/root/utils/useFilter.ts:12`; `internals/filter.ts:6-83`. Docs: `components/autocomplete/page.mdx` §useFilter. Test: none in `autocomplete/` (mechanism: UTL-I18N-08…13).
+  Port note (2026-11-12, M5 track 11, [issue 196](https://github.com/JakeMurrayDev/Blazix.Primitives/issues/196); the brief's Deliverable 6, layers proposed for `Test: none` rows): [L1] `AutocompleteFilterTests` (six titles: the matchers, `itemToString`, equality, caller options, Turkish `i` under `tr-TR`, no selection awareness).
 - **AUT-API-20** — MUST. `Autocomplete.useFilteredItems()` is `Combobox.useFilteredItems()` (CMB-API-66): the Root's current filtered items (in modes `'inline'`/`'none'` every item, subject to `limit`); it throws the derived-items context error (CMB-STR-02) outside a Root.
   Source: `autocomplete/index.parts.ts:25`; `combobox/root/utils/useFilteredItems.ts:7-10`. Docs: `components/autocomplete/page.mdx` §useFilteredItems. Test: none in `autocomplete/`.
+  Port note (2026-11-12, M5 track 11, [issue 196](https://github.com/JakeMurrayDev/Blazix.Primitives/issues/196); the brief's Deliverable 6, layers proposed for `Test: none` rows): no public accessor, as CMB-API-66: the List's `ItemContent` maps the filtered items; [L2] "port: the List's ItemContent receives the filtered items: every item in Inline and None modes, subject to Limit".
 
 ### 3.11 Base-component parameters overridden by this component
 
@@ -442,6 +444,7 @@ Autocomplete owns two consumer-visible pieces of state: the **committed text** (
   Source: `combobox/root/AriaCombobox.tsx:283,313-330,952-961`; `combobox/input/ComboboxInput.tsx:113-118`. Test: [L2] `AutocompleteRoot.test.tsx` "commits a keyboard selection, restores trigger focus, and preserves it on reopen", "preserves the typed value when the popup is dismissed with Escape", "automatically unmounts with an actions ref and completes closing once".
 - **AUT-STA-10** — MUST. The query is the trimmed displayed text (or, in mode `'both'`, the trimmed committed text for filtering, AUT-STA-07). No close query is frozen on close (the freeze of CMB-STA-21 exists only in single/multiple mode), so the list reflects the live text during exit animations; the typed-query flag of CMB-STA-21 is still tracked but has no effect in Autocomplete.
   Source: `combobox/root/AriaCombobox.tsx:340,800-831`. Test: none.
+  Port note (2026-11-12, M5 track 11, [issue 196](https://github.com/JakeMurrayDev/Blazix.Primitives/issues/196); the brief's Deliverable 6, layers proposed for `Test: none` rows): [L2] "port: no query is frozen on close, so the exiting list follows the filled text".
 
 ### 4.2 Highlight
 
@@ -609,6 +612,7 @@ Added 2026-11-12 (M5 track 11, [issue 196](https://github.com/JakeMurrayDev/Blaz
   Source: `combobox/root/AriaCombobox.tsx:952-961`; FLT-FOC-11. Test: [L4] `AutocompleteRoot.test.tsx` "closes popup on Tab after selecting with Enter and typing again".
 - **AUT-KEY-10** — MUST. Printable keys on a focused, closed `Autocomplete.Trigger` do nothing: the closed-trigger typeahead of CMB-KEY-12 is enabled only in single-selection mode.
   Source: `combobox/trigger/ComboboxTrigger.tsx:109-122`. Test: none.
+  Port note (2026-11-12, M5 track 11, [issue 196](https://github.com/JakeMurrayDev/Blazix.Primitives/issues/196); the brief's Deliverable 6, layers proposed for `Test: none` rows): [L4] "port: printable keys on a focused, closed trigger do nothing", both modes.
 - **AUT-KEY-11** — MUST. readOnly (AUT-API-17): ArrowDown/ArrowUp open the popup and move the highlight (reason `keyboard`), the displayed text never changes (no inline completion in any mode), typing does not change the text, and <kbd>Enter</kbd> on a highlighted item is prevented and stopped without activating it (CMB-KEY-15).
   Source: `autocomplete/root/AutocompleteRoot.tsx:51`; `combobox/input/ComboboxInput.tsx:323-329`. Test: [L4] `AutocompleteRoot.test.tsx` "opens the list with the arrow keys but does not commit on item press when readOnly", "does not fill the input with the highlighted item when readOnly".
 
@@ -741,6 +745,7 @@ Autocomplete's own code emits no warnings and throws no errors. Inherited diagno
 
 - **AUT-EDGE-01** — SHOULD. No controlled/uncontrolled diagnostic is emitted for the text: the Root re-decides controlled mode on every parameter update (`value !== undefined`) and always hands the engine a defined text, so switching between controlled and uncontrolled `value`, or changing `defaultValue` later, produces no warning (the internal text keeps its last uncontrolled value). Port: relaxed (ADR 05 Amendments item 1). The `open` prop keeps the shared diagnostics with the name `'Combobox'`.
   Source: `autocomplete/root/AutocompleteRoot.tsx:56-57,120`; `combobox/root/AriaCombobox.tsx:325-337`. Test: none.
+  Port note (2026-11-12, M5 track 11, [issue 196](https://github.com/JakeMurrayDev/Blazix.Primitives/issues/196); the brief's Deliverable 6, layers proposed for `Test: none` rows): [L2] "port: a text that stops being controlled logs the controlled-state warning once, naming Autocomplete" (the relaxation's diagnostic).
 - **AUT-EDGE-02** — MUST. A controlled `value={null}` is an empty text (`''`), the input renders empty and the full list is available; `undefined` means uncontrolled.
   Source: `autocomplete/root/AutocompleteRoot.tsx:70-72,78`. Test: [L2] `AutocompleteRoot.test.tsx` "treats a controlled null value as an empty query".
 - **AUT-EDGE-03** — MUST. Server rendering: the Input outside the popup carries the combobox ARIA and the `name` in the server HTML and remains the only named control after hydration; an inline Input likewise; in the input-inside-popup layout the server HTML contains no named control (the popup is not rendered and the hidden input is nameless until hydration), and after hydration the hidden input carries the name and the default text, so a submit before the popup ever opens sends it.
