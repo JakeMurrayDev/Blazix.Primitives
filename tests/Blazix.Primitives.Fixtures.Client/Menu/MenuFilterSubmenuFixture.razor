@@ -1,0 +1,221 @@
+@namespace Blazix.Primitives.Fixtures.Client.MenuFixtures
+@using Blazix.Primitives
+
+@*
+    The `menu-filter-submenu` fixture (tests/browser/menu.filter-submenu.spec.ts, M5 track 12): MenuFilterSubmenuRoot.test.tsx's
+    trees, open. A root menu "Actions" whose popup holds the items named by `before` (comma-separated; default "Rename"), a
+    submenu whose trigger reads `label` (default "Move to"; `data-testid="submenu-trigger"`), then the items named by `after`
+    (default "Delete"). `parent=plain` makes the root plain, with its items directly in the popup; otherwise the root is
+    filterable, with an input "Filter actions" and a list. `child=plain` makes the submenu plain; otherwise it is filterable,
+    with an input "Filter folders". The submenu's popup (`data-testid="submenu"`) holds a list (`data-testid="submenu-list"`)
+    of the items named by `children` (default "Projects,Archive"). `closed=true` starts the root closed; `orientation=horizontal`
+    sets the root's orientation; `dir=rtl` the direction; `loop=false` the root's LoopFocus; `disabled` names a root item to
+    disable; `auto` ("true" or "always") the submenu's AutoHighlight; `delay` the trigger's Delay in milliseconds (default
+    Base UI's); `hover=false` turns the trigger's OpenOnHover off. `nested` names a plain submenu first in the submenu's list,
+    whose popup holds Archive; `second` names a second filterable submenu after the `after` items, with an input "Filter
+    second" and the items named by `secondChildren` (default "PDF"). Each highlight report of the root is recorded as
+    `label:reason:key` (`none` for no item) in `data-highlights`, and each submenu open request as `open:reason` in
+    `data-submenu-changes` (`|`-separated). `data-attached` turns "true" once the root's session has attached and, for a
+    filterable root that starts open, its input's and list's `menu-filter` handles.
+*@
+<FixtureContainer Name="menu-filter-submenu" data-attached="@(attached ? "true" : "false")" data-highlights="@string.Join('|', highlights)" data-submenu-changes="@string.Join('|', submenuChanges)">
+    <DirectionProvider Direction="@(Dir == "rtl" ? TextDirection.Rtl : TextDirection.Ltr)">
+        @if (ParentPlain)
+        {
+            @RootMenu
+        }
+        else
+        {
+            <MenuFilterProvider>@RootMenu</MenuFilterProvider>
+        }
+    </DirectionProvider>
+</FixtureContainer>
+
+@code {
+    private readonly List<string> highlights = [];
+    private readonly List<string> submenuChanges = [];
+    private MenuRoot<NoPayload>? root;
+    private MenuInput? input;
+    private MenuList? list;
+    private bool attached;
+    private bool attaching;
+
+    [SupplyParameterFromQuery(Name = "parent")]
+    public string? Parent { get; set; }
+
+    [SupplyParameterFromQuery(Name = "child")]
+    public string? Child { get; set; }
+
+    [SupplyParameterFromQuery(Name = "before")]
+    public string? Before { get; set; }
+
+    [SupplyParameterFromQuery(Name = "after")]
+    public string? After { get; set; }
+
+    [SupplyParameterFromQuery(Name = "label")]
+    public string? Label { get; set; }
+
+    [SupplyParameterFromQuery(Name = "children")]
+    public string? Children { get; set; }
+
+    [SupplyParameterFromQuery(Name = "closed")]
+    public bool Closed { get; set; }
+
+    [SupplyParameterFromQuery(Name = "orientation")]
+    public string? OrientationName { get; set; }
+
+    [SupplyParameterFromQuery(Name = "dir")]
+    public string? Dir { get; set; }
+
+    [SupplyParameterFromQuery(Name = "loop")]
+    public string? Loop { get; set; }
+
+    [SupplyParameterFromQuery(Name = "disabled")]
+    public string? DisabledItem { get; set; }
+
+    [SupplyParameterFromQuery(Name = "auto")]
+    public string? Auto { get; set; }
+
+    [SupplyParameterFromQuery(Name = "delay")]
+    public int? Delay { get; set; }
+
+    [SupplyParameterFromQuery(Name = "nested")]
+    public string? Nested { get; set; }
+
+    [SupplyParameterFromQuery(Name = "second")]
+    public string? Second { get; set; }
+
+    [SupplyParameterFromQuery(Name = "secondChildren")]
+    public string? SecondChildren { get; set; }
+
+    [SupplyParameterFromQuery(Name = "hover")]
+    public string? Hover { get; set; }
+
+    private bool ParentPlain => Parent == "plain";
+
+    private bool ChildPlain => Child == "plain";
+
+    private static string[] Names(string? value, string fallback) =>
+        (value ?? fallback).Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+
+    private AutoHighlightValue? AutoHighlight => Auto switch
+    {
+        "true" => true,
+        "always" => AutoHighlightValue.Always,
+        _ => null,
+    };
+
+    private RenderFragment RootMenu => @<MenuRoot TPayload="NoPayload" DefaultOpen="@(!Closed)" LoopFocus="@(Loop != "false")" Orientation="@(OrientationName == "horizontal" ? Orientation.Horizontal : Orientation.Vertical)" OnItemHighlighted="RecordHighlight" @ref="root">
+        <MenuTrigger TPayload="NoPayload">Actions</MenuTrigger>
+        <MenuPortal>
+            <MenuPositioner>
+                <MenuPopup data-testid="popup">
+                    @if (ParentPlain)
+                    {
+                        @Items
+                    }
+                    else
+                    {
+                        <MenuInput aria-label="Filter actions" @ref="input" />
+                        <MenuList @ref="list">@Items</MenuList>
+                    }
+                </MenuPopup>
+            </MenuPositioner>
+        </MenuPortal>
+    </MenuRoot>;
+
+    private RenderFragment Items => @<text>
+        @foreach (string name in Names(Before, "Rename"))
+        {
+            <MenuItem @key="name" Disabled="@(name == DisabledItem)">@name</MenuItem>
+        }
+        @if (ChildPlain)
+        {
+            @Submenu
+        }
+        else
+        {
+            <MenuFilterProvider AutoHighlight="@AutoHighlight">@Submenu</MenuFilterProvider>
+        }
+        @foreach (string name in Names(After, "Delete"))
+        {
+            <MenuItem @key="name" Disabled="@(name == DisabledItem)">@name</MenuItem>
+        }
+        @if (Second is not null)
+        {
+            <MenuFilterProvider>
+                <MenuSubmenuRoot>
+                    <MenuSubmenuTrigger>@Second</MenuSubmenuTrigger>
+                    <MenuPortal>
+                        <MenuPositioner>
+                            <MenuPopup data-testid="second-submenu">
+                                <MenuInput aria-label="Filter second" />
+                                <MenuList>
+                                    @foreach (string name in Names(SecondChildren, "PDF"))
+                                    {
+                                        <MenuItem @key="name">@name</MenuItem>
+                                    }
+                                </MenuList>
+                            </MenuPopup>
+                        </MenuPositioner>
+                    </MenuPortal>
+                </MenuSubmenuRoot>
+            </MenuFilterProvider>
+        }
+    </text>;
+
+    private RenderFragment Submenu => @<MenuSubmenuRoot OnOpenChange="RecordSubmenu">
+        <MenuSubmenuTrigger data-testid="submenu-trigger" Delay="@(Delay is { } ms ? (Duration?)ms : null)" OpenOnHover="@(Hover != "false")">@(Label ?? "Move to")</MenuSubmenuTrigger>
+        <MenuPortal>
+            <MenuPositioner>
+                <MenuPopup data-testid="submenu">
+                    @if (!ChildPlain)
+                    {
+                        <MenuInput aria-label="Filter folders" />
+                    }
+                    <MenuList data-testid="submenu-list">
+                        @if (Nested is not null)
+                        {
+                            <MenuSubmenuRoot>
+                                <MenuSubmenuTrigger>@Nested</MenuSubmenuTrigger>
+                                <MenuPortal>
+                                    <MenuPositioner>
+                                        <MenuPopup data-testid="nested-submenu">
+                                            <MenuItem>Archive</MenuItem>
+                                        </MenuPopup>
+                                    </MenuPositioner>
+                                </MenuPortal>
+                            </MenuSubmenuRoot>
+                        }
+                        @foreach (string name in Names(Children, "Projects,Archive"))
+                        {
+                            <MenuItem @key="name">@name</MenuItem>
+                        }
+                    </MenuList>
+                </MenuPopup>
+            </MenuPositioner>
+        </MenuPortal>
+    </MenuSubmenuRoot>;
+
+    /// <inheritdoc />
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        // A filterable root that starts open waits for its input's and list's handles; otherwise the session is enough.
+        bool needsParts = !ParentPlain && !Closed;
+        if (attached || attaching || !RendererInfo.IsInteractive || root is null || (needsParts && (input is null || list is null)))
+        {
+            return;
+        }
+
+        attaching = true;
+        await (needsParts ? Task.WhenAll(root.SessionAttached, input!.FilterAttached, list!.FilterAttached) : root.SessionAttached);
+        attached = true;
+        StateHasChanged();
+    }
+
+    private void RecordHighlight(MenuItemHighlightedEventArgs args) =>
+        highlights.Add($"{(args.ItemId is null ? "none" : args.Details.Label ?? "")}:{args.Details.Reason.ToLiteral()}:{args.Details.Event.Key}");
+
+    private void RecordSubmenu(ValueChangeEventArgs<bool> args) =>
+        submenuChanges.Add($"{(args.Value ? "open" : "close")}:{args.Details.Reason.ToLiteral()}");
+}
