@@ -57,6 +57,26 @@ public sealed class MenuFilterEngineTests
     public void An_item_list_change_keeps_the_highlight_only_on_the_same_element(bool sameItemAtHighlight, bool autoHighlightEnabled, int itemCount, string expected) =>
         Assert.Equal(expected, Code(MenuFilterEngine.AfterItemsChange(sameItemAtHighlight, autoHighlightEnabled, itemCount)));
 
+    // Design point 3 (a), settled by the orchestrator 2026-11-11: Menu's filter is the keyed registry's consumer
+    // (CMP-STA-19..21; useItemRegistry.ts:14-54).
+    [Fact(DisplayName = "port: the engine keeps its items in a keyed registry, asking once per batch to publish one snapshot")]
+    [Trait("Requirement", "MNU-STA-16")]
+    public void The_engine_keeps_its_items_in_a_keyed_registry()
+    {
+        int requests = 0;
+        MenuFilterEngine engine = new(() => requests++);
+        MenuFilterItem apple = Register(engine, "Apple");
+        MenuFilterItem banana = Register(engine, "Banana");
+
+        Assert.Equal(1, requests);
+        Assert.Empty(engine.PublishedItems);
+        Assert.Equal([apple, banana], engine.Items);
+
+        Assert.True(engine.PublishItems());
+        Assert.Equal([apple, banana], engine.PublishedItems);
+        Assert.False(engine.PublishItems());
+    }
+
     [Fact(DisplayName = "port: an empty query or a null filter keeps every registered item visible")]
     [Trait("Requirement", "MNU-STA-15")]
     public void An_empty_query_or_a_null_filter_keeps_every_registered_item_visible()
