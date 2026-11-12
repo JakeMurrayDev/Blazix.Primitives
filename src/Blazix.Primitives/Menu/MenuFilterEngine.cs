@@ -394,6 +394,11 @@ internal sealed class MenuFilterRootContext
         }
     }
 
+    // MenuRoot.tsx:543 (M5 track 12): a submenu's nested close returns focus to this menu's input.
+    /// <summary>Records the input's element.</summary>
+    /// <param name="element">The element, or <see langword="null"/> when no input is rendered.</param>
+    public void SetInputElement(ElementReference? element) => InputElement = element;
+
     /// <summary>Subscribes to changes of the query, the provider's options and the list's id: the Input's and the Clear's.</summary>
     /// <param name="changed">The callback run after a change, once <see cref="QueryRevision"/> and the visible set are current.</param>
     /// <returns>The subscription; disposing it unsubscribes.</returns>

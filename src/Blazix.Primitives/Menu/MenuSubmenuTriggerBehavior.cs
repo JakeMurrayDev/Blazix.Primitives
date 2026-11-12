@@ -45,6 +45,7 @@ internal sealed class MenuSubmenuTriggerBehavior : IAsyncDisposable
     private CompositeItemBehavior? item;
     private MenuRootContext<NoPayload>? submenu;
     private MenuFilterModuleAttachment? submenuModule;
+    private ElementReference? submenuElement;
     private MenuSubscription? parentSubscription;
     private MenuSelection<bool>? parentDisabled;
     private MenuSubmenuTriggerParameters parameters;
@@ -441,9 +442,13 @@ internal sealed class MenuSubmenuTriggerBehavior : IAsyncDisposable
         if (submenuModule is null)
         {
             submenuModule = new MenuFilterModuleAttachment(jsRuntime);
+            // The request names this trigger, as Base UI's passes `event.currentTarget`, so the trigger becomes the
+            // submenu's active trigger and renders open.
             submenuModule.Twin.SubmenuKey += report => _ = invokeAsync(() =>
-                submenu!.RequestOpenAsync(report.Open, new OpenChangeEventDetails(EventReason.ListNavigation, report.Event)));
+                submenu!.RequestOpenAsync(report.Open, new OpenChangeEventDetails(EventReason.ListNavigation, report.Event) { Trigger = new EventTrigger(id, submenuElement) }));
         }
+
+        submenuElement = target;
 
         MenuRootContext? parent = menu.Parent.Menu;
         await submenuModule.SyncAsync(target, new MenuFilterOptions
@@ -452,6 +457,7 @@ internal sealed class MenuSubmenuTriggerBehavior : IAsyncDisposable
             MenuKey = menu.SessionToken,
             ParentKey = parent?.SessionToken,
             Open = menu.State.Open,
+            KeyboardOpen = menu.State.Open && menu.State.KeyboardOpen,
             Orientation = menu.Orientation == Orientation.Horizontal ? "horizontal" : "vertical",
             ParentOrientation = parent?.Orientation == Orientation.Horizontal ? "horizontal" : "vertical",
         });

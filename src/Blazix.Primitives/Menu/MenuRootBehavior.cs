@@ -348,6 +348,10 @@ internal sealed class MenuRootBehavior<TPayload> : IAsyncDisposable
         navigation.ResetOnPointerLeave = true;
         navigation.DisabledIndices = s_noDisabledIndices;
         navigation.SetTypeahead(!disabled, TypeaheadResetMs, "element");
+
+        // MenuRoot.tsx:543 (M5 track 12, the filter list options granted 2026-11-12): under a filterable parent, a submenu's
+        // nested close returns focus to the parent's input, which holds the parent's virtual focus, not to the trigger.
+        navigation.NestedReturnFocusTarget = parent.Kind == MenuParentKind.Menu ? parent.Menu?.Filter?.InputElement : null;
         ApplyFilterListOptions(navigation, parameters);
     }
 

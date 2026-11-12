@@ -138,6 +138,7 @@ public sealed class MenuInput : PartBase<MenuInputState>
             return;
         }
 
+        filter?.SetInputElement(element);
         await PopupPortalContext.WhenMoved(Portal);
         Task referenceSync = reference!.AfterRenderAsync(Enabled, element, Id);
         await module!.SyncAsync(element, new MenuFilterOptions
@@ -169,6 +170,7 @@ public sealed class MenuInput : PartBase<MenuInputState>
             if (filter is not null && string.Equals(filter.InputId, Id, StringComparison.Ordinal))
             {
                 filter.SetInputId(null);
+                filter.SetInputElement(null);
             }
 
             if (module is not null)

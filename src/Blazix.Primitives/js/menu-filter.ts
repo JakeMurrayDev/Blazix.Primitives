@@ -185,6 +185,22 @@ const owners = new Map<string, FocusOwner>();
 // (MenuFilterSubmenuRoot.tsx:203, `activeTriggerElement`).
 const submenuTriggers = new Map<string, HTMLElement>();
 
+// The filterable submenus whose close the module reported and C# has not yet confirmed, by session token: Base UI's store
+// is closed at once, so a focus or key on the trigger in between treats the submenu as closed.
+const closingMenus = new Set<string>();
+
+// MenuFilterSubmenuRoot.tsx:198-237: the close key closes the submenu and returns to the parent. The port leaves first and
+// reports after: a WebAssembly report closes and unmounts the popup within the call, and the focus manager returns focus
+// to the trigger when focus is still inside the popup at its unmount. A close the consumer cancels leaves the submenu open
+// with focus already back in the parent (Base UI leaves only after an uncanceled close).
+function closeSubmenu(channel: TwinChannel, menuKey: string | null | undefined, event: KeyboardEvent, exit: () => void): void {
+  if (menuKey) {
+    closingMenus.add(menuKey);
+  }
+  exit();
+  channel.report('OnSubmenuKey', { open: false, event: eventInfo(event) });
+}
+
 // The keys the Input keeps for its caret (the router's `edit`), which Base UI stops from reaching the popup
 // (useMenuFilterKeyDown.ts:138-140); a submenu popup's close key ignores them.
 const inputOwnedKeys = new WeakSet<KeyboardEvent>();
@@ -195,14 +211,48 @@ const inputOwnedKeys = new WeakSet<KeyboardEvent>();
 function exitSubmenu(trigger: HTMLElement, parentKey: string | null | undefined, parentOrientation: 'horizontal' | 'vertical', event: KeyboardEvent): void {
   const parent = parentKey ? owners.get(parentKey) : undefined;
   if (parent === undefined) {
+    // A plain parent (MenuFilterSubmenuRoot.tsx:186-196, moveInParent): the trigger takes real focus, and a main-axis close
+    // key moves on through the parent's list, whose handle sits on an ancestor of the trigger.
     trigger.focus({ preventScroll: true });
+    if (isMainOrientationKey(event.key, parentOrientation)) {
+      for (let element = trigger.parentElement; element !== null; element = element.parentElement) {
+        if (moveListHighlightFrom(element, trigger, event)) {
+          // `item?.focus()` at once, as Base UI's moveInParent does, so the closing submenu's return focus finds focus
+          // already moved on in the parent and leaves it there.
+          const next = element.querySelector<HTMLElement>('[data-highlighted]');
+          if (next !== null && next !== trigger) {
+            next.focus({ preventScroll: true });
+          }
+          break;
+        }
+      }
+    }
     return;
   }
   refocusOwner(parent.input);
   highlightListItem(parent.input, trigger, event);
-  if (isMainOrientationKey(event.key, parentOrientation)) {
+  if (isMainOrientationKey(event.key, parent.options().orientation ?? parentOrientation)) {
     moveListHighlightFrom(parent.input, trigger, event);
+    // moveHighlightFrom.ts:30-41 (MNU-KEY-32): a step that would escape the list to its input keeps the trigger
+    // highlighted. The list's own step clears the highlight there, so the trigger takes it back (one extra report pair).
+    if (!parent.input.getAttribute('aria-activedescendant')) {
+      highlightListItem(parent.input, trigger, event);
+    }
   }
+}
+
+// MenuFilterList.tsx:91-100: the item of a popup whose `aria-controls` names the nested popup or list holding the target,
+// looked up in the target's root, which is a shadow root when the nested popup is portaled into one.
+function nestedPopupTrigger(popup: HTMLElement, target: Element): HTMLElement | null {
+  const root = target.getRootNode() as Document | ShadowRoot;
+  for (const item of popup.querySelectorAll<HTMLElement>('[aria-controls]')) {
+    const id = item.getAttribute('aria-controls');
+    const controlled = id ? root.getElementById(id) : null;
+    if (controlled !== null && controlled.contains(target)) {
+      return item;
+    }
+  }
+  return null;
 }
 
 // isTypeableElement (floating-ui-react/utils): a key on a text field is the field's.
@@ -694,6 +744,7 @@ function attachTrigger(trigger: HTMLElement, initial: MenuFilterOptions, channel
 function attachSubmenuTrigger(trigger: HTMLElement, initial: MenuFilterOptions, channel: TwinChannel): TwinHandle {
   let options = initial;
   let disposed = false;
+  const isOpen = (): boolean => options.open === true && !(options.menuKey && closingMenus.has(options.menuKey));
 
   const onKeyDown = (event: KeyboardEvent): void => {
     if (event.isComposing || event.keyCode === 229) {
@@ -702,12 +753,11 @@ function attachSubmenuTrigger(trigger: HTMLElement, initial: MenuFilterOptions, 
     const parent = options.parentKey ? owners.get(options.parentKey) : undefined;
     const rtl = parent?.options().rtl === true;
     const parentOrientation = options.parentOrientation ?? 'vertical';
-    if (options.open === true && isCrossOrientationCloseKey(event.key, options.orientation ?? 'vertical', rtl, false)) {
+    if (isOpen() && isCrossOrientationCloseKey(event.key, options.orientation ?? 'vertical', rtl, false)) {
       skipListNavigation(event);
       event.preventDefault();
       event.stopPropagation();
-      channel.report('OnSubmenuKey', { open: false, event: eventInfo(event) });
-      exitSubmenu(trigger, options.parentKey, parentOrientation, event);
+      closeSubmenu(channel, options.menuKey, event, () => exitSubmenu(trigger, options.parentKey, parentOrientation, event));
       return;
     }
     if (!isCrossOrientationOpenKey(event.key, parentOrientation, rtl)) {
@@ -719,7 +769,7 @@ function attachSubmenuTrigger(trigger: HTMLElement, initial: MenuFilterOptions, 
     if (parent !== undefined) {
       highlightListEdge(parent.input, null, event);
     }
-    if (options.open === true) {
+    if (isOpen()) {
       const own = options.menuKey ? owners.get(options.menuKey) : undefined;
       if (own !== undefined) {
         refocusOwner(own.input);
@@ -729,7 +779,19 @@ function attachSubmenuTrigger(trigger: HTMLElement, initial: MenuFilterOptions, 
     channel.report('OnSubmenuKey', { open: true, event: eventInfo(event) });
   };
 
+  // useMenuFilterSubmenuTrigger.ts:66-75 (MNU-PTR-22): a plain parent moves real focus to the item the pointer crosses.
+  // While the submenu is open and its input held focus, focus goes straight back, so crossing the trigger does not
+  // interrupt typing; the trigger's own focus handlers do not run.
+  const onFocus = (event: FocusEvent): void => {
+    const own = options.menuKey ? owners.get(options.menuKey) : undefined;
+    if (own !== undefined && isOpen() && event.relatedTarget === own.input) {
+      event.stopImmediatePropagation();
+      refocusOwner(own.input);
+    }
+  };
+
   trigger.addEventListener('keydown', onKeyDown, true);
+  trigger.addEventListener('focus', onFocus, true);
   const register = (): void => {
     if (options.menuKey) {
       submenuTriggers.set(options.menuKey, trigger);
@@ -746,8 +808,21 @@ function attachSubmenuTrigger(trigger: HTMLElement, initial: MenuFilterOptions, 
     update(optionsJson: string): void {
       if (!disposed) {
         unregister();
+        const wasOpen = options.open === true;
         options = parseOptions<MenuFilterOptions>(optionsJson);
+        // C# confirmed the close, or opened the submenu again.
+        if (options.menuKey && (options.open !== true || !wasOpen)) {
+          closingMenus.delete(options.menuKey);
+        }
         register();
+        // MenuFilterSubmenuRoot.tsx:95-102 (MNU-KEY-29): any keyboard open clears the parent's highlight, a keyboard click
+        // with no event (reason none); the open key's own clear in onKeyDown already carried its keydown.
+        if (!wasOpen && options.open === true && options.keyboardOpen === true) {
+          const parent = options.parentKey ? owners.get(options.parentKey) : undefined;
+          if (parent !== undefined) {
+            highlightListEdge(parent.input, null, undefined);
+          }
+        }
       }
     },
     dispose(): void {
@@ -755,6 +830,7 @@ function attachSubmenuTrigger(trigger: HTMLElement, initial: MenuFilterOptions, 
         disposed = true;
         unregister();
         trigger.removeEventListener('keydown', onKeyDown, true);
+        trigger.removeEventListener('focus', onFocus, true);
       }
     },
   };
@@ -832,8 +908,37 @@ function attachPopup(popup: HTMLElement, initial: MenuFilterOptions, channel: Tw
       refocusOwner(owner.input);
     }
   };
+  // MenuFilterList.tsx:43-73 (MNU-KEY-32): a plain submenu that closes on this menu's main-axis key returns focus to the
+  // input and lets the key through, and this menu moves on from its trigger, keeping the trigger highlighted where the
+  // step would escape the list. The port's nested popup hands the key to this menu's list, which steps from its own
+  // place; once the dispatch is over, a step that escaped is given back to the trigger.
+  const onDocumentKeyDown = (event: KeyboardEvent): void => {
+    const owner = ownerOf();
+    const target = event.target instanceof Element ? event.target : null;
+    if (owner === undefined || options.open !== true || target === null || popup.contains(target) || event.keyCode === 229 || event.shiftKey || event.ctrlKey || event.metaKey || event.altKey) {
+      return;
+    }
+    if (!isMainOrientationKey(event.key, owner.options().orientation ?? 'vertical')) {
+      return;
+    }
+    const trigger = nestedPopupTrigger(popup, target);
+    if (trigger === null) {
+      return;
+    }
+    setTimeout(() => {
+      if (!disposed && popup.ownerDocument.activeElement === owner.input && !owner.input.getAttribute('aria-activedescendant')) {
+        highlightListItem(owner.input, trigger, event);
+      }
+    }, 0);
+  };
+
+  // MenuFilterSubmenuRoot.tsx:76-90 (MNU-KEY-29, KEY-33): an Escape that closes a filterable submenu returns focus to the
+  // parent's reference and highlights the trigger there with the key, once the close has committed (a canceled close
+  // leaves the submenu open).
+  let escape: KeyboardEvent | null = null;
   const onKeyDown = (event: KeyboardEvent): void => {
     const owner = ownerOf();
+    escape = options.submenu === true && event.key === 'Escape' && !event.isComposing && event.keyCode !== 229 ? event : null;
     // MenuFilterSubmenuRoot.tsx:278-292 (MNU-KEY-32): a filterable submenu's popup closes on its cross-axis close key and
     // returns to the parent; a key the input keeps for its caret, or of an IME composition, does not count.
     if (options.submenu === true && owner !== undefined && !inputOwnedKeys.has(event) && !event.isComposing && event.keyCode !== 229) {
@@ -843,10 +948,11 @@ function attachPopup(popup: HTMLElement, initial: MenuFilterOptions, channel: Tw
         skipListNavigation(event);
         event.preventDefault();
         event.stopPropagation();
-        channel.report('OnSubmenuKey', { open: false, event: eventInfo(event) });
-        if (trigger !== null) {
-          exitSubmenu(trigger, options.parentKey, ownerOptions.orientation ?? 'vertical', event);
-        }
+        closeSubmenu(channel, options.menuKey, event, () => {
+          if (trigger !== null) {
+            exitSubmenu(trigger, options.parentKey, options.parentOrientation ?? 'vertical', event);
+          }
+        });
         return;
       }
     }
@@ -864,6 +970,7 @@ function attachPopup(popup: HTMLElement, initial: MenuFilterOptions, channel: Tw
   popup.addEventListener('pointerover', trackPointerType);
   popup.addEventListener('pointermove', trackPointerType);
   popup.addEventListener('mousemove', onMouseMove);
+  popup.ownerDocument.addEventListener('keydown', onDocumentKeyDown, true);
   popup.addEventListener('mouseover', onMouseOver);
   popup.addEventListener('focusin', onFocusIn);
   popup.ownerDocument.addEventListener('focusin', onDocumentFocusIn, true);
@@ -872,7 +979,18 @@ function attachPopup(popup: HTMLElement, initial: MenuFilterOptions, channel: Tw
   return {
     update(optionsJson: string): void {
       if (!disposed) {
+        const wasOpen = options.open === true;
         options = parseOptions<MenuFilterOptions>(optionsJson);
+        const trigger = options.menuKey ? submenuTriggers.get(options.menuKey) : undefined;
+        if (wasOpen && options.open !== true && escape !== null && trigger !== undefined) {
+          if (options.menuKey) {
+            closingMenus.add(options.menuKey);
+          }
+          exitSubmenu(trigger, options.parentKey, options.parentOrientation ?? 'vertical', escape);
+        }
+        if (options.open !== true) {
+          escape = null;
+        }
       }
     },
     dispose(): void {
@@ -889,6 +1007,7 @@ function attachPopup(popup: HTMLElement, initial: MenuFilterOptions, channel: Tw
       popup.removeEventListener('focusin', onFocusIn);
       popup.ownerDocument.removeEventListener('focusin', onDocumentFocusIn, true);
       popup.removeEventListener('keydown', onKeyDown);
+      popup.ownerDocument.removeEventListener('keydown', onDocumentKeyDown, true);
     },
   };
 }

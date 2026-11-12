@@ -156,6 +156,7 @@ internal sealed class MenuPopupBehavior : IAsyncDisposable
                 // MenuFilterSubmenuRoot.tsx:278-292: a filterable submenu's popup closes on its close key, back to the parent.
                 Submenu = menu.Parent.Kind == MenuParentKind.Menu ? true : null,
                 ParentKey = menu.Parent.Kind == MenuParentKind.Menu ? menu.Parent.Menu?.SessionToken : null,
+                ParentOrientation = menu.Parent.Kind == MenuParentKind.Menu ? (menu.Parent.Menu?.Orientation == Orientation.Horizontal ? "horizontal" : "vertical") : null,
             }) ?? Task.CompletedTask;
 
             // The list's handle waits for the session inside track 1's behavior; the batch boundary does not wait for it.
@@ -434,7 +435,7 @@ internal sealed class MenuPopupBehavior : IAsyncDisposable
             Modal = kind == MenuParentKind.ContextMenu,
             Disabled = !mounted!.Value,
             InitialFocus = initial,
-            ReturnFocus = ResolveFinalFocus() ?? new FocusTargetValue(returnFocus),
+            ReturnFocus = ResolveFinalFocus() ?? FilterReturnFocus(menu, kind) ?? new FocusTargetValue(returnFocus),
             RestoreFocus = FocusManagerTwin.RestorePopup,
             OpenInteractionType = method,
             CloseEvent = closeEvent!.Value,
@@ -447,6 +448,13 @@ internal sealed class MenuPopupBehavior : IAsyncDisposable
             SessionToken = menu.SessionToken,
         };
     }
+
+    // MenuFilterSubmenuRoot.tsx:120-125, 164-170 (M5 track 12): a filterable submenu returns focus to its parent's input,
+    // which holds the parent's virtual focus, rather than to the trigger.
+    private static FocusTargetValue? FilterReturnFocus(MenuRootContext menu, MenuParentKind? kind) =>
+        kind == MenuParentKind.Menu && menu.Filter is not null && menu.Parent.Menu?.Filter?.InputElement is { } input
+            ? new FocusTargetValue(input)
+            : default(FocusTargetValue?);
 
     // The close interaction type as the focus manager classifies it (FLT-FOC-10), called once per committed close.
     private FocusTargetValue? ResolveFinalFocus()
