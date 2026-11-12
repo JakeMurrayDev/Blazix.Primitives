@@ -104,8 +104,14 @@ public sealed class AutocompleteAutoHighlightTests : IDisposable
         string reopen = $$"""{"open":true,"reason":"trigger-press","event":{{ComboboxTestContext.Click}},"triggerId":null}""";
         Blazix.Primitives.Interop.InteractionsTwin session = test.SessionTwin;
         await cut.InvokeAsync(() => session.OnRequest(reopen));
-
         Assert.Equal(3, cut.FindAll("[role=option]").Count);
+
+        // The remounted items' order, as the list's composite handle reports it once they registered.
+        string ids = string.Join(",", cut.FindAll("[role=option]").Select(option => System.Text.Json.JsonSerializer.Serialize(option.Id)));
+        JSRuntimeInvocation attach = test.Composite.Invocations["attach"].Last(invocation => invocation.Arguments[1] is string json && json.Contains("\"reportItems\":true", StringComparison.Ordinal));
+        CompositeTwin registry = ((Microsoft.JSInterop.DotNetObjectReference<CompositeTwin>)attach.Arguments[2]!).Value;
+        await cut.InvokeAsync(() => registry.OnItemsChange("{\"ids\":[" + ids + "]}"));
+
         Assert.Equal(1, cut.Instance.Root!.Store.State.SelectedIndex);
         Assert.All(cut.FindAll("[role=option]"), item => Assert.False(item.HasAttribute("data-selected")));
     }
