@@ -241,3 +241,23 @@ test.describe('items appended while filtering', () => {
     await expect(fixture).toHaveAttribute('data-highlights', before);
   });
 });
+
+// MenuFilterRoot.test.tsx's text change under autoHighlight "always" (MNU-STA-18); Base UI's setProps is the popup's
+// "count" button, clicked in the page so focus stays on the input.
+test.describe('an item text change under autoHighlight "always"', () => {
+  test('keeps the highlight when an item\'s text changes with autoHighlight="always"', async ({ page, mode }) => {
+    await render(page, mode, { case: 'inbox' });
+    const filter = input(page);
+    await filter.focus();
+    await page.keyboard.press('ArrowDown');
+    await page.keyboard.press('ArrowDown');
+    const deleteItem = item(page, 'Delete');
+    await expect(deleteItem).toHaveAttribute('data-highlighted', '');
+
+    await page.getByRole('button', { name: 'count' }).evaluate((element) => element.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true })));
+
+    await expect(item(page, 'Inbox (2)')).toBeVisible();
+    await expect(deleteItem).toHaveAttribute('data-highlighted', '');
+    await expect(filter).toHaveAttribute('aria-activedescendant', (await deleteItem.getAttribute('id')) ?? 'missing');
+  });
+});

@@ -27,7 +27,9 @@
     - `custom-id`: `controlled` with autoHighlight "always", Apple and Banana rendered through `div`s with the ids
       `apple-item` and `banana-item`.
     - `append`: held open; input "Filter reports", Report A, Report B and Other; the button "append" (inside the popup)
-      adds Zebra last.
+      adds Zebra last;
+    - `inbox`: held open, autoHighlight "always"; "Inbox (N)", Archive and Delete; the button "count" (inside the popup)
+      raises N from 1.
     Each query request is recorded as `value:reason` in `data-value-changes`, and each highlight report by item text, or
     "none", in `data-highlights` (`|`-separated).
     Item presses are recorded by name in `data-presses` (`|`-separated). `data-attached` turns "true" once the menu's session
@@ -57,6 +59,10 @@
                         {
                             <button type="button" @onclick="@(() => query = "app")">query app</button>
                             <button type="button" @onclick="@(() => query = "ban")">query ban</button>
+                        }
+                        else if (Case == "inbox")
+                        {
+                            <button type="button" @onclick="() => count++">count</button>
                         }
                         else if (Case == "append")
                         {
@@ -92,6 +98,11 @@
                                 case "custom-id":
                                     <MenuItem Render="@s_appleItem">Apple</MenuItem>
                                     <MenuItem Render="@s_bananaItem">Banana</MenuItem>
+                                    break;
+                                case "inbox":
+                                    <MenuItem>Inbox (@count)</MenuItem>
+                                    <MenuItem>Archive</MenuItem>
+                                    <MenuItem>Delete</MenuItem>
                                     break;
                                 case "append":
                                     <MenuItem>Report A</MenuItem>
@@ -144,6 +155,7 @@
     private readonly List<string> highlights = [];
     private bool closingOpen = true;
     private bool appended;
+    private int count = 1;
     private string? query;
     private MenuRoot<NoPayload>? root;
     private MenuInput? input;
@@ -190,7 +202,7 @@
     // uncontrolled one, open unless `fruit`.
     private Dictionary<string, object> RootParameters => Case switch
     {
-        "kinds" or "cancel" or "controlled" or "custom-id" or "append" => new() { ["Open"] = true },
+        "kinds" or "cancel" or "controlled" or "custom-id" or "append" or "inbox" => new() { ["Open"] = true },
         "closing" => new() { ["Open"] = closingOpen, ["Modal"] = false },
         _ => new() { ["DefaultOpen"] = Case != "fruit" },
     };
@@ -209,7 +221,7 @@
                 parameters["Value"] = query ??= Query ?? "";
             }
 
-            if (Case == "custom-id")
+            if (Case is "custom-id" or "inbox")
             {
                 parameters["AutoHighlight"] = (AutoHighlightValue?)AutoHighlightValue.Always;
             }
