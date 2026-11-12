@@ -272,13 +272,14 @@ public sealed class PositionerBehaviorTests : IDisposable
             action();
             return Task.CompletedTask;
         });
-        PositionerInputs inputs = new() { Open = true, Mounted = true, LazyFlip = "placement" };
+        PositionerInputs inputs = new() { Open = true, Mounted = true };
+        behavior.SetLazyFlip("placement");
         behavior.SetInputs(inputs);
         await behavior.AfterRenderAsync(null, "positioner");
 
         Assert.Equal("placement", PositioningTestContext.Parse(host.AttachOptions).GetProperty("lazyFlip").GetString());
 
-        behavior.SetInputs(inputs with { LazyFlip = null });
+        behavior.SetLazyFlip(null);
         await behavior.AfterRenderAsync(null, "positioner");
         Assert.False(PositioningTestContext.Parse(host.UpdateOptions[^1]).TryGetProperty("lazyFlip", out _));
     }

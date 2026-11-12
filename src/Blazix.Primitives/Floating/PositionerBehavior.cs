@@ -53,6 +53,7 @@ internal sealed class PositionerBehavior : IDisposable
     private PositioningTwin? twin;
     private TwinHandle<PositioningOptions>? handle;
     private PositioningOptions? sentOptions;
+    private string? lazyFlip;
     private AnchorValue? sentAnchor;
     private CollisionBoundaryValue? sentBoundary;
     private ElementReference? target;
@@ -131,6 +132,20 @@ internal sealed class PositionerBehavior : IDisposable
     /// <summary>Sets the enclosing portal's context, whose move the first attach awaits.</summary>
     /// <param name="context">The cascaded context, or <see langword="null"/> outside any portal.</param>
     public void SetPortalContext(PopupPortalContext? context) => portal = context;
+
+    // FLT-ANI-04, MNU-POS-05 (menu/positioner/MenuPositioner.tsx:131): M5 track 12, the Floating/ grant from the orchestrator
+    // 2026-11-11. A filterable menu sends `placement`, so the popup keeps its side while the results resize. The mode is held
+    // here, not in the inputs each render builds, so every positioner's per-render allocation stays as it was (ADR 16).
+    /// <summary>Sets the lazy-flip mode the options send: <c>side</c> keeps the side once placed, <c>placement</c> keeps the alignment too.</summary>
+    /// <param name="mode">The literal, or <see langword="null"/> to flip whenever the popup overflows.</param>
+    public void SetLazyFlip(string? mode)
+    {
+        if (!string.Equals(mode, lazyFlip, StringComparison.Ordinal))
+        {
+            lazyFlip = mode;
+            dirty = true;
+        }
+    }
 
     /// <summary>Sets the inputs of this parameter set; the part's after-render sends them when they changed the options.</summary>
     /// <param name="next">The inputs.</param>
@@ -439,7 +454,7 @@ internal sealed class PositionerBehavior : IDisposable
                     avoidance.FallbackAxisSide is { } fallback ? FloatingLiterals.ToLiteral(fallback) : null)
                 : null,
             AdaptiveOrigin = inputs.AdaptiveOrigin,
-            LazyFlip = inputs.LazyFlip,
+            LazyFlip = lazyFlip,
             HoveredLine = inputs.HoveredLine,
             PositionOnOpen = inputs.PositionOnOpen,
             Direction = CompositeLiterals.ToLiteral(Direction),
