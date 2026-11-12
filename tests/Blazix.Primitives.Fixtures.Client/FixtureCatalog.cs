@@ -266,6 +266,7 @@ public static class FixtureCatalog
         ["menu-filter-root"] = new(typeof(MenuFilterRootFixture)),
         ["menu-filter-initial"] = new(typeof(MenuFilterInitialFixture)),
         ["menu-filter-submenu"] = new(typeof(MenuFilterSubmenuFixture)),
+        ["menu-filter-items"] = new(typeof(MenuFilterItemsFixture)),
 
         // M5 track 1 (issue 159, Deliverables 12-13): the popup-list suite on the test-only list hosts.
         ["composite-list-dom"] = new(typeof(CompositeListDomFixture)),

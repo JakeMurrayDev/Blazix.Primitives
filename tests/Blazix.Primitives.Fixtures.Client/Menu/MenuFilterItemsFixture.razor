@@ -1,0 +1,129 @@
+@namespace Blazix.Primitives.Fixtures.Client.MenuFixtures
+@using Blazix.Primitives
+@using Microsoft.AspNetCore.Components.Web
+@inject NavigationManager Navigation
+
+@*
+    The `menu-filter-items` fixture (tests/browser/menu.filter-items.spec.ts, M5 track 12): useMenuFilterItem.test.tsx's and
+    MenuFilterRoot.test.tsx's item trees, one per `case`, each a filterable menu with an input "Filter actions" and a list:
+    - `kinds`: held open (a controlled `Open` with no `OpenChanged`, Base UI's `open`); Rename (CloseOnClick off), a link item "Open details" (to `#details` on this page; the document's base would send a bare `#details` to the root), a checkbox item "Show
+      details" and a radio group holding "Sort by date";
+    - `fruit`: closed, trigger "Fruit", input "Filter fruit", a list (`data-testid="list"`) of Apple and Banana (CloseOnClick
+      off), and Empty reading "No fruit found";
+    - `label`: open; Rename rendered through a component (a `span`), and Delete;
+    - `async`: open; an item showing `text` (default "Loading"), then Delete; the button "set label" (inside the popup, so a
+      press does not dismiss the menu) sets the item's text to `next` (default "Rename");
+    - `array`: open; Rename rendered as the two strings "Re" and "name", and Delete;
+    - `translate`: open; Rename and Delete shown through a translating component ("Zmień nazwę", "Usuń"), and the button
+      "tick" re-renders them with the same children.
+    Item presses are recorded by name in `data-presses` (`|`-separated). `data-attached` turns "true" once the menu's session
+    and, for an open menu, the input's and list's `menu-filter` handles have attached.
+*@
+<FixtureContainer Name="menu-filter-items" data-attached="@(attached ? "true" : "false")" data-presses="@string.Join('|', presses)" data-tick="@tick">
+    <MenuFilterProvider>
+        <MenuRoot TPayload="NoPayload" @attributes="RootParameters" @ref="root">
+            <MenuTrigger TPayload="NoPayload">@(Case == "fruit" ? "Fruit" : "Actions")</MenuTrigger>
+            <MenuPortal>
+                <MenuPositioner>
+                    <MenuPopup data-testid="popup">
+                        <MenuInput aria-label="@(Case == "fruit" ? "Filter fruit" : "Filter actions")" @ref="input" />
+                        @if (Case == "async")
+                        {
+                            <button type="button" @onclick="SetLabel">set label</button>
+                        }
+                        else if (Case == "translate")
+                        {
+                            <button type="button" @onclick="() => tick++">tick</button>
+                        }
+                        <MenuList data-testid="list" @ref="list">
+                            @switch (Case)
+                            {
+                                case "kinds":
+                                    <MenuItem CloseOnClick="false" @onclick="@(() => presses.Add("Rename"))">Rename</MenuItem>
+                                    <MenuLinkItem href="@($"{Navigation.Uri.Split('#')[0]}#details")">Open details</MenuLinkItem>
+                                    <MenuCheckboxItem>Show details</MenuCheckboxItem>
+                                    <MenuRadioGroup TValue="string">
+                                        <MenuRadioItem TValue="string" Value="@("date")">Sort by date</MenuRadioItem>
+                                    </MenuRadioGroup>
+                                    break;
+                                case "fruit":
+                                    <MenuItem>Apple</MenuItem>
+                                    <MenuItem CloseOnClick="false" @onclick="@(() => presses.Add("Banana"))">Banana</MenuItem>
+                                    break;
+                                case "label":
+                                    <MenuItem><span>Rename</span></MenuItem>
+                                    <MenuItem>Delete</MenuItem>
+                                    break;
+                                case "async":
+                                    <MenuItem data-testid="async-item">@text</MenuItem>
+                                    <MenuItem>Delete</MenuItem>
+                                    break;
+                                case "array":
+                                    <MenuItem>@("Re")@("name")</MenuItem>
+                                    <MenuItem>Delete</MenuItem>
+                                    break;
+                                case "translate":
+                                    <MenuItem>@Translate("Rename")</MenuItem>
+                                    <MenuItem>@Translate("Delete")</MenuItem>
+                                    break;
+                            }
+                        </MenuList>
+                        @if (Case == "fruit")
+                        {
+                            <MenuEmpty>No fruit found</MenuEmpty>
+                        }
+                    </MenuPopup>
+                </MenuPositioner>
+            </MenuPortal>
+        </MenuRoot>
+    </MenuFilterProvider>
+</FixtureContainer>
+
+@code {
+    private static readonly Dictionary<string, string> s_translations = new(StringComparer.Ordinal) { ["Rename"] = "Zmień nazwę", ["Delete"] = "Usuń" };
+    private readonly List<string> presses = [];
+    private MenuRoot<NoPayload>? root;
+    private MenuInput? input;
+    private MenuList? list;
+    private bool attached;
+    private bool attaching;
+    private int tick;
+    private string? text;
+
+    [SupplyParameterFromQuery(Name = "case")]
+    public string? Case { get; set; }
+
+    [SupplyParameterFromQuery(Name = "text")]
+    public string? Text { get; set; }
+
+    [SupplyParameterFromQuery(Name = "next")]
+    public string? Next { get; set; }
+
+    /// <inheritdoc />
+    protected override void OnInitialized() => text = Text ?? "Loading";
+
+    /// <inheritdoc />
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        bool open = Case != "fruit";
+        if (attached || attaching || !RendererInfo.IsInteractive || root is null || (open && (input is null || list is null)))
+        {
+            return;
+        }
+
+        attaching = true;
+        await (open ? Task.WhenAll(root.SessionAttached, input!.FilterAttached, list!.FilterAttached) : root.SessionAttached);
+        attached = true;
+        StateHasChanged();
+    }
+
+    // A held-open root for `kinds`, else an uncontrolled one, open unless `fruit`.
+    private Dictionary<string, object> RootParameters => Case == "kinds"
+        ? new() { ["Open"] = true }
+        : new() { ["DefaultOpen"] = Case != "fruit" };
+
+    private void SetLabel() => text = Next ?? "Rename";
+
+    // The translating component of Base UI's tree: the same children render the translated text.
+    private RenderFragment Translate(string key) => builder => builder.AddContent(0, s_translations[key]);
+}
