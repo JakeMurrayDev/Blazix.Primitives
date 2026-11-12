@@ -441,7 +441,10 @@ function attachInput(input: HTMLInputElement, initial: MenuFilterOptions, channe
   // the highlight; `enter-list` highlights the list's edge, an `activate` key clicks the highlighted item, a `submenu` key
   // is dispatched on it, and `close` reports a focus-out.
   const onKeyDownCapture = (event: KeyboardEvent): void => {
+    // MNU-ANI-09 (useMenuFilterKeyDown.ts:124-127): like a plain menu, keys are ignored while the popup animates out with
+    // the input still focused; composite's reference handle would otherwise reopen the menu on a vertical arrow.
     if (options.open !== true) {
+      skipListNavigation(event);
       return;
     }
     // Design point 6 (a): while C# holds the consumer's onKeyDown, it runs first and may veto the router and the list
