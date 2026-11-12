@@ -256,6 +256,19 @@ test.describe('filterable menu initial highlight', () => {
     await expect(input(page)).not.toBeFocused();
   });
 
+  // MNU-FOC-16 (MenuFilterRoot.test.tsx): Safari focuses the trigger on mousedown before the closing click lands.
+  test('does not seed a highlight when the trigger regains focus while open', async ({ page, mode }) => {
+    await open(page, mode);
+    await trigger(page).click();
+    await expect(input(page)).toBeFocused();
+
+    await trigger(page).focus();
+
+    await expect(input(page)).not.toHaveAttribute('aria-activedescendant', /.+/);
+    await expect(trigger(page)).not.toHaveAttribute('aria-activedescendant', /.+/);
+    await expect(item(page, 'Rename')).not.toHaveAttribute('data-highlighted');
+  });
+
   test('highlights the first action again when reopening', async ({ page, mode }) => {
     await open(page, mode);
     await trigger(page).focus();
