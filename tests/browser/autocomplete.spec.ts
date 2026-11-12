@@ -371,4 +371,18 @@ test.describe('<Autocomplete.Root /> prerendered', () => {
     expect(await named(page, '')).toBe(1);
     await expect(page.getByTestId('input')).toHaveAttribute('name', 'search');
   });
+
+  test('server-renders only the outside-popup input name for native FormData', async ({ page, mode }) => {
+    await staticMarkup(page, mode, 'outside');
+
+    expect(await named(page, '')).toBe(1);
+    await expect(page.getByTestId('input')).toHaveAttribute('name', 'search');
+  });
+
+  test('server-renders the default popup input value without a form name before hydration', async ({ page, mode }) => {
+    await staticMarkup(page, mode, 'popup');
+
+    expect(await named(page, 'alpha')).toBe(0);
+    await expect(page.getByTestId('input')).toHaveCount(0);
+  });
 });
