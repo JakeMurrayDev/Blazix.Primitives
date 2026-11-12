@@ -470,12 +470,15 @@ All elements are the Combobox ones (CMB §5, adopted). Differences:
 
 | Attribute | Value / present when | Req | Writer |
 |---|---|---|---|
-| `value` | displayed text (AUT-STA-04) | AUT-DOM-01 | C# |
+| `value` | displayed text (AUT-STA-04) | AUT-DOM-01 | C# → JS |
+| `aria-activedescendant` | the highlighted item's id while open (outside the popup) | CMB-ARIA-03 | JS |
 | `name` | effective name, when the Input owns the form value | AUT-DOM-01 | C# |
 | `required` | Root `required` (native attribute) | AUT-DOM-01 | C# |
 | `autocomplete` | `off` unless the consumer passes `autoComplete` on the Input | AUT-DOM-01 | C# |
 | `aria-autocomplete` | `mode`, or `none` when readOnly | AUT-ARIA-01 | C# |
 | other attributes, data attributes | as Combobox | CMB-DOM-01, CMB-DOM-02, CMB-ARIA-01 | C# |
+
+Port note (2026-11-12, M5 track 11, [issue 196](https://github.com/JakeMurrayDev/Blazix.Primitives/issues/196); the brief's Deliverable 7, ADR 04 Amendments 2026-11-03 (6), chosen by the user 2026-11-03): the `value` Writer is C# → JS, not C#: C# renders `value` once and the `combobox` module writes the displayed text from each `update`, only when it differs from the live text since its last write, as Combobox's Input (CMB-API-09). `aria-activedescendant` is the list handle's from attach, as Combobox's (CMB-ARIA-03).
 
 - **AUT-DOM-01** — MUST. `Autocomplete.Input` renders as CMB-DOM-01 with these differences: its `value` is the displayed text (AUT-STA-04); it carries the native `required` attribute whenever the Root is `required`, because the shared Input writes `required` only when the engine's `selectionMode === 'none'` (always the case for Autocomplete; Combobox's single/multiple modes never set it on the visible input) — independently of form-value ownership, so an Input inside the popup is also `required`; it carries `name` = the effective name (Field name ?? Root `name`) when it owns the form value, i.e. when it has no Positioner ancestor (outside the popup, or in an `inline` list without a popup) — an Input inside the popup never has `name`. A consumer `autoComplete` prop on the Input replaces the default `autocomplete="off"` (consumer attributes merge after the engine's).
   Source: `combobox/input/ComboboxInput.tsx:111,171-187` (`:184` `required: selectionMode === 'none' ? required : undefined`); `combobox/root/AriaCombobox.tsx:1357-1364`. Test: [L2] `AutocompleteRoot.test.tsx` "should pass autoComplete to the visible input", "sets `required` on the visible input", "submits the typed input value when name is provided on Autocomplete.Root", "submits the popup input value through native FormData when rendering a field-aware input" (popup Input has no `name`).
@@ -502,6 +505,60 @@ All elements are the Combobox ones (CMB §5, adopted). Differences:
   Source: `combobox/item/ComboboxItem.tsx:163-166`; `combobox/list/ComboboxList.tsx:78-82`. Test: [L2] `ComboboxList.test.tsx` "sets aria-readonly on the Autocomplete listbox when the root is readOnly"; `AutocompleteItem.test.tsx` "does not expose data-selected when reopening after a value is chosen".
 
 All other roles and ARIA wiring (combobox role on the Input or, with the input inside the popup, on the Trigger; `aria-expanded`, `aria-haspopup`, `aria-controls`, `aria-activedescendant`, Popup `role="dialog"`/`"presentation"`, live regions, Field label/description) are CMB-ARIA-01…03, -05…08, -10, -11, -13…15, -17 and the `Field.Label` clauses of CMB-ARIA-16. There is no `Autocomplete.Label`; label the Input with a native `<label>` or `Field.Label`.
+
+### 5.5 Writers of the Root, Clear, Item, Backdrop, Positioner, Popup and Arrow
+
+Added 2026-11-12 (M5 track 11, [issue 196](https://github.com/JakeMurrayDev/Blazix.Primitives/issues/196); ADR 04 Amendments 2026-10-29, small Writer tables per adopting document): the attributes JavaScript writes on Autocomplete's parts, which are Combobox's (CMB §5). The ownership registry's `autocomplete` rows follow these tables. Every other attribute is C#.
+
+#### `Root`'s hidden input
+
+| Attribute | Present when / value | Req | Writer |
+|---|---|---|---|
+| `value` (the hidden input) | the displayed text | AUT-DOM-02 | C# → JS |
+
+#### `Clear`
+
+| Attribute | Present when / value | Req | Writer |
+|---|---|---|---|
+| `data-starting-style` / `data-ending-style` | transition status | AUT-DOM-05 | JS |
+
+#### `Item`
+
+| Attribute | Present when / value | Req | Writer |
+|---|---|---|---|
+| `data-highlighted` | highlighted | AUT-DOM-03 | C# → JS |
+
+#### `Backdrop`
+
+| Attribute | Present when / value | Req | Writer |
+|---|---|---|---|
+| `data-starting-style` / `data-ending-style` | transition status | CMB-DOM-14 | JS |
+
+#### `Positioner`
+
+| Attribute | Present when / value | Req | Writer |
+|---|---|---|---|
+| `data-side="<side>"`, `data-align="<align>"` | always (rendered placement) | CMB-DOM-13 | C# → JS |
+| `data-anchor-hidden` | anchor hidden | CMB-DOM-13 | JS |
+
+| Variable | Value | Req | Writer |
+|---|---|---|---|
+| `--available-width`, `--available-height` | px available to the popup (FLT-DOM-05) | CMB-DOM-13 | C# → JS |
+| `--anchor-width`, `--anchor-height` | px anchor size (FLT-DOM-06) | CMB-DOM-13 | C# → JS |
+| `--transform-origin` | transform origin (FLT-DOM-07) | CMB-DOM-13 | C# → JS |
+
+#### `Popup`
+
+| Attribute | Present when / value | Req | Writer |
+|---|---|---|---|
+| `data-starting-style` / `data-ending-style` | transition status | CMB-DOM-12 | JS |
+
+#### `Arrow`
+
+| Attribute | Present when / value | Req | Writer |
+|---|---|---|---|
+| `data-side`, `data-align` | rendered placement | CMB-DOM-15 | C# → JS |
+| `data-uncentered` | arrow uncentered | CMB-DOM-15 | C# → JS |
 
 ## 6. Interactions
 
