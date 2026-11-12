@@ -10,7 +10,8 @@
     whose popup (`data-testid="submenu-popup"`) holds an input "Filter folders" and Documents. The popup carries
     `data-testid="popup"`. `insert=true` holds the root open (controlled) and adds a button "Insert item" outside the menu,
     whose press keeps focus where it is, that inserts Archive first; each highlight report is recorded by item text, or
-    "none", in `data-highlights` (`|`-separated). `after=true` adds an input "After" (`data-testid="after"`) after the menu. Each query request is recorded as
+    "none", in `data-highlights` (`|`-separated). `after=true` adds an input "After" (`data-testid="after"`) after the menu; `modal=false` sets
+    the root's Modal. Each query request is recorded as
     `value:reason` in `data-value-changes` (`|`-separated), and each item press by name in `data-presses`; `data-attached` turns "true" once the menu's session and the
     input's and list's `menu-filter` handles have attached.
 *@
@@ -21,7 +22,7 @@
     }
     <DirectionProvider Direction="@(Dir == "rtl" ? TextDirection.Rtl : TextDirection.Ltr)">
     <MenuFilterProvider DefaultValue="@(Query ?? "")" AutoHighlight="@AutoHighlight" OnValueChange="Record">
-        <MenuRoot TPayload="NoPayload" DefaultOpen="true" Open="@(Insert || openState)" OpenChanged="@(Insert ? default : EventCallback.Factory.Create<bool>(this, value => openState = value))" OnItemHighlighted="RecordHighlight" Orientation="@(OrientationName == "horizontal" ? Orientation.Horizontal : Orientation.Vertical)" @ref="root">
+        <MenuRoot TPayload="NoPayload" DefaultOpen="true" Open="@(Insert || openState)" OpenChanged="@(Insert ? default : EventCallback.Factory.Create<bool>(this, value => openState = value))" OnItemHighlighted="RecordHighlight" Modal="@(ModalName == "false" ? false : null)" Orientation="@(OrientationName == "horizontal" ? Orientation.Horizontal : Orientation.Vertical)" @ref="root">
             <MenuTrigger TPayload="NoPayload">Actions</MenuTrigger>
             <MenuPortal>
                 <MenuPositioner>
@@ -107,6 +108,9 @@
 
     [SupplyParameterFromQuery(Name = "after")]
     public bool After { get; set; }
+
+    [SupplyParameterFromQuery(Name = "modal")]
+    public string? ModalName { get; set; }
 
     private AutoHighlightValue? AutoHighlight => Auto switch
     {

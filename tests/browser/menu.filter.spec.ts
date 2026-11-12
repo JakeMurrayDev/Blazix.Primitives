@@ -788,6 +788,16 @@ test.describe('filterable menu keys and semantics', () => {
     await expect(page.getByRole('menu')).toHaveCount(0);
   });
 
+  // MNU-DIS-08 (MenuFilterRoot.test.tsx): the same Tab from a non-modal root.
+  test('moves focus past the menu when tabbing from the input', async ({ page, mode }) => {
+    await renderWith(page, mode, '?after=true&modal=false');
+    await expect(input(page)).toBeFocused();
+
+    await page.keyboard.press('Tab');
+
+    await expect(page.getByTestId('after')).toBeFocused();
+  });
+
   // MNU-KEY-05.
   test('uses Home and End for list navigation after an item is highlighted', async ({ page, mode }) => {
     await renderWith(page, mode);
