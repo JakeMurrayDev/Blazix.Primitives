@@ -328,3 +328,46 @@ test.describe('autoHighlight', () => {
     await expect(input(page)).toHaveAttribute('aria-activedescendant', await idOf(item(page, 'Rename')));
   });
 });
+
+// The List's hand-back (FilterDropdownList.tsx:33-43, MenuFilterList.tsx:43-80; MNU-FOC-*, KEY-22; M5 track 12) on
+// `menu-filter-root`: real focus that lands on the list or an item while the input owns the keyboard goes back to the
+// input. MenuFilterPopup.test.tsx's titles verbatim, and a port title for the key replay.
+test.describe('<Menu.Popup /> filter input focus', () => {
+  function list(page: Page): Locator {
+    return page.getByRole('menu');
+  }
+
+  test('returns focus to the input when the list takes it from the input', async ({ page, mode }) => {
+    await render(page, mode);
+    await input(page).focus();
+
+    await list(page).focus();
+
+    await expect(input(page)).toBeFocused();
+  });
+
+  test('leaves focus on the list when the input did not have it', async ({ page, mode }) => {
+    await render(page, mode);
+    await input(page).focus();
+    await input(page).blur();
+
+    await list(page).focus();
+
+    await expect(list(page)).toBeFocused();
+  });
+
+  // MenuFilterList.tsx:72-79: a screen reader following aria-activedescendant focuses the highlighted item; the next key
+  // returns focus to the input and moves the highlight as the input would.
+  test('port: a key pressed on a focused item returns focus to the input and is routed as the input\'s', async ({ page, mode }) => {
+    await render(page, mode);
+    await input(page).focus();
+    await page.keyboard.press('ArrowDown');
+    await expect(input(page)).toHaveAttribute('aria-activedescendant', (await item(page, 'Rename').getAttribute('id')) ?? 'missing');
+    await item(page, 'Rename').focus();
+
+    await page.keyboard.press('ArrowDown');
+
+    await expect(input(page)).toBeFocused();
+    await expect(input(page)).toHaveAttribute('aria-activedescendant', (await item(page, 'Delete').getAttribute('id')) ?? 'missing');
+  });
+});
