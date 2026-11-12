@@ -361,6 +361,26 @@ test.describe('autoHighlight', () => {
     await expect(input(page)).toHaveAttribute('aria-activedescendant', await idOf(item(page, 'Rename')));
   });
 
+  // MNU-KEY-22, STA-19: the fixture's "el" leaves only Delete, which moves to the top away from the resting pointer. The
+  // typed query's automatic highlight is awaited before the hover (ADR 01: a C#-origin highlight lands one leg later on
+  // Server).
+  test('keeps the automatic highlight when typing moves it out from under the pointer', async ({ page, mode }) => {
+    await renderAuto(page, mode, 'true');
+    await input(page).focus();
+    await page.keyboard.type('e');
+    await expect(item(page, 'Rename')).toHaveAttribute('data-highlighted', '');
+    const deleteItem = item(page, 'Delete');
+    await deleteItem.hover();
+    const deleteId = (await deleteItem.getAttribute('id')) ?? 'missing';
+    await expect(input(page)).toHaveAttribute('aria-activedescendant', deleteId);
+
+    await page.keyboard.type('l');
+    await expect(item(page, 'Rename')).toHaveCount(0);
+    await deleteItem.evaluate((element) => element.dispatchEvent(new PointerEvent('pointerleave', { pointerType: 'mouse' })));
+
+    await expect(input(page)).toHaveAttribute('aria-activedescendant', deleteId);
+  });
+
   test('clears the automatic highlight when a typed query is cleared', async ({ page, mode }) => {
     await renderAuto(page, mode, 'true');
     await input(page).focus();
