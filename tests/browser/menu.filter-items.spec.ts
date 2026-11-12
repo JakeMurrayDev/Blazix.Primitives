@@ -267,6 +267,8 @@ test.describe('items appended while filtering', () => {
     await page.keyboard.press('ArrowDown');
     const reportB = item(page, 'Report B');
     await expect(filter).toHaveAttribute('aria-activedescendant', (await reportB.getAttribute('id')) ?? 'missing');
+    // The page records the reports a leg after the module writes the highlight on Server; read them once they arrived.
+    await expect(fixture).toHaveAttribute('data-highlights', /Report B$/);
     const before = (await fixture.getAttribute('data-highlights')) ?? '';
 
     await page.getByRole('button', { name: 'append' }).evaluate((element) => element.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true })));
