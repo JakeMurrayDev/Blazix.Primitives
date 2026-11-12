@@ -23,6 +23,7 @@ import {
   skipListNavigation,
 } from './composite';
 import { eventInfo } from './event-info';
+import { isVirtualPointerEvent } from './interactions';
 import { platform } from './platform';
 import {
   createTwinChannel,
@@ -194,6 +195,21 @@ const submenuTriggers = new Map<string, HTMLElement>();
 // The filterable submenus whose close the module reported and C# has not yet confirmed, by session token: Base UI's store
 // is closed at once, so a focus or key on the trigger in between treats the submenu as closed.
 const closingMenus = new Set<string>();
+
+// MenuFilterPopup.tsx (MNU-PTR-19): the menus whose trigger a screen reader pressed (`virtualPress`, read at the trigger's
+// `pointerdown`), by session token. Such a press reads as a touch, which moves no focus, yet the popup focuses its input.
+const virtualPresses = new Set<string>();
+
+function recordPress(menuKey: string | null | undefined, event: PointerEvent): void {
+  if (!menuKey) {
+    return;
+  }
+  if (isVirtualPointerEvent(event)) {
+    virtualPresses.add(menuKey);
+  } else {
+    virtualPresses.delete(menuKey);
+  }
+}
 
 // MenuFilterSubmenuRoot.tsx:198-237: the close key closes the submenu and returns to the parent. The port leaves first and
 // reports after: a WebAssembly report closes and unmounts the popup within the call, and the focus manager returns focus
@@ -734,8 +750,11 @@ function attachTrigger(trigger: HTMLElement, initial: MenuFilterOptions, channel
     }
   };
 
+  const onPointerDown = (event: PointerEvent): void => recordPress(options.menuKey, event);
+
   // Capture, so the key is marked before the trigger's own handles run.
   trigger.addEventListener('keydown', onKeyDown, true);
+  trigger.addEventListener('pointerdown', onPointerDown, true);
 
   return {
     update(optionsJson: string): void {
@@ -747,6 +766,7 @@ function attachTrigger(trigger: HTMLElement, initial: MenuFilterOptions, channel
       if (!disposed) {
         disposed = true;
         trigger.removeEventListener('keydown', onKeyDown, true);
+        trigger.removeEventListener('pointerdown', onPointerDown, true);
       }
     },
   };
@@ -811,6 +831,7 @@ function attachSubmenuTrigger(trigger: HTMLElement, initial: MenuFilterOptions, 
   let pressType = '';
   const onPointerDown = (event: PointerEvent): void => {
     pressType = event.pointerType || 'mouse';
+    recordPress(options.menuKey, event);
   };
   const onClick = (event: MouseEvent): void => {
     const type = pressType !== '' ? pressType : event.detail === 0 ? 'keyboard' : 'mouse';
@@ -943,6 +964,23 @@ function attachPopup(popup: HTMLElement, initial: MenuFilterOptions, channel: Tw
       refocusOwner(owner.input);
     }
   };
+  // A screen reader's press opened the menu: once the focus manager's initial focus has run (none, for a touch), the input
+  // takes focus, as a keyboard open's would.
+  const focusAfterVirtualPress = (): void => {
+    if (!options.menuKey || !virtualPresses.delete(options.menuKey)) {
+      return;
+    }
+    requestAnimationFrame(() => {
+      const owner = ownerOf();
+      if (!disposed && options.open === true && owner !== undefined) {
+        refocusOwner(owner.input);
+      }
+    });
+  };
+  if (options.open === true) {
+    focusAfterVirtualPress();
+  }
+
   // useVirtualFocusParentHandoff.ts (MNU-KEY-29, FOC-15): a plain submenu of a filterable parent. The parent keeps real
   // focus on its input, so its trigger never blurs: real focus entering this popup clears the parent's highlight, and a
   // close by a key (list-navigation, escape-key) highlights the trigger there again; focus left inside the closing popup
@@ -1105,6 +1143,9 @@ function attachPopup(popup: HTMLElement, initial: MenuFilterOptions, channel: Tw
           escape = null;
         }
         syncHandoff(wasOpen);
+        if (!wasOpen && options.open === true) {
+          focusAfterVirtualPress();
+        }
       }
     },
     dispose(): void {
