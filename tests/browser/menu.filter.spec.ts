@@ -937,6 +937,18 @@ test.describe('filterable menu keys and semantics', () => {
     await expect(input(page)).toHaveAttribute('aria-activedescendant', renameId);
   });
 
+  // MNU-KEY-25 (useMenuFilterKeyDown.ts:173-176): the fixture's link item has no href, so the click stays on the page.
+  test('preserves modifiers when the input activates a link item', async ({ page, mode }) => {
+    const fixture = await renderWith(page, mode, '?link=true');
+    await expect(input(page)).toBeFocused();
+
+    await page.keyboard.press('ArrowDown');
+    await expect(input(page)).toHaveAttribute('aria-activedescendant', (await page.getByRole('menuitem', { name: 'Docs' }).getAttribute('id')) ?? 'missing');
+    await page.keyboard.press('Control+Enter');
+
+    await expect(fixture).toHaveAttribute('data-presses', 'Docs:ctrl');
+  });
+
   // MNU-KEY-25 (useMenuFilterItem.test.tsx): the fixture's disabled item is Delete, the second.
   test('does not activate a highlighted disabled item with Enter', async ({ page, mode }) => {
     const fixture = await renderWith(page, mode, '?disabled=true');
