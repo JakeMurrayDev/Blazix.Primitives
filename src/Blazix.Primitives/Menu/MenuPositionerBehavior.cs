@@ -321,6 +321,10 @@ internal sealed class MenuPositionerBehavior : IAsyncDisposable
             KeepMounted = portal!.KeepMounted,
             TransitionStatus = status!.Value,
             AdaptiveOrigin = adaptiveOrigin!.Value,
+
+            // MNU-POS-05 (MenuPositioner.tsx:131): a filterable menu keeps its placement while the results resize; M5 track 12
+            // under the orchestrator's 2026-11-12 grant.
+            LazyFlip = root!.Filter is not null ? "placement" : null,
             TriggerId = activeTriggerId!.Value,
             SessionToken = root.SessionToken,
             Shift = contextMenu ? new PositioningShift(CrossAxis: collisionAvoidance.Side != CollisionAvoidanceMode.Flip, RootBoundary: "layoutViewport") : null,
