@@ -398,6 +398,9 @@ internal sealed class ComboboxStore<TValue> : ComboboxStore
 
     private int? savedActiveIndex;
 
+    // The inline input's last reported focus; null until it reports one (CMB-STA-26, design point 9 of M5 track 11).
+    private bool? inlineInputFocused;
+
     private (string Text, ChangeEventDetails Details)? pendingAutofill;
 
     private TValue? observedValue;
@@ -841,6 +844,7 @@ internal sealed class ComboboxStore<TValue> : ComboboxStore
             return;
         }
 
+        inlineInputFocused = focused;
         if (focused)
         {
             int? saved = savedActiveIndex;
@@ -1922,7 +1926,10 @@ internal sealed class ComboboxStore<TValue> : ComboboxStore
             bool navigable = IsOpen || State.Inline;
             if (pending.HasQuery)
             {
-                if (inputs.AutoHighlight == ComboboxAutoHighlightMode.Off || State.InputValue.Trim().Length == 0)
+                // AriaCombobox.tsx:1104-1113 (design point 9 of M5 track 11, settled by the orchestrator 2026-11-12): nor is an
+                // inline highlight restored after the focus left the input, unless the highlight is always on.
+                bool blurredInline = State.Inline && inputs.AutoHighlight != ComboboxAutoHighlightMode.Always && inlineInputFocused == false;
+                if (inputs.AutoHighlight == ComboboxAutoHighlightMode.Off || State.InputValue.Trim().Length == 0 || blurredInline)
                 {
                     pendingHighlight = null;
                 }
