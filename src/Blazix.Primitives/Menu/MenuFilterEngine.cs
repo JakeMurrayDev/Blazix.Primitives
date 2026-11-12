@@ -347,6 +347,11 @@ internal sealed class MenuFilterRootContext
     /// <summary>Gets or sets a value indicating whether the popup has a consumer key handler, for which the Input reports the keys it keeps.</summary>
     public bool PopupHandlesKeyDown { get; set; }
 
+    // ADR 16 rule 2 (the final review's fix 6): the popup's list root, whose render the filter holds back while one step
+    // changes many items' visibility, so the step renders the popup once.
+    /// <summary>Gets or sets the composite root of the popup's list, set by the filterable popup while it is mounted.</summary>
+    public CompositeRootBehavior? ListRoot { get; set; }
+
     // Design point 2 (b′): the ids of the registered items without a label, whose rendered text the List's handle reports;
     // the same instance while the set is unchanged, so an unchanged options record sends nothing.
     /// <summary>Gets the ids of the registered items whose rendered text the filter needs, in registration order.</summary>
@@ -515,6 +520,69 @@ internal sealed class MenuFilterRootContext
     /// <param name="texts">Their texts, in the same order.</param>
     public void SetTexts(IReadOnlyList<string> ids, IReadOnlyList<string> texts)
     {
+        // ADR 16 rule 2: texts that change many items' visibility render the popup once (ListRoot).
+        CompositeRootBehavior? listRoot = ListRoot;
+        listRoot?.DeferRenders();
+        try
+        {
+            ApplyTexts(ids, texts);
+        }
+        finally
+        {
+            listRoot?.ResumeRenders();
+        }
+    }
+
+    /// <summary>Records that an item's label or text changed, and sets its visibility at once.</summary>
+    /// <param name="item">The item.</param>
+    public void ItemChanged(MenuFilterItem item)
+    {
+        dirty = true;
+        item.SetVisible(Matches(item));
+    }
+
+    // MNU-STA-15..20 (FilterDropdownRoot.tsx:131-196): the visible set and the highlight it asks for, once per change of the
+    // query, the filter or the registry; the visible-set subscribers (Empty) hear of it only when its emptiness changed, and an item
+    // hears of its own visibility (ADR 16: no render for an unchanged result).
+    /// <summary>Recomputes the visible set when the query or the registry changed since the last recompute.</summary>
+    public void Flush()
+    {
+        // ADR 16 rule 2: the step's visibility changes render the popup once (ListRoot).
+        CompositeRootBehavior? listRoot = ListRoot;
+        listRoot?.DeferRenders();
+        try
+        {
+            FlushCore();
+        }
+        finally
+        {
+            listRoot?.ResumeRenders();
+        }
+    }
+
+    // MNU-EVT-16 (FilterDropdownInput.tsx:96-121, FilterDropdownRoot.tsx:155-178): the provider runs onValueChange and commits
+    // unless canceled. An input edit is the input's text already, so a commit of it sends nothing to write; a canceled or
+    // rewritten one moves the revision and the module writes the committed query back, React's re-render of the controlled
+    // input. The highlight that follows a change lands with the list's virtual focus.
+    /// <summary>Requests a query change through the provider's <c>OnValueChange</c>.</summary>
+    /// <param name="value">The new query.</param>
+    /// <param name="reason">The reason: input change, input clear, clear press or popup close.</param>
+    /// <param name="snapshot">The event the change came from, or <see langword="null"/>.</param>
+    /// <returns>A task that completes when the request ran.</returns>
+    public async Task RequestQueryAsync(string value, EventReason reason, EventSnapshot? snapshot)
+    {
+        if (reason is EventReason.InputChange or EventReason.InputClear)
+        {
+            inputText = value;
+        }
+
+        await provider.RequestValueAsync(value, reason, snapshot);
+        Track();
+        Flush();
+    }
+
+    private void ApplyTexts(IReadOnlyList<string> ids, IReadOnlyList<string> texts)
+    {
         IReadOnlyList<MenuFilterItem> items = Engine.Items;
         for (int i = 0; i < ids.Count && i < texts.Count; i++)
         {
@@ -537,19 +605,7 @@ internal sealed class MenuFilterRootContext
         Flush();
     }
 
-    /// <summary>Records that an item's label or text changed, and sets its visibility at once.</summary>
-    /// <param name="item">The item.</param>
-    public void ItemChanged(MenuFilterItem item)
-    {
-        dirty = true;
-        item.SetVisible(Matches(item));
-    }
-
-    // MNU-STA-15..20 (FilterDropdownRoot.tsx:131-196): the visible set and the highlight it asks for, once per change of the
-    // query, the filter or the registry; the visible-set subscribers (Empty) hear of it only when its emptiness changed, and an item
-    // hears of its own visibility (ADR 16: no render for an unchanged result).
-    /// <summary>Recomputes the visible set when the query or the registry changed since the last recompute.</summary>
-    public void Flush()
+    private void FlushCore()
     {
         CheckInput();
         string query = Query;
@@ -579,6 +635,7 @@ internal sealed class MenuFilterRootContext
         // first recompute with items, the menu has no highlight.
         bool hasHighlight = !openedWithoutHighlight && root.HighlightedItemId is not null;
         PendingHighlight = Engine.Recompute(new MenuFilterPass(root.State.Open, query, match, provider.AutoHighlight, hasHighlight));
+
         if (Engine.Items.Count > 0)
         {
             openedWithoutHighlight = false;
@@ -589,27 +646,6 @@ internal sealed class MenuFilterRootContext
         {
             Notify();
         }
-    }
-
-    // MNU-EVT-16 (FilterDropdownInput.tsx:96-121, FilterDropdownRoot.tsx:155-178): the provider runs onValueChange and commits
-    // unless canceled. An input edit is the input's text already, so a commit of it sends nothing to write; a canceled or
-    // rewritten one moves the revision and the module writes the committed query back, React's re-render of the controlled
-    // input. The highlight that follows a change lands with the list's virtual focus.
-    /// <summary>Requests a query change through the provider's <c>OnValueChange</c>.</summary>
-    /// <param name="value">The new query.</param>
-    /// <param name="reason">The reason: input change, input clear, clear press or popup close.</param>
-    /// <param name="snapshot">The event the change came from, or <see langword="null"/>.</param>
-    /// <returns>A task that completes when the request ran.</returns>
-    public async Task RequestQueryAsync(string value, EventReason reason, EventSnapshot? snapshot)
-    {
-        if (reason is EventReason.InputChange or EventReason.InputClear)
-        {
-            inputText = value;
-        }
-
-        await provider.RequestValueAsync(value, reason, snapshot);
-        Track();
-        Flush();
     }
 
     // MNU-EVT-18 (useFilterDropdownCloseQuery.ts:28-35): a close with a non-empty query requests '' with popup-close once

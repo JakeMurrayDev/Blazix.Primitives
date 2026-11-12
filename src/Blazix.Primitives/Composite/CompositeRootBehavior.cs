@@ -70,6 +70,8 @@ internal sealed class CompositeRootBehavior : IDisposable
     private bool elementReplaced;
     private bool attaching;
     private bool renderPending;
+    private int renderDeferrals;
+    private bool renderDeferred;
     private bool disposed;
     private string? lateId;
     private ListNavigationContext? list;
@@ -490,6 +492,34 @@ internal sealed class CompositeRootBehavior : IDisposable
         }
 
         itemsVersion++;
+        if (renderDeferrals > 0)
+        {
+            renderDeferred = true;
+            return;
+        }
+
+        if (!disposed && !renderPending && (handle is not null || attaching))
+        {
+            renderPending = true;
+            stateChanged();
+        }
+    }
+
+    // ADR 16 rule 2 (M5 track 12, the orchestrator's 2026-11-12 CompositeRootBehavior grant, additive): a part that changes
+    // many items in one step, as Menu's filter hides and shows them, holds the root's render back until the step ends, so
+    // the step renders the root once rather than once per removed item.
+    /// <summary>Holds back the render an item's removal requests, until the matching <see cref="ResumeRenders"/>.</summary>
+    internal void DeferRenders() => renderDeferrals++;
+
+    /// <summary>Ends a <see cref="DeferRenders"/>; the outermost one runs the render held back, unless the root rendered since.</summary>
+    internal void ResumeRenders()
+    {
+        if (renderDeferrals == 0 || --renderDeferrals > 0 || !renderDeferred)
+        {
+            return;
+        }
+
+        renderDeferred = false;
         if (!disposed && !renderPending && (handle is not null || attaching))
         {
             renderPending = true;

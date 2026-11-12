@@ -191,6 +191,11 @@ internal sealed class MenuPopupBehavior : IAsyncDisposable
         subscription = null;
         retainRegistration?.Dispose();
         inputIdSubscription?.Dispose();
+        if (root?.Filter is { } listFilter && ReferenceEquals(listFilter.ListRoot, list))
+        {
+            listFilter.ListRoot = null;
+        }
+
         boundaryPart?.Dispose();
         root?.ClearPopupElement();
         list.Dispose();
@@ -242,6 +247,11 @@ internal sealed class MenuPopupBehavior : IAsyncDisposable
 
         // MenuFilterPopup.tsx:38-50 (M5 track 12): a filterable popup's initial focus is its input, named by its id.
         inputIdSubscription = menu.Filter?.SubscribeInputId(OnChanged);
+        if (menu.Filter is { } listFilter)
+        {
+            listFilter.ListRoot = list;
+        }
+
         if (menu.Filter is not null || (menu.Parent.Kind == MenuParentKind.Menu && menu.Parent.Menu?.Filter is not null))
         {
             filterModule = new MenuFilterModuleAttachment(jsRuntime);
