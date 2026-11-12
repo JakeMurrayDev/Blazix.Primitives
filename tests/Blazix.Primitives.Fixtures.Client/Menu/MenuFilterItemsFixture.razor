@@ -15,7 +15,9 @@
       press does not dismiss the menu) sets the item's text to `next` (default "Rename");
     - `array`: open; Rename rendered as the two strings "Re" and "name", and Delete;
     - `translate`: open; Rename and Delete shown through a translating component ("Zmień nazwę", "Usuń"), and the button
-      "tick" re-renders them with the same children.
+      "tick" re-renders them with the same children;
+    - `render`: open; an item rendered through its `Render` element, a `div` showing `text` (default "One"), and Delete; the
+      button "set label" sets the text to `next` (default "Two").
     Item presses are recorded by name in `data-presses` (`|`-separated). `data-attached` turns "true" once the menu's session
     and, for an open menu, the input's and list's `menu-filter` handles have attached.
 *@
@@ -27,7 +29,7 @@
                 <MenuPositioner>
                     <MenuPopup data-testid="popup">
                         <MenuInput aria-label="@(Case == "fruit" ? "Filter fruit" : "Filter actions")" @ref="input" />
-                        @if (Case == "async")
+                        @if (Case is "async" or "render")
                         {
                             <button type="button" @onclick="SetLabel">set label</button>
                         }
@@ -60,6 +62,10 @@
                                     break;
                                 case "array":
                                     <MenuItem>@("Re")@("name")</MenuItem>
+                                    <MenuItem>Delete</MenuItem>
+                                    break;
+                                case "render":
+                                    <MenuItem Render="@RenderedName" />
                                     <MenuItem>Delete</MenuItem>
                                     break;
                                 case "translate":
@@ -100,7 +106,7 @@
     public string? Next { get; set; }
 
     /// <inheritdoc />
-    protected override void OnInitialized() => text = Text ?? "Loading";
+    protected override void OnInitialized() => text = Text ?? (Case == "render" ? "One" : "Loading");
 
     /// <inheritdoc />
     protected override async Task OnAfterRenderAsync(bool firstRender)
@@ -122,7 +128,9 @@
         ? new() { ["Open"] = true }
         : new() { ["DefaultOpen"] = Case != "fruit" };
 
-    private void SetLabel() => text = Next ?? "Rename";
+    private void SetLabel() => text = Next ?? (Case == "render" ? "Two" : "Rename");
+
+    private RenderFragment RenderedName => @<div>@text</div>;
 
     // The translating component of Base UI's tree: the same children render the translated text.
     private RenderFragment Translate(string key) => builder => builder.AddContent(0, s_translations[key]);

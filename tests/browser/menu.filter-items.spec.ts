@@ -87,6 +87,17 @@ test.describe('filtered Menu items', () => {
     });
 
     // MNU-STA-17.
+    test('matches the updated text of an item rendered through its render element', async ({ page, mode }) => {
+      await render(page, mode, { case: 'render' });
+
+      await page.getByRole('button', { name: 'set label' }).click();
+      await expect(item(page, 'Two')).toBeVisible();
+      await input(page).fill('two');
+
+      await expect(item(page, 'Two')).toBeVisible();
+    });
+
+    // MNU-STA-17.
     test('keeps the rendered text of a hidden item whose children render different text', async ({ page, mode }) => {
       const fixture = await render(page, mode, { case: 'translate' });
       await input(page).fill('usu');
