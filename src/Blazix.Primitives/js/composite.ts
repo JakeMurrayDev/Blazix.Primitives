@@ -3657,8 +3657,11 @@ function attachList(
 
   // Listeners. One keydown per handle runs the list navigation, then the typeahead, after the consumer's veto.
   const onKeyDown = (event: KeyboardEvent): void => {
-    // A key another module owns (skipListNavigation): no handle acts on it.
+    // A key another module owns (skipListNavigation): no handle acts on it, but it still ends the pointer modality, as
+    // useListNavigation.ts:551-553's commonOnKeyDown does first for every key on the reference (MNU-KEY-22): a typed key
+    // keeps a later pointer leave from resetting the highlight.
     if (skippedListKeys.has(event)) {
+      state.pointerModality = false;
       return;
     }
     // CMP-KEY-22's note of 2026-11-10 (found by TLB-STR-05): useButton returns from a disabled trigger's keydown before
