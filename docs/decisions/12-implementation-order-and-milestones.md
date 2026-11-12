@@ -75,3 +75,55 @@ Rules: within a milestone a component is built and taken through L4 on Server fi
 - Session S (track 9, Select) and session C (track 10, Combobox) stop at a clean point, with their branches pushed and their hand-over notes current, and resume after the reset on the orchestrator's message.
 - Session M (track 6, Menu, wave 2's critical path, since tracks 7, 8 and 12 build on it) keeps running, as do track 5 (pull request 168) and track 3's follow-up (pull request 182).
 - The grants made to S and C stand while they are paused. The alternatives were to run every session until about 75% and then pause all, or to pause only C.
+
+**2026-11-12, M5 delivered (the list and menu families; "Continue and finish M5", the user 2026-11-12, with the weekly usage cap raised to 70% for the closing work; recorded by the M5 orchestrator).** Landed on `main`, by track:
+- **Wave 1:**
+  - track 2: [PR 164](https://github.com/JakeMurrayDev/Blazix.Primitives/pull/164), the open lifecycle, and [PR 169](https://github.com/JakeMurrayDev/Blazix.Primitives/pull/169), the popup layer for lists;
+  - track 3: [PR 165](https://github.com/JakeMurrayDev/Blazix.Primitives/pull/165), upkeep;
+  - track 4: [PR 167](https://github.com/JakeMurrayDev/Blazix.Primitives/pull/167), list values and form;
+  - track 1: [PR 170](https://github.com/JakeMurrayDev/Blazix.Primitives/pull/170), list navigation;
+  - track 5: [PR 168](https://github.com/JakeMurrayDev/Blazix.Primitives/pull/168), NavigationMenu, issue 163.
+- **Wave 2:**
+  - track 6: [PR 183](https://github.com/JakeMurrayDev/Blazix.Primitives/pull/183), Menu;
+  - track 9: [PR 205](https://github.com/JakeMurrayDev/Blazix.Primitives/pull/205), Select;
+  - track 7: [PR 228](https://github.com/JakeMurrayDev/Blazix.Primitives/pull/228), ContextMenu;
+  - track 10: [PR 193](https://github.com/JakeMurrayDev/Blazix.Primitives/pull/193), Combobox, issue 174;
+  - track 8: [PR 230](https://github.com/JakeMurrayDev/Blazix.Primitives/pull/230), Menubar, issues 195 and 237;
+  - track 11: [PR 245](https://github.com/JakeMurrayDev/Blazix.Primitives/pull/245), Autocomplete, issue 196;
+  - track 12: [PR 229](https://github.com/JakeMurrayDev/Blazix.Primitives/pull/229), Menu's filter mode, issue 197, with `AutoHighlightValue` landed ahead of it by [PR 246](https://github.com/JakeMurrayDev/Blazix.Primitives/pull/246). PR 229 merged at ac452048.
+- **Beside the tracks:**
+  - [PR 236](https://github.com/JakeMurrayDev/Blazix.Primitives/pull/236), the nested dialog's Escape;
+  - [PR 240](https://github.com/JakeMurrayDev/Blazix.Primitives/pull/240), the CI's bounded `install-deps` after a runner mirror outage, and issue 241's quarantine;
+  - [PR 243](https://github.com/JakeMurrayDev/Blazix.Primitives/pull/243), .NET 11 GA (ADR 10 Amendments 2026-11-12).
+
+`main` at ac452048, the merge of PR 229, is green on every job (run 43244677309, attempt 2; attempt 1 failed the Server title `menu.filter-items.spec.ts:198`, which a follow-up hardens). [PR 253](https://github.com/JakeMurrayDev/Blazix.Primitives/pull/253) then quarantined `select-nav.spec.ts:499` on Server under ADR 11 §4 ([issue 252](https://github.com/JakeMurrayDev/Blazix.Primitives/issues/252), until 2026-11-26). Every M5 family has its sample page.
+
+*Statuses.* The seven families' documents stay `approved`. Marking any `implemented` is the user's call under ADR 13. The rows each pull request leaves open are listed by ID in its body and its delivery summary on the track issue.
+
+*Decisions.* The decisions of M5's closing stretch are the dated amendments of 2026-11-10 to 2026-11-12 in ADRs 01, 04, 05, 08, 10, 11 and 16. The orchestrator settled them under the user's standing "Do recommended for decisions", and the user may overturn any:
+- track 8's DP1–DP7, the touch guard's clock and the keyboard-switch title's click;
+- track 11's DP1–DP4 and DP7–DP11: the engine members granted in `Combobox/`, each red first and each on ADR 08's engine-members line;
+- track 12's grants in `js/composite.ts`, `Composite/`, `Interop/`, `Floating/` and `Menu/`, every one additive or gated on the filter, plus `AutoHighlightValue` split out;
+- the GA bump's +336 B Select figure, accepted with nothing re-pinned.
+
+*Open after M5* (GitHub issues):
+- [238](https://github.com/JakeMurrayDev/Blazix.Primitives/issues/238): Button's composite inference.
+- [239](https://github.com/JakeMurrayDev/Blazix.Primitives/issues/239): a Menu trigger's double render on a Menubar flag flip.
+- [241](https://github.com/JakeMurrayDev/Blazix.Primitives/issues/241): NavigationMenu `:1655`, quarantined until 2026-11-26.
+- [242](https://github.com/JakeMurrayDev/Blazix.Primitives/issues/242): the internal backdrop's cut-out window.
+- [244](https://github.com/JakeMurrayDev/Blazix.Primitives/issues/244): an explicit empty id.
+- [247](https://github.com/JakeMurrayDev/Blazix.Primitives/issues/247): a Server focus-out lost before a typed reopen's update.
+- [248](https://github.com/JakeMurrayDev/Blazix.Primitives/issues/248): Autocomplete's eleven open titles.
+- [249](https://github.com/JakeMurrayDev/Blazix.Primitives/issues/249): a `Render` substitute's own id on items and the popup's IDREFs.
+- [250](https://github.com/JakeMurrayDev/Blazix.Primitives/issues/250): `MenuPopup`'s released id override.
+- [251](https://github.com/JakeMurrayDev/Blazix.Primitives/issues/251): Escape stopped before a popup's consumer `onkeydown`.
+- [252](https://github.com/JakeMurrayDev/Blazix.Primitives/issues/252): `select-nav.spec.ts:499`'s Server quarantine.
+- [254](https://github.com/JakeMurrayDev/Blazix.Primitives/issues/254): the 300-item Select allocation budget's variance on CI.
+
+Also carried to M6:
+- a real-browser probe of Base UI for MBR-KEY-12's flag clause, MBR-EVT-03's close reason and MNU-PTR-11;
+- `TimeProvider` on the other menu roots (MNU-STA-05).
+
+*Tag:* `v0.6.0-preview.1` on the `main` commit of this amendment is recommended; the user pushes tags.
+
+*Hand-over:* `m5-to-m6-hand-over-2026-11-12.md` in the shared notes folder, for the M6 orchestrator.
