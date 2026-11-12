@@ -312,6 +312,47 @@ test.describe('filterable menu initial highlight', () => {
 
   });
 
+  // MNU-KEY-23 (MenuFilterRoot.test.tsx's KeyboardNavigationMenu: Rename, Duplicate, Delete). On the fixture's `plain` list
+  // (Rename, Delete) one ArrowDown reaches the last item where Base UI's tree takes two.
+  test('walks the list with the arrow keys and releases the highlight at the end', async ({ page, mode }) => {
+    await open(page, mode, false, true);
+    await trigger(page).focus();
+    await page.keyboard.press('Enter');
+    await expect(input(page)).toBeFocused();
+    await expect(item(page, 'Rename')).toHaveAttribute('data-highlighted', '');
+    await expect(input(page)).toHaveAttribute('aria-activedescendant', await idOf(item(page, 'Rename')));
+
+    await page.keyboard.press('ArrowDown');
+    await expect(item(page, 'Delete')).toHaveAttribute('data-highlighted', '');
+
+    // Past the last item the highlight is released back to the input, matching Combobox.
+    await page.keyboard.press('ArrowDown');
+    await expect(input(page)).not.toHaveAttribute('aria-activedescendant', /.+/);
+
+    await page.keyboard.press('ArrowDown');
+    await expect(item(page, 'Rename')).toHaveAttribute('data-highlighted', '');
+  });
+
+  // MNU-EDGE-14 (MenuFilterRoot.test.tsx's KeyboardNavigationMenu), on the fixture's `plain` list (Rename, Delete).
+  test('starts navigation from the top again after closing and reopening', async ({ page, mode }) => {
+    await open(page, mode, false, true);
+    await trigger(page).focus();
+    await page.keyboard.press('Enter');
+    await expect(input(page)).toBeFocused();
+    await page.keyboard.press('ArrowDown');
+    await expect(item(page, 'Delete')).toHaveAttribute('data-highlighted', '');
+
+    await page.keyboard.press('Escape');
+    await expect(page.getByRole('menu')).toHaveCount(0);
+    await expect(trigger(page)).toBeFocused();
+    await page.keyboard.press('Enter');
+
+    await expect(input(page)).toBeFocused();
+    await expect(input(page)).toHaveAttribute('aria-activedescendant', await idOf(item(page, 'Rename')));
+    await expect(item(page, 'Rename')).toHaveAttribute('data-highlighted', '');
+    await expect(item(page, 'Delete')).not.toHaveAttribute('data-highlighted');
+  });
+
   // MNU-STA-21, EVT-18 (MenuFilterRoot.test.tsx): a kept-mounted popup, on the fixture's `plain` list (Rename, Delete).
   test('resets the query and highlight across a close and reopen', async ({ page, mode }) => {
     await page.goto(`/${mode}/menu-filter-initial?plain=true&keepMounted=true`, { waitUntil: 'commit' });
