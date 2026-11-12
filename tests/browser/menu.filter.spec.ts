@@ -1634,6 +1634,11 @@ test.describe('typing while the popup animates out', () => {
       await expect(input(page)).toBeFocused();
       // The closing popup keeps showing the query it closed with.
       await expect(input(page)).toHaveValue(query);
+      // Base UI's close requests '' with popup-close in the close's own commit; the port's request follows the commit, so
+      // the baseline waits for it.
+      if (query !== '') {
+        await expect(fixture).toHaveAttribute('data-value-changes', /:popup-close$/);
+      }
       const before = (await fixture.getAttribute('data-value-changes')) ?? '';
 
       await page.keyboard.press('n');
