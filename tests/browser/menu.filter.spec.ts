@@ -614,6 +614,22 @@ test.describe('autoHighlight', () => {
     await expect(input(page)).toHaveAttribute('aria-activedescendant', await idOf(item(page, 'Rename')));
   });
 
+  // MNU-STA-19 (FilterDropdownRoot.tsx:89-91, 140-151): "always" highlights the first item on every open, whatever opened
+  // it; Base UI's titles open the menu once.
+  test('port: highlights the first item again when a pointer reopens the menu with autoHighlight "always"', async ({ page, mode }) => {
+    await renderAuto(page, mode, 'always');
+    await expect(item(page, 'Rename')).toHaveAttribute('data-highlighted', '');
+    await input(page).focus();
+    await page.keyboard.press('Escape');
+    await expect(input(page)).toHaveCount(0);
+
+    await page.getByRole('button', { name: 'Actions' }).click();
+
+    await expect(input(page)).toBeVisible();
+    await expect(item(page, 'Rename')).toHaveAttribute('data-highlighted', '');
+    await expect(input(page)).toHaveAttribute('aria-activedescendant', await idOf(item(page, 'Rename')));
+  });
+
   // MNU-KEY-22, STA-19: the fixture's "el" leaves only Delete, which moves to the top away from the resting pointer. The
   // typed query's automatic highlight is awaited before the hover (ADR 01: a C#-origin highlight lands one leg later on
   // Server).
