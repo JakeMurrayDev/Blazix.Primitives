@@ -1379,10 +1379,17 @@ const keyboardRelay = Symbol('blazix.composite.relay');
 // its element, as a root publishes its relay, for the menu-filter Input's `enter-list` (useMenuFilterKeyDown.ts:155-167).
 const listEdgeHighlight = Symbol('blazix.composite.list-edge');
 
+// The orchestrator's 2026-11-12 grant, for MenuFilterSubmenuRoot's navigation: a list handle publishes, on its element,
+// a highlight of a given item and a move on from a given item through its own navigation.
+const listItemHighlight = Symbol('blazix.composite.list-item');
+const listMoveFrom = Symbol('blazix.composite.list-move-from');
+
 interface AttachedElement extends HTMLElement {
   [attachedHandle]?: TwinHandle;
   [keyboardRelay]?: (event: KeyboardEvent) => boolean;
   [listEdgeHighlight]?: (edge: 'first' | 'last' | null, event: Event | undefined) => boolean;
+  [listItemHighlight]?: (item: Element, event: Event | undefined) => boolean;
+  [listMoveFrom]?: (item: Element, event: KeyboardEvent) => boolean;
 }
 
 /**
@@ -2166,6 +2173,31 @@ export function skipListNavigation(event: KeyboardEvent): void {
 export function highlightListEdge(element: Element | null | undefined, edge: 'first' | 'last' | null, event: Event | undefined): boolean {
   const highlight = (element as AttachedElement | null | undefined)?.[listEdgeHighlight];
   return highlight ? highlight(edge, event) : false;
+}
+
+/**
+ * Highlights a given item of the list whose handle is attached to the element.
+ * @param element An element with an attached list handle, such as the list's reference.
+ * @param item The item to highlight.
+ * @param event The event that asked: a keydown is a keyboard highlight; none is a programmatic one.
+ * @returns `true` when the item belongs to the list and was highlighted.
+ */
+export function highlightListItem(element: Element | null | undefined, item: Element, event: Event | undefined): boolean {
+  const highlight = (element as AttachedElement | null | undefined)?.[listItemHighlight];
+  return highlight ? highlight(item, event) : false;
+}
+
+/**
+ * Moves the highlight of the list whose handle is attached to the element on from a given item, by the keydown's key,
+ * through the list's own navigation (its orientation, loop, escape and disabled items).
+ * @param element An element with an attached list handle, such as the list's reference.
+ * @param item The item to move on from.
+ * @param event The keydown.
+ * @returns `true` when the item belongs to the list.
+ */
+export function moveListHighlightFrom(element: Element | null | undefined, item: Element, event: KeyboardEvent): boolean {
+  const move = (element as AttachedElement | null | undefined)?.[listMoveFrom];
+  return move ? move(item, event) : false;
 }
 
 // CMP-ALG-20 (useListNavigation.ts:59-100), exported for Menu's filter keydown (fact sheet A contradiction 8).
@@ -3808,6 +3840,8 @@ function attachList(
       disposed = true;
       delete element[attachedHandle];
       delete element[listEdgeHighlight];
+      delete element[listItemHighlight];
+      delete element[listMoveFrom];
       for (const [type, listener, capture] of listeners) {
         element.removeEventListener(type, listener, capture);
       }
@@ -3843,6 +3877,24 @@ function attachList(
     }
     state.index = index;
     navigateTo(state, handle, event);
+    return true;
+  };
+  element[listItemHighlight] = (item, event) => {
+    const index = elementsOf(state).indexOf(item as HTMLElement);
+    if (index === -1) {
+      return false;
+    }
+    state.index = index;
+    navigateTo(state, handle, event);
+    return true;
+  };
+  element[listMoveFrom] = (item, event) => {
+    const index = elementsOf(state).indexOf(item as HTMLElement);
+    if (index === -1) {
+      return false;
+    }
+    state.index = index;
+    commonKeyDown(state, handle, { event, vetoed: false, stopped: false }, element);
     return true;
   };
   element[attachedHandle] = twinHandle;

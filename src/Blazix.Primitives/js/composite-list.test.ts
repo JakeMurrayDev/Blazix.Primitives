@@ -2966,7 +2966,7 @@ describe('highlightListEdge (port)', () => {
       reference: 'input',
       list: { virtual: true, loopFocus: true },
       session: { open: true },
-      itemRegistration: (index) => (index === 1 ? { disabled: true } : {}),
+      itemAttributes: (index) => (index === 1 ? { 'aria-disabled': 'true' } : {}),
     });
     harness.reference.focus();
 
