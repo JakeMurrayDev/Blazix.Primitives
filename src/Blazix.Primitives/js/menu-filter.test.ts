@@ -479,3 +479,69 @@ describe('the Input handle and aria-selected', () => {
     handle.dispose();
   });
 });
+
+// MNU-PTR-19 (MenuFilterPopup.tsx): a screen reader's press on the trigger opens the menu with its input focused. The
+// popup's handle sees the press; under a slow WebAssembly start the input's handle can attach a frame later.
+describe('a screen reader press on the trigger', () => {
+  afterEach(() => {
+    document.body.replaceChildren();
+    vi.doUnmock('./platform');
+    vi.resetModules();
+  });
+
+  async function attachOutsideJsdom(): Promise<typeof import('./menu-filter')> {
+    vi.resetModules();
+    vi.doMock('./platform', async (importOriginal) => {
+      const actual = await importOriginal<typeof import('./platform')>();
+      return { ...actual, platform: { ...actual.platform, env: { ...actual.platform.env, jsdom: false } } };
+    });
+    return import('./menu-filter');
+  }
+
+  function virtualPress(target: HTMLElement): void {
+    const event = new MouseEvent('pointerdown', { bubbles: true, cancelable: true, detail: 0 });
+    for (const [name, value] of Object.entries({ pointerType: 'touch', width: 0.333, height: 0.333, pressure: 0, isPrimary: true })) {
+      Object.defineProperty(event, name, { value });
+    }
+    target.dispatchEvent(event);
+  }
+
+  const frames = (): Promise<void> => new Promise((resolve) => setTimeout(resolve, 50));
+
+  it('port: focuses the input when its handle and the popup handle attach together', async () => {
+    const module = await attachOutsideJsdom();
+    const trigger = document.createElement('button');
+    const popup = document.createElement('div');
+    const input = document.createElement('input');
+    popup.append(input);
+    document.body.append(trigger, popup);
+    const handles = [module.attach(trigger, JSON.stringify({ part: 'trigger', menuKey: 'menu-1', open: false }), createFakeTwin().twin)];
+    virtualPress(trigger);
+
+    handles.push(module.attach(popup, JSON.stringify({ part: 'popup', menuKey: 'menu-1', open: true }), createFakeTwin().twin));
+    handles.push(module.attach(input, JSON.stringify({ part: 'input', menuKey: 'menu-1', open: true }), createFakeTwin().twin));
+    await frames();
+
+    expect(document.activeElement).toBe(input);
+    handles.forEach((handle) => handle.dispose());
+  });
+
+  it('port: focuses an input whose handle attaches after the popup handle saw the press', async () => {
+    const module = await attachOutsideJsdom();
+    const trigger = document.createElement('button');
+    const popup = document.createElement('div');
+    const input = document.createElement('input');
+    popup.append(input);
+    document.body.append(trigger, popup);
+    const handles = [module.attach(trigger, JSON.stringify({ part: 'trigger', menuKey: 'menu-1', open: false }), createFakeTwin().twin)];
+    virtualPress(trigger);
+
+    handles.push(module.attach(popup, JSON.stringify({ part: 'popup', menuKey: 'menu-1', open: true }), createFakeTwin().twin));
+    await frames();
+    handles.push(module.attach(input, JSON.stringify({ part: 'input', menuKey: 'menu-1', open: true }), createFakeTwin().twin));
+    await frames();
+
+    expect(document.activeElement).toBe(input);
+    handles.forEach((handle) => handle.dispose());
+  });
+});
