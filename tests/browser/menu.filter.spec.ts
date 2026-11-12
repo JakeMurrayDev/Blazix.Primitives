@@ -437,3 +437,71 @@ test.describe('<Menu.Popup /> filter input focus', () => {
     });
   });
 });
+
+// The Popup's refocus (useMenuFilterPopup.ts:50-143; MNU-KEY-33, FOC-14, PTR-22; M5 track 12) on `menu-filter-root`
+// with `extra`, `orientation` and `dir`. MenuFilterPopup.test.tsx's and MenuFilterRoot.test.tsx's titles verbatim, keys
+// and pointer moves dispatched as Base UI's fireEvent does, and port titles for the background press and a real pointer.
+test.describe('the filterable popup\'s refocus', () => {
+  async function renderWith(page: Page, mode: RenderMode, search: string): Promise<Locator> {
+    await page.goto(`/${mode}/menu-filter-root?${search}`, { waitUntil: 'commit' });
+    await page.locator(Fixture.started).waitFor({ state: 'attached' });
+    const fixture = page.locator(Fixture.interactive('menu-filter-root'));
+    await expect(fixture).toHaveAttribute('data-attached', 'true');
+    return fixture;
+  }
+
+  function extra(page: Page): Locator {
+    return page.getByRole('button', { name: 'Extra action' });
+  }
+
+  for (const [orientation, direction, key] of [
+    ['vertical', 'ltr', 'ArrowLeft'],
+    ['vertical', 'rtl', 'ArrowRight'],
+    ['horizontal', 'ltr', 'ArrowUp'],
+    ['horizontal', 'rtl', 'ArrowUp'],
+  ] as const) {
+    test(`returns focus with the ${orientation} ${direction} close key`, async ({ page, mode }) => {
+      await renderWith(page, mode, `extra=true&orientation=${orientation}&dir=${direction}`);
+      await extra(page).focus();
+      await expect(extra(page)).toBeFocused();
+
+      await extra(page).evaluate((element, pressed) => element.dispatchEvent(new KeyboardEvent('keydown', { key: pressed, bubbles: true, cancelable: true })), key);
+
+      await expect(input(page)).toBeFocused();
+    });
+  }
+
+  test('leaves focus on another control in the popup when the pointer moves', async ({ page, mode }) => {
+    await renderWith(page, mode, 'extra=true');
+    await extra(page).focus();
+
+    await page.getByTestId('popup').evaluate((element) => element.dispatchEvent(new MouseEvent('mousemove', { bubbles: true, cancelable: true })));
+
+    await expect(extra(page)).toBeFocused();
+  });
+
+  // PTR-22 (useMenuFilterPopup.ts:100-105): a press on the popup's own background keeps focus on the input.
+  test('port: a press on the popup background is prevented, so the input keeps focus', async ({ page, mode }) => {
+    await renderWith(page, mode, 'extra=true');
+    await input(page).focus();
+
+    const kept = await page.getByTestId('popup').evaluate((element) => !element.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, cancelable: true })));
+
+    expect(kept).toBe(true);
+    await expect(input(page)).toBeFocused();
+  });
+
+  // FOC-14 (useMenuFilterPopup.ts:48-95): a mouse moving over the popup, while focus is outside it, returns focus to the input.
+  test('port: a mouse moving over the popup returns focus to the input after focus left the popup', async ({ page, mode }) => {
+    await renderWith(page, mode, 'extra=true');
+    await input(page).focus();
+    await input(page).blur();
+    await expect(input(page)).not.toBeFocused();
+
+    const box = (await page.getByTestId('popup').boundingBox())!;
+    await page.mouse.move(box.x + 4, box.y + 4);
+    await page.mouse.move(box.x + 8, box.y + 6);
+
+    await expect(input(page)).toBeFocused();
+  });
+});
