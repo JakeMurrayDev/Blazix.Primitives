@@ -451,6 +451,21 @@ describe('the Input handle and aria-selected', () => {
     handle.dispose();
   });
 
+  // MNU-A11Y-02 (MenuInput.tsx:32-55): the mount-time check of the active element. On WebAssembly the focus manager's
+  // initial focus and composite's aria-activedescendant can both land before the Input's handle attaches.
+  it('port: marks the highlighted item when the input was focused and named it before its handle attached', async () => {
+    const module = await attachUnder(true);
+    const { input, first } = renderItems();
+    input.focus();
+    input.setAttribute('aria-activedescendant', 'item-1');
+
+    const handle = module.attach(input, JSON.stringify({ part: 'input', menuKey: 'menu-1', open: true }), createFakeTwin().twin);
+
+    expect(first.getAttribute('aria-selected')).toBe('true');
+    handle.dispose();
+    expect(first.hasAttribute('aria-selected')).toBe(false);
+  });
+
   it('does not set aria-selected on highlighted items outside WebKit', async () => {
     const module = await attachUnder(false);
     const { input, first } = renderItems();
