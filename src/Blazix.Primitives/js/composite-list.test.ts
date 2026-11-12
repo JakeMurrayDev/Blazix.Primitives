@@ -7,6 +7,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   attach,
+  highlightListEdge,
   LEAVE_POINT,
   LIST_HIGHLIGHT_REPORT,
   NAVIGATE_POINT,
@@ -2880,5 +2881,35 @@ describe('skipListNavigation (port)', () => {
 
     expect(event.defaultPrevented).toBe(false);
     expect(harness.floating).toBe(null);
+  });
+});
+
+// highlightListEdge (M5 track 12, issue 197; granted by the orchestrator 2026-11-12): the menu-filter Input's `enter-list`
+// (useMenuFilterKeyDown.ts:155-167, MNU-KEY-24) highlights the list's first item on ArrowDown and its last on ArrowUp,
+// with no disabled index, from a keydown the list's own handles skip.
+describe('highlightListEdge (port)', () => {
+  function descendantOf(element: Element | null): string | null {
+    return element?.getAttribute('aria-activedescendant') ?? null;
+  }
+
+  it('port: highlightListEdge highlights the first or the last item of an open list from its reference', async () => {
+    const harness = app({ reference: 'input', list: { virtual: true }, session: { open: true } });
+    harness.reference.focus();
+
+    expect(highlightListEdge(harness.reference, 'last', new KeyboardEvent('keydown', { key: 'ArrowUp' }))).toBe(true);
+    await waitFor(() => {
+      expect(descendantOf(harness.reference)).toBe(harness.item(2).id);
+    });
+
+    expect(highlightListEdge(harness.reference, 'first', new KeyboardEvent('keydown', { key: 'ArrowDown' }))).toBe(true);
+    await waitFor(() => {
+      expect(descendantOf(harness.reference)).toBe(harness.item(0).id);
+    });
+  });
+
+  it('port: highlightListEdge does nothing on an element without a list handle', () => {
+    const element = document.createElement('input');
+
+    expect(highlightListEdge(element, 'first', new KeyboardEvent('keydown', { key: 'ArrowDown' }))).toBe(false);
   });
 });
