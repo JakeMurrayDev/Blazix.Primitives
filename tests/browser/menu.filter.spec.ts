@@ -859,6 +859,20 @@ test.describe('filterable menu keys and semantics', () => {
     await expect(input(page)).toHaveAttribute('aria-activedescendant', renameId);
   });
 
+  // MNU-KEY-25 (useMenuFilterItem.test.tsx): the fixture's disabled item is Delete, the second.
+  test('does not activate a highlighted disabled item with Enter', async ({ page, mode }) => {
+    const fixture = await renderWith(page, mode, '?disabled=true');
+    await expect(input(page)).toBeFocused();
+
+    await page.keyboard.press('ArrowDown');
+    await page.keyboard.press('ArrowDown');
+    await expect(input(page)).toHaveAttribute('aria-activedescendant', (await item(page, 'Delete').getAttribute('id')) ?? 'missing');
+    await page.keyboard.press('Enter');
+
+    await expect(fixture).toHaveAttribute('data-presses', '');
+    await expect(page.getByRole('menu')).toBeVisible();
+  });
+
   // MNU-KEY-05.
   test('uses Home and End for list navigation after an item is highlighted', async ({ page, mode }) => {
     await renderWith(page, mode);

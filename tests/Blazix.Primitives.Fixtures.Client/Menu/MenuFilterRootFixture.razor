@@ -11,7 +11,8 @@
     `data-testid="popup"`. `insert=true` holds the root open (controlled) and adds a button "Insert item" outside the menu,
     whose press keeps focus where it is, that inserts Archive first; each highlight report is recorded by item text, or
     "none", in `data-highlights` (`|`-separated). `after=true` adds an input "After" (`data-testid="after"`) after the menu; `modal=false` sets
-    the root's Modal; `cancel=true` cancels every close request. Each query request is recorded as
+    the root's Modal; `cancel=true` cancels every close request; `disabled=true`
+    disables Delete. Each query request is recorded as
     `value:reason` in `data-value-changes` (`|`-separated), and each item press by name in `data-presses`; `data-attached` turns "true" once the menu's session and the
     input's and list's `menu-filter` handles have attached.
 *@
@@ -39,7 +40,7 @@
                                 <MenuItem>Archive</MenuItem>
                             }
                             <MenuItem @onclick="@(() => presses.Add("Rename"))">Rename</MenuItem>
-                            <MenuItem @onclick="@(() => presses.Add("Delete"))">Delete</MenuItem>
+                            <MenuItem Disabled="@DisabledDelete" @onclick="@(() => presses.Add("Delete"))">Delete</MenuItem>
                             <MenuItem @onclick="@(() => presses.Add("Duplicate"))">Duplicate</MenuItem>
                             @if (Submenu)
                             {
@@ -114,6 +115,9 @@
 
     [SupplyParameterFromQuery(Name = "cancel")]
     public bool Cancel { get; set; }
+
+    [SupplyParameterFromQuery(Name = "disabled")]
+    public bool DisabledDelete { get; set; }
 
     private void CancelClose(ValueChangeEventArgs<bool> args)
     {
