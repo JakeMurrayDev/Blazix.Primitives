@@ -72,6 +72,18 @@ public sealed class MenuFilterAriaTests : BunitContext
         Assert.Equal("menu", cut.FindAll("[role=menuitem]").Single(item => item.TextContent.Trim() == "Move to").GetAttribute("aria-haspopup"));
     }
 
+    // Base UI's title opens the menu with a click; the host's starts open.
+    [Fact(DisplayName = "uses an explicit popup label instead of the trigger label")]
+    [Trait("Requirement", "MNU-ARIA-19")]
+    public void Uses_an_explicit_popup_label()
+    {
+        IRenderedComponent<MenuFilterAriaHost> cut = Render<MenuFilterAriaHost>(p => p.Add(x => x.Case, "popup-label"));
+
+        IElement popup = cut.Find("[role=dialog]");
+        Assert.Equal("Available commands", popup.GetAttribute("aria-label"));
+        Assert.False(popup.HasAttribute("aria-labelledby"));
+    }
+
     [Fact(DisplayName = "lets a consumer override aria-haspopup on the root trigger")]
     [Trait("Requirement", "MNU-ARIA-01")]
     public void Lets_a_consumer_override_the_root_trigger()

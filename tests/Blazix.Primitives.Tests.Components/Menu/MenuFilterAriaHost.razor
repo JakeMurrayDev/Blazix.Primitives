@@ -8,7 +8,8 @@
    - `plain-submenu`: an open filterable menu whose list holds a plain submenu "Sort by" (Name);
    - `override-submenu`: an open filterable menu whose list holds a filterable submenu "Move to" whose trigger sets
      `aria-haspopup="menu"` (a list of Projects, no input);
-   - `override-root`: a closed filterable menu whose trigger sets `aria-haspopup="menu"` (a list of Rename). *@
+   - `override-root`: a closed filterable menu whose trigger sets `aria-haspopup="menu"` (a list of Rename);
+   - `popup-label`: an open filterable menu, trigger "Fruit", whose popup sets `aria-label="Available commands"`. *@
 @switch (Case)
 {
     case "plain":
@@ -84,6 +85,21 @@
                                     </MenuFilterProvider>
                                 }
                             </MenuList>
+                        </MenuPopup>
+                    </MenuPositioner>
+                </MenuPortal>
+            </MenuRoot>
+        </MenuFilterProvider>
+        break;
+    case "popup-label":
+        <MenuFilterProvider>
+            <MenuRoot TPayload="NoPayload" DefaultOpen="true">
+                <MenuTrigger TPayload="NoPayload">Fruit</MenuTrigger>
+                <MenuPortal>
+                    <MenuPositioner>
+                        <MenuPopup aria-label="Available commands">
+                            <MenuInput aria-label="Filter fruit" />
+                            <MenuList><MenuItem>Apple</MenuItem></MenuList>
                         </MenuPopup>
                     </MenuPositioner>
                 </MenuPortal>
