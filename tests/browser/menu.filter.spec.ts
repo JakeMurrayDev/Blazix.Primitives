@@ -177,8 +177,9 @@ test.describe('virtual focus', () => {
 // verbatim unless marked "port:". The keyboard opens a filterable menu with its input focused and the first enabled
 // item highlighted; a pointer or hover open highlights nothing.
 test.describe('filterable menu initial highlight', () => {
-  async function open(page: Page, mode: RenderMode, hover = false): Promise<Locator> {
-    await page.goto(`/${mode}/menu-filter-initial${hover ? '?hover=true' : ''}`, { waitUntil: 'commit' });
+  async function open(page: Page, mode: RenderMode, hover = false, plain = false): Promise<Locator> {
+    const query = [hover ? 'hover=true' : '', plain ? 'plain=true' : ''].filter((part) => part !== '').join('&');
+    await page.goto(`/${mode}/menu-filter-initial${query === '' ? '' : `?${query}`}`, { waitUntil: 'commit' });
     await page.locator(Fixture.started).waitFor({ state: 'attached' });
     const fixture = page.locator(Fixture.interactive('menu-filter-initial'));
     await expect(fixture).toHaveAttribute('data-attached', 'true');
@@ -214,6 +215,36 @@ test.describe('filterable menu initial highlight', () => {
     await page.keyboard.press('ArrowUp');
     await expect(input(page)).not.toHaveAttribute('aria-activedescendant');
     await expect(input(page)).toBeFocused();
+  });
+
+  // MNU-STA-22, FOC-01 (MenuFilterRoot.test.tsx). Base UI's menu holds Rename alone; the fixture's `plain` list holds
+  // Rename and Delete.
+  test('highlights the first item while keeping input focus when opened with the keyboard', async ({ page, mode }) => {
+    await open(page, mode, false, true);
+    await trigger(page).focus();
+
+    await page.keyboard.press('Enter');
+
+    await expect(input(page)).toBeFocused();
+    await expect(input(page)).not.toHaveAttribute('data-highlighted');
+    await expect(input(page)).toHaveAttribute('aria-activedescendant', await idOf(item(page, 'Rename')));
+  });
+
+  // MNU-STA-18 (MenuFilterRoot.test.tsx's KeyboardNavigationMenu: Rename, Duplicate, Delete). On the fixture's `plain`
+  // list (Rename, Delete) the arrow moves to Delete, and "e" matches both.
+  test('resets the highlight when the query changes and rebuilds it from the first match', async ({ page, mode }) => {
+    await open(page, mode, false, true);
+    await trigger(page).focus();
+    await page.keyboard.press('Enter');
+    await expect(input(page)).toBeFocused();
+    await page.keyboard.press('ArrowDown');
+    await expect(item(page, 'Delete')).toHaveAttribute('data-highlighted', '');
+
+    await page.keyboard.type('e');
+    await expect(input(page)).not.toHaveAttribute('aria-activedescendant', /.+/);
+
+    await page.keyboard.press('ArrowDown');
+    await expect(item(page, 'Rename')).toHaveAttribute('data-highlighted', '');
   });
 
   test('clears the initial highlight when typing and permits an empty result', async ({ page, mode }) => {
