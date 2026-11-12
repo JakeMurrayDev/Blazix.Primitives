@@ -1393,3 +1393,72 @@ test.describe('tabbing out of a filterable popup', () => {
     await expect(page.getByRole('menu')).toHaveCount(0);
   });
 });
+
+// MenuFilterRoot.test.tsx's caret-key titles (MNU-KEY-23, KEY-30) on `menu-filter-root` (Rename, Delete, Duplicate),
+// titles verbatim. Base UI's trees hold Rename and Remove; the fixture's queries "ren" and "re" each match Rename alone.
+test.describe('the input keeps its caret keys', () => {
+  async function renderWith(page: Page, mode: RenderMode, query: string): Promise<void> {
+    await page.goto(`/${mode}/menu-filter-root${query === '' ? '' : `?${query}`}`, { waitUntil: 'commit' });
+    await page.locator(Fixture.started).waitFor({ state: 'attached' });
+    await expect(page.locator(Fixture.interactive('menu-filter-root'))).toHaveAttribute('data-attached', 'true');
+  }
+
+  const caret = (page: Page): Promise<number | null> => input(page).evaluate((element: HTMLInputElement) => element.selectionStart);
+
+  test('keeps Home and End as caret keys until an item is highlighted', async ({ page, mode }) => {
+    await renderWith(page, mode, 'query=rename');
+    await input(page).click();
+    await input(page).evaluate((element: HTMLInputElement) => element.setSelectionRange(3, 3));
+
+    await page.keyboard.press('Home');
+    expect(await caret(page)).toBe(0);
+    await expect(input(page)).not.toHaveAttribute('aria-activedescendant', /.+/);
+
+    await page.keyboard.press('End');
+    expect(await caret(page)).toBe('rename'.length);
+    await expect(input(page)).not.toHaveAttribute('aria-activedescendant', /.+/);
+  });
+
+  test('keeps Home and End as caret keys while the input is empty', async ({ page, mode }) => {
+    await renderWith(page, mode, '');
+    await input(page).click();
+
+    await page.keyboard.press('End');
+    await expect(input(page)).not.toHaveAttribute('aria-activedescendant', /.+/);
+    await page.keyboard.press('Home');
+    await expect(input(page)).not.toHaveAttribute('aria-activedescendant', /.+/);
+  });
+
+  test('keeps the caret keys while a query is highlighted automatically', async ({ page, mode }) => {
+    await renderWith(page, mode, 'auto=true');
+    await input(page).click();
+    await page.keyboard.type('ren');
+    const renameId = (await item(page, 'Rename').getAttribute('id')) ?? 'missing';
+    await expect(input(page)).toHaveAttribute('aria-activedescendant', renameId);
+
+    await page.keyboard.press('ArrowLeft');
+    expect(await caret(page)).toBe(2);
+    await page.keyboard.press('Home');
+    expect(await caret(page)).toBe(0);
+    await page.keyboard.press('ArrowRight');
+    expect(await caret(page)).toBe(1);
+    await expect(input(page)).toHaveAttribute('aria-activedescendant', renameId);
+  });
+
+  test('keeps the caret keys after navigating to an item while the query is not empty', async ({ page, mode }) => {
+    await renderWith(page, mode, '');
+    await input(page).click();
+    await page.keyboard.type('re');
+    // On Server the query's highlight reset lands a leg later (ADR 01); the arrow waits for the filtered list.
+    await expect(item(page, 'Delete')).toHaveCount(0);
+    await page.keyboard.press('ArrowDown');
+    const renameId = (await item(page, 'Rename').getAttribute('id')) ?? 'missing';
+    await expect(input(page)).toHaveAttribute('aria-activedescendant', renameId);
+
+    await page.keyboard.press('ArrowLeft');
+    expect(await caret(page)).toBe(1);
+    await page.keyboard.press('End');
+    expect(await caret(page)).toBe(2);
+    await expect(input(page)).toHaveAttribute('aria-activedescendant', renameId);
+  });
+});
