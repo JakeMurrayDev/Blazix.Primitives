@@ -156,6 +156,13 @@ interface MenuFilterElement extends HTMLElement {
   [handleKey]?: TwinHandle;
 }
 
+// The Inputs by menu key, the focus owners the List hands focus back to (filter-dropdown/utils/refocusOwner.ts).
+const owners = new Map<string, HTMLInputElement>();
+
+function refocusOwner(owner: HTMLElement): void {
+  owner.focus({ preventScroll: true });
+}
+
 const HIGHLIGHTED = 'data-highlighted';
 
 // The Input (filter-dropdown/input/FilterDropdownInput.tsx; menu/input/MenuInput.tsx).
@@ -330,6 +337,10 @@ function attachInput(input: HTMLInputElement, initial: MenuFilterOptions, channe
   input.addEventListener('keydown', onKeyDown);
   input.addEventListener('pointerdown', onPointer);
   input.addEventListener('mouseenter', onPointer);
+  const ownerKey = options.menuKey ?? null;
+  if (ownerKey !== null) {
+    owners.set(ownerKey, input);
+  }
   syncHighlighted();
 
   return {
@@ -362,6 +373,9 @@ function attachInput(input: HTMLInputElement, initial: MenuFilterOptions, channe
       input.removeEventListener('keydown', onKeyDown);
       input.removeEventListener('pointerdown', onPointer);
       input.removeEventListener('mouseenter', onPointer);
+      if (ownerKey !== null && owners.get(ownerKey) === input) {
+        owners.delete(ownerKey);
+      }
     },
   };
 }
@@ -405,9 +419,55 @@ function attachList(list: HTMLElement, initial: MenuFilterOptions, channel: Twin
     }
   };
 
+  const ownerOf = (): HTMLInputElement | undefined => (options.menuKey ? owners.get(options.menuKey) : undefined);
+
+  // FilterDropdownList.tsx:33-43: a press on the list's own content (its background, a group, a group label) focuses the
+  // list; focus that came from the input goes back to it.
+  const onFocus = (event: FocusEvent): void => {
+    const owner = ownerOf();
+    if (owner !== undefined && event.relatedTarget === owner && event.target === list) {
+      refocusOwner(owner);
+    }
+  };
+
+  // KEY-22 (MenuFilterList.tsx:43-80): real focus inside the list while the input owns the keyboard (a screen reader
+  // following aria-activedescendant focuses the item) goes back to the input, and the key is replayed there, so it is
+  // routed as the input's; the list's own handles skip the original. A key an item already acted on stays the item's.
+  const onKeyDown = (event: KeyboardEvent): void => {
+    const owner = ownerOf();
+    const target = event.target;
+    if (owner === undefined || event.defaultPrevented || !(target instanceof Node) || !list.contains(target)) {
+      return;
+    }
+    if (owner.ownerDocument.activeElement === owner) {
+      return;
+    }
+    skipListNavigation(event);
+    refocusOwner(owner);
+    const KeyboardEventConstructor = owner.ownerDocument.defaultView?.KeyboardEvent ?? KeyboardEvent;
+    const replay = new KeyboardEventConstructor('keydown', {
+      key: event.key,
+      code: event.code,
+      location: event.location,
+      repeat: event.repeat,
+      shiftKey: event.shiftKey,
+      ctrlKey: event.ctrlKey,
+      altKey: event.altKey,
+      metaKey: event.metaKey,
+      bubbles: true,
+      cancelable: true,
+      composed: true,
+    });
+    if (!owner.dispatchEvent(replay)) {
+      event.preventDefault();
+    }
+  };
+
   const observer = new MutationObserver(reportTexts);
   observer.observe(list, { subtree: true, childList: true, characterData: true });
   list.addEventListener('mousedown', onMouseDown);
+  list.addEventListener('focus', onFocus);
+  list.addEventListener('keydown', onKeyDown);
   reportTexts();
 
   return {
@@ -425,6 +485,8 @@ function attachList(list: HTMLElement, initial: MenuFilterOptions, channel: Twin
       disposed = true;
       observer.disconnect();
       list.removeEventListener('mousedown', onMouseDown);
+      list.removeEventListener('focus', onFocus);
+      list.removeEventListener('keydown', onKeyDown);
     },
   };
 }
