@@ -1,6 +1,7 @@
 using AngleSharp.Dom;
 using Blazix.Primitives.Interop;
 using Bunit;
+using Microsoft.AspNetCore.Components;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.JSInterop;
 
@@ -55,8 +56,42 @@ public sealed class MenuFilterSubmenuTests : BunitContext
         Assert.Equal("true", cut.FindAll("[role=menuitem]").Single(item => item.TextContent.Trim() == "Move to folder").GetAttribute("aria-expanded"));
     }
 
+    // The keyboard step of Base UI's title (ArrowDown after typing) is the module's (L4); the filtering is C#'s.
+    [Fact(DisplayName = "filters a non-filterable submenu trigger from a filterable parent")]
+    [Trait("Requirement", "MNU-STA-25")]
+    public async Task Filters_a_non_filterable_submenu_trigger()
+    {
+        IRenderedComponent<MenuFilterSubmenuTriggerHost> cut = Render<MenuFilterSubmenuTriggerHost>(p => p.Add(x => x.FilterableSubmenu, true));
+        await ReportTexts(cut);
+
+        await Type(cut, "rename");
+
+        cut.WaitForAssertion(() => Assert.Equal(["Rename"], MenuItems(cut)));
+    }
+
+    [Fact(DisplayName = "filters a Menu.SubmenuTrigger used inside a plain submenu root")]
+    [Trait("Requirement", "MNU-STA-25")]
+    public async Task Filters_a_submenu_trigger_of_a_plain_submenu_root()
+    {
+        IRenderedComponent<MenuFilterSubmenuTriggerHost> cut = Render<MenuFilterSubmenuTriggerHost>();
+        await ReportTexts(cut);
+
+        await Type(cut, "rename");
+        cut.WaitForAssertion(() => Assert.Equal(["Rename"], MenuItems(cut)));
+
+        await Type(cut, "");
+        await Type(cut, "move");
+
+        cut.WaitForAssertion(() => Assert.Equal(["Move to folder"], MenuItems(cut)));
+    }
+
+    private static string[] MenuItems<THost>(IRenderedComponent<THost> cut)
+        where THost : IComponent =>
+        [.. cut.FindAll("[role=menuitem]").Select(item => item.TextContent.Trim())];
+
     // The parent list's report of what its items render.
-    private async Task ReportTexts(IRenderedComponent<MenuFilterSubmenuHost> cut)
+    private async Task ReportTexts<THost>(IRenderedComponent<THost> cut)
+        where THost : IComponent
     {
         IReadOnlyList<IElement> items = cut.FindAll("[role=menuitem]");
         string ids = string.Join(",", items.Select(item => $"\"{item.Id}\""));
@@ -68,7 +103,8 @@ public sealed class MenuFilterSubmenuTests : BunitContext
     }
 
     // The parent menu's input, attached first.
-    private Task Type(IRenderedComponent<MenuFilterSubmenuHost> cut, string value) =>
+    private Task Type<THost>(IRenderedComponent<THost> cut, string value)
+        where THost : IComponent =>
         cut.InvokeAsync(() => Twins("input").First().OnValueChange($$"""{"value":"{{value}}","reason":"input-change","event":null}"""));
 
     private IEnumerable<MenuFilterTwin> Twins(string part) =>

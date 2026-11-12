@@ -1,0 +1,44 @@
+@namespace Blazix.Primitives.Tests.Components
+@* MenuFilterRoot.test.tsx's "filters a non-filterable submenu trigger from a filterable parent" and "filters a
+   Menu.SubmenuTrigger used inside a plain submenu root" trees (MNU-STA-25): a filterable menu whose list holds Rename and a
+   closed submenu (trigger "Move to folder", whose popup holds Documents). `FilterableSubmenu` wraps the submenu in its own
+   provider, with no input or list, as the first tree does; otherwise the submenu is plain. *@
+<MenuFilterProvider>
+    <MenuRoot TPayload="NoPayload" DefaultOpen="true">
+        <MenuTrigger TPayload="NoPayload">Actions</MenuTrigger>
+        <MenuPortal>
+            <MenuPositioner>
+                <MenuPopup>
+                    <MenuInput aria-label="Filter actions" />
+                    <MenuList>
+                        <MenuItem>Rename</MenuItem>
+                        @if (FilterableSubmenu)
+                        {
+                            <MenuFilterProvider>@Submenu</MenuFilterProvider>
+                        }
+                        else
+                        {
+                            @Submenu
+                        }
+                    </MenuList>
+                </MenuPopup>
+            </MenuPositioner>
+        </MenuPortal>
+    </MenuRoot>
+</MenuFilterProvider>
+
+@code {
+    [Parameter]
+    public bool FilterableSubmenu { get; set; }
+
+    private RenderFragment Submenu => @<MenuSubmenuRoot>
+        <MenuSubmenuTrigger>Move to folder</MenuSubmenuTrigger>
+        <MenuPortal>
+            <MenuPositioner>
+                <MenuPopup>
+                    <MenuItem>Documents</MenuItem>
+                </MenuPopup>
+            </MenuPositioner>
+        </MenuPortal>
+    </MenuSubmenuRoot>;
+}
