@@ -1,0 +1,19 @@
+@namespace Blazix.Primitives.Tests.Components
+@* An Autocomplete whose list is inline with no Popup (M5 track 11; AUT-PTR-02, §16 Q7): the Input and the List render
+   directly under the Root, which a test makes Inline and Open. *@
+<AutocompleteRoot TValue="string" @ref="Root" @attributes="RootParameters">
+    <AutocompleteInput data-testid="input" />
+    <AutocompleteList TValue="string" data-testid="list">
+        <ItemContent>
+            <AutocompleteItem TValue="string" Value="@context.Value" data-testid="@("item-" + context.Value)" @key="context.Value">@context.Value</AutocompleteItem>
+        </ItemContent>
+    </AutocompleteList>
+</AutocompleteRoot>
+
+@code {
+    [Parameter]
+    public Dictionary<string, object?> RootParameters { get; set; } = [];
+
+    /// <summary>Gets the rendered root.</summary>
+    public AutocompleteRoot<string>? Root { get; private set; }
+}

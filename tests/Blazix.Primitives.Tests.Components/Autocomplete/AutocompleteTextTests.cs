@@ -34,6 +34,28 @@ public sealed class AutocompleteTextTests : IDisposable
         Assert.Equal("ap", cut.Instance.Root!.Store.State.InputValue);
     }
 
+    [Fact(DisplayName = "port: with an inline list and no Popup, an item press does not fill the input")]
+    [Trait("Requirement", "AUT-PTR-02")]
+    [Trait("Requirement", "AUT-API-16")]
+    public async Task An_inline_list_without_a_popup_does_not_fill_the_input()
+    {
+        List<string> texts = [];
+        IRenderedComponent<AutocompleteInlineHost> cut = test.Context.Render<AutocompleteInlineHost>(p => p.Add(x => x.RootParameters, new Dictionary<string, object?>
+        {
+            ["Items"] = s_items,
+            ["Inline"] = true,
+            ["Open"] = true,
+            ["OnValueChange"] = Microsoft.AspNetCore.Components.EventCallback.Factory.Create<ValueChangeEventArgs<string>>(this, args => texts.Add(args.Value)),
+        }));
+        await TypeAsync(cut, "an");
+
+        await cut.InvokeAsync(() => cut.Find("[data-testid=item-banana]").Click());
+
+        Assert.Equal("an", cut.Instance.Root!.Store.State.InputValue);
+        Assert.Equal(["an"], texts);
+        Assert.True(cut.Instance.Root!.Store.HasActivatedValue);
+    }
+
     private Task TypeAsync<TComponent>(IRenderedComponent<TComponent> cut, string text)
         where TComponent : Microsoft.AspNetCore.Components.IComponent
     {
