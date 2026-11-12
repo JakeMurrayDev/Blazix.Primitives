@@ -450,6 +450,8 @@ internal sealed class MenuRootBehavior<TPayload> : IAsyncDisposable
         // does, and a pointer open highlights none.
         if (context?.Filter is not null)
         {
+            // MNU-STA-03 (MenuFilterDropdown.tsx:84-90): a filterable menu forgets a keyboard open on every close.
+            root.Store.ClearKeyboardOpen();
             list!.FocusItemOnOpen = root.Store.State.KeyboardOpen;
         }
 
