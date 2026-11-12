@@ -63,6 +63,8 @@ export interface MenuFilterOptions extends TwinOptions {
   decidesKeyDown?: boolean | null;
   /** The ids of the registered items whose rendered text C# needs; the List's. */
   textIds?: readonly string[] | null;
+  /** Whether the automatic highlight applies, which an item-set change follows; the List's. */
+  autoHighlight?: boolean | null;
 }
 
 /**
@@ -490,8 +492,41 @@ function attachList(list: HTMLElement, initial: MenuFilterOptions, channel: Twin
     replayOnOwner(owner, event);
   };
 
-  const observer = new MutationObserver(reportTexts);
+  // STA-20 (FilterDropdownRoot.tsx:109-125, MenuFilterList.tsx:101-117): a positional highlight must not silently move to
+  // another item. When the item set changes and a different item now holds the highlighted index, the highlight goes to the
+  // first item under the automatic highlight, else it is cleared; an item set that leaves the highlighted item in place
+  // keeps it.
+  let previousItems: Element[] | null = null;
+  const itemsOf = (): Element[] => Array.from(list.querySelectorAll('[role="menuitem"], [role="menuitemcheckbox"], [role="menuitemradio"]'));
+  const onItemsChange = (): void => {
+    const items = itemsOf();
+    const previous = previousItems;
+    previousItems = items;
+    if (previous === null || (previous.length === items.length && items.every((item, index) => item === previous[index]))) {
+      return;
+    }
+    const owner = ownerOf();
+    if (owner === undefined) {
+      return;
+    }
+    const activeId = owner.getAttribute('aria-activedescendant');
+    const active = activeId ? owner.ownerDocument.getElementById(activeId) : null;
+    const activeIndex = active === null ? -1 : previous.indexOf(active);
+    if (activeIndex !== -1 && items[activeIndex] === previous[activeIndex]) {
+      return;
+    }
+    if (activeIndex === -1 && options.autoHighlight !== true) {
+      return;
+    }
+    highlightListEdge(owner, options.autoHighlight === true && items.length > 0 ? 'first' : null, undefined);
+  };
+
+  const observer = new MutationObserver(() => {
+    reportTexts();
+    onItemsChange();
+  });
   observer.observe(list, { subtree: true, childList: true, characterData: true });
+  previousItems = itemsOf();
   list.addEventListener('mousedown', onMouseDown);
   list.addEventListener('focus', onFocus);
   list.addEventListener('keydown', onKeyDown);

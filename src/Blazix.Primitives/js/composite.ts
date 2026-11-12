@@ -1375,7 +1375,7 @@ const listEdgeHighlight = Symbol('blazix.composite.list-edge');
 interface AttachedElement extends HTMLElement {
   [attachedHandle]?: TwinHandle;
   [keyboardRelay]?: (event: KeyboardEvent) => boolean;
-  [listEdgeHighlight]?: (edge: 'first' | 'last', event: KeyboardEvent) => boolean;
+  [listEdgeHighlight]?: (edge: 'first' | 'last' | null, event: Event | undefined) => boolean;
 }
 
 /**
@@ -2149,14 +2149,14 @@ export function skipListNavigation(event: KeyboardEvent): void {
 }
 
 /**
- * Highlights the first or the last item of the list whose handle is attached to the element, as a keyboard highlight. No
+ * Highlights the first or the last item of the list whose handle is attached to the element, or clears the highlight. No
  * item counts as disabled.
  * @param element An element with an attached list handle, such as the list's reference.
- * @param edge Which end of the list.
- * @param event The keydown that asked.
- * @returns `true` when an item was highlighted.
+ * @param edge Which end of the list, or `null` to clear the highlight.
+ * @param event The event that asked: a keydown is a keyboard highlight; none is a programmatic one.
+ * @returns `true` when an item was highlighted, or a highlight was cleared.
  */
-export function highlightListEdge(element: Element | null | undefined, edge: 'first' | 'last', event: KeyboardEvent): boolean {
+export function highlightListEdge(element: Element | null | undefined, edge: 'first' | 'last' | null, event: Event | undefined): boolean {
   const highlight = (element as AttachedElement | null | undefined)?.[listEdgeHighlight];
   return highlight ? highlight(edge, event) : false;
 }
@@ -3804,6 +3804,14 @@ function attachList(
   };
   // useMenuFilterKeyDown.ts:157-165: the edge index over an empty disabled list, highlighted with the keydown.
   element[listEdgeHighlight] = (edge, event) => {
+    if (edge === null) {
+      if (state.activeIndex === null) {
+        return false;
+      }
+      state.index = -1;
+      navigateTo(state, handle, event);
+      return true;
+    }
     const elements = elementsOf(state);
     const index = edge === 'first' ? getMinListIndex(elements, []) : getMaxListIndex(elements, []);
     if (!elements[index]) {

@@ -98,6 +98,9 @@ public sealed class MenuList : PartBase<EmptyState>
             Part = MenuFilterTwin.ListPart,
             MenuKey = RootContext!.SessionToken,
             TextIds = RootContext.Filter!.TextIds,
+
+            // FilterDropdownRoot.tsx:89-90: an item-set change highlights the first item when the automatic highlight applies.
+            AutoHighlight = MenuFilterEngine.AutoHighlightEnabled(RootContext.State.Open, RootContext.Filter.AutoHighlight, RootContext.Filter.Query.Trim()),
         });
     }
 
