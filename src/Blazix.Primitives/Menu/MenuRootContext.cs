@@ -54,6 +54,11 @@ internal abstract class MenuRootContext
     /// <summary>Gets the registered submenus, for the tree's closes.</summary>
     internal IReadOnlyList<MenuRootContext> ChildMenus => Children;
 
+    // MBR-ARIA-04 (MenuPortal.tsx:29-32): the Portal's owner role is decided by where the Root sits, not by the parent a
+    // detached trigger forwards to the store, which Parent reports.
+    /// <summary>Gets the parent the root resolved from its position.</summary>
+    internal abstract MenuParent PositionParent { get; }
+
     /// <summary>Gets the registered submenus.</summary>
     private protected abstract IReadOnlyList<MenuRootContext> Children { get; }
 
@@ -113,6 +118,10 @@ internal abstract class MenuRootContext
     /// <summary>Records the positioner element.</summary>
     /// <param name="element">The positioner element, or <see langword="null"/>.</param>
     public abstract void SetPositionerElement(ElementReference? element);
+
+    /// <summary>Records whether the menu's positioner is rendered, so a menubar or context menu parent hears the menu.</summary>
+    /// <param name="registered"><see langword="true"/> after the positioner rendered; <see langword="false"/> when it is disposed.</param>
+    public abstract void SetPositionerRegistered(bool registered);
 
     /// <summary>Mirrors the popup's reported transition status.</summary>
     /// <param name="status">The status.</param>
@@ -220,6 +229,8 @@ internal sealed class MenuRootContext<TPayload> : MenuRootContext
     private readonly MenuStore<TPayload> store;
     private readonly List<MenuRootContext> children = [];
     private readonly IDisposable openObservation;
+    private readonly IDisposable parentObservation;
+    private bool positionerRegistered;
 
     /// <summary>Initializes a new instance of the <see cref="MenuRootContext{TPayload}"/> class.</summary>
     /// <param name="store">The root's store.</param>
@@ -229,6 +240,16 @@ internal sealed class MenuRootContext<TPayload> : MenuRootContext
         this.store = store;
         FamilyName = familyName;
         openObservation = store.Observe(static state => state.Popup.EffectiveOpen, (open, _, _) => OnOpenChanged(open));
+
+        // A parent forwarded after the positioner registered (a detached Root's bar trigger forwards in its own
+        // after-render) hears the menu's state then, as a registration does (design points 2 (i) and 3 (b) of M5 track 8).
+        parentObservation = store.Observe(static state => state.Parent, (parent, _, _) =>
+        {
+            if (positionerRegistered)
+            {
+                parent.Context?.OnMenuOpenChange(this, store.State.Popup.EffectiveOpen, store.State.OpenChangeReason ?? EventReason.SiblingOpen);
+            }
+        });
     }
 
     /// <summary>Gets the root's store.</summary>
@@ -275,6 +296,9 @@ internal sealed class MenuRootContext<TPayload> : MenuRootContext
 
     /// <summary>Gets or sets the delegate that routes an exception of a cascaded request to the root.</summary>
     public Func<Exception, Task>? DispatchException { get; set; }
+
+    /// <inheritdoc />
+    internal override MenuParent PositionParent => store.RootParent;
 
     /// <inheritdoc />
     private protected override IReadOnlyList<MenuRootContext> Children => children;
@@ -324,6 +348,25 @@ internal sealed class MenuRootContext<TPayload> : MenuRootContext
     /// <inheritdoc />
     public override void SetPositionerElement(ElementReference? element) => store.SetPositionerElement(element);
 
+    // MBR-STA-04 (MenuPositioner.tsx:218-227), design point 3 (b) of M5 track 8 (settled by the orchestrator 2026-11-11):
+    // Base UI's Positioner tells the tree of the menu's open state when it mounts and on each change while it is mounted,
+    // so a parent menubar or context menu hears a menu only while its positioner is rendered, and a menu open at its first
+    // render is heard once the positioner registers (design point 2 (ii)).
+    /// <inheritdoc />
+    public override void SetPositionerRegistered(bool registered)
+    {
+        if (registered == positionerRegistered)
+        {
+            return;
+        }
+
+        positionerRegistered = registered;
+        if (registered)
+        {
+            store.State.Parent.Context?.OnMenuOpenChange(this, store.State.Popup.EffectiveOpen, store.State.OpenChangeReason ?? EventReason.SiblingOpen);
+        }
+    }
+
     /// <inheritdoc />
     public override void MirrorStatus(TransitionStatus? status)
     {
@@ -371,8 +414,12 @@ internal sealed class MenuRootContext<TPayload> : MenuRootContext
         return new ChildRegistration(children, child);
     }
 
-    /// <summary>Releases the context's observation of its store.</summary>
-    public void Release() => openObservation.Dispose();
+    /// <summary>Releases the context's observations of its store.</summary>
+    public void Release()
+    {
+        openObservation.Dispose();
+        parentObservation.Dispose();
+    }
 
     /// <inheritdoc />
     private protected override void OnSiblingOpened(MenuRootContext opened)
@@ -431,7 +478,10 @@ internal sealed class MenuRootContext<TPayload> : MenuRootContext
             }
         }
 
-        parent.Context?.OnMenuOpenChange(this, open, reason);
+        if (positionerRegistered)
+        {
+            parent.Context?.OnMenuOpenChange(this, open, reason);
+        }
     }
 
     private void Run(Task<bool> request)

@@ -655,10 +655,12 @@ function attachPositioner(positioner: HTMLElement, initial: PopupOptions, channe
     return (root instanceof ShadowRoot ? (root.getElementById(id) as HTMLElement | null) : null) ?? doc.getElementById(id);
   };
 
-  // InternalBackdrop.tsx:13-16: the backdrop is the positioner's previous sibling, found by position.
+  // InternalBackdrop.tsx:13-16: the backdrop is the positioner's previous sibling, found by position. Issue 237: a focus
+  // manager releasing its outside marking removes the backdrop's `data-base-ui-inert` until the next marking restores it
+  // (markOthers.ts:160-170), so the backdrop already cut stays the backdrop while it is still the previous sibling.
   const cut = () => {
     const sibling = positioner.previousElementSibling;
-    const next = sibling instanceof HTMLElement && sibling.hasAttribute('data-base-ui-inert') ? sibling : null;
+    const next = sibling instanceof HTMLElement && (sibling === backdrop || sibling.hasAttribute('data-base-ui-inert')) ? sibling : null;
     if (next !== backdrop) {
       backdropLayer?.clear();
       backdrop = next;

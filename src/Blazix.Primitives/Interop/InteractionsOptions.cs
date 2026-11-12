@@ -232,6 +232,12 @@ internal sealed record InteractionsMenuTriggerOptions
     /// <value><see langword="true"/> for a submenu trigger; the default <see langword="false"/> is not sent.</value>
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
     public bool CloseOnGuardReturn { get; init; }
+
+    // Design point 1 (a) of M5 track 8 (settled by the orchestrator 2026-11-11): MenuTrigger.tsx:120-124.
+    /// <summary>Gets a value indicating whether the tree stays armed when this trigger's open ends.</summary>
+    /// <value><see langword="true"/> for a menubar's trigger; the default <see langword="false"/> is not sent.</value>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
+    public bool KeepArmedWhenClosed { get; init; }
 }
 
 /// <summary>The press-to-toggle configuration of a trigger.</summary>

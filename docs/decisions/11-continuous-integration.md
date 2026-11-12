@@ -106,3 +106,5 @@ The gate runs with `retries: 0`; `--fail-on-flaky-tests` is set so that enabling
 - A class whose filter runs no test fails the step, so a misnamed class cannot pass unnoticed.
 - The step costs about 1 min on CI (59 s for 37 classes in run 42853153530; about 90 s locally for the 39 processes), inside the job's 20-minute timeout.
 - The script's pure half, the class finder, the exclusion arguments and the summary, is tested by `allocation-budgets.test.mjs`, which `npm run test:js` runs (`.github/CONTEXT.md`).
+
+**2026-11-11, the dependents map gains `menu` → `menubar` (M5 track 8, [issue 195](https://github.com/JakeMurrayDev/Blazix.Primitives/issues/195); design point 4 (a), settled by the orchestrator 2026-11-11 under the user's "Do recommended for decisions"; the dependents rule of Amendments 2026-10-29).** Menubar's menus are Menu's own parts and its branches are Menu's code (decision 12 of the M5 plan), so a change under `src/Blazix.Primitives/Menu/` also runs `tests/browser/menubar.spec.ts`. The dependence runs one way. `classify-paths.test.mjs` has the title.

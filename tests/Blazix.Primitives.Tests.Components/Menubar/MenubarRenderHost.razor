@@ -1,0 +1,39 @@
+@namespace Blazix.Primitives.Tests.Components
+@* Render counts (M5 track 8's brief, Tests first, L2): a bar with File open at its first render and a closed Edit, each part
+   counting its ClassValue calls. The host never re-renders after its first render, so the counts are the parts' own. *@
+<Menubar id="bar" ClassValue="@(_ => Count("bar"))">
+    <MenuRoot TPayload="NoPayload" @ref="File" DefaultOpen="true">
+        <MenuTrigger TPayload="NoPayload" ClassValue="@(_ => Count("file"))">File</MenuTrigger>
+        <MenuPortal>
+            <MenuPositioner>
+                <MenuPopup>
+                    <MenuItem ClassValue="@(_ => Count("file-item"))">Open</MenuItem>
+                </MenuPopup>
+            </MenuPositioner>
+        </MenuPortal>
+    </MenuRoot>
+    <MenuRoot TPayload="NoPayload">
+        <MenuTrigger TPayload="NoPayload" ClassValue="@(_ => Count("edit"))">Edit</MenuTrigger>
+        <MenuPortal>
+            <MenuPositioner>
+                <MenuPopup>
+                    <MenuItem ClassValue="@(_ => Count("edit-item"))">Copy</MenuItem>
+                </MenuPopup>
+            </MenuPositioner>
+        </MenuPortal>
+    </MenuRoot>
+</Menubar>
+
+@code {
+    /// <summary>Gets the File menu's root.</summary>
+    public MenuRoot<NoPayload>? File { get; private set; }
+
+    /// <summary>Gets the ClassValue calls by part, one per render of the part.</summary>
+    public Dictionary<string, int> Renders { get; } = [];
+
+    private string? Count(string part)
+    {
+        Renders[part] = Renders.GetValueOrDefault(part) + 1;
+        return null;
+    }
+}

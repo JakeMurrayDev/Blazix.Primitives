@@ -28,6 +28,8 @@ internal sealed class MenuStore<TPayload> : PopupStore<MenuStoreState<TPayload>,
     private readonly TimeProvider timeProvider;
     private long touchGuardStart = -1;
     private MenuInstantType? seededInstantType;
+    private MenuParent rootParent;
+    private MenuParent? forwardedParent;
 
     // Track 8 (Menubar.tsx:120's `menuopenchange`, plan §Settled): the commit of each open change, after its write.
     /// <summary>Occurs after the store committed an open change, with the committed open state and the change's reason.</summary>
@@ -48,6 +50,9 @@ internal sealed class MenuStore<TPayload> : PopupStore<MenuStoreState<TPayload>,
     /// <summary>Gets the context the root created over this store, which a detached trigger reaches its list through.</summary>
     /// <value>The context, or <see langword="null"/> for a handle's fallback store.</value>
     public MenuRootContext? Context { get; private set; }
+
+    /// <summary>Gets the parent the root resolved from its position, which a trigger's forwarded parent does not change.</summary>
+    public MenuParent RootParent => rootParent;
 
     // MNU-STA-04 (MenuRoot.tsx:404, 422-437; isKeyboardOpen.ts).
     /// <summary>Derives the instant type an applied open change writes.</summary>
@@ -119,14 +124,23 @@ internal sealed class MenuStore<TPayload> : PopupStore<MenuStoreState<TPayload>,
         return applied;
     }
 
-    /// <summary>Writes the menu's resolved parent.</summary>
+    /// <summary>Writes the parent the root resolved from its position.</summary>
     /// <param name="parent">The parent.</param>
     public void SetParent(MenuParent parent)
     {
-        if (State.Parent != parent)
-        {
-            Write(State with { Parent = parent });
-        }
+        rootParent = parent;
+        WriteParent();
+    }
+
+    // MBR-STR-04 (MenuTrigger.tsx:95-108, popupStoreUtils.ts:339-390), design point 2 (i) of M5 track 8 (settled by the
+    // orchestrator 2026-11-11): the trigger that mounts the popup forwards its own parent, a menubar or none, and it stays
+    // the store's until another trigger mounts it; the root's position gives the parent before any trigger has.
+    /// <summary>Writes the parent of the trigger that holds the popup.</summary>
+    /// <param name="parent">The trigger's parent: a menubar or none.</param>
+    public void ForwardTriggerParent(MenuParent parent)
+    {
+        forwardedParent = parent;
+        WriteParent();
     }
 
     /// <summary>Writes the root's own fields from its parameters.</summary>
@@ -319,6 +333,15 @@ internal sealed class MenuStore<TPayload> : PopupStore<MenuStoreState<TPayload>,
         if (State.OpenChangeReason is not null)
         {
             Write(State with { OpenChangeReason = null });
+        }
+    }
+
+    private void WriteParent()
+    {
+        MenuParent parent = forwardedParent ?? rootParent;
+        if (State.Parent != parent)
+        {
+            Write(State with { Parent = parent });
         }
     }
 

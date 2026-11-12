@@ -8,7 +8,7 @@
 | Docs page | `docs/src/app/(docs)/react/components/navigation-menu/page.mdx` |
 | Prefix | `NAV` |
 | Status | approved |
-| Revised | 2026-11-11 |
+| Revised | 2026-11-12 |
 | Builds on | none |
 | Derived by | none |
 | Depends on | [rendering-and-composition](../architecture/rendering-and-composition.md), [event-details-and-reasons](../architecture/event-details-and-reasons.md), [button-behavior](../architecture/button-behavior.md), [composite-and-list-navigation](../architecture/composite-and-list-navigation.md), [floating-and-positioning](../architecture/floating-and-positioning.md), [popup-store-and-handles](../architecture/popup-store-and-handles.md), [transitions-and-mounting](../architecture/transitions-and-mounting.md), [shared-utilities](../architecture/shared-utilities.md) |
@@ -880,6 +880,7 @@ The top-level List is a roving-tabindex composite group ([composite-and-list-nav
 - **NAV-KEY-16** — MUST. Sequential focus movement never opens an inactive nested panel: tabbing onto an inactive nested Trigger leaves the active nested value unchanged.
   Source: `navigation-menu/trigger/NavigationMenuTrigger.tsx:665-670` (focus handler only clears `viewportInert`); `navigation-menu/content/NavigationMenuContent.tsx:111-124`. Test: [L4] `NavigationMenuRoot.test.tsx` "tabs between nested triggers and links without opening inactive panels".
   Port note (2026-11-04, M5 track 5, [issue 163](https://github.com/JakeMurrayDev/Blazix.Primitives/issues/163); the review of PR 168, B2): waited for gap G2's fix (NAV-KEY-12's note), PR 184; green on both modes.
+  Port note (2026-11-12, M5 upkeep, [issue 241](https://github.com/JakeMurrayDev/Blazix.Primitives/issues/241); quarantine asked for by the orchestrator 2026-11-12): open on Server. "tabs between nested triggers and links without opening inactive panels" can fail on Server: `nested-link-get-started` stays inactive after the <kbd>Tab</kbd> from its nested Trigger. It was seen three times: PR 228's run 42885016205, 1 of 160 local runs on 2026-11-11, and PR 240's run 43063463263. No WebAssembly failure has been seen. The title is quarantined under ADR 11 §4 until 2026-11-26 (`test.fixme`, `@quarantine`, issue 241) while its cause is traced, so it is skipped on both modes.
 - **NAV-KEY-17** — MUST. Opening with the keyboard (open key, <kbd>Enter</kbd>, <kbd>Space</kbd>) never moves focus into the popup; the trigger keeps focus until the user tabs.
   Source: `navigation-menu/trigger/NavigationMenuTrigger.tsx:656-709` (no focus call on open); `navigation-menu/root/NavigationMenuRoot.tsx:122-158` (no initial-focus logic). Test: [L4] `NavigationMenuTrigger.test.tsx` "keeps focus on the trigger when opened with %s"; `NavigationMenuRoot.test.tsx` "moves focus through the menu correctly" (trigger focused after click).
 
