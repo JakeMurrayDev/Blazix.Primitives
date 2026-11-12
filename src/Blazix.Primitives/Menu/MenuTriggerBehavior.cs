@@ -269,7 +269,9 @@ internal sealed class MenuTriggerBehavior<TPayload> : IAsyncDisposable, IMenuTri
     {
         button.Disabled = Disabled;
         attributes.Set(PopupMarkerAttributes.ClickTrigger, string.Empty);
-        trigger.AddAttributes(attributes, ariaExpanded: true, ariaHasPopup: "menu");
+        // MNU-ARIA-01 (MenuFilterDropdown.tsx:128, M5 track 12 under the orchestrator's 2026-11-12 grant): a filterable
+        // menu's popup is a dialog.
+        trigger.AddAttributes(attributes, ariaExpanded: true, ariaHasPopup: trigger.Store.Context?.Filter is not null ? "dialog" : "menu");
 
         // MNU-ARIA-03 (MenuStore.ts:100-103): the list when one holds the menu role, else the popup.
         if (controlsId!.Value is { } controls)

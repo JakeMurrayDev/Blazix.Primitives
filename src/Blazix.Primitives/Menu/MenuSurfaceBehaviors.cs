@@ -481,10 +481,17 @@ internal sealed class MenuListBehavior : IDisposable
         this.id = id;
         this.attributes = attributes;
 
-        // MenuList.tsx:23-33 (MNU-EDGE-09): the trigger's aria-controls follows the list's id; in a filterable menu the
-        // input's does (FilterDropdownList.tsx:23-27, MNU-API-62; M5 track 12).
-        root!.SetListElementId(id);
-        root.Filter?.SetListId(id);
+        // MenuList.tsx:23-33 (MNU-EDGE-09): the trigger's aria-controls follows the list's id. In a filterable menu the
+        // list is Base UI's MenuFilterList, which publishes no list element, so the triggers control the dialog (MNU-ARIA-13)
+        // and the input's aria-controls follows the list (FilterDropdownList.tsx:23-27, MNU-API-62; M5 track 12).
+        if (root!.Filter is { } filter)
+        {
+            filter.SetListId(id);
+        }
+        else
+        {
+            root.SetListElementId(id);
+        }
     }
 
     /// <summary>Adds the list's attributes.</summary>

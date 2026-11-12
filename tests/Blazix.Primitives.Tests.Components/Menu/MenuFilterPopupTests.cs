@@ -75,7 +75,8 @@ public sealed class MenuFilterPopupTests : BunitContext
         IElement submenuTrigger = cut.FindAll("[role=menuitem]").Single(element => element.TextContent.Trim() == "Move to folder");
 
         Assert.Equal("dialog", submenuTrigger.GetAttribute("aria-haspopup"));
-        IElement popup = cut.FindAll("[role=dialog]").Single(element => element.QuerySelector("[aria-label='Filter folders']") is not null);
+        // bUnit renders the portals in place, so the parent's dialog holds the submenu's too.
+        IElement popup = cut.FindAll("[role=dialog]").Single(element => element.QuerySelector("[aria-label='Filter actions']") is null);
         Assert.Equal(popup.Id, submenuTrigger.GetAttribute("aria-controls"));
         Assert.Equal(submenuTrigger.Id, popup.GetAttribute("aria-labelledby"));
     }

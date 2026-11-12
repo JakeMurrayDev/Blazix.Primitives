@@ -234,7 +234,8 @@ internal sealed class MenuSubmenuTriggerBehavior : IAsyncDisposable
     {
         MenuRootContext<NoPayload> menu = submenu!;
         bool open = Open;
-        trigger!.AddAttributes(attributes, ariaExpanded: true, ariaHasPopup: "menu");
+        // MNU-ARIA-13 (useMenuFilterSubmenuTrigger.ts:59-62, M5 track 12): a filterable submenu's popup is a dialog.
+        trigger!.AddAttributes(attributes, ariaExpanded: true, ariaHasPopup: menu.Filter is not null ? "dialog" : "menu");
 
         // MNU-A11Y-01 (ADR 01 Amendments 2026-11-04): aria-expanded is left out after a keyboard open under VoiceOver.
         if (open && menu.State.KeyboardOpen && platform.VoiceOver == true)
