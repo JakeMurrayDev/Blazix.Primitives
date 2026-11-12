@@ -9,7 +9,7 @@
     (SubmitOnItemClick inside a form whose input is named `tag`; the page reads its FormData), `keepHighlight`, `insidePopup`
     (a Trigger showing the Value, the Input inside the popup). Recorded through `Records`: `value-changes` (`text:reason`),
     `highlights` (`value:reason:index`), `highlight-events` (each highlight's event type), `item-clicks` (the Items' consumer
-    onclick), and the base's open changes. A button follows the Input (Base UI's Tab target) and the form has a submit button.
+    onclick), and the base's open changes. A button follows the Input (Base UI's Tab target) and the form has a submit button. `many` gives 50 items (`item 0`..`item 49`) in a list 100 px high that scrolls.
 *@
 <FixtureContainer Name="autocomplete-root" data-attached="@(Attached ? "true" : "false")" data-sync="@Sync"
                   data-open-changes="@OpenChanges" data-open-change-completes="@OpenChangeCompletes" @attributes="Records">
@@ -33,7 +33,7 @@
                         {
                             <AutocompleteInput @ref="input" data-testid="input" />
                         }
-                        <AutocompleteList TValue="string" data-testid="list">
+                        <AutocompleteList TValue="string" data-testid="list" style="@listStyle">
                             <ItemContent>
                                 <AutocompleteItem TValue="string" Value="@context.Value" data-testid="@("item-" + context.Value)" @key="context.Value"
                                                   @onclick="@(() => Record("item-clicks", context.Value))">@context.Value</AutocompleteItem>
@@ -49,10 +49,12 @@
 
 @code {
     private static readonly string[] s_items = ["apple", "banana", "cherry"];
+    private static readonly string[] s_many = [.. Enumerable.Range(0, 50).Select(i => "item " + i.ToString(System.Globalization.CultureInfo.InvariantCulture))];
     private AutocompleteRoot<string>? root;
     private AutocompleteInput? input;
     private AutocompleteTrigger? trigger;
     private bool insidePopup;
+    private string? listStyle;
     private Dictionary<string, object?> rootParameters = [];
 
     private IReadOnlyDictionary<string, object?> RootParameters => rootParameters;
@@ -65,9 +67,10 @@
     {
         base.OnInitialized();
         insidePopup = QueryFlag("insidePopup") == true;
+        listStyle = QueryFlag("many") == true ? "max-height: 100px; overflow-y: auto" : null;
         rootParameters = new()
         {
-            ["Items"] = s_items,
+            ["Items"] = QueryFlag("many") == true ? s_many : s_items,
             ["Mode"] = Query("mode") switch { "both" => AutocompleteMode.Both, "inline" => AutocompleteMode.Inline, "none" => AutocompleteMode.None, _ => AutocompleteMode.List },
             ["ReadOnly"] = QueryFlag("readOnly") == true,
             ["OpenOnInputClick"] = QueryFlag("openOnInputClick") == true,
