@@ -1213,6 +1213,10 @@ internal sealed class ComboboxStore<TValue> : ComboboxStore
         {
             ComboboxSelectionMode.Single when singlePresent => ItemEquality.FindSelectionIndex(registry, valueState.Value, inputs.IsItemEqualToValue),
             ComboboxSelectionMode.Multiple => ItemEquality.FindSelectionIndex(registry, SelectedValues, inputs.IsItemEqualToValue),
+
+            // AUT-STA-08, §16 Q3 (ComboboxItem.tsx:110-135; design point 1 (ii) of M5 track 11, settled by the orchestrator
+            // 2026-11-12): without Items, the rendered item equal to the activated value is the selected index.
+            ComboboxSelectionMode.None when singlePresent && !State.HasItems => ItemEquality.FindSelectionIndex(registry, valueState.Value, inputs.IsItemEqualToValue),
             _ => null,
         };
     }
@@ -2061,7 +2065,7 @@ internal sealed class ComboboxStore<TValue> : ComboboxStore
     // item); with no match a single root keeps its index.
     private void ReassertSelectedIndex()
     {
-        if (!IsOpen || State.HasItems || State.SelectionMode == ComboboxSelectionMode.None || FindSelectedIndex() is not int index)
+        if (!IsOpen || State.HasItems || FindSelectedIndex() is not int index)
         {
             return;
         }
