@@ -773,6 +773,21 @@ test.describe('filterable menu keys and semantics', () => {
     await expect(input(page)).toBeFocused();
   });
 
+  // MNU-FOC-13 (MenuFilterRoot.scoping.test.tsx): Menu's focus manager is modal only under a context menu (MenuPopup.tsx:197),
+  // so a modal filterable popup hides nothing outside it, and Tab leaves it and closes it.
+  test('lets Tab leave a modal filterable popup and closes it', async ({ page, mode }) => {
+    await renderWith(page, mode, '?after=true');
+    await expect(input(page)).toBeFocused();
+    const after = page.getByTestId('after');
+    await expect(after).not.toHaveAttribute('aria-hidden', 'true');
+    await expect(after).not.toHaveAttribute('inert');
+
+    await page.keyboard.press('Tab');
+
+    await expect(after).toBeFocused();
+    await expect(page.getByRole('menu')).toHaveCount(0);
+  });
+
   // MNU-KEY-05.
   test('uses Home and End for list navigation after an item is highlighted', async ({ page, mode }) => {
     await renderWith(page, mode);

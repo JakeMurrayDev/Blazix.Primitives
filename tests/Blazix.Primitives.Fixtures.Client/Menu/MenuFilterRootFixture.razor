@@ -10,7 +10,7 @@
     whose popup (`data-testid="submenu-popup"`) holds an input "Filter folders" and Documents. The popup carries
     `data-testid="popup"`. `insert=true` holds the root open (controlled) and adds a button "Insert item" outside the menu,
     whose press keeps focus where it is, that inserts Archive first; each highlight report is recorded by item text, or
-    "none", in `data-highlights` (`|`-separated). Each query request is recorded as
+    "none", in `data-highlights` (`|`-separated). `after=true` adds an input "After" (`data-testid="after"`) after the menu. Each query request is recorded as
     `value:reason` in `data-value-changes` (`|`-separated), and each item press by name in `data-presses`; `data-attached` turns "true" once the menu's session and the
     input's and list's `menu-filter` handles have attached.
 *@
@@ -66,6 +66,10 @@
         </MenuRoot>
     </MenuFilterProvider>
     </DirectionProvider>
+    @if (After)
+    {
+        <input data-testid="after" aria-label="After" />
+    }
 </FixtureContainer>
 
 @code {
@@ -100,6 +104,9 @@
 
     [SupplyParameterFromQuery(Name = "insert")]
     public bool Insert { get; set; }
+
+    [SupplyParameterFromQuery(Name = "after")]
+    public bool After { get; set; }
 
     private AutoHighlightValue? AutoHighlight => Auto switch
     {
