@@ -63,6 +63,7 @@ internal sealed class MenuPopupBehavior : IAsyncDisposable
     private IDisposable? boundaryPart;
     private IDisposable? retainRegistration;
     private IDisposable? inputIdSubscription;
+    private MenuFilterModuleAttachment? filterModule;
     private FocusManagerBehavior? focus;
     private TransitionsTwin? transitions;
     private TwinHandle<TransitionsOptions>? transitionsHandle;
@@ -145,11 +146,20 @@ internal sealed class MenuPopupBehavior : IAsyncDisposable
             // MNU-KEY-20 (MenuPopup.tsx:169-173): inside a toolbar the composite keys stop at the popup.
             Task moduleSync = module.SyncAsync(target, toolbar is null ? s_freeKeys : s_stoppedKeys);
 
+            // useMenuFilterPopup.ts (M5 track 12): a filterable popup's `menu-filter` handle, the input's refocus.
+            Task filterSync = filterModule?.SyncAsync(target, new MenuFilterOptions
+            {
+                Part = MenuFilterTwin.PopupPart,
+                MenuKey = menu.SessionToken,
+                Open = open!.Value,
+            }) ?? Task.CompletedTask;
+
             // The list's handle waits for the session inside track 1's behavior; the batch boundary does not wait for it.
             listSync = list.AfterRenderAsync(true, target, id);
             focus!.SetInputs(FocusInputs());
             await focus.AfterRenderAsync(target, id);
             await moduleSync;
+            await filterSync;
             await transitionsSync;
         }
 
@@ -176,9 +186,11 @@ internal sealed class MenuPopupBehavior : IAsyncDisposable
         list.Dispose();
         ValueTask transitionsDisposed = transitions?.DisposeAsync() ?? ValueTask.CompletedTask;
         ValueTask moduleDisposed = module.DisposeAsync();
+        ValueTask filterDisposed = filterModule?.DisposeAsync() ?? ValueTask.CompletedTask;
         ValueTask focusDisposed = focus?.DisposeAsync() ?? ValueTask.CompletedTask;
         await transitionsDisposed;
         await moduleDisposed;
+        await filterDisposed;
         await focusDisposed;
     }
 
@@ -220,6 +232,10 @@ internal sealed class MenuPopupBehavior : IAsyncDisposable
 
         // MenuFilterPopup.tsx:38-50 (M5 track 12): a filterable popup's initial focus is its input, named by its id.
         inputIdSubscription = menu.Filter?.SubscribeInputId(OnChanged);
+        if (menu.Filter is not null)
+        {
+            filterModule = new MenuFilterModuleAttachment(jsRuntime);
+        }
     }
 
     /// <summary>Applies the part's focus parameters and its rendered id.</summary>

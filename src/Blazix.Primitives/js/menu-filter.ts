@@ -156,8 +156,19 @@ interface MenuFilterElement extends HTMLElement {
   [handleKey]?: TwinHandle;
 }
 
-// The Inputs by menu key, the focus owners the List hands focus back to (filter-dropdown/utils/refocusOwner.ts).
-const owners = new Map<string, HTMLInputElement>();
+// The Inputs by menu key, the focus owners the List and the Popup hand focus back to (filter-dropdown/utils/
+// refocusOwner.ts), with the Input's current options (its orientation and direction).
+interface FocusOwner {
+  input: HTMLInputElement;
+  options: () => MenuFilterOptions;
+}
+
+const owners = new Map<string, FocusOwner>();
+
+// isTypeableElement (floating-ui-react/utils): a key on a text field is the field's.
+function isTypeable(target: EventTarget | null): boolean {
+  return target instanceof HTMLElement && (target.isContentEditable || target instanceof HTMLTextAreaElement || (target instanceof HTMLInputElement && !['button', 'checkbox', 'radio', 'submit', 'reset', 'image', 'range', 'color', 'file'].includes(target.type)));
+}
 
 function refocusOwner(owner: HTMLElement): void {
   owner.focus({ preventScroll: true });
@@ -338,8 +349,9 @@ function attachInput(input: HTMLInputElement, initial: MenuFilterOptions, channe
   input.addEventListener('pointerdown', onPointer);
   input.addEventListener('mouseenter', onPointer);
   const ownerKey = options.menuKey ?? null;
+  const owner: FocusOwner = { input, options: () => options };
   if (ownerKey !== null) {
-    owners.set(ownerKey, input);
+    owners.set(ownerKey, owner);
   }
   syncHighlighted();
 
@@ -373,7 +385,7 @@ function attachInput(input: HTMLInputElement, initial: MenuFilterOptions, channe
       input.removeEventListener('keydown', onKeyDown);
       input.removeEventListener('pointerdown', onPointer);
       input.removeEventListener('mouseenter', onPointer);
-      if (ownerKey !== null && owners.get(ownerKey) === input) {
+      if (ownerKey !== null && owners.get(ownerKey) === owner) {
         owners.delete(ownerKey);
       }
     },
@@ -419,7 +431,7 @@ function attachList(list: HTMLElement, initial: MenuFilterOptions, channel: Twin
     }
   };
 
-  const ownerOf = (): HTMLInputElement | undefined => (options.menuKey ? owners.get(options.menuKey) : undefined);
+  const ownerOf = (): HTMLInputElement | undefined => (options.menuKey ? owners.get(options.menuKey)?.input : undefined);
 
   // FilterDropdownList.tsx:33-43: a press on the list's own content (its background, a group, a group label) focuses the
   // list; focus that came from the input goes back to it.
@@ -491,6 +503,85 @@ function attachList(list: HTMLElement, initial: MenuFilterOptions, channel: Twin
   };
 }
 
+// The Popup (useMenuFilterPopup.ts): the input holds real focus while the menu filters. A press on the popup's own
+// background keeps it there (PTR-22); a mouse moving over the popup returns it to the input when it is outside the popup
+// (FOC-14); focus landing on the popup itself, the focus manager's fallback, moves on to the input; and the cross-axis
+// close key on another control returns focus to the input (KEY-33). A nested popup is portaled outside this one in the
+// DOM, so its events never reach this handle.
+function attachPopup(popup: HTMLElement, initial: MenuFilterOptions): TwinHandle {
+  let options = initial;
+  let disposed = false;
+  // A tap fires compatibility mouse events, which must not focus the input and raise the on-screen keyboard.
+  let pointerType = 'mouse';
+
+  const ownerOf = (): FocusOwner | undefined => (options.menuKey ? owners.get(options.menuKey) : undefined);
+
+  const onMouseDown = (event: MouseEvent): void => {
+    if (event.target === popup) {
+      event.preventDefault();
+    }
+  };
+  const trackPointerType = (event: PointerEvent): void => {
+    pointerType = event.pointerType || 'mouse';
+  };
+  const onMouseMove = (): void => {
+    const owner = ownerOf();
+    if (pointerType !== 'mouse' || options.open !== true || owner === undefined) {
+      return;
+    }
+    const active = popup.ownerDocument.activeElement;
+    if (active === owner.input || (active !== null && popup.contains(active))) {
+      return;
+    }
+    refocusOwner(owner.input);
+  };
+  const onFocusIn = (event: FocusEvent): void => {
+    const owner = ownerOf();
+    if (options.open === true && owner !== undefined && event.target === popup) {
+      refocusOwner(owner.input);
+    }
+  };
+  const onKeyDown = (event: KeyboardEvent): void => {
+    const owner = ownerOf();
+    if (owner === undefined || event.target === owner.input || isTypeable(event.target)) {
+      return;
+    }
+    const ownerOptions = owner.options();
+    if (isCrossOrientationCloseKey(event.key, ownerOptions.orientation ?? 'vertical', ownerOptions.rtl === true, false)) {
+      refocusOwner(owner.input);
+    }
+  };
+
+  popup.addEventListener('mousedown', onMouseDown);
+  popup.addEventListener('pointerdown', trackPointerType);
+  popup.addEventListener('pointerover', trackPointerType);
+  popup.addEventListener('pointermove', trackPointerType);
+  popup.addEventListener('mousemove', onMouseMove);
+  popup.addEventListener('focusin', onFocusIn);
+  popup.addEventListener('keydown', onKeyDown);
+
+  return {
+    update(optionsJson: string): void {
+      if (!disposed) {
+        options = parseOptions<MenuFilterOptions>(optionsJson);
+      }
+    },
+    dispose(): void {
+      if (disposed) {
+        return;
+      }
+      disposed = true;
+      popup.removeEventListener('mousedown', onMouseDown);
+      popup.removeEventListener('pointerdown', trackPointerType);
+      popup.removeEventListener('pointerover', trackPointerType);
+      popup.removeEventListener('pointermove', trackPointerType);
+      popup.removeEventListener('mousemove', onMouseMove);
+      popup.removeEventListener('focusin', onFocusIn);
+      popup.removeEventListener('keydown', onKeyDown);
+    },
+  };
+}
+
 /**
  * Attaches a `menu-filter` handle to a part's element.
  * @param elementOrId The part's element, or its id.
@@ -522,6 +613,9 @@ export function attach(
       break;
     case 'list':
       inner = attachList(element, options, channel);
+      break;
+    case 'popup':
+      inner = attachPopup(element, options);
       break;
     default:
       throw new Error(`menu-filter: the ${options.part} part is not implemented`);

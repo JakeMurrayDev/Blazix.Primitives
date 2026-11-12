@@ -66,6 +66,9 @@ public sealed class MenuInput : PartBase<MenuInputState>
     [CascadingParameter]
     private PopupPortalContext? Portal { get; set; }
 
+    [CascadingParameter]
+    private DirectionProviderContext? DirectionContext { get; set; }
+
     /// <summary>Gets or sets a value indicating whether the input ignores user interaction.</summary>
     /// <value>The default is <see langword="false"/>. The input is also disabled while its menu is.</value>
     [Parameter]
@@ -142,6 +145,10 @@ public sealed class MenuInput : PartBase<MenuInputState>
             ValueRevision = filter.QueryRevision,
             Open = open!.Value,
             KeyboardOpen = keyboardOpen!.Value,
+
+            // useMenuFilterKeyDown.ts:38-46: the router's table reads the menu's orientation and direction.
+            Orientation = RootContext.Orientation == Orientation.Horizontal ? "horizontal" : "vertical",
+            Rtl = DirectionProviderContext.Read(DirectionContext) == TextDirection.Rtl,
         });
         await referenceSync;
     }
