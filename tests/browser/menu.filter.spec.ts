@@ -291,6 +291,27 @@ test.describe('filterable menu initial highlight', () => {
     }, init);
   }
 
+  // MNU-API-59, EVT-14, EVT-15 (MenuFilterRoot.test.tsx): Base UI's fireEvent.keyDown is a dispatched keydown.
+  test('runs a consumer handler once per interaction on each composed part', async ({ page, mode }) => {
+    const fixture = page.locator(Fixture.interactive('menu-filter-initial'));
+    await page.goto(`/${mode}/menu-filter-initial?count=true`, { waitUntil: 'commit' });
+    await page.locator(Fixture.started).waitFor({ state: 'attached' });
+    await expect(fixture).toHaveAttribute('data-attached', 'true');
+
+    await trigger(page).click();
+    await expect(fixture).toHaveAttribute('data-trigger-clicks', '1');
+    await expect(input(page)).toBeFocused();
+
+    await input(page).evaluate((element) => element.dispatchEvent(new KeyboardEvent('keydown', { key: 'r', bubbles: true, cancelable: true })));
+    // A printable key stays on the input: it must not reach the popup's handler.
+    await expect(fixture).toHaveAttribute('data-input-keydowns', '1');
+    await expect(fixture).toHaveAttribute('data-popup-keydowns', '0');
+
+    // Escape is not consumed by the input, so it reaches the popup exactly once.
+    await input(page).evaluate((element) => element.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true })));
+    await expect(fixture).toHaveAttribute('data-popup-keydowns', '1');
+  });
+
   // MNU-PTR-19.
   test('focuses the input when a screen reader press opens the menu', async ({ page, mode }) => {
     await open(page, mode);

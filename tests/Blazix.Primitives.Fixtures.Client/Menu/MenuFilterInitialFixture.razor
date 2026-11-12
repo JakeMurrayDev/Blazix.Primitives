@@ -7,18 +7,19 @@
     .test.tsx's Test, closed: a trigger "Actions" (`hover=true` opens it on hover with no delay; `orientation=horizontal`
     sets the root's orientation; `plain=true` drops the disabled item; `after=true` adds an input "After"
     (`data-testid="after"`) after the menu; `cancelArrow=true` gives the trigger a consumer onKeyDown that cancels the
-    part's handling of ArrowDown), an input, Empty reading
+    part's handling of ArrowDown; `count=true` counts consumer calls in `data-trigger-clicks`, `data-input-keydowns`
+    and `data-popup-keydowns`), an input, Empty reading
     "No actions found.", and a list of a disabled Unavailable, Rename and Delete. `data-attached` turns "true" once the
     menu's session has attached, and `data-input-attached` once the open popup's input has its `menu-filter` handle.
 *@
-<FixtureContainer Name="menu-filter-initial" data-attached="@(attached ? "true" : "false")" data-input-attached="@(inputAttached ? "true" : "false")">
+<FixtureContainer Name="menu-filter-initial" data-attached="@(attached ? "true" : "false")" data-input-attached="@(inputAttached ? "true" : "false")" data-trigger-clicks="@triggerClicks" data-input-keydowns="@inputKeyDowns" data-popup-keydowns="@popupKeyDowns">
     <MenuFilterProvider>
         <MenuRoot TPayload="NoPayload" Orientation="@(OrientationName == "horizontal" ? Orientation.Horizontal : Orientation.Vertical)" OnOpenChangeComplete="OnOpenChangeComplete" @ref="root">
             <MenuTrigger TPayload="NoPayload" OpenOnHover="@Hover" Delay="0" @attributes="TriggerAttributes">Actions</MenuTrigger>
             <MenuPortal>
                 <MenuPositioner>
-                    <MenuPopup data-testid="popup">
-                        <MenuInput aria-label="Filter actions" @ref="input" />
+                    <MenuPopup data-testid="popup" @attributes="PopupAttributes">
+                        <MenuInput aria-label="Filter actions" @attributes="InputAttributes" @ref="input" />
                         <MenuEmpty>No actions found.</MenuEmpty>
                         <MenuList>
                             @if (!Plain)
@@ -54,7 +55,23 @@
     // Only then does the trigger carry a consumer handler, which makes each of its keydowns ask C# (design point 6).
     private Dictionary<string, object>? TriggerAttributes => CancelArrow
         ? new() { ["onkeydown"] = EventCallback.Factory.Create<KeyboardEventArgs>(this, OnTriggerKeyDown) }
+        : Count ? new() { ["onclick"] = EventCallback.Factory.Create<MouseEventArgs>(this, () => triggerClicks++) } : null;
+
+    // `count=true`: consumer handlers on the trigger's click, the input's keydown and the popup's keydown count their calls.
+    private Dictionary<string, object>? InputAttributes => Count
+        ? new() { ["onkeydown"] = EventCallback.Factory.Create<KeyboardEventArgs>(this, () => inputKeyDowns++) }
         : null;
+
+    private Dictionary<string, object>? PopupAttributes => Count
+        ? new() { ["onkeydown"] = EventCallback.Factory.Create<KeyboardEventArgs>(this, () => popupKeyDowns++) }
+        : null;
+
+    private int triggerClicks;
+    private int inputKeyDowns;
+    private int popupKeyDowns;
+
+    [SupplyParameterFromQuery(Name = "count")]
+    public bool Count { get; set; }
 
     private void OnTriggerKeyDown(KeyboardEventArgs args)
     {
