@@ -145,6 +145,37 @@ public sealed class CompositeKeyHandlerTests : IDisposable
         Assert.Equal(["item a: Enter", "item a: ArrowDown"], runs);
     }
 
+    // MNU-API-59, EVT-14, EVT-15 (the orchestrator's 2026-11-12 settlement, option (a)): Menu's filter input lets its editing
+    // keys propagate although its root's options stop propagation, so Blazor dispatches a key the decision already ran the
+    // consumer's handler for. DecidedKeysMayPropagate records every decision, so that dispatch skips the handler once.
+    [Fact(DisplayName = "port: with DecidedKeysMayPropagate, Blazor's dispatch of a decided key skips the consumer's onkeydown once although the root stops propagation")]
+    [Trait("Requirement", "CMP-EVT-12")]
+    [Trait("Requirement", "MNU-API-59")]
+    public void DecidedKeysMayPropagate_records_a_decision_the_root_stops()
+    {
+        IRenderedComponent<TestCompositeRoot> cut = Context.Render<TestCompositeRoot>(p => p.AddChildContent(Items(itemHandler: true)));
+        cut.Instance.Behavior.DecidedKeysMayPropagate = true;
+        AngleSharp.Dom.IElement first = cut.FindAll("[data-item]")[0];
+
+        host.Twin.Decide(CompositeTwin.NavigatePoint, KeyDownJson("ArrowDown", first.Id!));
+        first.KeyDown(new KeyboardEventArgs { Key = "ArrowDown", Code = "ArrowDown" });
+
+        Assert.Equal(["item a: ArrowDown"], runs);
+    }
+
+    [Fact(DisplayName = "port: without DecidedKeysMayPropagate, a decision under a root that stops propagation records no key, as the module keeps it from Blazor")]
+    [Trait("Requirement", "CMP-EVT-12")]
+    public void Without_DecidedKeysMayPropagate_a_stopped_decision_records_no_key()
+    {
+        IRenderedComponent<TestCompositeRoot> cut = Context.Render<TestCompositeRoot>(p => p.AddChildContent(Items(itemHandler: true)));
+        AngleSharp.Dom.IElement first = cut.FindAll("[data-item]")[0];
+
+        host.Twin.Decide(CompositeTwin.NavigatePoint, KeyDownJson("ArrowDown", first.Id!));
+        first.KeyDown(new KeyboardEventArgs { Key = "ArrowDown", Code = "ArrowDown" });
+
+        Assert.Equal(["item a: ArrowDown", "item a: ArrowDown"], runs);
+    }
+
     private EventCallback<KeyboardEventArgs> RootHandler(bool veto) => EventCallback.Factory.Create<KeyboardEventArgs>(this, (KeyboardEventArgs e) =>
     {
         runs.Add($"root: {e.Key}");
