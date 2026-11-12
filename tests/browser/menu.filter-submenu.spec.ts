@@ -222,6 +222,9 @@ test.describe('closing a filtered submenu from the keyboard', () => {
 
       await page.keyboard.press('ArrowDown');
       await expect(page.getByTestId('submenu')).toBeVisible();
+      // Base UI's submenu takes focus in the commit that mounts it; the port's focus follows the mount, so the close key
+      // waits for it.
+      await expect(submenuFilterable ? submenuInput(page) : item(page, 'Child')).toBeFocused();
       await page.keyboard.press('ArrowLeft');
 
       await expect(page.getByTestId('submenu')).toHaveCount(0);
@@ -251,6 +254,7 @@ test.describe('closing a filtered submenu from the keyboard', () => {
 
       await page.keyboard.press('ArrowDown');
       await expect(page.getByTestId('submenu')).toBeVisible();
+      await expect(submenuFilterable ? submenuInput(page) : item(page, 'Child')).toBeFocused();
       await page.keyboard.press('ArrowLeft');
 
       await expect(page.getByTestId('submenu')).toHaveCount(0);
