@@ -111,6 +111,9 @@ public sealed class MenuInput : PartBase<MenuInputState>
         reference = new CompositeRootBehavior(JSRuntime, IdGenerator, StateHasChanged, DispatchExceptionAsync, onKeyDown);
         reference.SetList(RootContext.List, CompositeListRole.Reference);
 
+        // Design point 6 (a): the router asks `navigate` before composite's handle; both read one verdict per keydown.
+        module.Twin.NavigationDecider = reference.DecideKeyDownOnce;
+
         // MNU-KEY-26 (useMenuFilterKeyDown.ts:179-192): Shift+Tab in the input closes the menu with focus-out; the focus
         // manager returns focus on the close.
         module.Twin.FocusedOut += report => _ = InvokeAsync(() =>
@@ -145,6 +148,7 @@ public sealed class MenuInput : PartBase<MenuInputState>
             ValueRevision = filter.QueryRevision,
             Open = open!.Value,
             KeyboardOpen = keyboardOpen!.Value,
+            DecidesKeyDown = AdditionalAttributes?.ContainsKey("onkeydown") == true,
 
             // useMenuFilterKeyDown.ts:38-46: the router's table reads the menu's orientation and direction.
             Orientation = RootContext.Orientation == Orientation.Horizontal ? "horizontal" : "vertical",

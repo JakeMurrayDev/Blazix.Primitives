@@ -52,6 +52,7 @@ internal sealed class MenuTriggerBehavior<TPayload> : IAsyncDisposable, IMenuTri
     private readonly PopupModuleAttachment guards;
     private readonly IJSRuntime jsRuntime;
     private MenuFilterModuleAttachment? filterModule;
+    private bool decidesKeyDown;
     private readonly Func<Func<Task>, Task> invokeAsync;
     private readonly EventCallback onKeyDown;
     private readonly Action requestRender;
@@ -184,13 +185,21 @@ internal sealed class MenuTriggerBehavior<TPayload> : IAsyncDisposable, IMenuTri
         // menu's trigger relays keys to the input through its `menu-filter` handle; a plain menu attaches none.
         if (element is { } relayTarget && store.Context?.Filter is not null)
         {
-            filterModule ??= new MenuFilterModuleAttachment(jsRuntime);
+            if (filterModule is null)
+            {
+                filterModule = new MenuFilterModuleAttachment(jsRuntime);
+
+                // Design point 6 (a): the relay asks `navigate` before composite's handle; both read one verdict per keydown.
+                filterModule.Twin.NavigationDecider = reference.DecideKeyDownOnce;
+            }
+
             await filterModule.SyncAsync(relayTarget, new MenuFilterOptions
             {
                 Part = MenuFilterTwin.TriggerPart,
                 MenuKey = store.SessionToken,
                 Open = store.State.Popup.EffectiveOpen,
                 InBar = InBar,
+                DecidesKeyDown = decidesKeyDown,
             });
         }
     }
@@ -275,6 +284,7 @@ internal sealed class MenuTriggerBehavior<TPayload> : IAsyncDisposable, IMenuTri
         button.SetConsumerAttributes(attributes);
         interactions.SetConsumerAttributes(attributes);
         reference.SetConsumerAttributes(attributes);
+        decidesKeyDown = attributes?.ContainsKey("onkeydown") == true;
         barItem?.SetConsumerAttributes(attributes);
         barItem?.SetRegistration(id, attributes, disabled);
         SyncInteractions();

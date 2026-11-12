@@ -29,6 +29,7 @@ import {
   type DotNetTwin,
   type TwinCaptures,
   type TwinChannel,
+  type DecisionPolicy,
   type TwinHandle,
   type TwinOptions,
   type TwinReferences,
@@ -153,6 +154,13 @@ export function getMenuFilterKeyAction(event: MenuFilterKey, context: MenuFilter
 }
 
 const handleKey = Symbol('blazix.menu-filter.handle');
+
+/** The decision point asked before the module handles a key: the consumer's onKeyDown veto (design point 6 (a)). */
+export const NAVIGATE_POINT = 'navigate';
+
+function isStopVerdict(verdict: DecisionPolicy): boolean {
+  return verdict === 'stop' || verdict === 'prevent-and-stop';
+}
 
 interface MenuFilterElement extends HTMLElement {
   [handleKey]?: TwinHandle;
@@ -312,6 +320,12 @@ function attachInput(input: HTMLInputElement, initial: MenuFilterOptions, channe
   // is dispatched on it, and `close` reports a focus-out.
   const onKeyDownCapture = (event: KeyboardEvent): void => {
     if (options.open !== true) {
+      return;
+    }
+    // Design point 6 (a): while C# holds the consumer's onKeyDown, it runs first and may veto the router and the list
+    // navigation (Base UI's preventBaseUIHandler). On Server the point falls back to `run`.
+    if (options.decidesKeyDown === true && isStopVerdict(channel.decide(NAVIGATE_POINT, event, 'run'))) {
+      skipListNavigation(event);
       return;
     }
     const activeId = input.getAttribute('aria-activedescendant');
@@ -594,13 +608,19 @@ function attachClear(clear: HTMLElement, initial: MenuFilterOptions): TwinHandle
 // vertical arrows typed on the trigger move to the input and run there, a typed character's default action follows focus
 // into the input, and the cross-axis arrows are left out of the list navigation (they drive submenus). The trigger's own
 // list handle skips each key it relays. Off in a menubar, whose trigger keys move between triggers (MBR-KEY-14).
-function attachTrigger(trigger: HTMLElement, initial: MenuFilterOptions): TwinHandle {
+function attachTrigger(trigger: HTMLElement, initial: MenuFilterOptions, channel: TwinChannel): TwinHandle {
   let options = initial;
   let disposed = false;
 
   const onKeyDown = (event: KeyboardEvent): void => {
     const owner = options.menuKey ? owners.get(options.menuKey) : undefined;
     if (options.open !== true || options.inBar === true || owner === undefined) {
+      return;
+    }
+    // Design point 6 (a): the consumer's onKeyDown may keep the key on the trigger (MenuFilterDropdown.tsx:131-150 runs
+    // after the consumer's handler, which preventBaseUIHandler() skips).
+    const relays = event.key === 'ArrowUp' || event.key === 'ArrowDown' || (event.key.length === 1 && event.key !== ' ' && !event.ctrlKey && !event.metaKey && !event.altKey);
+    if (relays && options.decidesKeyDown === true && isStopVerdict(channel.decide(NAVIGATE_POINT, event, 'run'))) {
       return;
     }
     if (event.key === 'ArrowUp' || event.key === 'ArrowDown') {
@@ -786,7 +806,7 @@ export function attach(
       inner = attachPopup(element, options);
       break;
     case 'trigger':
-      inner = attachTrigger(element, options);
+      inner = attachTrigger(element, options, channel);
       break;
     case 'clear':
       inner = attachClear(element, options);

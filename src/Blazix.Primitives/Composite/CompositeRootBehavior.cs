@@ -60,6 +60,7 @@ internal sealed class CompositeRootBehavior : IDisposable
     private readonly List<CompositeItemBehavior> orderedItems = [];
     private AttributeValue consumerKeyDown;
     private DecidedKey? decidedKeyDown;
+    private OnceVerdict? onceVerdict;
     private DirectionProviderContext? directionContext;
     private CompositeTwin? twin;
     private TwinHandle<CompositeOptions>? handle;
@@ -440,6 +441,19 @@ internal sealed class CompositeRootBehavior : IDisposable
         return consumerKeyDown.InvokeAsync(e);
     }
 
+    // M5 track 12's design point 6 (a), the orchestrator's 2026-11-12 grant: a part whose own module asks before composite's
+    // handle (Menu's filter input and trigger) decides a keydown once; composite's handle then reads the same verdict for that
+    // event. The verdict is keyed by the event (its type, timestamp and key), so it never reaches a later keydown.
+    /// <summary>Runs the navigation decision for a keydown once, and keeps its verdict for composite's own decision of the same event.</summary>
+    /// <param name="snapshot">The keydown.</param>
+    /// <returns><see cref="DecisionPolicy.Stop"/> when the consumer vetoed the key; otherwise <see cref="DecisionPolicy.Run"/>.</returns>
+    internal DecisionPolicy DecideKeyDownOnce(EventSnapshot snapshot)
+    {
+        DecisionPolicy verdict = DecideNavigation(snapshot);
+        onceVerdict = new OnceVerdict(snapshot.Type, snapshot.TimeStamp, snapshot.Key, verdict);
+        return verdict;
+    }
+
     /// <summary>Adds an item to the registry.</summary>
     /// <param name="item">The item, whose registration is set.</param>
     internal void Register(CompositeItemBehavior item)
@@ -792,6 +806,13 @@ internal sealed class CompositeRootBehavior : IDisposable
     // (EVD-EVT-26, CMP-EVT-12; the item's under option (i), chosen by the user 2026-10-23).
     private DecisionPolicy DecideNavigation(EventSnapshot snapshot)
     {
+        // DecideKeyDownOnce's verdict for this very keydown, served once.
+        if (onceVerdict is { } once && once.Matches(snapshot))
+        {
+            onceVerdict = null;
+            return once.Verdict;
+        }
+
         if (NavigationDecider is { } chain && chain(snapshot) == DecisionPolicy.Stop)
         {
             return DecisionPolicy.Stop;
@@ -898,6 +919,12 @@ internal sealed class CompositeRootBehavior : IDisposable
     }
 
     /// <summary>The key event a decision ran the consumer's handler for, matched against Blazor's dispatch of it.</summary>
+    private readonly record struct OnceVerdict(string Type, double TimeStamp, string? Key, DecisionPolicy Verdict)
+    {
+        public bool Matches(EventSnapshot snapshot) =>
+            string.Equals(Type, snapshot.Type, StringComparison.Ordinal) && TimeStamp == snapshot.TimeStamp && string.Equals(Key, snapshot.Key, StringComparison.Ordinal);
+    }
+
     private readonly record struct DecidedKey(string Key, string Code, bool AltKey, bool CtrlKey, bool MetaKey, bool ShiftKey)
     {
         public static DecidedKey From(KeyboardEventArgs e) => new(e.Key, e.Code, e.AltKey, e.CtrlKey, e.MetaKey, e.ShiftKey);
