@@ -170,8 +170,17 @@ function isTypeable(target: EventTarget | null): boolean {
   return target instanceof HTMLElement && (target.isContentEditable || target instanceof HTMLTextAreaElement || (target instanceof HTMLInputElement && !['button', 'checkbox', 'radio', 'submit', 'reset', 'image', 'range', 'color', 'file'].includes(target.type)));
 }
 
+// isRefocusingOwner (filter-dropdown/utils/refocusOwner.ts): focus handlers that run during the call treat the move as a
+// continuation, not the user's.
+let refocusing = false;
+
 function refocusOwner(owner: HTMLElement): void {
-  owner.focus({ preventScroll: true });
+  refocusing = true;
+  try {
+    owner.focus({ preventScroll: true });
+  } finally {
+    refocusing = false;
+  }
 }
 
 // Routes a key that landed elsewhere as the input's: a copy is dispatched on the input, and the original is prevented when
@@ -597,6 +606,10 @@ function attachPopup(popup: HTMLElement, initial: MenuFilterOptions): TwinHandle
   let disposed = false;
   // A tap fires compatibility mouse events, which must not focus the input and raise the on-screen keyboard.
   let pointerType = 'mouse';
+  // useMenuFilterPopup.ts:25-28: focus that entered a nested popup by keyboard or click stays there while the pointer
+  // crosses this popup; focus that merely followed the pointer in (a refocus) follows it back out. The nested popup is
+  // portaled outside this one, so its focus is seen on the document.
+  let nestedFocus: Element | null = null;
 
   const ownerOf = (): FocusOwner | undefined => (options.menuKey ? owners.get(options.menuKey) : undefined);
 
@@ -608,16 +621,46 @@ function attachPopup(popup: HTMLElement, initial: MenuFilterOptions): TwinHandle
   const trackPointerType = (event: PointerEvent): void => {
     pointerType = event.pointerType || 'mouse';
   };
-  const onMouseMove = (): void => {
+  // useMenuFilterPopup.ts:50-95: a nested popup's focus stays unless the pointer entered one of this popup's submenu
+  // triggers, and not from inside that trigger.
+  const restoreInputFocus = (event: MouseEvent, enteredTrigger: boolean): void => {
     const owner = ownerOf();
-    if (pointerType !== 'mouse' || options.open !== true || owner === undefined) {
+    if (options.open !== true || owner === undefined) {
       return;
     }
     const active = popup.ownerDocument.activeElement;
     if (active === owner.input || (active !== null && popup.contains(active))) {
       return;
     }
+    const target = event.target instanceof Element ? event.target : null;
+    const submenuTrigger = target?.closest('[aria-haspopup]') ?? null;
+    const triggerInPopup = submenuTrigger !== null && popup.contains(submenuTrigger) ? submenuTrigger : null;
+    if (nestedFocus !== null && !(enteredTrigger && triggerInPopup !== null)) {
+      return;
+    }
+    if (enteredTrigger && triggerInPopup !== null && event.relatedTarget instanceof Node && triggerInPopup.contains(event.relatedTarget)) {
+      return;
+    }
     refocusOwner(owner.input);
+  };
+  const onMouseMove = (event: MouseEvent): void => {
+    if (pointerType === 'mouse') {
+      restoreInputFocus(event, false);
+    }
+  };
+  const onMouseOver = (event: MouseEvent): void => {
+    if (pointerType === 'mouse' && nestedFocus !== null) {
+      restoreInputFocus(event, true);
+    }
+  };
+  const onDocumentFocusIn = (event: FocusEvent): void => {
+    const owner = ownerOf();
+    const target = event.target;
+    if (owner !== undefined && target === owner.input) {
+      nestedFocus = null;
+    } else if (target instanceof Element && !popup.contains(target) && !refocusing && target.closest('[role="dialog"], [data-rootownerid]') !== null) {
+      nestedFocus = target;
+    }
   };
   const onFocusIn = (event: FocusEvent): void => {
     const owner = ownerOf();
@@ -641,7 +684,9 @@ function attachPopup(popup: HTMLElement, initial: MenuFilterOptions): TwinHandle
   popup.addEventListener('pointerover', trackPointerType);
   popup.addEventListener('pointermove', trackPointerType);
   popup.addEventListener('mousemove', onMouseMove);
+  popup.addEventListener('mouseover', onMouseOver);
   popup.addEventListener('focusin', onFocusIn);
+  popup.ownerDocument.addEventListener('focusin', onDocumentFocusIn, true);
   popup.addEventListener('keydown', onKeyDown);
 
   return {
@@ -660,7 +705,9 @@ function attachPopup(popup: HTMLElement, initial: MenuFilterOptions): TwinHandle
       popup.removeEventListener('pointerover', trackPointerType);
       popup.removeEventListener('pointermove', trackPointerType);
       popup.removeEventListener('mousemove', onMouseMove);
+      popup.removeEventListener('mouseover', onMouseOver);
       popup.removeEventListener('focusin', onFocusIn);
+      popup.ownerDocument.removeEventListener('focusin', onDocumentFocusIn, true);
       popup.removeEventListener('keydown', onKeyDown);
     },
   };
