@@ -496,7 +496,13 @@ test.describe('item-aligned popup interaction', () => {
 
   // SEL-POS-11. Playwright's hover would scroll a partly visible item into view where Base UI's does not, so the pointer is
   // moved onto the part of the item that shows.
-  test('does not move the popup or its list when hovering items at its edges', async ({ page, mode }) => {
+  // Quarantined (ADR 11 §4) on Server until 2026-11-26, issue 252: the item-aligned popup can move when an edge item is
+  // hovered (CI runs 43138332633 and 43237078124; 1 of 140 on main locally, 2026-11-12). WebAssembly still runs it.
+  test('does not move the popup or its list when hovering items at its edges', {
+    tag: '@quarantine',
+    annotation: { type: 'issue', description: 'https://github.com/JakeMurrayDev/Blazix.Primitives/issues/252' },
+  }, async ({ page, mode }) => {
+    test.fixme(mode === 'server', 'Quarantined on Server until 2026-11-26 (issue 252)');
     await gotoPopupFixture(page, mode, 'select-nav-aligned', { case: 'edges' });
     await trigger(page).click();
     await expect(option(page, 'Item 15')).toBeFocused();
