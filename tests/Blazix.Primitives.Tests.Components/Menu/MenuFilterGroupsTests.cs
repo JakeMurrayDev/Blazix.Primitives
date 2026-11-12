@@ -91,6 +91,20 @@ public sealed class MenuFilterGroupsTests : BunitContext
         Assert.True(cut.Find("[data-testid=share-group]").HasAttribute("hidden"));
     }
 
+    [Fact(DisplayName = "hides a group whose kept-mounted filterable submenu has its own groups")]
+    [Trait("Requirement", "MNU-STA-24")]
+    public async Task Hides_a_group_whose_kept_mounted_submenu_has_its_own_groups()
+    {
+        IRenderedComponent<MenuFilterGroupsHost> cut = await RenderWithTexts("kept-mounted");
+        Assert.False(cut.Find("[data-testid=organize-group]").HasAttribute("hidden"));
+
+        // The submenu's group registers with the submenu's query, not with the enclosing group.
+        await Type(cut, "rena");
+
+        Assert.DoesNotContain("Move to", Items(cut));
+        Assert.True(cut.Find("[data-testid=organize-group]").HasAttribute("hidden"));
+    }
+
     private static string[] Items(IRenderedComponent<MenuFilterGroupsHost> cut) =>
         [.. cut.FindAll("[role=menuitem], [role=menuitemradio]").Select(item => item.TextContent.Trim())];
 
