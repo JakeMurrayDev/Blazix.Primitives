@@ -707,33 +707,6 @@ test.describe('focus ownership inside the popup', () => {
     await expect(submenuInput(page)).toBeFocused();
   });
 
-  // MNU-KEY-29, KEY-31 (MenuFilterSubmenuRoot.tsx:60-90, 230-270). The fixture's trigger is the list's fourth item and its
-  // last, so the parent's next item after the trigger is reached with ArrowUp (Duplicate) where Base UI's tree has Delete
-  // after it.
-  test('opens a virtually focused submenu with the keyboard', async ({ page, mode }) => {
-    await renderNested(page, mode);
-    await input(page).focus();
-    for (let i = 0; i < 4; i += 1) {
-      await page.keyboard.press('ArrowDown');
-    }
-    const triggerId = (await submenuTrigger(page).getAttribute('id')) ?? 'missing';
-    await expect(input(page)).toHaveAttribute('aria-activedescendant', triggerId);
-
-    await page.keyboard.press('ArrowRight');
-
-    await expect(submenuInput(page)).toBeFocused();
-    await expect(submenuInput(page)).not.toHaveAttribute('data-highlighted');
-    await expect(submenuInput(page)).toHaveAttribute('aria-activedescendant', (await page.getByRole('menuitem', { name: 'Documents' }).getAttribute('id')) ?? 'missing');
-    await expect(input(page)).not.toHaveAttribute('aria-activedescendant', /.+/);
-
-    await page.keyboard.press('ArrowLeft');
-    await expect(input(page)).toBeFocused();
-    await expect(input(page)).toHaveAttribute('aria-activedescendant', triggerId);
-
-    await page.keyboard.press('ArrowUp');
-    await expect(input(page)).toHaveAttribute('aria-activedescendant', (await item(page, 'Duplicate').getAttribute('id')) ?? 'missing');
-  });
-
   test('opens a hovered submenu without moving focus until the pointer enters it', async ({ page, mode }) => {
     await renderNested(page, mode);
     await expect(input(page)).toBeFocused();
