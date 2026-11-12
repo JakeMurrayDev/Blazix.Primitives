@@ -75,22 +75,38 @@ internal sealed class MenuFilterItem
 /// <summary>Represents the filter of one filterable menu: the query's registration of items, the visible set and the highlight rules.</summary>
 internal sealed class MenuFilterEngine
 {
-    private readonly List<MenuFilterItem> items = [];
+    // Design point 3 (a), settled by the orchestrator 2026-11-11 (CMP-STA-19..21): the items, keyed by themselves, in a
+    // KeyedItemRegistry; the engine reads the live items, as FilterDropdownRoot.tsx:131-135 reads the live registry, and its
+    // owner publishes the snapshot at its batch boundary.
+    private readonly KeyedItemRegistry<MenuFilterItem, MenuFilterItem> registry;
     private HashSet<MenuFilterItem>? visibleItems;
     private HashSet<MenuFilterItem>? spare;
     private string? lastFilterQuery;
 
-    /// <summary>Gets the number of registered items, updated as items register and unregister.</summary>
-    public int RegisteredCount => items.Count;
+    /// <summary>Initializes a new instance of the <see cref="MenuFilterEngine"/> class whose registrations ask for nothing.</summary>
+    public MenuFilterEngine()
+        : this(static () => { })
+    {
+    }
 
-    // The registered items, in registration order.
-    public IReadOnlyList<MenuFilterItem> Items => items;
+    /// <summary>Initializes a new instance of the <see cref="MenuFilterEngine"/> class.</summary>
+    /// <param name="requestPublish">The callback a registration change runs, at most once per batch, to ask for <see cref="PublishItems"/>.</param>
+    public MenuFilterEngine(Action requestPublish) => registry = new KeyedItemRegistry<MenuFilterItem, MenuFilterItem>(requestPublish);
+
+    /// <summary>Gets the number of registered items, updated as items register and unregister.</summary>
+    public int RegisteredCount => registry.LiveItems.Count;
+
+    /// <summary>Gets the registered items, in registration order, including those registered since the last snapshot.</summary>
+    public IReadOnlyList<MenuFilterItem> Items => registry.LiveValues;
+
+    /// <summary>Gets the items of the snapshot published at the latest batch boundary.</summary>
+    public IEnumerable<MenuFilterItem> PublishedItems => registry.Items.Values;
 
     /// <summary>Gets a value indicating whether a visible set exists: <see langword="false"/> while the query is empty or matching is off.</summary>
     public bool HasVisibleSet => visibleItems is not null;
 
     /// <summary>Gets a value indicating whether the menu shows no item: no item registered and no visible set, or an empty visible set.</summary>
-    public bool IsEmpty => visibleItems is null ? items.Count == 0 : visibleItems.Count == 0;
+    public bool IsEmpty => visibleItems is null ? registry.LiveItems.Count == 0 : visibleItems.Count == 0;
 
     // STA-19: open and (Always, or true with a non-empty trimmed query).
     /// <summary>Determines whether the automatic highlight applies to the current query.</summary>
@@ -107,9 +123,12 @@ internal sealed class MenuFilterEngine
     public IDisposable Register(MenuFilterItem item)
     {
         ArgumentNullException.ThrowIfNull(item);
-        items.Add(item);
-        return new Registration(this, item);
+        return registry.Register(item, item);
     }
+
+    /// <summary>Publishes the registry's snapshot when a registration changed since the last one; the owner calls it at its batch boundary.</summary>
+    /// <returns><see langword="true"/> when a new snapshot was published.</returns>
+    public bool PublishItems() => registry.Publish();
 
     // STA-15, STA-16, STA-18, STA-19: FilterDropdownRoot.tsx:131-184, run once per render batch.
     /// <summary>Recomputes the visible set and decides the highlight.</summary>
@@ -129,7 +148,7 @@ internal sealed class MenuFilterEngine
         if (match is null)
         {
             Publish(null);
-            if (autoHighlightEnabled && items.Count > 0)
+            if (autoHighlightEnabled && registry.LiveItems.Count > 0)
             {
                 return queryChanged || !pass.HasHighlight ? MenuFilterHighlight.First : MenuFilterHighlight.Keep;
             }
@@ -138,7 +157,7 @@ internal sealed class MenuFilterEngine
         }
 
         // :155-159 (STA-16): publishing an empty result before anything registered would hide every item as it arrives.
-        if (visibleItems is null && items.Count == 0)
+        if (visibleItems is null && registry.LiveItems.Count == 0)
         {
             return MenuFilterHighlight.Keep;
         }
@@ -146,7 +165,7 @@ internal sealed class MenuFilterEngine
         HashSet<MenuFilterItem> next = spare ?? [];
         next.Clear();
         bool hasNewMatch = visibleItems is null;
-        foreach (MenuFilterItem item in items)
+        foreach (MenuFilterItem item in registry.LiveValues)
         {
             // Design point 2 (b'): an item whose text has not been reported stays visible until it is.
             string? text = item.FilterText;
@@ -201,26 +220,12 @@ internal sealed class MenuFilterEngine
         HashSet<MenuFilterItem>? previous = visibleItems;
         visibleItems = next;
         spare = previous;
-        foreach (MenuFilterItem item in items)
+        foreach (MenuFilterItem item in registry.LiveValues)
         {
             item.SetVisible(next is null || next.Contains(item));
         }
     }
 
-    private sealed class Registration(MenuFilterEngine engine, MenuFilterItem item) : IDisposable
-    {
-        private bool disposed;
-
-        /// <inheritdoc />
-        public void Dispose()
-        {
-            if (!disposed)
-            {
-                disposed = true;
-                engine.items.Remove(item);
-            }
-        }
-    }
 }
 
 // MNU §4.4: what a filterable root shares with its filter parts (the Input, Clear, Empty, List, groups, items and submenu
@@ -260,6 +265,9 @@ internal sealed class MenuFilterRootContext
     {
         this.provider = provider;
         this.root = root;
+
+        // A registration change asks for the next flush, the filter's batch boundary, which publishes the snapshot.
+        Engine = new MenuFilterEngine(() => dirty = true);
         inputText = provider.Value;
         rootSubscription = root.Subscribe(OnRootChanged);
         open = rootSubscription.Select(MenuSelectors.Open);
@@ -289,7 +297,7 @@ internal sealed class MenuFilterRootContext
     }
 
     /// <summary>Gets the filter engine.</summary>
-    public MenuFilterEngine Engine { get; } = new();
+    public MenuFilterEngine Engine { get; }
 
     // MNU-EVT-18 (useFilterDropdownCloseQuery.ts:19-38): while the popup animates out, the menu keeps showing the query it
     // closed with, after the reset committed ''.
@@ -517,6 +525,7 @@ internal sealed class MenuFilterRootContext
         flushedQuery = query;
         flushedMatch = match;
         bool wasEmpty = Engine.IsEmpty;
+        Engine.PublishItems();
         PendingHighlight = Engine.Recompute(new MenuFilterPass(root.State.Open, query, match, provider.AutoHighlight, root.HighlightedItemId is not null));
         ApplyHighlight(PendingHighlight);
         if (Engine.IsEmpty != wasEmpty)

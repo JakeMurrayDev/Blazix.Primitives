@@ -27,6 +27,9 @@ internal sealed class KeyedItemRegistry<TKey, TItem>
     /// <summary>Gets the live registry, including registrations whose snapshot has not been published yet.</summary>
     public IReadOnlyDictionary<TKey, TItem> LiveItems => live;
 
+    /// <summary>Gets the live items in registration order, as a list an owner can index without a copy.</summary>
+    public IReadOnlyList<TItem> LiveValues => live.Values;
+
     /// <summary>Registers an item under a key, replacing the item a key already holds.</summary>
     /// <param name="key">The key.</param>
     /// <param name="item">The item.</param>
