@@ -225,6 +225,18 @@ Members of every class follow the eleven-group order of the old port: constants,
 - *An Item without `Value`.* It is Base UI's `null` item, told by the supplied flag of item (2). Under a multiple root of a non-nullable value type it throws at its parameter set: "Blazix: A `ComboboxItem` without a `Value` stands for `null`, which a multiple `ComboboxRoot` of a non-nullable value type cannot hold. Give the item a `Value`, or use a nullable `TValue` such as `int?`." Confirmed by the orchestrator 2026-11-10, with `NavigationMenuRoot`'s throw of Amendments 2026-11-04 as the precedent; CMB-API-56 carries the dated note.
 - *Generated ids* (added 2026-11-11, PR 193 delta review F7; CMB-API-45's note, review F21 settled by the orchestrator 2026-11-10). The outside Trigger, the InputGroup and the Clear render the consumer's id, else a generated one, and publish it, because the `combobox` and `interactions` modules find those elements by id; Base UI renders no id on them.
 
+**2026-11-11, `AutoHighlightValue` (M5 track 12, [issue 197](https://github.com/JakeMurrayDev/Blazix.Primitives/issues/197); the shape is M5 track 10's design point 4 (a), settled by the orchestrator 2026-11-04; the `Utilities/` grant from the orchestrator 2026-11-11).** Base UI's `autoHighlight?: boolean | 'always'` (Menu's filter provider, MNU-API-55; Autocomplete, track 11) is the §3 boolean-or-literal row:
+- `public readonly struct AutoHighlightValue : IUnion`, on `ModalValue`'s pattern, holds a `bool` or the case type `public readonly struct AutoHighlightAlways`.
+- Members:
+  - the implicit conversion from `bool`;
+  - `static AutoHighlightValue Always`;
+  - `HasValue`;
+  - `TryGetValue(out bool)` and `TryGetValue(out AutoHighlightAlways)`;
+  - `IsAlways`;
+  - `IsEnabled` (`true` or `Always`).
+- `AutoHighlight="true"` binds through the implicit conversion. A part's `AutoHighlight` parameter is `AutoHighlightValue?`, and `null` reads as `false`.
+- It lives in `Utilities/` because two families use it (ADR 09 Amendments 2026-10-21). Track 11 takes it from `main`.
+
 **2026-11-11, ContextMenu's parts and shapes as built (M5 track 7, [issue 194](https://github.com/JakeMurrayDev/Blazix.Primitives/issues/194); Amendments 2026-11-03 (3), chosen by the user 2026-11-03; design points 4 and 5 of M5 track 7, settled by the orchestrator 2026-11-11 under the user's "Do recommended for decisions").**
 - `ContextMenuRoot : ComponentBase, IAsyncDisposable` is non-generic. It runs over `MenuRootBehavior<NoPayload>("ContextMenu")` and declares MenuRoot's parameters except `Modal`, `Handle`, `TriggerId`, `DefaultTriggerId`, `PayloadContent` and `CloseParentOnEsc`. It offers `CloseAsync()` and `Unmount()`.
 - `ContextMenuTrigger : PartBase<ContextMenuTriggerState>` (a `div`) has no parameters of its own. Its state is `ContextMenuTriggerState(bool Open)`, and its attributes are `ContextMenuTriggerDataAttributes { PopupOpen, Pressed }`.
