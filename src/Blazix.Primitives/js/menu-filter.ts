@@ -202,6 +202,10 @@ const closingMenus = new Set<string>();
 // `pointerdown`), by session token. Such a press reads as a touch, which moves no focus, yet the popup focuses its input.
 const virtualPresses = new Set<string>();
 
+// The menus whose popup took a virtual press before their input's handle attached: that handle takes focus when it
+// registers (a slow WebAssembly start can attach it a frame after the popup's).
+const pendingVirtualFocus = new Set<string>();
+
 function recordPress(menuKey: string | null | undefined, event: PointerEvent): void {
   if (!menuKey) {
     return;
@@ -532,6 +536,10 @@ function attachInput(input: HTMLInputElement, initial: MenuFilterOptions, channe
   const owner: FocusOwner = { input, options: () => options, endKeyboardModality: onPointer };
   if (ownerKey !== null) {
     owners.set(ownerKey, owner);
+    // MNU-PTR-19: a virtual press the popup took before this handle attached focuses the input now.
+    if (pendingVirtualFocus.delete(ownerKey) && options.open === true) {
+      refocusOwner(input);
+    }
   }
   syncHighlighted();
   // MNU-A11Y-02 (MenuInput.tsx:32-55): the mount-time check; focus and aria-activedescendant can both precede the handle.
@@ -1000,10 +1008,16 @@ function attachPopup(popup: HTMLElement, initial: MenuFilterOptions, channel: Tw
     if (!options.menuKey || !virtualPresses.delete(options.menuKey)) {
       return;
     }
+    const menuKey = options.menuKey;
     requestAnimationFrame(() => {
+      if (disposed || options.open !== true) {
+        return;
+      }
       const owner = ownerOf();
-      if (!disposed && options.open === true && owner !== undefined) {
+      if (owner !== undefined) {
         refocusOwner(owner.input);
+      } else {
+        pendingVirtualFocus.add(menuKey);
       }
     });
   };
@@ -1196,6 +1210,9 @@ function attachPopup(popup: HTMLElement, initial: MenuFilterOptions, channel: Tw
         }
         if (options.open !== true) {
           escape = null;
+          if (options.menuKey) {
+            pendingVirtualFocus.delete(options.menuKey);
+          }
         }
         syncHandoff(wasOpen);
         if (!wasOpen && options.open === true) {
@@ -1221,6 +1238,9 @@ function attachPopup(popup: HTMLElement, initial: MenuFilterOptions, channel: Tw
       popup.removeEventListener('focusin', onHandoffFocusIn);
       popup.removeEventListener('keydown', onHandoffKeyDown, true);
       popup.removeEventListener('pointerdown', onHandoffPointer);
+      if (options.menuKey) {
+        pendingVirtualFocus.delete(options.menuKey);
+      }
       // A plain popup without an exit animation unmounts with its close, before an update could bring it.
       if (options.submenu === true && options.open === true) {
         returnOnClose();
