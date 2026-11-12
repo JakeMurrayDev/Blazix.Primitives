@@ -1,0 +1,52 @@
+@namespace Blazix.Primitives.Fixtures.Client.MenuFixtures
+@using Blazix.Primitives
+
+@*
+    The `menu-filter-initial` fixture (tests/browser/menu.filter.spec.ts, M5 track 12): MenuFilterRoot.initialHighlight
+    .test.tsx's Test, closed: a trigger "Actions" (`hover=true` opens it on hover with no delay), an input, Empty reading
+    "No actions found.", and a list of a disabled Unavailable, Rename and Delete. `data-attached` turns "true" once the
+    menu's session has attached.
+*@
+<FixtureContainer Name="menu-filter-initial" data-attached="@(attached ? "true" : "false")">
+    <MenuFilterProvider>
+        <MenuRoot TPayload="NoPayload" @ref="root">
+            <MenuTrigger TPayload="NoPayload" OpenOnHover="@Hover" Delay="0">Actions</MenuTrigger>
+            <MenuPortal>
+                <MenuPositioner>
+                    <MenuPopup>
+                        <MenuInput aria-label="Filter actions" />
+                        <MenuEmpty>No actions found.</MenuEmpty>
+                        <MenuList>
+                            <MenuItem Disabled="true">Unavailable</MenuItem>
+                            <MenuItem>Rename</MenuItem>
+                            <MenuItem>Delete</MenuItem>
+                        </MenuList>
+                    </MenuPopup>
+                </MenuPositioner>
+            </MenuPortal>
+        </MenuRoot>
+    </MenuFilterProvider>
+</FixtureContainer>
+
+@code {
+    private MenuRoot<NoPayload>? root;
+    private bool attached;
+    private bool attaching;
+
+    [SupplyParameterFromQuery(Name = "hover")]
+    public bool Hover { get; set; }
+
+    /// <inheritdoc />
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (attached || attaching || !RendererInfo.IsInteractive || root is null)
+        {
+            return;
+        }
+
+        attaching = true;
+        await root.SessionAttached;
+        attached = true;
+        StateHasChanged();
+    }
+}

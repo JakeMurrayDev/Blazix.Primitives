@@ -172,3 +172,101 @@ test.describe('virtual focus', () => {
     await expect(item(page, 'Delete')).toBeVisible();
   });
 });
+
+// MenuFilterRoot.initialHighlight.test.tsx on `menu-filter-initial` (MNU-STA-22, KEY-22, FOC-*; M5 track 12), titles
+// verbatim unless marked "port:". The keyboard opens a filterable menu with its input focused and the first enabled
+// item highlighted; a pointer or hover open highlights nothing.
+test.describe('filterable menu initial highlight', () => {
+  async function open(page: Page, mode: RenderMode, hover = false): Promise<Locator> {
+    await page.goto(`/${mode}/menu-filter-initial${hover ? '?hover=true' : ''}`, { waitUntil: 'commit' });
+    await page.locator(Fixture.started).waitFor({ state: 'attached' });
+    const fixture = page.locator(Fixture.interactive('menu-filter-initial'));
+    await expect(fixture).toHaveAttribute('data-attached', 'true');
+    return fixture;
+  }
+
+  function trigger(page: Page): Locator {
+    return page.getByRole('button', { name: 'Actions' });
+  }
+
+  async function idOf(locator: Locator): Promise<string> {
+    return (await locator.getAttribute('id')) ?? 'missing';
+  }
+
+  test('highlights the first enabled action and keeps the input in the arrow loop', async ({ page, mode }) => {
+    await open(page, mode);
+    await trigger(page).focus();
+    await page.keyboard.press('Enter');
+
+    await expect(input(page)).toBeFocused();
+    await expect(input(page)).toHaveAttribute('aria-activedescendant', await idOf(item(page, 'Rename')));
+
+    await page.keyboard.press('ArrowDown');
+    await expect(input(page)).toHaveAttribute('aria-activedescendant', await idOf(item(page, 'Delete')));
+    await page.keyboard.press('ArrowDown');
+    await expect(input(page)).not.toHaveAttribute('aria-activedescendant');
+    await expect(input(page)).toHaveAttribute('data-highlighted', '');
+
+    await page.keyboard.press('ArrowUp');
+    await expect(input(page)).toHaveAttribute('aria-activedescendant', await idOf(item(page, 'Delete')));
+    await page.keyboard.press('ArrowUp');
+    await page.keyboard.press('ArrowUp');
+    await page.keyboard.press('ArrowUp');
+    await expect(input(page)).not.toHaveAttribute('aria-activedescendant');
+    await expect(input(page)).toBeFocused();
+  });
+
+  test('clears the initial highlight when typing and permits an empty result', async ({ page, mode }) => {
+    await open(page, mode);
+    await trigger(page).focus();
+    await page.keyboard.press('Enter');
+    await expect(input(page)).toBeFocused();
+
+    await page.keyboard.type('Del');
+    await expect(input(page)).toHaveValue('Del');
+    await expect(input(page)).not.toHaveAttribute('aria-activedescendant');
+    await expect(item(page, 'Rename')).toHaveCount(0);
+
+    await page.keyboard.press('ArrowDown');
+    await expect(input(page)).toHaveAttribute('aria-activedescendant', await idOf(item(page, 'Delete')));
+
+    await page.keyboard.type('x');
+    await expect(input(page)).toHaveValue('Delx');
+    await expect(input(page)).not.toHaveAttribute('aria-activedescendant');
+    await expect(page.getByText('No actions found.')).toBeVisible();
+    await expect(input(page)).toBeFocused();
+  });
+
+  // Base UI's it.each over mouse, touch and pen; the mouse row, the one that focuses the input.
+  test('handles opening with mouse', async ({ page, mode }) => {
+    await open(page, mode);
+
+    await trigger(page).click();
+
+    await expect(input(page)).toBeFocused();
+    await expect(input(page)).not.toHaveAttribute('aria-activedescendant');
+  });
+
+  test('does not focus the input when opened on hover', async ({ page, mode }) => {
+    await open(page, mode, true);
+
+    await trigger(page).hover();
+
+    await expect(input(page)).toBeVisible();
+    await expect(input(page)).not.toBeFocused();
+  });
+
+  test('highlights the first action again when reopening', async ({ page, mode }) => {
+    await open(page, mode);
+    await trigger(page).focus();
+    await page.keyboard.press('Enter');
+    await expect(input(page)).toBeFocused();
+    await page.keyboard.press('ArrowDown');
+    await page.keyboard.press('Escape');
+    await expect(trigger(page)).toBeFocused();
+    await page.keyboard.press('Enter');
+
+    await expect(input(page)).toBeFocused();
+    await expect(input(page)).toHaveAttribute('aria-activedescendant', await idOf(item(page, 'Rename')));
+  });
+});
