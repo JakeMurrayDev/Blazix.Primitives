@@ -31,6 +31,12 @@
     - `inbox`: held open, autoHighlight "always"; "Inbox (N)", Archive and Delete; the button "count" (inside the popup)
       raises N from 1;
     - `highlight`: held open (`auto=true` for autoHighlight); Rename, Delete labelled "Remove", and Duplicate.
+    - `reopen`: closed and uncontrolled; Save, Save as and Delete; the button "append" (inside the popup) adds Recent last.
+    - `ids`: held open, autoHighlight "always"; First (id `first-item`) and Second (id `old-id`); the button "new id"
+      (inside the popup) changes Second's id to `new-id`.
+    - `viewport`: open; Rename and Delete in a list inside a Viewport.
+    - `independent`: held open; "Parent action", and after the list an independent plain menu, open by default, with a
+      trigger "Independent" and an item "Independent action".
     Each highlight report is also recorded as `label:reason` (`-` for no label) in `data-highlight-details`.
     Each query request is recorded as `value:reason` in `data-value-changes`, and each highlight report by item text, or
     "none", in `data-highlights` (`|`-separated).
@@ -66,7 +72,11 @@
                         {
                             <button type="button" @onclick="() => count++">count</button>
                         }
-                        else if (Case == "append")
+                        else if (Case == "ids")
+                        {
+                            <button type="button" @onclick="@(() => secondId = "new-id")">new id</button>
+                        }
+                        else if (Case is "append" or "reopen")
                         {
                             <button type="button" @onclick="() => appended = true">append</button>
                         }
@@ -74,6 +84,17 @@
                         {
                             <button type="button" @onclick="() => tick++">tick</button>
                         }
+                        @if (Case == "viewport")
+                        {
+                            <MenuViewport>
+                                <MenuList data-testid="list" @ref="list">
+                                    <MenuItem>Rename</MenuItem>
+                                    <MenuItem>Delete</MenuItem>
+                                </MenuList>
+                            </MenuViewport>
+                        }
+                        else
+                        {
                         <MenuList data-testid="list" @ref="list">
                             @switch (Case)
                             {
@@ -120,6 +141,22 @@
                                         <MenuItem>Zebra</MenuItem>
                                     }
                                     break;
+                                case "ids":
+                                    <MenuItem id="first-item">First</MenuItem>
+                                    <MenuItem id="@secondId">Second</MenuItem>
+                                    break;
+                                case "independent":
+                                    <MenuItem>Parent action</MenuItem>
+                                    break;
+                                case "reopen":
+                                    <MenuItem>Save</MenuItem>
+                                    <MenuItem>Save as</MenuItem>
+                                    <MenuItem>Delete</MenuItem>
+                                    @if (appended)
+                                    {
+                                        <MenuItem>Recent</MenuItem>
+                                    }
+                                    break;
                                 case "label":
                                     <MenuItem><span>Rename</span></MenuItem>
                                     <MenuItem>Delete</MenuItem>
@@ -142,6 +179,20 @@
                                     break;
                             }
                         </MenuList>
+                        }
+                        @if (Case == "independent")
+                        {
+                            <MenuRoot TPayload="NoPayload" DefaultOpen="true">
+                                <MenuTrigger TPayload="NoPayload">Independent</MenuTrigger>
+                                <MenuPortal>
+                                    <MenuPositioner>
+                                        <MenuPopup>
+                                            <MenuItem>Independent action</MenuItem>
+                                        </MenuPopup>
+                                    </MenuPositioner>
+                                </MenuPortal>
+                            </MenuRoot>
+                        }
                         @if (Case == "fruit")
                         {
                             <MenuEmpty>No fruit found</MenuEmpty>
@@ -165,6 +216,7 @@
     private bool appended;
     private int count = 1;
     private string? query;
+    private string secondId = "old-id";
     private MenuRoot<NoPayload>? root;
     private MenuInput? input;
     private MenuList? list;
@@ -188,7 +240,7 @@
     /// <inheritdoc />
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
-        bool open = Case != "fruit";
+        bool open = Case is not ("fruit" or "reopen");
         // The input and list render with the open popup; a closing page re-renders while they exist.
         if (attached || attaching || !RendererInfo.IsInteractive || root is null || (open && (input is null || list is null)))
         {
@@ -207,12 +259,12 @@
     private bool Fruit => Case is "fruit" or "closing" or "cancel" or "controlled" or "custom-id";
 
     // A held-open root for `kinds`, `cancel`, `controlled` and `custom-id`, this page's open for `closing`, else an
-    // uncontrolled one, open unless `fruit`.
+    // uncontrolled one, open unless `fruit` or `reopen`.
     private Dictionary<string, object> RootParameters => Case switch
     {
-        "kinds" or "cancel" or "controlled" or "custom-id" or "append" or "inbox" or "highlight" => new() { ["Open"] = true },
+        "kinds" or "cancel" or "controlled" or "custom-id" or "append" or "inbox" or "highlight" or "independent" or "ids" => new() { ["Open"] = true },
         "closing" => new() { ["Open"] = closingOpen, ["Modal"] = false },
-        _ => new() { ["DefaultOpen"] = Case != "fruit" },
+        _ => new() { ["DefaultOpen"] = Case is not ("fruit" or "reopen") },
     };
 
     private Dictionary<string, object> ProviderParameters
@@ -234,7 +286,7 @@
                 parameters["AutoHighlight"] = (AutoHighlightValue?)true;
             }
 
-            if (Case is "custom-id" or "inbox")
+            if (Case is "custom-id" or "inbox" or "ids")
             {
                 parameters["AutoHighlight"] = (AutoHighlightValue?)AutoHighlightValue.Always;
             }

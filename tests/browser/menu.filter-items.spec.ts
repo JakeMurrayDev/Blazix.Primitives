@@ -279,6 +279,34 @@ test.describe('items appended while filtering', () => {
     await expect(filter).toHaveAttribute('aria-activedescendant', (await reportB.getAttribute('id')) ?? 'missing');
     await expect(fixture).toHaveAttribute('data-highlights', before);
   });
+
+  // Base UI runs this title under JSDOM only, where the closed popup's query reset is synchronous; the port's browser run
+  // waits for the reopened list instead.
+  test('keeps the highlight when an item is appended after reopening from a filtered session', async ({ page, mode }) => {
+    await render(page, mode, { case: 'reopen' });
+    const trigger = page.getByRole('button', { name: 'Actions' });
+    await trigger.focus();
+    await page.keyboard.press('Enter');
+    await expect(input(page)).toBeFocused();
+    await page.keyboard.type('sav');
+    await expect(item(page, 'Delete')).toHaveCount(0);
+    await page.keyboard.press('Escape');
+    await expect(input(page)).toHaveCount(0);
+    await expect(trigger).toBeFocused();
+
+    await page.keyboard.press('Enter');
+    const filter = input(page);
+    await expect(filter).toBeFocused();
+    await expect(item(page, 'Delete')).toBeVisible();
+    await page.keyboard.press('ArrowDown');
+    const saveAs = item(page, 'Save as');
+    await expect(filter).toHaveAttribute('aria-activedescendant', (await saveAs.getAttribute('id')) ?? 'missing');
+
+    await page.getByRole('button', { name: 'append' }).evaluate((element) => element.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true })));
+
+    await expect(item(page, 'Recent')).toBeVisible();
+    await expect(filter).toHaveAttribute('aria-activedescendant', (await saveAs.getAttribute('id')) ?? 'missing');
+  });
 });
 
 // MenuFilterRoot.test.tsx's text change under autoHighlight "always" (MNU-STA-18); Base UI's setProps is the popup's
@@ -328,5 +356,51 @@ test.describe('highlight reports', () => {
 
     await page.keyboard.type('zzz');
     await expect.poll(() => details(fixture)).toEqual(['Duplicate:none', '-:none']);
+  });
+});
+
+// MenuFilterRoot.scoping.test.tsx's "independent menu focus inside a filterable menu" (MNU-KEY-11, FOC-07).
+test.describe('independent menu focus inside a filterable menu', () => {
+  test('returns to its own trigger on Shift+Tab', async ({ page, mode }) => {
+    await render(page, mode, { case: 'independent' });
+    const action = item(page, 'Independent action');
+    await expect(action).toBeVisible();
+    await action.focus();
+
+    await page.keyboard.press('Shift+Tab');
+
+    await expect(item(page, 'Independent action')).toHaveCount(0);
+    await expect(page.getByRole('button', { name: 'Independent' })).toBeFocused();
+  });
+});
+
+// MenuList.test.tsx's "filterable menu list semantics" TestMenu (MNU-API-38, ARIA-14); Base UI's setProps is the popup's
+// "new id" button, clicked in the page so focus stays on the input.
+test.describe('filterable menu list semantics', () => {
+  test('reads an item id when navigating to it', async ({ page, mode }) => {
+    await render(page, mode, { case: 'ids' });
+    const filter = input(page);
+    await expect(filter).toHaveAttribute('aria-activedescendant', 'first-item');
+    await expect(filter).toBeFocused();
+
+    await page.getByRole('button', { name: 'new id' }).evaluate((element) => element.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true })));
+    await expect(item(page, 'Second')).toHaveAttribute('id', 'new-id');
+    await page.keyboard.press('ArrowDown');
+
+    await expect(filter).toHaveAttribute('aria-activedescendant', 'new-id');
+  });
+});
+
+// MenuFilterRoot.test.tsx's "with a Viewport" (MNU-API-33, PTR-14).
+test.describe('with a Viewport', () => {
+  test('keeps real focus on the input while the cursor moves through the list', async ({ page, mode }) => {
+    await render(page, mode, { case: 'viewport' });
+    const filter = input(page);
+    await expect(filter).toBeFocused();
+
+    await page.keyboard.press('ArrowDown');
+
+    await expect(filter).toHaveAttribute('aria-activedescendant', (await item(page, 'Rename').getAttribute('id')) ?? 'missing');
+    await expect(filter).toBeFocused();
   });
 });

@@ -31,6 +31,16 @@ public sealed class MenuFilterPartsTests : BunitContext
         Assert.Equal(Message(part), error.Message);
     }
 
+    // MenuFilterParts.test.tsx renders the trigger alone, as MenuTrigger.test.tsx does; the port's host is Menu's own.
+    [Fact(DisplayName = "throws when Trigger is rendered without a root or handle")]
+    [Trait("Requirement", "MNU-EDGE-01")]
+    public void Throws_when_the_trigger_is_rendered_without_a_root_or_handle()
+    {
+        InvalidOperationException error = Assert.Throws<InvalidOperationException>(() => Render<MenuPartsHost>(p => p.Add(x => x.Case, "trigger-alone")));
+
+        Assert.Equal("Blazix: `<MenuTrigger>` must be either used within a `<MenuRoot>` component or provided with a handle.", error.Message);
+    }
+
     [Fact(DisplayName = "throws when a filter part is rendered in a plain menu")]
     [Trait("Requirement", "MNU-EDGE-04")]
     [Trait("Requirement", "MNU-STR-15")]
