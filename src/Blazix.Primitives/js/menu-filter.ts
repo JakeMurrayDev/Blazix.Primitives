@@ -1044,7 +1044,7 @@ function attachPopup(popup: HTMLElement, initial: MenuFilterOptions, channel: Tw
       if (parent === undefined) {
         return;
       }
-      if (popup.isConnected && popup.contains(popup.ownerDocument.activeElement)) {
+      if (focusLeftBehind()) {
         refocusOwner(parent.input);
       }
       if (byKey && trigger !== null && trigger.isConnected && !parent.input.hasAttribute('aria-activedescendant')) {
@@ -1052,7 +1052,24 @@ function attachPopup(popup: HTMLElement, initial: MenuFilterOptions, channel: Tw
       }
     });
   };
+  // MenuFilterSubmenuRoot.tsx:160-180 (MNU-FOC-14, EVT-07): the closing popup's return focus goes to the parent's input
+  // only when focus was left behind, inside the popup or on the body; focus the user moved elsewhere is respected.
+  function focusLeftBehind(): boolean {
+    const active = popup.ownerDocument.activeElement;
+    return active === null || active === popup.ownerDocument.body || (popup.isConnected && popup.contains(active));
+  }
+  const returnOnClose = (): void => {
+    queueMicrotask(() => {
+      const parent = parentOwner();
+      if (parent !== undefined && focusLeftBehind()) {
+        refocusOwner(parent.input);
+      }
+    });
+  };
   const syncHandoff = (wasOpen: boolean): void => {
+    if (options.submenu === true && wasOpen && options.open !== true) {
+      returnOnClose();
+    }
     if (options.handoff !== true) {
       return;
     }
@@ -1183,6 +1200,9 @@ function attachPopup(popup: HTMLElement, initial: MenuFilterOptions, channel: Tw
       popup.removeEventListener('keydown', onHandoffKeyDown, true);
       popup.removeEventListener('pointerdown', onHandoffPointer);
       // A plain popup without an exit animation unmounts with its close, before an update could bring it.
+      if (options.submenu === true && options.open === true) {
+        returnOnClose();
+      }
       if (options.handoff === true && options.open === true) {
         closeHandoff(null);
       }

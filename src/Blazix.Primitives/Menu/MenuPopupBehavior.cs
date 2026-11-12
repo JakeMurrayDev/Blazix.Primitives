@@ -464,9 +464,11 @@ internal sealed class MenuPopupBehavior : IAsyncDisposable
     // MenuFilterSubmenuRoot.tsx:120-125, 164-170 and useVirtualFocusParentHandoff.ts:28-30 (M5 track 12): a submenu of a
     // filterable parent, filterable or plain, returns focus to the parent's input, which holds the parent's virtual focus,
     // rather than to the trigger.
+    // The menu-filter popup handle returns focus there itself, only when focus was left behind in the popup or on the
+    // body (MNU-FOC-14, EVT-07): an explicit target would take focus back from wherever the user moved it.
     private static FocusTargetValue? FilterReturnFocus(MenuRootContext menu, MenuParentKind? kind) =>
-        kind == MenuParentKind.Menu && menu.Parent.Menu?.Filter?.InputElement is { } input
-            ? new FocusTargetValue(input)
+        kind == MenuParentKind.Menu && menu.Parent.Menu?.Filter is not null
+            ? new FocusTargetValue(false)
             : default(FocusTargetValue?);
 
     // The close interaction type as the focus manager classifies it (FLT-FOC-10), called once per committed close.
