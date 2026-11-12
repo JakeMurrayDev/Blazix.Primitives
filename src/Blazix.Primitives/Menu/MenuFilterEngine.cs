@@ -274,6 +274,7 @@ internal sealed class MenuFilterRootContext
     private string? ownedKey;
     private int inputs;
     private bool inputCheckPending;
+    private bool openedWithoutHighlight;
 
     /// <summary>Initializes a new instance of the <see cref="MenuFilterRootContext"/> class.</summary>
     /// <param name="provider">The provider the root consumed.</param>
@@ -573,7 +574,16 @@ internal sealed class MenuFilterRootContext
         flushedMatch = match;
         bool wasEmpty = Engine.IsEmpty;
         Engine.PublishItems();
-        PendingHighlight = Engine.Recompute(new MenuFilterPass(root.State.Open, query, match, provider.AutoHighlight, root.HighlightedItemId is not null));
+        // MNU-STA-19 (useListNavigation.ts:403-409): Base UI's list resets the highlight on every close, while the list
+        // mirror can keep the last item's id when the popup unmounts before the module reports the close; until an opening's
+        // first recompute with items, the menu has no highlight.
+        bool hasHighlight = !openedWithoutHighlight && root.HighlightedItemId is not null;
+        PendingHighlight = Engine.Recompute(new MenuFilterPass(root.State.Open, query, match, provider.AutoHighlight, hasHighlight));
+        if (Engine.Items.Count > 0)
+        {
+            openedWithoutHighlight = false;
+        }
+
         ApplyHighlight(PendingHighlight);
         if (Engine.IsEmpty != wasEmpty)
         {
@@ -609,6 +619,7 @@ internal sealed class MenuFilterRootContext
         bool isOpen = open.Value;
         bool closed = wasOpen && !isOpen;
         inputCheckPending |= !wasOpen && isOpen;
+        openedWithoutHighlight |= !wasOpen && isOpen;
         wasOpen = isOpen;
         if (closed && provider.Value.Length > 0)
         {
