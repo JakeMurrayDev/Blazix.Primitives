@@ -256,6 +256,16 @@ test.describe('filterable menu initial highlight', () => {
     await expect(input(page)).not.toBeFocused();
   });
 
+  // MNU-PTR-19, STA-22 (FilterDropdownRoot.tsx:49-58): a pointer open focuses the input, which shows its focus ring.
+  test('marks the input focus-visible when the menu is opened with a pointer', async ({ page, mode }) => {
+    await open(page, mode);
+
+    await trigger(page).click();
+
+    await expect(input(page)).toBeFocused();
+    await expect(input(page)).toHaveAttribute('data-highlighted', '');
+  });
+
   // MNU-FOC-16 (MenuFilterRoot.test.tsx): Safari focuses the trigger on mousedown before the closing click lands.
   test('does not seed a highlight when the trigger regains focus while open', async ({ page, mode }) => {
     await open(page, mode);
