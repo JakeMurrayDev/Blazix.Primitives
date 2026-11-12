@@ -1,0 +1,38 @@
+@namespace Blazix.Primitives.Tests.Components
+@* MNU-STA-03 (MenuFilterDropdown.tsx:84-90): a root whose open state is the host's `Open`, plain or, with `Filterable`,
+   inside a provider with an input and a list; each holds Rename. *@
+@if (Filterable)
+{
+    <MenuFilterProvider>
+        <MenuRoot TPayload="NoPayload" Open="Open" OpenChanged="value => Open = value">
+            <MenuTrigger TPayload="NoPayload">Actions</MenuTrigger>
+            <MenuPortal>
+                <MenuPositioner>
+                    <MenuPopup>
+                        <MenuInput aria-label="Filter actions" />
+                        <MenuList><MenuItem>Rename</MenuItem></MenuList>
+                    </MenuPopup>
+                </MenuPositioner>
+            </MenuPortal>
+        </MenuRoot>
+    </MenuFilterProvider>
+}
+else
+{
+    <MenuRoot TPayload="NoPayload" Open="Open" OpenChanged="value => Open = value">
+        <MenuTrigger TPayload="NoPayload">Actions</MenuTrigger>
+        <MenuPortal>
+            <MenuPositioner>
+                <MenuPopup><MenuItem>Rename</MenuItem></MenuPopup>
+            </MenuPositioner>
+        </MenuPortal>
+    </MenuRoot>
+}
+
+@code {
+    [Parameter]
+    public bool Open { get; set; }
+
+    [Parameter]
+    public bool Filterable { get; set; }
+}

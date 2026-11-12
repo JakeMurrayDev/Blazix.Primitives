@@ -75,6 +75,9 @@ public sealed class MenuRadioItem<TValue> : PartBase<MenuRadioItemState>
     private MenuRootContext? RootContext { get; set; }
 
     [CascadingParameter]
+    private MenuFilterGroupContext? FilterGroup { get; set; }
+
+    [CascadingParameter]
     private CompositeRootContext? ListRoot { get; set; }
 
     [CascadingParameter]
@@ -146,6 +149,7 @@ public sealed class MenuRadioItem<TValue> : PartBase<MenuRadioItemState>
     {
         behavior = new MenuItemBehavior("Menu", MenuItemKind.RadioItem, JSRuntime, Logger, DevelopmentLog, IdGenerator, StateHasChanged, DispatchExceptionAsync, onClick, onKeyDown, onKeyUp);
         behavior.Activated = radio.SelectAsync;
+        behavior.FilterGroup = FilterGroup;
         behavior.Subscribe(RootContext, ListRoot);
         radio.Subscribe(Group);
         base.OnInitialized();
@@ -164,6 +168,8 @@ public sealed class MenuRadioItem<TValue> : PartBase<MenuRadioItemState>
     protected override void BuildRenderTree(RenderTreeBuilder builder)
     {
         radio.Apply(Value, behavior!.Disabled || radio.GroupDisabled, behavior.Highlighted);
+        // MNU-STA-15 (M5 track 12): an item the menu's filter hides renders nothing.
+        Enabled = !behavior.FilteredOut;
         base.BuildRenderTree(builder);
     }
 

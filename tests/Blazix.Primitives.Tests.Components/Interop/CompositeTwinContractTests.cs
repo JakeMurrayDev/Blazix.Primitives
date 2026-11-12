@@ -340,6 +340,17 @@ public sealed class CompositeTwinContractTests
         Assert.DoesNotContain("retainHighlightWhileClosing", JsonSerializer.Serialize(new CompositeListOptions(), BlazixJsonContext.Default.CompositeListOptions), StringComparison.Ordinal);
     }
 
+    // MNU-ARIA-06 (M5 track 12, the orchestrator's 2026-11-12 grant): written only when false, as RetainHighlightWhileClosing is
+    // only when true; a change is a changed options record, which the handle sends.
+    [Fact]
+    [Trait("Requirement", "MNU-ARIA-06")]
+    public void Floating_active_descendant_is_written_by_its_module_name_only_when_false()
+    {
+        Assert.Contains("\"floatingActiveDescendant\":false", JsonSerializer.Serialize(new CompositeListOptions { FloatingActiveDescendant = false }, BlazixJsonContext.Default.CompositeListOptions), StringComparison.Ordinal);
+        Assert.DoesNotContain("floatingActiveDescendant", JsonSerializer.Serialize(new CompositeListOptions(), BlazixJsonContext.Default.CompositeListOptions), StringComparison.Ordinal);
+        Assert.NotEqual(new CompositeListOptions(), new CompositeListOptions { FloatingActiveDescendant = false });
+    }
+
     [Fact]
     [Trait("Requirement", "CMP-EVT-04")]
     [Trait("Requirement", "CMP-EVT-06")]

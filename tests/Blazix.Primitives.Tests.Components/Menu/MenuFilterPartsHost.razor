@@ -1,0 +1,74 @@
+@namespace Blazix.Primitives.Tests.Components
+@* MenuFilterParts.test.tsx's and MenuFilterRoot.scoping.test.tsx's trees for the filter parts' placement (MNU-STR-15,
+   EDGE-04): a part with no menu, or inside a plain menu. *@
+@switch (Case)
+{
+    case "input-alone":
+        <MenuInput />
+        break;
+    case "clear-alone":
+        <MenuClear />
+        break;
+    case "empty-alone":
+        <MenuEmpty />
+        break;
+    case "plain-menu-input":
+        <MenuRoot TPayload="NoPayload" DefaultOpen="true">
+            <MenuPortal>
+                <MenuPositioner>
+                    <MenuPopup>
+                        <MenuInput />
+                    </MenuPopup>
+                </MenuPositioner>
+            </MenuPortal>
+        </MenuRoot>
+        break;
+    case "plain-submenu-input":
+        <MenuFilterProvider>
+            <MenuRoot TPayload="NoPayload" DefaultOpen="true">
+                <MenuPortal>
+                    <MenuPositioner>
+                        <MenuPopup>
+                            <MenuSubmenuRoot DefaultOpen="true">
+                                <MenuSubmenuTrigger>Move to</MenuSubmenuTrigger>
+                                <MenuPortal>
+                                    <MenuPositioner>
+                                        <MenuPopup>
+                                            <MenuInput />
+                                        </MenuPopup>
+                                    </MenuPositioner>
+                                </MenuPortal>
+                            </MenuSubmenuRoot>
+                        </MenuPopup>
+                    </MenuPositioner>
+                </MenuPortal>
+            </MenuRoot>
+        </MenuFilterProvider>
+        break;
+    case "scopes":
+        <MenuFilterProvider>
+            <MenuRoot TPayload="NoPayload">
+                <MenuRootProbe Name="root" Seen="Seen" />
+                <MenuSubmenuRoot>
+                    <MenuRootProbe Name="plain-submenu" Seen="Seen" />
+                </MenuSubmenuRoot>
+                <MenuFilterProvider>
+                    <MenuSubmenuRoot>
+                        <MenuRootProbe Name="filterable-submenu" Seen="Seen" />
+                    </MenuSubmenuRoot>
+                </MenuFilterProvider>
+            </MenuRoot>
+        </MenuFilterProvider>
+        <MenuRoot TPayload="NoPayload">
+            <MenuRootProbe Name="plain-root" Seen="Seen" />
+        </MenuRoot>
+        break;
+}
+
+@code {
+    [Parameter]
+    public Dictionary<string, bool> Seen { get; set; } = [];
+
+    [Parameter]
+    public string Case { get; set; } = "";
+}

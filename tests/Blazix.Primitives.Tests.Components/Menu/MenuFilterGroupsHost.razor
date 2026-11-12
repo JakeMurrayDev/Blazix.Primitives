@@ -1,0 +1,112 @@
+@namespace Blazix.Primitives.Tests.Components
+@* MenuFilterRoot.test.tsx's and MenuFilterGroup.test.tsx's group trees (MNU-STA-24, DOM-20), one per `Case`:
+   - "groups": a File group (Save) and a Manage group (Rename);
+   - "empty-group": a group holding only its label, beside a Rename item;
+   - "radio": a Rename item beside a Sort by radio group (Date modified, Size);
+   - "nested": an outer group holding an inner group (Save), beside a Rename item;
+   - "nested-root": a group holding Save and an open filterable submenu (Share, whose list holds Email), beside Rename.
+   - "kept-mounted": an Organize group holding a closed filterable submenu (Move to) whose kept-mounted popup has its own
+     Folders group (Projects), beside an Other group (Rename).
+   The items have no label: their texts come through the List's handle. *@
+<MenuFilterProvider>
+    <MenuRoot TPayload="NoPayload" DefaultOpen="true">
+        <MenuTrigger TPayload="NoPayload">Actions</MenuTrigger>
+        <MenuPortal>
+            <MenuPositioner>
+                <MenuPopup>
+                    <MenuInput aria-label="Filter actions" />
+                    <MenuList>
+                        @switch (Case)
+                        {
+                            case "groups":
+                                <MenuGroup data-testid="file-group">
+                                    <MenuGroupLabel>File</MenuGroupLabel>
+                                    <MenuItem>Save</MenuItem>
+                                </MenuGroup>
+                                <MenuGroup data-testid="manage-group">
+                                    <MenuGroupLabel>Manage</MenuGroupLabel>
+                                    <MenuItem>Rename</MenuItem>
+                                </MenuGroup>
+                                break;
+                            case "empty-group":
+                                <MenuGroup data-testid="empty-group">
+                                    <MenuGroupLabel>Empty section</MenuGroupLabel>
+                                </MenuGroup>
+                                <MenuItem>Rename</MenuItem>
+                                break;
+                            case "radio":
+                                <MenuItem>Rename</MenuItem>
+                                <MenuRadioGroup TValue="string" data-testid="sort-group" DefaultValue="@("date")">
+                                    <MenuGroupLabel>Sort by</MenuGroupLabel>
+                                    <MenuRadioItem TValue="string" Value="@("date")">Date modified</MenuRadioItem>
+                                    <MenuRadioItem TValue="string" Value="@("size")">Size</MenuRadioItem>
+                                </MenuRadioGroup>
+                                break;
+                            case "nested-root":
+                                <MenuGroup data-testid="share-group">
+                                    <MenuItem>Save</MenuItem>
+                                    <MenuFilterProvider>
+                                        <MenuSubmenuRoot DefaultOpen="true">
+                                            <MenuSubmenuTrigger>Share</MenuSubmenuTrigger>
+                                            <MenuPortal>
+                                                <MenuPositioner>
+                                                    <MenuPopup>
+                                                        <MenuInput aria-label="Filter share" />
+                                                        <MenuList>
+                                                            <MenuItem>Email</MenuItem>
+                                                        </MenuList>
+                                                    </MenuPopup>
+                                                </MenuPositioner>
+                                            </MenuPortal>
+                                        </MenuSubmenuRoot>
+                                    </MenuFilterProvider>
+                                </MenuGroup>
+                                <MenuItem>Rename</MenuItem>
+                                break;
+                            case "kept-mounted":
+                                <MenuGroup data-testid="organize-group">
+                                    <MenuGroupLabel>Organize</MenuGroupLabel>
+                                    <MenuFilterProvider>
+                                        <MenuSubmenuRoot>
+                                            <MenuSubmenuTrigger>Move to</MenuSubmenuTrigger>
+                                            <MenuPortal KeepMounted="true">
+                                                <MenuPositioner>
+                                                    <MenuPopup>
+                                                        <MenuInput aria-label="Filter folders" />
+                                                        <MenuList>
+                                                            <MenuGroup>
+                                                                <MenuGroupLabel>Folders</MenuGroupLabel>
+                                                                <MenuItem>Projects</MenuItem>
+                                                            </MenuGroup>
+                                                        </MenuList>
+                                                    </MenuPopup>
+                                                </MenuPositioner>
+                                            </MenuPortal>
+                                        </MenuSubmenuRoot>
+                                    </MenuFilterProvider>
+                                </MenuGroup>
+                                <MenuGroup>
+                                    <MenuGroupLabel>Other</MenuGroupLabel>
+                                    <MenuItem>Rename</MenuItem>
+                                </MenuGroup>
+                                break;
+                            default:
+                                <MenuGroup data-testid="outer-group">
+                                    <MenuGroup data-testid="inner-group">
+                                        <MenuItem>Save</MenuItem>
+                                    </MenuGroup>
+                                </MenuGroup>
+                                <MenuItem>Rename</MenuItem>
+                                break;
+                        }
+                    </MenuList>
+                </MenuPopup>
+            </MenuPositioner>
+        </MenuPortal>
+    </MenuRoot>
+</MenuFilterProvider>
+
+@code {
+    [Parameter]
+    public string Case { get; set; } = "groups";
+}

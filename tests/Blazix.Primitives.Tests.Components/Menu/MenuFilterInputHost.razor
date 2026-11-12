@@ -1,0 +1,69 @@
+@namespace Blazix.Primitives.Tests.Components
+@* MenuFilterRoot.test.tsx's trees for the input's own element (MNU-API-59, DOM-21): an open filterable menu whose popup
+   holds a label, the input and a list. `ListId` is the list's id, `Disabled` disables the root, `InputDisabled` the input, `DefaultQuery` seeds the
+   provider, `OnValueChange` receives its query requests, `Open` is bound to the root, `KeepMounted` keeps the closed popup, `Orientation` is the root's and `InputClass` is the input's class
+   function. *@
+<MenuFilterProvider DefaultValue="@DefaultQuery" OnValueChange="OnValueChange">
+    <MenuRoot TPayload="NoPayload" @bind-Open="Open" Disabled="Disabled" Orientation="Orientation">
+        <MenuTrigger TPayload="NoPayload">Actions</MenuTrigger>
+        <MenuPortal KeepMounted="KeepMounted">
+            <MenuPositioner>
+                <MenuPopup>
+                    <label for="action-filter">Filter actions</label>
+                    @if (InputId is null)
+                    {
+                        <MenuInput aria-label="Filter actions" Disabled="InputDisabled" ClassValue="InputClass" />
+                    }
+                    else
+                    {
+                        <MenuInput id="@InputId" Disabled="InputDisabled" />
+                    }
+                    @if (ListId is null)
+                    {
+                        <MenuList>
+                            <MenuItem>Rename</MenuItem>
+                        </MenuList>
+                    }
+                    else
+                    {
+                        <MenuList id="@ListId">
+                            <MenuItem>Rename</MenuItem>
+                        </MenuList>
+                    }
+                </MenuPopup>
+            </MenuPositioner>
+        </MenuPortal>
+    </MenuRoot>
+</MenuFilterProvider>
+
+@code {
+    [Parameter]
+    public string? InputId { get; set; }
+
+    [Parameter]
+    public string? ListId { get; set; }
+
+    [Parameter]
+    public bool Disabled { get; set; }
+
+    [Parameter]
+    public bool InputDisabled { get; set; }
+
+    [Parameter]
+    public string DefaultQuery { get; set; } = "";
+
+    [Parameter]
+    public EventCallback<ValueChangeEventArgs<string>> OnValueChange { get; set; }
+
+    [Parameter]
+    public bool Open { get; set; } = true;
+
+    [Parameter]
+    public bool KeepMounted { get; set; }
+
+    [Parameter]
+    public Blazix.Primitives.Orientation Orientation { get; set; } = Blazix.Primitives.Orientation.Vertical;
+
+    [Parameter]
+    public Func<MenuInputState, string?>? InputClass { get; set; }
+}

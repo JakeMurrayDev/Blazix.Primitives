@@ -1,0 +1,184 @@
+@namespace Blazix.Primitives.Fixtures.Client.MenuFixtures
+@using Blazix.Primitives
+@using Microsoft.AspNetCore.Components.Web
+
+@*
+    The `menu-filter-initial` fixture (tests/browser/menu.filter.spec.ts, M5 track 12): MenuFilterRoot.initialHighlight
+    .test.tsx's Test, closed: a trigger "Actions" (`hover=true` opens it on hover with no delay; `orientation=horizontal`
+    sets the root's orientation; `plain=true` drops the disabled item; `after=true` adds an input "After"
+    (`data-testid="after"`) after the menu; `cancelArrow=true` gives the trigger a consumer onKeyDown that cancels the
+    part's handling of ArrowDown; `count=true` counts consumer calls in `data-trigger-clicks`, `data-input-keydowns`
+    and `data-popup-keydowns`; `keepMounted=true` keeps the closed popup mounted; `cancelOpen=true` cancels every open request; `exitAnimation=true` gives the popup a 10 s exit animation (open the
+    page with `animations=1`); `query` seeds the provider's DefaultValue; each query request is recorded as `value:reason`
+    in `data-value-changes`, and each open request as `true` or `false` in `data-open-changes`; `controlled=true` holds
+    the open state on this page, which the buttons "page close" and "page open" after the menu set), an input, Empty reading
+    "No actions found.", and a list of a disabled Unavailable, Rename and Delete. `data-attached` turns "true" once the
+    menu's session and the trigger's `menu-filter` handle have attached, and `data-input-attached` once the open popup's
+    input has its `menu-filter` handle.
+*@
+<FixtureContainer Name="menu-filter-initial" data-attached="@(attached ? "true" : "false")" data-input-attached="@(inputAttached ? "true" : "false")" data-trigger-clicks="@triggerClicks" data-input-keydowns="@inputKeyDowns" data-popup-keydowns="@popupKeyDowns" data-open-completes="@string.Join(' ', openCompletes)" data-value-changes="@string.Join('|', valueChanges)" data-open-changes="@string.Join(' ', openChanges)">
+    @if (ExitAnimation)
+    {
+        <style>.filter-menu-exit-test[data-ending-style] { animation: filter-menu-exit-test 10s linear; } @@keyframes filter-menu-exit-test { from { opacity: 1; } to { opacity: 0; } }</style>
+    }
+    <MenuFilterProvider DefaultValue="@(Query ?? "")" OnValueChange="RecordValue">
+        <MenuRoot TPayload="NoPayload" Orientation="@(OrientationName == "horizontal" ? Orientation.Horizontal : Orientation.Vertical)" OnOpenChangeComplete="OnOpenChangeComplete" OnOpenChange="CancelOpen" @attributes="RootParameters" @ref="root">
+            <MenuTrigger TPayload="NoPayload" OpenOnHover="@Hover" Delay="0" @attributes="TriggerAttributes" @ref="trigger">Actions</MenuTrigger>
+            <MenuPortal KeepMounted="@KeepMounted">
+                <MenuPositioner>
+                    <MenuPopup data-testid="popup" class="@(ExitAnimation ? "filter-menu-exit-test" : null)" @attributes="PopupAttributes">
+                        <MenuInput aria-label="Filter actions" @attributes="InputAttributes" @ref="input" />
+                        <MenuEmpty>No actions found.</MenuEmpty>
+                        <MenuList>
+                            @if (!Plain)
+                            {
+                                <MenuItem Disabled="true">Unavailable</MenuItem>
+                            }
+                            <MenuItem>Rename</MenuItem>
+                            <MenuItem>Delete</MenuItem>
+                        </MenuList>
+                    </MenuPopup>
+                </MenuPositioner>
+            </MenuPortal>
+        </MenuRoot>
+    </MenuFilterProvider>
+    @if (After)
+    {
+        <input data-testid="after" aria-label="After" />
+    }
+    @if (Controlled)
+    {
+        <button type="button" @onclick="() => open = false">page close</button>
+        <button type="button" @onclick="() => open = true">page open</button>
+    }
+</FixtureContainer>
+
+@code {
+    private MenuRoot<NoPayload>? root;
+    private MenuTrigger<NoPayload>? trigger;
+    private MenuInput? input;
+    private bool attached;
+    private bool attaching;
+    private bool inputAttached;
+    private bool inputAttaching;
+
+    [SupplyParameterFromQuery(Name = "cancelArrow")]
+    public bool CancelArrow { get; set; }
+
+    // `cancelArrow=true`: the consumer's onKeyDown keeps ArrowDown from the trigger's own handling (preventBaseUIHandler).
+    // Only then does the trigger carry a consumer handler, which makes each of its keydowns ask C# (design point 6).
+    private Dictionary<string, object>? TriggerAttributes => CancelArrow
+        ? new() { ["onkeydown"] = EventCallback.Factory.Create<KeyboardEventArgs>(this, OnTriggerKeyDown) }
+        : Count ? new() { ["onclick"] = EventCallback.Factory.Create<MouseEventArgs>(this, () => triggerClicks++) } : null;
+
+    // `count=true`: consumer handlers on the trigger's click, the input's keydown and the popup's keydown count their calls.
+    private Dictionary<string, object>? InputAttributes => Count
+        ? new() { ["onkeydown"] = EventCallback.Factory.Create<KeyboardEventArgs>(this, () => inputKeyDowns++) }
+        : null;
+
+    private Dictionary<string, object>? PopupAttributes => Count
+        ? new() { ["onkeydown"] = EventCallback.Factory.Create<KeyboardEventArgs>(this, () => popupKeyDowns++) }
+        : null;
+
+    private int triggerClicks;
+    private int inputKeyDowns;
+    private int popupKeyDowns;
+
+    [SupplyParameterFromQuery(Name = "controlled")]
+    public bool Controlled { get; set; }
+
+    private bool open;
+
+    // `controlled=true`: the open state is this page's.
+    private Dictionary<string, object>? RootParameters => Controlled
+        ? new() { ["Open"] = open, ["OpenChanged"] = EventCallback.Factory.Create<bool>(this, value => open = value) }
+        : null;
+
+    [SupplyParameterFromQuery(Name = "exitAnimation")]
+    public bool ExitAnimation { get; set; }
+
+    [SupplyParameterFromQuery(Name = "query")]
+    public string? Query { get; set; }
+
+    private readonly List<string> valueChanges = [];
+
+    private void RecordValue(ValueChangeEventArgs<string> args) => valueChanges.Add($"{args.Value}:{args.Details.Reason.ToLiteral()}");
+
+    [SupplyParameterFromQuery(Name = "cancelOpen")]
+    public bool CancelOpenRequests { get; set; }
+
+    private readonly List<string> openChanges = [];
+
+    // Each open request is recorded; `cancelOpen=true` cancels every one that opens.
+    private void CancelOpen(ValueChangeEventArgs<bool> args)
+    {
+        openChanges.Add(args.Value ? "true" : "false");
+        if (CancelOpenRequests && args.Value)
+        {
+            args.Details.Cancel();
+        }
+    }
+
+    [SupplyParameterFromQuery(Name = "keepMounted")]
+    public bool KeepMounted { get; set; }
+
+    [SupplyParameterFromQuery(Name = "count")]
+    public bool Count { get; set; }
+
+    private void OnTriggerKeyDown(KeyboardEventArgs args)
+    {
+        if (CancelArrow && args.Key == "ArrowDown")
+        {
+            args.PreventPartHandler();
+        }
+    }
+
+    [SupplyParameterFromQuery(Name = "hover")]
+    public bool Hover { get; set; }
+
+    [SupplyParameterFromQuery(Name = "orientation")]
+    public string? OrientationName { get; set; }
+
+    [SupplyParameterFromQuery(Name = "plain")]
+    public bool Plain { get; set; }
+
+    [SupplyParameterFromQuery(Name = "after")]
+    public bool After { get; set; }
+
+    // An open or close renders this component again, so its after-render finds the popup's input; each completion is
+    // recorded in `data-open-completes` (space-separated).
+    private void OnOpenChangeComplete(bool open) => openCompletes.Add(open ? "true" : "false");
+
+    private readonly List<string> openCompletes = [];
+
+    /// <inheritdoc />
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!RendererInfo.IsInteractive || root is null)
+        {
+            return;
+        }
+
+        // The input renders with the open popup; its handle attaches after the portal's move, a leg later on Server, and the
+        // trigger relays keys only to an attached input.
+        if (attached && !inputAttached && !inputAttaching && input is not null)
+        {
+            inputAttaching = true;
+            await input.FilterAttached;
+            inputAttached = true;
+            StateHasChanged();
+            return;
+        }
+
+        if (attached || attaching)
+        {
+            return;
+        }
+
+        // The trigger relays keys and records virtual presses once its `menu-filter` handle is attached.
+        attaching = true;
+        await Task.WhenAll(root.SessionAttached, trigger?.FilterAttached ?? Task.CompletedTask);
+        attached = true;
+        StateHasChanged();
+    }
+}

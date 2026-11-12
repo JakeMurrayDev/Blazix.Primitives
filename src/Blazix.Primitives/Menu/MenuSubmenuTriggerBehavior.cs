@@ -33,6 +33,8 @@ internal sealed class MenuSubmenuTriggerBehavior : IAsyncDisposable
     private static readonly InteractionsMenuTriggerOptions s_menu = new() { CloseOnGuardReturn = true };
 
     private readonly string familyName;
+    private readonly IJSRuntime jsRuntime;
+    private readonly Func<Func<Task>, Task> invokeAsync;
     private readonly PlatformFlags platform;
     private readonly Action requestRender;
     private readonly EventCallback onKeyDown;
@@ -42,6 +44,8 @@ internal sealed class MenuSubmenuTriggerBehavior : IAsyncDisposable
     private PopupTriggerBehavior<MenuStore<NoPayload>, MenuStoreState<NoPayload>, NoPayload>? trigger;
     private CompositeItemBehavior? item;
     private MenuRootContext<NoPayload>? submenu;
+    private MenuFilterModuleAttachment? submenuModule;
+    private ElementReference? submenuElement;
     private MenuSubscription? parentSubscription;
     private MenuSelection<bool>? parentDisabled;
     private MenuSubmenuTriggerParameters parameters;
@@ -50,6 +54,8 @@ internal sealed class MenuSubmenuTriggerBehavior : IAsyncDisposable
     private IReadOnlyDictionary<string, object>? openAttributes;
     private IReadOnlyDictionary<string, object>? openAttributesSource;
     private bool registeredOpen;
+    private bool registeredFilteredOut;
+    private MenuFilterItemSlot? filterSlot;
     private bool disposed;
 
     /// <summary>Initializes a new instance of the <see cref="MenuSubmenuTriggerBehavior"/> class.</summary>
@@ -84,7 +90,8 @@ internal sealed class MenuSubmenuTriggerBehavior : IAsyncDisposable
         EventCallback onKeyUp)
     {
         _ = owner;
-        _ = invokeAsync;
+        this.invokeAsync = invokeAsync;
+        this.jsRuntime = jsRuntime;
         this.familyName = familyName;
         this.platform = platform;
         this.requestRender = requestRender;
@@ -102,6 +109,15 @@ internal sealed class MenuSubmenuTriggerBehavior : IAsyncDisposable
     /// <summary>Gets a value indicating whether the trigger ignores user interaction.</summary>
     public bool Disabled => parameters.Item.Disabled || (submenu?.State.Disabled ?? false) || (parentDisabled?.Value ?? false);
 
+    // MNU-STA-24 (M5 track 12): the enclosing group's filter context, set by the part before Subscribe.
+    /// <summary>Gets or sets the enclosing group's filter context, which counts the trigger as a member, or <see langword="null"/>.</summary>
+    public MenuFilterGroupContext? FilterGroup { get; set; }
+
+    // MNU-STA-15, STA-25 (M5 track 12; useMenuFilterSubmenuTrigger.ts:18-45): in a filterable parent menu, a trigger the
+    // query filters out renders nothing and leaves the parent's list, but stays while its submenu is mounted.
+    /// <summary>Gets a value indicating whether the parent menu's filter hides the trigger, so that its part renders nothing.</summary>
+    public bool FilteredOut => filterSlot is { FilteredOut: true } && !(submenu?.State.Mounted ?? false);
+
     /// <summary>Gets a value indicating whether the trigger is highlighted in its parent's list, the list handle's mirror.</summary>
     public bool Highlighted => item?.Highlighted ?? false;
 
@@ -118,6 +134,7 @@ internal sealed class MenuSubmenuTriggerBehavior : IAsyncDisposable
     /// <returns>A task that completes when the handles have their options.</returns>
     public async Task OnAfterRenderAsync(bool enabled, ElementReference? element, string? id)
     {
+        filterSlot?.Flush();
         await trigger!.OnAfterRenderAsync(element);
         if (trigger.IsMountedByTrigger)
         {
@@ -133,6 +150,7 @@ internal sealed class MenuSubmenuTriggerBehavior : IAsyncDisposable
         await interactionsSync;
         await referenceSync;
         await itemSync;
+        await SyncSubmenuModuleAsync(element);
     }
 
     /// <inheritdoc />
@@ -144,6 +162,7 @@ internal sealed class MenuSubmenuTriggerBehavior : IAsyncDisposable
         }
 
         disposed = true;
+        filterSlot?.Dispose();
         submenu?.Parent.Menu?.Items.Remove(this);
         parentSubscription?.Dispose();
         trigger?.Dispose();
@@ -151,6 +170,10 @@ internal sealed class MenuSubmenuTriggerBehavior : IAsyncDisposable
         reference.Dispose();
         item?.Dispose();
         await interactions.DisposeAsync();
+        if (submenuModule is not null)
+        {
+            await submenuModule.DisposeAsync();
+        }
     }
 
     /// <summary>Checks the part's placement and subscribes to both menus, once.</summary>
@@ -176,6 +199,10 @@ internal sealed class MenuSubmenuTriggerBehavior : IAsyncDisposable
 
         trigger = new(this, familyName + "SubmenuTrigger", OnTriggerChanged);
         item = new CompositeItemBehavior(parentList, familyName + "SubmenuTrigger", onKeyDown, requestRender);
+        if (context.Parent.Menu?.Filter is { } filter)
+        {
+            filterSlot = new MenuFilterItemSlot(filter, OnFilterChanged, FilterGroup);
+        }
     }
 
     /// <summary>Applies the trigger's parameters and its registration.</summary>
@@ -191,9 +218,10 @@ internal sealed class MenuSubmenuTriggerBehavior : IAsyncDisposable
         MenuStore<NoPayload> store = submenu!.Store;
         trigger!.Apply(store, null, id, element, false, default, MenuParts.MissingSubmenuRoot(familyName).Message);
         bool disabled = Disabled;
+        filterSlot?.Apply(parameters.Item.Label, id);
         Register();
         item!.SetConsumerAttributes(attributes);
-        if (id is not null)
+        if (id is not null && !FilteredOut)
         {
             submenu.Parent.Menu?.Items.Set(this, id);
         }
@@ -205,7 +233,10 @@ internal sealed class MenuSubmenuTriggerBehavior : IAsyncDisposable
         button.SetConsumerAttributes(attributes);
         interactions.SetConsumerAttributes(attributes);
         reference.SetConsumerAttributes(attributes);
-        reference.SetList(submenu.List, CompositeListRole.Reference);
+        // MenuRoot.tsx:604-636 (M5 track 12, the orchestrator's 2026-11-12 grant): a filterable submenu's Input is its list's
+        // reference under virtual focus, so the trigger takes the trigger role, as a filterable root's triggers do, and the
+        // submenu's aria-activedescendant goes to the Input.
+        reference.SetList(submenu.List, submenu.Filter is null ? CompositeListRole.Reference : CompositeListRole.Trigger);
         SyncInteractions();
     }
 
@@ -216,7 +247,8 @@ internal sealed class MenuSubmenuTriggerBehavior : IAsyncDisposable
     {
         MenuRootContext<NoPayload> menu = submenu!;
         bool open = Open;
-        trigger!.AddAttributes(attributes, ariaExpanded: true, ariaHasPopup: "menu");
+        // MNU-ARIA-13 (useMenuFilterSubmenuTrigger.ts:59-62, M5 track 12): a filterable submenu's popup is a dialog.
+        trigger!.AddAttributes(attributes, ariaExpanded: true, ariaHasPopup: menu.Filter is not null ? "dialog" : "menu");
 
         // MNU-A11Y-01 (ADR 01 Amendments 2026-11-04): aria-expanded is left out after a keyboard open under VoiceOver.
         if (open && menu.State.KeyboardOpen && platform.VoiceOver == true)
@@ -339,6 +371,15 @@ internal sealed class MenuSubmenuTriggerBehavior : IAsyncDisposable
     // `tabindex` wins, as it does on every item.
     private void Register()
     {
+        // MNU-STA-15: a filtered-out trigger leaves the parent's composite list and item ids until it matches again.
+        registeredFilteredOut = FilteredOut;
+        if (registeredFilteredOut)
+        {
+            item!.Dispose();
+            submenu!.Parent.Menu?.Items.Remove(this);
+            return;
+        }
+
         registeredOpen = Open;
         IReadOnlyDictionary<string, object>? registered = consumerAttributes;
         if (registeredOpen && !HasConsumerTabIndex)
@@ -359,13 +400,67 @@ internal sealed class MenuSubmenuTriggerBehavior : IAsyncDisposable
         item!.SetRegistration(id, registered, Disabled, focusableWhenDisabled: true, label: parameters.Item.Label);
     }
 
+    private void OnFilterChanged()
+    {
+        // MNU-STA-25 (useMenuFilterSubmenuTrigger.ts:80-85): the query hiding the trigger closes its open submenu with reason
+        // none; a canceled close keeps the trigger and the submenu.
+        if (filterSlot is { FilteredOut: true } && submenu is { State.Open: true } open)
+        {
+            _ = open.RequestOpenAsync(false, new OpenChangeEventDetails(EventReason.None));
+        }
+
+        Register();
+        if (!FilteredOut && id is not null)
+        {
+            submenu!.Parent.Menu?.Items.Set(this, id);
+        }
+
+        requestRender();
+    }
+
     private void OnTriggerChanged()
     {
-        if (item is not null && Open != registeredOpen)
+        if (item is not null && (Open != registeredOpen || FilteredOut != registeredFilteredOut))
         {
             Register();
         }
 
         requestRender();
+    }
+
+    // MenuFilterSubmenuRoot.tsx:240-276 (MNU-KEY-29, KEY-31..33; the orchestrator's 2026-11-12 grants): a filterable submenu's
+    // trigger carries a `menu-filter` handle, which opens the submenu on the parent's cross-axis open key and closes it on
+    // its own close key, through the list-navigation reason; the module moves focus and the parent's highlight itself.
+    private async Task SyncSubmenuModuleAsync(ElementReference? element)
+    {
+        MenuRootContext<NoPayload> menu = submenu!;
+        if (element is not { } target || menu.Filter is null)
+        {
+            return;
+        }
+
+        if (submenuModule is null)
+        {
+            submenuModule = new MenuFilterModuleAttachment(jsRuntime);
+            // The request names this trigger, as Base UI's passes `event.currentTarget`, so the trigger becomes the
+            // submenu's active trigger and renders open.
+            submenuModule.Twin.SubmenuKey += report => _ = invokeAsync(() =>
+                submenu!.RequestOpenAsync(report.Open, new OpenChangeEventDetails(EventReason.ListNavigation, report.Event) { Trigger = new EventTrigger(id, submenuElement) }));
+        }
+
+        submenuElement = target;
+
+        MenuRootContext? parent = menu.Parent.Menu;
+        await submenuModule.SyncAsync(target, new MenuFilterOptions
+        {
+            Part = MenuFilterTwin.SubmenuTriggerPart,
+            MenuKey = menu.SessionToken,
+            ParentKey = parent?.SessionToken,
+            Open = menu.State.Open,
+            KeyboardOpen = menu.State.Open && menu.State.KeyboardOpen,
+            Reason = menu.State.OpenChangeReason?.ToLiteral(),
+            Orientation = menu.Orientation == Orientation.Horizontal ? "horizontal" : "vertical",
+            ParentOrientation = parent?.Orientation == Orientation.Horizontal ? "horizontal" : "vertical",
+        });
     }
 }

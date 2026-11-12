@@ -262,6 +262,28 @@ public sealed class PositionerBehaviorTests : IDisposable
         Assert.True(PositioningTestContext.Parse(host.UpdateOptions[^1]).GetProperty("shift").GetProperty("crossAxis").GetBoolean());
     }
 
+    [Fact(DisplayName = "port: the lazy-flip input is sent as the positioning options' lazyFlip, and none is sent while it is unset")]
+    [Trait("Requirement", "MNU-POS-05")]
+    [Trait("Requirement", "FLT-ANI-04")]
+    public async Task The_lazy_flip_input_is_sent_as_the_positioning_options_lazy_flip()
+    {
+        using PositionerBehavior behavior = new(host.Context.JSInterop.JSRuntime, () => { }, action =>
+        {
+            action();
+            return Task.CompletedTask;
+        });
+        PositionerInputs inputs = new() { Open = true, Mounted = true };
+        behavior.SetLazyFlip("placement");
+        behavior.SetInputs(inputs);
+        await behavior.AfterRenderAsync(null, "positioner");
+
+        Assert.Equal("placement", PositioningTestContext.Parse(host.AttachOptions).GetProperty("lazyFlip").GetString());
+
+        behavior.SetLazyFlip(null);
+        await behavior.AfterRenderAsync(null, "positioner");
+        Assert.False(PositioningTestContext.Parse(host.UpdateOptions[^1]).TryGetProperty("lazyFlip", out _));
+    }
+
     [Fact(DisplayName = "sends the anchor element and the boundary elements as indexes into the references after the options, an update when an element at the same index changes, and no reference for an element not rendered yet")]
     [Trait("Requirement", "FLT-API-09")]
     [Trait("Requirement", "FLT-API-11")]

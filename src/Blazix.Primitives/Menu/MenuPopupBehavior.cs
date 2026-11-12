@@ -62,6 +62,8 @@ internal sealed class MenuPopupBehavior : IAsyncDisposable
     private MenuSelection<bool>? keyboardOpen;
     private IDisposable? boundaryPart;
     private IDisposable? retainRegistration;
+    private IDisposable? inputIdSubscription;
+    private MenuFilterModuleAttachment? filterModule;
     private FocusManagerBehavior? focus;
     private TransitionsTwin? transitions;
     private TwinHandle<TransitionsOptions>? transitionsHandle;
@@ -144,11 +146,30 @@ internal sealed class MenuPopupBehavior : IAsyncDisposable
             // MNU-KEY-20 (MenuPopup.tsx:169-173): inside a toolbar the composite keys stop at the popup.
             Task moduleSync = module.SyncAsync(target, toolbar is null ? s_freeKeys : s_stoppedKeys);
 
+            // useMenuFilterPopup.ts (M5 track 12): a filterable popup's `menu-filter` handle, the input's refocus.
+            Task filterSync = filterModule?.SyncAsync(target, new MenuFilterOptions
+            {
+                Part = MenuFilterTwin.PopupPart,
+                MenuKey = menu.SessionToken,
+                Open = open!.Value,
+
+                // MenuFilterSubmenuRoot.tsx:278-292: a filterable submenu's popup closes on its close key, back to the parent.
+                Submenu = menu.Parent.Kind == MenuParentKind.Menu && menu.Filter is not null ? true : null,
+
+                // useVirtualFocusParentHandoff.ts: a plain submenu of a filterable parent hands focus and the parent's
+                // highlight back itself.
+                Handoff = menu.Filter is null ? true : null,
+                Reason = openChangeReason!.Value?.ToLiteral(),
+                ParentKey = menu.Parent.Kind == MenuParentKind.Menu ? menu.Parent.Menu?.SessionToken : null,
+                ParentOrientation = menu.Parent.Kind == MenuParentKind.Menu ? (menu.Parent.Menu?.Orientation == Orientation.Horizontal ? "horizontal" : "vertical") : null,
+            }) ?? Task.CompletedTask;
+
             // The list's handle waits for the session inside track 1's behavior; the batch boundary does not wait for it.
             listSync = list.AfterRenderAsync(true, target, id);
             focus!.SetInputs(FocusInputs());
             await focus.AfterRenderAsync(target, id);
             await moduleSync;
+            await filterSync;
             await transitionsSync;
         }
 
@@ -169,14 +190,22 @@ internal sealed class MenuPopupBehavior : IAsyncDisposable
         subscription?.Dispose();
         subscription = null;
         retainRegistration?.Dispose();
+        inputIdSubscription?.Dispose();
+        if (root?.Filter is { } listFilter && ReferenceEquals(listFilter.ListRoot, list))
+        {
+            listFilter.ListRoot = null;
+        }
+
         boundaryPart?.Dispose();
         root?.ClearPopupElement();
         list.Dispose();
         ValueTask transitionsDisposed = transitions?.DisposeAsync() ?? ValueTask.CompletedTask;
         ValueTask moduleDisposed = module.DisposeAsync();
+        ValueTask filterDisposed = filterModule?.DisposeAsync() ?? ValueTask.CompletedTask;
         ValueTask focusDisposed = focus?.DisposeAsync() ?? ValueTask.CompletedTask;
         await transitionsDisposed;
         await moduleDisposed;
+        await filterDisposed;
         await focusDisposed;
     }
 
@@ -215,6 +244,23 @@ internal sealed class MenuPopupBehavior : IAsyncDisposable
         boundaryPart = menu.RegisterBoundaryPart();
         this.positioner.AddListener(mirrorChanged);
         list.SetList(menu.List, CompositeListRole.Floating);
+
+        // MenuFilterPopup.tsx:38-50 (M5 track 12): a filterable popup's initial focus is its input, named by its id.
+        inputIdSubscription = menu.Filter?.SubscribeInputId(OnChanged);
+        if (menu.Filter is { } listFilter)
+        {
+            listFilter.ListRoot = list;
+        }
+
+        if (menu.Filter is not null || (menu.Parent.Kind == MenuParentKind.Menu && menu.Parent.Menu?.Filter is not null))
+        {
+            filterModule = new MenuFilterModuleAttachment(jsRuntime);
+
+            // MenuFilterSubmenuRoot.tsx:203-213 (MNU-KEY-32): a filterable submenu's close key closes it with the
+            // list-navigation reason; the module returns focus to the parent.
+            filterModule.Twin.SubmenuKey += report => _ = invokeAsync(() =>
+                menu.RequestOpenAsync(report.Open, new OpenChangeEventDetails(EventReason.ListNavigation, report.Event)));
+        }
     }
 
     /// <summary>Applies the part's focus parameters and its rendered id.</summary>
@@ -248,8 +294,19 @@ internal sealed class MenuPopupBehavior : IAsyncDisposable
             attributes.Set("id", state.FloatingId);
         }
 
+        // MNU-ARIA-06 (MenuFilterPopup.tsx:52-56, useMenuFilterPopup.ts:97-101; M5 track 12): a filterable menu's popup is a
+        // dialog labelled as the menu would be, without aria-orientation; its list keeps the menu semantics.
+        if (menu.Filter is not null)
+        {
+            attributes.Set("role", "dialog");
+            if (PopupLabel.Resolve(consumerAttributes, activeTriggerId!.Value) is { } dialogLabel)
+            {
+                attributes.Set("aria-labelledby", dialogLabel);
+            }
+        }
+
         // MenuPopup.tsx:151-164: a rendered list takes the menu semantics.
-        if (!string.IsNullOrEmpty(listElementId!.Value))
+        else if (!string.IsNullOrEmpty(listElementId!.Value))
         {
             attributes.Set("role", "presentation");
         }
@@ -330,13 +387,20 @@ internal sealed class MenuPopupBehavior : IAsyncDisposable
     /// <summary>Handles the popup's <c>keydown</c> for the list.</summary>
     /// <param name="args">The key.</param>
     /// <returns>A task that completes when the consumer's handler has run.</returns>
-    public Task HandleKeyDownAsync(KeyboardEventArgs args) => list.HandleKeyDownAsync(args);
+    public Task HandleKeyDownAsync(KeyboardEventArgs args) =>
+        // MNU-API-59, EVT-14 (M5 track 12, option (a)): a key the filter's Input kept for its caret never reaches the
+        // popup's consumer handler, as Base UI's router stops it.
+        root?.Filter is { } filter && filter.TakeOwnedKey(args.Key) ? Task.CompletedTask : list.HandleKeyDownAsync(args);
 
     /// <summary>Takes the consumer's attributes, whose own handler and label the popup reads.</summary>
     /// <param name="attributes">The consumer's attributes.</param>
     public void SetConsumerAttributes(IReadOnlyDictionary<string, object>? attributes)
     {
         consumerAttributes = attributes;
+        if (root?.Filter is { } filter)
+        {
+            filter.PopupHandlesKeyDown = attributes?.ContainsKey("onkeydown") == true;
+        }
         list.SetConsumerAttributes(attributes);
     }
 
@@ -345,6 +409,20 @@ internal sealed class MenuPopupBehavior : IAsyncDisposable
     {
         focus?.SetInputs(FocusInputs());
         requestRender();
+    }
+
+    // MenuFilterPopup.tsx:28-50 (M5 track 12): the input holds real focus, so the popup is never the target. A submenu
+    // may focus its input only after a keyboard, list-navigation, hover or press open; a hover open, or a touch or pen
+    // tap that would raise the on-screen keyboard, leaves focus where it is.
+    private FocusTargetValue FilterInitialFocus(MenuParentKind? kind, InteractionType? method, string? inputId)
+    {
+        bool isOpen = open!.Value;
+        EventReason? reason = openChangeReason!.Value;
+        bool mayFocusInput = kind != MenuParentKind.Menu
+            || (isOpen && (method == InteractionType.Keyboard || reason is EventReason.ListNavigation or EventReason.TriggerHover or EventReason.TriggerPress));
+        bool hoverOpen = isOpen && reason == EventReason.TriggerHover;
+        bool touchOpen = method is InteractionType.Touch or InteractionType.Pen;
+        return mayFocusInput && !hoverOpen && !touchOpen && inputId is not null ? new FocusTargetValue(inputId) : new FocusTargetValue(false);
     }
 
     // MenuPopup.tsx:81-96, 176-216.
@@ -364,6 +442,10 @@ internal sealed class MenuPopupBehavior : IAsyncDisposable
         FocusTargetValue? initial = kind == MenuParentKind.Menu
             ? new FocusTargetValue(false)
             : !string.IsNullOrEmpty(listElementId!.Value) ? (highlighted ? new FocusTargetValue(false) : new FocusTargetValue(listElementId.Value!)) : default(FocusTargetValue?);
+        if (menu.Filter is { } filter)
+        {
+            initial = FilterInitialFocus(kind, method, filter.InputId);
+        }
 
         // The return focus: the consumer's, else the trigger for a top-level or context menu, a menu with an active
         // trigger, or a bar's menu not closed by an outside press.
@@ -375,7 +457,7 @@ internal sealed class MenuPopupBehavior : IAsyncDisposable
             Modal = kind == MenuParentKind.ContextMenu,
             Disabled = !mounted!.Value,
             InitialFocus = initial,
-            ReturnFocus = ResolveFinalFocus() ?? new FocusTargetValue(returnFocus),
+            ReturnFocus = ResolveFinalFocus() ?? FilterReturnFocus(menu, kind) ?? new FocusTargetValue(returnFocus),
             RestoreFocus = FocusManagerTwin.RestorePopup,
             OpenInteractionType = method,
             CloseEvent = closeEvent!.Value,
@@ -388,6 +470,16 @@ internal sealed class MenuPopupBehavior : IAsyncDisposable
             SessionToken = menu.SessionToken,
         };
     }
+
+    // MenuFilterSubmenuRoot.tsx:120-125, 164-170 and useVirtualFocusParentHandoff.ts:28-30 (M5 track 12): a submenu of a
+    // filterable parent, filterable or plain, returns focus to the parent's input, which holds the parent's virtual focus,
+    // rather than to the trigger.
+    // The menu-filter popup handle returns focus there itself, only when focus was left behind in the popup or on the
+    // body (MNU-FOC-14, EVT-07): an explicit target would take focus back from wherever the user moved it.
+    private static FocusTargetValue? FilterReturnFocus(MenuRootContext menu, MenuParentKind? kind) =>
+        kind == MenuParentKind.Menu && menu.Parent.Menu?.Filter is not null
+            ? new FocusTargetValue(false)
+            : default(FocusTargetValue?);
 
     // The close interaction type as the focus manager classifies it (FLT-FOC-10), called once per committed close.
     private FocusTargetValue? ResolveFinalFocus()

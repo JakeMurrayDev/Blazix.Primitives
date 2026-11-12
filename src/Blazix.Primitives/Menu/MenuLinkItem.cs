@@ -1,5 +1,6 @@
 using Blazix.Primitives.Rendering;
 using Microsoft.AspNetCore.Components;
+using Microsoft.AspNetCore.Components.Rendering;
 using Microsoft.AspNetCore.Components.Web;
 using Microsoft.Extensions.Logging;
 using Microsoft.JSInterop;
@@ -58,6 +59,9 @@ public sealed class MenuLinkItem : PartBase<MenuLinkItemState>
     private MenuRootContext? RootContext { get; set; }
 
     [CascadingParameter]
+    private MenuFilterGroupContext? FilterGroup { get; set; }
+
+    [CascadingParameter]
     private CompositeRootContext? ListRoot { get; set; }
 
     // MNU-API-40
@@ -96,12 +100,21 @@ public sealed class MenuLinkItem : PartBase<MenuLinkItemState>
     protected override void OnInitialized()
     {
         behavior = new MenuItemBehavior("Menu", MenuItemKind.LinkItem, JSRuntime, Logger, DevelopmentLog, IdGenerator, StateHasChanged, DispatchExceptionAsync, onClick, onKeyDown, onKeyUp);
+        behavior.FilterGroup = FilterGroup;
         behavior.Subscribe(RootContext, ListRoot);
         base.OnInitialized();
     }
 
     /// <inheritdoc />
     protected override void OnParametersSet() => behavior!.Apply(Id, new MenuItemParameters(Disabled: false, Label, NativeButton: false, CloseOnClick), AdditionalAttributes);
+
+    // MNU-STA-15 (M5 track 12): an item the menu's filter hides renders nothing.
+    /// <inheritdoc />
+    protected override void BuildRenderTree(RenderTreeBuilder builder)
+    {
+        Enabled = !behavior!.FilteredOut;
+        base.BuildRenderTree(builder);
+    }
 
     /// <inheritdoc />
     protected override Task OnAfterRenderAsync(bool firstRender) => behavior!.OnAfterRenderAsync(Enabled, Element, Id);

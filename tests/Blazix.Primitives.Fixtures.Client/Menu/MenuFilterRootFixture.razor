@@ -1,0 +1,181 @@
+@namespace Blazix.Primitives.Fixtures.Client.MenuFixtures
+@using Blazix.Primitives
+@using Microsoft.AspNetCore.Components.Web
+
+@*
+    The `menu-filter-root` fixture (tests/browser/menu.filter.spec.ts, M5 track 12): MenuFilterRoot.scoping.test.tsx's
+    FilterableMenu, open: an input, a Clear button labelled "Clear filter", a list of Rename, Delete and Duplicate, and
+    Empty reading "No results". `query` seeds the provider's DefaultValue; `auto` ("true" or "always") sets its AutoHighlight;
+    `extra=true` adds a button "Extra action" after the input; `orientation=horizontal` and `dir=rtl` set the root's
+    orientation and the direction; `submenu=true` adds a filterable submenu "Move to folder" (delay 0, close delay 1000)
+    whose popup (`data-testid="submenu-popup"`) holds an input "Filter folders" and Documents. The popup carries
+    `data-testid="popup"`. `insert=true` holds the root open (controlled) and adds a button "Insert item" outside the menu,
+    whose press keeps focus where it is, that inserts Archive first; each highlight report is recorded by item text, or
+    "none", in `data-highlights` (`|`-separated). `after=true` adds an input "After" (`data-testid="after"`) after the menu; `modal=false` sets
+    the root's Modal; `cancel=true` cancels every close request; `disabled=true`
+    disables Delete; `link=true` adds a first item, a link item "Docs" with no href, whose press is recorded as
+    `Docs:ctrl` when the Ctrl key was held; `veto=true` gives the input a consumer onKeyDown that cancels the part's
+    handling of ArrowUp and Enter (only then does the input carry a handler). Each query request is recorded as
+    `value:reason` in `data-value-changes` (`|`-separated), and each item press by name in `data-presses`; `data-attached` turns "true" once the menu's session and the
+    input's and list's `menu-filter` handles have attached.
+*@
+<FixtureContainer Name="menu-filter-root" data-attached="@(attached ? "true" : "false")" data-value-changes="@string.Join('|', changes)" data-presses="@string.Join('|', presses)" data-highlights="@string.Join('|', highlights)">
+    @if (Insert)
+    {
+        <button type="button" @onmousedown:preventDefault @onclick="() => inserted = !inserted">Insert item</button>
+    }
+    <DirectionProvider Direction="@(Dir == "rtl" ? TextDirection.Rtl : TextDirection.Ltr)">
+    <MenuFilterProvider DefaultValue="@(Query ?? "")" AutoHighlight="@AutoHighlight" OnValueChange="Record">
+        <MenuRoot TPayload="NoPayload" DefaultOpen="true" Open="@(Insert || openState)" OpenChanged="@(Insert ? default : EventCallback.Factory.Create<bool>(this, value => openState = value))" OnItemHighlighted="RecordHighlight" Modal="@(ModalName == "false" ? false : null)" OnOpenChange="CancelClose" Orientation="@(OrientationName == "horizontal" ? Orientation.Horizontal : Orientation.Vertical)" @ref="root">
+            <MenuTrigger TPayload="NoPayload">Actions</MenuTrigger>
+            <MenuPortal>
+                <MenuPositioner>
+                    <MenuPopup data-testid="popup">
+                        <MenuInput aria-label="Filter actions" @attributes="InputAttributes" @ref="input" />
+                        @if (Extra)
+                        {
+                            <button type="button">Extra action</button>
+                        }
+                        <MenuClear aria-label="Clear filter" />
+                        <MenuList @ref="list">
+                            @if (Link)
+                            {
+                                <MenuLinkItem @onclick="@((MouseEventArgs e) => presses.Add(e.CtrlKey ? "Docs:ctrl" : "Docs"))">Docs</MenuLinkItem>
+                            }
+                            @if (inserted)
+                            {
+                                <MenuItem>Archive</MenuItem>
+                            }
+                            <MenuItem @onclick="@(() => presses.Add("Rename"))">Rename</MenuItem>
+                            <MenuItem Disabled="@DisabledDelete" @onclick="@(() => presses.Add("Delete"))">Delete</MenuItem>
+                            <MenuItem @onclick="@(() => presses.Add("Duplicate"))">Duplicate</MenuItem>
+                            @if (Submenu)
+                            {
+                                <MenuFilterProvider>
+                                    <MenuSubmenuRoot>
+                                        <MenuSubmenuTrigger Delay="0" CloseDelay="1000">Move to folder</MenuSubmenuTrigger>
+                                        <MenuPortal>
+                                            <MenuPositioner>
+                                                <MenuPopup data-testid="submenu-popup">
+                                                    <MenuInput aria-label="Filter folders" />
+                                                    <MenuList>
+                                                        <MenuItem>Documents</MenuItem>
+                                                    </MenuList>
+                                                </MenuPopup>
+                                            </MenuPositioner>
+                                        </MenuPortal>
+                                    </MenuSubmenuRoot>
+                                </MenuFilterProvider>
+                            }
+                        </MenuList>
+                        <MenuEmpty>No results</MenuEmpty>
+                    </MenuPopup>
+                </MenuPositioner>
+            </MenuPortal>
+        </MenuRoot>
+    </MenuFilterProvider>
+    </DirectionProvider>
+    @if (After)
+    {
+        <input data-testid="after" aria-label="After" />
+    }
+</FixtureContainer>
+
+@code {
+    private readonly List<string> changes = [];
+    private readonly List<string> presses = [];
+    private readonly List<string> highlights = [];
+    private bool inserted;
+    private bool openState = true;
+    private MenuRoot<NoPayload>? root;
+    private MenuInput? input;
+    private MenuList? list;
+    private bool attached;
+    private bool attaching;
+
+    [SupplyParameterFromQuery(Name = "query")]
+    public string? Query { get; set; }
+
+    [SupplyParameterFromQuery(Name = "auto")]
+    public string? Auto { get; set; }
+
+    [SupplyParameterFromQuery(Name = "extra")]
+    public bool Extra { get; set; }
+
+    [SupplyParameterFromQuery(Name = "orientation")]
+    public string? OrientationName { get; set; }
+
+    [SupplyParameterFromQuery(Name = "dir")]
+    public string? Dir { get; set; }
+
+    [SupplyParameterFromQuery(Name = "submenu")]
+    public bool Submenu { get; set; }
+
+    [SupplyParameterFromQuery(Name = "insert")]
+    public bool Insert { get; set; }
+
+    [SupplyParameterFromQuery(Name = "after")]
+    public bool After { get; set; }
+
+    [SupplyParameterFromQuery(Name = "modal")]
+    public string? ModalName { get; set; }
+
+    [SupplyParameterFromQuery(Name = "cancel")]
+    public bool Cancel { get; set; }
+
+    [SupplyParameterFromQuery(Name = "disabled")]
+    public bool DisabledDelete { get; set; }
+
+    [SupplyParameterFromQuery(Name = "link")]
+    public bool Link { get; set; }
+
+    [SupplyParameterFromQuery(Name = "veto")]
+    public bool Veto { get; set; }
+
+    private Dictionary<string, object>? InputAttributes => Veto
+        ? new() { ["onkeydown"] = EventCallback.Factory.Create<KeyboardEventArgs>(this, OnInputKeyDown) }
+        : null;
+
+    private static void OnInputKeyDown(KeyboardEventArgs args)
+    {
+        if (args.Key is "ArrowUp" or "Enter")
+        {
+            args.PreventPartHandler();
+        }
+    }
+
+    private void CancelClose(ValueChangeEventArgs<bool> args)
+    {
+        if (Cancel && !args.Value)
+        {
+            args.Details.Cancel();
+        }
+    }
+
+    private AutoHighlightValue? AutoHighlight => Auto switch
+    {
+        "true" => true,
+        "always" => AutoHighlightValue.Always,
+        _ => null,
+    };
+
+    /// <inheritdoc />
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        // The popup's parts render after the root opens; the first render that has all three waits for their handles.
+        if (attached || attaching || !RendererInfo.IsInteractive || root is null || input is null || list is null)
+        {
+            return;
+        }
+
+        attaching = true;
+        await Task.WhenAll(root.SessionAttached, input.FilterAttached, list.FilterAttached);
+        attached = true;
+        StateHasChanged();
+    }
+
+    private void RecordHighlight(MenuItemHighlightedEventArgs args) =>
+        highlights.Add(args.ItemId is null ? "none" : args.Details.Label ?? "");
+
+    private void Record(ValueChangeEventArgs<string> args) => changes.Add($"{args.Value}:{args.Details.Reason.ToLiteral()}");
+}

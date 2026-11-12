@@ -256,6 +256,18 @@ internal sealed class MenuStore<TPayload> : PopupStore<MenuStoreState<TPayload>,
         }
     }
 
+    // MNU-STA-03 (MenuFilterDropdown.tsx:84-90; M5 track 12, the orchestrator's 2026-11-12 grant): only an open request
+    // records a keyboard open, so a filterable menu's controlled close, which bypasses it, must not leave the next
+    // programmatic open looking like one.
+    /// <summary>Clears <see cref="MenuStoreState{TPayload}.KeyboardOpen"/> once the menu is closed.</summary>
+    public void ClearKeyboardOpen()
+    {
+        if (!State.Popup.EffectiveOpen && State.KeyboardOpen)
+        {
+            Write(State with { KeyboardOpen = false });
+        }
+    }
+
     // MNU-STA-08 (MenuStore.ts:190-218): the parent's values the selectors read changed.
     /// <summary>Notifies the store's subscribers that a value read through the parent changed.</summary>
     public void NotifyParentChanged() => NotifyAll();

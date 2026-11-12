@@ -81,6 +81,7 @@ internal sealed class MenuRootBehavior<TPayload> : IAsyncDisposable
     private bool rendered;
     private bool applied;
     private bool flagsRequested;
+    private bool filterApplied;
 
     /// <summary>Initializes a new instance of the <see cref="MenuRootBehavior{TPayload}"/> class.</summary>
     /// <param name="familyName">The root's family, such as <c>Menu</c>, which names its parts in warnings and messages.</param>
@@ -119,7 +120,21 @@ internal sealed class MenuRootBehavior<TPayload> : IAsyncDisposable
 
     /// <summary>Renders the cascades and the root's content.</summary>
     /// <param name="builder">The root's render tree builder.</param>
-    public void BuildRenderTree(RenderTreeBuilder builder) => contextCascade(builder);
+    public void BuildRenderTree(RenderTreeBuilder builder)
+    {
+        if (context?.Filter is null)
+        {
+            contextCascade(builder);
+            return;
+        }
+
+        // MNU-STR-14 (MenuRoot.tsx:776-781): the root consumes its provider, so a plain submenu inside does not inherit it.
+        builder.OpenComponent<CascadingValue<MenuFilterProviderContext>>(0);
+        builder.AddComponentParameter(1, nameof(CascadingValue<MenuFilterProviderContext>.Value), MenuFilterProviderContext.Consumed);
+        builder.AddComponentParameter(2, nameof(CascadingValue<MenuFilterProviderContext>.IsFixed), true);
+        builder.AddComponentParameter(3, nameof(CascadingValue<MenuFilterProviderContext>.ChildContent), contextCascade);
+        builder.CloseComponent();
+    }
 
     /// <summary>Syncs the session and the list after the render and runs the batch boundary.</summary>
     /// <param name="firstRender">Whether this is the root's first render.</param>
@@ -195,6 +210,25 @@ internal sealed class MenuRootBehavior<TPayload> : IAsyncDisposable
         committed.Select(MenuSelectors.TransitionStatus);
         committed.Select(MenuSelectors.PopupId);
         committed.Select(MenuSelectors.Disabled);
+    }
+
+    // MNU-STR-14 (MenuRoot.tsx:768-783, MenuSubmenuRoot.tsx:22-32; M5 track 12): a root directly inside an unconsumed
+    // MenuFilterProvider becomes filterable, fixed for its lifetime as Base UI's (a filter root cannot appear above a mounted
+    // part without remounting it). MenuRoot and MenuSubmenuRoot call it; ContextMenu's and Menubar's shells do not.
+    /// <summary>Makes the menu filterable when the cascaded provider is one no root has consumed; only the first call counts.</summary>
+    /// <param name="provider">The cascaded provider, <see cref="MenuFilterProviderContext.Consumed"/>, or <see langword="null"/>.</param>
+    public void ApplyFilter(MenuFilterProviderContext? provider)
+    {
+        if (filterApplied)
+        {
+            return;
+        }
+
+        filterApplied = true;
+        if (provider is { IsConsumed: false })
+        {
+            context!.Filter = new MenuFilterRootContext(provider, context);
+        }
     }
 
     /// <summary>Applies the root's parameters and its resolved surroundings.</summary>
@@ -314,6 +348,42 @@ internal sealed class MenuRootBehavior<TPayload> : IAsyncDisposable
         navigation.ResetOnPointerLeave = true;
         navigation.DisabledIndices = s_noDisabledIndices;
         navigation.SetTypeahead(!disabled, TypeaheadResetMs, "element");
+
+        // MenuRoot.tsx:543 (M5 track 12, the filter list options granted 2026-11-12): under a filterable parent, a submenu's
+        // nested close returns focus to the parent's input, which holds the parent's virtual focus, not to the trigger.
+        navigation.NestedReturnFocusTarget = parent.Kind == MenuParentKind.Menu ? parent.Menu?.Filter?.InputElement : null;
+        ApplyFilterListOptions(navigation, parameters);
+    }
+
+    // MenuRoot.tsx:516-557 (M5 track 12, granted by the orchestrator 2026-11-11): a filterable menu's list runs under virtual
+    // focus, the Input its reference. allowEscape follows loopFocus without an automatic highlight, the trigger opens on the
+    // vertical axis, a submenu leaves its arrow-key opening to the filter's key router, the pointer's leave keeps an
+    // "always" highlight, and the input owns typing, so typeahead is off. focusItemOnOpen (the keyboard open) comes with the
+    // open-time highlight.
+    private void ApplyFilterListOptions(ListNavigationBehavior navigation, in MenuRootParameters<TPayload> parameters)
+    {
+        if (context?.Filter is not { } filter)
+        {
+            return;
+        }
+
+        AutoHighlightValue autoHighlight = filter.AutoHighlight;
+        navigation.Virtual = true;
+        navigation.Nested = parent.Kind == MenuParentKind.Menubar;
+        navigation.AllowEscape = parameters.LoopFocus && !autoHighlight.IsEnabled;
+        navigation.TriggerOrientation = "vertical";
+        navigation.OpenOnArrowKeyDown = parent.Kind is not (MenuParentKind.ContextMenu or MenuParentKind.Menu);
+        navigation.ResetOnPointerLeave = !autoHighlight.IsAlways;
+        navigation.SetTypeahead(false, TypeaheadResetMs, "element");
+
+        // MNU-STA-20 (FilterDropdownRoot.tsx:109-125): an item change does not hand the highlight to another item. With
+        // autoHighlight "always" it goes to the first item, with true to the first item while the input holds a query (the
+        // module reads it, since C# learns the query a round trip later), and otherwise it is cleared.
+        navigation.ItemsChangeHighlight = autoHighlight.IsAlways ? "first" : autoHighlight.IsEnabled ? "auto" : "clear";
+
+        // MNU-ARIA-06 (useMenuFilterPopup.ts:97-101; the orchestrator's 2026-11-12 grant): the popup is a dialog, which
+        // carries no aria-activedescendant; the Input does.
+        navigation.FloatingActiveDescendant = false;
     }
 
     // The list's parent-dependent options, from the store's parent (MenuRoot.tsx:516-568).
@@ -376,6 +446,15 @@ internal sealed class MenuRootBehavior<TPayload> : IAsyncDisposable
 
     private void OnCommitted()
     {
+        // MenuRoot.tsx:524-527 (M5 track 12): under virtual focus, a keyboard open highlights an item as an ordinary menu's
+        // does, and a pointer open highlights none.
+        if (context?.Filter is not null)
+        {
+            // MNU-STA-03 (MenuFilterDropdown.tsx:84-90): a filterable menu forgets a keyboard open on every close.
+            root.Store.ClearKeyboardOpen();
+            list!.FocusItemOnOpen = root.Store.State.KeyboardOpen;
+        }
+
         if (rendered)
         {
             CopySessionInputs();

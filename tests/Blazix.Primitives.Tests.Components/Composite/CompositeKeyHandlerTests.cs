@@ -1,3 +1,4 @@
+using System.Text.Json;
 using Blazix.Primitives.Interop;
 using Bunit;
 using Microsoft.AspNetCore.Components;
@@ -73,6 +74,41 @@ public sealed class CompositeKeyHandlerTests : IDisposable
         Assert.Equal(["item b: ArrowUp", "root: ArrowUp"], runs);
     }
 
+    // M5 track 12's design point 6 (a) (ADR 04 Amendments 2026-11-10's pattern; the orchestrator's 2026-11-12 grant): a part
+    // whose own module asks before composite's handle (Menu's filter input and trigger) decides the keydown once, and
+    // composite's handle reads that verdict for the same event.
+    [Fact(DisplayName = "port: DecideKeyDownOnce runs the consumer's onkeydown once and serves its verdict to the composite handle for the same keydown")]
+    [Trait("Requirement", "CMP-EVT-12")]
+    public void DecideKeyDownOnce_serves_its_verdict_to_the_composite_handle()
+    {
+        IRenderedComponent<TestCompositeRoot> cut = Context.Render<TestCompositeRoot>(p => p
+            .AddUnmatched("onkeydown", RootHandler(veto: true))
+            .AddChildContent(Items(itemHandler: false)));
+        string first = cut.FindAll("[data-item]")[0].Id!;
+        EventSnapshot snapshot = JsonSerializer.Deserialize(KeyDownJson("ArrowDown", first), BlazixJsonContext.Default.EventSnapshot)!;
+
+        Assert.Equal(DecisionPolicy.Stop, cut.Instance.Behavior.DecideKeyDownOnce(snapshot));
+        Assert.Equal("stop", host.Twin.Decide(CompositeTwin.NavigatePoint, KeyDownJson("ArrowDown", first)));
+        Assert.Equal(["root: ArrowDown"], runs);
+    }
+
+    [Fact(DisplayName = "port: DecideKeyDownOnce's verdict is keyed by the event, so a later keydown runs the consumer's onkeydown again")]
+    [Trait("Requirement", "CMP-EVT-12")]
+    public void DecideKeyDownOnce_does_not_carry_a_verdict_to_a_later_keydown()
+    {
+        IRenderedComponent<TestCompositeRoot> cut = Context.Render<TestCompositeRoot>(p => p
+            .AddUnmatched("onkeydown", RootHandler(veto: true))
+            .AddChildContent(Items(itemHandler: false)));
+        string first = cut.FindAll("[data-item]")[0].Id!;
+        EventSnapshot snapshot = JsonSerializer.Deserialize(KeyDownJson("ArrowDown", first), BlazixJsonContext.Default.EventSnapshot)!;
+        Assert.Equal(DecisionPolicy.Stop, cut.Instance.Behavior.DecideKeyDownOnce(snapshot));
+
+        string later = KeyDownJson("ArrowDown", first).Replace("\"timeStamp\":3", "\"timeStamp\":4", StringComparison.Ordinal);
+
+        Assert.Equal("stop", host.Twin.Decide(CompositeTwin.NavigatePoint, later));
+        Assert.Equal(["root: ArrowDown", "root: ArrowDown"], runs);
+    }
+
     [Fact(DisplayName = "a PreventPartHandler() in the item's onkeydown stops the key, and the root's handler still runs")]
     [Trait("Requirement", "CMP-EVT-12")]
     [Trait("Requirement", "EVD-EVT-26")]
@@ -107,6 +143,37 @@ public sealed class CompositeKeyHandlerTests : IDisposable
         host.Twin.Decide(CompositeTwin.NavigatePoint, KeyDownJson("ArrowDown", first.Id!));
         first.KeyDown(new KeyboardEventArgs { Key = "ArrowDown", Code = "ArrowDown" });
         Assert.Equal(["item a: Enter", "item a: ArrowDown"], runs);
+    }
+
+    // MNU-API-59, EVT-14, EVT-15 (the orchestrator's 2026-11-12 settlement, option (a)): Menu's filter input lets its editing
+    // keys propagate although its root's options stop propagation, so Blazor dispatches a key the decision already ran the
+    // consumer's handler for. DecidedKeysMayPropagate records every decision, so that dispatch skips the handler once.
+    [Fact(DisplayName = "port: with DecidedKeysMayPropagate, Blazor's dispatch of a decided key skips the consumer's onkeydown once although the root stops propagation")]
+    [Trait("Requirement", "CMP-EVT-12")]
+    [Trait("Requirement", "MNU-API-59")]
+    public void DecidedKeysMayPropagate_records_a_decision_the_root_stops()
+    {
+        IRenderedComponent<TestCompositeRoot> cut = Context.Render<TestCompositeRoot>(p => p.AddChildContent(Items(itemHandler: true)));
+        cut.Instance.Behavior.DecidedKeysMayPropagate = true;
+        AngleSharp.Dom.IElement first = cut.FindAll("[data-item]")[0];
+
+        host.Twin.Decide(CompositeTwin.NavigatePoint, KeyDownJson("ArrowDown", first.Id!));
+        first.KeyDown(new KeyboardEventArgs { Key = "ArrowDown", Code = "ArrowDown" });
+
+        Assert.Equal(["item a: ArrowDown"], runs);
+    }
+
+    [Fact(DisplayName = "port: without DecidedKeysMayPropagate, a decision under a root that stops propagation records no key, as the module keeps it from Blazor")]
+    [Trait("Requirement", "CMP-EVT-12")]
+    public void Without_DecidedKeysMayPropagate_a_stopped_decision_records_no_key()
+    {
+        IRenderedComponent<TestCompositeRoot> cut = Context.Render<TestCompositeRoot>(p => p.AddChildContent(Items(itemHandler: true)));
+        AngleSharp.Dom.IElement first = cut.FindAll("[data-item]")[0];
+
+        host.Twin.Decide(CompositeTwin.NavigatePoint, KeyDownJson("ArrowDown", first.Id!));
+        first.KeyDown(new KeyboardEventArgs { Key = "ArrowDown", Code = "ArrowDown" });
+
+        Assert.Equal(["item a: ArrowDown", "item a: ArrowDown"], runs);
     }
 
     private EventCallback<KeyboardEventArgs> RootHandler(bool veto) => EventCallback.Factory.Create<KeyboardEventArgs>(this, (KeyboardEventArgs e) =>

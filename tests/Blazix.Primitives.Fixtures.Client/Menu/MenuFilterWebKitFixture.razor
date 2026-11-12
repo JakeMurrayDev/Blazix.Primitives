@@ -1,0 +1,158 @@
+@namespace Blazix.Primitives.Fixtures.Client.MenuFixtures
+@using Blazix.Primitives
+@inject NavigationManager Navigation
+
+@*
+    The `menu-filter-webkit` fixture (tests/browser/menu.filter-webkit.spec.ts, M5 track 12): MenuFilterRoot.webkit.test.tsx's
+    trees, one per `case`, each opened by default from a trigger "Actions":
+    - `basic` (the default): a filterable menu with an input "Filter actions" and a list of Apple and Banana; the buttons
+      "replace input" (the input renders under a new key, Base UI's `inputKey`) and "hide input" (it unmounts, Base UI's
+      `showInput={false}`) sit inside the popup, so a dispatched click neither dismisses the menu nor moves focus;
+    - `hover`: autoHighlight "always", the open state this page's, the trigger opening on hover with no delay, and Apple;
+      the button "close" (inside the popup) closes it;
+    - `kinds`: a checkbox item "Details", checked by default, and a radio group whose "Date" is its default value;
+    - `links`: a link item "Documentation" (to `#docs` on this page), a filterable submenu "More actions" whose popup holds
+      a list of Share, and a plain submenu "Plain submenu" holding Copy;
+    - `submenu`: a filterable submenu "More actions" with an input "Filter more actions" and a list of Share;
+    - `plain`: a plain menu holding Apple.
+    `data-attached` turns "true" once the menu's session has attached and, for a filterable menu, its input's and list's
+    `menu-filter` handles.
+*@
+<FixtureContainer Name="menu-filter-webkit" data-attached="@(attached ? "true" : "false")">
+    @if (Case == "plain")
+    {
+        <MenuRoot TPayload="NoPayload" DefaultOpen="true" @ref="root">
+            <MenuTrigger TPayload="NoPayload">Actions</MenuTrigger>
+            <MenuPortal>
+                <MenuPositioner>
+                    <MenuPopup>
+                        <MenuItem>Apple</MenuItem>
+                    </MenuPopup>
+                </MenuPositioner>
+            </MenuPortal>
+        </MenuRoot>
+    }
+    else
+    {
+        <MenuFilterProvider AutoHighlight="@(Case == "hover" ? AutoHighlightValue.Always : null)">
+            <MenuRoot TPayload="NoPayload" @attributes="RootParameters" @ref="root">
+                <MenuTrigger TPayload="NoPayload" OpenOnHover="@(Case == "hover")" Delay="@(Case == "hover" ? (Duration?)0 : null)">Actions</MenuTrigger>
+                <MenuPortal>
+                    <MenuPositioner>
+                        <MenuPopup>
+                            @if (Case is null or "basic")
+                            {
+                                <button type="button" @onclick="() => inputKey++">replace input</button>
+                                <button type="button" @onclick="() => showInput = false">hide input</button>
+                            }
+                            else if (Case == "hover")
+                            {
+                                <button type="button" @onclick="() => open = false">close</button>
+                            }
+                            @if (showInput)
+                            {
+                                <MenuInput @key="inputKey" aria-label="Filter actions" @ref="input" />
+                            }
+                            <MenuList @ref="list">
+                                @switch (Case)
+                                {
+                                    case "hover":
+                                        <MenuItem>Apple</MenuItem>
+                                        break;
+                                    case "kinds":
+                                        <MenuCheckboxItem DefaultChecked="true">Details</MenuCheckboxItem>
+                                        <MenuRadioGroup TValue="string" DefaultValue="@("date")">
+                                            <MenuRadioItem TValue="string" Value="@("date")">Date</MenuRadioItem>
+                                        </MenuRadioGroup>
+                                        break;
+                                    case "links":
+                                        <MenuLinkItem href="@($"{Navigation.Uri.Split('#')[0]}#docs")">Documentation</MenuLinkItem>
+                                        <MenuFilterProvider>
+                                            <MenuSubmenuRoot>
+                                                <MenuSubmenuTrigger>More actions</MenuSubmenuTrigger>
+                                                <MenuPortal>
+                                                    <MenuPositioner>
+                                                        <MenuPopup>
+                                                            <MenuList>
+                                                                <MenuItem>Share</MenuItem>
+                                                            </MenuList>
+                                                        </MenuPopup>
+                                                    </MenuPositioner>
+                                                </MenuPortal>
+                                            </MenuSubmenuRoot>
+                                        </MenuFilterProvider>
+                                        <MenuSubmenuRoot>
+                                            <MenuSubmenuTrigger>Plain submenu</MenuSubmenuTrigger>
+                                            <MenuPortal>
+                                                <MenuPositioner>
+                                                    <MenuPopup>
+                                                        <MenuItem>Copy</MenuItem>
+                                                    </MenuPopup>
+                                                </MenuPositioner>
+                                            </MenuPortal>
+                                        </MenuSubmenuRoot>
+                                        break;
+                                    case "submenu":
+                                        <MenuFilterProvider>
+                                            <MenuSubmenuRoot>
+                                                <MenuSubmenuTrigger>More actions</MenuSubmenuTrigger>
+                                                <MenuPortal>
+                                                    <MenuPositioner>
+                                                        <MenuPopup>
+                                                            <MenuInput aria-label="Filter more actions" />
+                                                            <MenuList>
+                                                                <MenuItem>Share</MenuItem>
+                                                            </MenuList>
+                                                        </MenuPopup>
+                                                    </MenuPositioner>
+                                                </MenuPortal>
+                                            </MenuSubmenuRoot>
+                                        </MenuFilterProvider>
+                                        break;
+                                    default:
+                                        <MenuItem>Apple</MenuItem>
+                                        <MenuItem>Banana</MenuItem>
+                                        break;
+                                }
+                            </MenuList>
+                        </MenuPopup>
+                    </MenuPositioner>
+                </MenuPortal>
+            </MenuRoot>
+        </MenuFilterProvider>
+    }
+</FixtureContainer>
+
+@code {
+    private MenuRoot<NoPayload>? root;
+    private MenuInput? input;
+    private MenuList? list;
+    private bool attached;
+    private bool attaching;
+    private int inputKey;
+    private bool showInput = true;
+    private bool open = true;
+
+    [SupplyParameterFromQuery(Name = "case")]
+    public string? Case { get; set; }
+
+    // `hover` holds the open state on this page; every other case opens by default.
+    private Dictionary<string, object> RootParameters => Case == "hover"
+        ? new() { ["Open"] = open, ["OpenChanged"] = EventCallback.Factory.Create<bool>(this, value => open = value) }
+        : new() { ["DefaultOpen"] = true };
+
+    /// <inheritdoc />
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        bool filterable = Case != "plain";
+        if (attached || attaching || !RendererInfo.IsInteractive || root is null || (filterable && (input is null || list is null)))
+        {
+            return;
+        }
+
+        attaching = true;
+        await (filterable ? Task.WhenAll(root.SessionAttached, input!.FilterAttached, list!.FilterAttached) : root.SessionAttached);
+        attached = true;
+        StateHasChanged();
+    }
+}

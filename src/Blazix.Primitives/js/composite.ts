@@ -1201,6 +1201,18 @@ export interface CompositeListOptions {
   rtl?: boolean | undefined;
   /** Whether the highlight moves without moving the focus; absent for `false`. */
   virtual?: boolean | undefined;
+  /**
+   * What an item change does to a highlight that another item would take (MNU-STA-20, a filterable menu's list): `first`
+   * highlights the first item, `clear` clears it, and `auto` does `first` while the list's reference input holds a
+   * non-empty trimmed query, else `clear` (autoHighlight `true`, decided from the query the input holds now); absent, the
+   * index is kept.
+   */
+  itemsChangeHighlight?: 'first' | 'clear' | 'auto' | undefined;
+  /**
+   * Whether the floating element carries `aria-activedescendant` under virtual focus; `true` by default. A filterable
+   * menu's popup is a dialog, which carries none (MNU-ARIA-06; the orchestrator's 2026-11-12 grant).
+   */
+  floatingActiveDescendant?: boolean | undefined;
   /** Whether the list is nested in another list; absent for `false`. */
   nested?: boolean | undefined;
   /** The parent list's orientation; absent to read what the parent popup's list published. */
@@ -1368,9 +1380,21 @@ const attachedHandle = Symbol('blazix.composite.handle');
 // registry is needed (ADR 04 §3).
 const keyboardRelay = Symbol('blazix.composite.relay');
 
+// MNU-KEY-24 (M5 track 12, issue 197; granted by the orchestrator 2026-11-12): a list handle publishes its edge highlight on
+// its element, as a root publishes its relay, for the menu-filter Input's `enter-list` (useMenuFilterKeyDown.ts:155-167).
+const listEdgeHighlight = Symbol('blazix.composite.list-edge');
+
+// The orchestrator's 2026-11-12 grant, for MenuFilterSubmenuRoot's navigation: a list handle publishes, on its element,
+// a highlight of a given item and a move on from a given item through its own navigation.
+const listItemHighlight = Symbol('blazix.composite.list-item');
+const listMoveFrom = Symbol('blazix.composite.list-move-from');
+
 interface AttachedElement extends HTMLElement {
   [attachedHandle]?: TwinHandle;
   [keyboardRelay]?: (event: KeyboardEvent) => boolean;
+  [listEdgeHighlight]?: (edge: 'first' | 'last' | null, event: Event | undefined) => boolean;
+  [listItemHighlight]?: (item: Element, event: Event | undefined) => boolean;
+  [listMoveFrom]?: (item: Element, event: KeyboardEvent) => boolean;
 }
 
 /**
@@ -2130,6 +2154,57 @@ function doSwitch(orientation: Orientation | undefined, vertical: boolean, horiz
   }
 }
 
+// M5 track 12, issue 197 (granted by the orchestrator 2026-11-11): the keydowns another module owns on a list's reference
+// (the menu-filter Input's edit keys, MNU-KEY-22; useMenuFilterKeyDown.ts:117-125 keeps them from the list navigation).
+const skippedListKeys = new WeakSet<KeyboardEvent>();
+
+/**
+ * Marks a keydown that the list's handles leave alone: no list navigation, no typeahead, no `preventDefault`.
+ * Call it before the handles' listeners run, from a capture listener on the reference.
+ * @param event The keydown.
+ */
+export function skipListNavigation(event: KeyboardEvent): void {
+  skippedListKeys.add(event);
+}
+
+/**
+ * Highlights the first or the last item of the list whose handle is attached to the element, or clears the highlight. No
+ * item counts as disabled.
+ * @param element An element with an attached list handle, such as the list's reference.
+ * @param edge Which end of the list, or `null` to clear the highlight.
+ * @param event The event that asked: a keydown is a keyboard highlight; none is a programmatic one.
+ * @returns `true` when an item was highlighted, or a highlight was cleared.
+ */
+export function highlightListEdge(element: Element | null | undefined, edge: 'first' | 'last' | null, event: Event | undefined): boolean {
+  const highlight = (element as AttachedElement | null | undefined)?.[listEdgeHighlight];
+  return highlight ? highlight(edge, event) : false;
+}
+
+/**
+ * Highlights a given item of the list whose handle is attached to the element.
+ * @param element An element with an attached list handle, such as the list's reference.
+ * @param item The item to highlight.
+ * @param event The event that asked: a keydown is a keyboard highlight; none is a programmatic one.
+ * @returns `true` when the item belongs to the list and was highlighted.
+ */
+export function highlightListItem(element: Element | null | undefined, item: Element, event: Event | undefined): boolean {
+  const highlight = (element as AttachedElement | null | undefined)?.[listItemHighlight];
+  return highlight ? highlight(item, event) : false;
+}
+
+/**
+ * Moves the highlight of the list whose handle is attached to the element on from a given item, by the keydown's key,
+ * through the list's own navigation (its orientation, loop, escape and disabled items).
+ * @param element An element with an attached list handle, such as the list's reference.
+ * @param item The item to move on from.
+ * @param event The keydown.
+ * @returns `true` when the item belongs to the list.
+ */
+export function moveListHighlightFrom(element: Element | null | undefined, item: Element, event: KeyboardEvent): boolean {
+  const move = (element as AttachedElement | null | undefined)?.[listMoveFrom];
+  return move ? move(item, event) : false;
+}
+
 // CMP-ALG-20 (useListNavigation.ts:59-100), exported for Menu's filter keydown (fact sheet A contradiction 8).
 /**
  * Determines whether a key moves along a list's orientation.
@@ -2296,6 +2371,8 @@ interface ListState {
   readonly descendantTargets: Set<Element>;
   readonly typeahead: TypeaheadState;
   readonly onOpenChange: (details: SessionOpenChangeDetails) => void;
+  /** The element the highlight was last written on, for an item change's comparison (itemsChangeHighlight). */
+  highlightedItem: HTMLElement | null;
 }
 
 /** One list handle as the shared logic sees it: its element, its channel and its current options. */
@@ -2447,6 +2524,7 @@ function writeHighlight(state: ListState, handle: ListHandle): void {
   const enabled = enabledOf(list);
   const floating = state.floating;
   if (floating) {
+    state.highlightedItem = enabled && state.activeIndex !== null ? (floating.registry.elements[state.activeIndex] ?? null) : null;
     floating.registry.elements.forEach((element, index) => {
       if (!element) {
         return;
@@ -2471,7 +2549,7 @@ function writeHighlight(state: ListState, handle: ListHandle): void {
     if (reference) {
       targets.set(reference, descendant);
     }
-    if (floating) {
+    if (floating && list.floatingActiveDescendant !== false) {
       targets.set(floating.element, isTypeableCombobox(reference) ? null : descendant);
     }
   }
@@ -2747,6 +2825,7 @@ function createListState(session: InteractionSession, list: CompositeListOptions
   const state: ListState = {
     index: selectedIndexOf(list) ?? -1,
     activeIndex: null,
+    highlightedItem: null,
     key: null,
     pointerModality: true,
     forceSyncFocus: false,
@@ -3595,6 +3674,16 @@ function attachList(
           reportItemOrder(channel, ids, publications);
         }
       }
+      // MNU-STA-20 (FilterDropdownRoot.tsx:109-125; the orchestrator's 2026-11-12 grant): a positional highlight must not
+      // move silently to another item. With itemsChangeHighlight, when a different element now holds the highlighted index,
+      // the list highlights its first item or clears the highlight before writing and reporting.
+      const policy = handle.list().itemsChangeHighlight;
+      if (policy !== undefined && state.activeIndex !== null && state.highlightedItem !== null && registry.elements[state.activeIndex] !== state.highlightedItem) {
+        const query = [...state.references].map((reference) => reference.element).find((reference): reference is HTMLInputElement => reference instanceof HTMLInputElement)?.value.trim() ?? '';
+        const first = policy === 'first' || (policy === 'auto' && query !== '');
+        state.index = first && registry.elements.length > 0 ? getMinListIndex(registry.elements, []) : -1;
+        navigateTo(state, handle, undefined);
+      }
       writeHighlight(state, handle);
       reportHighlight(state, handle, undefined);
     });
@@ -3605,6 +3694,13 @@ function attachList(
 
   // Listeners. One keydown per handle runs the list navigation, then the typeahead, after the consumer's veto.
   const onKeyDown = (event: KeyboardEvent): void => {
+    // A key another module owns (skipListNavigation): no handle acts on it, but it still ends the pointer modality, as
+    // useListNavigation.ts:551-553's commonOnKeyDown does first for every key on the reference (MNU-KEY-22): a typed key
+    // keeps a later pointer leave from resetting the highlight.
+    if (skippedListKeys.has(event)) {
+      state.pointerModality = false;
+      return;
+    }
     // CMP-KEY-22's note of 2026-11-10 (found by TLB-STR-05): useButton returns from a disabled trigger's keydown before
     // the merged list navigation and typeahead run (internals/use-button/useButton.ts:116-119), whether it renders the
     // `disabled` attribute or, focusable when disabled, `aria-disabled="true"`; no key is handled and nothing is asked.
@@ -3748,6 +3844,9 @@ function attachList(
       }
       disposed = true;
       delete element[attachedHandle];
+      delete element[listEdgeHighlight];
+      delete element[listItemHighlight];
+      delete element[listMoveFrom];
       for (const [type, listener, capture] of listeners) {
         element.removeEventListener(type, listener, capture);
       }
@@ -3765,6 +3864,43 @@ function attachList(
       releaseListState(state, session);
       releaseSession(session);
     },
+  };
+  // useMenuFilterKeyDown.ts:157-165: the edge index over an empty disabled list, highlighted with the keydown.
+  element[listEdgeHighlight] = (edge, event) => {
+    if (edge === null) {
+      if (state.activeIndex === null) {
+        return false;
+      }
+      state.index = -1;
+      navigateTo(state, handle, event);
+      return true;
+    }
+    const elements = elementsOf(state);
+    const index = edge === 'first' ? getMinListIndex(elements, []) : getMaxListIndex(elements, []);
+    if (!elements[index]) {
+      return false;
+    }
+    state.index = index;
+    navigateTo(state, handle, event);
+    return true;
+  };
+  element[listItemHighlight] = (item, event) => {
+    const index = elementsOf(state).indexOf(item as HTMLElement);
+    if (index === -1) {
+      return false;
+    }
+    state.index = index;
+    navigateTo(state, handle, event);
+    return true;
+  };
+  element[listMoveFrom] = (item, event) => {
+    const index = elementsOf(state).indexOf(item as HTMLElement);
+    if (index === -1) {
+      return false;
+    }
+    state.index = index;
+    commonKeyDown(state, handle, { event, vetoed: false, stopped: false }, element);
+    return true;
   };
   element[attachedHandle] = twinHandle;
   return twinHandle;

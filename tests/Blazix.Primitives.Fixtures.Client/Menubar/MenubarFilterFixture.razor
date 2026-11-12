@@ -1,0 +1,66 @@
+@namespace Blazix.Primitives.Fixtures.Client.MenubarFixtures
+@using Blazix.Primitives
+
+@*
+    The `menubar-filter` fixture (tests/browser/menubar.spec.ts, M5 track 12, issue 197): Menubar.test.tsx's "filterable
+    menubar menus" bar, `orientation` ("horizontal", the default, or "vertical"): File, a filterable menu (an input
+    "Filter file actions", New file and Open file), and Edit (Copy). `data-attached` turns "true" once the bar's, both
+    menus' and both triggers' handles have attached.
+*@
+<FixtureContainer Name="menubar-filter" data-attached="@(attached ? "true" : "false")">
+    <Menubar @ref="bar" Orientation="@(OrientationName == "vertical" ? Orientation.Vertical : Orientation.Horizontal)">
+        <MenuFilterProvider>
+            <MenuRoot TPayload="NoPayload" @ref="file">
+                <MenuTrigger TPayload="NoPayload" @ref="fileTrigger">File</MenuTrigger>
+                <MenuPortal>
+                    <MenuPositioner>
+                        <MenuPopup>
+                            <MenuInput aria-label="Filter file actions" />
+                            <MenuList>
+                                <MenuItem>New file</MenuItem>
+                                <MenuItem>Open file</MenuItem>
+                            </MenuList>
+                        </MenuPopup>
+                    </MenuPositioner>
+                </MenuPortal>
+            </MenuRoot>
+        </MenuFilterProvider>
+        <MenuRoot TPayload="NoPayload" @ref="edit">
+            <MenuTrigger TPayload="NoPayload" @ref="editTrigger">Edit</MenuTrigger>
+            <MenuPortal>
+                <MenuPositioner>
+                    <MenuPopup>
+                        <MenuItem>Copy</MenuItem>
+                    </MenuPopup>
+                </MenuPositioner>
+            </MenuPortal>
+        </MenuRoot>
+    </Menubar>
+</FixtureContainer>
+
+@code {
+    private Menubar? bar;
+    private MenuRoot<NoPayload>? file;
+    private MenuRoot<NoPayload>? edit;
+    private MenuTrigger<NoPayload>? fileTrigger;
+    private MenuTrigger<NoPayload>? editTrigger;
+    private bool attached;
+    private bool attaching;
+
+    [SupplyParameterFromQuery(Name = "orientation")]
+    public string? OrientationName { get; set; }
+
+    /// <inheritdoc />
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (attached || attaching || !RendererInfo.IsInteractive || bar is null || file is null || edit is null || fileTrigger is null || editTrigger is null)
+        {
+            return;
+        }
+
+        attaching = true;
+        await Task.WhenAll(bar.TwinsAttached, file.SessionAttached, edit.SessionAttached, fileTrigger.TwinsAttached, editTrigger.TwinsAttached);
+        attached = true;
+        StateHasChanged();
+    }
+}

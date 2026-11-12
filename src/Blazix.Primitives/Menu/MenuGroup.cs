@@ -9,9 +9,13 @@ namespace Blazix.Primitives;
 public sealed class MenuGroup : PartBase<EmptyState>
 {
     private MenuGroupBehavior? behavior;
+    private MenuFilterGroupContext? filterGroup;
 
     [CascadingParameter]
     private MenuRootContext? RootContext { get; set; }
+
+    [CascadingParameter]
+    private MenuFilterGroupContext? FilterGroup { get; set; }
 
     /// <inheritdoc />
     protected override string DefaultTagName => "div";
@@ -33,11 +37,25 @@ public sealed class MenuGroup : PartBase<EmptyState>
     {
         behavior = new MenuGroupBehavior("Menu", StateHasChanged);
         behavior.Subscribe(RootContext);
+
+        // MNU-STA-24, DOM-20 (M5 track 12): in a filterable menu the group counts its members and hides with them.
+        if (RootContext!.Filter is not null)
+        {
+            filterGroup = new MenuFilterGroupContext(FilterGroup, () => _ = InvokeAsync(StateHasChanged));
+        }
+
         base.OnInitialized();
     }
 
     /// <inheritdoc />
-    protected override void OnParametersSet() => ChildContent = behavior!.Cascade(ChildContent);
+    protected override void OnParametersSet()
+    {
+        ChildContent = behavior!.Cascade(ChildContent);
+        if (filterGroup is not null)
+        {
+            ChildContent = filterGroup.Cascade(ChildContent);
+        }
+    }
 
     /// <inheritdoc />
     protected override void Dispose(bool disposing)
@@ -45,11 +63,21 @@ public sealed class MenuGroup : PartBase<EmptyState>
         if (disposing)
         {
             behavior?.Dispose();
+            filterGroup?.Dispose();
         }
 
         base.Dispose(disposing);
     }
 
     /// <inheritdoc />
-    protected override void AddPartAttributes(AttributeList attributes) => behavior!.AddAttributes(attributes);
+    protected override void AddPartAttributes(AttributeList attributes)
+    {
+        behavior!.AddAttributes(attributes);
+
+        // MNU-DOM-20: the boolean hidden while the query hides every member; a consumer's hidden is kept.
+        if (filterGroup is { Hidden: true })
+        {
+            attributes.Set("hidden", true);
+        }
+    }
 }

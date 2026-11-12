@@ -47,6 +47,11 @@ public sealed class ContextMenuSubmenuRoot : ComponentBase, IAsyncDisposable
     [CascadingParameter]
     private DirectionProviderContext? DirectionContext { get; set; }
 
+    // MNU-STR-14 (M5 track 12, the orchestrator's 2026-11-12 grant): ContextMenu.SubmenuRoot is Menu.SubmenuRoot, so a
+    // MenuFilterProvider around it makes the submenu filterable.
+    [CascadingParameter]
+    private MenuFilterProviderContext? FilterProvider { get; set; }
+
     /// <summary>Gets or sets a value indicating whether the submenu is open.</summary>
     /// <value>The open state the consumer owns, when supplied at the first render. Use <c>@bind-Open</c> to follow it.</value>
     [Parameter]
@@ -129,6 +134,7 @@ public sealed class ContextMenuSubmenuRoot : ComponentBase, IAsyncDisposable
         // MNU-EDGE-03: a submenu outside a menu throws the Root context error.
         MenuRootContext enclosing = MenuRootContext.Require(EnclosingMenu, "ContextMenu");
         MenuParent parent = MenuParent.Resolve(isSubmenu: true, enclosing, ParentContext);
+        behavior!.ApplyFilter(FilterProvider);
         behavior!.ApplyParameters(
             new MenuRootParameters<NoPayload>(
                 new PopupRootParameters<NoPayload>(DefaultOpen, DefaultTriggerId: null, Handle: null, OnOpenChange, OpenChanged, OnOpenChangeComplete, CloseOnActiveTriggerUnmount: true, ChildContent, PayloadContent: null),

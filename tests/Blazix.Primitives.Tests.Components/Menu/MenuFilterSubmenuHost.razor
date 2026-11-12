@@ -1,0 +1,51 @@
+@namespace Blazix.Primitives.Tests.Components
+@* MenuFilterRoot.test.tsx's "closes the submenu when the query filters out its trigger" tree (MNU-STA-25): a filterable
+   menu whose list holds Rename and an open filterable submenu (trigger "Move to folder", whose list holds Documents).
+   `OnSubmenuOpenChange` receives the submenu's open requests; `CancelSubmenuClose` cancels its closes. *@
+<MenuFilterProvider>
+    <MenuRoot TPayload="NoPayload" DefaultOpen="true">
+        <MenuTrigger TPayload="NoPayload">Actions</MenuTrigger>
+        <MenuPortal>
+            <MenuPositioner>
+                <MenuPopup>
+                    <MenuInput aria-label="Filter actions" />
+                    <MenuList>
+                        <MenuItem>Rename</MenuItem>
+                        <MenuFilterProvider>
+                            <MenuSubmenuRoot DefaultOpen="true" OnOpenChange="OnSubmenuOpen">
+                                <MenuSubmenuTrigger Delay="0">Move to folder</MenuSubmenuTrigger>
+                                <MenuPortal>
+                                    <MenuPositioner>
+                                        <MenuPopup>
+                                            <MenuInput aria-label="Filter folders" />
+                                            <MenuList>
+                                                <MenuItem>Documents</MenuItem>
+                                            </MenuList>
+                                        </MenuPopup>
+                                    </MenuPositioner>
+                                </MenuPortal>
+                            </MenuSubmenuRoot>
+                        </MenuFilterProvider>
+                    </MenuList>
+                </MenuPopup>
+            </MenuPositioner>
+        </MenuPortal>
+    </MenuRoot>
+</MenuFilterProvider>
+
+@code {
+    [Parameter]
+    public Action<bool, EventReason>? OnSubmenuOpenChange { get; set; }
+
+    [Parameter]
+    public bool CancelSubmenuClose { get; set; }
+
+    private void OnSubmenuOpen(ValueChangeEventArgs<bool> args)
+    {
+        OnSubmenuOpenChange?.Invoke(args.Value, args.Details.Reason);
+        if (!args.Value && CancelSubmenuClose)
+        {
+            args.Details.Cancel();
+        }
+    }
+}

@@ -1,0 +1,327 @@
+@namespace Blazix.Primitives.Fixtures.Client.MenuFixtures
+@using Blazix.Primitives
+@using Microsoft.AspNetCore.Components.Web
+@inject NavigationManager Navigation
+
+@*
+    The `menu-filter-items` fixture (tests/browser/menu.filter-items.spec.ts, M5 track 12): useMenuFilterItem.test.tsx's and
+    MenuFilterRoot.test.tsx's item trees, one per `case`, each a filterable menu with an input "Filter actions" and a list:
+    - `kinds`: held open (a controlled `Open` with no `OpenChanged`, Base UI's `open`); Rename (CloseOnClick off), a link item "Open details" (to `#details` on this page; the document's base would send a bare `#details` to the root), a checkbox item "Show
+      details" and a radio group holding "Sort by date";
+    - `fruit`: closed, trigger "Fruit", input "Filter fruit", a list (`data-testid="list"`) of Apple and Banana (CloseOnClick
+      off), and Empty reading "No fruit found";
+    - `label`: open; Rename rendered through a component (a `span`), and Delete;
+    - `async`: open; an item showing `text` (default "Loading"), then Delete; the button "set label" (inside the popup, so a
+      press does not dismiss the menu) sets the item's text to `next` (default "Rename");
+    - `array`: open; Rename rendered as the two strings "Re" and "name", and Delete;
+    - `translate`: open; Rename and Delete shown through a translating component ("Zmień nazwę", "Usuń"), and the button
+      "tick" re-renders them with the same children;
+    - `render`: open; an item rendered through its `Render` element, a `div` showing `text` (default "One"), and Delete; the
+      button "set label" sets the text to `next` (default "Two").
+    - `closing`: a non-modal menu held open by this page until the button "Close" outside it closes it; trigger "Fruit",
+      input "Filter fruit", Apple;
+    - `cancel`: held open; the query starts at "app" and every change is canceled; trigger "Fruit", input "Filter fruit",
+      Clear "Clear filter", Apple and Banana;
+    - `controlled`: held open; the query is this page's, starting at `query`, set by the buttons "query app" and "query
+      ban" inside the popup (a press outside a modal menu meets its backdrop); trigger "Fruit", input "Filter fruit", Apple and Banana;
+    - `custom-id`: `controlled` with autoHighlight "always", Apple and Banana rendered through `div`s with the ids
+      `apple-item` and `banana-item`.
+    - `append`: held open; input "Filter reports", Report A, Report B and Other; the button "append" (inside the popup)
+      adds Zebra last;
+    - `inbox`: held open, autoHighlight "always"; "Inbox (N)", Archive and Delete; the button "count" (inside the popup)
+      raises N from 1;
+    - `highlight`: held open (`auto=true` for autoHighlight); Rename, Delete labelled "Remove", and Duplicate.
+    - `reopen`: closed and uncontrolled; Save, Save as and Delete; the button "append" (inside the popup) adds Recent last.
+    - `ids`: held open, autoHighlight "always"; First (id `first-item`) and Second (id `old-id`); the button "new id"
+      (inside the popup) changes Second's id to `new-id`.
+    - `viewport`: open; Rename and Delete in a list inside a Viewport.
+    - `none`: open; an empty list and Empty (`data-testid="empty"`) reading "No actions found".
+    - `independent`: held open; "Parent action", and after the list an independent plain menu, open by default, with a
+      trigger "Independent" and an item "Independent action".
+    Each highlight report is also recorded as `label:reason` (`-` for no label) in `data-highlight-details`.
+    Each query request is recorded as `value:reason` in `data-value-changes`, and each highlight report by item text, or
+    "none", in `data-highlights` (`|`-separated).
+    Item presses are recorded by name in `data-presses` (`|`-separated). `data-attached` turns "true" once the menu's session
+    and, for an open menu, the input's and list's `menu-filter` handles have attached.
+*@
+<FixtureContainer Name="menu-filter-items" data-attached="@(attached ? "true" : "false")" data-presses="@string.Join('|', presses)" data-tick="@tick" data-value-changes="@string.Join('|', changes)" data-highlights="@string.Join('|', highlights)" data-highlight-details="@string.Join('|', highlightDetails)">
+    @if (Case == "closing")
+    {
+        <button type="button" @onclick="() => closingOpen = false">Close</button>
+    }
+    <MenuFilterProvider @attributes="ProviderParameters">
+        <MenuRoot TPayload="NoPayload" @attributes="RootParameters" OnItemHighlighted="RecordHighlight" @ref="root">
+            <MenuTrigger TPayload="NoPayload">@(Fruit ? "Fruit" : "Actions")</MenuTrigger>
+            <MenuPortal>
+                <MenuPositioner>
+                    <MenuPopup data-testid="popup">
+                        <MenuInput aria-label="@(Fruit ? "Filter fruit" : Case == "append" ? "Filter reports" : "Filter actions")" @ref="input" />
+                        @if (Case == "cancel")
+                        {
+                            <MenuClear aria-label="Clear filter" />
+                        }
+                        @if (Case is "async" or "render")
+                        {
+                            <button type="button" @onclick="SetLabel">set label</button>
+                        }
+                        else if (Case is "controlled" or "custom-id")
+                        {
+                            <button type="button" @onclick="@(() => query = "app")">query app</button>
+                            <button type="button" @onclick="@(() => query = "ban")">query ban</button>
+                        }
+                        else if (Case == "inbox")
+                        {
+                            <button type="button" @onclick="() => count++">count</button>
+                        }
+                        else if (Case == "ids")
+                        {
+                            <button type="button" @onclick="@(() => secondId = "new-id")">new id</button>
+                        }
+                        else if (Case is "append" or "reopen")
+                        {
+                            <button type="button" @onclick="() => appended = true">append</button>
+                        }
+                        else if (Case == "translate")
+                        {
+                            <button type="button" @onclick="() => tick++">tick</button>
+                        }
+                        @if (Case == "viewport")
+                        {
+                            <MenuViewport>
+                                <MenuList data-testid="list" @ref="list">
+                                    <MenuItem>Rename</MenuItem>
+                                    <MenuItem>Delete</MenuItem>
+                                </MenuList>
+                            </MenuViewport>
+                        }
+                        else
+                        {
+                        <MenuList data-testid="list" @ref="list">
+                            @switch (Case)
+                            {
+                                case "kinds":
+                                    <MenuItem CloseOnClick="false" @onclick="@(() => presses.Add("Rename"))">Rename</MenuItem>
+                                    <MenuLinkItem href="@($"{Navigation.Uri.Split('#')[0]}#details")">Open details</MenuLinkItem>
+                                    <MenuCheckboxItem>Show details</MenuCheckboxItem>
+                                    <MenuRadioGroup TValue="string">
+                                        <MenuRadioItem TValue="string" Value="@("date")">Sort by date</MenuRadioItem>
+                                    </MenuRadioGroup>
+                                    break;
+                                case "fruit":
+                                    <MenuItem>Apple</MenuItem>
+                                    <MenuItem CloseOnClick="false" @onclick="@(() => presses.Add("Banana"))">Banana</MenuItem>
+                                    break;
+                                case "closing":
+                                    <MenuItem>Apple</MenuItem>
+                                    break;
+                                case "cancel":
+                                case "controlled":
+                                    <MenuItem @onclick="@(() => presses.Add("Apple"))">Apple</MenuItem>
+                                    <MenuItem>Banana</MenuItem>
+                                    break;
+                                case "custom-id":
+                                    <MenuItem Render="@s_appleItem">Apple</MenuItem>
+                                    <MenuItem Render="@s_bananaItem">Banana</MenuItem>
+                                    break;
+                                case "highlight":
+                                    <MenuItem>Rename</MenuItem>
+                                    <MenuItem Label="Remove">Delete</MenuItem>
+                                    <MenuItem>Duplicate</MenuItem>
+                                    break;
+                                case "inbox":
+                                    <MenuItem>Inbox (@count)</MenuItem>
+                                    <MenuItem>Archive</MenuItem>
+                                    <MenuItem>Delete</MenuItem>
+                                    break;
+                                case "append":
+                                    <MenuItem>Report A</MenuItem>
+                                    <MenuItem>Report B</MenuItem>
+                                    <MenuItem>Other</MenuItem>
+                                    @if (appended)
+                                    {
+                                        <MenuItem>Zebra</MenuItem>
+                                    }
+                                    break;
+                                case "ids":
+                                    <MenuItem id="first-item">First</MenuItem>
+                                    <MenuItem id="@secondId">Second</MenuItem>
+                                    break;
+                                case "independent":
+                                    <MenuItem>Parent action</MenuItem>
+                                    break;
+                                case "reopen":
+                                    <MenuItem>Save</MenuItem>
+                                    <MenuItem>Save as</MenuItem>
+                                    <MenuItem>Delete</MenuItem>
+                                    @if (appended)
+                                    {
+                                        <MenuItem>Recent</MenuItem>
+                                    }
+                                    break;
+                                case "label":
+                                    <MenuItem><span>Rename</span></MenuItem>
+                                    <MenuItem>Delete</MenuItem>
+                                    break;
+                                case "async":
+                                    <MenuItem data-testid="async-item">@text</MenuItem>
+                                    <MenuItem>Delete</MenuItem>
+                                    break;
+                                case "array":
+                                    <MenuItem>@("Re")@("name")</MenuItem>
+                                    <MenuItem>Delete</MenuItem>
+                                    break;
+                                case "render":
+                                    <MenuItem Render="@RenderedName" />
+                                    <MenuItem>Delete</MenuItem>
+                                    break;
+                                case "translate":
+                                    <MenuItem>@Translate("Rename")</MenuItem>
+                                    <MenuItem>@Translate("Delete")</MenuItem>
+                                    break;
+                            }
+                        </MenuList>
+                        }
+                        @if (Case == "independent")
+                        {
+                            <MenuRoot TPayload="NoPayload" DefaultOpen="true">
+                                <MenuTrigger TPayload="NoPayload">Independent</MenuTrigger>
+                                <MenuPortal>
+                                    <MenuPositioner>
+                                        <MenuPopup>
+                                            <MenuItem>Independent action</MenuItem>
+                                        </MenuPopup>
+                                    </MenuPositioner>
+                                </MenuPortal>
+                            </MenuRoot>
+                        }
+                        @if (Case == "fruit")
+                        {
+                            <MenuEmpty>No fruit found</MenuEmpty>
+                        }
+                        else if (Case == "none")
+                        {
+                            <MenuEmpty data-testid="empty">No actions found</MenuEmpty>
+                        }
+                    </MenuPopup>
+                </MenuPositioner>
+            </MenuPortal>
+        </MenuRoot>
+    </MenuFilterProvider>
+</FixtureContainer>
+
+@code {
+    private static readonly Dictionary<string, string> s_translations = new(StringComparer.Ordinal) { ["Rename"] = "Zmień nazwę", ["Delete"] = "Usuń" };
+    private static readonly RenderFragment s_appleItem = @<div id="apple-item"></div>;
+    private static readonly RenderFragment s_bananaItem = @<div id="banana-item"></div>;
+    private readonly List<string> presses = [];
+    private readonly List<string> changes = [];
+    private readonly List<string> highlights = [];
+    private readonly List<string> highlightDetails = [];
+    private bool closingOpen = true;
+    private bool appended;
+    private int count = 1;
+    private string? query;
+    private string secondId = "old-id";
+    private MenuRoot<NoPayload>? root;
+    private MenuInput? input;
+    private MenuList? list;
+    private bool attached;
+    private bool attaching;
+    private int tick;
+    private string? text;
+
+    [SupplyParameterFromQuery(Name = "case")]
+    public string? Case { get; set; }
+
+    [SupplyParameterFromQuery(Name = "text")]
+    public string? Text { get; set; }
+
+    [SupplyParameterFromQuery(Name = "next")]
+    public string? Next { get; set; }
+
+    /// <inheritdoc />
+    protected override void OnInitialized() => text = Text ?? (Case == "render" ? "One" : "Loading");
+
+    /// <inheritdoc />
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        bool open = Case is not ("fruit" or "reopen");
+        // The input and list render with the open popup; a closing page re-renders while they exist.
+        if (attached || attaching || !RendererInfo.IsInteractive || root is null || (open && (input is null || list is null)))
+        {
+            return;
+        }
+
+        attaching = true;
+        await (open ? Task.WhenAll(root.SessionAttached, input!.FilterAttached, list!.FilterAttached) : root.SessionAttached);
+        attached = true;
+        StateHasChanged();
+    }
+
+    [SupplyParameterFromQuery(Name = "query")]
+    public string? Query { get; set; }
+
+    private bool Fruit => Case is "fruit" or "closing" or "cancel" or "controlled" or "custom-id";
+
+    // A held-open root for `kinds`, `cancel`, `controlled` and `custom-id`, this page's open for `closing`, else an
+    // uncontrolled one, open unless `fruit` or `reopen`.
+    private Dictionary<string, object> RootParameters => Case switch
+    {
+        "kinds" or "cancel" or "controlled" or "custom-id" or "append" or "inbox" or "highlight" or "independent" or "ids" => new() { ["Open"] = true },
+        "closing" => new() { ["Open"] = closingOpen, ["Modal"] = false },
+        _ => new() { ["DefaultOpen"] = Case is not ("fruit" or "reopen") },
+    };
+
+    private Dictionary<string, object> ProviderParameters
+    {
+        get
+        {
+            Dictionary<string, object> parameters = new() { ["OnValueChange"] = EventCallback.Factory.Create<ValueChangeEventArgs<string>>(this, Record) };
+            if (Case == "cancel")
+            {
+                parameters["DefaultValue"] = "app";
+            }
+            else if (Case is "controlled" or "custom-id")
+            {
+                parameters["Value"] = query ??= Query ?? "";
+            }
+
+            if (Case == "highlight" && Auto == "true")
+            {
+                parameters["AutoHighlight"] = (AutoHighlightValue?)true;
+            }
+
+            if (Case is "custom-id" or "inbox" or "ids")
+            {
+                parameters["AutoHighlight"] = (AutoHighlightValue?)AutoHighlightValue.Always;
+            }
+
+            return parameters;
+        }
+    }
+
+    private void Record(ValueChangeEventArgs<string> args)
+    {
+        changes.Add($"{args.Value}:{args.Details.Reason.ToLiteral()}");
+        if (Case == "cancel")
+        {
+            args.Details.Cancel();
+        }
+    }
+
+    private void RecordHighlight(MenuItemHighlightedEventArgs args)
+    {
+        highlights.Add(args.ItemId is null ? "none" : args.Details.Label ?? "");
+        highlightDetails.Add($"{args.Details.Label ?? "-"}:{args.Details.Reason.ToLiteral()}");
+    }
+
+    [SupplyParameterFromQuery(Name = "auto")]
+    public string? Auto { get; set; }
+
+    private void SetLabel() => text = Next ?? (Case == "render" ? "Two" : "Rename");
+
+    private RenderFragment RenderedName => @<div>@text</div>;
+
+    // The translating component of Base UI's tree: the same children render the translated text.
+    private RenderFragment Translate(string key) => builder => builder.AddContent(0, s_translations[key]);
+}

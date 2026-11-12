@@ -7,10 +7,14 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   attach,
+  highlightListEdge,
+  highlightListItem,
   LEAVE_POINT,
   LIST_HIGHLIGHT_REPORT,
+  moveListHighlightFrom,
   NAVIGATE_POINT,
   relayKeyboardEvent,
+  skipListNavigation,
   type CompositeListHighlightReport,
   type CompositeOptions,
 } from './composite';
@@ -997,6 +1001,26 @@ describe('list virtual focus (port)', () => {
     expect(descendantOf(menu(harness))).toBe(harness.item(1).id);
     expect(document.activeElement).toBe(harness.reference);
     expect(harness.item(1).getAttribute('tabindex')).toBe('-1');
+  });
+
+  // MNU-ARIA-06 (M5 track 12, the orchestrator's 2026-11-12 grant): a filterable menu's popup is a dialog, which carries no
+  // aria-activedescendant (useMenuFilterPopup.ts:97-101); floatingActiveDescendant false leaves the floating element out.
+  it('port: floatingActiveDescendant false writes aria-activedescendant on the reference only, and the default writes the floating element too', async () => {
+    const off = app({ list: { virtual: true, floatingActiveDescendant: false } });
+    off.reference.focus();
+    keyDown(off.reference, 'ArrowDown');
+    await waitFor(() => {
+      expect(descendantOf(off.reference)).toBe(off.item(0).id);
+    });
+    expect(menu(off).hasAttribute('aria-activedescendant')).toBe(false);
+
+    const byDefault = app({ list: { virtual: true } });
+    byDefault.reference.focus();
+    keyDown(byDefault.reference, 'ArrowDown');
+    await waitFor(() => {
+      expect(descendantOf(byDefault.reference)).toBe(byDefault.item(0).id);
+    });
+    expect(descendantOf(menu(byDefault))).toBe(byDefault.item(0).id);
   });
 
   it('port: under virtual focus with a typeable combobox reference writes aria-activedescendant on the reference only', async () => {
@@ -2836,5 +2860,150 @@ describe('list navigation inside a shadow root (port)', () => {
     expect(document.activeElement).toBe(option(harness, 3));
     expect(highlighted(option(harness, 3))).toBe(true);
     expect(harness.activeIndex).toBe(3);
+  });
+});
+
+// skipListNavigation (M5 track 12, issue 197; granted by the orchestrator 2026-11-11): a module whose element is a list's
+// reference and owns some keys itself (the menu-filter Input's `edit` keys, MNU-KEY-22) marks a keydown so the list's
+// handles leave it alone: no navigation, no typeahead, no preventDefault.
+describe('skipListNavigation (port)', () => {
+  function descendantOf(element: Element | null): string | null {
+    return element?.getAttribute('aria-activedescendant') ?? null;
+  }
+
+  it('port: a keydown marked by skipListNavigation is neither navigated nor prevented', async () => {
+    const harness = app({ reference: 'input', list: { virtual: true } });
+    harness.reference.focus();
+    keyDown(harness.reference, 'ArrowDown');
+    await waitFor(() => {
+      expect(descendantOf(harness.reference)).toBe(harness.item(0).id);
+    });
+    const mark = (event: Event): void => skipListNavigation(event as KeyboardEvent);
+    harness.reference.addEventListener('keydown', mark, { capture: true });
+
+    const marked = keyDown(harness.reference, 'ArrowDown');
+
+    expect(marked.defaultPrevented).toBe(false);
+    expect(descendantOf(harness.reference)).toBe(harness.item(0).id);
+
+    harness.reference.removeEventListener('keydown', mark, { capture: true });
+    const unmarked = keyDown(harness.reference, 'ArrowDown');
+    expect(unmarked.defaultPrevented).toBe(true);
+    await waitFor(() => {
+      expect(descendantOf(harness.reference)).toBe(harness.item(1).id);
+    });
+  });
+
+  it('port: a marked keydown on the closed reference does not open the list', () => {
+    const harness = app({ reference: 'input', list: { virtual: true } });
+    harness.reference.focus();
+    harness.reference.addEventListener('keydown', (event) => skipListNavigation(event as KeyboardEvent), { capture: true });
+
+    const event = keyDown(harness.reference, 'ArrowDown');
+
+    expect(event.defaultPrevented).toBe(false);
+    expect(harness.floating).toBe(null);
+  });
+});
+
+// highlightListEdge (M5 track 12, issue 197; granted by the orchestrator 2026-11-12): the menu-filter Input's `enter-list`
+// (useMenuFilterKeyDown.ts:155-167, MNU-KEY-24) highlights the list's first item on ArrowDown and its last on ArrowUp,
+// with no disabled index, from a keydown the list's own handles skip.
+describe('highlightListEdge (port)', () => {
+  function descendantOf(element: Element | null): string | null {
+    return element?.getAttribute('aria-activedescendant') ?? null;
+  }
+
+  it('port: highlightListEdge highlights the first or the last item of an open list from its reference', async () => {
+    const harness = app({ reference: 'input', list: { virtual: true }, session: { open: true } });
+    harness.reference.focus();
+
+    expect(highlightListEdge(harness.reference, 'last', new KeyboardEvent('keydown', { key: 'ArrowUp' }))).toBe(true);
+    await waitFor(() => {
+      expect(descendantOf(harness.reference)).toBe(harness.item(2).id);
+    });
+
+    expect(highlightListEdge(harness.reference, 'first', new KeyboardEvent('keydown', { key: 'ArrowDown' }))).toBe(true);
+    await waitFor(() => {
+      expect(descendantOf(harness.reference)).toBe(harness.item(0).id);
+    });
+  });
+
+  // FilterDropdownRoot.tsx:109-125 (MNU-STA-20): the filter's item-set change clears the highlight it no longer holds.
+  it('port: highlightListEdge with no edge clears the highlight', async () => {
+    const harness = app({ reference: 'input', list: { virtual: true }, session: { open: true } });
+    harness.reference.focus();
+    highlightListEdge(harness.reference, 'first', new KeyboardEvent('keydown', { key: 'ArrowDown' }));
+    await waitFor(() => {
+      expect(descendantOf(harness.reference)).toBe(harness.item(0).id);
+    });
+
+    expect(highlightListEdge(harness.reference, null, undefined)).toBe(true);
+
+    await waitFor(() => {
+      expect(descendantOf(harness.reference)).toBe(null);
+    });
+  });
+
+  // MNU-STA-20 (FilterDropdownRoot.tsx:109-125; the orchestrator's 2026-11-12 grant): a list with itemsChangeHighlight
+  // does not let another item take the highlighted index when its items change; 'clear' clears, before any report.
+  it('port: itemsChangeHighlight clears a highlight another item would take, without reporting that item', async () => {
+    const harness = app({ reference: 'input', list: { virtual: true, itemsChangeHighlight: 'clear' }, session: { open: true } });
+    harness.reference.focus();
+    highlightListEdge(harness.reference, 'first', new KeyboardEvent('keydown', { key: 'ArrowDown' }));
+    keyDown(harness.reference, 'ArrowDown');
+    await waitFor(() => {
+      expect(descendantOf(harness.reference)).toBe(harness.item(1).id);
+    });
+    const before = harness.highlights.length;
+
+    harness.setItems(['zero', 'one', 'two', 'three']);
+
+    await waitFor(() => {
+      expect(descendantOf(harness.reference)).toBe(null);
+    });
+    expect(harness.highlights.slice(before).map((report) => report.index ?? null)).toEqual([null]);
+  });
+
+  // MenuFilterSubmenuRoot.tsx:47-49 (the orchestrator's 2026-11-12 grant): leaving a filterable submenu highlights its
+  // trigger in the parent list.
+  it('port: highlightListItem highlights the given item of the list from its reference', async () => {
+    const harness = app({ reference: 'input', list: { virtual: true }, session: { open: true } });
+    harness.reference.focus();
+
+    expect(highlightListItem(harness.reference, harness.item(2), new KeyboardEvent('keydown', { key: 'ArrowLeft' }))).toBe(true);
+    await waitFor(() => {
+      expect(descendantOf(harness.reference)).toBe(harness.item(2).id);
+    });
+
+    expect(highlightListItem(harness.reference, document.createElement('li'), undefined)).toBe(false);
+  });
+
+  // moveHighlightFrom.ts (MenuFilterSubmenuRoot.tsx:157-167): a main-axis key moves the parent's highlight on from the
+  // submenu's trigger with the list's own navigation, its disabled skipping and its loop included.
+  it('port: moveListHighlightFrom moves on from the given item with the list navigation, skipping disabled items and looping', async () => {
+    const harness = app({
+      reference: 'input',
+      list: { virtual: true, loopFocus: true },
+      session: { open: true },
+      itemAttributes: (index) => (index === 1 ? { 'aria-disabled': 'true' } : {}),
+    });
+    harness.reference.focus();
+
+    expect(moveListHighlightFrom(harness.reference, harness.item(0), new KeyboardEvent('keydown', { key: 'ArrowDown', cancelable: true }))).toBe(true);
+    await waitFor(() => {
+      expect(descendantOf(harness.reference)).toBe(harness.item(2).id);
+    });
+
+    moveListHighlightFrom(harness.reference, harness.item(2), new KeyboardEvent('keydown', { key: 'ArrowDown', cancelable: true }));
+    await waitFor(() => {
+      expect(descendantOf(harness.reference)).toBe(harness.item(0).id);
+    });
+  });
+
+  it('port: highlightListEdge does nothing on an element without a list handle', () => {
+    const element = document.createElement('input');
+
+    expect(highlightListEdge(element, 'first', new KeyboardEvent('keydown', { key: 'ArrowDown' }))).toBe(false);
   });
 });

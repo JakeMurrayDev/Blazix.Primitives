@@ -63,6 +63,9 @@ public sealed class MenuRoot<TPayload> : ComponentBase, IAsyncDisposable
     [CascadingParameter]
     private DirectionProviderContext? DirectionContext { get; set; }
 
+    [CascadingParameter]
+    private MenuFilterProviderContext? FilterProvider { get; set; }
+
     // MNU-API-01
     /// <summary>Gets or sets a value indicating whether the menu is open.</summary>
     /// <value>
@@ -206,6 +209,7 @@ public sealed class MenuRoot<TPayload> : ComponentBase, IAsyncDisposable
     protected override void OnParametersSet()
     {
         MenuParent parent = MenuParent.Resolve(isSubmenu: false, EnclosingMenu, ParentContext);
+        behavior!.ApplyFilter(FilterProvider);
         behavior!.ApplyParameters(
             new MenuRootParameters<TPayload>(
                 new PopupRootParameters<TPayload>(DefaultOpen, DefaultTriggerId, Handle, OnOpenChange, OpenChanged, OnOpenChangeComplete, CloseOnActiveTriggerUnmount: true, ChildContent, PayloadContent),

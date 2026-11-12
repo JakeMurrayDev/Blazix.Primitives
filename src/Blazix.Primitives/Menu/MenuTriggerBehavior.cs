@@ -50,6 +50,10 @@ internal sealed class MenuTriggerBehavior<TPayload> : IAsyncDisposable, IMenuTri
     private readonly InteractionsTriggerBehavior interactions;
     private readonly CompositeRootBehavior reference;
     private readonly PopupModuleAttachment guards;
+    private readonly IJSRuntime jsRuntime;
+    private MenuFilterModuleAttachment? filterModule;
+    private readonly TaskCompletionSource filterAttached = new(TaskCreationOptions.RunContinuationsAsynchronously);
+    private bool decidesKeyDown;
     private readonly Func<Func<Task>, Task> invokeAsync;
     private readonly EventCallback onKeyDown;
     private readonly Action requestRender;
@@ -97,6 +101,7 @@ internal sealed class MenuTriggerBehavior<TPayload> : IAsyncDisposable, IMenuTri
         EventCallback onKeyUp)
     {
         this.familyName = familyName;
+        this.jsRuntime = jsRuntime;
         this.invokeAsync = invokeAsync;
         this.onKeyDown = onKeyDown;
         this.requestRender = requestRender;
@@ -140,6 +145,11 @@ internal sealed class MenuTriggerBehavior<TPayload> : IAsyncDisposable, IMenuTri
     /// <summary>Gets a task that completes when the trigger's handles are attached.</summary>
     public Task TwinsAttached => Task.WhenAll(button.TwinAttached, interactions.TwinAttached, reference.TwinAttached);
 
+    // M5 track 12 (ADR 06 §2's marker waits): a filterable menu's trigger relays keys and records virtual presses only once
+    // its `menu-filter` handle is attached.
+    /// <summary>Gets a task that completes when a filterable menu's trigger has its <c>menu-filter</c> handle, or at once for a plain menu.</summary>
+    public Task FilterAttached => trigger.Store.Context?.Filter is null ? Task.CompletedTask : filterAttached.Task;
+
     /// <summary>Attaches the handles after the render, in their pinned order, and re-registers the trigger.</summary>
     /// <param name="enabled">Whether the part rendered its element.</param>
     /// <param name="element">The trigger's element.</param>
@@ -176,6 +186,29 @@ internal sealed class MenuTriggerBehavior<TPayload> : IAsyncDisposable, IMenuTri
                 Trigger = new PopupTriggerOptions { Guards = HasFocusGuards, PopupId = ((IMenuState)store.State).PopupId },
             });
         }
+
+        // MNU-KEY-28 (MenuFilterDropdown.tsx:124-150; M5 track 12 under the orchestrator's 2026-11-12 grant): a filterable
+        // menu's trigger relays keys to the input through its `menu-filter` handle; a plain menu attaches none.
+        if (element is { } relayTarget && store.Context?.Filter is not null)
+        {
+            if (filterModule is null)
+            {
+                filterModule = new MenuFilterModuleAttachment(jsRuntime);
+
+                // Design point 6 (a): the relay asks `navigate` before composite's handle; both read one verdict per keydown.
+                filterModule.Twin.NavigationDecider = reference.DecideKeyDownOnce;
+            }
+
+            await filterModule.SyncAsync(relayTarget, new MenuFilterOptions
+            {
+                Part = MenuFilterTwin.TriggerPart,
+                MenuKey = store.SessionToken,
+                Open = store.State.Popup.EffectiveOpen,
+                InBar = InBar,
+                DecidesKeyDown = decidesKeyDown,
+            });
+            filterAttached.TrySetResult();
+        }
     }
 
     /// <inheritdoc />
@@ -195,8 +228,10 @@ internal sealed class MenuTriggerBehavior<TPayload> : IAsyncDisposable, IMenuTri
         guards.Twin.GuardFocused -= OnGuardFocused;
         ValueTask interactionsDisposed = interactions.DisposeAsync();
         ValueTask guardsDisposed = guards.DisposeAsync();
+        ValueTask filterDisposed = filterModule?.DisposeAsync() ?? ValueTask.CompletedTask;
         await interactionsDisposed;
         await guardsDisposed;
+        await filterDisposed;
     }
 
     /// <summary>Applies the trigger's parameters and its surroundings.</summary>
@@ -256,6 +291,7 @@ internal sealed class MenuTriggerBehavior<TPayload> : IAsyncDisposable, IMenuTri
         button.SetConsumerAttributes(attributes);
         interactions.SetConsumerAttributes(attributes);
         reference.SetConsumerAttributes(attributes);
+        decidesKeyDown = attributes?.ContainsKey("onkeydown") == true;
         barItem?.SetConsumerAttributes(attributes);
         barItem?.SetRegistration(id, attributes, disabled);
         SyncInteractions();
@@ -269,7 +305,9 @@ internal sealed class MenuTriggerBehavior<TPayload> : IAsyncDisposable, IMenuTri
     {
         button.Disabled = Disabled;
         attributes.Set(PopupMarkerAttributes.ClickTrigger, string.Empty);
-        trigger.AddAttributes(attributes, ariaExpanded: true, ariaHasPopup: "menu");
+        // MNU-ARIA-01 (MenuFilterDropdown.tsx:128, M5 track 12 under the orchestrator's 2026-11-12 grant): a filterable
+        // menu's popup is a dialog.
+        trigger.AddAttributes(attributes, ariaExpanded: true, ariaHasPopup: trigger.Store.Context?.Filter is not null ? "dialog" : "menu");
 
         // MNU-ARIA-03 (MenuStore.ts:100-103): the list when one holds the menu role, else the popup.
         if (controlsId!.Value is { } controls)
@@ -421,11 +459,13 @@ internal sealed class MenuTriggerBehavior<TPayload> : IAsyncDisposable, IMenuTri
     }
 
     // MenuRoot.tsx:604-636: the active trigger carries the list's reference handle, an inactive or detached one the trigger
-    // handle (track 1's roles).
+    // handle (track 1's roles). In a filterable menu the Input is the reference under virtual focus, so every trigger takes
+    // the trigger role, whose focus seeds no highlight there (MenuRoot.tsx:622-634; M5 track 12, granted by the
+    // orchestrator 2026-11-11).
     private void SyncList()
     {
         MenuStore<TPayload> store = trigger.Store;
-        CompositeListRole role = store.Popup.IsTriggerActive(id) ? CompositeListRole.Reference : CompositeListRole.Trigger;
+        CompositeListRole role = store.Popup.IsTriggerActive(id) && store.Context?.Filter is null ? CompositeListRole.Reference : CompositeListRole.Trigger;
         reference.SetList(store.Context?.List, role);
     }
 

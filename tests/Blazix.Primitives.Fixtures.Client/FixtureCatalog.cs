@@ -207,6 +207,7 @@ public static class FixtureCatalog
         ["menu-root"] = new(typeof(MenuRootFixture)),
         ["context-menu-root"] = new(typeof(ContextMenuRootFixture)),
         ["menubar-root"] = new(typeof(MenubarRootFixture)),
+        ["menubar-filter"] = new(typeof(MenubarFilterFixture)),
         ["menu-dialog"] = new(typeof(MenuDialogFixture)),
         ["menu-transition"] = new(typeof(MenuTransitionFixture)),
         ["menu-triggerless"] = new(typeof(MenuTriggerlessFixture)),
@@ -260,6 +261,14 @@ public static class FixtureCatalog
         ["list-values-collation"] = new(typeof(ListValuesCollationFixture)),
         ["list-values-indicator"] = new(typeof(ListValuesIndicatorFixture)),
         ["list-values-hidden-input"] = new(typeof(ListValuesHiddenInputFixture)),
+
+        // M5 track 12 (issue 197): Menu's filter mode.
+        ["menu-filter-root"] = new(typeof(MenuFilterRootFixture)),
+        ["menu-filter-initial"] = new(typeof(MenuFilterInitialFixture)),
+        ["menu-filter-submenu"] = new(typeof(MenuFilterSubmenuFixture)),
+        ["menu-filter-items"] = new(typeof(MenuFilterItemsFixture)),
+        ["menu-filter-dialog"] = new(typeof(MenuFilterDialogFixture)),
+        ["menu-filter-webkit"] = new(typeof(MenuFilterWebKitFixture)),
 
         // M5 track 1 (issue 159, Deliverables 12-13): the popup-list suite on the test-only list hosts.
         ["composite-list-dom"] = new(typeof(CompositeListDomFixture)),

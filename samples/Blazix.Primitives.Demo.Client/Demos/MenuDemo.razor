@@ -70,6 +70,45 @@
             </MenuRoot>
             <span class="VariantName">Checkbox items, and a submenu of radio items: minimap @(showMinimap ? "on" : "off"), search @(showSearch ? "on" : "off"), sorted by @sortBy</span>
         </div>
+        <div class="Variant">
+            <MenuFilterProvider @bind-Value="filterQuery">
+                <MenuRoot TPayload="NoPayload">
+                    <MenuTrigger class="@TriggerClass">
+                        Actions <CaretDownIcon />
+                    </MenuTrigger>
+                    <MenuPortal>
+                        <MenuPositioner class="outline-hidden" SideOffset="8" Align="Align.Start">
+                            <MenuPopup class="@FilterPopupClass">
+                                <div class="@FilterInputContainerClass">
+                                    <MenuInput class="@FilterInputClass" aria-label="Filter actions" placeholder="e.g. Save" />
+                                    <MenuClear class="@FilterClearClass">
+                                        <XIcon />
+                                    </MenuClear>
+                                </div>
+                                <MenuEmpty class="@FilterEmptyClass">No actions found.</MenuEmpty>
+                                <MenuList class="@FilterListClass">
+                                    <MenuGroup>
+                                        <MenuGroupLabel class="@FilterGroupLabelClass">File</MenuGroupLabel>
+                                        <MenuItem class="@FilterItemClass">New file</MenuItem>
+                                        <MenuItem class="@FilterItemClass">Open file</MenuItem>
+                                        <MenuItem class="@FilterItemClass">Save</MenuItem>
+                                        <MenuItem class="@FilterItemClass">Save as</MenuItem>
+                                        <MenuItem class="@FilterItemClass">Duplicate</MenuItem>
+                                        <MenuItem class="@FilterItemClass">Rename</MenuItem>
+                                    </MenuGroup>
+                                    <MenuGroup>
+                                        <MenuGroupLabel class="@FilterGroupLabelClass">Organize</MenuGroupLabel>
+                                        <MenuItem class="@FilterItemClass">Download a copy</MenuItem>
+                                        <MenuItem class="@FilterItemClass">Delete</MenuItem>
+                                    </MenuGroup>
+                                </MenuList>
+                            </MenuPopup>
+                        </MenuPositioner>
+                    </MenuPortal>
+                </MenuRoot>
+            </MenuFilterProvider>
+            <span class="VariantName">A filterable menu: type in the input to filter the actions; the arrow keys move the highlight while the input keeps focus. Query: "@filterQuery"</span>
+        </div>
     </Variants>
 </DemoFrame>
 
@@ -86,6 +125,17 @@
     private const string SubmenuTriggerClass = "flex cursor-default items-center justify-between gap-4 py-2 pr-2 pl-4 text-sm leading-4 outline-hidden select-none data-popup-open:relative data-popup-open:z-0 data-popup-open:before:absolute data-popup-open:before:inset-x-1 data-popup-open:before:inset-y-0 data-popup-open:before:z-[-1] data-popup-open:before:bg-neutral-100 data-popup-open:before:content-[''] data-highlighted:relative data-highlighted:z-0 data-highlighted:text-white data-highlighted:before:absolute data-highlighted:before:inset-x-1 data-highlighted:before:inset-y-0 data-highlighted:before:z-[-1] data-highlighted:before:bg-neutral-950 data-highlighted:before:content-[''] data-highlighted:data-popup-open:before:bg-neutral-950 data-disabled:text-neutral-500 dark:data-popup-open:before:bg-neutral-800 dark:data-highlighted:text-neutral-950 dark:data-highlighted:before:bg-white dark:data-highlighted:data-popup-open:before:bg-white dark:data-disabled:text-neutral-400";
     private const string IndicatorClass = "col-start-1";
 
+    // The filter demo's classes (demos/filter/tailwind/index.tsx).
+    private const string FilterPopupClass = "min-w-[max(14rem,var(--anchor-width))] origin-[var(--transform-origin)] overflow-hidden border border-neutral-950 bg-white text-neutral-950 shadow-[0.25rem_0.25rem_0] shadow-black/12 transition-[scale,opacity] duration-100 ease-out outline-hidden data-ending-style:scale-[0.98] data-ending-style:opacity-0 data-starting-style:scale-[0.98] data-starting-style:opacity-0 dark:border-white dark:bg-neutral-950 dark:text-white dark:shadow-none";
+    private const string FilterInputContainerClass = "flex items-center border-b border-neutral-300 has-data-highlighted:border-neutral-950 has-data-highlighted:ring-1 has-data-highlighted:ring-neutral-950 has-data-highlighted:ring-inset dark:border-neutral-700 dark:has-data-highlighted:border-white dark:has-data-highlighted:ring-white";
+    private const string FilterInputClass = "min-h-8 w-0 flex-1 bg-transparent px-2.5 text-sm any-pointer-coarse:text-base leading-none outline-hidden placeholder:text-neutral-500 dark:placeholder:text-neutral-400";
+    private const string FilterClearClass = "flex size-8 items-center justify-center bg-transparent outline-hidden focus-visible:-outline-offset-2 focus-visible:outline-2 focus-visible:outline-neutral-950 dark:focus-visible:outline-white";
+    private const string FilterEmptyClass = "p-3 text-sm text-neutral-500 dark:text-neutral-400";
+    private const string FilterListClass = "overflow-y-auto py-1 outline-hidden scroll-py-1 not-has-[>:not([hidden])]:py-0 max-h-[min(22rem,var(--available-height))]";
+    private const string FilterGroupLabelClass = "pt-1.5 pr-8 pb-1 pl-4 text-xs leading-4 font-medium text-neutral-500 select-none dark:text-neutral-400";
+    private const string FilterItemClass = "cursor-default py-2 pl-4 text-sm leading-4 outline-hidden select-none data-highlighted:relative data-highlighted:z-0 data-highlighted:text-white data-highlighted:before:absolute data-highlighted:before:inset-x-1 data-highlighted:before:inset-y-0 data-highlighted:before:z-[-1] data-highlighted:before:bg-neutral-950 data-highlighted:before:content-[''] dark:data-highlighted:text-neutral-950 dark:data-highlighted:before:bg-white flex pr-8";
+
+    private string filterQuery = "";
     private bool showMinimap = true;
     private bool showSearch;
     private string sortBy = "Name";

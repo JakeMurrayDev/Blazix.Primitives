@@ -150,3 +150,12 @@ Facts the port found against context-menu.md, each recorded on its row:
 - AUT §3.3 `data-required` (2026-11-12, M5 track 11): declared, never emitted (CMB §16 Q1).
 - AUT-STR-04 and §16 Q9 (2026-11-12, M5 track 11): the diagnostics name Autocomplete's parts (ADR 08 Amendments 2026-11-03 (3)).
 - AUT-API-08 (2026-11-12, M5 track 11): an object item's `label` or `value` member is never read; its text is `ItemToStringValue` (ADR 16 rule 1).
+
+## 2026-11-12, Menu's filter mode (M5 track 12, [issue 197](https://github.com/JakeMurrayDev/Blazix.Primitives/issues/197))
+
+- MNU-STA-17 and design point 2 (b′): an item's text is what the browser renders, so the filter titles that need it run at L4; the rows carry dated re-tag notes (STA-15, STA-19, STA-22, STA-23, API-55, API-61, ARIA-16 and others), ADR 13 §3.
+- MNU-API-62: an explicit `id=""` on `MenuList` renders the generated id, where RND-DOM-32 precedence (2) keeps `''`; filed as [issue 244](https://github.com/JakeMurrayDev/Blazix.Primitives/issues/244) (Rendering). Base UI's empty-id title stays open by ID.
+- MNU-KEY-22, KEY-24: the Input's key router read no orientation or direction until 37f067f4, so a horizontal or right-to-left filterable menu routed its keys as a vertical left-to-right one; the close-key titles of `MenuFilterPopup.test.tsx` found it.
+- MNU-STA-19 on Server: the typed query's automatic highlight is C#'s and lands one leg later (ADR 01, "JS-owned values that originate in C# state"); a key pressed before it is overwritten. The titles wait for the highlight, Base UI's synchronous state.
+- MNU-PTR-21: Clear's `mousedown` default (`FilterDropdownClear.tsx:46-49`) is the `menu-filter` module's `clear` part since `a86505c4`, which follows each element the Clear re-mounts; before it, focus returned only through the focus manager's restore.
+- `MenuList.test.tsx` "replays keys from an item that holds real focus and activates on Enter": its last step reads the input's value under jsdom, where the closing popup is still mounted; in a browser the press closes the menu first, so the port's title checks that the input is gone.

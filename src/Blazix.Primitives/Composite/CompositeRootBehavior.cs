@@ -60,6 +60,7 @@ internal sealed class CompositeRootBehavior : IDisposable
     private readonly List<CompositeItemBehavior> orderedItems = [];
     private AttributeValue consumerKeyDown;
     private DecidedKey? decidedKeyDown;
+    private OnceVerdict? onceVerdict;
     private DirectionProviderContext? directionContext;
     private CompositeTwin? twin;
     private TwinHandle<CompositeOptions>? handle;
@@ -69,6 +70,8 @@ internal sealed class CompositeRootBehavior : IDisposable
     private bool elementReplaced;
     private bool attaching;
     private bool renderPending;
+    private int renderDeferrals;
+    private bool renderDeferred;
     private bool disposed;
     private string? lateId;
     private ListNavigationContext? list;
@@ -188,6 +191,13 @@ internal sealed class CompositeRootBehavior : IDisposable
     /// WebAssembly, synchronously inside the dispatch, and must not await.
     /// </value>
     public Func<EventSnapshot, DecisionPolicy>? NavigationDecider { get; set; }
+
+    // M5 track 12, the orchestrator's 2026-11-12 grant (API-59's once per interaction, option (a)): a part whose own module
+    // lets some decided keys reach Blazor although composite's options stop propagation (Menu's filter input lets its
+    // editing keys through) marks every decision, so Blazor's dispatch of that key does not run the consumer again.
+    /// <summary>Gets or sets a value indicating whether the part's own module may let a decided keydown reach Blazor, so each decision marks the consumer's handler as run.</summary>
+    /// <value><see langword="false"/>, the default.</value>
+    public bool DecidedKeysMayPropagate { get; set; }
 
     /// <summary>Gets or sets the part's chain of the selection decision point, such as an item's consumer focus handler.</summary>
     /// <value>
@@ -440,6 +450,19 @@ internal sealed class CompositeRootBehavior : IDisposable
         return consumerKeyDown.InvokeAsync(e);
     }
 
+    // M5 track 12's design point 6 (a), the orchestrator's 2026-11-12 grant: a part whose own module asks before composite's
+    // handle (Menu's filter input and trigger) decides a keydown once; composite's handle then reads the same verdict for that
+    // event. The verdict is keyed by the event (its type, timestamp and key), so it never reaches a later keydown.
+    /// <summary>Runs the navigation decision for a keydown once, and keeps its verdict for composite's own decision of the same event.</summary>
+    /// <param name="snapshot">The keydown.</param>
+    /// <returns><see cref="DecisionPolicy.Stop"/> when the consumer vetoed the key; otherwise <see cref="DecisionPolicy.Run"/>.</returns>
+    internal DecisionPolicy DecideKeyDownOnce(EventSnapshot snapshot)
+    {
+        DecisionPolicy verdict = DecideNavigation(snapshot);
+        (onceVerdict ??= new OnceVerdict()).Keep(snapshot, verdict);
+        return verdict;
+    }
+
     /// <summary>Adds an item to the registry.</summary>
     /// <param name="item">The item, whose registration is set.</param>
     internal void Register(CompositeItemBehavior item)
@@ -469,6 +492,34 @@ internal sealed class CompositeRootBehavior : IDisposable
         }
 
         itemsVersion++;
+        if (renderDeferrals > 0)
+        {
+            renderDeferred = true;
+            return;
+        }
+
+        if (!disposed && !renderPending && (handle is not null || attaching))
+        {
+            renderPending = true;
+            stateChanged();
+        }
+    }
+
+    // ADR 16 rule 2 (M5 track 12, the orchestrator's 2026-11-12 CompositeRootBehavior grant, additive): a part that changes
+    // many items in one step, as Menu's filter hides and shows them, holds the root's render back until the step ends, so
+    // the step renders the root once rather than once per removed item.
+    /// <summary>Holds back the render an item's removal requests, until the matching <see cref="ResumeRenders"/>.</summary>
+    internal void DeferRenders() => renderDeferrals++;
+
+    /// <summary>Ends a <see cref="DeferRenders"/>; the outermost one runs the render held back, unless the root rendered since.</summary>
+    internal void ResumeRenders()
+    {
+        if (renderDeferrals == 0 || --renderDeferrals > 0 || !renderDeferred)
+        {
+            return;
+        }
+
+        renderDeferred = false;
         if (!disposed && !renderPending && (handle is not null || attaching))
         {
             renderPending = true;
@@ -792,6 +843,12 @@ internal sealed class CompositeRootBehavior : IDisposable
     // (EVD-EVT-26, CMP-EVT-12; the item's under option (i), chosen by the user 2026-10-23).
     private DecisionPolicy DecideNavigation(EventSnapshot snapshot)
     {
+        // DecideKeyDownOnce's verdict for this very keydown, served once.
+        if (onceVerdict is { } once && once.TryTake(snapshot, out DecisionPolicy kept))
+        {
+            return kept;
+        }
+
         if (NavigationDecider is { } chain && chain(snapshot) == DecisionPolicy.Stop)
         {
             return DecisionPolicy.Stop;
@@ -817,7 +874,7 @@ internal sealed class CompositeRootBehavior : IDisposable
 
         bool vetoed = args.PartHandlerPrevented();
         // Blazor dispatches the key after the module only when the module does not stop its propagation.
-        if (vetoed || !(sentOptions?.StopEventPropagation ?? StopEventPropagation))
+        if (vetoed || DecidedKeysMayPropagate || !(sentOptions?.StopEventPropagation ?? StopEventPropagation))
         {
             if (itemHandles)
             {
@@ -894,6 +951,47 @@ internal sealed class CompositeRootBehavior : IDisposable
         catch (Exception exception) when (!task.IsCanceled)
         {
             await dispatchException(exception);
+        }
+    }
+
+    // ADR 16: only a filter part's first DecideKeyDownOnce allocates the holder, which every later one reuses, so a root
+    // that never decides a keydown once pays one null reference.
+    /// <summary>The verdict DecideKeyDownOnce kept for one keydown, served once to composite's own decision of the same event.</summary>
+    private sealed class OnceVerdict
+    {
+        private string? type;
+        private double timeStamp;
+        private string? key;
+        private DecisionPolicy verdict;
+        private bool pending;
+
+        /// <summary>Keeps a verdict for a keydown, replacing any earlier one.</summary>
+        /// <param name="snapshot">The keydown.</param>
+        /// <param name="decided">The verdict.</param>
+        public void Keep(EventSnapshot snapshot, DecisionPolicy decided)
+        {
+            type = snapshot.Type;
+            timeStamp = snapshot.TimeStamp;
+            key = snapshot.Key;
+            verdict = decided;
+            pending = true;
+        }
+
+        /// <summary>Takes the kept verdict when it was kept for this keydown (its type, timestamp and key).</summary>
+        /// <param name="snapshot">The keydown composite's decision runs for.</param>
+        /// <param name="decided">The kept verdict, when taken.</param>
+        /// <returns><see langword="true"/> when the verdict was kept for this keydown; it is then spent.</returns>
+        public bool TryTake(EventSnapshot snapshot, out DecisionPolicy decided)
+        {
+            if (pending && string.Equals(type, snapshot.Type, StringComparison.Ordinal) && timeStamp == snapshot.TimeStamp && string.Equals(key, snapshot.Key, StringComparison.Ordinal))
+            {
+                pending = false;
+                decided = verdict;
+                return true;
+            }
+
+            decided = default;
+            return false;
         }
     }
 
