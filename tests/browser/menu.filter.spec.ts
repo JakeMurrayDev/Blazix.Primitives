@@ -654,3 +654,53 @@ test.describe('trigger key relay', () => {
     await expect(input(page)).not.toHaveAttribute('aria-activedescendant', /.+/);
   });
 });
+
+// MenuFilterRoot.test.tsx's "focus ownership inside the popup" with a filterable submenu (MNU-PTR-22, FOC-14; M5 track
+// 12) on `menu-filter-root` with `submenu=true`, titles verbatim, mouse moves dispatched as Base UI's fireEvent does.
+test.describe('focus ownership inside the popup', () => {
+  async function renderNested(page: Page, mode: RenderMode): Promise<void> {
+    await page.goto(`/${mode}/menu-filter-root?submenu=true`, { waitUntil: 'commit' });
+    await page.locator(Fixture.started).waitFor({ state: 'attached' });
+    await expect(page.locator(Fixture.interactive('menu-filter-root'))).toHaveAttribute('data-attached', 'true');
+  }
+
+  function mouseMove(locator: Locator): Promise<boolean> {
+    return locator.evaluate((element) => element.dispatchEvent(new MouseEvent('mousemove', { bubbles: true, cancelable: true })));
+  }
+
+  const submenuInput = (page: Page): Locator => page.getByRole('searchbox', { name: 'Filter folders' });
+  const submenuTrigger = (page: Page): Locator => page.getByRole('menuitem', { name: 'Move to folder' });
+
+  test('returns focus to the parent input when the pointer moves back over the parent popup', async ({ page, mode }) => {
+    await renderNested(page, mode);
+    await submenuTrigger(page).hover();
+    await expect(submenuInput(page)).toBeVisible();
+    await mouseMove(submenuInput(page));
+    await expect(submenuInput(page)).toHaveAttribute('data-highlighted', '');
+    await submenuInput(page).click();
+    await expect(submenuInput(page)).toBeFocused();
+
+    // Back over the still-open submenu's trigger.
+    await mouseMove(submenuTrigger(page));
+
+    await expect(input(page)).toBeFocused();
+    await expect(input(page)).toHaveAttribute('data-highlighted', '');
+    await expect(submenuInput(page)).not.toHaveAttribute('data-highlighted');
+    await expect(submenuInput(page)).toBeVisible();
+  });
+
+  test('opens a hovered submenu without moving focus until the pointer enters it', async ({ page, mode }) => {
+    await renderNested(page, mode);
+    await expect(input(page)).toBeFocused();
+
+    await submenuTrigger(page).hover();
+    await expect(submenuInput(page)).toBeVisible();
+    await expect(input(page)).toBeFocused();
+    await expect(input(page)).toHaveAttribute('data-highlighted', '');
+
+    await mouseMove(page.getByTestId('submenu-popup'));
+
+    await expect(submenuInput(page)).toBeFocused();
+    await expect(submenuInput(page)).toHaveAttribute('data-highlighted', '');
+  });
+});

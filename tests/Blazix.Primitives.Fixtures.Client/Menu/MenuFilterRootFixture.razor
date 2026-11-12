@@ -6,7 +6,9 @@
     FilterableMenu, open: an input, a Clear button labelled "Clear filter", a list of Rename, Delete and Duplicate, and
     Empty reading "No results". `query` seeds the provider's DefaultValue; `auto` ("true" or "always") sets its AutoHighlight;
     `extra=true` adds a button "Extra action" after the input; `orientation=horizontal` and `dir=rtl` set the root's
-    orientation and the direction. The popup carries `data-testid="popup"`. Each query request is recorded as
+    orientation and the direction; `submenu=true` adds a filterable submenu "Move to folder" (delay 0, close delay 1000)
+    whose popup (`data-testid="submenu-popup"`) holds an input "Filter folders" and Documents. The popup carries
+    `data-testid="popup"`. Each query request is recorded as
     `value:reason` in `data-value-changes` (`|`-separated), and each item press by name in `data-presses`; `data-attached` turns "true" once the menu's session and the
     input's and list's `menu-filter` handles have attached.
 *@
@@ -28,6 +30,24 @@
                             <MenuItem @onclick="@(() => presses.Add("Rename"))">Rename</MenuItem>
                             <MenuItem @onclick="@(() => presses.Add("Delete"))">Delete</MenuItem>
                             <MenuItem @onclick="@(() => presses.Add("Duplicate"))">Duplicate</MenuItem>
+                            @if (Submenu)
+                            {
+                                <MenuFilterProvider>
+                                    <MenuSubmenuRoot>
+                                        <MenuSubmenuTrigger Delay="0" CloseDelay="1000">Move to folder</MenuSubmenuTrigger>
+                                        <MenuPortal>
+                                            <MenuPositioner>
+                                                <MenuPopup data-testid="submenu-popup">
+                                                    <MenuInput aria-label="Filter folders" />
+                                                    <MenuList>
+                                                        <MenuItem>Documents</MenuItem>
+                                                    </MenuList>
+                                                </MenuPopup>
+                                            </MenuPositioner>
+                                        </MenuPortal>
+                                    </MenuSubmenuRoot>
+                                </MenuFilterProvider>
+                            }
                         </MenuList>
                         <MenuEmpty>No results</MenuEmpty>
                     </MenuPopup>
@@ -61,6 +81,9 @@
 
     [SupplyParameterFromQuery(Name = "dir")]
     public string? Dir { get; set; }
+
+    [SupplyParameterFromQuery(Name = "submenu")]
+    public bool Submenu { get; set; }
 
     private AutoHighlightValue? AutoHighlight => Auto switch
     {
