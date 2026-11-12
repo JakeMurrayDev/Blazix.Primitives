@@ -1,5 +1,5 @@
 import { type Locator } from '@playwright/test';
-import { expect, test, type Page, type RenderMode } from './helpers';
+import { expect, fixtureUrl, test, type Page, type RenderMode } from './helpers';
 import { gotoCombobox, recorded } from './combobox.helpers';
 import { settle } from './suites/popupFixture';
 
@@ -347,5 +347,28 @@ test.describe('<Autocomplete.Root />', () => {
     }
     await expect(input(page)).toHaveValue('item 19');
     await expect.poll(() => page.getByTestId('list').evaluate((element) => element.scrollTop)).toBeGreaterThan(0);
+  });
+});
+
+// AUT-FRM-02, EDGE-03: Base UI's `renderToString` titles on the prerendered `autocomplete-prerender`, its static markup read
+// with the scripts removed (the NavigationMenu precedent).
+test.describe('<Autocomplete.Root /> prerendered', () => {
+  async function staticMarkup(page: Page, mode: RenderMode, layout: string): Promise<void> {
+    const response = await page.request.get(`${fixtureUrl(mode, 'autocomplete-prerender')}?layout=${layout}`);
+    await page.setContent((await response.text()).replace(/<script[\s\S]*?<\/script>/g, ''));
+  }
+
+  function named(page: Page, value: string): Promise<number> {
+    return page.evaluate(
+      (expected) => [...document.querySelectorAll('input')].filter((element) => element.getAttribute('name') === 'search' && element.value === expected).length,
+      value,
+    );
+  }
+
+  test('server-renders only the inline input name for native FormData', async ({ page, mode }) => {
+    await staticMarkup(page, mode, 'inline');
+
+    expect(await named(page, '')).toBe(1);
+    await expect(page.getByTestId('input')).toHaveAttribute('name', 'search');
   });
 });
