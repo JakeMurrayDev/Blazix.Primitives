@@ -1474,6 +1474,19 @@ test.describe('tabbing out of a filterable popup', () => {
     await expect(page.getByTestId('after')).toBeFocused();
     await expect(page.getByRole('menu')).toHaveCount(0);
   });
+
+  // MNU-FOC-10, KEY-10 (MenuFilterRoot.scoping.test.tsx's FocusMenu with modal={false}).
+  test('lets Tab leave the popup with modal={false}', async ({ page, mode }) => {
+    await page.goto(`/${mode}/menu-filter-root?modal=false&after=true`, { waitUntil: 'commit' });
+    await page.locator(Fixture.started).waitFor({ state: 'attached' });
+    await expect(page.locator(Fixture.interactive('menu-filter-root'))).toHaveAttribute('data-attached', 'true');
+    await expect(input(page)).toBeFocused();
+    expect(await page.getByTestId('after').evaluate((element) => element.closest('[aria-hidden="true"], [inert]') !== null)).toBe(false);
+
+    await page.keyboard.press('Tab');
+
+    await expect(page.getByTestId('after')).toBeFocused();
+  });
 });
 
 // MenuFilterRoot.test.tsx's caret-key titles (MNU-KEY-23, KEY-30) on `menu-filter-root` (Rename, Delete, Duplicate),
