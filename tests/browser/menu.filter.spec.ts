@@ -1610,3 +1610,37 @@ test.describe('autoHighlight "always" inside a dialog', () => {
     await expect(search).toHaveAttribute('aria-activedescendant', (await firstItem.getAttribute('id')) ?? 'missing');
   });
 });
+
+// MenuFilterRoot.test.tsx (MNU-STA-21, ANI-09) on `menu-filter-initial`'s `plain` list (Rename, Delete) with a 10 s exit
+// animation, animations on.
+test.describe('typing while the popup animates out', () => {
+  for (const { name, query, matches } of [
+    { name: 'an empty query', query: '', matches: 2 },
+    { name: 'a query', query: 're', matches: 1 },
+  ]) {
+    test(`ignores text typed in the input while the popup animates out with ${name}`, async ({ page, mode }) => {
+      const fixture = page.locator(Fixture.interactive('menu-filter-initial'));
+      await page.goto(`/${mode}/menu-filter-initial?plain=true&exitAnimation=true&animations=1${query === '' ? '' : `&query=${query}`}`, { waitUntil: 'commit' });
+      await page.locator(Fixture.started).waitFor({ state: 'attached' });
+      await expect(fixture).toHaveAttribute('data-attached', 'true');
+      const trigger = page.getByRole('button', { name: 'Actions' });
+      await trigger.focus();
+      await page.keyboard.press('ArrowDown');
+      await expect(input(page)).toBeFocused();
+      await expect(page.getByRole('menuitem')).toHaveCount(matches);
+
+      await page.keyboard.press('Escape');
+      await expect(page.getByRole('dialog')).toHaveAttribute('data-ending-style', '');
+      await expect(input(page)).toBeFocused();
+      // The closing popup keeps showing the query it closed with.
+      await expect(input(page)).toHaveValue(query);
+      const before = (await fixture.getAttribute('data-value-changes')) ?? '';
+
+      await page.keyboard.press('n');
+
+      await expect(fixture).toHaveAttribute('data-value-changes', before);
+      await expect(input(page)).toHaveValue(query);
+      await expect(page.getByRole('menuitem')).toHaveCount(matches);
+    });
+  }
+});

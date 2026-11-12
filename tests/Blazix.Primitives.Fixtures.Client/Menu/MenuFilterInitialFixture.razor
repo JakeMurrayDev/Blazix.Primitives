@@ -8,17 +8,23 @@
     sets the root's orientation; `plain=true` drops the disabled item; `after=true` adds an input "After"
     (`data-testid="after"`) after the menu; `cancelArrow=true` gives the trigger a consumer onKeyDown that cancels the
     part's handling of ArrowDown; `count=true` counts consumer calls in `data-trigger-clicks`, `data-input-keydowns`
-    and `data-popup-keydowns`; `keepMounted=true` keeps the closed popup mounted; `cancelOpen=true` cancels every open request), an input, Empty reading
+    and `data-popup-keydowns`; `keepMounted=true` keeps the closed popup mounted; `cancelOpen=true` cancels every open request; `exitAnimation=true` gives the popup a 10 s exit animation (open the
+    page with `animations=1`); `query` seeds the provider's DefaultValue; each query request is recorded as `value:reason`
+    in `data-value-changes`), an input, Empty reading
     "No actions found.", and a list of a disabled Unavailable, Rename and Delete. `data-attached` turns "true" once the
     menu's session has attached, and `data-input-attached` once the open popup's input has its `menu-filter` handle.
 *@
-<FixtureContainer Name="menu-filter-initial" data-attached="@(attached ? "true" : "false")" data-input-attached="@(inputAttached ? "true" : "false")" data-trigger-clicks="@triggerClicks" data-input-keydowns="@inputKeyDowns" data-popup-keydowns="@popupKeyDowns" data-open-completes="@string.Join(' ', openCompletes)">
-    <MenuFilterProvider>
+<FixtureContainer Name="menu-filter-initial" data-attached="@(attached ? "true" : "false")" data-input-attached="@(inputAttached ? "true" : "false")" data-trigger-clicks="@triggerClicks" data-input-keydowns="@inputKeyDowns" data-popup-keydowns="@popupKeyDowns" data-open-completes="@string.Join(' ', openCompletes)" data-value-changes="@string.Join('|', valueChanges)">
+    @if (ExitAnimation)
+    {
+        <style>.filter-menu-exit-test[data-ending-style] { animation: filter-menu-exit-test 10s linear; } @@keyframes filter-menu-exit-test { from { opacity: 1; } to { opacity: 0; } }</style>
+    }
+    <MenuFilterProvider DefaultValue="@(Query ?? "")" OnValueChange="RecordValue">
         <MenuRoot TPayload="NoPayload" Orientation="@(OrientationName == "horizontal" ? Orientation.Horizontal : Orientation.Vertical)" OnOpenChangeComplete="OnOpenChangeComplete" OnOpenChange="CancelOpen" @ref="root">
             <MenuTrigger TPayload="NoPayload" OpenOnHover="@Hover" Delay="0" @attributes="TriggerAttributes">Actions</MenuTrigger>
             <MenuPortal KeepMounted="@KeepMounted">
                 <MenuPositioner>
-                    <MenuPopup data-testid="popup" @attributes="PopupAttributes">
+                    <MenuPopup data-testid="popup" class="@(ExitAnimation ? "filter-menu-exit-test" : null)" @attributes="PopupAttributes">
                         <MenuInput aria-label="Filter actions" @attributes="InputAttributes" @ref="input" />
                         <MenuEmpty>No actions found.</MenuEmpty>
                         <MenuList>
@@ -69,6 +75,16 @@
     private int triggerClicks;
     private int inputKeyDowns;
     private int popupKeyDowns;
+
+    [SupplyParameterFromQuery(Name = "exitAnimation")]
+    public bool ExitAnimation { get; set; }
+
+    [SupplyParameterFromQuery(Name = "query")]
+    public string? Query { get; set; }
+
+    private readonly List<string> valueChanges = [];
+
+    private void RecordValue(ValueChangeEventArgs<string> args) => valueChanges.Add($"{args.Value}:{args.Details.Reason.ToLiteral()}");
 
     [SupplyParameterFromQuery(Name = "cancelOpen")]
     public bool CancelOpenRequests { get; set; }
