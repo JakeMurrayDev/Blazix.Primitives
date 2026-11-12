@@ -443,6 +443,32 @@ test.describe('autoHighlight', () => {
     await expect(input(page)).toHaveAttribute('aria-activedescendant', await idOf(item(page, 'Delete')));
   });
 
+  // MNU-API-55, PTR-13: Base UI's unhover is the mouse moving off the item.
+  test('clears a pointer highlight on pointer leave by default', async ({ page, mode }) => {
+    await render(page, mode);
+    const rename = item(page, 'Rename');
+    await rename.hover();
+    await expect(rename).toHaveAttribute('data-highlighted', '');
+
+    await page.mouse.move(0, 0);
+
+    // The mirror of the autoHighlight="always" case, which retains the highlight.
+    await expect(rename).not.toHaveAttribute('data-highlighted');
+  });
+
+  // MNU-API-55, PTR-13.
+  test('preserves a pointer highlight when autoHighlight is "always"', async ({ page, mode }) => {
+    await renderAuto(page, mode, 'always');
+    const deleteItem = item(page, 'Delete');
+    await deleteItem.hover();
+    await expect(deleteItem).toHaveAttribute('data-highlighted', '');
+
+    await page.mouse.move(0, 0);
+    await page.evaluate(() => new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve))));
+
+    await expect(deleteItem).toHaveAttribute('data-highlighted', '');
+  });
+
   // MNU-STA-18.
   test('clears the highlight when no items match', async ({ page, mode }) => {
     await renderAuto(page, mode, 'true');
