@@ -79,6 +79,26 @@ public sealed class MenuFilterInputHandleTests : BunitContext
         Assert.Equal("", cut.Find("input").GetAttribute("value"));
     }
 
+    // MNU-EVT-16 (CI run 43244677309, menu.filter-items.spec.ts:198 [server] recorded "a|ap|ap" for "app"): a consumer whose
+    // OnValueChange re-renders the provider re-applies it inside the request, before the commit. The query the input shows is
+    // already the edit, so nothing is written back to it.
+    [Fact(DisplayName = "port: a committed edit keeps the revision when the consumer's OnValueChange re-renders the provider")]
+    [Trait("Requirement", "MNU-EVT-16")]
+    [Trait("Requirement", "MNU-DOM-21")]
+    public async Task A_committed_edit_keeps_the_revision_when_the_consumer_rerenders()
+    {
+        IRenderedComponent<MenuFilterInputHost> cut = Render<MenuFilterInputHost>(p => p.Add(x => x.RenderOnChange, true));
+        MenuFilterTwin twin = Twin();
+        int before = handle.Invocations["update"].Count(IsInput);
+
+        await cut.InvokeAsync(() => twin.OnValueChange("""{"value":"ap","reason":"input-change","event":null}"""));
+
+        string[] updates = [.. handle.Invocations["update"].Where(IsInput).Skip(before).Select(update => (string)update.Arguments[0]!)];
+        Assert.NotEmpty(updates);
+        Assert.All(updates, update => Assert.Contains("\"valueRevision\":0", update, StringComparison.Ordinal));
+        Assert.Contains("\"value\":\"ap\"", updates[^1], StringComparison.Ordinal);
+    }
+
     [Fact(DisplayName = "port: a canceled edit re-sends the committed query under a new revision")]
     [Trait("Requirement", "MNU-EVT-16")]
     [Trait("Requirement", "MNU-API-58")]
