@@ -77,6 +77,8 @@ export interface MenuFilterOptions extends TwinOptions {
   handoff?: boolean | null;
   /** The reason of the menu's last open change; a submenu's trigger and popup. */
   reason?: string | null;
+  /** Whether the Input reports the keys it keeps for its caret, for a popup with a consumer key handler; the Input's. */
+  reportsOwnedKeys?: boolean | null;
 }
 
 /**
@@ -443,6 +445,11 @@ function attachInput(input: HTMLInputElement, initial: MenuFilterOptions, channe
       case 'edit':
         inputOwnedKeys.add(event);
         skipListNavigation(event);
+        // MNU-API-59, EVT-14: Base UI stops an editing key from reaching the popup's handlers; the port reports it before
+        // Blazor dispatches it, so a filterable popup's consumer onkeydown skips it.
+        if (options.reportsOwnedKeys === true) {
+          channel.report('OnOwnedKey', { event: eventInfo(event) });
+        }
         break;
       case 'ignore':
         skipListNavigation(event);

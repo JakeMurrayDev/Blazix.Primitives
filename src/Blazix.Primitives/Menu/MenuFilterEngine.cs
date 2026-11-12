@@ -271,6 +271,7 @@ internal sealed class MenuFilterRootContext
     private readonly MenuSelection<bool> mounted;
     private bool wasOpen;
     private string? closeQuery;
+    private string? ownedKey;
     private int inputs;
     private bool inputCheckPending;
 
@@ -340,6 +341,10 @@ internal sealed class MenuFilterRootContext
 
     /// <summary>Gets the input's element, the list's reference and the nested menus' return target, or <see langword="null"/>.</summary>
     public ElementReference? InputElement { get; private set; }
+
+    // MNU-API-59, EVT-14 (option (a), the orchestrator's 2026-11-12 grant).
+    /// <summary>Gets or sets a value indicating whether the popup has a consumer key handler, for which the Input reports the keys it keeps.</summary>
+    public bool PopupHandlesKeyDown { get; set; }
 
     // Design point 2 (b′): the ids of the registered items without a label, whose rendered text the List's handle reports;
     // the same instance while the set is unchanged, so an unchanged options record sends nothing.
@@ -414,6 +419,27 @@ internal sealed class MenuFilterRootContext
     /// <summary>Records the input's element.</summary>
     /// <param name="element">The element, or <see langword="null"/> when no input is rendered.</param>
     public void SetInputElement(ElementReference? element) => InputElement = element;
+
+    // MNU-API-59, EVT-14 (option (a), the orchestrator's 2026-11-12 grant): Base UI's router stops the Input's editing keys,
+    // so a popup's consumer onkeydown never hears them (useMenuFilterKeyDown.ts:138-140). The Input reports each such key
+    // before Blazor dispatches it, and the popup's handler takes the mark once.
+    /// <summary>Marks a keydown the Input kept for its caret.</summary>
+    /// <param name="key">The key.</param>
+    public void MarkOwnedKey(string? key) => ownedKey = key;
+
+    /// <summary>Takes the mark of a keydown the Input kept, once.</summary>
+    /// <param name="key">The key Blazor dispatches.</param>
+    /// <returns><see langword="true"/> when the Input kept this key.</returns>
+    public bool TakeOwnedKey(string? key)
+    {
+        if (ownedKey is null || !string.Equals(ownedKey, key, StringComparison.Ordinal))
+        {
+            return false;
+        }
+
+        ownedKey = null;
+        return true;
+    }
 
     /// <summary>Subscribes to changes of the query, the provider's options and the list's id: the Input's and the Clear's.</summary>
     /// <param name="changed">The callback run after a change, once <see cref="QueryRevision"/> and the visible set are current.</param>

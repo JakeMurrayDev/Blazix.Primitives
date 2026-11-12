@@ -81,6 +81,7 @@ namespace Blazix.Primitives.Interop;
 [JsonSerializable(typeof(MenuFilterHighlightedChange))]
 [JsonSerializable(typeof(MenuFilterFocusOut))]
 [JsonSerializable(typeof(MenuFilterSubmenuKey))]
+[JsonSerializable(typeof(MenuFilterOwnedKey))]
 [JsonSerializable(typeof(ContextMenuOptions))]
 [JsonSerializable(typeof(ContextMenuOpenRequest))]
 [JsonSerializable(typeof(ContextMenuCancelOpen))]

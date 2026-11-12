@@ -57,4 +57,7 @@ internal sealed record MenuFilterOptions : TwinOptions
 
     /// <summary>Gets the reason of the menu's last open change, such as <c>list-navigation</c>; a submenu's trigger and popup.</summary>
     public string? Reason { get; init; }
+
+    /// <summary>Gets a value indicating whether the Input reports the keys it keeps for its caret, for a popup with a consumer key handler; the Input's.</summary>
+    public bool? ReportsOwnedKeys { get; init; }
 }

@@ -377,13 +377,20 @@ internal sealed class MenuPopupBehavior : IAsyncDisposable
     /// <summary>Handles the popup's <c>keydown</c> for the list.</summary>
     /// <param name="args">The key.</param>
     /// <returns>A task that completes when the consumer's handler has run.</returns>
-    public Task HandleKeyDownAsync(KeyboardEventArgs args) => list.HandleKeyDownAsync(args);
+    public Task HandleKeyDownAsync(KeyboardEventArgs args) =>
+        // MNU-API-59, EVT-14 (M5 track 12, option (a)): a key the filter's Input kept for its caret never reaches the
+        // popup's consumer handler, as Base UI's router stops it.
+        root?.Filter is { } filter && filter.TakeOwnedKey(args.Key) ? Task.CompletedTask : list.HandleKeyDownAsync(args);
 
     /// <summary>Takes the consumer's attributes, whose own handler and label the popup reads.</summary>
     /// <param name="attributes">The consumer's attributes.</param>
     public void SetConsumerAttributes(IReadOnlyDictionary<string, object>? attributes)
     {
         consumerAttributes = attributes;
+        if (root?.Filter is { } filter)
+        {
+            filter.PopupHandlesKeyDown = attributes?.ContainsKey("onkeydown") == true;
+        }
         list.SetConsumerAttributes(attributes);
     }
 

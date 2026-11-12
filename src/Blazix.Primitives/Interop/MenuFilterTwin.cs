@@ -49,6 +49,9 @@ internal sealed class MenuFilterTwin(IJSRuntime jsRuntime)
     /// <summary>Occurs when a filterable submenu's trigger or popup reported its open or close key.</summary>
     public event Action<MenuFilterSubmenuKey>? SubmenuKey;
 
+    /// <summary>Occurs when the Input reports a keydown it kept for its caret.</summary>
+    public event Action<MenuFilterOwnedKey>? OwnedKey;
+
     /// <summary>Gets or sets the chain the <c>navigate</c> decision runs on WebAssembly: the consumer's key handler.</summary>
     public Func<EventSnapshot, DecisionPolicy>? NavigationDecider { get; set; }
 
@@ -76,6 +79,11 @@ internal sealed class MenuFilterTwin(IJSRuntime jsRuntime)
     /// <param name="payloadJson">The <see cref="MenuFilterSubmenuKey"/> JSON.</param>
     [JSInvokable]
     public void OnSubmenuKey(string payloadJson) => SubmenuKey?.Invoke(Deserialize(payloadJson, BlazixJsonContext.Default.MenuFilterSubmenuKey));
+
+    /// <summary>Receives the Input's report of a keydown it kept for its caret.</summary>
+    /// <param name="payloadJson">The <see cref="MenuFilterOwnedKey"/> JSON.</param>
+    [JSInvokable]
+    public void OnOwnedKey(string payloadJson) => OwnedKey?.Invoke(Deserialize(payloadJson, BlazixJsonContext.Default.MenuFilterOwnedKey));
 
     /// <inheritdoc />
     protected override DecisionPolicy OnDecide(string point, EventSnapshot snapshot) =>

@@ -114,6 +114,10 @@ public sealed class MenuInput : PartBase<MenuInputState>
         // Design point 6 (a): the router asks `navigate` before composite's handle; both read one verdict per keydown.
         module.Twin.NavigationDecider = reference.DecideKeyDownOnce;
 
+        // The module lets the input's editing keys through to Blazor (API-59: the consumer runs once per keydown).
+        reference.DecidedKeysMayPropagate = true;
+        module.Twin.OwnedKey += report => filter?.MarkOwnedKey(report.Event?.Key);
+
         // MNU-KEY-26 (useMenuFilterKeyDown.ts:179-192): Shift+Tab in the input closes the menu with focus-out; the focus
         // manager returns focus on the close.
         module.Twin.FocusedOut += report => _ = InvokeAsync(() =>
@@ -150,6 +154,7 @@ public sealed class MenuInput : PartBase<MenuInputState>
             Open = open!.Value,
             KeyboardOpen = keyboardOpen!.Value,
             DecidesKeyDown = AdditionalAttributes?.ContainsKey("onkeydown") == true,
+            ReportsOwnedKeys = filter?.PopupHandlesKeyDown == true ? true : null,
 
             // useMenuFilterKeyDown.ts:38-46: the router's table reads the menu's orientation and direction.
             Orientation = RootContext.Orientation == Orientation.Horizontal ? "horizontal" : "vertical",

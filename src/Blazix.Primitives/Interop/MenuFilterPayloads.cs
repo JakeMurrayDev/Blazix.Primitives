@@ -31,3 +31,9 @@ internal sealed record MenuFilterFocusOut(EventSnapshot? Event);
 /// <param name="Open">The requested open state.</param>
 /// <param name="Event">The keydown, or <see langword="null"/>.</param>
 internal sealed record MenuFilterSubmenuKey(bool Open, EventSnapshot? Event);
+
+// MNU-API-59, EVT-14 (M5 track 12, option (a), the orchestrator's 2026-11-12 grant): an editing key the Input kept for its
+// caret, reported before Blazor dispatches it, so a filterable popup's consumer onkeydown skips it.
+/// <summary>The Input's report of a keydown it kept for its caret.</summary>
+/// <param name="Event">The keydown.</param>
+internal sealed record MenuFilterOwnedKey(EventSnapshot? Event);

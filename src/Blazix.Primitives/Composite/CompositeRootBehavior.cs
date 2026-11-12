@@ -190,6 +190,13 @@ internal sealed class CompositeRootBehavior : IDisposable
     /// </value>
     public Func<EventSnapshot, DecisionPolicy>? NavigationDecider { get; set; }
 
+    // M5 track 12, the orchestrator's 2026-11-12 grant (API-59's once per interaction, option (a)): a part whose own module
+    // lets some decided keys reach Blazor although composite's options stop propagation (Menu's filter input lets its
+    // editing keys through) marks every decision, so Blazor's dispatch of that key does not run the consumer again.
+    /// <summary>Gets or sets a value indicating whether the part's own module may let a decided keydown reach Blazor, so each decision marks the consumer's handler as run.</summary>
+    /// <value><see langword="false"/>, the default.</value>
+    public bool DecidedKeysMayPropagate { get; set; }
+
     /// <summary>Gets or sets the part's chain of the selection decision point, such as an item's consumer focus handler.</summary>
     /// <value>
     /// A function that receives the focus event of the item about to be selected and returns
@@ -838,7 +845,7 @@ internal sealed class CompositeRootBehavior : IDisposable
 
         bool vetoed = args.PartHandlerPrevented();
         // Blazor dispatches the key after the module only when the module does not stop its propagation.
-        if (vetoed || !(sentOptions?.StopEventPropagation ?? StopEventPropagation))
+        if (vetoed || DecidedKeysMayPropagate || !(sentOptions?.StopEventPropagation ?? StopEventPropagation))
         {
             if (itemHandles)
             {
