@@ -1,0 +1,108 @@
+@namespace Blazix.Primitives.Tests.Components
+@* The trees of MenuFilterRoot.scoping.test.tsx's and useMenuFilterSubmenuTrigger.test.tsx's popup-semantics titles
+   (MNU-ARIA-01, ARIA-13, STR-14), one per `Case`:
+   - `plain`: a plain open menu, trigger "Actions", whose popup holds Delete;
+   - `plain-parent`: a plain open menu holding Rename and an open filterable submenu "Move to" (input "Filter folders",
+     a list of Projects);
+   - `detached`: a trigger "Actions" on a handle, detached from a closed filterable menu (input, a list of Rename);
+   - `plain-submenu`: an open filterable menu whose list holds a plain submenu "Sort by" (Name);
+   - `override-submenu`: an open filterable menu whose list holds a filterable submenu "Move to" whose trigger sets
+     `aria-haspopup="menu"` (a list of Projects, no input);
+   - `override-root`: a closed filterable menu whose trigger sets `aria-haspopup="menu"` (a list of Rename). *@
+@switch (Case)
+{
+    case "plain":
+        <MenuRoot TPayload="NoPayload" DefaultOpen="true">
+            <MenuTrigger TPayload="NoPayload">Actions</MenuTrigger>
+            <MenuPortal><MenuPositioner><MenuPopup><MenuItem>Delete</MenuItem></MenuPopup></MenuPositioner></MenuPortal>
+        </MenuRoot>
+        break;
+    case "plain-parent":
+        <MenuRoot TPayload="NoPayload" DefaultOpen="true">
+            <MenuTrigger TPayload="NoPayload">Actions</MenuTrigger>
+            <MenuPortal>
+                <MenuPositioner>
+                    <MenuPopup>
+                        <MenuItem>Rename</MenuItem>
+                        <MenuFilterProvider>
+                            <MenuSubmenuRoot DefaultOpen="true">
+                                <MenuSubmenuTrigger>Move to</MenuSubmenuTrigger>
+                                <MenuPortal>
+                                    <MenuPositioner>
+                                        <MenuPopup>
+                                            <MenuInput aria-label="Filter folders" />
+                                            <MenuList><MenuItem>Projects</MenuItem></MenuList>
+                                        </MenuPopup>
+                                    </MenuPositioner>
+                                </MenuPortal>
+                            </MenuSubmenuRoot>
+                        </MenuFilterProvider>
+                    </MenuPopup>
+                </MenuPositioner>
+            </MenuPortal>
+        </MenuRoot>
+        break;
+    case "detached":
+        <MenuTrigger TPayload="NoPayload" Handle="@handle">Actions</MenuTrigger>
+        <MenuFilterProvider>
+            <MenuRoot TPayload="NoPayload" Handle="@handle">
+                <MenuPortal>
+                    <MenuPositioner>
+                        <MenuPopup>
+                            <MenuInput aria-label="Filter actions" />
+                            <MenuList><MenuItem>Rename</MenuItem></MenuList>
+                        </MenuPopup>
+                    </MenuPositioner>
+                </MenuPortal>
+            </MenuRoot>
+        </MenuFilterProvider>
+        break;
+    case "plain-submenu":
+    case "override-submenu":
+        <MenuFilterProvider>
+            <MenuRoot TPayload="NoPayload" DefaultOpen="true">
+                <MenuTrigger TPayload="NoPayload">Actions</MenuTrigger>
+                <MenuPortal>
+                    <MenuPositioner>
+                        <MenuPopup>
+                            <MenuInput aria-label="Filter actions" />
+                            <MenuList>
+                                @if (Case == "plain-submenu")
+                                {
+                                    <MenuSubmenuRoot>
+                                        <MenuSubmenuTrigger>Sort by</MenuSubmenuTrigger>
+                                        <MenuPortal><MenuPositioner><MenuPopup><MenuItem>Name</MenuItem></MenuPopup></MenuPositioner></MenuPortal>
+                                    </MenuSubmenuRoot>
+                                }
+                                else
+                                {
+                                    <MenuFilterProvider>
+                                        <MenuSubmenuRoot>
+                                            <MenuSubmenuTrigger aria-haspopup="menu">Move to</MenuSubmenuTrigger>
+                                            <MenuPortal><MenuPositioner><MenuPopup><MenuList><MenuItem>Projects</MenuItem></MenuList></MenuPopup></MenuPositioner></MenuPortal>
+                                        </MenuSubmenuRoot>
+                                    </MenuFilterProvider>
+                                }
+                            </MenuList>
+                        </MenuPopup>
+                    </MenuPositioner>
+                </MenuPortal>
+            </MenuRoot>
+        </MenuFilterProvider>
+        break;
+    case "override-root":
+        <MenuFilterProvider>
+            <MenuRoot TPayload="NoPayload">
+                <MenuTrigger TPayload="NoPayload" aria-haspopup="menu">Actions</MenuTrigger>
+                <MenuPortal><MenuPositioner><MenuPopup><MenuList><MenuItem>Rename</MenuItem></MenuList></MenuPopup></MenuPositioner></MenuPortal>
+            </MenuRoot>
+        </MenuFilterProvider>
+        break;
+}
+
+@code {
+    private readonly MenuHandle<NoPayload> handle = new();
+
+    [Parameter]
+    public string? Case { get; set; }
+}
