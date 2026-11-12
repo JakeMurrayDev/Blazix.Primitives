@@ -36,4 +36,18 @@ public sealed class MenuFilterPopupTests : BunitContext
         Assert.Equal(trigger.Id, list.GetAttribute("aria-labelledby"));
         Assert.Equal(orientation == Blazix.Primitives.Orientation.Horizontal ? "horizontal" : null, list.GetAttribute("aria-orientation"));
     }
+
+    [Fact(DisplayName = "enables lazy flipping for a filter menu")]
+    [Trait("Requirement", "MNU-POS-05")]
+    public void Positioner_enables_lazy_flipping_for_a_filter_menu()
+    {
+        BunitJSModuleInterop positioning = JSInterop.SetupModule("./_content/Blazix.Primitives/js/positioning.js");
+        positioning.SetupModule("attach", _ => true);
+
+        Render<MenuFilterInputHost>();
+
+        string[] options = positioning.Invocations["attach"].Select(attach => (string)attach.Arguments[1]!).ToArray();
+        Assert.NotEmpty(options);
+        Assert.All(options, json => Assert.Contains("\"lazyFlip\":\"placement\"", json, StringComparison.Ordinal));
+    }
 }
