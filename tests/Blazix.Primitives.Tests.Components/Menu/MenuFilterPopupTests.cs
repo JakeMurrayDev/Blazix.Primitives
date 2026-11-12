@@ -50,4 +50,33 @@ public sealed class MenuFilterPopupTests : BunitContext
         Assert.NotEmpty(options);
         Assert.All(options, json => Assert.Contains("\"lazyFlip\":\"placement\"", json, StringComparison.Ordinal));
     }
+
+    // MenuFilterRoot.scoping.test.tsx's tree has three items; the host's list has one.
+    [Fact(DisplayName = "makes the menu filterable")]
+    [Trait("Requirement", "MNU-ARIA-01")]
+    public void Makes_the_menu_filterable()
+    {
+        IRenderedComponent<MenuFilterInputHost> cut = Render<MenuFilterInputHost>();
+
+        Assert.Equal("dialog", cut.Find("button").GetAttribute("aria-haspopup"));
+        IElement popup = cut.Find("[role=dialog]");
+        Assert.NotNull(popup.QuerySelector("[role=searchbox]"));
+        Assert.NotNull(popup.QuerySelector("[role=menu]"));
+        Assert.Single(cut.FindAll("[role=menuitem]"));
+    }
+
+    // MenuFilterRoot.test.tsx's tree opens the submenu by hovering its trigger; the host's submenu starts open.
+    [Fact(DisplayName = "uses dialog semantics for a filterable submenu")]
+    [Trait("Requirement", "MNU-ARIA-13")]
+    [Trait("Requirement", "MNU-ARIA-06")]
+    public void Uses_dialog_semantics_for_a_filterable_submenu()
+    {
+        IRenderedComponent<MenuFilterSubmenuHost> cut = Render<MenuFilterSubmenuHost>();
+        IElement submenuTrigger = cut.FindAll("[role=menuitem]").Single(element => element.TextContent.Trim() == "Move to folder");
+
+        Assert.Equal("dialog", submenuTrigger.GetAttribute("aria-haspopup"));
+        IElement popup = cut.FindAll("[role=dialog]").Single(element => element.QuerySelector("[aria-label='Filter folders']") is not null);
+        Assert.Equal(popup.Id, submenuTrigger.GetAttribute("aria-controls"));
+        Assert.Equal(submenuTrigger.Id, popup.GetAttribute("aria-labelledby"));
+    }
 }
