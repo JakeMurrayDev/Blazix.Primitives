@@ -1,0 +1,28 @@
+@namespace Blazix.Primitives.Tests.Components
+@* AutocompleteRoot.test.tsx's field-aware popup input (M5 track 11; AUT-FRM-07, FRM-02): a Trigger showing the Value, and the
+   popup's Input rendered as the field-aware `Input` through its RenderFunction, over alpha and alpine. *@
+<AutocompleteRoot TValue="string" Items="s_items">
+    <AutocompleteTrigger data-testid="trigger"><AutocompleteValue /></AutocompleteTrigger>
+    <AutocompletePortal>
+        <AutocompletePositioner>
+            <AutocompletePopup>
+                <AutocompleteInput RenderFunction="@FieldAware" />
+                <AutocompleteList TValue="string">
+                    <ItemContent><AutocompleteItem TValue="string" Value="@context.Value">@context.Value</AutocompleteItem></ItemContent>
+                </AutocompleteList>
+            </AutocompletePopup>
+        </AutocompletePositioner>
+    </AutocompletePortal>
+</AutocompleteRoot>
+
+@code {
+    private static readonly IReadOnlyList<string> s_items = ["alpha", "alpine"];
+
+    private static readonly RenderFragment<RenderProps<AutocompleteInputState>> FieldAware = props => builder =>
+    {
+        builder.OpenComponent<Input>(0);
+        builder.AddMultipleAttributes(1, props.Attributes);
+        builder.AddAttribute(2, "data-testid", "input");
+        builder.CloseComponent();
+    };
+}

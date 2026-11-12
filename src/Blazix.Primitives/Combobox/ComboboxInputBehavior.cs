@@ -182,6 +182,8 @@ internal sealed class ComboboxInputBehavior : IAsyncDisposable
         subscription.Select(ComboboxStoreState.ListEmpty);
         subscription.Select(static state => state.Lifecycle.Mounted ? state.PopupSide : null);
         subscription.Select(static state => state.SubmitRevision);
+        // AUT-KEY-07 (design point 1 (ii)): in None mode the closed Escape's fallback follows the activated value.
+        subscription.Select(static state => state.SelectionMode == ComboboxSelectionMode.None ? state.SelectionRevision : 0);
         store.SetInputInsidePopup(insidePopup);
         twin = new ComboboxTwin(services.JSRuntime);
         twin.InputChanged += change => _ = Observe(services.InvokeAsync(() => Store.HandleInputChangeAsync(change.Text, change.Typed, change.Composing, change.Event)));
@@ -461,7 +463,7 @@ internal sealed class ComboboxInputBehavior : IAsyncDisposable
             Disabled = Disabled,
             ReadOnly = state.ReadOnly,
             Multiple = state.SelectionMode == ComboboxSelectionMode.Multiple,
-            HasValue = state.HasSelectedValue,
+            HasValue = state.SelectionMode == ComboboxSelectionMode.None ? root.HasActivatedValue : state.HasSelectedValue,
             Virtualized = state.Virtualized,
             ChipsId = state.ElementIds.Chips,
             ListId = state.ElementIds.List,
@@ -532,7 +534,8 @@ internal sealed class ComboboxInputBehavior : IAsyncDisposable
         }
 
         ComboboxStore root = Store;
-        bool stops = root.State.HasSelectedValue && !root.State.Inline;
+        // AUT-KEY-07 (design point 1 (ii)): in None mode the stop reads the activated item's value.
+        bool stops = (root.State.SelectionMode == ComboboxSelectionMode.None ? root.HasActivatedValue : root.State.HasSelectedValue) && !root.State.Inline;
         Task<ChangeEventDetails> clearing = root.ClearAsync(EventReason.EscapeKey, snapshot);
         if (!clearing.IsCompleted)
         {

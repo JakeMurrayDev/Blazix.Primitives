@@ -38,8 +38,10 @@ const inertPrefixes = [
 // 2026-10-27). The dependence runs one way: a change to a dependent's own folder or spec scopes to that family alone.
 // M5 track 7 (issue 194): ContextMenu's parts are sealed shells over Menu's behaviours (decision 12 of the M5 plan).
 // M5 track 8 (issue 195; design point 4 (a), settled by the orchestrator 2026-11-11): Menubar's menus are Menu's parts.
+// M5 track 11 (issue 196; Deliverable 10, the AlertDialog precedent): Autocomplete's parts are shells over Combobox's behaviours.
 const dependentFamilies = new Map([
   ['dialog', ['alert-dialog']],
+  ['combobox', ['autocomplete']],
   ['menu', ['context-menu', 'menubar']],
 ]);
 

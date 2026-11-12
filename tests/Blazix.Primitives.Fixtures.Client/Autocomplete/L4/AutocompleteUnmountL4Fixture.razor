@@ -1,0 +1,79 @@
+@namespace Blazix.Primitives.Fixtures.Client.AutocompleteFixtures
+@using Blazix.Primitives
+@using Blazix.Primitives.Fixtures.Client.ComboboxFixtures
+@inherits ComboboxL4FixtureBase
+
+@*
+    The `autocomplete-unmount` fixture (M5 track 11, issue 196): AutocompleteRoot.test.tsx's "manual unmount lifecycle" (AUT-ANI-01,
+    EVT-03, DIS-01), Base UI's `Popup` wrapper: a root opened on input click whose Open the fixture holds and sets from
+    OnOpenChange unless canceled, an Input, and a List with one Item. The query: `defaultOpen`, `retainEveryClose` (every
+    close kept mounted until the unmount action, PopupSuiteFixtureBase), `cancelFirst` (closes are canceled and kept mounted
+    until "Stop canceling"). Controls carry `data-key-control`: the unmount action, the action twice in one batch, the close
+    action, a controlled open and close, and "Stop canceling".
+*@
+<FixtureContainer Name="autocomplete-unmount" data-attached="@(Attached ? "true" : "false")" data-sync="@Sync"
+                  data-open-changes="@OpenChanges" data-open-change-completes="@OpenChangeCompletes" @attributes="Records">
+    @SyncButton
+    <AutocompleteRoot TValue="string" @ref="root" OpenOnInputClick="true" Open="@EffectiveOpen" OnOpenChange="HandlePopupOpenChange"
+                      OnOpenChangeComplete="RecordOpenChangeComplete">
+        <AutocompleteInput @ref="input" data-testid="input" />
+        <AutocompletePortal>
+            <AutocompletePositioner style="position: relative; z-index: 1">
+                <AutocompletePopup>
+                    <AutocompleteList TValue="string">
+                        <AutocompleteItem TValue="string" Value="@("apple")">Apple</AutocompleteItem>
+                    </AutocompleteList>
+                </AutocompletePopup>
+            </AutocompletePositioner>
+        </AutocompletePortal>
+    </AutocompleteRoot>
+    <button type="button" data-unmount data-key-control @onclick="() => root?.Unmount()" @onkeydown="OnShift(() => root?.Unmount())">Unmount</button>
+    <button type="button" data-unmount-twice data-key-control @onclick="UnmountTwice" @onkeydown="OnShift(UnmountTwice)">Unmount twice</button>
+    <button type="button" data-close data-key-control @onclick="CloseRoot" @onkeydown="OnShift(CloseRoot)">Close</button>
+    <button type="button" data-set-open="true" data-key-control @onclick="() => openOverride = true" @onkeydown="OnShift(() => openOverride = true)">Open</button>
+    <button type="button" data-set-open="false" data-key-control @onclick="() => openOverride = false" @onkeydown="OnShift(() => openOverride = false)">Shut</button>
+    <button type="button" data-set-cancel="false" data-key-control @onclick="() => cancelClose = false" @onkeydown="OnShift(() => cancelClose = false)">Stop canceling</button>
+</FixtureContainer>
+
+@code {
+    private AutocompleteRoot<string>? root;
+    private AutocompleteInput? input;
+    private bool open;
+    private bool? openOverride;
+    private bool cancelClose;
+
+    private bool EffectiveOpen => openOverride ?? open;
+
+    protected override IEnumerable<Task> Attachments => [root?.SessionAttached ?? Task.CompletedTask, input?.TwinAttached ?? Task.CompletedTask];
+
+    /// <inheritdoc />
+    protected override void OnInitialized()
+    {
+        base.OnInitialized();
+        open = QueryFlag("defaultOpen") == true;
+        cancelClose = QueryFlag("cancelFirst") == true;
+    }
+
+    private void HandlePopupOpenChange(ValueChangeEventArgs<bool> args)
+    {
+        RecordOpenChange(args);
+        if (!args.Value && cancelClose && args.Details is OpenChangeEventDetails details)
+        {
+            details.PreventUnmountOnClose();
+            details.Cancel();
+        }
+
+        if (!args.Details.IsCanceled)
+        {
+            open = args.Value;
+        }
+    }
+
+    private Task CloseRoot() => root!.CloseAsync();
+
+    private void UnmountTwice()
+    {
+        root!.Unmount();
+        root.Unmount();
+    }
+}

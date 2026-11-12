@@ -1,0 +1,70 @@
+@namespace Blazix.Primitives.Fixtures.Client.AutocompleteFixtures
+@using Blazix.Primitives
+@using Blazix.Primitives.Fixtures.Client.ComboboxFixtures
+@inherits ComboboxL4FixtureBase
+
+@*
+    The `autocomplete-prerender` fixture (M5 track 11, issue 196; prerendered): AutocompleteRoot.test.tsx's server-render titles
+    (Base UI's `renderToString` ones, AUT-FRM-02, EDGE-03), read from the server's markup with its scripts removed. A Form >
+    Field (named `search`) > Autocomplete over alpha and alpine, with a submit button. The query's `layout`: `inline` (the Input
+    and List under an inline root), `outside` (the default: an InputGroup with the Input and a Trigger, the list in a popup),
+    `popup` (a Trigger showing the Value, the Input inside the popup, `DefaultValue` alpha).
+*@
+<FixtureContainer Name="autocomplete-prerender" data-attached="@(Attached ? "true" : "false")" data-sync="@Sync" @attributes="Records">
+    @SyncButton
+    <Form>
+        <FieldRoot Name="search">
+            @switch (Query("layout"))
+            {
+                case "inline":
+                    <AutocompleteRoot TValue="string" @ref="root" Items="s_items" Inline="true">
+                        <AutocompleteInput data-testid="input" />
+                        <AutocompleteList TValue="string">
+                            <ItemContent><AutocompleteItem TValue="string" Value="@context.Value">@context.Value</AutocompleteItem></ItemContent>
+                        </AutocompleteList>
+                    </AutocompleteRoot>
+                    break;
+                case "popup":
+                    <AutocompleteRoot TValue="string" @ref="root" Items="s_items" DefaultValue="alpha">
+                        <AutocompleteTrigger data-testid="trigger"><AutocompleteValue /></AutocompleteTrigger>
+                        <AutocompletePortal>
+                            <AutocompletePositioner>
+                                <AutocompletePopup>
+                                    <AutocompleteInput data-testid="input" />
+                                    <AutocompleteList TValue="string">
+                                        <ItemContent><AutocompleteItem TValue="string" Value="@context.Value">@context.Value</AutocompleteItem></ItemContent>
+                                    </AutocompleteList>
+                                </AutocompletePopup>
+                            </AutocompletePositioner>
+                        </AutocompletePortal>
+                    </AutocompleteRoot>
+                    break;
+                default:
+                    <AutocompleteRoot TValue="string" @ref="root" Items="s_items">
+                        <AutocompleteInputGroup>
+                            <AutocompleteInput data-testid="input" />
+                            <AutocompleteTrigger>Open</AutocompleteTrigger>
+                        </AutocompleteInputGroup>
+                        <AutocompletePortal>
+                            <AutocompletePositioner>
+                                <AutocompletePopup>
+                                    <AutocompleteList TValue="string">
+                                        <ItemContent><AutocompleteItem TValue="string" Value="@context.Value">@context.Value</AutocompleteItem></ItemContent>
+                                    </AutocompleteList>
+                                </AutocompletePopup>
+                            </AutocompletePositioner>
+                        </AutocompletePortal>
+                    </AutocompleteRoot>
+                    break;
+            }
+        </FieldRoot>
+        <button type="submit">Submit</button>
+    </Form>
+</FixtureContainer>
+
+@code {
+    private static readonly string[] s_items = ["alpha", "alpine"];
+    private AutocompleteRoot<string>? root;
+
+    protected override IEnumerable<Task> Attachments => [root?.SessionAttached ?? Task.CompletedTask];
+}

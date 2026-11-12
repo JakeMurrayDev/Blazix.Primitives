@@ -123,6 +123,23 @@ describe('dependent families', () => {
 
     expect(run(['src/Blazix.Primitives/Menubar/Menubar.cs'], withMenu).specs).toEqual(['tests/browser/menubar.spec.ts']);
   });
+
+  // Deliverable 10 of M5 track 11 (issue 196; the AlertDialog precedent, ADR 11 Amendments 2026-10-29): Autocomplete's parts
+  // are sealed shells over the behaviours in Combobox/ (decision 12 of the M5 plan), so a change there also runs the
+  // Autocomplete spec; one way.
+  it('a change under the Combobox folder also runs the Autocomplete spec, and not the other way round', () => {
+    const withCombobox = {
+      families: [...families, 'combobox', 'autocomplete'],
+      specFiles: [...specFiles, 'tests/browser/combobox.root-a.spec.ts', 'tests/browser/combobox.helpers.ts', 'tests/browser/autocomplete.spec.ts'],
+    };
+    const shared = run(['src/Blazix.Primitives/Combobox/ComboboxStore.cs'], withCombobox);
+    expect(shared.l4).toBe('scoped');
+    expect(shared.families).toEqual(['autocomplete', 'combobox']);
+    expect(shared.specs).toContain('tests/browser/autocomplete.spec.ts');
+    expect(shared.specs).toContain('tests/browser/combobox.root-a.spec.ts');
+
+    expect(run(['src/Blazix.Primitives/Autocomplete/AutocompleteRoot.cs'], withCombobox).specs).toEqual(['tests/browser/autocomplete.spec.ts']);
+  });
 });
 
 describe('full L4', () => {

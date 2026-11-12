@@ -1,0 +1,42 @@
+@namespace Blazix.Primitives.Tests.Components
+@* An Autocomplete for the form-value titles (M5 track 11): the Input beside the popup, or inside it when `InsidePopup`, with
+   the attributes a test gives it; a Clear, and a Trigger and InputGroup for the placeholder titles. *@
+<AutocompleteRoot TValue="string" @ref="Root" @attributes="RootParameters">
+    <AutocompleteInputGroup data-testid="group">
+        @if (!InsidePopup)
+        {
+            <AutocompleteInput data-testid="input" @attributes="InputAttributes" />
+        }
+        <AutocompleteClear data-testid="clear" />
+    </AutocompleteInputGroup>
+    <AutocompleteTrigger data-testid="trigger" />
+    <AutocompletePortal>
+        <AutocompletePositioner>
+            <AutocompletePopup>
+                @if (InsidePopup)
+                {
+                    <AutocompleteInput data-testid="input" @attributes="InputAttributes" />
+                }
+                <AutocompleteList TValue="string">
+                    <ItemContent>
+                        <AutocompleteItem TValue="string" Value="@context.Value" data-testid="@("item-" + context.Value)" @key="context.Value">@context.Value</AutocompleteItem>
+                    </ItemContent>
+                </AutocompleteList>
+            </AutocompletePopup>
+        </AutocompletePositioner>
+    </AutocompletePortal>
+</AutocompleteRoot>
+
+@code {
+    [Parameter]
+    public Dictionary<string, object?> RootParameters { get; set; } = [];
+
+    [Parameter]
+    public Dictionary<string, object> InputAttributes { get; set; } = [];
+
+    [Parameter]
+    public bool InsidePopup { get; set; }
+
+    /// <summary>Gets the rendered root.</summary>
+    public AutocompleteRoot<string>? Root { get; private set; }
+}

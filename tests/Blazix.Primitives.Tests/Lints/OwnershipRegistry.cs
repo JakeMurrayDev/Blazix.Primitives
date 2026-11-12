@@ -359,6 +359,29 @@ internal static class OwnershipRegistry
         new("combobox", "Item", "data-highlighted", Writer.CsharpToJs, "ComboboxItemState.Highlighted"),
         new("combobox", "ItemIndicator", "data-starting-style", Writer.Js, "ComboboxItemIndicatorState.TransitionStatus"),
         new("combobox", "ItemIndicator", "data-ending-style", Writer.Js, "ComboboxItemIndicatorState.TransitionStatus"),
+        // Autocomplete (M5 track 11, issue 196; Deliverable 9): Combobox's rows less the ItemIndicator's, on Autocomplete's own
+        // records (autocomplete.md §5.1 and §5.5).
+        new("autocomplete", "Root", "value", Writer.CsharpToJs),
+        new("autocomplete", "Input", "aria-activedescendant", Writer.Js),
+        new("autocomplete", "Input", "value", Writer.CsharpToJs),
+        new("autocomplete", "Clear", "data-starting-style", Writer.Js, "AutocompleteClearState.TransitionStatus"),
+        new("autocomplete", "Clear", "data-ending-style", Writer.Js, "AutocompleteClearState.TransitionStatus"),
+        new("autocomplete", "Backdrop", "data-starting-style", Writer.Js, "AutocompleteBackdropState.TransitionStatus"),
+        new("autocomplete", "Backdrop", "data-ending-style", Writer.Js, "AutocompleteBackdropState.TransitionStatus"),
+        new("autocomplete", "Positioner", "data-side", Writer.CsharpToJs, "AutocompletePositionerState.Side"),
+        new("autocomplete", "Positioner", "data-align", Writer.CsharpToJs, "AutocompletePositionerState.Align"),
+        new("autocomplete", "Positioner", "data-anchor-hidden", Writer.Js, "AutocompletePositionerState.AnchorHidden"),
+        new("autocomplete", "Positioner", "--available-width", Writer.CsharpToJs),
+        new("autocomplete", "Positioner", "--available-height", Writer.CsharpToJs),
+        new("autocomplete", "Positioner", "--anchor-width", Writer.CsharpToJs),
+        new("autocomplete", "Positioner", "--anchor-height", Writer.CsharpToJs),
+        new("autocomplete", "Positioner", "--transform-origin", Writer.CsharpToJs),
+        new("autocomplete", "Popup", "data-starting-style", Writer.Js, "AutocompletePopupState.TransitionStatus"),
+        new("autocomplete", "Popup", "data-ending-style", Writer.Js, "AutocompletePopupState.TransitionStatus"),
+        new("autocomplete", "Arrow", "data-side", Writer.CsharpToJs, "AutocompleteArrowState.Side"),
+        new("autocomplete", "Arrow", "data-align", Writer.CsharpToJs, "AutocompleteArrowState.Align"),
+        new("autocomplete", "Arrow", "data-uncentered", Writer.CsharpToJs, "AutocompleteArrowState.Uncentered"),
+        new("autocomplete", "Item", "data-highlighted", Writer.CsharpToJs, "AutocompleteItemState.Highlighted"),
 
         // ContextMenu (M5 track 7, issue 194; ADR 04 §2 and Amendments 2026-11-03 (2), context-menu.md §5): Menu's rows on
         // ContextMenu's shells, less the Viewport, which ContextMenu has not (CTX-STR-01); and ARIA-04's aria-hidden outside

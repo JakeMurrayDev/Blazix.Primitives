@@ -1,0 +1,26 @@
+@namespace Blazix.Primitives.Tests.Components
+@* An Autocomplete whose list renders apple, banana and cherry as static Items, with no `Items` on the root (M5 track 11;
+   §16 Q3: a mounted Item equal to the activated value registers its index). *@
+<AutocompleteRoot TValue="string" @ref="Root" @attributes="RootParameters">
+    <AutocompleteInput data-testid="input" />
+    <AutocompletePortal>
+        <AutocompletePositioner>
+            <AutocompletePopup>
+                <AutocompleteList TValue="string">
+                    @foreach (string item in new[] { "apple", "banana", "cherry" })
+                    {
+                        <AutocompleteItem TValue="string" Value="@item" data-testid="@("item-" + item)" @key="item">@item</AutocompleteItem>
+                    }
+                </AutocompleteList>
+            </AutocompletePopup>
+        </AutocompletePositioner>
+    </AutocompletePortal>
+</AutocompleteRoot>
+
+@code {
+    [Parameter]
+    public Dictionary<string, object?> RootParameters { get; set; } = [];
+
+    /// <summary>Gets the rendered root.</summary>
+    public AutocompleteRoot<string>? Root { get; private set; }
+}

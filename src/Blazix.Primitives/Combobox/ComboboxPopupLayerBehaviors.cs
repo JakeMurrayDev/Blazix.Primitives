@@ -461,6 +461,8 @@ internal sealed class ComboboxPopupBehavior : IAsyncDisposable
 
     private IDisposable? boundaryPart;
 
+    private IDisposable? popupRegistration;
+
     private FocusTargetValue? initialFocus;
 
     private Func<InteractionType, FocusTargetValue?>? initialFocusResolver;
@@ -519,6 +521,7 @@ internal sealed class ComboboxPopupBehavior : IAsyncDisposable
         }
 
         boundaryPart?.Dispose();
+        popupRegistration?.Dispose();
         store?.SetElementIds(static ids => ids with { Popup = null, EndDismiss = null });
         Task transitionsDisposal = transitions?.DisposeAsync().AsTask() ?? Task.CompletedTask;
         Task twinDisposal = twin?.DisposeAsync().AsTask() ?? Task.CompletedTask;
@@ -536,6 +539,7 @@ internal sealed class ComboboxPopupBehavior : IAsyncDisposable
     {
         store = ComboboxParts.RequireRoot(cascaded, services.Family);
         positioner = positionerContext ?? throw ComboboxParts.MissingPositioner(services.Family);
+        popupRegistration ??= store.RegisterPopup();
         positionerChanged = onPositionerChanged;
         positioner.AddListener(onPositionerChanged);
         portal = portalContext;

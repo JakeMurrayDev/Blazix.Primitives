@@ -1,0 +1,32 @@
+@namespace Blazix.Primitives.Tests.Components
+@* An Autocomplete whose Input is inside the popup and rendered while `ShowInput` (M5 track 11): a Trigger shows the Value,
+   and the popup's List renders the root's Items. Hiding and showing the Input mounts it again. *@
+<AutocompleteRoot TValue="string" @ref="Root" @attributes="RootParameters">
+    <AutocompleteTrigger data-testid="trigger"><AutocompleteValue /></AutocompleteTrigger>
+    <AutocompletePortal>
+        <AutocompletePositioner>
+            <AutocompletePopup data-testid="popup">
+                @if (ShowInput)
+                {
+                    <AutocompleteInput data-testid="input" />
+                }
+                <AutocompleteList TValue="string">
+                    <ItemContent>
+                        <AutocompleteItem TValue="string" Value="@context.Value" @key="context.Value">@context.Value</AutocompleteItem>
+                    </ItemContent>
+                </AutocompleteList>
+            </AutocompletePopup>
+        </AutocompletePositioner>
+    </AutocompletePortal>
+</AutocompleteRoot>
+
+@code {
+    [Parameter]
+    public Dictionary<string, object?> RootParameters { get; set; } = [];
+
+    [Parameter]
+    public bool ShowInput { get; set; } = true;
+
+    /// <summary>Gets the rendered root.</summary>
+    public AutocompleteRoot<string>? Root { get; private set; }
+}
