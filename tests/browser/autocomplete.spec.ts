@@ -58,6 +58,27 @@ test.describe('<Autocomplete.Root />', () => {
     await expect(page.locator('[role=option][data-highlighted]')).toHaveCount(0);
   });
 
+  test('highlights the first item when opening via ArrowDown', async ({ page, mode }) => {
+    await goto(page, mode, { autoHighlight: 'true' });
+    await input(page).focus();
+
+    await input(page).press('ArrowDown');
+    await expect(options(page)).toHaveCount(3);
+    await expect(page.getByTestId('item-apple')).toHaveAttribute('data-highlighted', '');
+    await expect(input(page)).toHaveAttribute('aria-activedescendant', (await page.getByTestId('item-apple').getAttribute('id'))!);
+  });
+
+  test('highlights the first item when typing and keeps it during filtering', async ({ page, mode }) => {
+    await goto(page, mode, { autoHighlight: 'true' });
+    await typeText(page, 'a');
+    await expect(options(page)).toHaveCount(2);
+    await expect(page.getByTestId('item-apple')).toHaveAttribute('data-highlighted', '');
+
+    await input(page).pressSequentially('n');
+    await expect(options(page)).toHaveCount(1);
+    await expect(page.getByTestId('item-banana')).toHaveAttribute('data-highlighted', '');
+  });
+
   test('mode="both": inline overlay + autocomplete handles filtering', async ({ page, mode }) => {
     const fixture = await goto(page, mode, { mode: 'both' });
     await typeText(page, 'a');
