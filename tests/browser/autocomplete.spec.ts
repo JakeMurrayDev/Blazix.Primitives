@@ -318,4 +318,34 @@ test.describe('<Autocomplete.Root />', () => {
     await trigger.click();
     await expect(input(page)).toHaveValue('cherry');
   });
+
+  test('resets the list scroll position to the top when typing', async ({ page, mode }) => {
+    await goto(page, mode, { many: true });
+    await typeText(page, 'item');
+    const list = page.getByTestId('list');
+    await expect(options(page)).toHaveCount(50);
+    await list.evaluate((element) => {
+      element.scrollTop = 40;
+    });
+    expect(await list.evaluate((element) => element.scrollTop)).toBeGreaterThan(0);
+
+    await input(page).pressSequentially(' 1');
+    await expect.poll(() => list.evaluate((element) => element.scrollTop)).toBe(0);
+  });
+
+  test('mode="both": inline navigation does not reset the scroll to the top', async ({ page, mode }) => {
+    const fixture = await goto(page, mode, { many: true, mode: 'both' });
+    await typeText(page, 'item');
+    await expect(options(page)).toHaveCount(50);
+    // Every item matches the first keystroke, so the list is full before the typing settles: on Server the arrows wait for
+    // the last typed change and a round trip (Combobox's typing relaxation, adopted).
+    await expect.poll(() => recorded(fixture, 'data-value-changes')).toContain('item:input-change');
+    await settle(fixture);
+
+    for (let i = 0; i < 20; i += 1) {
+      await input(page).press('ArrowDown');
+    }
+    await expect(input(page)).toHaveValue('item 19');
+    await expect.poll(() => page.getByTestId('list').evaluate((element) => element.scrollTop)).toBeGreaterThan(0);
+  });
 });
