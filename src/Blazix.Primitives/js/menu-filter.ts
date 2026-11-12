@@ -534,6 +534,8 @@ function attachInput(input: HTMLInputElement, initial: MenuFilterOptions, channe
     owners.set(ownerKey, owner);
   }
   syncHighlighted();
+  // MNU-A11Y-02 (MenuInput.tsx:32-55): the mount-time check; focus and aria-activedescendant can both precede the handle.
+  syncSelected();
 
   return {
     update(optionsJson: string): void {
