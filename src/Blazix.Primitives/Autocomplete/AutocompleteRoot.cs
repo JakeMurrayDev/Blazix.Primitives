@@ -1,6 +1,7 @@
 using System.Globalization;
 using System.Linq.Expressions;
 using Blazix.Primitives.Rendering;
+using Blazix.Primitives.Utilities;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Forms;
 using Microsoft.AspNetCore.Components.Rendering;
@@ -387,7 +388,7 @@ public sealed class AutocompleteRoot<TValue> : ComponentBase, IAsyncDisposable
         inputs.Form = Form;
         inputs.Id = Id;
         inputs.ItemToStringLabel = ItemToStringValue;
-        inputs.ItemHighlighted = OnItemHighlighted.HasDelegate ? highlighted ??= InvokeHighlightedAsync : null;
+        inputs.ItemHighlighted = OnItemHighlighted.HasDelegate || InlineEnabled ? highlighted ??= HandleHighlightedAsync : null;
         inputs.ChildContent = ChildContent;
         Behavior.ApplyParameters(inputs, FloatingParent, Field, FormScope, EditContext, Direction?.Direction == TextDirection.Rtl);
     }
@@ -412,8 +413,28 @@ public sealed class AutocompleteRoot<TValue> : ComponentBase, IAsyncDisposable
         }
     }
 
-    private Task InvokeHighlightedAsync(TValue? value, HighlightEventDetails details) =>
-        OnItemHighlighted.InvokeAsync(new AutocompleteItemHighlightedEventArgs<TValue>(value, details));
+    // AUT-STA-05, STA-06 (d), API-15 (AutocompleteRoot.tsx:90-105; decision 11 (a), chosen by the user 2026-11-03): the
+    // consumer's callback first; then a highlight with a reason other than pointer shows the highlighted item's text while
+    // the completion is enabled, or the committed text again. The value is the engine's, by its index (UTL-I18N-13).
+    private async Task HandleHighlightedAsync(TValue? value, HighlightEventDetails details)
+    {
+        if (OnItemHighlighted.HasDelegate)
+        {
+            await OnItemHighlighted.InvokeAsync(new AutocompleteItemHighlightedEventArgs<TValue>(value, details));
+        }
+
+        if (details.Reason == EventReason.Pointer)
+        {
+            return;
+        }
+
+        string next = InlineEnabled && details.Index >= 0 && !ValueNull.IsNull(value) ? ValueLabels.StringifyAsLabel(value!, ItemToStringValue) : string.Empty;
+        if (!string.Equals(next, overlay, StringComparison.Ordinal))
+        {
+            overlay = next;
+            ApplyEngine();
+        }
+    }
 
     private async Task ObserveAsync(Task task)
     {
