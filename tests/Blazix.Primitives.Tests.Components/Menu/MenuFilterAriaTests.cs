@@ -84,6 +84,16 @@ public sealed class MenuFilterAriaTests : BunitContext
         Assert.False(popup.HasAttribute("aria-labelledby"));
     }
 
+    [Fact(DisplayName = "does not point the popup or list at a trigger that never rendered")]
+    [Trait("Requirement", "MNU-EDGE-08")]
+    public void Does_not_point_the_popup_or_list_at_a_trigger_that_never_rendered()
+    {
+        IRenderedComponent<MenuFilterAriaHost> cut = Render<MenuFilterAriaHost>(p => p.Add(x => x.Case, "triggerless"));
+
+        Assert.False(cut.Find("[role=dialog]").HasAttribute("aria-labelledby"));
+        Assert.False(cut.Find("[role=menu]").HasAttribute("aria-labelledby"));
+    }
+
     [Fact(DisplayName = "lets a consumer override aria-haspopup on the root trigger")]
     [Trait("Requirement", "MNU-ARIA-01")]
     public void Lets_a_consumer_override_the_root_trigger()

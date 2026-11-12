@@ -404,3 +404,16 @@ test.describe('with a Viewport', () => {
     await expect(filter).toBeFocused();
   });
 });
+
+// MenuFilterRoot.test.tsx's "server-side rendering" (MNU-API-61, EDGE-08): Base UI renders to a string, then hydrates; the
+// port's page is prerendered, then interactive.
+test.describe('server-side rendering', () => {
+  test('shows the empty state after hydration when no items are rendered', async ({ page, mode }) => {
+    const prerendered = await (await page.request.get(`/${mode}/menu-filter-items?case=none`)).text();
+    expect(prerendered).not.toContain('No actions found');
+
+    await render(page, mode, { case: 'none' });
+
+    await expect(page.getByTestId('empty')).toHaveText('No actions found');
+  });
+});

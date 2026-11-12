@@ -35,6 +35,7 @@
     - `ids`: held open, autoHighlight "always"; First (id `first-item`) and Second (id `old-id`); the button "new id"
       (inside the popup) changes Second's id to `new-id`.
     - `viewport`: open; Rename and Delete in a list inside a Viewport.
+    - `none`: open; an empty list and Empty (`data-testid="empty"`) reading "No actions found".
     - `independent`: held open; "Parent action", and after the list an independent plain menu, open by default, with a
       trigger "Independent" and an item "Independent action".
     Each highlight report is also recorded as `label:reason` (`-` for no label) in `data-highlight-details`.
@@ -196,6 +197,10 @@
                         @if (Case == "fruit")
                         {
                             <MenuEmpty>No fruit found</MenuEmpty>
+                        }
+                        else if (Case == "none")
+                        {
+                            <MenuEmpty data-testid="empty">No actions found</MenuEmpty>
                         }
                     </MenuPopup>
                 </MenuPositioner>

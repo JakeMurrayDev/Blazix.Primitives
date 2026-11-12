@@ -14,6 +14,10 @@ async function render(page: Page, mode: RenderMode, query: Query = {}): Promise<
   await page.locator(Fixture.started).waitFor({ state: 'attached' });
   const fixture = page.locator(Fixture.interactive('menu-filter-submenu'));
   await expect(fixture).toHaveAttribute('data-attached', 'true');
+  // A filterable submenu that starts open: its input relays edits only once its handle attached.
+  if (query.childOpen === true && query.child !== 'plain') {
+    await expect(fixture).toHaveAttribute('data-child-attached', 'true');
+  }
   return fixture;
 }
 
