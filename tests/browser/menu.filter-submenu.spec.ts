@@ -495,6 +495,18 @@ test.describe('filterable submenu navigation, focus and pointer', () => {
     await expect(item(page, 'Disabled')).toBeFocused();
   });
 
+  // MNU-API-06.
+  test('stops parent navigation at the boundary when loopFocus is disabled', async ({ page, mode }) => {
+    await render(page, mode, { ...plain, before: 'Disabled,Next', label: 'Move to folder', after: '', disabled: 'Disabled', loop: false });
+    const submenuTrigger = item(page, 'Move to folder');
+    await submenuTrigger.focus();
+
+    await page.keyboard.press('ArrowDown');
+    await page.evaluate(() => new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve))));
+
+    await expect(submenuTrigger).toBeFocused();
+  });
+
   // MNU-FOC-15. FilterableSubmenu: a plain parent with Rename and the filterable "Move to folder" (Documents, Downloads).
   // Base UI's open plain menu focuses its popup on mount; the port focuses it first.
   test('focuses the input when a filterable submenu opens with the keyboard', async ({ page, mode }) => {
@@ -585,7 +597,7 @@ test.describe('filterable submenu navigation, focus and pointer', () => {
 
   // MNU-KEY-30. A plain submenu "Share" (Email) in a filterable parent.
   test('does not open a highlighted submenu with a modified cross-axis key from the input', async ({ page, mode }) => {
-    await render(page, mode, { child: 'plain', before: '', label: 'Share', after: '', children: 'Email', delay: 0 });
+    await render(page, mode, { child: 'plain', before: '', label: 'Share', after: '', children: 'Email' });
     await parentInput(page).focus();
 
     await page.keyboard.press('ArrowDown');
@@ -694,7 +706,7 @@ test.describe('filterable submenu navigation, focus and pointer', () => {
 
   // MNU-PTR-22. A plain submenu "Share" (Email) first in a filterable parent.
   test('restores the parent input highlight when the pointer returns from a plain submenu', async ({ page, mode }) => {
-    await render(page, mode, { child: 'plain', before: '', label: 'Share', after: '', children: 'Email', delay: 0 });
+    await render(page, mode, { child: 'plain', before: '', label: 'Share', after: '', children: 'Email' });
     const trigger = item(page, 'Share');
     await trigger.hover();
     const email = item(page, 'Email');
@@ -904,6 +916,41 @@ test.describe('leaving a plain submenu while it animates out', () => {
       await expect(input).not.toHaveAttribute('data-highlighted');
     });
   }
+
+  // MNU-DIS-06.
+  test('keeps focus off the input while an item press closes the whole menu', async ({ page, mode }) => {
+    await render(page, mode, { animations: 1, exiting: true, slowExit: true, child: 'plain', label: 'Share', after: '', children: 'Email' });
+    const input = page.locator('input[aria-label="Filter actions"]');
+    await input.focus();
+    await page.keyboard.press('ArrowDown');
+    await page.keyboard.press('ArrowDown');
+    await page.keyboard.press('ArrowRight');
+    await expect(item(page, 'Email')).toBeFocused();
+
+    await page.keyboard.press('Enter');
+
+    await expect(page.getByTestId('submenu')).toHaveAttribute('data-ending-style', '');
+    await expect(input).toBeAttached();
+    await expect(input).not.toBeFocused();
+    await page.evaluate(() => new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve))));
+    await expect(input).not.toBeFocused();
+  });
+
+  // MNU-PTR-22, FOC-15.
+  test('returns focus to the input as soon as the pointer closes the submenu', async ({ page, mode }) => {
+    await render(page, mode, { animations: 1, exiting: true, slowExit: true, child: 'plain', label: 'Share', after: '', children: 'Email' });
+
+    await item(page, 'Share').hover();
+    const email = item(page, 'Email');
+    await expect(email).toBeVisible();
+    await email.hover();
+    await expect(email).toBeFocused();
+
+    await item(page, 'Rename').hover();
+
+    await expect(page.getByTestId('submenu')).toHaveAttribute('data-ending-style', '');
+    await expect(page.getByRole('searchbox', { name: 'Filter actions' })).toBeFocused();
+  });
 });
 
 // useMenuFilterSubmenuTrigger.test.tsx.
@@ -1167,5 +1214,23 @@ test.describe('a filterable submenu animating out', () => {
     await item(page, 'Fruit').click();
     await expect(submenuInput(page)).toHaveValue('');
     await expect(item(page, 'Banana')).toBeVisible();
+  });
+});
+
+// MenuFilterRoot.scoping.test.tsx's FocusMenu with a submenu (MNU-EDGE-13): Rename, then a filterable submenu "More" (Share),
+// and an input after the menu.
+test.describe('modal focus management with a filterable submenu', () => {
+  test('leaves a filterable submenu accessible inside its parent', async ({ page, mode }) => {
+    await render(page, mode, { label: 'More', after: '', children: 'Share', afterInput: true, hover: false });
+    const input = page.getByRole('searchbox', { name: 'Filter actions' });
+    await expect(input).toBeFocused();
+
+    await page.keyboard.press('ArrowDown');
+    await page.keyboard.press('ArrowDown');
+    await page.keyboard.press('ArrowRight');
+
+    await expect(submenuInput(page)).toBeFocused();
+    // The submenu runs no modal focus management of its own.
+    expect(await page.getByTestId('submenu').evaluate((element) => element.closest('[aria-hidden="true"], [inert]') !== null)).toBe(false);
   });
 });
