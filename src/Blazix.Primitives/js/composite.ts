@@ -1201,6 +1201,13 @@ export interface CompositeListOptions {
   rtl?: boolean | undefined;
   /** Whether the highlight moves without moving the focus; absent for `false`. */
   virtual?: boolean | undefined;
+  /**
+   * What an item change does to a highlight that another item would take (MNU-STA-20, a filterable menu's list): `first`
+   * highlights the first item, `clear` clears it, and `auto` does `first` while the list's reference input holds a
+   * non-empty trimmed query, else `clear` (autoHighlight `true`, decided from the query the input holds now); absent, the
+   * index is kept.
+   */
+  itemsChangeHighlight?: 'first' | 'clear' | 'auto' | undefined;
   /** Whether the list is nested in another list; absent for `false`. */
   nested?: boolean | undefined;
   /** The parent list's orientation; absent to read what the parent popup's list published. */
@@ -2327,6 +2334,8 @@ interface ListState {
   readonly descendantTargets: Set<Element>;
   readonly typeahead: TypeaheadState;
   readonly onOpenChange: (details: SessionOpenChangeDetails) => void;
+  /** The element the highlight was last written on, for an item change's comparison (itemsChangeHighlight). */
+  highlightedItem: HTMLElement | null;
 }
 
 /** One list handle as the shared logic sees it: its element, its channel and its current options. */
@@ -2478,6 +2487,7 @@ function writeHighlight(state: ListState, handle: ListHandle): void {
   const enabled = enabledOf(list);
   const floating = state.floating;
   if (floating) {
+    state.highlightedItem = enabled && state.activeIndex !== null ? (floating.registry.elements[state.activeIndex] ?? null) : null;
     floating.registry.elements.forEach((element, index) => {
       if (!element) {
         return;
@@ -2778,6 +2788,7 @@ function createListState(session: InteractionSession, list: CompositeListOptions
   const state: ListState = {
     index: selectedIndexOf(list) ?? -1,
     activeIndex: null,
+    highlightedItem: null,
     key: null,
     pointerModality: true,
     forceSyncFocus: false,
@@ -3625,6 +3636,16 @@ function attachList(
           publications += 1;
           reportItemOrder(channel, ids, publications);
         }
+      }
+      // MNU-STA-20 (FilterDropdownRoot.tsx:109-125; the orchestrator's 2026-11-12 grant): a positional highlight must not
+      // move silently to another item. With itemsChangeHighlight, when a different element now holds the highlighted index,
+      // the list highlights its first item or clears the highlight before writing and reporting.
+      const policy = handle.list().itemsChangeHighlight;
+      if (policy !== undefined && state.activeIndex !== null && state.highlightedItem !== null && registry.elements[state.activeIndex] !== state.highlightedItem) {
+        const query = [...state.references].map((reference) => reference.element).find((reference): reference is HTMLInputElement => reference instanceof HTMLInputElement)?.value.trim() ?? '';
+        const first = policy === 'first' || (policy === 'auto' && query !== '');
+        state.index = first && registry.elements.length > 0 ? getMinListIndex(registry.elements, []) : -1;
+        navigateTo(state, handle, undefined);
       }
       writeHighlight(state, handle);
       reportHighlight(state, handle, undefined);

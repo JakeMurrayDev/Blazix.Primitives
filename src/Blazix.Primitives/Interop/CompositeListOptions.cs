@@ -64,6 +64,11 @@ internal sealed record CompositeListOptions
     /// </value>
     public bool? FocusItemOnOpen { get; init; }
 
+    // MNU-STA-20 (M5 track 12): a filterable menu's list sends a value.
+    /// <summary>Gets what an item change does to a highlight that another item would take: <c>first</c>, <c>clear</c> or <c>auto</c>.</summary>
+    /// <value><see langword="null"/>, the default, to keep the index.</value>
+    public string? ItemsChangeHighlight { get; init; }
+
     // SEL-STA-07 (Select's finding; queued by the orchestrator 2026-11-10): Base UI's Select ignores the close's reset.
     /// <summary>Gets a value indicating whether the highlight survives the close's reset while the popup animates out.</summary>
     /// <value><see langword="true"/> for Select's list; the default <see langword="false"/> is not sent.</value>

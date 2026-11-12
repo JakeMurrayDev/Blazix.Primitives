@@ -47,6 +47,7 @@ internal sealed class ListNavigationBehavior : IDisposable
     private bool nested;
     private string? parentOrientation;
     private bool? focusItemOnOpen;
+    private string? itemsChangeHighlight;
     private bool allowEscape;
     private bool openOnArrowKeyDown = true;
     private bool focusItemOnHover = true;
@@ -139,6 +140,11 @@ internal sealed class ListNavigationBehavior : IDisposable
     /// <summary>Gets or sets a value indicating whether an item is highlighted when the list opens.</summary>
     /// <value><see langword="true"/> or <see langword="false"/>; <see langword="null"/>, the default, for a keyboard open only.</value>
     public bool? FocusItemOnOpen { get => focusItemOnOpen; set => Set(ref focusItemOnOpen, value); }
+
+    // MNU-STA-20 (M5 track 12, the orchestrator's 2026-11-12 grant): sent by a filterable menu's list only.
+    /// <summary>Gets or sets what an item change does to a highlight that another item would take.</summary>
+    /// <value><c>first</c>, <c>clear</c> or <c>auto</c> (first while the reference input holds a query); <see langword="null"/>, the default, keeps the index.</value>
+    public string? ItemsChangeHighlight { get => itemsChangeHighlight; set => Set(ref itemsChangeHighlight, value); }
 
     /// <summary>Gets or sets a value indicating whether a step past either end clears the highlight under virtual focus.</summary>
     /// <value><see langword="true"/> to allow it; the default is <see langword="false"/>.</value>
@@ -497,6 +503,7 @@ internal sealed class ListNavigationBehavior : IDisposable
         Nested = nested,
         ParentOrientation = parentOrientation,
         FocusItemOnOpen = focusItemOnOpen,
+        ItemsChangeHighlight = itemsChangeHighlight,
         AllowEscape = allowEscape,
         OpenOnArrowKeyDown = openOnArrowKeyDown ? null : false,
         FocusItemOnHover = focusItemOnHover ? null : false,

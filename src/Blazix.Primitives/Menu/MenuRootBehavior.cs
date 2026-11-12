@@ -371,6 +371,11 @@ internal sealed class MenuRootBehavior<TPayload> : IAsyncDisposable
         navigation.OpenOnArrowKeyDown = parent.Kind is not (MenuParentKind.ContextMenu or MenuParentKind.Menu);
         navigation.ResetOnPointerLeave = !autoHighlight.IsAlways;
         navigation.SetTypeahead(false, TypeaheadResetMs, "element");
+
+        // MNU-STA-20 (FilterDropdownRoot.tsx:109-125): an item change does not hand the highlight to another item. With
+        // autoHighlight "always" it goes to the first item, with true to the first item while the input holds a query (the
+        // module reads it, since C# learns the query a round trip later), and otherwise it is cleared.
+        navigation.ItemsChangeHighlight = autoHighlight.IsAlways ? "first" : autoHighlight.IsEnabled ? "auto" : "clear";
     }
 
     // The list's parent-dependent options, from the store's parent (MenuRoot.tsx:516-568).
