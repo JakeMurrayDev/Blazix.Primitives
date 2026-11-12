@@ -984,3 +984,54 @@ test.describe('<Menu.FilterProvider><Menu.SubmenuRoot/></Menu.FilterProvider> pr
     await expect(input).toHaveValue('pro');
   });
 });
+
+// MenuFilterRoot.test.tsx's "hover-opened submenu ownership" (MNU-PTR-10, EVT-18): HoverMenu is a closed filterable menu
+// holding Rename, Duplicate and the filterable submenu "Share" (Email; the port's input reads "Filter folders").
+test.describe('hover-opened submenu ownership', () => {
+  const hoverMenu = { closed: true, before: 'Rename,Duplicate', label: 'Share', after: '', children: 'Email', delay: 0 } as const;
+
+  async function openAndHoverTrigger(page: Page): Promise<Locator> {
+    await page.getByRole('button', { name: 'Actions' }).click();
+    await expect(page.getByRole('searchbox', { name: 'Filter actions' })).toBeVisible();
+    await item(page, 'Share').hover();
+    const input = submenuInput(page);
+    await expect(input).toBeVisible();
+    await input.evaluate((element) => element.dispatchEvent(new MouseEvent('mousemove', { bubbles: true, cancelable: true })));
+    return input;
+  }
+
+  test('closes when the pointer sweeps off the trigger', async ({ page, mode }) => {
+    await render(page, mode, hoverMenu);
+    await openAndHoverTrigger(page);
+
+    await item(page, 'Rename').hover();
+
+    await expect(submenuInput(page)).toHaveCount(0);
+  });
+
+  test('closes when the pointer leaves the submenu popup', async ({ page, mode }) => {
+    await render(page, mode, hoverMenu);
+    await openAndHoverTrigger(page);
+
+    await item(page, 'Email').hover();
+    await item(page, 'Duplicate').hover();
+
+    await expect(submenuInput(page)).toHaveCount(0);
+  });
+
+  test('closes and resets after a query was typed into the hover-opened submenu', async ({ page, mode }) => {
+    await render(page, mode, hoverMenu);
+    const input = await openAndHoverTrigger(page);
+    // The hover hand-off makes the submenu input the typing target.
+    await expect(input).toBeFocused();
+    await input.fill('em');
+    await expect(input).toHaveValue('em');
+
+    await item(page, 'Rename').hover();
+    await expect(submenuInput(page)).toHaveCount(0);
+
+    // Reopening starts from an empty query rather than the previous one.
+    await item(page, 'Share').hover();
+    await expect(submenuInput(page)).toHaveValue('');
+  });
+});
