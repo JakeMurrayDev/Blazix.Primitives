@@ -1046,13 +1046,20 @@ function attachPopup(popup: HTMLElement, initial: MenuFilterOptions, channel: Tw
   const onHandoffPointer = (): void => {
     keyClose = false;
   };
+  // useVirtualFocusParentHandoff.ts:28-30, MenuFilterSubmenuRoot.tsx:181-184 (MNU-DIS-06): a parent that closes too gets
+  // neither focus nor a highlight back. An item press always closes the whole menu; on Server the parent's own update can
+  // follow this popup's, so its reason settles that case.
+  const openParent = (reason: string | null | undefined): FocusOwner | undefined => {
+    const parent = parentOwner();
+    return parent !== undefined && parent.options().open === true && reason !== 'item-press' ? parent : undefined;
+  };
   const closeHandoff = (reason: string | null | undefined): void => {
     const trigger = handoffTrigger ?? findHandoffTrigger();
     const byKey = reason === 'list-navigation' || reason === 'escape-key' || ((reason === null || reason === undefined) && keyClose);
     handoffTrigger = null;
     keyClose = false;
     queueMicrotask(() => {
-      const parent = parentOwner();
+      const parent = openParent(reason);
       if (parent === undefined) {
         return;
       }
@@ -1071,8 +1078,9 @@ function attachPopup(popup: HTMLElement, initial: MenuFilterOptions, channel: Tw
     return active === null || active === popup.ownerDocument.body || (popup.isConnected && popup.contains(active));
   }
   const returnOnClose = (): void => {
+    const reason = options.reason;
     queueMicrotask(() => {
-      const parent = parentOwner();
+      const parent = openParent(reason);
       if (parent !== undefined && focusLeftBehind()) {
         refocusOwner(parent.input);
       }
