@@ -11,7 +11,7 @@
     `data-testid="popup"`. `insert=true` holds the root open (controlled) and adds a button "Insert item" outside the menu,
     whose press keeps focus where it is, that inserts Archive first; each highlight report is recorded by item text, or
     "none", in `data-highlights` (`|`-separated). `after=true` adds an input "After" (`data-testid="after"`) after the menu; `modal=false` sets
-    the root's Modal. Each query request is recorded as
+    the root's Modal; `cancel=true` cancels every close request. Each query request is recorded as
     `value:reason` in `data-value-changes` (`|`-separated), and each item press by name in `data-presses`; `data-attached` turns "true" once the menu's session and the
     input's and list's `menu-filter` handles have attached.
 *@
@@ -22,7 +22,7 @@
     }
     <DirectionProvider Direction="@(Dir == "rtl" ? TextDirection.Rtl : TextDirection.Ltr)">
     <MenuFilterProvider DefaultValue="@(Query ?? "")" AutoHighlight="@AutoHighlight" OnValueChange="Record">
-        <MenuRoot TPayload="NoPayload" DefaultOpen="true" Open="@(Insert || openState)" OpenChanged="@(Insert ? default : EventCallback.Factory.Create<bool>(this, value => openState = value))" OnItemHighlighted="RecordHighlight" Modal="@(ModalName == "false" ? false : null)" Orientation="@(OrientationName == "horizontal" ? Orientation.Horizontal : Orientation.Vertical)" @ref="root">
+        <MenuRoot TPayload="NoPayload" DefaultOpen="true" Open="@(Insert || openState)" OpenChanged="@(Insert ? default : EventCallback.Factory.Create<bool>(this, value => openState = value))" OnItemHighlighted="RecordHighlight" Modal="@(ModalName == "false" ? false : null)" OnOpenChange="CancelClose" Orientation="@(OrientationName == "horizontal" ? Orientation.Horizontal : Orientation.Vertical)" @ref="root">
             <MenuTrigger TPayload="NoPayload">Actions</MenuTrigger>
             <MenuPortal>
                 <MenuPositioner>
@@ -111,6 +111,17 @@
 
     [SupplyParameterFromQuery(Name = "modal")]
     public string? ModalName { get; set; }
+
+    [SupplyParameterFromQuery(Name = "cancel")]
+    public bool Cancel { get; set; }
+
+    private void CancelClose(ValueChangeEventArgs<bool> args)
+    {
+        if (Cancel && !args.Value)
+        {
+            args.Details.Cancel();
+        }
+    }
 
     private AutoHighlightValue? AutoHighlight => Auto switch
     {

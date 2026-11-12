@@ -807,6 +807,27 @@ test.describe('filterable menu keys and semantics', () => {
     expect(prevented).toBe(true);
   });
 
+  // MNU-KEY-26 (useMenuFilterKeyDown.ts:179-192): backward tabbing mirrors a plain menu.
+  test('closes and returns focus to the trigger on Shift+Tab from the input', async ({ page, mode }) => {
+    await renderWith(page, mode);
+    await expect(input(page)).toBeFocused();
+
+    await page.keyboard.press('Shift+Tab');
+
+    await expect(page.getByRole('menu')).toHaveCount(0);
+    await expect(page.getByRole('button', { name: 'Actions' })).toBeFocused();
+  });
+
+  test('keeps input focus when a Shift+Tab close is canceled', async ({ page, mode }) => {
+    await renderWith(page, mode, '?cancel=true');
+    await expect(input(page)).toBeFocused();
+
+    await page.keyboard.press('Shift+Tab');
+
+    await expect(page.getByRole('menu')).toBeVisible();
+    await expect(input(page)).toBeFocused();
+  });
+
   // MNU-KEY-05.
   test('uses Home and End for list navigation after an item is highlighted', async ({ page, mode }) => {
     await renderWith(page, mode);
