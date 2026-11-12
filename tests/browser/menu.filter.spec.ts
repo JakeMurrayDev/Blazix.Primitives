@@ -689,6 +689,24 @@ test.describe('focus ownership inside the popup', () => {
     await expect(submenuInput(page)).toBeVisible();
   });
 
+  // useMenuFilterPopup.ts:25-28, 80-84: focus that entered a nested popup by keyboard stays there while the pointer
+  // crosses the parent popup.
+  test('port: focus a keyboard moved into a submenu stays there while the pointer crosses the parent popup', async ({ page, mode }) => {
+    await renderNested(page, mode);
+    await input(page).focus();
+    for (let i = 0; i < 4; i += 1) {
+      await page.keyboard.press('ArrowDown');
+    }
+    await expect(input(page)).toHaveAttribute('aria-activedescendant', (await submenuTrigger(page).getAttribute('id')) ?? 'missing');
+    // Enter clicks the highlighted trigger (the router's activate), a keyboard open that focuses the submenu's input.
+    await page.keyboard.press('Enter');
+    await expect(submenuInput(page)).toBeFocused();
+
+    await mouseMove(page.getByTestId('popup'));
+
+    await expect(submenuInput(page)).toBeFocused();
+  });
+
   test('opens a hovered submenu without moving focus until the pointer enters it', async ({ page, mode }) => {
     await renderNested(page, mode);
     await expect(input(page)).toBeFocused();
