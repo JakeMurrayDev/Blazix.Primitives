@@ -73,6 +73,13 @@ internal sealed class CompositeRootBehavior : IDisposable
     private string? lateId;
     private ListNavigationContext? list;
     private CompositeListRole listRole;
+
+    // The list's options with this handle's typeahead, kept while neither changes (ADR 16 rule 7).
+    private CompositeListOptions? typeaheadBase;
+
+    private CompositeTypeaheadOptions? typeaheadSent;
+
+    private CompositeListOptions? typeaheadList;
     private CompositeItemBehavior? highlightedItem;
 
     /// <summary>Occurs when the highlighted index the module reports changed, once per change.</summary>
@@ -163,6 +170,17 @@ internal sealed class CompositeRootBehavior : IDisposable
     /// <see langword="false"/>.
     /// </value>
     public bool FollowActiveItem { get; set; }
+
+    /// <summary>Gets or sets a value indicating whether the list handle runs only its list's typeahead, and only while closed.</summary>
+    /// <value><see langword="true"/> for a handle that handles no list navigation key; the default is <see langword="false"/>.</value>
+    public bool TypeaheadOnly { get; set; }
+
+    /// <summary>Gets or sets the source of the typeahead this list handle sends in place of the list's.</summary>
+    /// <value>
+    /// A function that returns the typeahead, the same instance while it is unchanged, or <see langword="null"/> for none; or
+    /// <see langword="null"/>, the default, to send the list's options as they are.
+    /// </value>
+    public Func<CompositeTypeaheadOptions?>? TypeaheadSource { get; set; }
 
     /// <summary>Gets or sets the part's own chain of the navigation decision point, run before the consumer's <c>onkeydown</c>.</summary>
     /// <value>
@@ -649,7 +667,8 @@ internal sealed class CompositeRootBehavior : IDisposable
             ReportItems = ReportItems,
             FollowActiveItem = FollowActiveItem,
             SessionToken = list?.List.SessionToken,
-            List = list?.List.Options,
+            List = ListOptions(),
+            TypeaheadOnly = list is not null && TypeaheadOnly,
             Reference = list is not null && listRole == CompositeListRole.Reference ? s_referenceRole : null,
             Trigger = list is not null && listRole == CompositeListRole.Trigger ? s_triggerRole : null,
             Floating = list is not null && listRole == CompositeListRole.Floating ? s_floatingRole : null,
@@ -681,12 +700,33 @@ internal sealed class CompositeRootBehavior : IDisposable
             && sent.ReportHandledKeys == ReportHandledKeys()
             && sent.ReportItems == ReportItems
             && sent.FollowActiveItem == FollowActiveItem
-            && ReferenceEquals(sent.List, list?.List.Options))
+            && sent.TypeaheadOnly == (list is not null && TypeaheadOnly)
+            && ReferenceEquals(sent.List, ListOptions()))
         {
             return null;
         }
 
         return BuildOptions();
+    }
+
+    // A handle with its own typeahead sends the list's options with it, rebuilt only when either changed.
+    private CompositeListOptions? ListOptions()
+    {
+        CompositeListOptions? shared = list?.List.Options;
+        if (shared is null || TypeaheadSource is not { } source)
+        {
+            return shared;
+        }
+
+        CompositeTypeaheadOptions? typeahead = source();
+        if (typeaheadList is null || !ReferenceEquals(shared, typeaheadBase) || !ReferenceEquals(typeahead, typeaheadSent))
+        {
+            typeaheadBase = shared;
+            typeaheadSent = typeahead;
+            typeaheadList = shared with { Typeahead = typeahead };
+        }
+
+        return typeaheadList;
     }
 
     // CMP-EVT-01: the mirror changes once per report of a new index.

@@ -50,6 +50,7 @@ internal sealed class MenuSubmenuTriggerBehavior : IAsyncDisposable
     private IReadOnlyDictionary<string, object>? openAttributes;
     private IReadOnlyDictionary<string, object>? openAttributesSource;
     private bool registeredOpen;
+    private bool registeredFilteredOut;
     private MenuFilterItemSlot? filterSlot;
     private bool disposed;
 
@@ -107,10 +108,10 @@ internal sealed class MenuSubmenuTriggerBehavior : IAsyncDisposable
     /// <summary>Gets or sets the enclosing group's filter context, which counts the trigger as a member, or <see langword="null"/>.</summary>
     public MenuFilterGroupContext? FilterGroup { get; set; }
 
-    // MNU-STA-15 (M5 track 12): in a filterable parent menu, a trigger the query filters out renders nothing and leaves the
-    // parent's list.
+    // MNU-STA-15, STA-25 (M5 track 12; useMenuFilterSubmenuTrigger.ts:18-45): in a filterable parent menu, a trigger the
+    // query filters out renders nothing and leaves the parent's list, but stays while its submenu is mounted.
     /// <summary>Gets a value indicating whether the parent menu's filter hides the trigger, so that its part renders nothing.</summary>
-    public bool FilteredOut => filterSlot is { FilteredOut: true };
+    public bool FilteredOut => filterSlot is { FilteredOut: true } && !(submenu?.State.Mounted ?? false);
 
     /// <summary>Gets a value indicating whether the trigger is highlighted in its parent's list, the list handle's mirror.</summary>
     public bool Highlighted => item?.Highlighted ?? false;
@@ -357,7 +358,8 @@ internal sealed class MenuSubmenuTriggerBehavior : IAsyncDisposable
     private void Register()
     {
         // MNU-STA-15: a filtered-out trigger leaves the parent's composite list and item ids until it matches again.
-        if (FilteredOut)
+        registeredFilteredOut = FilteredOut;
+        if (registeredFilteredOut)
         {
             item!.Dispose();
             submenu!.Parent.Menu?.Items.Remove(this);
@@ -386,6 +388,13 @@ internal sealed class MenuSubmenuTriggerBehavior : IAsyncDisposable
 
     private void OnFilterChanged()
     {
+        // MNU-STA-25 (useMenuFilterSubmenuTrigger.ts:80-85): the query hiding the trigger closes its open submenu with reason
+        // none; a canceled close keeps the trigger and the submenu.
+        if (filterSlot is { FilteredOut: true } && submenu is { State.Open: true } open)
+        {
+            _ = open.RequestOpenAsync(false, new OpenChangeEventDetails(EventReason.None));
+        }
+
         Register();
         if (!FilteredOut && id is not null)
         {
@@ -397,7 +406,7 @@ internal sealed class MenuSubmenuTriggerBehavior : IAsyncDisposable
 
     private void OnTriggerChanged()
     {
-        if (item is not null && Open != registeredOpen)
+        if (item is not null && (Open != registeredOpen || FilteredOut != registeredFilteredOut))
         {
             Register();
         }

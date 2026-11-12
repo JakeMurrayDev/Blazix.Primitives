@@ -11,6 +11,7 @@ import {
   LIST_HIGHLIGHT_REPORT,
   NAVIGATE_POINT,
   relayKeyboardEvent,
+  skipListNavigation,
   type CompositeListHighlightReport,
   type CompositeOptions,
 } from './composite';
@@ -2406,6 +2407,65 @@ describe('useListNavigation (WebKit)', () => {
 
 // Port titles for CMP rows with `Test: none` (M5 track 1, issue 159; the M2 "none (port L3)" precedent), positive first.
 describe('list navigation rows without a Base UI title (port)', () => {
+  // `:45`/`:63` (settled by the orchestrator 2026-11-11, option (a)): on Server the floating list attaches a round trip after
+  // the open, so a navigation key pressed meanwhile is kept, the newest only, and replayed once the list attaches.
+  // One title, so the red check runs the guards against the base too: without the replay its first half fails. The bound
+  // (settled 2026-11-11): the newest key only, dropped by a close or by any newer key (PR 193 delta review F1).
+  it('port: a navigation key pressed on the open reference before the list attaches is replayed once it attaches, the newest only; a key the list does not navigate with is not kept, and a close or a newer key drops the kept key', async () => {
+    const harness = app({ reference: 'input', floatingRole: 'listbox', items: ['a', 'b', 'c'], list: { virtual: true, focusItemOnOpen: false } });
+    harness.reference.focus();
+    // C# commits the open; its render, which mounts the list, comes later.
+    harness.popup.setOpen(true, 'none');
+    expect(harness.floating).toBeNull();
+
+    // EDGE-09's toolbar arrow: ArrowLeft on a vertical list is not the list's, so it is neither stopped nor kept.
+    const left = keyDown(harness.reference, 'ArrowLeft');
+    const kept = [keyDown(harness.reference, 'ArrowDown'), keyDown(harness.reference, 'ArrowDown')];
+    harness.setOpen(true);
+
+    await waitFor(() => {
+      expect(harness.activeIndex).toBe(0);
+    });
+    expect([kept.map((event) => event.defaultPrevented), left.defaultPrevented, harness.highlights.length]).toEqual([[true, true], false, 1]);
+
+    const closed = app({ reference: 'input', floatingRole: 'listbox', items: ['a', 'b', 'c'], list: { virtual: true, focusItemOnOpen: false } });
+    closed.reference.focus();
+    closed.popup.setOpen(true, 'none');
+    keyDown(closed.reference, 'ArrowDown');
+    closed.popup.setOpen(false, 'none');
+    closed.popup.setOpen(true, 'none');
+    closed.setOpen(true);
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(closed.highlights).toEqual([]);
+
+    // A typed character after the arrow: Base UI's highlight would be cleared by the typing, so the arrow is not replayed.
+    const typed = app({ reference: 'input', floatingRole: 'listbox', items: ['a', 'b', 'c'], list: { virtual: true, focusItemOnOpen: false } });
+    typed.reference.focus();
+    typed.popup.setOpen(true, 'none');
+    keyDown(typed.reference, 'ArrowDown');
+    keyDown(typed.reference, 'e');
+    typed.setOpen(true);
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(typed.highlights).toEqual([]);
+  });
+
+  it('port: in grid mode a typeable combobox input with no highlight keeps ArrowLeft and ArrowRight for its caret (CMB-KEY-13)', () => {
+    const harness = app({
+      reference: 'input',
+      floatingRole: 'grid',
+      items: ['a', 'b', 'c', 'd'],
+      rowSize: 2,
+      itemAttributes: () => ({ role: 'gridcell' }),
+      session: { open: true },
+      list: { virtual: true, orientation: 'horizontal', grid: true },
+    });
+    harness.reference.focus();
+
+    const released = [keyDown(harness.reference, 'ArrowLeft'), keyDown(harness.reference, 'ArrowRight')];
+
+    expect([released.map((event) => event.defaultPrevented), harness.highlights.length]).toEqual([[false, false], 0]);
+  });
+
   // CMP-STR-06: the reference, trigger and floating roles act through their own handles, the item role through the
   // floating handle's delegated listeners; with `enabled: false` no role acts.
   it('port: the reference, trigger, floating and item roles act through their handles, and with enabled false none acts', async () => {
@@ -2777,5 +2837,48 @@ describe('list navigation inside a shadow root (port)', () => {
     expect(document.activeElement).toBe(option(harness, 3));
     expect(highlighted(option(harness, 3))).toBe(true);
     expect(harness.activeIndex).toBe(3);
+  });
+});
+
+// skipListNavigation (M5 track 12, issue 197; granted by the orchestrator 2026-11-11): a module whose element is a list's
+// reference and owns some keys itself (the menu-filter Input's `edit` keys, MNU-KEY-22) marks a keydown so the list's
+// handles leave it alone: no navigation, no typeahead, no preventDefault.
+describe('skipListNavigation (port)', () => {
+  function descendantOf(element: Element | null): string | null {
+    return element?.getAttribute('aria-activedescendant') ?? null;
+  }
+
+  it('port: a keydown marked by skipListNavigation is neither navigated nor prevented', async () => {
+    const harness = app({ reference: 'input', list: { virtual: true } });
+    harness.reference.focus();
+    keyDown(harness.reference, 'ArrowDown');
+    await waitFor(() => {
+      expect(descendantOf(harness.reference)).toBe(harness.item(0).id);
+    });
+    const mark = (event: Event): void => skipListNavigation(event as KeyboardEvent);
+    harness.reference.addEventListener('keydown', mark, { capture: true });
+
+    const marked = keyDown(harness.reference, 'ArrowDown');
+
+    expect(marked.defaultPrevented).toBe(false);
+    expect(descendantOf(harness.reference)).toBe(harness.item(0).id);
+
+    harness.reference.removeEventListener('keydown', mark, { capture: true });
+    const unmarked = keyDown(harness.reference, 'ArrowDown');
+    expect(unmarked.defaultPrevented).toBe(true);
+    await waitFor(() => {
+      expect(descendantOf(harness.reference)).toBe(harness.item(1).id);
+    });
+  });
+
+  it('port: a marked keydown on the closed reference does not open the list', () => {
+    const harness = app({ reference: 'input', list: { virtual: true } });
+    harness.reference.focus();
+    harness.reference.addEventListener('keydown', (event) => skipListNavigation(event as KeyboardEvent), { capture: true });
+
+    const event = keyDown(harness.reference, 'ArrowDown');
+
+    expect(event.defaultPrevented).toBe(false);
+    expect(harness.floating).toBe(null);
   });
 });

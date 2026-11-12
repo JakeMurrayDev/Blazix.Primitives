@@ -38,6 +38,7 @@ export const moduleKinds: Record<string, ModuleKind> = {
   'context-menu': 'component',
   'navigation-menu': 'component',
   'menu-filter': 'component',
+  combobox: 'component',
   collapsible: 'component',
   // Shared helpers: the twin contract, the event snapshot, the platform flags and the initializer.
   twin: 'shared',

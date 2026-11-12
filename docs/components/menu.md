@@ -832,6 +832,7 @@ State object (`Menu.Clear.State`): `{ disabled: boolean }` → `data-disabled`.
 
 - **MNU-API-67** — MUST. `Menu.useFilter(options?)` is the shared `getFilter` (UTL-I18N-08..13): it returns `{ contains, startsWith, endsWith }` locale-aware predicates for consumer-side filtering, taking `{ locale, ...collatorOptions }`.
   Source: `menu/index.parts.ts:28`. Docs: `components/menu/page.mdx` §useFilter. Test: none in `menu/`.
+  Port note (2026-11-11, M5 track 12, [issue 197](https://github.com/JakeMurrayDev/Blazix.Primitives/issues/197); design point 4, settled by the orchestrator 2026-11-11): Base UI has no test for `useFilter`. The port's `MenuFilter` (`MenuFilter.Create(culture, options)` with `Contains`, `StartsWith` and `EndsWith`) is proven at [L1] by five port titles in `MenuFilterTests`, among them "Contains startsWith and endsWith ignore case marks and punctuation" and "The culture decides the comparison".
 
 ### 3.28 Shared types
 

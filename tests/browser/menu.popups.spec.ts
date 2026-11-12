@@ -493,7 +493,9 @@ test.describe('<Menu.Root /> without a trigger', () => {
           await page.keyboard.press('Escape');
           await expect(page.getByRole('menu')).toHaveCount(0);
           expect(await openChanges(fixture)).toEqual(['false:escape-key']);
-          expect(await handle!.evaluate((element) => element.isConnected)).toBe(keepMounted);
+          // TRN-ANI-03's Server relaxation (transitions-and-mounting.md §4): the module hides the popup at the end of the
+          // exit, and C#'s removal lands about two round trips later, so the role count reaches 0 before the removal.
+          await expect.poll(() => handle!.evaluate((element) => element.isConnected)).toBe(keepMounted);
         });
       }
     });

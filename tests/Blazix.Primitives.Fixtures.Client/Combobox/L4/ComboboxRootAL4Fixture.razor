@@ -1,0 +1,487 @@
+@namespace Blazix.Primitives.Fixtures.Client.ComboboxFixtures
+@using Blazix.Primitives
+@using Blazix.Primitives.Fixtures.Client.PortalFixtures
+@inherits ComboboxL4FixtureBase
+
+@*
+    The `combobox-root-a` fixture (M5 track 10, issue 174): ComboboxRoot.test.tsx, lines 1-3999, ported at L4. The query's `case`
+    picks the Base UI test's rendering. Recorded callbacks render through `Records` (ComboboxL4FixtureBase): `value-changes`,
+    `input-changes`, `highlights` (`value:reason:index`), plus here `open-change-events` (the event type of each open change)
+    and `scroll-to-index`. The query, for every case:
+    - `items` (`|`-separated; absent for none), `gen` (`count|prefix|pad`: the items prefix + the index, zero padded to pad;
+      a `+` is a space), `defaultValue`, `defaultValues` (`,`-separated, with `multiple` on the case), `defaultOpen`, `modal`,
+      `autoHighlight`, `listStyle` (the List's inline style), `static` (the items as a List's direct children), `indexed`
+      (each item's index passed as Base UI's `index={index}`);
+    - `basic` (the default case): the Input beside a Portal > Positioner > Popup > List; `inline` (no popup), `open=true|false`
+      (the root controlled, no handler), `keepMounted`, `virtualized` (an item per filtered item, each with its index);
+    - `ime` and the rest are named in the markup below. Controls carry `data-key-control` (they are never an outside press).
+*@
+<FixtureContainer Name="combobox-root-a" data-attached="@(Attached ? "true" : "false")" data-sync="@Sync"
+                  data-open-changes="@OpenChanges" data-open-change-completes="@OpenChangeCompletes" @attributes="Records">
+    <style>
+        @@keyframes combobox-close-test { to { opacity: 0; } }
+        .animation-test-popup[data-ending-style] { animation: combobox-close-test 10s linear; }
+    </style>
+    @switch (Case)
+    {
+        case "unmount":
+            <ComboboxRoot TValue="string" @ref="root" Open="@EffectiveOpen" OnOpenChange="HandlePopupOpenChange" OnOpenChangeComplete="RecordOpenChangeComplete">
+                <ComboboxInput @ref="input" />
+                <ComboboxPortal>
+                    <ComboboxPositioner style="position: relative; z-index: 1">
+                        <ComboboxPopup>
+                            <ComboboxList TValue="string">
+                                <ComboboxItem TValue="string" Value="@("apple")">Apple</ComboboxItem>
+                            </ComboboxList>
+                        </ComboboxPopup>
+                    </ComboboxPositioner>
+                </ComboboxPortal>
+            </ComboboxRoot>
+            <button type="button" data-unmount data-key-control @onclick="() => root?.Unmount()" @onkeydown="OnShift(() => root?.Unmount())">Unmount</button>
+            <button type="button" data-unmount-twice data-key-control @onclick="UnmountTwice" @onkeydown="OnShift(UnmountTwice)">Unmount twice</button>
+            <button type="button" data-close data-key-control @onclick="CloseRoot" @onkeydown="OnShift(CloseRoot)">Close</button>
+            <button type="button" data-set-open="true" data-key-control @onclick="() => openOverride = true" @onkeydown="OnShift(() => openOverride = true)">Open</button>
+            <button type="button" data-set-open="false" data-key-control @onclick="() => openOverride = false" @onkeydown="OnShift(() => openOverride = false)">Shut</button>
+            <button type="button" data-set-cancel="false" data-key-control @onclick="() => cancelClose = false" @onkeydown="OnShift(() => cancelClose = false)">Stop canceling</button>
+            break;
+
+        case "popup-input":
+            <ComboboxRoot TValue="string" @ref="root" @attributes="RootParameters">
+                <ComboboxTrigger @ref="trigger" data-testid="trigger">
+                    @if (Query("trigger") is { } text)
+                    {
+                        @text
+                    }
+                    else
+                    {
+                        <ComboboxValue TValue="string">
+                            <Placeholder>@Plus(Query("placeholder"))</Placeholder>
+                        </ComboboxValue>
+                    }
+                </ComboboxTrigger>
+                <ComboboxPortal>
+                    <ComboboxPositioner style="position: relative; z-index: 1">
+                        <ComboboxPopup data-testid="popup" aria-label="@Plus(Query("label"))" class="@(QueryFlag("animated") == true ? "animation-test-popup" : null)">
+                            <ComboboxInput data-testid="input" aria-label="@Plus(Query("inputLabel"))" />
+                            @if (QueryFlag("empty") == true)
+                            {
+                                <ComboboxEmpty>No matches</ComboboxEmpty>
+                            }
+                            @ItemList
+                        </ComboboxPopup>
+                    </ComboboxPositioner>
+                </ComboboxPortal>
+            </ComboboxRoot>
+            break;
+
+        case "group":
+            <ComboboxRoot TValue="string" @ref="root" @attributes="RootParameters">
+                <ComboboxInputGroup data-testid="group">
+                    <ComboboxInput @ref="input" data-testid="input" />
+                    <ComboboxTrigger @ref="trigger">Open</ComboboxTrigger>
+                </ComboboxInputGroup>
+                @Popup
+            </ComboboxRoot>
+            break;
+
+        case "wrapper":
+            <ComboboxRoot TValue="string" @ref="root" @attributes="RootParameters">
+                <div style="padding: 10px">
+                    <span data-testid="pad">padding</span>
+                    <ComboboxInput @ref="input" data-testid="input" />
+                    <ComboboxTrigger @ref="trigger">Open</ComboboxTrigger>
+                </div>
+                @Popup
+            </ComboboxRoot>
+            break;
+
+        case "hide-trigger":
+            <div>
+                <button type="button" data-testid="outside">Outside</button>
+                <ComboboxRoot TValue="string" @ref="root" @attributes="RootParameters">
+                    <ComboboxInput @ref="input" data-testid="input" />
+                    <ComboboxTrigger @ref="trigger" data-testid="trigger">Open</ComboboxTrigger>
+                    @Popup
+                </ComboboxRoot>
+            </div>
+            break;
+
+        case "dismiss":
+            <div>
+                <button type="button" data-testid="outside">Outside</button>
+                <ComboboxRoot TValue="string" @ref="root" @attributes="RootParameters">
+                    <ComboboxTrigger @ref="trigger">Open</ComboboxTrigger>
+                    <ComboboxPortal>
+                        <ComboboxPositioner style="position: relative; z-index: 1">
+                            <ComboboxPopup data-testid="popup" aria-label="Demo">
+                                <ComboboxInput data-testid="input" aria-label="Combobox input" />
+                                @ItemList
+                            </ComboboxPopup>
+                        </ComboboxPositioner>
+                    </ComboboxPortal>
+                </ComboboxRoot>
+            </div>
+            break;
+
+        case "portalled":
+            <ComboboxRoot TValue="string" @ref="root" @attributes="RootParameters">
+                <ComboboxTrigger @ref="trigger">Open</ComboboxTrigger>
+                <ComboboxPortal>
+                    <ComboboxPositioner style="position: relative; z-index: 1">
+                        <ComboboxPopup>
+                            <ComboboxInput data-testid="input" />
+                            <ComboboxList TValue="string">
+                                <ComboboxItem TValue="string" Value="@("apple")">Apple</ComboboxItem>
+                            </ComboboxList>
+                            <FixturePortal>
+                                @if (Query("portalled") == "control")
+                                {
+                                    <button type="button">Portalled control</button>
+                                }
+                                else
+                                {
+                                    <div>Portalled content</div>
+                                }
+                            </FixturePortal>
+                        </ComboboxPopup>
+                    </ComboboxPositioner>
+                </ComboboxPortal>
+            </ComboboxRoot>
+            break;
+
+        case "nested-popover":
+            <ComboboxRoot TValue="string" @ref="root" @attributes="RootParameters">
+                <ComboboxTrigger @ref="trigger">Open</ComboboxTrigger>
+                <ComboboxPortal>
+                    <ComboboxPositioner style="position: relative; z-index: 1">
+                        <ComboboxPopup>
+                            <ComboboxInput data-testid="input" />
+                            <ComboboxList TValue="string">
+                                <ComboboxItem TValue="string" Value="@("apple")">Apple</ComboboxItem>
+                            </ComboboxList>
+                            <PopoverRoot TPayload="NoPayload">
+                                <PopoverTrigger TPayload="NoPayload">Open nested popover</PopoverTrigger>
+                                <PopoverPortal>
+                                    <PopoverPositioner style="position: relative; z-index: 2">
+                                        <PopoverPopup>
+                                            <button type="button">Nested focusable content</button>
+                                        </PopoverPopup>
+                                    </PopoverPositioner>
+                                </PopoverPortal>
+                            </PopoverRoot>
+                        </ComboboxPopup>
+                    </ComboboxPositioner>
+                </ComboboxPortal>
+            </ComboboxRoot>
+            break;
+
+        case "modal-wrap":
+            <ComboboxRoot TValue="string" @ref="root" @attributes="RootParameters">
+                <ComboboxTrigger @ref="trigger">Open</ComboboxTrigger>
+                <ComboboxPortal>
+                    <ComboboxPositioner style="position: relative; z-index: 1">
+                        <ComboboxPopup>
+                            <ComboboxInput data-testid="input" />
+                            <button type="button">Extra control</button>
+                            <ComboboxList TValue="string">
+                                <ComboboxItem TValue="string" Value="@("apple")">Apple</ComboboxItem>
+                            </ComboboxList>
+                        </ComboboxPopup>
+                    </ComboboxPositioner>
+                </ComboboxPortal>
+            </ComboboxRoot>
+            break;
+
+        case "inline-virtualized":
+            <ComboboxRoot TValue="string" @ref="root" @attributes="RootParameters" Inline="true" Open="true" Virtualized="true">
+                <ComboboxInput @ref="input" data-testid="input" />
+                @ItemList
+            </ComboboxRoot>
+            break;
+
+        case "external-virtualized":
+            <ComboboxRoot TValue="string" @ref="root" @attributes="RootParameters" Virtualized="true" OnItemHighlighted="HandleWindowHighlight" OnInputValueChange="HandleWindowInput">
+                <ComboboxTrigger @ref="trigger" data-testid="trigger">
+                    <ComboboxValue TValue="string" />
+                </ComboboxTrigger>
+                <ComboboxPortal>
+                    <ComboboxPositioner style="position: relative; z-index: 1">
+                        <ComboboxPopup>
+                            <ComboboxInput data-testid="input" />
+                            <ComboboxList TValue="string">
+                                <ItemContent>
+                                    @if (context.Index >= windowStart && context.Index < windowStart + 10)
+                                    {
+                                        <ComboboxItem TValue="string" Value="@context.Value" Index="@context.Index" @key="context.Value">@context.Value</ComboboxItem>
+                                    }
+                                </ItemContent>
+                            </ComboboxList>
+                        </ComboboxPopup>
+                    </ComboboxPositioner>
+                </ComboboxPortal>
+            </ComboboxRoot>
+            break;
+
+        case "multi-popup":
+            <ComboboxRoot TValue="string" @ref="root" @attributes="RootParameters" Multiple="true">
+                <ComboboxTrigger @ref="trigger" data-testid="trigger">Open</ComboboxTrigger>
+                <ComboboxPortal>
+                    <ComboboxPositioner style="position: relative; z-index: 1">
+                        <ComboboxPopup>
+                            <ComboboxInput data-testid="input" />
+                            @ItemList
+                        </ComboboxPopup>
+                    </ComboboxPositioner>
+                </ComboboxPortal>
+            </ComboboxRoot>
+            break;
+
+        case "multi-controlled":
+            <ComboboxRoot TValue="string" @ref="root" @attributes="RootParameters" Multiple="true" Values="@values" OnValuesChange="HandleControlledValues">
+                <ComboboxInput @ref="input" data-testid="input" />
+                <button type="button" data-testid="clear" data-key-control @onclick="ClearValues" @onkeydown="OnShift(ClearValues)">Clear</button>
+                @Popup
+            </ComboboxRoot>
+            break;
+
+        case "basic":
+        default:
+            if (QueryFlag("inline") == true)
+            {
+                <ComboboxRoot TValue="string" @ref="root" @attributes="RootParameters" Inline="true">
+                    <ComboboxInput @ref="input" data-testid="input" />
+                    @ItemList
+                </ComboboxRoot>
+            }
+            else
+            {
+                <ComboboxRoot TValue="string" @ref="root" @attributes="RootParameters">
+                    <ComboboxInput @ref="input" data-testid="input" />
+                    @Popup
+                </ComboboxRoot>
+            }
+            break;
+    }
+    @SyncButton
+</FixtureContainer>
+
+@code {
+    private readonly Dictionary<string, object?> rootParameters = [];
+    private IReadOnlyList<string> allItems = [];
+    private ComboboxRoot<string>? root;
+    private ComboboxInput? input;
+    private ComboboxTrigger? trigger;
+    private bool open;
+    private bool? openOverride;
+    private bool cancelClose;
+    private int windowStart;
+    private IReadOnlyList<string> values = [];
+
+    private IReadOnlyDictionary<string, object?> RootParameters => rootParameters;
+
+    private bool EffectiveOpen => openOverride ?? open;
+
+    protected override IEnumerable<Task> Attachments =>
+        [root?.SessionAttached ?? Task.CompletedTask, input?.TwinAttached ?? Task.CompletedTask, trigger?.TwinAttached ?? Task.CompletedTask];
+
+    // Base UI's static list: the items as the List's direct children (no `items` on the root).
+    private RenderFragment ItemList => builder =>
+    {
+        bool indexed = QueryFlag("indexed") == true || Case is "inline-virtualized";
+        string? style = Plus(Query("listStyle"));
+        builder.OpenComponent<ComboboxList<string>>(0);
+        builder.AddAttribute(1, "data-testid", "list");
+        if (style is not null)
+        {
+            builder.AddAttribute(2, "style", style);
+        }
+
+        if (QueryFlag("static") == true)
+        {
+            builder.AddAttribute(3, "ChildContent", (RenderFragment)(inner =>
+            {
+                foreach (string item in new[] { "apple", "banana", "cherry" })
+                {
+                    inner.OpenComponent<ComboboxItem<string>>(0);
+                    inner.AddComponentParameter(1, "Value", item);
+                    inner.AddComponentParameter(2, "ChildContent", (RenderFragment)(content => content.AddContent(0, item)));
+                    inner.SetKey(item);
+                    inner.CloseComponent();
+                }
+            }));
+        }
+        else
+        {
+            builder.AddAttribute(3, "ItemContent", (RenderFragment<ComboboxListItem<string>>)(context => inner =>
+            {
+                inner.OpenComponent<ComboboxItem<string>>(0);
+                inner.AddComponentParameter(1, "Value", context.Value);
+                if (indexed)
+                {
+                    inner.AddComponentParameter(2, "Index", (int?)context.Index);
+                }
+
+                inner.AddComponentParameter(3, "ChildContent", (RenderFragment)(content => content.AddContent(0, context.Value)));
+                inner.SetKey(context.Value);
+                inner.CloseComponent();
+            }));
+        }
+
+        builder.CloseComponent();
+    };
+
+    private RenderFragment Popup => @<ComboboxPortal KeepMounted="@(QueryFlag("keepMounted") == true)">
+        <ComboboxPositioner style="position: relative; z-index: 1">
+            <ComboboxPopup data-testid="popup">
+                @ItemList
+            </ComboboxPopup>
+        </ComboboxPositioner>
+    </ComboboxPortal>;
+
+    protected override void OnInitialized()
+    {
+        allItems = BuildItems();
+        if (allItems.Count > 0)
+        {
+            rootParameters["Items"] = allItems;
+        }
+
+        rootParameters["OnOpenChange"] = EventCallback.Factory.Create<ValueChangeEventArgs<bool>>(this, HandleOpenChange);
+        rootParameters["OnOpenChangeComplete"] = EventCallback.Factory.Create<bool>(this, RecordOpenChangeComplete);
+        rootParameters["OnInputValueChange"] = EventCallback.Factory.Create<ValueChangeEventArgs<string>>(this, RecordInputChange);
+        rootParameters["OnItemHighlighted"] = EventCallback.Factory.Create<ComboboxItemHighlightedEventArgs<string>>(this, RecordHighlight);
+        if (Case is "multi-popup" or "multi-controlled")
+        {
+            rootParameters["OnValuesChange"] = EventCallback.Factory.Create<ValueChangeEventArgs<IReadOnlyList<string>>>(this, RecordValuesChange);
+            if (Query("defaultValues") is { } defaults)
+            {
+                IReadOnlyList<string> list = defaults.Split(',').Select(item => item.Replace('+', ' ')).ToArray();
+                if (Case == "multi-controlled")
+                {
+                    values = list;
+                }
+                else
+                {
+                    rootParameters["DefaultValues"] = list;
+                }
+            }
+        }
+        else
+        {
+            rootParameters["OnValueChange"] = EventCallback.Factory.Create<ValueChangeEventArgs<string>>(this, RecordValueChange);
+            if (Query("defaultValue") is { } value)
+            {
+                rootParameters["DefaultValue"] = value;
+            }
+        }
+
+        Flag("autoHighlight", "AutoHighlight");
+        Flag("modal", "Modal");
+        if (Case == "unmount")
+        {
+            open = QueryFlag("defaultOpen") == true;
+            cancelClose = QueryFlag("cancelFirst") == true;
+            rootParameters.Remove("OnOpenChange");
+            rootParameters.Remove("OnOpenChangeComplete");
+            return;
+        }
+
+        Flag("defaultOpen", "DefaultOpen");
+        if (QueryFlag("open") is { } controlled && Case is "basic" or "default")
+        {
+            rootParameters["Open"] = controlled;
+        }
+
+        if (Case == "external-virtualized")
+        {
+            windowStart = 80;
+            rootParameters.Remove("OnItemHighlighted");
+            rootParameters.Remove("OnInputValueChange");
+        }
+    }
+
+    private IReadOnlyList<string> BuildItems()
+    {
+        if (Query("gen") is { } gen)
+        {
+            string[] parts = gen.Split('|');
+            int count = int.Parse(parts[0], System.Globalization.CultureInfo.InvariantCulture);
+            string prefix = Plus(parts.Length > 1 ? parts[1] : "") ?? "";
+            int pad = parts.Length > 2 ? int.Parse(parts[2], System.Globalization.CultureInfo.InvariantCulture) : 0;
+            return Enumerable.Range(0, count).Select(index => prefix + index.ToString(System.Globalization.CultureInfo.InvariantCulture).PadLeft(pad, '0')).ToArray();
+        }
+
+        return Query("items") is { } list ? list.Split('|').Select(item => item.Replace('+', ' ')).ToArray() : [];
+    }
+
+    private void Flag(string query, string parameter)
+    {
+        if (QueryFlag(query) == true)
+        {
+            rootParameters[parameter] = true;
+        }
+    }
+
+    // URLSearchParams writes a space as `+`, which the base class's query parser leaves alone.
+    private static string? Plus(string? text) => text?.Replace('+', ' ');
+
+    // Records the change and its event type; the manual-unmount cases (`Popup` of ComboboxRoot.test.tsx) opt out or cancel.
+    private void HandleOpenChange(ValueChangeEventArgs<bool> args)
+    {
+        RecordOpenChange(args);
+        Record("open-change-events", args.Details.Event.Type == EventSnapshot.PlaceholderType ? "none" : args.Details.Event.Type);
+    }
+
+    private void HandlePopupOpenChange(ValueChangeEventArgs<bool> args)
+    {
+        HandleOpenChange(args);
+        if (!args.Value && cancelClose && args.Details is OpenChangeEventDetails details)
+        {
+            details.PreventUnmountOnClose();
+            details.Cancel();
+        }
+
+        if (!args.Details.IsCanceled)
+        {
+            open = args.Value;
+        }
+    }
+
+    private Task CloseRoot() => root!.CloseAsync();
+
+    private void UnmountTwice()
+    {
+        root!.Unmount();
+        root.Unmount();
+    }
+
+    // The consumer's write comes before the record, which renders the fixture: a render inside the handler that still carried the
+    // previous values would be the consumer's answer.
+    private void HandleControlledValues(ValueChangeEventArgs<IReadOnlyList<string>> args)
+    {
+        values = args.Value ?? [];
+        RecordValuesChange(args);
+    }
+
+    private void ClearValues() => values = [];
+
+    // ComboboxRoot.test.tsx's externally virtualized list: a consumer window of ten items that follows the highlight.
+    private void HandleWindowHighlight(ComboboxItemHighlightedEventArgs<string> args)
+    {
+        RecordHighlight(args);
+        if (args.Value is not null)
+        {
+            Record("scroll-to-index", args.Details.Index.ToString(System.Globalization.CultureInfo.InvariantCulture));
+            windowStart = args.Details.Index;
+        }
+    }
+
+    private void HandleWindowInput(ValueChangeEventArgs<string> args)
+    {
+        RecordInputChange(args);
+        if (!string.IsNullOrEmpty(args.Value))
+        {
+            windowStart = 0;
+        }
+    }
+}

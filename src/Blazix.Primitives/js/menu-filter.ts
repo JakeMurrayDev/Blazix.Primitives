@@ -12,7 +12,8 @@
 // It imports `composite`'s exported predicates and reads the session through `interactions`' exports; it edits neither.
 // Interface commit: the option and report names; every acting body throws until its red-first commit.
 
-import { isCrossOrientationCloseKey, isCrossOrientationOpenKey, isMainOrientationKey } from './composite';
+import { dispatchClickWithModifiers } from './button';
+import { isCrossOrientationCloseKey, isCrossOrientationOpenKey, isMainOrientationKey, skipListNavigation } from './composite';
 import { eventInfo } from './event-info';
 import { platform } from './platform';
 import {
@@ -248,6 +249,53 @@ function attachInput(input: HTMLInputElement, initial: MenuFilterOptions, channe
     keyboardModality = true;
     syncHighlighted();
   };
+  // KEY-22, KEY-25, KEY-26, KEY-29, KEY-30 (useMenuFilterKeyDown.ts:103-192): the router. A key the table gives to the
+  // input (`edit`) or to no one (`ignore`) is marked before composite's reference handle runs, so it moves the caret, not
+  // the highlight; an `activate` key clicks the highlighted item, a `submenu` key is dispatched on it, and `close` reports
+  // a focus-out. `enter-list` follows with highlightListEdge.
+  const onKeyDownCapture = (event: KeyboardEvent): void => {
+    if (options.open !== true) {
+      return;
+    }
+    const activeId = input.getAttribute('aria-activedescendant');
+    const activeItem = activeId ? input.ownerDocument.getElementById(activeId) : null;
+    const action = getMenuFilterKeyAction(event, {
+      orientation: options.orientation ?? 'vertical',
+      rtl: options.rtl === true,
+      hasActiveItem: activeItem !== null,
+      activeItemOpensSubmenu: activeItem?.hasAttribute('aria-haspopup') ?? false,
+      hasValue: input.value !== '',
+    });
+    switch (action) {
+      case 'edit':
+      case 'ignore':
+        skipListNavigation(event);
+        break;
+      // KEY-25 (:173-176): Enter on a highlighted item clicks it, with the key's modifiers.
+      case 'activate':
+        skipListNavigation(event);
+        event.preventDefault();
+        dispatchClickWithModifiers(activeItem!, event);
+        break;
+      // KEY-29 (:161-169): the highlighted submenu trigger's own handlers decide, since opening depends on the item and on
+      // both menus' orientations, so the key is dispatched on it.
+      case 'submenu': {
+        skipListNavigation(event);
+        event.preventDefault();
+        const KeyboardEventConstructor = input.ownerDocument.defaultView?.KeyboardEvent ?? KeyboardEvent;
+        activeItem!.dispatchEvent(new KeyboardEventConstructor(event.type, event));
+        break;
+      }
+      // KEY-26 (:179-192): Shift+Tab closes with focus-out; C# requests the close and the focus manager returns focus.
+      case 'close':
+        skipListNavigation(event);
+        event.preventDefault();
+        channel.report('OnFocusOut', { event: eventInfo(event) });
+        break;
+      default:
+        break;
+    }
+  };
   const onPointer = (): void => {
     keyboardModality = false;
     syncHighlighted();
@@ -264,6 +312,7 @@ function attachInput(input: HTMLInputElement, initial: MenuFilterOptions, channe
   input.addEventListener('compositionend', onCompositionEnd);
   input.addEventListener('focus', onFocus);
   input.addEventListener('blur', onBlur);
+  input.addEventListener('keydown', onKeyDownCapture, true);
   input.addEventListener('keydown', onKeyDown);
   input.addEventListener('pointerdown', onPointer);
   input.addEventListener('mouseenter', onPointer);
@@ -295,6 +344,7 @@ function attachInput(input: HTMLInputElement, initial: MenuFilterOptions, channe
       input.removeEventListener('compositionend', onCompositionEnd);
       input.removeEventListener('focus', onFocus);
       input.removeEventListener('blur', onBlur);
+      input.removeEventListener('keydown', onKeyDownCapture, true);
       input.removeEventListener('keydown', onKeyDown);
       input.removeEventListener('pointerdown', onPointer);
       input.removeEventListener('mouseenter', onPointer);

@@ -710,6 +710,11 @@ interface SessionRecord extends InteractionSession {
   closeInFlight: object | null;
   /** A press's open event recorded on its request, with the one it replaced, until C# commits or cancels the request. */
   optimisticOpenEvent: { request: PendingRequest; previous: Event | undefined } | null;
+  /**
+   * The request of a press that opens the closed popup, until C# answers it (ADR 04 Amendments 2026-11-11): while it is
+   * the pending request, the popup counts as open for Escape dismissal (`isOpenForDismissal`).
+   */
+  pressOpen: PendingRequest | null;
   /** The element the next relayed `focus-out` close without a trigger names (`nameRelayTrigger`). */
   namedTrigger: Element | null;
   triggers: Map<string, Element>;
@@ -808,6 +813,7 @@ function createSessionRecord(token: string): SessionRecord {
     pending: null,
     closeInFlight: null,
     optimisticOpenEvent: null,
+    pressOpen: null,
     namedTrigger: null,
     triggers,
     channel: null,
@@ -1030,6 +1036,7 @@ function applySessionOptions(record: SessionRecord, options: InteractionsOptions
       }
       record.pending = null;
       record.optimisticOpenEvent = null;
+      record.pressOpen = null;
       syncOpenEvent(record, open, event);
       const details: SessionOpenChangeDetails = {
         open,
@@ -1062,6 +1069,8 @@ function applySessionOptions(record: SessionRecord, options: InteractionsOptions
     record.answered = answered;
     // A canceled close moves no revision: the name it was given does not wait for a later close.
     record.namedTrigger = null;
+    // ADR 04 Amendments 2026-11-11: C# answers a press it declined (canceled or vetoed), which stops counting as open.
+    record.pressOpen = null;
     rollBackOptimisticOpenEvent(record);
     rearmDismiss(record);
   }
@@ -1387,6 +1396,8 @@ interface DismissState {
   // ContextMenu's outside-press grace (M5 track 2).
   /** Runs while an open's outside-press grace lasts. */
   graceTimeout: Timer;
+  /** Re-runs the session handle's listener effect when a press-requested open starts or ends; `null` without one. */
+  resync: (() => void) | null;
 }
 
 /** Re-arms a session that requested a close: C# answered a request (canceled ones included). */
@@ -1395,6 +1406,34 @@ function rearmDismiss(record: SessionRecord): void {
   if (state !== undefined) {
     state.disarmed = false;
   }
+}
+
+// ADR 04 Amendments 2026-11-11 (menu.others.spec.ts:205 on Server, PR 233's run 42954678792; option (b), settled by the
+// orchestrator 2026-11-11): Base UI's popup is open from its press's commit, inside the press. On Server the commit reaches
+// the session a round trip after the popup renders, and an Escape in between found the nested popup closed, so its parent
+// closed. A press that opens the closed popup counts as open for Escape dismissal from its request until C# answers it:
+// committed (the relay), or canceled or vetoed (the answered counter, which a declined press moves, (b1)). Outside presses
+// keep the committed state, so the opening press can never count as outside its own popup.
+/**
+ * Whether a session counts as open for Escape dismissal: it is open, or a press's request to open it awaits C#.
+ * @param record The session.
+ * @returns `true` while open or while the press-requested open is the pending request.
+ */
+function isOpenForDismissal(record: SessionRecord): boolean {
+  return record.open || (record.pressOpen !== null && record.pending === record.pressOpen);
+}
+
+/**
+ * Starts or ends a press-requested open, and re-runs the session's listener effect.
+ * @param record The session.
+ * @param request The press's request, or `null` to end it.
+ */
+function setPressOpen(record: SessionRecord, request: PendingRequest | null): void {
+  if (record.pressOpen === request) {
+    return;
+  }
+  record.pressOpen = request;
+  (record.slots.get('dismiss') as DismissState | undefined)?.resync?.();
 }
 
 function dismissState(record: SessionRecord): DismissState {
@@ -1410,6 +1449,7 @@ function dismissState(record: SessionRecord): DismissState {
     touchState: null,
     disarmed: false,
     graceTimeout: createTimer(),
+    resync: null,
     cancelDismissOnEndTimeout: createTimer(),
     clearInsideReactTreeTimeout: createTimer(),
     compositionTimeout: createTimer(),
@@ -1482,14 +1522,32 @@ const nodesAtKeydownStart = new WeakMap<Event, readonly SessionNode[]>();
 function recordNodesAtKeydownStart(record: SessionRecord, event: KeyboardEvent): readonly SessionNode[] {
   let nodes = nodesAtKeydownStart.get(event);
   if (nodes === undefined) {
-    nodes = record.tree.nodesRef.current.map((node): SessionNode => {
+    // ADR 04 Amendments 2026-11-11: a nested popup whose press-requested open awaits C# blocks its parent's Escape. A
+    // kept-mounted popup is a node while closed, and its press-requested open counts as open.
+    const recorded = record.tree.nodesRef.current.map((node): SessionNode => {
       const context = node.context;
+      const session = node.id === undefined ? undefined : sessions.get(node.id);
+      const open = context !== undefined && (context.open || (session !== undefined && isOpenForDismissal(session)));
       return {
         id: node.id,
         parentId: node.parentId,
-        context: context === undefined ? undefined : { open: context.open, dataRef: { current: { ...context.dataRef?.current } } } as SessionNode['context'],
+        context: context === undefined ? undefined : { open, dataRef: { current: { ...context.dataRef?.current } } } as SessionNode['context'],
       };
     });
+    // A popup's node joins the forest with its floating element's handle, which on Server attaches a round trip or more
+    // after the open's render, later than the session's own update (menu.others.spec.ts:205: the dialog's session was open
+    // at the Escape, its node not yet in the forest). Until then an open session, or a press-requested open, is recorded
+    // from its session, under the parent token its root sent; Base UI's popup is a node from its render.
+    for (const session of sessions.values()) {
+      if (session.parentToken !== null && isOpenForDismissal(session) && !(session.hasNode && session.floatingElement !== null)) {
+        recorded.push({
+          id: session.token,
+          parentId: session.parentToken,
+          context: { open: true, dataRef: { current: { ...session.dataRef.current } } } as SessionNode['context'],
+        });
+      }
+    }
+    nodes = recorded;
     nodesAtKeydownStart.set(event, nodes);
   }
   return nodes;
@@ -1519,7 +1577,7 @@ function closeOnEscapeKeyDown(record: SessionRecord, event: KeyboardEvent): void
   const nodesAtStart = recordNodesAtKeydownStart(record, event);
   const state = dismissState(record);
   const options = state.options;
-  if (!record.open || options === null || options.escapeKey === false) {
+  if (!isOpenForDismissal(record) || options === null || options.escapeKey === false) {
     return;
   }
   const handled = (event as EscapeMarkedEvent)[escapeHandled];
@@ -1700,9 +1758,10 @@ function createSessionDismissController(context: HandleContext): Controller {
 
   // useDismiss.ts:297-753: Base UI's effect, re-run when one of its inputs changes.
   const install = (options: DismissOptions | null): Cleanup => {
-    if (!record.open || options === null) {
+    // ADR 04 Amendments 2026-11-11: a press-requested open installs the Escape listeners, not the outside-press ones.
+    if (!isOpenForDismissal(record) || options === null) {
       // Reset in the effect body, not the cleanup, which also runs when a dependency changes mid-gesture.
-      if (!record.open) {
+      if (!isOpenForDismissal(record)) {
         state.sawPressWhileOpen = false;
         state.isComposing = false;
         state.currentPointerType = '';
@@ -2031,6 +2090,7 @@ function createSessionDismissController(context: HandleContext): Controller {
           listen(doc, 'compositionend', handleCompositionEnd),
         ),
       options.outsidePress !== false &&
+        record.open &&
         mergeCleanups(
           listen(doc, 'click', closeOnPressOutsideCapture, true),
           listen(doc, 'pointerdown', closeOnPressOutsideCapture, true),
@@ -2058,7 +2118,7 @@ function createSessionDismissController(context: HandleContext): Controller {
     state.owner = context;
     const bubbles = normalizeBubbles({ escapeKey: options?.bubblesEscapeKey, outsidePress: options?.bubblesOutsidePress });
     // The effect's inputs that can change here (useDismiss.ts:754-773); the stable callbacks read `state.options`.
-    const key = [record.open, options !== null, options?.escapeKey !== false, options?.outsidePress !== false, bubbles.escapeKey, bubbles.outsidePress].join();
+    const key = [record.open, isOpenForDismissal(record), options !== null, options?.escapeKey !== false, options?.outsidePress !== false, bubbles.escapeKey, bubbles.outsidePress].join();
     if (key === effectKey) {
       return;
     }
@@ -2068,12 +2128,16 @@ function createSessionDismissController(context: HandleContext): Controller {
   };
 
   record.events.on('openchange', onOpenChange);
+  state.resync = sync;
   sync();
 
   return {
     update: sync,
     dispose() {
       record.events.off('openchange', onOpenChange);
+      if (state.resync === sync) {
+        state.resync = null;
+      }
       effectCleanup?.();
       effectCleanup = null;
       effectKey = null;
@@ -2283,9 +2347,15 @@ function createClickController(context: HandleContext): Controller {
     if (nextOpen) {
       recordOptimisticOpenEvent(record, request);
     }
+    // ADR 04 Amendments 2026-11-11: before the call, which WebAssembly answers inside.
+    if (nextOpen && !record.open) {
+      setPressOpen(record, request);
+    }
     if (channel.synchronous) {
       twinReference.invokeMethod<void>('OnPressing', JSON.stringify(payload));
       decide(channel, PRESS_POINT, event, 'run');
+      // C# ran the press inside the decision: committed (the commit-path update ended the count) or not.
+      setPressOpen(record, null);
       return;
     }
     decide(channel, PRESS_POINT, event, 'run');

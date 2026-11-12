@@ -3,8 +3,13 @@
 // getMenuFilterKeyAction (MNU-KEY-22, KEY-30 re-tagged to L3 with "(L4 for …)" for the rest).
 
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { resetFocusManagerState } from './focus-manager';
+import { resetInteractionsForTest } from './interactions';
+
 import { attach, getMenuFilterKeyAction, type MenuFilterKey, type MenuFilterKeyAction, type MenuFilterOptions } from './menu-filter';
 import { createFakeTwin, type FakeTwin } from './test-support/fake-twin';
+import { createListHarness, type ListHarness } from './test-support/list-harness';
+import { resetFrameScheduler } from './transitions';
 import type { TwinHandle } from './twin';
 
 interface ValueChange {
@@ -258,6 +263,89 @@ describe('the List handle', () => {
       { ids: ['a'], texts: ['Rename'] },
       { ids: ['c'], texts: ['Pin'] },
     ]);
+  });
+});
+
+// The key router (MNU-KEY-22, KEY-30; useMenuFilterKeyDown.ts:103-170): the Input is the list's reference under virtual
+// focus, and the module keeps `composite`'s list navigation out of the keys getMenuFilterKeyAction gives to the input.
+describe('the key router', () => {
+  const harnesses: ListHarness[] = [];
+  const handles: TwinHandle[] = [];
+
+  afterEach(() => {
+    handles.splice(0).forEach((handle) => handle.dispose());
+    harnesses.splice(0).forEach((harness) => harness.dispose());
+    resetInteractionsForTest();
+    resetFocusManagerState();
+    resetFrameScheduler();
+    document.body.replaceChildren();
+  });
+
+  function keyDown(target: EventTarget, key: string, init: KeyboardEventInit = {}): KeyboardEvent {
+    const event = new KeyboardEvent('keydown', { key, bubbles: true, cancelable: true, composed: true, ...init });
+    target.dispatchEvent(event);
+    return event;
+  }
+
+  // An open filterable menu: the harness's input reference under virtual focus, with the menu-filter Input handle on it.
+  async function openFilterMenu(itemAttributes?: (index: number, label: string) => Record<string, string>): Promise<{ harness: ListHarness; input: HTMLInputElement; fake: FakeTwin }> {
+    const harness = createListHarness({ reference: 'input', list: { virtual: true }, ...(itemAttributes ? { itemAttributes } : {}) });
+    harnesses.push(harness);
+    const input = harness.reference as HTMLInputElement;
+    const fake = createFakeTwin();
+    handles.push(attach(input, JSON.stringify({ part: 'input', menuKey: 'menu-1', open: true, orientation: 'vertical' }), fake.twin));
+    input.focus();
+    keyDown(input, 'ArrowDown');
+    await vi.waitFor(() => expect(input.getAttribute('aria-activedescendant')).toBe(harness.item(0).id), { timeout: 1000, interval: 5 });
+    return { harness, input, fake };
+  }
+
+  // KEY-22's "leaves modified editing keys to the input while an item is highlighted": a modified main-axis arrow is an
+  // `edit` key (text selection), which `composite`'s reference handle would take as navigation.
+  it.each(['ArrowDown', 'ArrowUp'])('port: Shift+%s in the input selects text instead of moving the highlight', async (key) => {
+    const { harness, input } = await openFilterMenu();
+    input.value = 'on';
+
+    const event = keyDown(input, key, { shiftKey: true });
+
+    expect(event.defaultPrevented).toBe(false);
+    expect(input.getAttribute('aria-activedescendant')).toBe(harness.item(0).id);
+  });
+
+  // KEY-25 (useMenuFilterKeyDown.ts:173-176): Enter on a highlighted item clicks it, with the key's modifiers.
+  it('port: Enter on a highlighted item clicks it', async () => {
+    const { harness, input } = await openFilterMenu();
+    const clicks: MouseEvent[] = [];
+    harness.item(0).addEventListener('click', (event) => clicks.push(event));
+
+    const event = keyDown(input, 'Enter', { ctrlKey: true });
+
+    expect(event.defaultPrevented).toBe(true);
+    expect(clicks).toHaveLength(1);
+    expect(clicks[0]?.ctrlKey).toBe(true);
+  });
+
+  // KEY-29 (useMenuFilterKeyDown.ts:161-169): the cross-axis key on a highlighted submenu trigger is the trigger's own.
+  it('port: the cross-axis key on a highlighted submenu trigger is dispatched on the trigger', async () => {
+    const { harness, input } = await openFilterMenu((index) => (index === 0 ? { 'aria-haspopup': 'menu' } : {}));
+    input.value = 'on';
+    const keys: string[] = [];
+    harness.item(0).addEventListener('keydown', (event) => keys.push(event.key));
+
+    keyDown(input, 'ArrowRight');
+
+    expect(keys).toEqual(['ArrowRight']);
+    expect(input.getAttribute('aria-activedescendant')).toBe(harness.item(0).id);
+  });
+
+  // KEY-26 (useMenuFilterKeyDown.ts:179-192): Shift+Tab in the input asks C# to close with focus-out.
+  it('port: Shift+Tab in the input reports a focus-out close', async () => {
+    const { input, fake } = await openFilterMenu();
+
+    const event = keyDown(input, 'Tab', { shiftKey: true });
+
+    expect(event.defaultPrevented).toBe(true);
+    expect(fake.reported('OnFocusOut')).toHaveLength(1);
   });
 });
 

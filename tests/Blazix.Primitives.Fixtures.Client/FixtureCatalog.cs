@@ -8,6 +8,7 @@ using Blazix.Primitives.Fixtures.Client.CheckboxFixtures;
 using Blazix.Primitives.Fixtures.Client.CheckboxGroupFixtures;
 using Blazix.Primitives.Fixtures.Client.ContextMenuFixtures;
 using Blazix.Primitives.Fixtures.Client.CollapsibleFixtures;
+using Blazix.Primitives.Fixtures.Client.ComboboxFixtures;
 using Blazix.Primitives.Fixtures.Client.CompositeFixtures;
 using Blazix.Primitives.Fixtures.Client.DialogFixtures;
 using Blazix.Primitives.Fixtures.Client.FieldFixtures;
@@ -315,5 +316,32 @@ public static class FixtureCatalog
         ["select-use-label"] = new(typeof(SelectUseLabelFixture)),
         ["field-select-prerender"] = new(typeof(FieldSelectPrerenderFixture), Prerender: true),
         // select-others fixtures above this line (M5 track 9, final review B2)
+        // M5 track 10 (issue 174): Combobox.
+        ["combobox-root"] = new(typeof(ComboboxRootFixture)),
+        // M5 track 10 (issue 174), the Base UI titles of Combobox's [L4] rows (session M2): one block per spec file.
+        // combobox.input.spec.ts
+        ["combobox-input"] = new(typeof(ComboboxInputL4Fixture)),
+        // combobox.trigger.spec.ts
+        ["combobox-trigger"] = new(typeof(ComboboxTriggerL4Fixture)),
+        // combobox.chips.spec.ts
+        ["combobox-chips"] = new(typeof(ComboboxChipsL4Fixture)),
+        // combobox.parts.spec.ts
+        ["combobox-parts"] = new(typeof(ComboboxPartsL4Fixture)),
+        // combobox.root-a.spec.ts
+        ["combobox-root-a"] = new(typeof(ComboboxRootAL4Fixture)),
+        // combobox.root-b.spec.ts
+        ["combobox-root-b"] = new(typeof(ComboboxRootBL4Fixture)),
+        // combobox.root-c.spec.ts
+        ["combobox-root-c"] = new(typeof(ComboboxRootCL4Fixture)),
+        // combobox.root-d.spec.ts
+        ["combobox-root-d"] = new(typeof(ComboboxRootDL4Fixture)),
+        // combobox.suites.spec.ts
+        ["combobox-suite"] = new(typeof(ComboboxSuiteL4Fixture)),
+        ["combobox-suite-list"] = new(typeof(ComboboxSuiteListL4Fixture)),
+        ["combobox-suite-positioner"] = new(typeof(ComboboxSuitePositionerL4Fixture)),
+        // combobox.live-regions.spec.ts, combobox.form.spec.ts (session S's batch for track 10)
+        ["combobox-live-regions"] = new(typeof(ComboboxLiveRegionsL4Fixture)),
+        ["combobox-form"] = new(typeof(ComboboxFormL4Fixture)),
+        ["combobox-virtualize"] = new(typeof(ComboboxVirtualizeL4Fixture)),
     };
 }

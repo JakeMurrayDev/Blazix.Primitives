@@ -1,0 +1,446 @@
+@namespace Blazix.Primitives.Fixtures.Client.ComboboxFixtures
+@using Blazix.Primitives
+@using Microsoft.AspNetCore.Components.Web
+@inherits ComboboxL4FixtureBase
+
+@*
+    The `combobox-root-b` fixture (M5 track 10, issue 174): ComboboxRoot.test.tsx, lines 4000-9999, ported at L4. The query's `case` picks the Base UI
+    test's rendering; recorded callbacks render through `Records` (ComboboxL4FixtureBase): `value-changes`, `input-changes`, `highlights`
+    (`value:reason:index`), plus here `input-item-presses` (the `IsItemPress` of each input change), `outer-escapes` (an Escape keydown that reached the
+    wrapping div), `submits` (the form's submit). The query, for every case:
+    - `items` (`|`-separated; absent for none; `emptyItems` for an empty list), `multiple` with `defaultValues` (`,`-separated), `defaultValue`, `defaultOpen`,
+      `autoHighlight`, `modal`, `readOnly`, `disabled`, `openOnInputClick` (`false`), `cancelItemPress` (the input handler cancels an item press's change);
+    - `basic` (the default case): the Input (outside the popup, or in it with `popupInput`), a Trigger with `trigger` (its text is the root's ComboboxValue with
+      `triggerValue`), a Portal > Positioner > Popup > List (the `items` as the root's, or `static` children), `empty` (a ComboboxEmpty), `animated` (the popup's
+      class), `inline` (no popup), `outer` (a wrapping div that records Escape), `form` (a form around the root with a submit button), `listStyle`,
+      `itemStyle`, `positionerWidth` (`full` or a length), `viewport` (`scroll`, `clip`: the wrappers of the scroll-reset titles);
+    - `grid`: `rows` (rows `|`-separated, items `,`-separated, an item `value~label`), `groups`, `rtl`;
+    - `chips`: a Chips with a chip per selected value (a ChipRemove each) and the Input in it, then the popup;
+    - `manual`, `reorder`, `dialog-inline`, `dialog-portal`: the scroll-reset titles' own renderings.
+    Controls carry `data-key-control` (they are never an outside press).
+*@
+<FixtureContainer Name="combobox-root-b" data-attached="@(Attached ? "true" : "false")" data-sync="@Sync"
+                  data-open-changes="@OpenChanges" data-open-change-completes="@OpenChangeCompletes" @attributes="Records">
+    <style>
+        @@keyframes combobox-close-test { to { opacity: 0; } }
+        .animation-test-popup[data-ending-style] { animation: combobox-close-test 10s linear; }
+    </style>
+    @Wrapped(Body)
+    @SyncButton
+</FixtureContainer>
+
+@code {
+    private readonly Dictionary<string, object?> rootParameters = [];
+    private IReadOnlyList<string> allItems = [];
+    private ComboboxRoot<string>? root;
+    private ComboboxInput? input;
+    private ComboboxTrigger? trigger;
+    private string inputValue = "";
+    private string[][] rows = [];
+    private bool multiple;
+
+    protected override IEnumerable<Task> Attachments =>
+        [root?.SessionAttached ?? Task.CompletedTask, input?.TwinAttached ?? Task.CompletedTask, trigger?.TwinAttached ?? Task.CompletedTask];
+
+    // URLSearchParams writes a space as `+`, which the base class's query parser leaves alone.
+    private static string? Plus(string? text) => text?.Replace('+', ' ');
+
+    private string PositionerStyle => Query("positionerWidth") switch
+    {
+        null => "position: relative; z-index: 1",
+        "full" => "position: relative; z-index: 1; width: calc(100vw - 10px)",
+        { } width => $"position: relative; z-index: 1; width: {width}",
+    };
+
+    protected override void OnInitialized()
+    {
+        multiple = QueryFlag("multiple") == true || Case == "chips";
+        if (Query("items") is { } list)
+        {
+            allItems = list.Length == 0 ? [] : list.Split('|').Select(item => item.Replace('+', ' ')).ToArray();
+        }
+
+        if (allItems.Count > 0 || QueryFlag("emptyItems") == true)
+        {
+            if (Case is not ("manual" or "reorder"))
+            {
+                rootParameters["Items"] = allItems;
+            }
+        }
+
+        rootParameters["OnOpenChange"] = EventCallback.Factory.Create<ValueChangeEventArgs<bool>>(this, RecordOpenChange);
+        rootParameters["OnOpenChangeComplete"] = EventCallback.Factory.Create<bool>(this, RecordOpenChangeComplete);
+        rootParameters["OnInputValueChange"] = EventCallback.Factory.Create<ValueChangeEventArgs<string>>(this, HandleInputChange);
+        rootParameters["OnItemHighlighted"] = EventCallback.Factory.Create<ComboboxItemHighlightedEventArgs<string>>(this, RecordHighlight);
+        if (multiple)
+        {
+            rootParameters["Multiple"] = true;
+            rootParameters["OnValuesChange"] = EventCallback.Factory.Create<ValueChangeEventArgs<IReadOnlyList<string>>>(this, RecordValuesChange);
+            if (Query("defaultValues") is { } defaults)
+            {
+                rootParameters["DefaultValues"] = (IReadOnlyList<string>)defaults.Split(',').Select(item => item.Replace('+', ' ')).ToArray();
+            }
+        }
+        else
+        {
+            rootParameters["OnValueChange"] = EventCallback.Factory.Create<ValueChangeEventArgs<string>>(this, RecordValueChange);
+            if (Query("defaultValue") is { } value)
+            {
+                rootParameters["DefaultValue"] = value;
+            }
+        }
+
+        Flag("autoHighlight", "AutoHighlight");
+        Flag("modal", "Modal");
+        Flag("readOnly", "ReadOnly");
+        Flag("disabled", "Disabled");
+        Flag("defaultOpen", "DefaultOpen");
+        Flag("grid", "Grid");
+        if (Case == "grid")
+        {
+            rootParameters["Grid"] = true;
+        }
+
+        if (QueryFlag("openOnInputClick") == false)
+        {
+            rootParameters["OpenOnInputClick"] = false;
+        }
+
+        if (Query("rows") is { } rowText)
+        {
+            rows = rowText.Split('|').Select(row => row.Split(',')).ToArray();
+        }
+
+        switch (Case)
+        {
+            case "manual":
+                // ManuallyFilteredCombobox: the page holds the input text and renders only the matching items.
+                rootParameters["InputValue"] = inputValue;
+                break;
+            case "reorder":
+                rootParameters["InputValue"] = inputValue;
+                rootParameters["FilteredItems"] = (IReadOnlyList<string>)allItems;
+                break;
+            case "dialog-inline":
+                rootParameters["Items"] = allItems;
+                rootParameters["Inline"] = true;
+                rootParameters["Open"] = true;
+                rootParameters.Remove("DefaultOpen");
+                break;
+            case "dialog-portal":
+                rootParameters["Items"] = allItems;
+                rootParameters["Open"] = true;
+                break;
+        }
+
+        if (QueryFlag("inline") == true)
+        {
+            rootParameters["Inline"] = true;
+        }
+    }
+
+    private void Flag(string query, string parameter)
+    {
+        if (QueryFlag(query) == true)
+        {
+            rootParameters[parameter] = true;
+        }
+    }
+
+    // The consumer's cancel and write come before the records, which render the fixture: a render inside the handler that still
+    // carried the previous text would be the consumer's answer.
+    private void HandleInputChange(ValueChangeEventArgs<string> args)
+    {
+        ComboboxChangeEventDetails? details = args.Details as ComboboxChangeEventDetails;
+        if (details?.IsItemPress == true && QueryFlag("cancelItemPress") == true)
+        {
+            details.Cancel();
+        }
+
+        if (Case is "manual" or "reorder")
+        {
+            inputValue = args.Value ?? "";
+            rootParameters["InputValue"] = inputValue;
+            if (Case == "reorder")
+            {
+                rootParameters["FilteredItems"] = (IReadOnlyList<string>)(inputValue == "" ? allItems : allItems.Reverse().ToArray());
+            }
+        }
+
+        RecordInputChange(args);
+        if (details is not null)
+        {
+            Record("input-item-presses", details.IsItemPress is { } press ? (press ? "true" : "false") : "null");
+        }
+    }
+
+    private void OnOuterKeyDown(KeyboardEventArgs e)
+    {
+        if (e.Key == "Escape")
+        {
+            Record("outer-escapes", "x");
+        }
+    }
+
+    private void OnSubmit() => Record("submits", "x");
+
+    private RenderFragment Wrapped(RenderFragment content) => builder =>
+    {
+        if (QueryFlag("form") == true)
+        {
+            builder.OpenElement(0, "form");
+            builder.AddAttribute(1, "onsubmit", EventCallback.Factory.Create(this, OnSubmit));
+            builder.AddEventPreventDefaultAttribute(2, "onsubmit", true);
+            builder.AddContent(3, content);
+            builder.OpenElement(4, "button");
+            builder.AddAttribute(5, "type", "submit");
+            builder.AddContent(6, "Submit");
+            builder.CloseElement();
+            builder.CloseElement();
+        }
+        else if (QueryFlag("outer") == true)
+        {
+            builder.OpenElement(7, "div");
+            builder.AddAttribute(8, "data-testid", "outer");
+            builder.AddAttribute(9, "onkeydown", EventCallback.Factory.Create<KeyboardEventArgs>(this, OnOuterKeyDown));
+            builder.AddContent(10, content);
+            builder.CloseElement();
+        }
+        else
+        {
+            builder.AddContent(11, content);
+        }
+    };
+
+    private RenderFragment TriggerContent => builder =>
+    {
+        if (QueryFlag("triggerValue") == true)
+        {
+            builder.OpenComponent<ComboboxValue<string>>(0);
+            builder.CloseComponent();
+        }
+        else
+        {
+            builder.AddContent(1, "Open");
+        }
+    };
+
+    private RenderFragment InputFragment => builder =>
+    {
+        builder.OpenComponent<ComboboxInput>(0);
+        builder.AddAttribute(1, "data-testid", "input");
+        builder.AddComponentReferenceCapture(2, reference => input = (ComboboxInput)reference);
+        builder.CloseComponent();
+    };
+
+    private RenderFragment Body => Case switch
+    {
+        "grid" => GridBody,
+        "chips" => ChipsBody,
+        "manual" => ManualBody,
+        "dialog-inline" => DialogInlineBody,
+        "dialog-portal" => DialogPortalBody,
+        _ => BasicBody,
+    };
+
+    private RenderFragment BasicBody => @<ComboboxRoot TValue="string" @ref="root" @attributes="rootParameters">
+        @if (QueryFlag("popupInput") != true)
+        {
+            @InputFragment
+        }
+        @if (QueryFlag("trigger") == true)
+        {
+            <ComboboxTrigger @ref="trigger" data-testid="trigger">@TriggerContent</ComboboxTrigger>
+        }
+        @if (QueryFlag("inline") == true)
+        {
+            @ItemList
+        }
+        else
+        {
+            @Popup
+        }
+    </ComboboxRoot>;
+
+    private RenderFragment Popup => @<ComboboxPortal>
+        <ComboboxPositioner data-testid="positioner" style="@PositionerStyle">
+            <ComboboxPopup data-testid="popup" class="@(QueryFlag("animated") == true ? "animation-test-popup" : null)" aria-label="@Plus(Query("label"))">
+                @if (QueryFlag("popupInput") == true)
+                {
+                    @InputFragment
+                }
+                @PopupList
+                @if (QueryFlag("empty") == true)
+                {
+                    <ComboboxEmpty>No matches</ComboboxEmpty>
+                }
+            </ComboboxPopup>
+        </ComboboxPositioner>
+    </ComboboxPortal>;
+
+    // The list, inside the scroll-reset titles' wrapper when the query asks for one.
+    private RenderFragment PopupList => builder =>
+    {
+        switch (Query("viewport"))
+        {
+            case "scroll":
+                builder.OpenElement(0, "div");
+                builder.AddAttribute(1, "data-testid", "viewport");
+                builder.AddAttribute(2, "style", "max-height: 100px; overflow-y: auto");
+                builder.AddContent(3, ItemList);
+                builder.CloseElement();
+                break;
+            case "clip":
+                builder.OpenElement(4, "div");
+                builder.AddAttribute(5, "data-testid", "viewport");
+                builder.AddAttribute(6, "style", "height: 100px; overflow-y: auto");
+                builder.OpenElement(7, "div");
+                builder.AddAttribute(8, "style", "overflow-y: clip");
+                builder.AddContent(9, ItemList);
+                builder.CloseElement();
+                builder.CloseElement();
+                break;
+            default:
+                builder.AddContent(10, ItemList);
+                break;
+        }
+    };
+
+    // Base UI's list: the items as the root's, rendered through the List's template (or the page's own filtered children for `manual`).
+    private RenderFragment ItemList => builder =>
+    {
+        string? style = Plus(Query("listStyle"));
+        string? itemStyle = Plus(Query("itemStyle"));
+        builder.OpenComponent<ComboboxList<string>>(0);
+        builder.AddAttribute(1, "data-testid", "list");
+        if (style is not null)
+        {
+            builder.AddAttribute(2, "style", style);
+        }
+
+        if (QueryFlag("static") == true || Case == "manual")
+        {
+            IEnumerable<string> shown = Case == "manual" ? allItems.Where(item => item.StartsWith(inputValue, StringComparison.Ordinal)) : allItems;
+            builder.AddAttribute(3, "ChildContent", (RenderFragment)(inner =>
+            {
+                foreach (string item in shown)
+                {
+                    inner.OpenComponent<ComboboxItem<string>>(0);
+                    inner.AddComponentParameter(1, "Value", item);
+                    inner.AddComponentParameter(2, "ChildContent", (RenderFragment)(content => content.AddContent(0, item)));
+                    inner.SetKey(item);
+                    inner.CloseComponent();
+                }
+            }));
+        }
+        else
+        {
+            builder.AddAttribute(3, "ItemContent", (RenderFragment<ComboboxListItem<string>>)(context => inner =>
+            {
+                inner.OpenComponent<ComboboxItem<string>>(0);
+                inner.AddComponentParameter(1, "Value", context.Value);
+                if (itemStyle is not null)
+                {
+                    inner.AddAttribute(2, "style", itemStyle);
+                }
+
+                inner.AddComponentParameter(3, "ChildContent", (RenderFragment)(content => content.AddContent(0, context.Value)));
+                inner.SetKey(context.Value);
+                inner.CloseComponent();
+            }));
+        }
+
+        builder.CloseComponent();
+    };
+
+    private RenderFragment ManualBody => @<ComboboxRoot TValue="string" @ref="root" @attributes="rootParameters">
+        @InputFragment
+        @Popup
+    </ComboboxRoot>;
+
+    private RenderFragment GridBody => @<DirectionProvider Direction="@(QueryFlag("rtl") == true ? TextDirection.Rtl : TextDirection.Ltr)">
+        <ComboboxRoot TValue="string" @ref="root" @attributes="rootParameters">
+            @InputFragment
+            <ComboboxPortal>
+                <ComboboxPositioner data-testid="positioner" style="position: relative; z-index: 1">
+                    <ComboboxPopup data-testid="popup">
+                        <ComboboxList TValue="string" data-testid="list">
+                            @foreach (string[] row in rows)
+                            {
+                                @if (QueryFlag("groups") == true)
+                                {
+                                    <ComboboxGroup TValue="string">
+                                        <ComboboxRow>@GridCells(row)</ComboboxRow>
+                                    </ComboboxGroup>
+                                }
+                                else
+                                {
+                                    <ComboboxRow>@GridCells(row)</ComboboxRow>
+                                }
+                            }
+                        </ComboboxList>
+                    </ComboboxPopup>
+                </ComboboxPositioner>
+            </ComboboxPortal>
+        </ComboboxRoot>
+    </DirectionProvider>;
+
+    private RenderFragment GridCells(string[] row) => builder =>
+    {
+        foreach (string cell in row)
+        {
+            string[] parts = cell.Split('~');
+            string value = parts[0];
+            string label = parts.Length > 1 ? Plus(parts[1])! : value;
+            builder.OpenComponent<ComboboxItem<string>>(0);
+            builder.AddComponentParameter(1, "Value", value);
+            builder.AddComponentParameter(2, "ChildContent", (RenderFragment)(content => content.AddContent(0, label)));
+            builder.SetKey(value);
+            builder.CloseComponent();
+        }
+    };
+
+    private RenderFragment ChipsBody => @<ComboboxRoot TValue="string" @ref="root" @attributes="rootParameters">
+        <ComboboxChips>
+            <ComboboxValue TValue="string">
+                <ValuesContent Context="selected">
+                    @foreach (string value in selected)
+                    {
+                        <ComboboxChip @key="value" aria-label="@value">
+                            @value
+                            <ComboboxChipRemove aria-label="@($"Remove {value}")" />
+                        </ComboboxChip>
+                    }
+                    @InputFragment
+                </ValuesContent>
+            </ComboboxValue>
+        </ComboboxChips>
+        @Popup
+    </ComboboxRoot>;
+
+    // A dialog that scrolls (80px high), the input below a 100px spacer, the list inline in a scrolling viewport of its own.
+    private RenderFragment DialogInlineBody => @<ComboboxRoot TValue="string" @ref="root" @attributes="rootParameters">
+        <div role="dialog" data-testid="dialog" style="height: 80px; overflow-y: auto; overflow-anchor: none">
+            <div style="height: 100px"></div>
+            @InputFragment
+            <div data-testid="viewport" style="height: 100px; overflow-y: auto">
+                @ItemList
+            </div>
+        </div>
+    </ComboboxRoot>;
+
+    // A dialog that scrolls with the popup portalled into it.
+    private RenderFragment DialogPortalBody => @<ComboboxRoot TValue="string" @ref="root" @attributes="rootParameters">
+        <div id="portal-dialog" role="dialog" data-testid="dialog" style="height: 80px; overflow-y: auto; overflow-anchor: none">
+            <div style="height: 100px"></div>
+            @InputFragment
+            <ComboboxPortal Container="@("#portal-dialog")">
+                <ComboboxPositioner data-testid="positioner">
+                    <ComboboxPopup data-testid="popup">
+                        @ItemList
+                    </ComboboxPopup>
+                </ComboboxPositioner>
+            </ComboboxPortal>
+        </div>
+    </ComboboxRoot>;
+}
