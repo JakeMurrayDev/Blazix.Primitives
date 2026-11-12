@@ -6,7 +6,7 @@
 <AutocompleteRoot TValue="string" @ref="Root" @attributes="Parameters">
     <AutocompleteInputGroup data-testid="group">
         <AutocompleteInput data-testid="input" ClassValue="@InputClass" />
-        <AutocompleteClear data-testid="clear" />
+        <AutocompleteClear data-testid="clear" ClassValue="@ClearClass" />
         <AutocompleteTrigger data-testid="trigger"><AutocompleteValue /></AutocompleteTrigger>
     </AutocompleteInputGroup>
     <AutocompletePortal>
@@ -39,6 +39,9 @@
     /// <summary>Gets the states the input's class function received.</summary>
     public List<AutocompleteInputState> InputStates { get; } = [];
 
+    /// <summary>Gets the states the clear's class function received.</summary>
+    public List<AutocompleteClearState> ClearStates { get; } = [];
+
     /// <summary>Gets the states the items' class functions received.</summary>
     public List<AutocompleteItemState> ItemStates { get; } = [];
 
@@ -60,6 +63,12 @@
     {
         InputStates.Add(state);
         return "input";
+    }
+
+    private string ClearClass(AutocompleteClearState state)
+    {
+        ClearStates.Add(state);
+        return "clear";
     }
 
     private string ItemClass(AutocompleteItemState state)
