@@ -1084,3 +1084,25 @@ test.describe('tabbing out of a filterable submenu', () => {
     await expect(page.getByRole('searchbox', { name: 'Filter actions' })).toHaveCount(0);
   });
 });
+
+// MenuFilterRoot.test.tsx (MNU-DOM-14, FOC-03): a filterable list holding a plain item and a plain submenu's trigger.
+test.describe('the tab order of a filterable list', () => {
+  test('keeps plain menu items and submenu triggers out of the tab order in a filterable list', async ({ page, mode }) => {
+    await render(page, mode, { child: 'plain', before: 'Plain item', label: 'More folders', after: '', children: 'Archive', delay: 0 });
+    const input = page.getByRole('searchbox', { name: 'Filter actions' });
+    await input.focus();
+
+    await page.keyboard.press('ArrowDown');
+    await page.keyboard.press('ArrowDown');
+
+    // Virtual navigation keeps DOM focus on the input even for highlighted plain items.
+    const plainItem = item(page, 'Plain item');
+    await expect(plainItem).toHaveAttribute('tabindex', '-1');
+    // aria-expanded is only valid on an item that owns a popup.
+    await expect(plainItem).not.toHaveAttribute('aria-expanded');
+    const submenuTrigger = item(page, 'More folders');
+    await expect(submenuTrigger).toHaveAttribute('tabindex', '-1');
+    await expect(submenuTrigger).toHaveAttribute('aria-expanded', 'false');
+    await expect(input).toBeFocused();
+  });
+});
