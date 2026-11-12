@@ -1,0 +1,68 @@
+@namespace Blazix.Primitives.Fixtures.Client.AutocompleteFixtures
+@using Blazix.Primitives
+@using Blazix.Primitives.Fixtures.Client.ComboboxFixtures
+@inherits ComboboxL4FixtureBase
+
+@*
+    The `autocomplete-root` fixture (M5 track 11, issue 196): AutocompleteRoot.test.tsx at L4. The root's items are apple,
+    banana and cherry. The query: `mode` (list, both, inline, none), `defaultValue`, `readOnly`, `openOnInputClick`, `submit`
+    (SubmitOnItemClick inside a form whose input is named `tag`; the page reads its FormData). Recorded through `Records`:
+    `value-changes` (`text:reason`), `highlights` (`value:reason:index`), and the base's open changes.
+*@
+<FixtureContainer Name="autocomplete-root" data-attached="@(Attached ? "true" : "false")" data-sync="@Sync"
+                  data-open-changes="@OpenChanges" data-open-change-completes="@OpenChangeCompletes" @attributes="Records">
+    @SyncButton
+    <button type="button" data-testid="outside" data-key-control>outside</button>
+    <form data-testid="form" onsubmit="event.preventDefault()">
+        <AutocompleteRoot TValue="string" @ref="root" @attributes="RootParameters">
+            <AutocompleteInput @ref="input" data-testid="input" />
+            <AutocompletePortal>
+                <AutocompletePositioner style="position: relative; z-index: 1">
+                    <AutocompletePopup data-testid="popup">
+                        <AutocompleteList TValue="string" data-testid="list">
+                            <ItemContent>
+                                <AutocompleteItem TValue="string" Value="@context.Value" data-testid="@("item-" + context.Value)" @key="context.Value">@context.Value</AutocompleteItem>
+                            </ItemContent>
+                        </AutocompleteList>
+                    </AutocompletePopup>
+                </AutocompletePositioner>
+            </AutocompletePortal>
+        </AutocompleteRoot>
+    </form>
+</FixtureContainer>
+
+@code {
+    private static readonly string[] s_items = ["apple", "banana", "cherry"];
+    private AutocompleteRoot<string>? root;
+    private AutocompleteInput? input;
+    private Dictionary<string, object?> rootParameters = [];
+
+    private IReadOnlyDictionary<string, object?> RootParameters => rootParameters;
+
+    protected override IEnumerable<Task> Attachments => [root?.SessionAttached ?? Task.CompletedTask, input?.TwinAttached ?? Task.CompletedTask];
+
+    /// <inheritdoc />
+    protected override void OnInitialized()
+    {
+        base.OnInitialized();
+        rootParameters = new()
+        {
+            ["Items"] = s_items,
+            ["Mode"] = Query("mode") switch { "both" => AutocompleteMode.Both, "inline" => AutocompleteMode.Inline, "none" => AutocompleteMode.None, _ => AutocompleteMode.List },
+            ["ReadOnly"] = QueryFlag("readOnly") == true,
+            ["OpenOnInputClick"] = QueryFlag("openOnInputClick") == true,
+            ["SubmitOnItemClick"] = QueryFlag("submit") == true,
+            ["Name"] = "tag",
+            ["OnValueChange"] = EventCallback.Factory.Create<ValueChangeEventArgs<string>>(this, RecordValueChange),
+            ["OnOpenChange"] = EventCallback.Factory.Create<ValueChangeEventArgs<bool>>(this, RecordOpenChange),
+            ["OnItemHighlighted"] = EventCallback.Factory.Create<AutocompleteItemHighlightedEventArgs<string>>(this, RecordAutocompleteHighlight),
+        };
+        if (Query("defaultValue") is { } text)
+        {
+            rootParameters["DefaultValue"] = text;
+        }
+    }
+
+    private void RecordAutocompleteHighlight(AutocompleteItemHighlightedEventArgs<string> args) =>
+        Record("highlights", string.Create(System.Globalization.CultureInfo.InvariantCulture, $"{Format(args.Value)}:{args.Details.Reason.ToLiteral()}:{args.Details.Index}"));
+}
