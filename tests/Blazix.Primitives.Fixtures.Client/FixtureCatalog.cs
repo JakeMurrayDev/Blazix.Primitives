@@ -345,5 +345,6 @@ public static class FixtureCatalog
         ["combobox-virtualize"] = new(typeof(ComboboxVirtualizeL4Fixture)),
         ["autocomplete-root"] = new(typeof(AutocompleteRootL4Fixture)),
         ["autocomplete-prerender"] = new(typeof(AutocompletePrerenderFixture), Prerender: true),
+        ["autocomplete-unmount"] = new(typeof(AutocompleteUnmountL4Fixture)),
     };
 }
