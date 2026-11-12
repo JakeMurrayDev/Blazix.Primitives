@@ -52,6 +52,21 @@ public sealed class AutocompletePortBatchTests : IDisposable
         Assert.Equal(["apple", "banana"], cut.FindAll("[role=option]").Select(item => item.TextContent));
     }
 
+    [Fact(DisplayName = "mode=\"both\": external controlled updates replace the temporary inline value")]
+    [Trait("Requirement", "AUT-STA-06")]
+    [Trait("Requirement", "AUT-API-01")]
+    public async Task External_controlled_updates_replace_the_completion()
+    {
+        Dictionary<string, object?> parameters = new() { ["Items"] = s_items, ["DefaultOpen"] = true, ["Mode"] = AutocompleteMode.Both, ["Value"] = "a", ["OnValueChange"] = EventCallback.Factory.Create<ValueChangeEventArgs<string>>(this, _ => { }) };
+        IRenderedComponent<AutocompleteHarness> cut = Render(parameters);
+        await HighlightAsync(cut, 0, "apple");
+        Assert.Equal("apple", Text(cut));
+
+        cut.Render(p => p.Add(x => x.RootParameters, new Dictionary<string, object?>(parameters) { ["Value"] = "ch" }));
+
+        Assert.Equal("ch", Text(cut));
+    }
+
     [Fact(DisplayName = "drops a pending inline completion when readOnly is turned on")]
     [Trait("Requirement", "AUT-API-17")]
     [Trait("Requirement", "AUT-STA-06")]
