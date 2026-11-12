@@ -409,12 +409,20 @@ test.describe('autoHighlight', () => {
 // `menu-filter-root`: real focus that lands on the list or an item while the input owns the keyboard goes back to the
 // input. MenuFilterPopup.test.tsx's titles verbatim, and a port title for the key replay.
 test.describe('<Menu.Popup /> filter input focus', () => {
+  // The popup's initial focus can land on the input just after the fixture reports attached; a title that moves focus
+  // waits for it, or the initial focus takes focus back from the list it moved to.
+  async function renderOpen(page: Page, mode: RenderMode): Promise<Locator> {
+    const fixture = await render(page, mode);
+    await expect(input(page)).toBeFocused();
+    return fixture;
+  }
+
   function list(page: Page): Locator {
     return page.getByRole('menu');
   }
 
   test('returns focus to the input when the list takes it from the input', async ({ page, mode }) => {
-    await render(page, mode);
+    await renderOpen(page, mode);
     await input(page).focus();
 
     await list(page).focus();
@@ -423,7 +431,7 @@ test.describe('<Menu.Popup /> filter input focus', () => {
   });
 
   test('leaves focus on the list when the input did not have it', async ({ page, mode }) => {
-    await render(page, mode);
+    await renderOpen(page, mode);
     await input(page).focus();
     await input(page).blur();
 
@@ -434,7 +442,7 @@ test.describe('<Menu.Popup /> filter input focus', () => {
 
   // MNU-KEY-27 (MenuList.test.tsx, titles verbatim): a screen reader following aria-activedescendant focuses the item.
   test('replays keys from an item that holds real focus and activates on Enter', async ({ page, mode }) => {
-    const fixture = await render(page, mode);
+    const fixture = await renderOpen(page, mode);
     await input(page).focus();
     await page.keyboard.press('ArrowDown');
     await expect(input(page)).toHaveAttribute('aria-activedescendant', (await item(page, 'Rename').getAttribute('id')) ?? 'missing');
@@ -468,7 +476,7 @@ test.describe('<Menu.Popup /> filter input focus', () => {
     }
 
     test('replays navigation keys on the input instead of scrolling', async ({ page, mode }) => {
-      await render(page, mode);
+      await renderOpen(page, mode);
       await input(page).focus();
       await focusList(page);
 
@@ -480,7 +488,7 @@ test.describe('<Menu.Popup /> filter input focus', () => {
     });
 
     test('commits the highlighted item when Enter lands on the list', async ({ page, mode }) => {
-      const fixture = await render(page, mode);
+      const fixture = await renderOpen(page, mode);
       await input(page).focus();
       await page.keyboard.press('ArrowDown');
       await expect(input(page)).toHaveAttribute('aria-activedescendant', (await item(page, 'Rename').getAttribute('id')) ?? 'missing');
@@ -492,7 +500,7 @@ test.describe('<Menu.Popup /> filter input focus', () => {
     });
 
     test('still closes the menu with Escape', async ({ page, mode }) => {
-      await render(page, mode);
+      await renderOpen(page, mode);
       await input(page).focus();
       await focusList(page);
 
@@ -502,7 +510,7 @@ test.describe('<Menu.Popup /> filter input focus', () => {
     });
 
     test('hands typing keys back to the input', async ({ page, mode }) => {
-      await render(page, mode);
+      await renderOpen(page, mode);
       await input(page).focus();
       await focusList(page);
 
