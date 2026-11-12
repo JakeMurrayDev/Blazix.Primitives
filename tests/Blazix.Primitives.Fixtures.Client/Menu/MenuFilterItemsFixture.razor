@@ -26,22 +26,25 @@
       ban" inside the popup (a press outside a modal menu meets its backdrop); trigger "Fruit", input "Filter fruit", Apple and Banana;
     - `custom-id`: `controlled` with autoHighlight "always", Apple and Banana rendered through `div`s with the ids
       `apple-item` and `banana-item`.
-    Each query request is recorded as `value:reason` in `data-value-changes` (`|`-separated).
+    - `append`: held open; input "Filter reports", Report A, Report B and Other; the button "append" (inside the popup)
+      adds Zebra last.
+    Each query request is recorded as `value:reason` in `data-value-changes`, and each highlight report by item text, or
+    "none", in `data-highlights` (`|`-separated).
     Item presses are recorded by name in `data-presses` (`|`-separated). `data-attached` turns "true" once the menu's session
     and, for an open menu, the input's and list's `menu-filter` handles have attached.
 *@
-<FixtureContainer Name="menu-filter-items" data-attached="@(attached ? "true" : "false")" data-presses="@string.Join('|', presses)" data-tick="@tick" data-value-changes="@string.Join('|', changes)">
+<FixtureContainer Name="menu-filter-items" data-attached="@(attached ? "true" : "false")" data-presses="@string.Join('|', presses)" data-tick="@tick" data-value-changes="@string.Join('|', changes)" data-highlights="@string.Join('|', highlights)">
     @if (Case == "closing")
     {
         <button type="button" @onclick="() => closingOpen = false">Close</button>
     }
     <MenuFilterProvider @attributes="ProviderParameters">
-        <MenuRoot TPayload="NoPayload" @attributes="RootParameters" @ref="root">
+        <MenuRoot TPayload="NoPayload" @attributes="RootParameters" OnItemHighlighted="RecordHighlight" @ref="root">
             <MenuTrigger TPayload="NoPayload">@(Fruit ? "Fruit" : "Actions")</MenuTrigger>
             <MenuPortal>
                 <MenuPositioner>
                     <MenuPopup data-testid="popup">
-                        <MenuInput aria-label="@(Fruit ? "Filter fruit" : "Filter actions")" @ref="input" />
+                        <MenuInput aria-label="@(Fruit ? "Filter fruit" : Case == "append" ? "Filter reports" : "Filter actions")" @ref="input" />
                         @if (Case == "cancel")
                         {
                             <MenuClear aria-label="Clear filter" />
@@ -54,6 +57,10 @@
                         {
                             <button type="button" @onclick="@(() => query = "app")">query app</button>
                             <button type="button" @onclick="@(() => query = "ban")">query ban</button>
+                        }
+                        else if (Case == "append")
+                        {
+                            <button type="button" @onclick="() => appended = true">append</button>
                         }
                         else if (Case == "translate")
                         {
@@ -85,6 +92,15 @@
                                 case "custom-id":
                                     <MenuItem Render="@s_appleItem">Apple</MenuItem>
                                     <MenuItem Render="@s_bananaItem">Banana</MenuItem>
+                                    break;
+                                case "append":
+                                    <MenuItem>Report A</MenuItem>
+                                    <MenuItem>Report B</MenuItem>
+                                    <MenuItem>Other</MenuItem>
+                                    @if (appended)
+                                    {
+                                        <MenuItem>Zebra</MenuItem>
+                                    }
                                     break;
                                 case "label":
                                     <MenuItem><span>Rename</span></MenuItem>
@@ -125,7 +141,9 @@
     private static readonly RenderFragment s_bananaItem = @<div id="banana-item"></div>;
     private readonly List<string> presses = [];
     private readonly List<string> changes = [];
+    private readonly List<string> highlights = [];
     private bool closingOpen = true;
+    private bool appended;
     private string? query;
     private MenuRoot<NoPayload>? root;
     private MenuInput? input;
@@ -172,7 +190,7 @@
     // uncontrolled one, open unless `fruit`.
     private Dictionary<string, object> RootParameters => Case switch
     {
-        "kinds" or "cancel" or "controlled" or "custom-id" => new() { ["Open"] = true },
+        "kinds" or "cancel" or "controlled" or "custom-id" or "append" => new() { ["Open"] = true },
         "closing" => new() { ["Open"] = closingOpen, ["Modal"] = false },
         _ => new() { ["DefaultOpen"] = Case != "fruit" },
     };
@@ -208,6 +226,9 @@
             args.Details.Cancel();
         }
     }
+
+    private void RecordHighlight(MenuItemHighlightedEventArgs args) =>
+        highlights.Add(args.ItemId is null ? "none" : args.Details.Label ?? "");
 
     private void SetLabel() => text = Next ?? (Case == "render" ? "Two" : "Rename");
 

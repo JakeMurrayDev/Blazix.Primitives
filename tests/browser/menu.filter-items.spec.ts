@@ -215,3 +215,29 @@ test.describe('the filter query over a fruit menu', () => {
     await expect(fixture).not.toHaveAttribute('data-presses', /Apple/);
   });
 });
+
+// MenuFilterRoot.scoping.test.tsx's AppendMenu (MNU-STA-20, EVT-13); Base UI's setProps is the popup's "append" button,
+// clicked in the page so focus stays on the input.
+test.describe('items appended while filtering', () => {
+  test('keeps the highlight when an item the query filters out is appended', async ({ page, mode }) => {
+    const fixture = await render(page, mode, { case: 'append' });
+    const filter = input(page, 'Filter reports');
+    await filter.focus();
+    await page.keyboard.type('rep');
+    // On Server the query's highlight reset is C#'s and lands a leg later (ADR 01); the arrows wait for the filtered list.
+    await expect(item(page, 'Other')).toHaveCount(0);
+    await page.keyboard.press('ArrowDown');
+    await page.keyboard.press('ArrowDown');
+    const reportB = item(page, 'Report B');
+    await expect(filter).toHaveAttribute('aria-activedescendant', (await reportB.getAttribute('id')) ?? 'missing');
+    const before = (await fixture.getAttribute('data-highlights')) ?? '';
+
+    await page.getByRole('button', { name: 'append' }).evaluate((element) => element.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true })));
+    await expect(page.getByRole('menuitem', { name: 'Zebra', includeHidden: true })).toHaveCount(0);
+    await page.evaluate(() => new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve))));
+
+    await expect(item(page, 'Zebra')).toHaveCount(0);
+    await expect(filter).toHaveAttribute('aria-activedescendant', (await reportB.getAttribute('id')) ?? 'missing');
+    await expect(fixture).toHaveAttribute('data-highlights', before);
+  });
+});
