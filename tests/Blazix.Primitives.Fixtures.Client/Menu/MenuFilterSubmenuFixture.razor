@@ -32,7 +32,7 @@
     `label:reason:key` (`none` for no item) in `data-highlights`, and each submenu open request as `open:reason` in
     `data-submenu-changes` (`|`-separated). `data-attached` turns "true" once the root's session has attached and, for a
     filterable root that starts open, its input's and list's `menu-filter` handles; `data-child-attached` turns "true" once
-    the input of a filterable submenu that starts open (`childOpen=true`) has its handle.
+    the input of a filterable submenu, opened at the start or later, has its handle.
 *@
 <FixtureContainer Name="menu-filter-submenu" data-attached="@(attached ? "true" : "false")" data-child-attached="@(childAttached ? "true" : "false")" data-highlights="@string.Join('|', highlights)" data-submenu-changes="@string.Join('|', submenuChanges)" data-child-value-changes="@string.Join('|', childValueChanges)">
     @if (Detached)
@@ -78,9 +78,27 @@
     private MenuList? list;
     private bool attached;
     private bool attaching;
-    private MenuInput? childInput;
     private bool childAttached;
-    private bool childAttaching;
+
+    // The submenu's input renders with its popup, after this page's own render; its reference starts the wait for its handle.
+    private MenuInput? ChildInput
+    {
+        get => null;
+        set
+        {
+            if (value is not null && !childAttached)
+            {
+                _ = WaitForChildAsync(value);
+            }
+        }
+    }
+
+    private async Task WaitForChildAsync(MenuInput childInput)
+    {
+        await childInput.FilterAttached;
+        childAttached = true;
+        await InvokeAsync(StateHasChanged);
+    }
 
     [SupplyParameterFromQuery(Name = "parent")]
     public string? Parent { get; set; }
@@ -316,7 +334,7 @@
                 <MenuPopup data-testid="submenu" class="@(Exiting ? "exiting" : null)">
                     @if (!ChildPlain)
                     {
-                        <MenuInput aria-label="Filter folders" @ref="childInput" />
+                        <MenuInput aria-label="Filter folders" @ref="ChildInput" />
                     }
                     <MenuList data-testid="submenu-list">
                         @if (Nested is not null)
@@ -349,16 +367,6 @@
     /// <inheritdoc />
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
-        // The input of a submenu that starts open attaches its handle after its portal's move, a leg later on Server.
-        if (attached && ChildOpen && !childAttached && !childAttaching && childInput is not null)
-        {
-            childAttaching = true;
-            await childInput.FilterAttached;
-            childAttached = true;
-            StateHasChanged();
-            return;
-        }
-
         // A filterable root that starts open waits for its input's and list's handles; otherwise the session is enough.
         bool needsParts = !ParentPlain && !Closed;
         if (attached || attaching || !RendererInfo.IsInteractive || root is null || (needsParts && (input is null || list is null)))

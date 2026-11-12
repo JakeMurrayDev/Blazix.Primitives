@@ -581,12 +581,14 @@ test.describe('filterable submenu navigation, focus and pointer', () => {
   // MNU-KEY-30.
   for (const autoHighlight of [false, true]) {
     test(`keeps cross-axis keys as caret keys while the submenu query is not empty (autoHighlight: ${autoHighlight})`, async ({ page, mode }) => {
-      await render(page, mode, { before: '', label: 'Move to folder', after: '', children: 'Documents', ...(autoHighlight ? { auto: 'true' } : {}) });
+      const fixture = await render(page, mode, { before: '', label: 'Move to folder', after: '', children: 'Documents', ...(autoHighlight ? { auto: 'true' } : {}) });
       await parentInput(page).focus();
 
       await page.keyboard.press('ArrowDown');
       await page.keyboard.press('ArrowRight');
       await expect(submenuInput(page)).toBeFocused();
+      // The input's key router runs once its handle is attached (ADR 06 §2).
+      await expect(fixture).toHaveAttribute('data-child-attached', 'true');
       await page.keyboard.type('doc');
       await expect(submenuInput(page)).toHaveValue('doc');
 

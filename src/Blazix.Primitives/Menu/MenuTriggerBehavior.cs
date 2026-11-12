@@ -52,6 +52,7 @@ internal sealed class MenuTriggerBehavior<TPayload> : IAsyncDisposable, IMenuTri
     private readonly PopupModuleAttachment guards;
     private readonly IJSRuntime jsRuntime;
     private MenuFilterModuleAttachment? filterModule;
+    private readonly TaskCompletionSource filterAttached = new(TaskCreationOptions.RunContinuationsAsynchronously);
     private bool decidesKeyDown;
     private readonly Func<Func<Task>, Task> invokeAsync;
     private readonly EventCallback onKeyDown;
@@ -144,6 +145,11 @@ internal sealed class MenuTriggerBehavior<TPayload> : IAsyncDisposable, IMenuTri
     /// <summary>Gets a task that completes when the trigger's handles are attached.</summary>
     public Task TwinsAttached => Task.WhenAll(button.TwinAttached, interactions.TwinAttached, reference.TwinAttached);
 
+    // M5 track 12 (ADR 06 §2's marker waits): a filterable menu's trigger relays keys and records virtual presses only once
+    // its `menu-filter` handle is attached.
+    /// <summary>Gets a task that completes when a filterable menu's trigger has its <c>menu-filter</c> handle, or at once for a plain menu.</summary>
+    public Task FilterAttached => trigger.Store.Context?.Filter is null ? Task.CompletedTask : filterAttached.Task;
+
     /// <summary>Attaches the handles after the render, in their pinned order, and re-registers the trigger.</summary>
     /// <param name="enabled">Whether the part rendered its element.</param>
     /// <param name="element">The trigger's element.</param>
@@ -201,6 +207,7 @@ internal sealed class MenuTriggerBehavior<TPayload> : IAsyncDisposable, IMenuTri
                 InBar = InBar,
                 DecidesKeyDown = decidesKeyDown,
             });
+            filterAttached.TrySetResult();
         }
     }
 

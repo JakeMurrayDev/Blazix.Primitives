@@ -248,10 +248,13 @@ test.describe('filterable menu initial highlight', () => {
   });
 
   test('clears the initial highlight when typing and permits an empty result', async ({ page, mode }) => {
-    await open(page, mode);
+    const fixture = await open(page, mode);
     await trigger(page).focus();
     await page.keyboard.press('Enter');
     await expect(input(page)).toBeFocused();
+    // The typing reaches the filter once the input's handle is attached, and lands in the input once the opening settled.
+    await expect(fixture).toHaveAttribute('data-input-attached', 'true');
+    await expect(fixture).toHaveAttribute('data-open-completes', /(^| )true( |$)/);
 
     await page.keyboard.type('Del');
     await expect(input(page)).toHaveValue('Del');
@@ -293,7 +296,7 @@ test.describe('filterable menu initial highlight', () => {
 
   // MNU-API-59, EVT-14, EVT-15 (MenuFilterRoot.test.tsx): Base UI's fireEvent.keyDown is a dispatched keydown.
   // Base UI's title then presses Escape, which must reach the popup's handler once. The port's dismissal stops Escape on
-  // the floating element before Blazor dispatches it, so no C# popup handler hears it (open by ID, reported 2026-11-12);
+  // the floating element before Blazor dispatches it, so no C# popup handler hears it (open by ID, issue 251);
   // this port title keeps the title's other steps.
   test('port: runs a consumer handler once per interaction on the trigger and the input, and keeps an editing key from the popup', async ({ page, mode }) => {
     const fixture = page.locator(Fixture.interactive('menu-filter-initial'));

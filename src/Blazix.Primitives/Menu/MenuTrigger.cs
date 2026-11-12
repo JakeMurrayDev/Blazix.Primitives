@@ -161,6 +161,9 @@ public sealed class MenuTrigger<TPayload> : PartBase<MenuTriggerState>
     /// <summary>Gets a task that completes when the trigger's behaviors are attached.</summary>
     internal Task TwinsAttached => behavior?.TwinsAttached ?? Task.CompletedTask;
 
+    /// <summary>Gets a task that completes when a filterable menu's trigger has its <c>menu-filter</c> handle.</summary>
+    internal Task FilterAttached => behavior?.FilterAttached ?? Task.CompletedTask;
+
     /// <inheritdoc />
     public override Task SetParametersAsync(ParameterView parameters)
     {
