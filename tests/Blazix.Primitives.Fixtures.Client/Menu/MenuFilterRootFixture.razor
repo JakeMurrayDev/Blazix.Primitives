@@ -5,10 +5,10 @@
     The `menu-filter-root` fixture (tests/browser/menu.filter.spec.ts, M5 track 12): MenuFilterRoot.scoping.test.tsx's
     FilterableMenu, open: an input, a Clear button labelled "Clear filter", a list of Rename, Delete and Duplicate, and
     Empty reading "No results". `query` seeds the provider's DefaultValue; `auto` ("true" or "always") sets its AutoHighlight. Each query request is recorded as
-    `value:reason` in `data-value-changes` (`|`-separated); `data-attached` turns "true" once the menu's session and the
+    `value:reason` in `data-value-changes` (`|`-separated), and each item press by name in `data-presses`; `data-attached` turns "true" once the menu's session and the
     input's and list's `menu-filter` handles have attached.
 *@
-<FixtureContainer Name="menu-filter-root" data-attached="@(attached ? "true" : "false")" data-value-changes="@string.Join('|', changes)">
+<FixtureContainer Name="menu-filter-root" data-attached="@(attached ? "true" : "false")" data-value-changes="@string.Join('|', changes)" data-presses="@string.Join('|', presses)">
     <MenuFilterProvider DefaultValue="@(Query ?? "")" AutoHighlight="@AutoHighlight" OnValueChange="Record">
         <MenuRoot TPayload="NoPayload" DefaultOpen="true" @ref="root">
             <MenuTrigger TPayload="NoPayload">Actions</MenuTrigger>
@@ -18,9 +18,9 @@
                         <MenuInput aria-label="Filter actions" @ref="input" />
                         <MenuClear aria-label="Clear filter" />
                         <MenuList @ref="list">
-                            <MenuItem>Rename</MenuItem>
-                            <MenuItem>Delete</MenuItem>
-                            <MenuItem>Duplicate</MenuItem>
+                            <MenuItem @onclick="@(() => presses.Add("Rename"))">Rename</MenuItem>
+                            <MenuItem @onclick="@(() => presses.Add("Delete"))">Delete</MenuItem>
+                            <MenuItem @onclick="@(() => presses.Add("Duplicate"))">Duplicate</MenuItem>
                         </MenuList>
                         <MenuEmpty>No results</MenuEmpty>
                     </MenuPopup>
@@ -32,6 +32,7 @@
 
 @code {
     private readonly List<string> changes = [];
+    private readonly List<string> presses = [];
     private MenuRoot<NoPayload>? root;
     private MenuInput? input;
     private MenuList? list;

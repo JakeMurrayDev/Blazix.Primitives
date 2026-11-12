@@ -356,18 +356,84 @@ test.describe('<Menu.Popup /> filter input focus', () => {
     await expect(list(page)).toBeFocused();
   });
 
-  // MenuFilterList.tsx:72-79: a screen reader following aria-activedescendant focuses the highlighted item; the next key
-  // returns focus to the input and moves the highlight as the input would.
-  test('port: a key pressed on a focused item returns focus to the input and is routed as the input\'s', async ({ page, mode }) => {
-    await render(page, mode);
+  // MNU-KEY-27 (MenuList.test.tsx, titles verbatim): a screen reader following aria-activedescendant focuses the item.
+  test('replays keys from an item that holds real focus and activates on Enter', async ({ page, mode }) => {
+    const fixture = await render(page, mode);
     await input(page).focus();
     await page.keyboard.press('ArrowDown');
     await expect(input(page)).toHaveAttribute('aria-activedescendant', (await item(page, 'Rename').getAttribute('id')) ?? 'missing');
-    await item(page, 'Rename').focus();
 
+    await item(page, 'Rename').focus();
     await page.keyboard.press('ArrowDown');
 
-    await expect(input(page)).toBeFocused();
     await expect(input(page)).toHaveAttribute('aria-activedescendant', (await item(page, 'Delete').getAttribute('id')) ?? 'missing');
+    await expect(input(page)).toBeFocused();
+
+    await item(page, 'Delete').focus();
+    await page.keyboard.press('Enter');
+
+    // Base UI's last step reads the input's empty value under jsdom, where the closing popup is still mounted; here the
+    // press closes the menu and the popup unmounts, so the Enter typed nothing and was the item's once.
+    await expect(fixture).toHaveAttribute('data-presses', 'Delete');
+    await expect(input(page)).toHaveCount(0);
+  });
+
+  test.describe('keys on a focused list', () => {
+    // Focus the list takes from the input goes straight back to it, so start from focus that reached the list another
+    // way, such as a screen reader or a touch press. The keys are dispatched on the list, as Base UI's fireEvent does.
+    async function focusList(page: Page): Promise<void> {
+      await input(page).blur();
+      await list(page).focus();
+      await expect(list(page)).toBeFocused();
+    }
+
+    function keyDown(page: Page, key: string): Promise<boolean> {
+      return list(page).evaluate((element, pressed) => element.dispatchEvent(new KeyboardEvent('keydown', { key: pressed, bubbles: true, cancelable: true })), key);
+    }
+
+    test('replays navigation keys on the input instead of scrolling', async ({ page, mode }) => {
+      await render(page, mode);
+      await input(page).focus();
+      await focusList(page);
+
+      const scrolls = await keyDown(page, 'ArrowDown');
+
+      expect(scrolls).toBe(false);
+      await expect(input(page)).toHaveAttribute('aria-activedescendant', (await item(page, 'Rename').getAttribute('id')) ?? 'missing');
+      await expect(input(page)).toBeFocused();
+    });
+
+    test('commits the highlighted item when Enter lands on the list', async ({ page, mode }) => {
+      const fixture = await render(page, mode);
+      await input(page).focus();
+      await page.keyboard.press('ArrowDown');
+      await expect(input(page)).toHaveAttribute('aria-activedescendant', (await item(page, 'Rename').getAttribute('id')) ?? 'missing');
+
+      await focusList(page);
+      await keyDown(page, 'Enter');
+
+      await expect(fixture).toHaveAttribute('data-presses', 'Rename');
+    });
+
+    test('still closes the menu with Escape', async ({ page, mode }) => {
+      await render(page, mode);
+      await input(page).focus();
+      await focusList(page);
+
+      await keyDown(page, 'Escape');
+
+      await expect(page.getByRole('dialog')).toHaveCount(0);
+    });
+
+    test('hands typing keys back to the input', async ({ page, mode }) => {
+      await render(page, mode);
+      await input(page).focus();
+      await focusList(page);
+
+      const types = await keyDown(page, 'z');
+
+      expect(types).toBe(true);
+      await expect(input(page)).toBeFocused();
+    });
   });
 });
