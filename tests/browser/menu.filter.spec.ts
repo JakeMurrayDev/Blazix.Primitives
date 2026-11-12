@@ -649,6 +649,35 @@ test.describe('<Menu.Popup /> filter input focus', () => {
     await expect(list(page)).toBeFocused();
   });
 
+  // MNU-FOC-14 (MenuList.test.tsx): a screen reader parks real focus on the item, then the user moves back to the input.
+  test('clears the highlight when focus returns to the input from an item', async ({ page, mode }) => {
+    await renderOpen(page, mode);
+    await page.keyboard.press('ArrowDown');
+    const rename = item(page, 'Rename');
+    await expect(input(page)).toHaveAttribute('aria-activedescendant', (await rename.getAttribute('id')) ?? 'missing');
+
+    await rename.focus();
+    await input(page).focus();
+
+    await expect(input(page)).not.toHaveAttribute('aria-activedescendant', /.+/);
+    await expect(rename).not.toHaveAttribute('data-highlighted');
+  });
+
+  // MNU-FOC-14 (MenuList.test.tsx).
+  test('keeps the highlight when focus returns to the input with autoHighlight="always"', async ({ page, mode }) => {
+    await page.goto(`/${mode}/menu-filter-root?auto=always`, { waitUntil: 'commit' });
+    await page.locator(Fixture.started).waitFor({ state: 'attached' });
+    await expect(page.locator(Fixture.interactive('menu-filter-root'))).toHaveAttribute('data-attached', 'true');
+    const rename = item(page, 'Rename');
+    const renameId = (await rename.getAttribute('id')) ?? 'missing';
+    await expect(input(page)).toHaveAttribute('aria-activedescendant', renameId);
+
+    await rename.focus();
+    await input(page).focus();
+
+    await expect(input(page)).toHaveAttribute('aria-activedescendant', renameId);
+  });
+
   // MNU-KEY-27 (MenuList.test.tsx, titles verbatim): a screen reader following aria-activedescendant focuses the item.
   test('replays keys from an item that holds real focus and activates on Enter', async ({ page, mode }) => {
     const fixture = await renderOpen(page, mode);
