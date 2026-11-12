@@ -1015,7 +1015,9 @@ function attachPopup(popup: HTMLElement, initial: MenuFilterOptions, channel: Tw
   // place; once the dispatch is over, a step that escaped is given back to the trigger.
   const onDocumentKeyDown = (event: KeyboardEvent): void => {
     const owner = ownerOf();
-    const target = event.target instanceof Element ? event.target : null;
+    // The key's own target, inside a shadow root the nested popup is portaled into (the document sees its host).
+    const origin = event.composedPath()[0];
+    const target = origin instanceof Element ? origin : null;
     if (owner === undefined || options.open !== true || target === null || popup.contains(target) || event.keyCode === 229 || event.shiftKey || event.ctrlKey || event.metaKey || event.altKey) {
       return;
     }
