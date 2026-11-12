@@ -312,6 +312,27 @@ test.describe('filterable menu initial highlight', () => {
 
   });
 
+  // MNU-STA-21, EVT-18 (MenuFilterRoot.test.tsx): a kept-mounted popup, on the fixture's `plain` list (Rename, Delete).
+  test('resets the query and highlight across a close and reopen', async ({ page, mode }) => {
+    await page.goto(`/${mode}/menu-filter-initial?plain=true&keepMounted=true`, { waitUntil: 'commit' });
+    await page.locator(Fixture.started).waitFor({ state: 'attached' });
+    await expect(page.locator(Fixture.interactive('menu-filter-initial'))).toHaveAttribute('data-attached', 'true');
+    await trigger(page).click();
+    await expect(input(page)).toBeFocused();
+    await page.keyboard.type('ren');
+    await expect(item(page, 'Delete')).toHaveCount(0);
+    await page.keyboard.press('ArrowDown');
+    await expect(input(page)).toHaveAttribute('aria-activedescendant', await idOf(item(page, 'Rename')));
+
+    await page.keyboard.press('Escape');
+    await trigger(page).click();
+
+    // The parts stay mounted, so the query has to be cleared explicitly on close.
+    await expect(input(page)).toHaveValue('');
+    await expect(item(page, 'Delete')).toBeVisible();
+    await expect(input(page)).not.toHaveAttribute('aria-activedescendant', /.+/);
+  });
+
   // MNU-PTR-19.
   test('focuses the input when a screen reader press opens the menu', async ({ page, mode }) => {
     await open(page, mode);
