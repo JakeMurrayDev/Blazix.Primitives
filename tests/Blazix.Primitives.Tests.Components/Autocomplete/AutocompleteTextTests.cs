@@ -56,6 +56,45 @@ public sealed class AutocompleteTextTests : IDisposable
         Assert.True(cut.Instance.Root!.Store.HasActivatedValue);
     }
 
+    // AUT-EVT-02 (Test: none; design point 3 (a), settled by the orchestrator 2026-11-12): every write stores an uncontrolled
+    // text before OnValueChange runs, and Cancel() skips only the engine's follow-ups, as Base UI's value handler
+    // (AutocompleteRoot.tsx:82-88). One title per write.
+    [Fact(DisplayName = "port: a canceled write still stores the text of an uncontrolled autocomplete: typing, an item press, Clear and the closed Escape")]
+    [Trait("Requirement", "AUT-EVT-02")]
+    [Trait("Requirement", "AUT-API-03")]
+    public async Task A_canceled_write_still_stores_the_text()
+    {
+        List<(string Text, EventReason Reason)> changes = [];
+        IRenderedComponent<AutocompleteHarness> cut = test.Context.Render<AutocompleteHarness>(p => p.Add(x => x.RootParameters, new Dictionary<string, object?>
+        {
+            ["Items"] = s_items,
+            ["DefaultOpen"] = true,
+            ["OnValueChange"] = Microsoft.AspNetCore.Components.EventCallback.Factory.Create<ValueChangeEventArgs<string>>(this, args =>
+            {
+                changes.Add((args.Value, args.Details.Reason));
+                args.Details.Cancel();
+            }),
+        }));
+
+        await TypeAsync(cut, "ch");
+        Assert.Equal("ch", cut.Instance.Root!.Store.State.InputValue);
+
+        await cut.InvokeAsync(() => cut.Find("[data-testid=item-cherry]").Click());
+        Assert.Equal("cherry", cut.Instance.Root!.Store.State.InputValue);
+
+        await cut.InvokeAsync(() => cut.Find("[data-testid=clear]").Click());
+        Assert.Equal(string.Empty, cut.Instance.Root!.Store.State.InputValue);
+
+        await TypeAsync(cut, "ba");
+        ComboboxTwin input = test.TwinOf(ComboboxTwin.InputPart);
+        await cut.InvokeAsync(() => input.Decide(ComboboxTwin.ClearPoint, ComboboxTestContext.Key("Escape")));
+        Assert.Equal(string.Empty, cut.Instance.Root!.Store.State.InputValue);
+
+        Assert.Equal(
+            [("ch", EventReason.InputChange), ("cherry", EventReason.ItemPress), (string.Empty, EventReason.ClearPress), ("ba", EventReason.InputChange), (string.Empty, EventReason.EscapeKey)],
+            changes);
+    }
+
     private Task TypeAsync<TComponent>(IRenderedComponent<TComponent> cut, string text)
         where TComponent : Microsoft.AspNetCore.Components.IComponent
     {
