@@ -67,6 +67,10 @@ public sealed class AutocompleteRoot<TValue> : ComponentBase, IAsyncDisposable
 
     private string? lastControlledValue;
 
+    // AUT-STA-06 (b), (c): a reset is pending until the root's after-render, Base UI's after-paint effect; the engine's
+    // reconciliation in that after-render re-sends a highlight with reason none that must not complete again.
+    private bool overlayResetPending;
+
     private Func<TValue?, HighlightEventDetails, Task>? highlighted;
 
     private bool filterSupplied;
@@ -314,6 +318,7 @@ public sealed class AutocompleteRoot<TValue> : ComponentBase, IAsyncDisposable
         if (!InlineEnabled || (text!.IsControlled && !string.Equals(lastControlledValue, text.Value, StringComparison.Ordinal)))
         {
             overlay = string.Empty;
+            overlayResetPending = true;
         }
 
         lastControlledValue = text!.IsControlled ? text.Value : null;
@@ -327,7 +332,11 @@ public sealed class AutocompleteRoot<TValue> : ComponentBase, IAsyncDisposable
     protected override void BuildRenderTree(RenderTreeBuilder builder) => Behavior.BuildRenderTree(builder);
 
     /// <inheritdoc />
-    protected override Task OnAfterRenderAsync(bool firstRender) => Behavior.OnAfterRenderAsync();
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        await Behavior.OnAfterRenderAsync();
+        overlayResetPending = false;
+    }
 
     /// <inheritdoc />
     public ValueTask DisposeAsync() => behavior?.DisposeAsync() ?? ValueTask.CompletedTask;
@@ -412,6 +421,7 @@ public sealed class AutocompleteRoot<TValue> : ComponentBase, IAsyncDisposable
     private async Task HandleTextChangeAsync(ValueChangeEventArgs<string> args)
     {
         overlay = string.Empty;
+        overlayResetPending = false;
         text!.SetValueIfUncontrolled(args.Value);
         if (!text.IsControlled)
         {
@@ -436,7 +446,9 @@ public sealed class AutocompleteRoot<TValue> : ComponentBase, IAsyncDisposable
             await OnItemHighlighted.InvokeAsync(new AutocompleteItemHighlightedEventArgs<TValue>(value, details));
         }
 
-        if (details.Reason == EventReason.Pointer)
+        // AUT-STA-06 (b), (c) (design point 10 of M5 track 11): the reconciliation the reset's own render causes does not
+        // complete again, as Base UI's reset effect runs after the engine's layout effect.
+        if (details.Reason == EventReason.Pointer || (overlayResetPending && details.Reason == EventReason.None))
         {
             return;
         }
