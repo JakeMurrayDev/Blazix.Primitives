@@ -15,7 +15,7 @@ An unofficial Blazor (C#) port of [MUI Base UI](https://base-ui.com/), the headl
 
 ## Building
 
-You need the .NET 11 **RC2** SDK (`11.0.100-rc.2.26504.105`, pinned in [global.json](global.json) with `rollForward: latestFeature`, so GA flows in without an edit) and the active **Node LTS** line ([.node-version](.node-version), currently 24). Consumers of a preview package need the same SDK.
+You need the .NET 11 SDK (`11.0.100`, the GA release, pinned in [global.json](global.json) with `rollForward: latestFeature`, so later feature bands flow in without an edit) and the active **Node LTS** line ([.node-version](.node-version), currently 24). Consumers of a preview package need the same SDK.
 
 ```bash
 dotnet build -c Release                                  # whole solution; warnings are errors
