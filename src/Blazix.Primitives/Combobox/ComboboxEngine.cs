@@ -57,9 +57,9 @@ internal enum ComboboxAriaAutoComplete
 /// <param name="DefaultValue">The single-mode default's parameter, or <see langword="null"/>.</param>
 /// <param name="Values">The multiple-mode value's parameter, or <see langword="null"/>.</param>
 /// <param name="DefaultValues">The multiple-mode default's parameter, or <see langword="null"/>.</param>
-/// <param name="InputValue">The input value's parameter.</param>
-/// <param name="DefaultInputValue">The input value's default parameter.</param>
-internal readonly record struct ComboboxValueNames(string? Value, string? DefaultValue, string? Values, string? DefaultValues, string InputValue, string DefaultInputValue)
+/// <param name="InputValue">The input value's parameter, or <see langword="null"/> when the root gives the text as <c>InputText</c>.</param>
+/// <param name="DefaultInputValue">The input value's default parameter, or <see langword="null"/> with <paramref name="InputValue"/>.</param>
+internal readonly record struct ComboboxValueNames(string? Value, string? DefaultValue, string? Values, string? DefaultValues, string? InputValue, string? DefaultInputValue)
 {
     /// <summary>Gets Combobox's names.</summary>
     public static ComboboxValueNames Combobox => new("Value", "DefaultValue", "Values", "DefaultValues", "InputValue", "DefaultInputValue");

@@ -855,8 +855,14 @@ internal sealed class ComboboxStore<TValue> : ComboboxStore
             valuesState.Update(valuesSupplied, values ?? [], true, defaults ?? []);
         }
 
-        bool inputSupplied = parameters.TryGetValue(names.InputValue, out string? inputValue);
-        bool defaultInputSupplied = parameters.TryGetValue(names.DefaultInputValue, out string? defaultInputValue);
+        // A root that gives its text as InputText names no input parameters (ApplyInputs reads it).
+        if (names.InputValue is not { } inputName || names.DefaultInputValue is not { } defaultInputName)
+        {
+            return;
+        }
+
+        bool inputSupplied = parameters.TryGetValue(inputName, out string? inputValue);
+        bool defaultInputSupplied = parameters.TryGetValue(defaultInputName, out string? defaultInputValue);
 
         // CMB-STA-19 (AriaCombobox.tsx:283, read at every render): hasInputValue is a given text, InputValue or
         // DefaultInputValue. InputValue is controlled iff supplied at the first parameter set, and a supplied null shows the
@@ -878,6 +884,15 @@ internal sealed class ComboboxStore<TValue> : ComboboxStore
         bool firstSet = !initialized;
         ComboboxRootInputs<TValue> previous = inputs;
         inputs = next;
+
+        // AUT-STA-09 (AutocompleteRoot.tsx:107-125, AriaCombobox.tsx:283; design point 1 (i) of M5 track 11, settled by the
+        // orchestrator 2026-11-12): a given text is a controlled input value at every set, so a popup input never blanks it.
+        if (next.InputText is { } given)
+        {
+            HasInputValueParameter = true;
+            inputNullControlled = false;
+            inputValueState.Update(true, given, false, default!);
+        }
         if (!collatorCreated || !Equals(collatorCulture, next.Culture))
         {
             collatorCreated = true;

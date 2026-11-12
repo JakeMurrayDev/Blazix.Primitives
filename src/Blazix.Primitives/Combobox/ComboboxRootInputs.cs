@@ -33,6 +33,12 @@ internal sealed class ComboboxRootInputs<TValue>
     /// <summary>Gets or sets the query the filter uses instead of the input text, or <see langword="null"/> for the input text.</summary>
     public string? FilterQuery { get; set; }
 
+    // AUT-STA-09 (AutocompleteRoot.tsx:107-125; design point 1 (i) of M5 track 11, settled by the orchestrator 2026-11-12): the
+    // text an adopting root owns, given at every parameter set, as Base UI's wrapper always passes inputValue.
+    /// <summary>Gets or sets the text the root gives the input at every parameter set, or <see langword="null"/> when the input value parameters carry it.</summary>
+    /// <value>When it is not <see langword="null"/>, the input value is controlled by it and its changes are reported to <see cref="OnInputValueChange"/>.</value>
+    public string? InputText { get; set; }
+
     /// <summary>Gets or sets a value indicating whether an uncontrolled popup is open initially.</summary>
     public bool DefaultOpen { get; set; }
 
