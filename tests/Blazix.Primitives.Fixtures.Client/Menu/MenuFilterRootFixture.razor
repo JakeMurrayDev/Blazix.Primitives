@@ -14,7 +14,8 @@
     "none", in `data-highlights` (`|`-separated). `after=true` adds an input "After" (`data-testid="after"`) after the menu; `modal=false` sets
     the root's Modal; `cancel=true` cancels every close request; `disabled=true`
     disables Delete; `link=true` adds a first item, a link item "Docs" with no href, whose press is recorded as
-    `Docs:ctrl` when the Ctrl key was held. Each query request is recorded as
+    `Docs:ctrl` when the Ctrl key was held; `veto=true` gives the input a consumer onKeyDown that cancels the part's
+    handling of ArrowUp and Enter (only then does the input carry a handler). Each query request is recorded as
     `value:reason` in `data-value-changes` (`|`-separated), and each item press by name in `data-presses`; `data-attached` turns "true" once the menu's session and the
     input's and list's `menu-filter` handles have attached.
 *@
@@ -30,7 +31,7 @@
             <MenuPortal>
                 <MenuPositioner>
                     <MenuPopup data-testid="popup">
-                        <MenuInput aria-label="Filter actions" @ref="input" />
+                        <MenuInput aria-label="Filter actions" @attributes="InputAttributes" @ref="input" />
                         @if (Extra)
                         {
                             <button type="button">Extra action</button>
@@ -127,6 +128,21 @@
 
     [SupplyParameterFromQuery(Name = "link")]
     public bool Link { get; set; }
+
+    [SupplyParameterFromQuery(Name = "veto")]
+    public bool Veto { get; set; }
+
+    private Dictionary<string, object>? InputAttributes => Veto
+        ? new() { ["onkeydown"] = EventCallback.Factory.Create<KeyboardEventArgs>(this, OnInputKeyDown) }
+        : null;
+
+    private static void OnInputKeyDown(KeyboardEventArgs args)
+    {
+        if (args.Key is "ArrowUp" or "Enter")
+        {
+            args.PreventPartHandler();
+        }
+    }
 
     private void CancelClose(ValueChangeEventArgs<bool> args)
     {

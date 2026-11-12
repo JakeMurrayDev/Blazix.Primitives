@@ -1288,3 +1288,48 @@ test.describe('prop: onItemHighlighted', () => {
     await expect(input(page)).not.toHaveAttribute('aria-activedescendant', /.+/);
   });
 });
+
+// MenuFilterRoot.test.tsx's consumer key handler on the input (MNU-API-59, EVT-15; design point 6 (a)) on
+// `menu-filter-root` with `veto=true`. Base UI's fireEvent.keyDown is a dispatched keydown. ADR 01's row "C#-origin
+// consumer vetoes": the veto holds on WebAssembly; on Server the handler runs a round trip after the key, asserted by a
+// port title.
+test.describe('a consumer key handler on the input', () => {
+  async function renderVeto(page: Page, mode: RenderMode): Promise<Locator> {
+    await page.goto(`/${mode}/menu-filter-root?veto=true`, { waitUntil: 'commit' });
+    await page.locator(Fixture.started).waitFor({ state: 'attached' });
+    const fixture = page.locator(Fixture.interactive('menu-filter-root'));
+    await expect(fixture).toHaveAttribute('data-attached', 'true');
+    await expect(input(page)).toBeFocused();
+    return fixture;
+  }
+
+  function keyDown(page: Page, key: string): Promise<boolean> {
+    return input(page).evaluate((element, pressed) => element.dispatchEvent(new KeyboardEvent('keydown', { key: pressed, bubbles: true, cancelable: true })), key);
+  }
+
+  test('lets a consumer key handler on the input opt out of list navigation and activation', async ({ page, mode }) => {
+    test.skip(mode === 'server', "ADR 01: a C# consumer's veto is a round trip late on Server; the port title below asserts it");
+    const fixture = await renderVeto(page, mode);
+    const renameId = (await item(page, 'Rename').getAttribute('id')) ?? 'missing';
+
+    await keyDown(page, 'ArrowDown');
+    await expect(input(page)).toHaveAttribute('aria-activedescendant', renameId);
+    await keyDown(page, 'ArrowUp');
+    await keyDown(page, 'Enter');
+
+    await expect(input(page)).toHaveAttribute('aria-activedescendant', renameId);
+    await expect(fixture).not.toHaveAttribute('data-presses', /Rename/);
+  });
+
+  test("port: on Server the input's keys run before the consumer's C# onKeyDown can opt out", async ({ page, mode }) => {
+    test.skip(mode !== 'server', 'Server only: the circuit between the browser and C#');
+    await renderVeto(page, mode);
+    const renameId = (await item(page, 'Rename').getAttribute('id')) ?? 'missing';
+
+    await keyDown(page, 'ArrowDown');
+    await expect(input(page)).toHaveAttribute('aria-activedescendant', renameId);
+    await keyDown(page, 'ArrowUp');
+
+    await expect(input(page)).not.toHaveAttribute('aria-activedescendant', renameId);
+  });
+});
