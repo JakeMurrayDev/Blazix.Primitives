@@ -47,6 +47,7 @@ public sealed class AutocompleteAsyncItemsTests : IDisposable
     }
 
     [Theory(DisplayName = "handles asynchronous results after an inline input blurs with autoHighlight=%s")]
+    [InlineData(false)]
     [InlineData(true)]
     [Trait("Requirement", "AUT-EDGE-04")]
     [Trait("Requirement", "AUT-STA-11")]
