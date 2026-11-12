@@ -323,6 +323,27 @@ test.describe('filterable menu initial highlight', () => {
     await expect(fixture).toHaveAttribute('data-open-completes', /(^| )false( |$)/);
   });
 
+  // MNU-STA-03 (MenuFilterRoot.initialHighlight.test.tsx's ControlledTest on the fixture's `plain` list). Base UI's setProps
+  // are the page's "page close" and "page open" buttons, clicked in the page so focus does not move.
+  test('does not highlight an item when a controlled open follows a keyboard open', async ({ page, mode }) => {
+    await page.goto(`/${mode}/menu-filter-initial?plain=true&controlled=true`, { waitUntil: 'commit' });
+    await page.locator(Fixture.started).waitFor({ state: 'attached' });
+    await expect(page.locator(Fixture.interactive('menu-filter-initial'))).toHaveAttribute('data-attached', 'true');
+    const click = (name: string): Promise<boolean> =>
+      page.getByRole('button', { name }).evaluate((element) => element.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true })));
+    await trigger(page).focus();
+    await page.keyboard.press('ArrowDown');
+    await expect(input(page)).toHaveAttribute('aria-activedescendant', (await item(page, 'Rename').getAttribute('id')) ?? 'missing');
+
+    await click('page close');
+    await expect(input(page)).toHaveCount(0);
+    await click('page open');
+
+    await expect(input(page)).toBeVisible();
+    await page.evaluate(() => new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve))));
+    await expect(input(page)).not.toHaveAttribute('aria-activedescendant');
+  });
+
   // MNU-STA-01, EVT-02 (MenuFilterRoot.test.tsx).
   test('stays closed when onOpenChange is canceled', async ({ page, mode }) => {
     await page.goto(`/${mode}/menu-filter-initial?cancelOpen=true`, { waitUntil: 'commit' });

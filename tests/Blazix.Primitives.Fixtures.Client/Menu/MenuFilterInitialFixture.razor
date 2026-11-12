@@ -10,7 +10,8 @@
     part's handling of ArrowDown; `count=true` counts consumer calls in `data-trigger-clicks`, `data-input-keydowns`
     and `data-popup-keydowns`; `keepMounted=true` keeps the closed popup mounted; `cancelOpen=true` cancels every open request; `exitAnimation=true` gives the popup a 10 s exit animation (open the
     page with `animations=1`); `query` seeds the provider's DefaultValue; each query request is recorded as `value:reason`
-    in `data-value-changes`, and each open request as `true` or `false` in `data-open-changes`), an input, Empty reading
+    in `data-value-changes`, and each open request as `true` or `false` in `data-open-changes`; `controlled=true` holds
+    the open state on this page, which the buttons "page close" and "page open" after the menu set), an input, Empty reading
     "No actions found.", and a list of a disabled Unavailable, Rename and Delete. `data-attached` turns "true" once the
     menu's session has attached, and `data-input-attached` once the open popup's input has its `menu-filter` handle.
 *@
@@ -20,7 +21,7 @@
         <style>.filter-menu-exit-test[data-ending-style] { animation: filter-menu-exit-test 10s linear; } @@keyframes filter-menu-exit-test { from { opacity: 1; } to { opacity: 0; } }</style>
     }
     <MenuFilterProvider DefaultValue="@(Query ?? "")" OnValueChange="RecordValue">
-        <MenuRoot TPayload="NoPayload" Orientation="@(OrientationName == "horizontal" ? Orientation.Horizontal : Orientation.Vertical)" OnOpenChangeComplete="OnOpenChangeComplete" OnOpenChange="CancelOpen" @ref="root">
+        <MenuRoot TPayload="NoPayload" Orientation="@(OrientationName == "horizontal" ? Orientation.Horizontal : Orientation.Vertical)" OnOpenChangeComplete="OnOpenChangeComplete" OnOpenChange="CancelOpen" @attributes="RootParameters" @ref="root">
             <MenuTrigger TPayload="NoPayload" OpenOnHover="@Hover" Delay="0" @attributes="TriggerAttributes">Actions</MenuTrigger>
             <MenuPortal KeepMounted="@KeepMounted">
                 <MenuPositioner>
@@ -43,6 +44,11 @@
     @if (After)
     {
         <input data-testid="after" aria-label="After" />
+    }
+    @if (Controlled)
+    {
+        <button type="button" @onclick="() => open = false">page close</button>
+        <button type="button" @onclick="() => open = true">page open</button>
     }
 </FixtureContainer>
 
@@ -75,6 +81,16 @@
     private int triggerClicks;
     private int inputKeyDowns;
     private int popupKeyDowns;
+
+    [SupplyParameterFromQuery(Name = "controlled")]
+    public bool Controlled { get; set; }
+
+    private bool open;
+
+    // `controlled=true`: the open state is this page's.
+    private Dictionary<string, object>? RootParameters => Controlled
+        ? new() { ["Open"] = open, ["OpenChanged"] = EventCallback.Factory.Create<bool>(this, value => open = value) }
+        : null;
 
     [SupplyParameterFromQuery(Name = "exitAnimation")]
     public bool ExitAnimation { get; set; }
