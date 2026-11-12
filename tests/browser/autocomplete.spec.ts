@@ -1,5 +1,5 @@
-import { type Locator } from '@playwright/test';
-import { expect, fixtureUrl, test, type Page, type RenderMode } from './helpers';
+import { type Locator, type Route } from '@playwright/test';
+import { expect, fixtureUrl, gotoFixture, test, type Page, type RenderMode } from './helpers';
 import { center, gotoCombobox, recorded } from './combobox.helpers';
 import { openChangeCompletes, openChanges, pressControl, settle } from './suites/popupFixture';
 
@@ -369,6 +369,54 @@ test.describe('<Autocomplete.Root />', () => {
     await expect(input(page)).toHaveValue('item 19');
     await expect.poll(() => page.getByTestId('list').evaluate((element) => element.scrollTop)).toBeGreaterThan(0);
   });
+});
+
+// The attach order (the brief's L4 plan; the lesson of CI run 40461905812): the Input's `combobox` and list handles and the
+// root's session each wait for their module, and a gesture after it arrives runs once. A route holds the module, matched
+// with or without WebAssembly's fingerprint.
+test.describe('<Autocomplete.Root /> attach order', () => {
+  async function stall(page: Page, module: string): Promise<{ release: () => Promise<void>; held: () => number }> {
+    const held: Route[] = [];
+    let heldCount = 0;
+    let released = false;
+    const url = new RegExp(`/_content/Blazix\\.Primitives/js/${module}(\\.[a-z0-9]+)?\\.js$`);
+    await page.route(url, (route) => {
+      if (released) {
+        return route.continue();
+      }
+      heldCount += 1;
+      held.push(route);
+      return undefined;
+    });
+    return {
+      release: async () => {
+        released = true;
+        for (const route of held.splice(0)) {
+          await route.continue();
+        }
+      },
+      held: () => heldCount,
+    };
+  }
+
+  for (const module of ['combobox', 'composite', 'interactions']) {
+    test(`port: with js/${module}.js stalled the parts wait, and typing and a press run once the module arrives`, async ({ page, mode }) => {
+      const { release, held } = await stall(page, module);
+      const fixture = await gotoFixture(page, mode, 'autocomplete-root');
+      // The module's request is held (on WebAssembly the fixture's marker can read attached before its parts' handles
+      // start, so the hold itself is the witness).
+      await expect.poll(held).toBeGreaterThan(0);
+
+      await release();
+      await expect(fixture).toHaveAttribute('data-attached', 'true');
+
+      await typeText(page, 'ch');
+      await expect(options(page)).toHaveCount(1);
+      await page.getByTestId('item-cherry').click();
+      await expect(input(page)).toHaveValue('cherry');
+      await expect.poll(() => recorded(fixture, 'data-value-changes')).toEqual(['c:input-change', 'ch:input-change', 'cherry:item-press']);
+    });
+  }
 });
 
 // AUT-ANI-01, EVT-03, DIS-01: AutocompleteRoot.test.tsx's "manual unmount lifecycle" on `autocomplete-unmount`, the titles
