@@ -175,6 +175,20 @@ test.describe('<Autocomplete.Root />', () => {
     expect(entries).toEqual(['xyz']);
   });
 
+  // AUT-KEY-10 (Test: none; the brief's proposed L4): the closed trigger's typeahead is single mode's only.
+  test('port: printable keys on a focused, closed trigger do nothing', async ({ page, mode }) => {
+    const fixture = await goto(page, mode, { insidePopup: true });
+    await page.getByTestId('trigger').focus();
+
+    await page.keyboard.press('b');
+    await settle(fixture);
+
+    await expect(page.getByRole('listbox')).toHaveCount(0);
+    await expect(page.getByTestId('trigger')).toHaveText('');
+    expect(await recorded(fixture, 'data-value-changes')).toEqual([]);
+    expect(await recorded(fixture, 'data-highlights')).toEqual([]);
+  });
+
   test('when true, clicking with pointer submits the owning form', async ({ page, mode }) => {
     await goto(page, mode, { submit: true });
     await page.evaluate(() => {
