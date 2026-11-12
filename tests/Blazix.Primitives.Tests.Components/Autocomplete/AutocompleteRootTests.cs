@@ -141,6 +141,27 @@ public sealed class AutocompleteRootTests : IDisposable
         Assert.Equal(["banana"], cut.FindAll("[role=option]").Select(item => item.TextContent));
     }
 
+    [Fact(DisplayName = "sets aria-readonly on the Autocomplete listbox when the root is readOnly")]
+    [Trait("Requirement", "AUT-ARIA-02")]
+    public void Sets_aria_readonly_on_the_listbox_when_read_only()
+    {
+        IRenderedComponent<AutocompleteHarness> cut = Render(new() { ["Items"] = s_items, ["DefaultOpen"] = true, ["ReadOnly"] = true });
+
+        Assert.Equal("true", cut.Find("[data-testid=list]").GetAttribute("aria-readonly"));
+        Assert.All(cut.FindAll("[role=option]"), item => Assert.False(item.HasAttribute("aria-selected") && item.GetAttribute("aria-selected") == "true"));
+    }
+
+    [Fact(DisplayName = "exposes the listbox separator behavior")]
+    [Trait("Requirement", "AUT-STR-05")]
+    public void Exposes_the_listbox_separator_behavior()
+    {
+        IRenderedComponent<AutocompleteHarness> cut = Render(new() { ["Items"] = s_items, ["DefaultOpen"] = true });
+
+        IElement separator = cut.Find("[data-testid=separator]");
+        Assert.Equal("presentation", separator.GetAttribute("role"));
+        Assert.Equal("div", separator.TagName.ToLowerInvariant());
+    }
+
     private IRenderedComponent<AutocompleteHarness> Render(Dictionary<string, object?> parameters) =>
         test.Context.Render<AutocompleteHarness>(p => p.Add(x => x.RootParameters, parameters));
 
