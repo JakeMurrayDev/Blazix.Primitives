@@ -457,7 +457,7 @@ internal sealed class CompositeRootBehavior : IDisposable
     internal DecisionPolicy DecideKeyDownOnce(EventSnapshot snapshot)
     {
         DecisionPolicy verdict = DecideNavigation(snapshot);
-        onceVerdict = new OnceVerdict(snapshot.Type, snapshot.TimeStamp, snapshot.Key, verdict);
+        (onceVerdict ??= new OnceVerdict()).Keep(snapshot, verdict);
         return verdict;
     }
 
@@ -814,10 +814,9 @@ internal sealed class CompositeRootBehavior : IDisposable
     private DecisionPolicy DecideNavigation(EventSnapshot snapshot)
     {
         // DecideKeyDownOnce's verdict for this very keydown, served once.
-        if (onceVerdict is { } once && once.Matches(snapshot))
+        if (onceVerdict is { } once && once.TryTake(snapshot, out DecisionPolicy kept))
         {
-            onceVerdict = null;
-            return once.Verdict;
+            return kept;
         }
 
         if (NavigationDecider is { } chain && chain(snapshot) == DecisionPolicy.Stop)
@@ -925,13 +924,48 @@ internal sealed class CompositeRootBehavior : IDisposable
         }
     }
 
-    /// <summary>The key event a decision ran the consumer's handler for, matched against Blazor's dispatch of it.</summary>
-    private readonly record struct OnceVerdict(string Type, double TimeStamp, string? Key, DecisionPolicy Verdict)
+    // ADR 16: only a filter part's first DecideKeyDownOnce allocates the holder, which every later one reuses, so a root
+    // that never decides a keydown once pays one null reference.
+    /// <summary>The verdict DecideKeyDownOnce kept for one keydown, served once to composite's own decision of the same event.</summary>
+    private sealed class OnceVerdict
     {
-        public bool Matches(EventSnapshot snapshot) =>
-            string.Equals(Type, snapshot.Type, StringComparison.Ordinal) && TimeStamp == snapshot.TimeStamp && string.Equals(Key, snapshot.Key, StringComparison.Ordinal);
+        private string? type;
+        private double timeStamp;
+        private string? key;
+        private DecisionPolicy verdict;
+        private bool pending;
+
+        /// <summary>Keeps a verdict for a keydown, replacing any earlier one.</summary>
+        /// <param name="snapshot">The keydown.</param>
+        /// <param name="decided">The verdict.</param>
+        public void Keep(EventSnapshot snapshot, DecisionPolicy decided)
+        {
+            type = snapshot.Type;
+            timeStamp = snapshot.TimeStamp;
+            key = snapshot.Key;
+            verdict = decided;
+            pending = true;
+        }
+
+        /// <summary>Takes the kept verdict when it was kept for this keydown (its type, timestamp and key).</summary>
+        /// <param name="snapshot">The keydown composite's decision runs for.</param>
+        /// <param name="decided">The kept verdict, when taken.</param>
+        /// <returns><see langword="true"/> when the verdict was kept for this keydown; it is then spent.</returns>
+        public bool TryTake(EventSnapshot snapshot, out DecisionPolicy decided)
+        {
+            if (pending && string.Equals(type, snapshot.Type, StringComparison.Ordinal) && timeStamp == snapshot.TimeStamp && string.Equals(key, snapshot.Key, StringComparison.Ordinal))
+            {
+                pending = false;
+                decided = verdict;
+                return true;
+            }
+
+            decided = default;
+            return false;
+        }
     }
 
+    /// <summary>The key event a decision ran the consumer's handler for, matched against Blazor's dispatch of it.</summary>
     private readonly record struct DecidedKey(string Key, string Code, bool AltKey, bool CtrlKey, bool MetaKey, bool ShiftKey)
     {
         public static DecidedKey From(KeyboardEventArgs e) => new(e.Key, e.Code, e.AltKey, e.CtrlKey, e.MetaKey, e.ShiftKey);
