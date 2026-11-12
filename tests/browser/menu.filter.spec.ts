@@ -270,3 +270,61 @@ test.describe('filterable menu initial highlight', () => {
     await expect(input(page)).toHaveAttribute('aria-activedescendant', await idOf(item(page, 'Rename')));
   });
 });
+
+// MenuFilterRoot.test.tsx's autoHighlight titles (MNU-STA-19, API-55) on `menu-filter-root` with `auto`, titles verbatim:
+// the typed query's first match is highlighted. The fixture's items are Rename, Delete and Duplicate, so the first match of
+// "d" is Delete where Base UI's list (Rename, Duplicate, Delete) gives Duplicate.
+test.describe('autoHighlight', () => {
+  async function renderAuto(page: Page, mode: RenderMode, auto: 'true' | 'always'): Promise<Locator> {
+    await page.goto(`/${mode}/menu-filter-root?auto=${auto}`, { waitUntil: 'commit' });
+    await page.locator(Fixture.started).waitFor({ state: 'attached' });
+    const fixture = page.locator(Fixture.interactive('menu-filter-root'));
+    await expect(fixture).toHaveAttribute('data-attached', 'true');
+    return fixture;
+  }
+
+  async function idOf(locator: Locator): Promise<string> {
+    return (await locator.getAttribute('id')) ?? 'missing';
+  }
+
+  test('automatically highlights the first match after the user types', async ({ page, mode }) => {
+    await renderAuto(page, mode, 'true');
+    await expect(input(page)).not.toHaveAttribute('aria-activedescendant');
+    await input(page).focus();
+
+    await page.keyboard.type('d');
+
+    await expect(item(page, 'Delete')).toHaveAttribute('data-highlighted', '');
+    await expect(input(page)).toHaveAttribute('aria-activedescendant', await idOf(item(page, 'Delete')));
+  });
+
+  test('always highlights the first item when autoHighlight is "always"', async ({ page, mode }) => {
+    await renderAuto(page, mode, 'always');
+
+    await expect(item(page, 'Rename')).toHaveAttribute('data-highlighted', '');
+    await expect(input(page)).toHaveAttribute('aria-activedescendant', await idOf(item(page, 'Rename')));
+  });
+
+  test('clears the automatic highlight when a typed query is cleared', async ({ page, mode }) => {
+    await renderAuto(page, mode, 'true');
+    await input(page).focus();
+    await page.keyboard.type('del');
+    await expect(input(page)).toHaveAttribute('aria-activedescendant', /.+/);
+
+    await input(page).fill('');
+
+    await expect(input(page)).not.toHaveAttribute('aria-activedescendant');
+  });
+
+  test('restores the first item when an always-highlighted query is cleared', async ({ page, mode }) => {
+    await renderAuto(page, mode, 'always');
+    await input(page).focus();
+    await page.keyboard.type('del');
+    await expect(item(page, 'Delete')).toHaveAttribute('data-highlighted', '');
+
+    await input(page).fill('');
+
+    await expect(item(page, 'Rename')).toHaveAttribute('data-highlighted', '');
+    await expect(input(page)).toHaveAttribute('aria-activedescendant', await idOf(item(page, 'Rename')));
+  });
+});
