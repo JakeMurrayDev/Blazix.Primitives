@@ -174,6 +174,28 @@ function refocusOwner(owner: HTMLElement): void {
   owner.focus({ preventScroll: true });
 }
 
+// Routes a key that landed elsewhere as the input's: a copy is dispatched on the input, and the original is prevented when
+// the copy was.
+function replayOnOwner(owner: HTMLInputElement, event: KeyboardEvent): void {
+  const KeyboardEventConstructor = owner.ownerDocument.defaultView?.KeyboardEvent ?? KeyboardEvent;
+  const replay = new KeyboardEventConstructor('keydown', {
+    key: event.key,
+    code: event.code,
+    location: event.location,
+    repeat: event.repeat,
+    shiftKey: event.shiftKey,
+    ctrlKey: event.ctrlKey,
+    altKey: event.altKey,
+    metaKey: event.metaKey,
+    bubbles: true,
+    cancelable: true,
+    composed: true,
+  });
+  if (!owner.dispatchEvent(replay)) {
+    event.preventDefault();
+  }
+}
+
 const HIGHLIGHTED = 'data-highlighted';
 
 // The Input (filter-dropdown/input/FilterDropdownInput.tsx; menu/input/MenuInput.tsx).
@@ -456,23 +478,7 @@ function attachList(list: HTMLElement, initial: MenuFilterOptions, channel: Twin
     }
     skipListNavigation(event);
     refocusOwner(owner);
-    const KeyboardEventConstructor = owner.ownerDocument.defaultView?.KeyboardEvent ?? KeyboardEvent;
-    const replay = new KeyboardEventConstructor('keydown', {
-      key: event.key,
-      code: event.code,
-      location: event.location,
-      repeat: event.repeat,
-      shiftKey: event.shiftKey,
-      ctrlKey: event.ctrlKey,
-      altKey: event.altKey,
-      metaKey: event.metaKey,
-      bubbles: true,
-      cancelable: true,
-      composed: true,
-    });
-    if (!owner.dispatchEvent(replay)) {
-      event.preventDefault();
-    }
+    replayOnOwner(owner, event);
   };
 
   const observer = new MutationObserver(reportTexts);
@@ -499,6 +505,49 @@ function attachList(list: HTMLElement, initial: MenuFilterOptions, channel: Twin
       list.removeEventListener('mousedown', onMouseDown);
       list.removeEventListener('focus', onFocus);
       list.removeEventListener('keydown', onKeyDown);
+    },
+  };
+}
+
+// The Trigger (MenuFilterDropdown.tsx:124-150, MNU-KEY-28): while the popup is open the input holds real focus, so the
+// vertical arrows typed on the trigger move to the input and run there, a typed character's default action follows focus
+// into the input, and the cross-axis arrows are left out of the list navigation (they drive submenus). The trigger's own
+// list handle skips each key it relays. Off in a menubar, whose trigger keys move between triggers (MBR-KEY-14).
+function attachTrigger(trigger: HTMLElement, initial: MenuFilterOptions): TwinHandle {
+  let options = initial;
+  let disposed = false;
+
+  const onKeyDown = (event: KeyboardEvent): void => {
+    const owner = options.menuKey ? owners.get(options.menuKey) : undefined;
+    if (options.open !== true || options.inBar === true || owner === undefined) {
+      return;
+    }
+    if (event.key === 'ArrowUp' || event.key === 'ArrowDown') {
+      skipListNavigation(event);
+      event.preventDefault();
+      refocusOwner(owner.input);
+      replayOnOwner(owner.input, event);
+    } else if (event.key === 'ArrowLeft' || event.key === 'ArrowRight') {
+      skipListNavigation(event);
+    } else if (event.key.length === 1 && event.key !== ' ' && !event.ctrlKey && !event.metaKey && !event.altKey) {
+      refocusOwner(owner.input);
+    }
+  };
+
+  // Capture, so the key is marked before the trigger's own handles run.
+  trigger.addEventListener('keydown', onKeyDown, true);
+
+  return {
+    update(optionsJson: string): void {
+      if (!disposed) {
+        options = parseOptions<MenuFilterOptions>(optionsJson);
+      }
+    },
+    dispose(): void {
+      if (!disposed) {
+        disposed = true;
+        trigger.removeEventListener('keydown', onKeyDown, true);
+      }
     },
   };
 }
@@ -616,6 +665,9 @@ export function attach(
       break;
     case 'popup':
       inner = attachPopup(element, options);
+      break;
+    case 'trigger':
+      inner = attachTrigger(element, options);
       break;
     default:
       throw new Error(`menu-filter: the ${options.part} part is not implemented`);

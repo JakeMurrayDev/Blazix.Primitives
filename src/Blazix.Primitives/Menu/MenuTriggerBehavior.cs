@@ -50,6 +50,8 @@ internal sealed class MenuTriggerBehavior<TPayload> : IAsyncDisposable, IMenuTri
     private readonly InteractionsTriggerBehavior interactions;
     private readonly CompositeRootBehavior reference;
     private readonly PopupModuleAttachment guards;
+    private readonly IJSRuntime jsRuntime;
+    private MenuFilterModuleAttachment? filterModule;
     private readonly Func<Func<Task>, Task> invokeAsync;
     private readonly EventCallback onKeyDown;
     private readonly Action requestRender;
@@ -97,6 +99,7 @@ internal sealed class MenuTriggerBehavior<TPayload> : IAsyncDisposable, IMenuTri
         EventCallback onKeyUp)
     {
         this.familyName = familyName;
+        this.jsRuntime = jsRuntime;
         this.invokeAsync = invokeAsync;
         this.onKeyDown = onKeyDown;
         this.requestRender = requestRender;
@@ -176,6 +179,20 @@ internal sealed class MenuTriggerBehavior<TPayload> : IAsyncDisposable, IMenuTri
                 Trigger = new PopupTriggerOptions { Guards = HasFocusGuards, PopupId = ((IMenuState)store.State).PopupId },
             });
         }
+
+        // MNU-KEY-28 (MenuFilterDropdown.tsx:124-150; M5 track 12 under the orchestrator's 2026-11-12 grant): a filterable
+        // menu's trigger relays keys to the input through its `menu-filter` handle; a plain menu attaches none.
+        if (element is { } relayTarget && store.Context?.Filter is not null)
+        {
+            filterModule ??= new MenuFilterModuleAttachment(jsRuntime);
+            await filterModule.SyncAsync(relayTarget, new MenuFilterOptions
+            {
+                Part = MenuFilterTwin.TriggerPart,
+                MenuKey = store.SessionToken,
+                Open = store.State.Popup.EffectiveOpen,
+                InBar = InBar,
+            });
+        }
     }
 
     /// <inheritdoc />
@@ -195,8 +212,10 @@ internal sealed class MenuTriggerBehavior<TPayload> : IAsyncDisposable, IMenuTri
         guards.Twin.GuardFocused -= OnGuardFocused;
         ValueTask interactionsDisposed = interactions.DisposeAsync();
         ValueTask guardsDisposed = guards.DisposeAsync();
+        ValueTask filterDisposed = filterModule?.DisposeAsync() ?? ValueTask.CompletedTask;
         await interactionsDisposed;
         await guardsDisposed;
+        await filterDisposed;
     }
 
     /// <summary>Applies the trigger's parameters and its surroundings.</summary>
