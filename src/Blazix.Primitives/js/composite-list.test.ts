@@ -2907,6 +2907,22 @@ describe('highlightListEdge (port)', () => {
     });
   });
 
+  // FilterDropdownRoot.tsx:109-125 (MNU-STA-20): the filter's item-set change clears the highlight it no longer holds.
+  it('port: highlightListEdge with no edge clears the highlight', async () => {
+    const harness = app({ reference: 'input', list: { virtual: true }, session: { open: true } });
+    harness.reference.focus();
+    highlightListEdge(harness.reference, 'first', new KeyboardEvent('keydown', { key: 'ArrowDown' }));
+    await waitFor(() => {
+      expect(descendantOf(harness.reference)).toBe(harness.item(0).id);
+    });
+
+    expect(highlightListEdge(harness.reference, null, undefined)).toBe(true);
+
+    await waitFor(() => {
+      expect(descendantOf(harness.reference)).toBe(null);
+    });
+  });
+
   it('port: highlightListEdge does nothing on an element without a list handle', () => {
     const element = document.createElement('input');
 
