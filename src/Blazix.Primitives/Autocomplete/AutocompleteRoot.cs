@@ -45,19 +45,36 @@ public enum AutocompleteMode
 [CascadingTypeParameter(nameof(TValue))]
 public sealed class AutocompleteRoot<TValue> : ComponentBase, IAsyncDisposable
 {
-    // The text names the engine reads while the root's own text path is the engine's (design point 1 of M5 track 11).
-    private static readonly ComboboxValueNames s_names = new(null, null, null, null, nameof(Value), nameof(DefaultValue));
+    // AUT-STR-03, STA-09 (design point 1 (i) of M5 track 11, settled by the orchestrator 2026-11-12): the root owns its text and
+    // gives the engine the displayed text as InputText at every set, so the engine reads no input parameter names.
+    private static readonly ComboboxValueNames s_names = new(null, null, null, null, null, null);
 
     // AUT-STA-07 (AutocompleteRoot.tsx:76-80): the static modes and a null filter show every item.
     private static readonly Func<TValue, string, Func<TValue, string>?, bool> s_every = static (_, _, _) => true;
 
     private readonly ComboboxRootInputs<TValue> inputs = new() { SelectionMode = ComboboxSelectionMode.None };
 
+    // The value handler, with no receiver: a write renders the parts that read the text, not the root.
+    private readonly EventCallback<ValueChangeEventArgs<string>> textChanged;
+
     private ComboboxRootBehavior<TValue>? behavior;
+
+    private Controlled<string>? text;
+
+    // AUT-STA-04, 05: the inline completion's text, "" while none is shown.
+    private string overlay = string.Empty;
+
+    private string? lastControlledValue;
 
     private Func<TValue?, HighlightEventDetails, Task>? highlighted;
 
     private bool filterSupplied;
+
+    /// <summary>Initializes a new instance of the <see cref="AutocompleteRoot{TValue}"/> class.</summary>
+    public AutocompleteRoot()
+    {
+        textChanged = new EventCallback<ValueChangeEventArgs<string>>(null, (Func<ValueChangeEventArgs<string>, Task>)HandleTextChangeAsync);
+    }
 
     [Inject]
     private PartIdGenerator IdGenerator { get; set; } = null!;
@@ -70,6 +87,11 @@ public sealed class AutocompleteRoot<TValue> : ComponentBase, IAsyncDisposable
 
     // Created at the first parameter set, once the services are injected.
     private ComboboxRootBehavior<TValue> Behavior => behavior ?? throw new InvalidOperationException("Blazix: `AutocompleteRoot` is used before its first parameter set.");
+
+    // AUT-STA-04 (AutocompleteRoot.tsx:50-74): the completion while one is shown, else the committed text.
+    private bool InlineEnabled => Mode is AutocompleteMode.Both or AutocompleteMode.Inline && !ReadOnly;
+
+    private string DisplayedText => InlineEnabled && overlay.Length != 0 ? overlay : text!.Value;
 
     [CascadingParameter]
     private IFloatingNodeContext? FloatingParent { get; set; }
@@ -266,13 +288,61 @@ public sealed class AutocompleteRoot<TValue> : ComponentBase, IAsyncDisposable
     {
         behavior ??= new ComboboxRootBehavior<TValue>("Autocomplete", JSRuntime, StateHasChanged, InvokeAsync, DispatchExceptionAsync);
         behavior.SetParameters(parameters, s_names, IdGenerator, Logger);
+
+        // AUT-API-01, EDGE-01, EDGE-02: controlled iff Value is supplied at the first set, a controlled null read as "", and a
+        // later switch warned.
+        text ??= new Controlled<string>("Autocomplete", "value", Logger);
+        bool valueSupplied = parameters.TryGetValue(nameof(Value), out string? value);
+        parameters.TryGetValue(nameof(DefaultValue), out string? defaultValue);
+        text.Update(valueSupplied, value ?? string.Empty, true, defaultValue ?? string.Empty);
         filterSupplied = parameters.TryGetValue<Func<TValue, string, Func<TValue, string>?, bool>?>(nameof(Filter), out _);
         return base.SetParametersAsync(parameters);
     }
 
-    // AUT-STR-03 (AutocompleteRoot.tsx:107-125): the engine inputs, rebuilt at every set.
+    // AUT-STA-06 (b), (c) (AutocompleteRoot.tsx:60-64): a controlled value that changed, or a completion no longer enabled,
+    // drops the completion in the set that brings the change, where Base UI resets it after paint (a dated note).
     /// <inheritdoc />
     protected override void OnParametersSet()
+    {
+        if (!InlineEnabled || (text!.IsControlled && !string.Equals(lastControlledValue, text.Value, StringComparison.Ordinal)))
+        {
+            overlay = string.Empty;
+        }
+
+        lastControlledValue = text!.IsControlled ? text.Value : null;
+        ApplyEngine();
+    }
+
+    /// <inheritdoc />
+    protected override void BuildRenderTree(RenderTreeBuilder builder) => Behavior.BuildRenderTree(builder);
+
+    /// <inheritdoc />
+    protected override Task OnAfterRenderAsync(bool firstRender) => Behavior.OnAfterRenderAsync();
+
+    /// <inheritdoc />
+    public ValueTask DisposeAsync() => behavior?.DisposeAsync() ?? ValueTask.CompletedTask;
+
+    // AUT-API-05: actionsRef.close().
+    /// <summary>Closes the popup, with the reason <see cref="EventReason.ImperativeAction"/>.</summary>
+    /// <returns>A task that completes when the close request has run.</returns>
+    public Task CloseAsync() => Behavior.CloseAsync();
+
+    // AUT-API-05: actionsRef.unmount().
+    /// <summary>
+    /// Removes the popup at once, ending its close animation or a close kept mounted by
+    /// <see cref="OpenChangeEventDetails.PreventUnmountOnClose"/>. While the popup is open it does nothing until it closes.
+    /// </summary>
+    public void Unmount()
+    {
+        Task unmounting = Behavior.UnmountAsync();
+        if (!unmounting.IsCompleted)
+        {
+            _ = ObserveAsync(unmounting);
+        }
+    }
+
+    // AUT-STR-03 (AutocompleteRoot.tsx:107-125): the engine inputs, rebuilt at every set and after a write the root stores.
+    private void ApplyEngine()
     {
         bool staticItems = Mode is AutocompleteMode.Inline or AutocompleteMode.None;
         inputs.AriaAutoComplete = Mode switch
@@ -289,9 +359,10 @@ public sealed class AutocompleteRoot<TValue> : ComponentBase, IAsyncDisposable
         inputs.OnOpenChange = OnOpenChange;
         inputs.OpenChanged = OpenChanged;
         inputs.OnOpenChangeComplete = OnOpenChangeComplete;
+        inputs.InputText = DisplayedText;
+        inputs.FilterQuery = Mode == AutocompleteMode.Both ? text!.Value.Trim() : null;
         inputs.DefaultInputValue = DefaultValue;
-        inputs.OnInputValueChange = OnValueChange;
-        inputs.InputValueChanged = ValueChanged;
+        inputs.OnInputValueChange = textChanged;
         inputs.InputValueExpression = ValueExpression;
         inputs.Items = Items;
         inputs.ItemGroups = ItemGroups;
@@ -321,31 +392,23 @@ public sealed class AutocompleteRoot<TValue> : ComponentBase, IAsyncDisposable
         Behavior.ApplyParameters(inputs, FloatingParent, Field, FormScope, EditContext, Direction?.Direction == TextDirection.Rtl);
     }
 
-    /// <inheritdoc />
-    protected override void BuildRenderTree(RenderTreeBuilder builder) => Behavior.BuildRenderTree(builder);
-
-    /// <inheritdoc />
-    protected override Task OnAfterRenderAsync(bool firstRender) => Behavior.OnAfterRenderAsync();
-
-    /// <inheritdoc />
-    public ValueTask DisposeAsync() => behavior?.DisposeAsync() ?? ValueTask.CompletedTask;
-
-    // AUT-API-05: actionsRef.close().
-    /// <summary>Closes the popup, with the reason <see cref="EventReason.ImperativeAction"/>.</summary>
-    /// <returns>A task that completes when the close request has run.</returns>
-    public Task CloseAsync() => Behavior.CloseAsync();
-
-    // AUT-API-05: actionsRef.unmount().
-    /// <summary>
-    /// Removes the popup at once, ending its close animation or a close kept mounted by
-    /// <see cref="OpenChangeEventDetails.PreventUnmountOnClose"/>. While the popup is open it does nothing until it closes.
-    /// </summary>
-    public void Unmount()
+    // AUT-EVT-02, STA-06 (a) (AutocompleteRoot.tsx:82-88; design point 3 (a), settled by the orchestrator 2026-11-12): every
+    // write drops the completion and stores an uncontrolled text before OnValueChange runs; Cancel() skips only the engine's
+    // follow-ups. An uncontrolled text, or a controlled one no consumer callback will render, reaches the engine at once.
+    private async Task HandleTextChangeAsync(ValueChangeEventArgs<string> args)
     {
-        Task unmounting = Behavior.UnmountAsync();
-        if (!unmounting.IsCompleted)
+        overlay = string.Empty;
+        text!.SetValueIfUncontrolled(args.Value);
+        if (!text.IsControlled)
         {
-            _ = ObserveAsync(unmounting);
+            ApplyEngine();
+        }
+
+        await OnValueChange.InvokeAsync(args);
+        await ValueChanged.InvokeAsync(args.Value);
+        if (text.IsControlled && !OnValueChange.HasDelegate && !ValueChanged.HasDelegate)
+        {
+            ApplyEngine();
         }
     }
 
