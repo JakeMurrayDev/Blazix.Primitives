@@ -13,12 +13,20 @@
     disable; `auto` ("true" or "always") the submenu's AutoHighlight; `delay` the trigger's Delay in milliseconds (default
     Base UI's); `hover=false` turns the trigger's OpenOnHover off. `nested` names a plain submenu first in the submenu's list,
     whose popup holds Archive; `second` names a second filterable submenu after the `after` items, with an input "Filter
-    second" and the items named by `secondChildren` (default "PDF"). Each highlight report of the root is recorded as
+    second" and the items named by `secondChildren` (default "PDF") and its trigger's Delay `secondDelay`. `closeDelay` sets
+    both triggers' CloseDelay; `modal=false` the root's Modal; `list=true` wraps a plain root's items in a list
+    (`data-testid="parent-list"`, as a filterable root's list is). `detached=true` replaces the root's trigger with two
+    detached triggers before the menu, "First trigger" and "Second trigger", on a handle. Each highlight report of the root is recorded as
     `label:reason:key` (`none` for no item) in `data-highlights`, and each submenu open request as `open:reason` in
     `data-submenu-changes` (`|`-separated). `data-attached` turns "true" once the root's session has attached and, for a
     filterable root that starts open, its input's and list's `menu-filter` handles.
 *@
 <FixtureContainer Name="menu-filter-submenu" data-attached="@(attached ? "true" : "false")" data-highlights="@string.Join('|', highlights)" data-submenu-changes="@string.Join('|', submenuChanges)">
+    @if (Detached)
+    {
+        <MenuTrigger TPayload="NoPayload" Handle="@handle">First trigger</MenuTrigger>
+        <MenuTrigger TPayload="NoPayload" Handle="@handle">Second trigger</MenuTrigger>
+    }
     <DirectionProvider Direction="@(Dir == "rtl" ? TextDirection.Rtl : TextDirection.Ltr)">
         @if (ParentPlain)
         {
@@ -34,6 +42,7 @@
 @code {
     private readonly List<string> highlights = [];
     private readonly List<string> submenuChanges = [];
+    private readonly MenuHandle<NoPayload> handle = new();
     private MenuRoot<NoPayload>? root;
     private MenuInput? input;
     private MenuList? list;
@@ -88,6 +97,21 @@
     [SupplyParameterFromQuery(Name = "secondChildren")]
     public string? SecondChildren { get; set; }
 
+    [SupplyParameterFromQuery(Name = "secondDelay")]
+    public int? SecondDelay { get; set; }
+
+    [SupplyParameterFromQuery(Name = "closeDelay")]
+    public int? CloseDelay { get; set; }
+
+    [SupplyParameterFromQuery(Name = "modal")]
+    public string? ModalName { get; set; }
+
+    [SupplyParameterFromQuery(Name = "list")]
+    public bool List { get; set; }
+
+    [SupplyParameterFromQuery(Name = "detached")]
+    public bool Detached { get; set; }
+
     [SupplyParameterFromQuery(Name = "hover")]
     public string? Hover { get; set; }
 
@@ -105,19 +129,26 @@
         _ => null,
     };
 
-    private RenderFragment RootMenu => @<MenuRoot TPayload="NoPayload" DefaultOpen="@(!Closed)" LoopFocus="@(Loop != "false")" Orientation="@(OrientationName == "horizontal" ? Orientation.Horizontal : Orientation.Vertical)" OnItemHighlighted="RecordHighlight" @ref="root">
-        <MenuTrigger TPayload="NoPayload">Actions</MenuTrigger>
+    private RenderFragment RootMenu => @<MenuRoot TPayload="NoPayload" DefaultOpen="@(!Closed)" Modal="@(ModalName == "false" ? false : null)" LoopFocus="@(Loop != "false")" Orientation="@(OrientationName == "horizontal" ? Orientation.Horizontal : Orientation.Vertical)" OnItemHighlighted="RecordHighlight" Handle="@(Detached ? handle : null)" @ref="root">
+        @if (!Detached)
+        {
+            <MenuTrigger TPayload="NoPayload">Actions</MenuTrigger>
+        }
         <MenuPortal>
             <MenuPositioner>
                 <MenuPopup data-testid="popup">
-                    @if (ParentPlain)
+                    @if (ParentPlain && !List)
                     {
                         @Items
+                    }
+                    else if (ParentPlain)
+                    {
+                        <MenuList data-testid="parent-list">@Items</MenuList>
                     }
                     else
                     {
                         <MenuInput aria-label="Filter actions" @ref="input" />
-                        <MenuList @ref="list">@Items</MenuList>
+                        <MenuList data-testid="parent-list" @ref="list">@Items</MenuList>
                     }
                 </MenuPopup>
             </MenuPositioner>
@@ -145,7 +176,7 @@
         {
             <MenuFilterProvider>
                 <MenuSubmenuRoot>
-                    <MenuSubmenuTrigger>@Second</MenuSubmenuTrigger>
+                    <MenuSubmenuTrigger Delay="@(SecondDelay is { } second ? (Duration?)second : null)" CloseDelay="@(CloseDelay is { } closing ? (Duration?)closing : null)">@Second</MenuSubmenuTrigger>
                     <MenuPortal>
                         <MenuPositioner>
                             <MenuPopup data-testid="second-submenu">
@@ -165,7 +196,7 @@
     </text>;
 
     private RenderFragment Submenu => @<MenuSubmenuRoot OnOpenChange="RecordSubmenu">
-        <MenuSubmenuTrigger data-testid="submenu-trigger" Delay="@(Delay is { } ms ? (Duration?)ms : null)" OpenOnHover="@(Hover != "false")">@(Label ?? "Move to")</MenuSubmenuTrigger>
+        <MenuSubmenuTrigger data-testid="submenu-trigger" Delay="@(Delay is { } ms ? (Duration?)ms : null)" CloseDelay="@(CloseDelay is { } close ? (Duration?)close : null)" OpenOnHover="@(Hover != "false")">@(Label ?? "Move to")</MenuSubmenuTrigger>
         <MenuPortal>
             <MenuPositioner>
                 <MenuPopup data-testid="submenu">

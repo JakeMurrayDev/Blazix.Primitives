@@ -547,6 +547,17 @@ test.describe('the filterable popup\'s refocus', () => {
     });
   }
 
+  // MNU-KEY-33 (MenuFilterRoot.test.tsx): Base UI's tree has an "Auxiliary action" button where the fixture's reads "Extra
+  // action".
+  test('returns focus to the input with the RTL submenu close key', async ({ page, mode }) => {
+    await renderWith(page, mode, 'extra=true&dir=rtl');
+    await extra(page).focus();
+
+    await extra(page).evaluate((element) => element.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowRight', bubbles: true, cancelable: true })));
+
+    await expect(input(page)).toBeFocused();
+  });
+
   test('leaves focus on another control in the popup when the pointer moves', async ({ page, mode }) => {
     await renderWith(page, mode, 'extra=true');
     await extra(page).focus();
