@@ -8,8 +8,10 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   attach,
   highlightListEdge,
+  highlightListItem,
   LEAVE_POINT,
   LIST_HIGHLIGHT_REPORT,
+  moveListHighlightFrom,
   NAVIGATE_POINT,
   relayKeyboardEvent,
   skipListNavigation,
@@ -2941,6 +2943,42 @@ describe('highlightListEdge (port)', () => {
       expect(descendantOf(harness.reference)).toBe(null);
     });
     expect(harness.highlights.slice(before).map((report) => report.index ?? null)).toEqual([null]);
+  });
+
+  // MenuFilterSubmenuRoot.tsx:47-49 (the orchestrator's 2026-11-12 grant): leaving a filterable submenu highlights its
+  // trigger in the parent list.
+  it('port: highlightListItem highlights the given item of the list from its reference', async () => {
+    const harness = app({ reference: 'input', list: { virtual: true }, session: { open: true } });
+    harness.reference.focus();
+
+    expect(highlightListItem(harness.reference, harness.item(2), new KeyboardEvent('keydown', { key: 'ArrowLeft' }))).toBe(true);
+    await waitFor(() => {
+      expect(descendantOf(harness.reference)).toBe(harness.item(2).id);
+    });
+
+    expect(highlightListItem(harness.reference, document.createElement('li'), undefined)).toBe(false);
+  });
+
+  // moveHighlightFrom.ts (MenuFilterSubmenuRoot.tsx:157-167): a main-axis key moves the parent's highlight on from the
+  // submenu's trigger with the list's own navigation, its disabled skipping and its loop included.
+  it('port: moveListHighlightFrom moves on from the given item with the list navigation, skipping disabled items and looping', async () => {
+    const harness = app({
+      reference: 'input',
+      list: { virtual: true, loopFocus: true },
+      session: { open: true },
+      itemRegistration: (index) => (index === 1 ? { disabled: true } : {}),
+    });
+    harness.reference.focus();
+
+    expect(moveListHighlightFrom(harness.reference, harness.item(0), new KeyboardEvent('keydown', { key: 'ArrowDown', cancelable: true }))).toBe(true);
+    await waitFor(() => {
+      expect(descendantOf(harness.reference)).toBe(harness.item(2).id);
+    });
+
+    moveListHighlightFrom(harness.reference, harness.item(2), new KeyboardEvent('keydown', { key: 'ArrowDown', cancelable: true }));
+    await waitFor(() => {
+      expect(descendantOf(harness.reference)).toBe(harness.item(0).id);
+    });
   });
 
   it('port: highlightListEdge does nothing on an element without a list handle', () => {
