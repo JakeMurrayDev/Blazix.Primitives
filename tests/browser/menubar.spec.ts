@@ -1185,4 +1185,40 @@ test.describe('filterable menubar menus', () => {
 
     await expect(page.getByRole('searchbox', { name: 'Filter file actions' })).toBeFocused();
   });
+
+  // FOC-04's filter clause (MenuFilterPopup.tsx:27-48): while a bar menu is open, focus moving to a filterable bar menu's
+  // trigger opens it with trigger-focus (MBR-FOC-03), and the open focuses its input. Base UI has no title for this clause.
+  // Edit opens through the dispatched press sequence, so the programmatic focus that follows is focus-visible; the focus
+  // moves once Edit's popup has taken its initial focus.
+  test('port: a focus open of a filterable bar menu focuses its input', async ({ page, mode }) => {
+    await renderFilterBar(page, mode);
+    await userClick(page.getByRole('menuitem', { name: 'Edit', exact: true }));
+    await expect(page.getByRole('menuitem', { name: 'Copy' })).toBeVisible();
+    // The bar opens a trigger on focus only while it records an open menu (MBR-FOC-03).
+    await expect(page.getByRole('menubar')).toHaveAttribute('data-has-submenu-open', '');
+    await expect.poll(() => page.evaluate(() => document.activeElement?.closest('[role="menu"]')?.textContent?.includes('Copy') ?? false)).toBe(true);
+
+    await page.getByRole('menuitem', { name: 'File', exact: true }).focus();
+
+    await expect(page.getByRole('searchbox', { name: 'Filter file actions' })).toBeFocused();
+  });
+
+  // FOC-04's filter clause (MenuFilterPopup.tsx:27-48): while a bar menu is open, a hover opens a filterable bar menu and
+  // leaves focus on its trigger, not its input. Base UI has no title for this clause.
+  test('port: a hover open of a filterable bar menu keeps focus on its trigger', async ({ page, mode }) => {
+    await renderFilterBar(page, mode);
+    await page.getByRole('menuitem', { name: 'Edit', exact: true }).click();
+    await expect(page.getByRole('menuitem', { name: 'Copy' })).toBeVisible();
+    // The bar switches menus on hover only while it records an open menu (MBR-PTR-04).
+    await expect(page.getByRole('menubar')).toHaveAttribute('data-has-submenu-open', '');
+    const file = page.getByRole('menuitem', { name: 'File', exact: true });
+
+    await file.hover();
+
+    const search = page.getByRole('searchbox', { name: 'Filter file actions' });
+    await expect(search).toBeVisible();
+    await expect(file).toBeFocused();
+    await page.evaluate(() => new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve))));
+    await expect(search).not.toBeFocused();
+  });
 });
