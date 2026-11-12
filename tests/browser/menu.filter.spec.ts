@@ -824,6 +824,56 @@ test.describe('filterable menu keys and semantics', () => {
     await expect(input(page)).toBeFocused();
   });
 
+  // MNU-KEY-05.
+  test('uses Home and End for list navigation after an item is highlighted', async ({ page, mode }) => {
+    await renderWith(page, mode);
+    await input(page).focus();
+    await page.keyboard.press('ArrowDown');
+    await page.keyboard.press('ArrowDown');
+    await expect(input(page)).toHaveAttribute('aria-activedescendant', (await item(page, 'Delete').getAttribute('id')) ?? 'missing');
+
+    await page.keyboard.press('Home');
+    await expect(input(page)).toHaveAttribute('aria-activedescendant', (await item(page, 'Rename').getAttribute('id')) ?? 'missing');
+    await page.keyboard.press('End');
+    await expect(input(page)).toHaveAttribute('aria-activedescendant', (await item(page, 'Duplicate').getAttribute('id')) ?? 'missing');
+  });
+
+  // MNU-STA-15, API-55: Base UI types "Google" then a space over Google Calendar and Google Chrome; here "de" then a space
+  // keeps Delete.
+  for (const auto of ['true', 'always'] as const) {
+    test(`keeps a highlight when typing does not change the trimmed query with autoHighlight=${auto}`, async ({ page, mode }) => {
+      await renderWith(page, mode, `?auto=${auto}`);
+      await input(page).focus();
+      await page.keyboard.type('de');
+      await expect(item(page, 'Delete')).toHaveAttribute('data-highlighted', '');
+
+      await page.keyboard.type(' ');
+
+      await expect(input(page)).toHaveValue('de ');
+      await expect(item(page, 'Delete')).toHaveAttribute('data-highlighted', '');
+      await expect(input(page)).toHaveAttribute('aria-activedescendant', (await item(page, 'Delete').getAttribute('id')) ?? 'missing');
+    });
+
+    // API-55, STA-19 (MenuRoot.tsx:528): the automatic highlight keeps the arrows inside the list. Base UI's list ends at
+    // Delete; this one at Duplicate.
+    test(`does not allow arrow navigation to escape when autoHighlight is ${auto}`, async ({ page, mode }) => {
+      await renderWith(page, mode, `?auto=${auto}`);
+      await input(page).focus();
+      if (auto === 'true') {
+        await page.keyboard.type('e');
+      }
+      await expect(item(page, 'Rename')).toHaveAttribute('data-highlighted', '');
+
+      await page.keyboard.press('ArrowUp');
+      await expect(item(page, 'Duplicate')).toHaveAttribute('data-highlighted', '');
+      await expect(input(page)).toHaveAttribute('aria-activedescendant', (await item(page, 'Duplicate').getAttribute('id')) ?? 'missing');
+
+      await page.keyboard.press('ArrowDown');
+      await expect(item(page, 'Rename')).toHaveAttribute('data-highlighted', '');
+      await expect(input(page)).toHaveAttribute('aria-activedescendant', (await item(page, 'Rename').getAttribute('id')) ?? 'missing');
+    });
+  }
+
   // MenuList.test.tsx's tree uses autoHighlight="always", so the first item is highlighted from the open.
   test('exposes horizontal navigation on the menu instead of the dialog', async ({ page, mode }) => {
     await renderWith(page, mode, '?orientation=horizontal&auto=always');
