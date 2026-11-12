@@ -29,13 +29,15 @@
     - `append`: held open; input "Filter reports", Report A, Report B and Other; the button "append" (inside the popup)
       adds Zebra last;
     - `inbox`: held open, autoHighlight "always"; "Inbox (N)", Archive and Delete; the button "count" (inside the popup)
-      raises N from 1.
+      raises N from 1;
+    - `highlight`: held open (`auto=true` for autoHighlight); Rename, Delete labelled "Remove", and Duplicate.
+    Each highlight report is also recorded as `label:reason` (`-` for no label) in `data-highlight-details`.
     Each query request is recorded as `value:reason` in `data-value-changes`, and each highlight report by item text, or
     "none", in `data-highlights` (`|`-separated).
     Item presses are recorded by name in `data-presses` (`|`-separated). `data-attached` turns "true" once the menu's session
     and, for an open menu, the input's and list's `menu-filter` handles have attached.
 *@
-<FixtureContainer Name="menu-filter-items" data-attached="@(attached ? "true" : "false")" data-presses="@string.Join('|', presses)" data-tick="@tick" data-value-changes="@string.Join('|', changes)" data-highlights="@string.Join('|', highlights)">
+<FixtureContainer Name="menu-filter-items" data-attached="@(attached ? "true" : "false")" data-presses="@string.Join('|', presses)" data-tick="@tick" data-value-changes="@string.Join('|', changes)" data-highlights="@string.Join('|', highlights)" data-highlight-details="@string.Join('|', highlightDetails)">
     @if (Case == "closing")
     {
         <button type="button" @onclick="() => closingOpen = false">Close</button>
@@ -99,6 +101,11 @@
                                     <MenuItem Render="@s_appleItem">Apple</MenuItem>
                                     <MenuItem Render="@s_bananaItem">Banana</MenuItem>
                                     break;
+                                case "highlight":
+                                    <MenuItem>Rename</MenuItem>
+                                    <MenuItem Label="Remove">Delete</MenuItem>
+                                    <MenuItem>Duplicate</MenuItem>
+                                    break;
                                 case "inbox":
                                     <MenuItem>Inbox (@count)</MenuItem>
                                     <MenuItem>Archive</MenuItem>
@@ -153,6 +160,7 @@
     private readonly List<string> presses = [];
     private readonly List<string> changes = [];
     private readonly List<string> highlights = [];
+    private readonly List<string> highlightDetails = [];
     private bool closingOpen = true;
     private bool appended;
     private int count = 1;
@@ -202,7 +210,7 @@
     // uncontrolled one, open unless `fruit`.
     private Dictionary<string, object> RootParameters => Case switch
     {
-        "kinds" or "cancel" or "controlled" or "custom-id" or "append" or "inbox" => new() { ["Open"] = true },
+        "kinds" or "cancel" or "controlled" or "custom-id" or "append" or "inbox" or "highlight" => new() { ["Open"] = true },
         "closing" => new() { ["Open"] = closingOpen, ["Modal"] = false },
         _ => new() { ["DefaultOpen"] = Case != "fruit" },
     };
@@ -219,6 +227,11 @@
             else if (Case is "controlled" or "custom-id")
             {
                 parameters["Value"] = query ??= Query ?? "";
+            }
+
+            if (Case == "highlight" && Auto == "true")
+            {
+                parameters["AutoHighlight"] = (AutoHighlightValue?)true;
             }
 
             if (Case is "custom-id" or "inbox")
@@ -239,8 +252,14 @@
         }
     }
 
-    private void RecordHighlight(MenuItemHighlightedEventArgs args) =>
+    private void RecordHighlight(MenuItemHighlightedEventArgs args)
+    {
         highlights.Add(args.ItemId is null ? "none" : args.Details.Label ?? "");
+        highlightDetails.Add($"{args.Details.Label ?? "-"}:{args.Details.Reason.ToLiteral()}");
+    }
+
+    [SupplyParameterFromQuery(Name = "auto")]
+    public string? Auto { get; set; }
 
     private void SetLabel() => text = Next ?? (Case == "render" ? "Two" : "Rename");
 

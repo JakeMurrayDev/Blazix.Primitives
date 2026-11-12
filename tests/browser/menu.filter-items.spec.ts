@@ -300,3 +300,33 @@ test.describe('an item text change under autoHighlight "always"', () => {
     await expect(filter).toHaveAttribute('aria-activedescendant', (await deleteItem.getAttribute('id')) ?? 'missing');
   });
 });
+
+// MenuFilterRoot.scoping.test.tsx's HighlightMenu (MNU-EVT-10, EVT-11): Rename, Delete labelled "Remove", Duplicate;
+// each report is recorded as `label:reason`.
+test.describe('highlight reports', () => {
+  const details = async (fixture: Locator): Promise<string[]> => ((await fixture.getAttribute('data-highlight-details')) ?? '').split('|').filter((entry) => entry !== '');
+
+  test('reports keyboard highlights while the input keeps focus', async ({ page, mode }) => {
+    const fixture = await render(page, mode, { case: 'highlight' });
+    const filter = input(page);
+    await filter.focus();
+
+    await page.keyboard.press('ArrowDown');
+    await page.keyboard.press('ArrowDown');
+
+    await expect(filter).toBeFocused();
+    await expect.poll(() => details(fixture)).toEqual(['Rename:keyboard', 'Remove:keyboard']);
+  });
+
+  test('reports the auto-highlighted item as a programmatic change', async ({ page, mode }) => {
+    const fixture = await render(page, mode, { case: 'highlight', auto: 'true' });
+    const filter = input(page);
+    await filter.focus();
+
+    await page.keyboard.type('dup');
+    await expect.poll(() => details(fixture)).toEqual(['Duplicate:none']);
+
+    await page.keyboard.type('zzz');
+    await expect.poll(() => details(fixture)).toEqual(['Duplicate:none', '-:none']);
+  });
+});
