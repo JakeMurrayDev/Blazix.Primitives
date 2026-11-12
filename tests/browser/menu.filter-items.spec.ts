@@ -145,3 +145,73 @@ test.describe('filtered Menu items', () => {
     await expect(item(page, 'Delete')).toHaveCount(0);
   });
 });
+
+// MenuFilterRoot.test.tsx's query titles over a "Fruit" menu (MNU-STA-18, STA-21, EVT-16, EVT-18, API-58); the rows tag
+// them [L2], and their typing and arrow steps need a browser (ADR 13 §3 re-tag notes). Base UI's `setProps({ value })`
+// is the page's "query" buttons.
+test.describe('the filter query over a fruit menu', () => {
+  const fruitInput = (page: Page): Locator => input(page, 'Filter fruit');
+
+  async function changes(fixture: Locator): Promise<string[]> {
+    const value = (await fixture.getAttribute('data-value-changes')) ?? '';
+    return value === '' ? [] : value.split('|');
+  }
+
+  // MNU-STA-21, EVT-18.
+  test('resets the input value once when the popup closes', async ({ page, mode }) => {
+    const fixture = await render(page, mode, { case: 'closing' });
+    await fruitInput(page).focus();
+    await page.keyboard.type('app');
+    await expect(fixture).toHaveAttribute('data-value-changes', /app:input-change$/);
+    const before = (await changes(fixture)).length;
+
+    await page.getByRole('button', { name: 'Close' }).click();
+
+    await expect.poll(async () => (await changes(fixture)).slice(before)).toEqual([':popup-close']);
+  });
+
+  // MNU-EVT-16, API-58.
+  test('leaves the uncontrolled query and visible items unchanged when a change is canceled', async ({ page, mode }) => {
+    await render(page, mode, { case: 'cancel' });
+    const filter = fruitInput(page);
+    await filter.focus();
+    await page.keyboard.press('ArrowDown');
+    const appleId = (await item(page, 'Apple').getAttribute('id')) ?? 'missing';
+    await expect(filter).toHaveAttribute('aria-activedescendant', appleId);
+    await expect(filter).toHaveValue('app');
+    await expect(item(page, 'Apple')).toBeVisible();
+    await expect(item(page, 'Banana')).toHaveCount(0);
+
+    // Typing is rejected.
+    await page.keyboard.type('x');
+    await expect(filter).toHaveValue('app');
+    await expect(item(page, 'Apple')).toBeVisible();
+    await expect(item(page, 'Banana')).toHaveCount(0);
+    await expect(filter).toHaveAttribute('aria-activedescendant', appleId);
+
+    // Clearing is rejected.
+    await page.getByLabel('Clear filter').click();
+    await expect(filter).toHaveValue('app');
+    await expect(item(page, 'Apple')).toBeVisible();
+    await expect(item(page, 'Banana')).toHaveCount(0);
+    await expect(filter).toHaveAttribute('aria-activedescendant', appleId);
+  });
+
+  // MNU-STA-18, FOC-12.
+  test('clears a positional highlight when a controlled query replaces the visible item', async ({ page, mode }) => {
+    const fixture = await render(page, mode, { case: 'controlled', query: 'ban' });
+    const filter = fruitInput(page);
+    await filter.focus();
+    await page.keyboard.press('ArrowDown');
+    await expect(filter).toHaveAttribute('aria-activedescendant', (await item(page, 'Banana').getAttribute('id')) ?? 'missing');
+
+    await page.getByRole('button', { name: 'query app' }).click();
+    await filter.focus();
+
+    await expect(item(page, 'Apple')).toBeVisible();
+    await expect(item(page, 'Banana')).toHaveCount(0);
+    await expect(filter).not.toHaveAttribute('aria-activedescendant', /.+/);
+    await page.keyboard.press('Enter');
+    await expect(fixture).not.toHaveAttribute('data-presses', /Apple/);
+  });
+});

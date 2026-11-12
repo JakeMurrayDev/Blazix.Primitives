@@ -18,20 +18,42 @@
       "tick" re-renders them with the same children;
     - `render`: open; an item rendered through its `Render` element, a `div` showing `text` (default "One"), and Delete; the
       button "set label" sets the text to `next` (default "Two").
+    - `closing`: a non-modal menu held open by this page until the button "Close" outside it closes it; trigger "Fruit",
+      input "Filter fruit", Apple;
+    - `cancel`: held open; the query starts at "app" and every change is canceled; trigger "Fruit", input "Filter fruit",
+      Clear "Clear filter", Apple and Banana;
+    - `controlled`: held open; the query is this page's, starting at `query`, set by the buttons "query app" and "query
+      ban" inside the popup (a press outside a modal menu meets its backdrop); trigger "Fruit", input "Filter fruit", Apple and Banana;
+    - `custom-id`: `controlled` with autoHighlight "always", Apple and Banana rendered through `div`s with the ids
+      `apple-item` and `banana-item`.
+    Each query request is recorded as `value:reason` in `data-value-changes` (`|`-separated).
     Item presses are recorded by name in `data-presses` (`|`-separated). `data-attached` turns "true" once the menu's session
     and, for an open menu, the input's and list's `menu-filter` handles have attached.
 *@
-<FixtureContainer Name="menu-filter-items" data-attached="@(attached ? "true" : "false")" data-presses="@string.Join('|', presses)" data-tick="@tick">
-    <MenuFilterProvider>
+<FixtureContainer Name="menu-filter-items" data-attached="@(attached ? "true" : "false")" data-presses="@string.Join('|', presses)" data-tick="@tick" data-value-changes="@string.Join('|', changes)">
+    @if (Case == "closing")
+    {
+        <button type="button" @onclick="() => closingOpen = false">Close</button>
+    }
+    <MenuFilterProvider @attributes="ProviderParameters">
         <MenuRoot TPayload="NoPayload" @attributes="RootParameters" @ref="root">
-            <MenuTrigger TPayload="NoPayload">@(Case == "fruit" ? "Fruit" : "Actions")</MenuTrigger>
+            <MenuTrigger TPayload="NoPayload">@(Fruit ? "Fruit" : "Actions")</MenuTrigger>
             <MenuPortal>
                 <MenuPositioner>
                     <MenuPopup data-testid="popup">
-                        <MenuInput aria-label="@(Case == "fruit" ? "Filter fruit" : "Filter actions")" @ref="input" />
+                        <MenuInput aria-label="@(Fruit ? "Filter fruit" : "Filter actions")" @ref="input" />
+                        @if (Case == "cancel")
+                        {
+                            <MenuClear aria-label="Clear filter" />
+                        }
                         @if (Case is "async" or "render")
                         {
                             <button type="button" @onclick="SetLabel">set label</button>
+                        }
+                        else if (Case is "controlled" or "custom-id")
+                        {
+                            <button type="button" @onclick="@(() => query = "app")">query app</button>
+                            <button type="button" @onclick="@(() => query = "ban")">query ban</button>
                         }
                         else if (Case == "translate")
                         {
@@ -51,6 +73,18 @@
                                 case "fruit":
                                     <MenuItem>Apple</MenuItem>
                                     <MenuItem CloseOnClick="false" @onclick="@(() => presses.Add("Banana"))">Banana</MenuItem>
+                                    break;
+                                case "closing":
+                                    <MenuItem>Apple</MenuItem>
+                                    break;
+                                case "cancel":
+                                case "controlled":
+                                    <MenuItem @onclick="@(() => presses.Add("Apple"))">Apple</MenuItem>
+                                    <MenuItem>Banana</MenuItem>
+                                    break;
+                                case "custom-id":
+                                    <MenuItem Render="@s_appleItem">Apple</MenuItem>
+                                    <MenuItem Render="@s_bananaItem">Banana</MenuItem>
                                     break;
                                 case "label":
                                     <MenuItem><span>Rename</span></MenuItem>
@@ -87,7 +121,12 @@
 
 @code {
     private static readonly Dictionary<string, string> s_translations = new(StringComparer.Ordinal) { ["Rename"] = "Zmień nazwę", ["Delete"] = "Usuń" };
+    private static readonly RenderFragment s_appleItem = @<div id="apple-item"></div>;
+    private static readonly RenderFragment s_bananaItem = @<div id="banana-item"></div>;
     private readonly List<string> presses = [];
+    private readonly List<string> changes = [];
+    private bool closingOpen = true;
+    private string? query;
     private MenuRoot<NoPayload>? root;
     private MenuInput? input;
     private MenuList? list;
@@ -112,6 +151,7 @@
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
         bool open = Case != "fruit";
+        // The input and list render with the open popup; a closing page re-renders while they exist.
         if (attached || attaching || !RendererInfo.IsInteractive || root is null || (open && (input is null || list is null)))
         {
             return;
@@ -123,10 +163,51 @@
         StateHasChanged();
     }
 
-    // A held-open root for `kinds`, else an uncontrolled one, open unless `fruit`.
-    private Dictionary<string, object> RootParameters => Case == "kinds"
-        ? new() { ["Open"] = true }
-        : new() { ["DefaultOpen"] = Case != "fruit" };
+    [SupplyParameterFromQuery(Name = "query")]
+    public string? Query { get; set; }
+
+    private bool Fruit => Case is "fruit" or "closing" or "cancel" or "controlled" or "custom-id";
+
+    // A held-open root for `kinds`, `cancel`, `controlled` and `custom-id`, this page's open for `closing`, else an
+    // uncontrolled one, open unless `fruit`.
+    private Dictionary<string, object> RootParameters => Case switch
+    {
+        "kinds" or "cancel" or "controlled" or "custom-id" => new() { ["Open"] = true },
+        "closing" => new() { ["Open"] = closingOpen, ["Modal"] = false },
+        _ => new() { ["DefaultOpen"] = Case != "fruit" },
+    };
+
+    private Dictionary<string, object> ProviderParameters
+    {
+        get
+        {
+            Dictionary<string, object> parameters = new() { ["OnValueChange"] = EventCallback.Factory.Create<ValueChangeEventArgs<string>>(this, Record) };
+            if (Case == "cancel")
+            {
+                parameters["DefaultValue"] = "app";
+            }
+            else if (Case is "controlled" or "custom-id")
+            {
+                parameters["Value"] = query ??= Query ?? "";
+            }
+
+            if (Case == "custom-id")
+            {
+                parameters["AutoHighlight"] = (AutoHighlightValue?)AutoHighlightValue.Always;
+            }
+
+            return parameters;
+        }
+    }
+
+    private void Record(ValueChangeEventArgs<string> args)
+    {
+        changes.Add($"{args.Value}:{args.Details.Reason.ToLiteral()}");
+        if (Case == "cancel")
+        {
+            args.Details.Cancel();
+        }
+    }
 
     private void SetLabel() => text = Next ?? (Case == "render" ? "Two" : "Rename");
 
