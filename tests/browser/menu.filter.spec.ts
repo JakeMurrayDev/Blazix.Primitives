@@ -828,6 +828,37 @@ test.describe('filterable menu keys and semantics', () => {
     await expect(input(page)).toBeFocused();
   });
 
+  test('closes the popup with Escape and returns focus to the trigger', async ({ page, mode }) => {
+    await renderWith(page, mode);
+    await expect(input(page)).toBeFocused();
+
+    await page.keyboard.press('Escape');
+
+    await expect(page.getByRole('menu')).toHaveCount(0);
+    await expect(page.getByRole('button', { name: 'Actions' })).toBeFocused();
+  });
+
+  // MNU-KEY-22, KEY-30 (useMenuFilterKeyDown.ts:84-127): the keydowns are dispatched as Base UI's fireEvent does; a handler
+  // that prevented them would break the browser's own selection and word movement.
+  test('leaves modified editing keys to the input while an item is highlighted', async ({ page, mode }) => {
+    await renderWith(page, mode);
+    await expect(input(page)).toBeFocused();
+    await page.keyboard.press('ArrowDown');
+    const renameId = (await item(page, 'Rename').getAttribute('id')) ?? 'missing';
+    await expect(input(page)).toHaveAttribute('aria-activedescendant', renameId);
+
+    const dispatch = (init: KeyboardEventInit): Promise<boolean> =>
+      input(page).evaluate((element, options) => element.dispatchEvent(new KeyboardEvent('keydown', { bubbles: true, cancelable: true, ...options })), init);
+
+    expect(await dispatch({ key: 'ArrowDown', shiftKey: true })).toBe(true);
+    await expect(input(page)).toHaveAttribute('aria-activedescendant', renameId);
+    expect(await dispatch({ key: 'ArrowLeft', shiftKey: true })).toBe(true);
+    expect(await dispatch({ key: 'ArrowRight', altKey: true })).toBe(true);
+    expect(await dispatch({ key: 'Home', metaKey: true })).toBe(true);
+    expect(await dispatch({ key: 'End', shiftKey: true })).toBe(true);
+    await expect(input(page)).toHaveAttribute('aria-activedescendant', renameId);
+  });
+
   // MNU-KEY-05.
   test('uses Home and End for list navigation after an item is highlighted', async ({ page, mode }) => {
     await renderWith(page, mode);
