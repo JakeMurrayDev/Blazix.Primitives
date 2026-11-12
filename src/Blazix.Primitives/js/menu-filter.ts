@@ -404,8 +404,17 @@ function attachInput(input: HTMLInputElement, initial: MenuFilterOptions, channe
     composing = false;
     commit(event);
   };
-  const onFocus = (): void => {
+  const onFocus = (event: FocusEvent): void => {
     focusVisible = true;
+    // FilterDropdownInput.tsx:117-131 (MNU-FOC-14): a screen reader that followed aria-activedescendant put real focus on
+    // the item, so focus coming back from an item is the user's, and the highlight no longer says where they are; the
+    // module's own refocus and an "always" highlight keep it.
+    const from = event.relatedTarget;
+    const listId = input.getAttribute('aria-controls');
+    const list = listId ? input.ownerDocument.getElementById(listId) : null;
+    if (!refocusing && options.autoHighlight !== 'always' && from instanceof Element && list !== null && list.contains(from) && from.closest('[role^="menuitem"]') !== null) {
+      highlightListEdge(input, null, undefined);
+    }
     syncHighlighted();
     syncSelected();
   };

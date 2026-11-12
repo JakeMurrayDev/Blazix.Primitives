@@ -156,6 +156,9 @@ public sealed class MenuInput : PartBase<MenuInputState>
             DecidesKeyDown = AdditionalAttributes?.ContainsKey("onkeydown") == true,
             ReportsOwnedKeys = filter?.PopupHandlesKeyDown == true ? true : null,
 
+            // MNU-FOC-14: an "always" highlight survives focus coming back from an item.
+            AutoHighlight = filter is { AutoHighlight: var auto } && auto.IsAlways ? "always" : null,
+
             // useMenuFilterKeyDown.ts:38-46: the router's table reads the menu's orientation and direction.
             Orientation = RootContext.Orientation == Orientation.Horizontal ? "horizontal" : "vertical",
             Rtl = DirectionProviderContext.Read(DirectionContext) == TextDirection.Rtl,
