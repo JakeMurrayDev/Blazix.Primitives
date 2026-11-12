@@ -23,7 +23,8 @@
     popups the class `exiting`, a 300 ms opacity exit (open the page with `animations=1` for it to run). `childOpen=true`
     starts the submenu open; `childQuery` makes the filterable submenu's query controlled, starting at that text;
     `childDefault` sets its uncontrolled DefaultValue; `childCancel=true` cancels every change of it. Each submenu query
-    request is recorded as `value:reason` in `data-child-value-changes` (`|`-separated). Each highlight report of the root is recorded as
+    request is recorded as `value:reason` in `data-child-value-changes` (`|`-separated). `afterInput=true` adds an input
+    "After" (`data-testid="after-input"`) after the menu. Each highlight report of the root is recorded as
     `label:reason:key` (`none` for no item) in `data-highlights`, and each submenu open request as `open:reason` in
     `data-submenu-changes` (`|`-separated). `data-attached` turns "true" once the root's session has attached and, for a
     filterable root that starts open, its input's and list's `menu-filter` handles.
@@ -49,6 +50,10 @@
             <MenuFilterProvider>@RootMenu</MenuFilterProvider>
         }
     </DirectionProvider>
+    @if (AfterInput)
+    {
+        <input data-testid="after-input" aria-label="After" />
+    }
 </FixtureContainer>
 
 @code {
@@ -133,6 +138,9 @@
 
     [SupplyParameterFromQuery(Name = "shadow")]
     public bool Shadow { get; set; }
+
+    [SupplyParameterFromQuery(Name = "afterInput")]
+    public bool AfterInput { get; set; }
 
     [SupplyParameterFromQuery(Name = "childOpen")]
     public bool ChildOpen { get; set; }

@@ -1050,3 +1050,37 @@ test.describe('prop: onItemHighlighted', () => {
     });
   }
 });
+
+// MenuFilterRoot.test.tsx's Tab out of a filterable submenu (MNU-FOC-08): a non-modal filterable menu holding the
+// filterable submenu "Share" (Email), then an input after it; Base UI's input before the menu is left out.
+test.describe('tabbing out of a filterable submenu', () => {
+  const tabMenu = { modal: false, before: '', label: 'Share', after: '', children: 'Email', afterInput: true, hover: false } as const;
+
+  test('closes a filterable submenu and moves focus to the next element when tabbing forward', async ({ page, mode }) => {
+    await render(page, mode, tabMenu);
+    const parentInput = page.getByRole('searchbox', { name: 'Filter actions' });
+    await parentInput.focus();
+    await page.keyboard.press('ArrowDown');
+    await page.keyboard.press('ArrowRight');
+    await expect(submenuInput(page)).toBeFocused();
+
+    await page.keyboard.press('Tab');
+
+    await expect(page.getByTestId('after-input')).toBeFocused();
+    await expect(parentInput).toHaveCount(0);
+  });
+
+  // Base UI's tree adds a 50 ms exit transition to both popups; the fixture's `exiting` one is 300 ms.
+  test('closes a pointer-opened filterable submenu and moves focus forward when tabbing', async ({ page, mode }) => {
+    await render(page, mode, { ...tabMenu, closed: true, exiting: true, animations: 1 });
+    await page.getByRole('button', { name: 'Actions' }).click();
+    const submenuTrigger = item(page, 'Share');
+    await submenuTrigger.click();
+    await expect(submenuInput(page)).toBeFocused();
+
+    await page.keyboard.press('Tab');
+
+    await expect(page.getByTestId('after-input')).toBeFocused();
+    await expect(page.getByRole('searchbox', { name: 'Filter actions' })).toHaveCount(0);
+  });
+});
