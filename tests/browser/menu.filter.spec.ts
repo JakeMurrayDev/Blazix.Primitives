@@ -527,6 +527,19 @@ test.describe('Menu.Clear', () => {
     await expect(item(page, 'Delete')).not.toHaveAttribute('data-highlighted');
   });
 
+  // PTR-21 (FilterDropdownClear.tsx:46-49): the press's default is prevented, so focus never leaves the input.
+  test('port: a press on Clear is prevented, so focus stays on the input', async ({ page, mode }) => {
+    await render(page, mode);
+    await input(page).focus();
+    await page.keyboard.type('r');
+    await expect(clear(page)).toBeVisible();
+
+    const prevented = await clear(page).evaluate((element) => !element.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, cancelable: true })));
+
+    expect(prevented).toBe(true);
+    await expect(input(page)).toBeFocused();
+  });
+
   // PTR-21: the press does not take focus from the input, and the click returns it there.
   test('port: a press on Clear keeps focus on the input', async ({ page, mode }) => {
     await render(page, mode);
