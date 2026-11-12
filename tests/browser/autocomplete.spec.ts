@@ -122,7 +122,11 @@ test.describe('<Autocomplete.Root />', () => {
     await input(page).press('ControlOrMeta+a');
     await input(page).press('Backspace');
     await expect(options(page)).toHaveCount(3);
-    await expect(input(page)).toHaveAttribute('aria-activedescendant', before!);
+    // Base UI's ids are `{rootId}-{index}`, so its unchanged aria-activedescendant is the same index; the port's ids are
+    // stable per item (AUT-DOM-03's dated deviation), so the title asserts the highlight stays at the first index.
+    expect(before).not.toBeNull();
+    await expect(input(page)).toHaveAttribute('aria-activedescendant', (await options(page).first().getAttribute('id'))!);
+    await expect(options(page).first()).toHaveAttribute('data-highlighted', '');
   });
 
   test('mode="both": inline overlay + autocomplete handles filtering', async ({ page, mode }) => {
