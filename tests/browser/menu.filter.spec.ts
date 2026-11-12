@@ -1333,3 +1333,21 @@ test.describe('a consumer key handler on the input', () => {
     await expect(input(page)).not.toHaveAttribute('aria-activedescendant', renameId);
   });
 });
+
+// MenuFilterRoot.scoping.test.tsx (MNU-DOM-22, KEY-10) on `menu-filter-root` with a query and the "After" input; the
+// row tags it [L2], and Tab is the browser's (ADR 13 §3 re-tag note). Base UI's Clear reads "Clear query"; the fixture's
+// reads "Clear filter".
+test.describe('tabbing out of a filterable popup', () => {
+  test('skips Clear when tabbing out of the popup', async ({ page, mode }) => {
+    await page.goto(`/${mode}/menu-filter-root?query=re&after=true`, { waitUntil: 'commit' });
+    await page.locator(Fixture.started).waitFor({ state: 'attached' });
+    await expect(page.locator(Fixture.interactive('menu-filter-root'))).toHaveAttribute('data-attached', 'true');
+    await expect(input(page)).toBeFocused();
+    await expect(clear(page)).toHaveAttribute('tabindex', '-1');
+
+    await page.keyboard.press('Tab');
+
+    await expect(page.getByTestId('after')).toBeFocused();
+    await expect(page.getByRole('menu')).toHaveCount(0);
+  });
+});
