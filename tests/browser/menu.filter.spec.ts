@@ -937,6 +937,20 @@ test.describe('filterable menu keys and semantics', () => {
     await expect(input(page)).toHaveAttribute('aria-activedescendant', renameId);
   });
 
+  // MNU-KEY-25, EVT-19 (useMenuFilterKeyDown.ts:58-66): a keydown of an IME composition (keyCode 229) is the input's; the
+  // keydown is dispatched as Base UI's fireEvent does.
+  test('does not activate the highlighted item when Enter commits an IME composition', async ({ page, mode }) => {
+    const fixture = await renderWith(page, mode);
+    await expect(input(page)).toBeFocused();
+    await page.keyboard.press('ArrowDown');
+    await expect(input(page)).toHaveAttribute('aria-activedescendant', (await item(page, 'Rename').getAttribute('id')) ?? 'missing');
+
+    await input(page).evaluate((element) => element.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', keyCode: 229, which: 229, bubbles: true, cancelable: true } as KeyboardEventInit)));
+
+    await expect(page.getByRole('menu')).toBeVisible();
+    await expect(fixture).toHaveAttribute('data-presses', '');
+  });
+
   // MNU-KEY-25 (useMenuFilterKeyDown.ts:173-176): the fixture's link item has no href, so the click stays on the page.
   test('preserves modifiers when the input activates a link item', async ({ page, mode }) => {
     const fixture = await renderWith(page, mode, '?link=true');
