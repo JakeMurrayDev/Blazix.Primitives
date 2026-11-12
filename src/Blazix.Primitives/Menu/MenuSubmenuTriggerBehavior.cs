@@ -458,6 +458,7 @@ internal sealed class MenuSubmenuTriggerBehavior : IAsyncDisposable
             ParentKey = parent?.SessionToken,
             Open = menu.State.Open,
             KeyboardOpen = menu.State.Open && menu.State.KeyboardOpen,
+            Reason = menu.State.OpenChangeReason?.ToLiteral(),
             Orientation = menu.Orientation == Orientation.Horizontal ? "horizontal" : "vertical",
             ParentOrientation = parent?.Orientation == Orientation.Horizontal ? "horizontal" : "vertical",
         });

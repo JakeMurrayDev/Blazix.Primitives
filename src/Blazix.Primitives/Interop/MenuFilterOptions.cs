@@ -51,4 +51,10 @@ internal sealed record MenuFilterOptions : TwinOptions
 
     /// <summary>Gets the parent menu's orientation, <c>horizontal</c> or <c>vertical</c>; a submenu's trigger.</summary>
     public string? ParentOrientation { get; init; }
+
+    /// <summary>Gets a value indicating whether a plain submenu hands focus and its parent's highlight back to a filterable parent; a submenu's popup.</summary>
+    public bool? Handoff { get; init; }
+
+    /// <summary>Gets the reason of the menu's last open change, such as <c>list-navigation</c>; a submenu's trigger and popup.</summary>
+    public string? Reason { get; init; }
 }

@@ -72,6 +72,10 @@ export interface MenuFilterOptions extends TwinOptions {
   parentKey?: string | null;
   /** The parent menu's orientation; a submenu's trigger. */
   parentOrientation?: 'horizontal' | 'vertical' | null;
+  /** Whether a plain submenu hands focus and its parent's highlight back to a filterable parent; a submenu's popup. */
+  handoff?: boolean | null;
+  /** The reason of the menu's last open change; a submenu's trigger and popup. */
+  reason?: string | null;
 }
 
 /**
@@ -177,6 +181,8 @@ interface MenuFilterElement extends HTMLElement {
 interface FocusOwner {
   input: HTMLInputElement;
   options: () => MenuFilterOptions;
+  /** Ends the keyboard modality the input's `data-highlighted` reads: a pointer on the input or the list. */
+  endKeyboardModality: () => void;
 }
 
 const owners = new Map<string, FocusOwner>();
@@ -479,7 +485,7 @@ function attachInput(input: HTMLInputElement, initial: MenuFilterOptions, channe
   input.addEventListener('pointerdown', onPointer);
   input.addEventListener('mouseenter', onPointer);
   const ownerKey = options.menuKey ?? null;
-  const owner: FocusOwner = { input, options: () => options };
+  const owner: FocusOwner = { input, options: () => options, endKeyboardModality: onPointer };
   if (ownerKey !== null) {
     owners.set(ownerKey, owner);
   }
@@ -626,9 +632,17 @@ function attachList(list: HTMLElement, initial: MenuFilterOptions, channel: Twin
   });
   observer.observe(list, { subtree: true, childList: true, characterData: true });
   previousItems = itemsOf();
+  // FilterDropdownList.tsx:45-50 (MNU-STA-22): a pointer moving or pressing on the list ends the keyboard modality, so the
+  // input shows its own highlight again while it has visible focus.
+  const onPointer = (): void => {
+    const owner = options.menuKey ? owners.get(options.menuKey) : undefined;
+    owner?.endKeyboardModality();
+  };
   list.addEventListener('mousedown', onMouseDown);
   list.addEventListener('focus', onFocus);
   list.addEventListener('keydown', onKeyDown);
+  list.addEventListener('pointermove', onPointer);
+  list.addEventListener('pointerdown', onPointer);
   reportTexts();
 
   return {
@@ -648,6 +662,8 @@ function attachList(list: HTMLElement, initial: MenuFilterOptions, channel: Twin
       list.removeEventListener('mousedown', onMouseDown);
       list.removeEventListener('focus', onFocus);
       list.removeEventListener('keydown', onKeyDown);
+      list.removeEventListener('pointermove', onPointer);
+      list.removeEventListener('pointerdown', onPointer);
     },
   };
 }
@@ -790,8 +806,25 @@ function attachSubmenuTrigger(trigger: HTMLElement, initial: MenuFilterOptions, 
     }
   };
 
+  // useMenuFilterSubmenuTrigger.ts:46-56 (MNU-FOC-15): a click on the trigger of an open submenu enters it, focusing its
+  // input, from the keyboard (a click with no detail and no press) or from a mouse when a trigger press opened it.
+  let pressType = '';
+  const onPointerDown = (event: PointerEvent): void => {
+    pressType = event.pointerType || 'mouse';
+  };
+  const onClick = (event: MouseEvent): void => {
+    const type = pressType !== '' ? pressType : event.detail === 0 ? 'keyboard' : 'mouse';
+    pressType = '';
+    const own = options.menuKey ? owners.get(options.menuKey) : undefined;
+    if (own !== undefined && isOpen() && (type === 'keyboard' || (type === 'mouse' && options.reason === 'trigger-press'))) {
+      refocusOwner(own.input);
+    }
+  };
+
   trigger.addEventListener('keydown', onKeyDown, true);
   trigger.addEventListener('focus', onFocus, true);
+  trigger.addEventListener('pointerdown', onPointerDown, true);
+  trigger.addEventListener('click', onClick);
   const register = (): void => {
     if (options.menuKey) {
       submenuTriggers.set(options.menuKey, trigger);
@@ -831,6 +864,8 @@ function attachSubmenuTrigger(trigger: HTMLElement, initial: MenuFilterOptions, 
         unregister();
         trigger.removeEventListener('keydown', onKeyDown, true);
         trigger.removeEventListener('focus', onFocus, true);
+        trigger.removeEventListener('pointerdown', onPointerDown, true);
+        trigger.removeEventListener('click', onClick);
       }
     },
   };
@@ -908,6 +943,72 @@ function attachPopup(popup: HTMLElement, initial: MenuFilterOptions, channel: Tw
       refocusOwner(owner.input);
     }
   };
+  // useVirtualFocusParentHandoff.ts (MNU-KEY-29, FOC-15): a plain submenu of a filterable parent. The parent keeps real
+  // focus on its input, so its trigger never blurs: real focus entering this popup clears the parent's highlight, and a
+  // close by a key (list-navigation, escape-key) highlights the trigger there again; focus left inside the closing popup
+  // goes back to the parent's input.
+  let handoffTrigger: HTMLElement | null = null;
+  const parentOwner = (): FocusOwner | undefined => (options.parentKey ? owners.get(options.parentKey) : undefined);
+  const findHandoffTrigger = (): HTMLElement | null => {
+    const root = popup.getRootNode() as Document | ShadowRoot;
+    for (const item of popup.ownerDocument.querySelectorAll<HTMLElement>('[aria-haspopup][aria-controls]')) {
+      const id = item.getAttribute('aria-controls');
+      const controlled = id && !popup.contains(item) ? root.getElementById(id) : null;
+      if (controlled !== null && (controlled === popup || popup.contains(controlled))) {
+        return item;
+      }
+    }
+    return null;
+  };
+  const onHandoffFocusIn = (): void => {
+    // The trigger names this popup in `aria-controls` once it rendered open, which can follow this popup's own update.
+    if (options.handoff === true) {
+      handoffTrigger ??= findHandoffTrigger();
+    }
+    const parent = parentOwner();
+    if (options.handoff === true && parent !== undefined && parent.input.hasAttribute('aria-activedescendant')) {
+      highlightListEdge(parent.input, null, undefined);
+    }
+  };
+  // The close's reason when the update brings it; a popup that unmounts with its close sends none, so the last key
+  // pressed inside it tells a keyboard close (Escape, or the popup's cross-axis close key) from a pointer one.
+  let keyClose = false;
+  const onHandoffKeyDown = (event: KeyboardEvent): void => {
+    const orientation = popup.getAttribute('aria-orientation') === 'horizontal' ? 'horizontal' : 'vertical';
+    keyClose = event.key === 'Escape' || isCrossOrientationCloseKey(event.key, orientation, parentOwner()?.options().rtl === true, false);
+  };
+  const onHandoffPointer = (): void => {
+    keyClose = false;
+  };
+  const closeHandoff = (reason: string | null | undefined): void => {
+    const trigger = handoffTrigger ?? findHandoffTrigger();
+    const byKey = reason === 'list-navigation' || reason === 'escape-key' || ((reason === null || reason === undefined) && keyClose);
+    handoffTrigger = null;
+    keyClose = false;
+    queueMicrotask(() => {
+      const parent = parentOwner();
+      if (parent === undefined) {
+        return;
+      }
+      if (popup.isConnected && popup.contains(popup.ownerDocument.activeElement)) {
+        refocusOwner(parent.input);
+      }
+      if (byKey && trigger !== null && trigger.isConnected && !parent.input.hasAttribute('aria-activedescendant')) {
+        highlightListItem(parent.input, trigger, undefined);
+      }
+    });
+  };
+  const syncHandoff = (wasOpen: boolean): void => {
+    if (options.handoff !== true) {
+      return;
+    }
+    if (options.open === true) {
+      handoffTrigger ??= findHandoffTrigger();
+    } else if (wasOpen) {
+      closeHandoff(options.reason);
+    }
+  };
+
   // MenuFilterList.tsx:43-73 (MNU-KEY-32): a plain submenu that closes on this menu's main-axis key returns focus to the
   // input and lets the key through, and this menu moves on from its trigger, keeping the trigger highlighted where the
   // step would escape the list. The port's nested popup hands the key to this menu's list, which steps from its own
@@ -924,6 +1025,13 @@ function attachPopup(popup: HTMLElement, initial: MenuFilterOptions, channel: Tw
     const trigger = nestedPopupTrigger(popup, target);
     if (trigger === null) {
       return;
+    }
+    // A plain submenu's real focus cleared this menu's highlight (useVirtualFocusParentHandoff.ts:57-62); when its close
+    // key is this menu's main-axis key, this menu steps on from the trigger, so the trigger takes the highlight back first.
+    const nestedMenu = target.closest('[role="menu"]');
+    const nestedOrientation = nestedMenu?.getAttribute('aria-orientation') === 'horizontal' ? 'horizontal' : 'vertical';
+    if (isCrossOrientationCloseKey(event.key, nestedOrientation, owner.options().rtl === true, false) && !owner.input.hasAttribute('aria-activedescendant')) {
+      highlightListItem(owner.input, trigger, event);
     }
     setTimeout(() => {
       if (!disposed && popup.ownerDocument.activeElement === owner.input && !owner.input.getAttribute('aria-activedescendant')) {
@@ -971,6 +1079,9 @@ function attachPopup(popup: HTMLElement, initial: MenuFilterOptions, channel: Tw
   popup.addEventListener('pointermove', trackPointerType);
   popup.addEventListener('mousemove', onMouseMove);
   popup.ownerDocument.addEventListener('keydown', onDocumentKeyDown, true);
+  popup.addEventListener('focusin', onHandoffFocusIn);
+  popup.addEventListener('keydown', onHandoffKeyDown, true);
+  popup.addEventListener('pointerdown', onHandoffPointer);
   popup.addEventListener('mouseover', onMouseOver);
   popup.addEventListener('focusin', onFocusIn);
   popup.ownerDocument.addEventListener('focusin', onDocumentFocusIn, true);
@@ -991,6 +1102,7 @@ function attachPopup(popup: HTMLElement, initial: MenuFilterOptions, channel: Tw
         if (options.open !== true) {
           escape = null;
         }
+        syncHandoff(wasOpen);
       }
     },
     dispose(): void {
@@ -1008,6 +1120,13 @@ function attachPopup(popup: HTMLElement, initial: MenuFilterOptions, channel: Tw
       popup.ownerDocument.removeEventListener('focusin', onDocumentFocusIn, true);
       popup.removeEventListener('keydown', onKeyDown);
       popup.ownerDocument.removeEventListener('keydown', onDocumentKeyDown, true);
+      popup.removeEventListener('focusin', onHandoffFocusIn);
+      popup.removeEventListener('keydown', onHandoffKeyDown, true);
+      popup.removeEventListener('pointerdown', onHandoffPointer);
+      // A plain popup without an exit animation unmounts with its close, before an update could bring it.
+      if (options.handoff === true && options.open === true) {
+        closeHandoff(null);
+      }
     },
   };
 }

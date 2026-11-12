@@ -154,7 +154,12 @@ internal sealed class MenuPopupBehavior : IAsyncDisposable
                 Open = open!.Value,
 
                 // MenuFilterSubmenuRoot.tsx:278-292: a filterable submenu's popup closes on its close key, back to the parent.
-                Submenu = menu.Parent.Kind == MenuParentKind.Menu ? true : null,
+                Submenu = menu.Parent.Kind == MenuParentKind.Menu && menu.Filter is not null ? true : null,
+
+                // useVirtualFocusParentHandoff.ts: a plain submenu of a filterable parent hands focus and the parent's
+                // highlight back itself.
+                Handoff = menu.Filter is null ? true : null,
+                Reason = openChangeReason!.Value?.ToLiteral(),
                 ParentKey = menu.Parent.Kind == MenuParentKind.Menu ? menu.Parent.Menu?.SessionToken : null,
                 ParentOrientation = menu.Parent.Kind == MenuParentKind.Menu ? (menu.Parent.Menu?.Orientation == Orientation.Horizontal ? "horizontal" : "vertical") : null,
             }) ?? Task.CompletedTask;
@@ -237,7 +242,7 @@ internal sealed class MenuPopupBehavior : IAsyncDisposable
 
         // MenuFilterPopup.tsx:38-50 (M5 track 12): a filterable popup's initial focus is its input, named by its id.
         inputIdSubscription = menu.Filter?.SubscribeInputId(OnChanged);
-        if (menu.Filter is not null)
+        if (menu.Filter is not null || (menu.Parent.Kind == MenuParentKind.Menu && menu.Parent.Menu?.Filter is not null))
         {
             filterModule = new MenuFilterModuleAttachment(jsRuntime);
 
@@ -449,10 +454,11 @@ internal sealed class MenuPopupBehavior : IAsyncDisposable
         };
     }
 
-    // MenuFilterSubmenuRoot.tsx:120-125, 164-170 (M5 track 12): a filterable submenu returns focus to its parent's input,
-    // which holds the parent's virtual focus, rather than to the trigger.
+    // MenuFilterSubmenuRoot.tsx:120-125, 164-170 and useVirtualFocusParentHandoff.ts:28-30 (M5 track 12): a submenu of a
+    // filterable parent, filterable or plain, returns focus to the parent's input, which holds the parent's virtual focus,
+    // rather than to the trigger.
     private static FocusTargetValue? FilterReturnFocus(MenuRootContext menu, MenuParentKind? kind) =>
-        kind == MenuParentKind.Menu && menu.Filter is not null && menu.Parent.Menu?.Filter?.InputElement is { } input
+        kind == MenuParentKind.Menu && menu.Parent.Menu?.Filter?.InputElement is { } input
             ? new FocusTargetValue(input)
             : default(FocusTargetValue?);
 
