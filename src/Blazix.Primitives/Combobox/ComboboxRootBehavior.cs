@@ -160,6 +160,7 @@ internal sealed class ComboboxRootBehavior<TValue> : IAsyncDisposable
             store.AttachListNavigation(list, list.RequestHighlightAsync);
             store.SessionInputsChanged += CopyAndSyncSession;
             store.SelectionCommitted += OnSelectionCommitted;
+            store.InputValueCommitted += OnInputValueCommitted;
             committed = new SelectorSubscription<ComboboxStoreState>(store, onCommitted);
             committed.Select(ComboboxStoreState.Open);
             committed.Select(ComboboxStoreState.Status);
@@ -461,6 +462,17 @@ internal sealed class ComboboxRootBehavior<TValue> : IAsyncDisposable
             // filled state, its registration and the change's validation follow the selection with no render of the part.
             fieldBehavior!.AfterRender(inputs.Id, inputs.Name, HiddenInputId(root.Store));
             _ = ObserveAsync(SyncFormAsync());
+        }
+    }
+
+    // AUT-FRM-01, STA-04 (AriaCombobox.tsx:1243-1323, run at every render of the root; design point 7 (a) of M5 track 11,
+    // settled by the orchestrator 2026-11-12): in None mode the text is the field's value, so a text that renders no root (the
+    // inline completion, an uncontrolled edit no consumer renders) reaches the field and the form as a selection does.
+    private void OnInputValueCommitted()
+    {
+        if (root.Store.State.SelectionMode == ComboboxSelectionMode.None)
+        {
+            OnSelectionCommitted();
         }
     }
 
