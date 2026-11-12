@@ -540,3 +540,56 @@ test.describe('Menu.Clear', () => {
     await expect(input(page)).toBeFocused();
   });
 });
+
+// MenuList.test.tsx's "horizontal list without autoHighlight" (MNU-KEY-24, KEY-22; M5 track 12), titles verbatim, on
+// `menu-filter-root` and `menu-filter-initial` with `orientation=horizontal`. The fixture's items are Rename, Delete and
+// Duplicate: "l" keeps Delete and Duplicate, where Base UI's "p" keeps Alpha and Apple of Alpha, Apple and Beta.
+test.describe('horizontal list without autoHighlight', () => {
+  async function renderHorizontal(page: Page, mode: RenderMode, fixtureName: string): Promise<void> {
+    await page.goto(`/${mode}/${fixtureName}?orientation=horizontal`, { waitUntil: 'commit' });
+    await page.locator(Fixture.started).waitFor({ state: 'attached' });
+    await expect(page.locator(Fixture.interactive(fixtureName))).toHaveAttribute('data-attached', 'true');
+  }
+
+  async function idOf(locator: Locator): Promise<string> {
+    return (await locator.getAttribute('id')) ?? 'missing';
+  }
+
+  test('enters the results with the vertical arrows after typing', async ({ page, mode }) => {
+    await renderHorizontal(page, mode, 'menu-filter-root');
+    await input(page).focus();
+
+    await page.keyboard.type('l');
+    await expect(item(page, 'Rename')).toHaveCount(0);
+
+    // Left and Right keep moving the caret while nothing is highlighted.
+    await page.keyboard.press('ArrowLeft');
+    await expect(input(page)).not.toHaveAttribute('aria-activedescendant', /.+/);
+
+    await page.keyboard.press('ArrowDown');
+    await expect(input(page)).toHaveAttribute('aria-activedescendant', await idOf(item(page, 'Delete')));
+    await page.keyboard.press('ArrowRight');
+    await expect(input(page)).toHaveAttribute('aria-activedescendant', await idOf(item(page, 'Duplicate')));
+    await page.keyboard.press('ArrowLeft');
+    await expect(input(page)).toHaveAttribute('aria-activedescendant', await idOf(item(page, 'Delete')));
+  });
+
+  test('enters the results from the end with ArrowUp', async ({ page, mode }) => {
+    await renderHorizontal(page, mode, 'menu-filter-root');
+    await input(page).focus();
+
+    await page.keyboard.press('ArrowUp');
+
+    await expect(input(page)).toHaveAttribute('aria-activedescendant', await idOf(item(page, 'Duplicate')));
+  });
+
+  // The fixture's first item is disabled, so the first item highlighted is Rename.
+  test('highlights the first item when opened from the trigger with ArrowDown', async ({ page, mode }) => {
+    await renderHorizontal(page, mode, 'menu-filter-initial');
+    await page.getByRole('button', { name: 'Actions' }).focus();
+
+    await page.keyboard.press('ArrowDown');
+
+    await expect(input(page)).toHaveAttribute('aria-activedescendant', await idOf(item(page, 'Rename')));
+  });
+});
