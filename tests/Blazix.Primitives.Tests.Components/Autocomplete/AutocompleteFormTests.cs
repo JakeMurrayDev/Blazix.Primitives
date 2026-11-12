@@ -129,6 +129,56 @@ public sealed class AutocompleteFormTests : IDisposable
         Assert.Equal([("ba", EventReason.InputChange), (string.Empty, EventReason.ClearPress)], changes);
     }
 
+    [Fact(DisplayName = "should handle browser autofill")]
+    [Trait("Requirement", "AUT-FRM-06")]
+    public async Task Handles_browser_autofill()
+    {
+        List<(string Text, EventReason Reason)> changes = [];
+        IRenderedComponent<AutocompleteFormHost> cut = Render(new()
+        {
+            ["Items"] = s_items,
+            ["OnValueChange"] = EventCallback.Factory.Create<ValueChangeEventArgs<string>>(this, args => changes.Add((args.Value, args.Details.Reason))),
+        });
+
+        await AutofillAsync(cut, "durian");
+
+        Assert.Equal("durian", cut.Instance.Root!.Store.State.InputValue);
+        Assert.Equal([("durian", EventReason.None)], changes);
+        Assert.False(cut.Instance.Root!.Store.State.Lifecycle.EffectiveOpen);
+    }
+
+    [Fact(DisplayName = "ignores hidden-input autofill when readOnly")]
+    [Trait("Requirement", "AUT-FRM-06")]
+    [Trait("Requirement", "AUT-API-17")]
+    public async Task Ignores_autofill_when_read_only()
+    {
+        IRenderedComponent<AutocompleteFormHost> cut = Render(new() { ["Items"] = s_items, ["ReadOnly"] = true, ["DefaultValue"] = "a" });
+
+        await AutofillAsync(cut, "banana");
+
+        Assert.Equal("a", cut.Instance.Root!.Store.State.InputValue);
+    }
+
+    [Fact(DisplayName = "ignores hidden-input autofill when disabled")]
+    [Trait("Requirement", "AUT-FRM-06")]
+    [Trait("Requirement", "AUT-EDGE-05")]
+    public async Task Ignores_autofill_when_disabled()
+    {
+        IRenderedComponent<AutocompleteFormHost> cut = Render(new() { ["Items"] = s_items, ["Disabled"] = true, ["DefaultValue"] = "a" });
+
+        await AutofillAsync(cut, "banana");
+
+        Assert.Equal("a", cut.Instance.Root!.Store.State.InputValue);
+    }
+
+    private Task AutofillAsync(IRenderedComponent<AutocompleteFormHost> cut, string text)
+    {
+        JSRuntimeInvocation attach = test.Form.Invocations["attach"].Last(invocation => invocation.Arguments[1] is string json && json.Contains("\"reportAutofill\":true", StringComparison.Ordinal));
+        FormTwin twin = ((Microsoft.JSInterop.DotNetObjectReference<FormTwin>)attach.Arguments[2]!).Value;
+        string payload = $$"""{"text":{{System.Text.Json.JsonSerializer.Serialize(text)}},"defaultPrevented":false,"event":{{ComboboxTestContext.InputEvent}}}""";
+        return cut.InvokeAsync(() => twin.OnAutofill(payload));
+    }
+
     private IRenderedComponent<AutocompleteFormHost> Render(Dictionary<string, object?> root, Dictionary<string, object>? inputAttributes = null, bool insidePopup = false) =>
         test.Context.Render<AutocompleteFormHost>(p => p
             .Add(x => x.RootParameters, root)
