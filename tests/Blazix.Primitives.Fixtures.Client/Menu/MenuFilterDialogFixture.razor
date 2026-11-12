@@ -1,0 +1,58 @@
+@namespace Blazix.Primitives.Fixtures.Client.MenuFixtures
+@using Blazix.Primitives
+
+@*
+    The `menu-filter-dialog` fixture (tests/browser/menu.filter.spec.ts, M5 track 12): MenuFilterRoot.test.tsx's command
+    palette. A dialog trigger "Open palette" opens a dialog "Command palette" holding a filterable menu, held open, with
+    autoHighlight "always": an input "Search commands" and a list with a group "Suggestions" of Linear and Figma. Base UI's
+    tree wraps the list in a ScrollArea, which the port has not built. `data-attached` turns "true" once the dialog's session
+    and its trigger's handle have attached.
+*@
+<FixtureContainer Name="menu-filter-dialog" data-attached="@(attached ? "true" : "false")">
+    <DialogRoot TPayload="NoPayload" @ref="dialog">
+        <DialogTrigger TPayload="NoPayload" @ref="trigger">Open palette</DialogTrigger>
+        <DialogPortal>
+            <DialogPopup aria-label="Command palette">
+                <MenuFilterProvider AutoHighlight="@AutoHighlightValue.Always">
+                    <MenuRoot TPayload="NoPayload" Open="true">
+                        <MenuPortal>
+                            <MenuPositioner>
+                                <MenuPopup>
+                                    <MenuInput aria-label="Search commands" />
+                                    <MenuList>
+                                        <MenuGroup>
+                                            <MenuGroupLabel>Suggestions</MenuGroupLabel>
+                                            <MenuItem>Linear</MenuItem>
+                                            <MenuItem>Figma</MenuItem>
+                                        </MenuGroup>
+                                    </MenuList>
+                                </MenuPopup>
+                            </MenuPositioner>
+                        </MenuPortal>
+                    </MenuRoot>
+                </MenuFilterProvider>
+            </DialogPopup>
+        </DialogPortal>
+    </DialogRoot>
+</FixtureContainer>
+
+@code {
+    private DialogRoot<NoPayload>? dialog;
+    private DialogTrigger<NoPayload>? trigger;
+    private bool attached;
+    private bool attaching;
+
+    /// <inheritdoc />
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (attached || attaching || !RendererInfo.IsInteractive || dialog is null || trigger is null)
+        {
+            return;
+        }
+
+        attaching = true;
+        await Task.WhenAll(dialog.SessionAttached, trigger.TwinAttached);
+        attached = true;
+        StateHasChanged();
+    }
+}

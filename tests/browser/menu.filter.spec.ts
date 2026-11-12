@@ -1592,3 +1592,21 @@ test.describe('the highlight cursor across a refocus', () => {
     await expect(item(page, 'Duplicate')).toHaveAttribute('data-highlighted', '');
   });
 });
+
+// MenuFilterRoot.test.tsx's command palette (MNU-STA-19) on `menu-filter-dialog`; Base UI's ScrollArea wrapper is left
+// out (the port has not built ScrollArea).
+test.describe('autoHighlight "always" inside a dialog', () => {
+  test('always highlights the first item when mounted inside an opened dialog', async ({ page, mode }) => {
+    await page.goto(`/${mode}/menu-filter-dialog`, { waitUntil: 'commit' });
+    await page.locator(Fixture.started).waitFor({ state: 'attached' });
+    await expect(page.locator(Fixture.interactive('menu-filter-dialog'))).toHaveAttribute('data-attached', 'true');
+
+    await page.getByRole('button', { name: 'Open palette' }).click();
+
+    const search = page.getByRole('searchbox', { name: 'Search commands' });
+    await expect(search).toBeVisible();
+    const firstItem = page.getByRole('menuitem', { name: 'Linear', exact: true });
+    await expect(firstItem).toHaveAttribute('data-highlighted', '');
+    await expect(search).toHaveAttribute('aria-activedescendant', (await firstItem.getAttribute('id')) ?? 'missing');
+  });
+});
