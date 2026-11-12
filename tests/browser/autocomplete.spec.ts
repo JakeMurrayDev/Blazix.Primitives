@@ -189,6 +189,37 @@ test.describe('<Autocomplete.Root />', () => {
     expect(await recorded(fixture, 'data-highlights')).toEqual([]);
   });
 
+  test('submits the input value directly (not selection value)', async ({ page, mode }) => {
+    const fixture = await goto(page, mode);
+    await watchSubmits(page);
+    await typeText(page, 'ban');
+    await page.getByTestId('item-banana').click();
+    await expect(input(page)).toHaveValue('banana');
+    await input(page).pressSequentially('a');
+    await expect.poll(() => recorded(fixture, 'data-value-changes')).toContain('bananaa:input-change');
+
+    await page.getByTestId('submit').click();
+    await expect.poll(() => submitted(page)).toEqual(['bananaa']);
+  });
+
+  test('pressing Enter in the Input submits the owning form when no item is highlighted', async ({ page, mode }) => {
+    const fixture = await goto(page, mode);
+    await watchSubmits(page);
+    await typeText(page, 'q');
+    await expect.poll(() => recorded(fixture, 'data-value-changes')).toContain('q:input-change');
+
+    await input(page).press('Enter');
+    await expect.poll(() => submitted(page)).toEqual(['q']);
+  });
+
+  test('triggers native validation when required and empty', async ({ page, mode }) => {
+    await goto(page, mode, { required: true });
+
+    await expect(input(page)).toHaveAttribute('required', '');
+    expect(await input(page).evaluate((element) => (element as HTMLInputElement).validity.valueMissing)).toBe(true);
+    expect(await page.getByTestId('form').evaluate((form) => (form as HTMLFormElement).checkValidity())).toBe(false);
+  });
+
   test('when true, clicking with pointer submits the owning form', async ({ page, mode }) => {
     await goto(page, mode, { submit: true });
     await page.evaluate(() => {
@@ -572,6 +603,21 @@ test.describe('<Autocomplete.Root /> prerendered', () => {
       value,
     );
   }
+
+  test('submits the inline input value through native FormData', async ({ page, mode }) => {
+    await gotoCombobox(page, mode, 'autocomplete-prerender', { layout: 'inline' });
+    await page.getByTestId('input').pressSequentially('alp');
+    await expect(page.getByTestId('input')).toHaveValue('alp');
+
+    await expect.poll(() => page.evaluate(() => new FormData(document.querySelector('form') as HTMLFormElement).getAll('search').map(String))).toEqual(['alp']);
+  });
+
+  test('submits a default popup input value through native FormData before the popup opens', async ({ page, mode }) => {
+    await gotoCombobox(page, mode, 'autocomplete-prerender', { layout: 'popup' });
+
+    await expect.poll(() => page.evaluate(() => new FormData(document.querySelector('form') as HTMLFormElement).getAll('search').map(String))).toEqual(['alpha']);
+    await expect(page.getByTestId('input')).toHaveCount(0);
+  });
 
   test('server-renders only the inline input name for native FormData', async ({ page, mode }) => {
     await staticMarkup(page, mode, 'inline');
