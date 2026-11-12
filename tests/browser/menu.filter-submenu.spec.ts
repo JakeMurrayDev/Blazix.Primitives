@@ -1035,3 +1035,18 @@ test.describe('hover-opened submenu ownership', () => {
     await expect(submenuInput(page)).toHaveValue('');
   });
 });
+
+// MenuFilterRoot.test.tsx's "prop: onItemHighlighted" (MNU-EVT-10) on `menu-filter-submenu`, whose highlight reports are
+// recorded as `label:reason:key`; Base UI's list holds Rename and Delete, the fixture's also the submenu trigger.
+test.describe('prop: onItemHighlighted', () => {
+  for (const orientation of ['vertical', 'horizontal'] as const) {
+    test(`passes the keydown event to onItemHighlighted in a ${orientation} menu`, async ({ page, mode }) => {
+      const fixture = await render(page, mode, { orientation, hover: false });
+      await page.getByRole('searchbox', { name: 'Filter actions' }).focus();
+
+      await page.keyboard.press('ArrowDown');
+
+      await expect(fixture).toHaveAttribute('data-highlights', /(^|\|)Rename:keyboard:ArrowDown$/);
+    });
+  }
+});
