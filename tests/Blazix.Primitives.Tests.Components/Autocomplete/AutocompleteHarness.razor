@@ -1,0 +1,70 @@
+@namespace Blazix.Primitives.Tests.Components
+@* The Autocomplete tests' tree over string values (M5 track 11): a Root given only the parameters a test supplies
+   (`RootParameters`, splatted, so controlled and uncontrolled are told apart as Blazor tells them), an Input, a Trigger with
+   the Value, a Clear, and a Portal > Positioner > Popup > List that renders the root's Items through ItemContent, with an
+   Empty and a Status. The text and open changes are recorded with their reasons. *@
+<AutocompleteRoot TValue="string" @ref="Root" @attributes="Parameters">
+    <AutocompleteInputGroup data-testid="group">
+        <AutocompleteInput data-testid="input" ClassValue="@InputClass" />
+        <AutocompleteClear data-testid="clear" />
+        <AutocompleteTrigger data-testid="trigger"><AutocompleteValue /></AutocompleteTrigger>
+    </AutocompleteInputGroup>
+    <AutocompletePortal>
+        <AutocompletePositioner data-testid="positioner">
+            <AutocompletePopup data-testid="popup">
+                <AutocompleteStatus data-testid="status" />
+                <AutocompleteEmpty data-testid="empty">No items.</AutocompleteEmpty>
+                <AutocompleteList TValue="string" data-testid="list">
+                    <ItemContent>
+                        <AutocompleteItem TValue="string" Value="@context.Value" data-testid="@("item-" + context.Value)" ClassValue="@ItemClass" @key="context.Value">@context.Value</AutocompleteItem>
+                    </ItemContent>
+                </AutocompleteList>
+                <AutocompleteSeparator data-testid="separator" />
+                <AutocompleteArrow data-testid="arrow" />
+            </AutocompletePopup>
+        </AutocompletePositioner>
+    </AutocompletePortal>
+</AutocompleteRoot>
+
+@code {
+    [Parameter]
+    public Dictionary<string, object?> RootParameters { get; set; } = [];
+
+    /// <summary>Gets the rendered root.</summary>
+    public AutocompleteRoot<string>? Root { get; private set; }
+
+    /// <summary>Gets the text changes, each with its reason.</summary>
+    public List<(string Text, EventReason Reason)> ValueChanges { get; } = [];
+
+    /// <summary>Gets the states the input's class function received.</summary>
+    public List<AutocompleteInputState> InputStates { get; } = [];
+
+    /// <summary>Gets the states the items' class functions received.</summary>
+    public List<AutocompleteItemState> ItemStates { get; } = [];
+
+    private Dictionary<string, object?> Parameters
+    {
+        get
+        {
+            Dictionary<string, object?> parameters = new(RootParameters);
+            if (!parameters.ContainsKey("OnValueChange"))
+            {
+                parameters["OnValueChange"] = EventCallback.Factory.Create<ValueChangeEventArgs<string>>(this, args => ValueChanges.Add((args.Value, args.Details.Reason)));
+            }
+
+            return parameters;
+        }
+    }
+
+    private string InputClass(AutocompleteInputState state)
+    {
+        InputStates.Add(state);
+        return "input";
+    }
+
+    private string ItemClass(AutocompleteItemState state)
+    {
+        ItemStates.Add(state);
+        return "item";
+    }
+}

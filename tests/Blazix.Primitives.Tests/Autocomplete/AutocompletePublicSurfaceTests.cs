@@ -1,5 +1,6 @@
 using System.Reflection;
 using Blazix.Primitives.Rendering;
+using Microsoft.AspNetCore.Components;
 
 // Family tests use the project's root namespace.
 namespace Blazix.Primitives.Tests;
@@ -70,6 +71,43 @@ public sealed class AutocompletePublicSurfaceTests
         Assert.Equal(Constants(typeof(ComboboxPositionerCssVars)), Constants(typeof(AutocompletePositionerCssVars)));
     }
 
+    [Fact(DisplayName = "port: isItemPress is only emitted by multiple-selection Combobox, so OnValueChange carries plain ChangeEventDetails")]
+    [Trait("Requirement", "AUT-API-21")]
+    [Trait("Requirement", "AUT-API-03")]
+    public void On_value_change_carries_plain_change_event_details()
+    {
+        Assert.Equal(typeof(EventCallback<ValueChangeEventArgs<string>>), typeof(AutocompleteRoot<int>).GetProperty(nameof(AutocompleteRoot<int>.OnValueChange))!.PropertyType);
+        Assert.Equal(typeof(ChangeEventDetails), typeof(ValueChangeEventArgs<string>).GetProperty(nameof(ValueChangeEventArgs<string>.Details))!.PropertyType);
+        Assert.Equal(typeof(string), typeof(AutocompleteRoot<int>).GetProperty(nameof(AutocompleteRoot<int>.Value))!.PropertyType);
+        Assert.DoesNotContain(
+            typeof(AutocompleteRoot<int>).GetProperties().Select(property => property.Name),
+            name => name is "Multiple" or "Values" or "DefaultValues" or "OnValuesChange" or "InputValue" or "DefaultInputValue" or "OnInputValueChange"
+                or "ItemToStringLabel" or "IsItemEqualToValue" or "AutoComplete");
+    }
+
+    [Fact(DisplayName = "port: Autocomplete has no item type parameter for collections, so Items is a plain list of values")]
+    [Trait("Requirement", "AUT-API-11")]
+    public void Items_is_a_plain_list_of_values()
+    {
+        Assert.Equal(typeof(IReadOnlyList<Tag>), typeof(AutocompleteRoot<Tag>).GetProperty(nameof(AutocompleteRoot<Tag>.Items))!.PropertyType);
+        Assert.Equal(typeof(IReadOnlyList<Tag>), typeof(AutocompleteRoot<Tag>).GetProperty(nameof(AutocompleteRoot<Tag>.FilteredItems))!.PropertyType);
+        Assert.Single(typeof(AutocompleteRoot<>).GetGenericArguments());
+    }
+
+    [Fact(DisplayName = "port: hover can report a mouse event without pointer-specific fields through OnItemHighlighted's details")]
+    [Trait("Requirement", "AUT-API-21")]
+    [Trait("Requirement", "AUT-API-15")]
+    public void Hover_reports_its_event_through_the_highlight_details()
+    {
+        Assert.Equal(
+            typeof(EventCallback<AutocompleteItemHighlightedEventArgs<Tag>>),
+            typeof(AutocompleteRoot<Tag>).GetProperty(nameof(AutocompleteRoot<Tag>.OnItemHighlighted))!.PropertyType);
+        Assert.Equal(typeof(EventSnapshot), typeof(HighlightEventDetails).GetProperty(nameof(HighlightEventDetails.Event))!.PropertyType);
+        AutocompleteItemHighlightedEventArgs<Tag> cleared = new(null, new HighlightEventDetails(EventReason.Pointer, -1));
+        Assert.False(cleared.Highlighted);
+        Assert.True(new AutocompleteItemHighlightedEventArgs<Tag>(new Tag("t"), new HighlightEventDetails(EventReason.Pointer, 0)).Highlighted);
+    }
+
     private static string[] RecordFields(Type record) =>
         [.. record.GetConstructors().Single(constructor => constructor.GetParameters().Length > 0 && constructor.GetParameters()[0].ParameterType != record)
             .GetParameters().Select(parameter => parameter.Name!)];
@@ -89,4 +127,6 @@ public sealed class AutocompletePublicSurfaceTests
 
         return null;
     }
+
+    private sealed record Tag(string Value);
 }
