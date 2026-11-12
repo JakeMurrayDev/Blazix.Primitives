@@ -937,6 +937,37 @@ test.describe('filterable menu keys and semantics', () => {
     await expect(input(page)).toHaveAttribute('aria-activedescendant', renameId);
   });
 
+  // MNU-EVT-19, STA-21 (FilterDropdownInput.tsx:84-103): composition text is not committed until the composition ends.
+  // Base UI composes 「にほ」 then commits 「日本」 over a 日本語 item; here "zz" (which would empty the list) then "del". The events
+  // are dispatched as Base UI's fireEvent does.
+  test('filters on the committed text, not the composition in progress', async ({ page, mode }) => {
+    const fixture = await renderWith(page, mode);
+    const compose = (value: string, end: boolean): Promise<void> =>
+      input(page).evaluate((element, args) => {
+        const field = element as HTMLInputElement;
+        if (!args.end) {
+          field.dispatchEvent(new CompositionEvent('compositionstart', { bubbles: true }));
+        }
+        field.value = args.value;
+        field.dispatchEvent(new Event('input', { bubbles: true }));
+        if (args.end) {
+          field.dispatchEvent(new CompositionEvent('compositionend', { bubbles: true, data: args.value }));
+        }
+      }, { value, end });
+
+    await compose('zz', false);
+    await expect(input(page)).toHaveValue('zz');
+    await expect(fixture).toHaveAttribute('data-value-changes', '');
+    await expect(item(page, 'Rename')).toBeVisible();
+    await expect(page.getByText('No results')).toHaveCount(0);
+
+    await compose('del', true);
+
+    await expect(fixture).toHaveAttribute('data-value-changes', 'del:input-change');
+    await expect(item(page, 'Rename')).toHaveCount(0);
+    await expect(item(page, 'Delete')).toBeVisible();
+  });
+
   // MNU-KEY-25, EVT-19 (useMenuFilterKeyDown.ts:58-66): a keydown of an IME composition (keyCode 229) is the input's; the
   // keydown is dispatched as Base UI's fireEvent does.
   test('does not activate the highlighted item when Enter commits an IME composition', async ({ page, mode }) => {
