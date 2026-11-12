@@ -1649,3 +1649,57 @@ test.describe('typing while the popup animates out', () => {
     });
   }
 });
+
+// MenuFilterRoot.test.tsx's filtering titles (MNU-ANI-09) on `menu-filter-initial`'s `plain` list (Rename, Delete) with a
+// 10 s exit animation, animations on.
+test.describe('keys and presses while the popup animates out', () => {
+  const trigger = (page: Page): Locator => page.getByRole('button', { name: 'Actions' });
+
+  async function open(page: Page, mode: RenderMode): Promise<Locator> {
+    const fixture = page.locator(Fixture.interactive('menu-filter-initial'));
+    await page.goto(`/${mode}/menu-filter-initial?plain=true&exitAnimation=true&animations=1`, { waitUntil: 'commit' });
+    await page.locator(Fixture.started).waitFor({ state: 'attached' });
+    await expect(fixture).toHaveAttribute('data-attached', 'true');
+    return fixture;
+  }
+
+  for (const key of ['ArrowDown', 'ArrowUp']) {
+    test(`ignores ${key} in the input while the popup animates out`, async ({ page, mode }) => {
+      const fixture = await open(page, mode);
+      await trigger(page).focus();
+      await page.keyboard.press('ArrowDown');
+      await expect(input(page)).toBeFocused();
+      await page.keyboard.press('Escape');
+      await expect(page.getByRole('dialog')).toHaveAttribute('data-ending-style', '');
+      await expect(input(page)).toBeFocused();
+      await expect(fixture).toHaveAttribute('data-open-changes', 'true false');
+
+      await page.keyboard.press(key);
+      await page.evaluate(() => new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve))));
+
+      await expect(fixture).toHaveAttribute('data-open-changes', 'true false');
+      await expect(trigger(page)).toHaveAttribute('aria-expanded', 'false');
+    });
+  }
+
+  test('does not highlight the first item while closing from the trigger with a pointer', async ({ page, mode }) => {
+    await open(page, mode);
+    await trigger(page).click();
+    await expect(input(page)).toBeVisible();
+    const rename = item(page, 'Rename');
+    await expect(rename).not.toHaveAttribute('data-highlighted');
+
+    // Pressing the trigger can move focus before its close handler runs in Safari.
+    await trigger(page).focus();
+    await expect(rename).not.toHaveAttribute('data-highlighted');
+    await trigger(page).click();
+
+    await expect(page.getByTestId('popup')).toHaveAttribute('data-ending-style', '');
+    await expect(input(page)).not.toHaveAttribute('aria-activedescendant');
+    await expect(rename).not.toHaveAttribute('data-highlighted');
+    // The exit runs for 10 s, so re-check past its first frames.
+    await page.evaluate(() => new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve))));
+    await expect(input(page)).not.toHaveAttribute('aria-activedescendant');
+    await expect(rename).not.toHaveAttribute('data-highlighted');
+  });
+});

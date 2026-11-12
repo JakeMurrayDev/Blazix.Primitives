@@ -1138,3 +1138,34 @@ test.describe('a controlled submenu closing after focus moved out', () => {
     await expect(outside).toBeFocused();
   });
 });
+
+// MenuFilterRoot.test.tsx's "keeps submenu filtering updated during the exit transition" (MNU-STA-21, ANI-09): a plain root
+// whose controlled filterable submenu "Fruit" (Apple, Banana) starts open; both popups exit over 10 s, animations on.
+// Base UI's closeSubmenu() and addApricot() are the page's Shift and Alt keydowns on "Outside" (no focus move).
+test.describe('a filterable submenu animating out', () => {
+  test('keeps submenu filtering updated during the exit transition', async ({ page, mode }) => {
+    await render(page, mode, { ...plain, animations: 1, exiting: true, slowExit: true, controlledChild: true, childOpen: true, before: '', label: 'Fruit', after: '', children: 'Apple,Banana', extra: 'Apricot', hover: false });
+    const input = submenuInput(page);
+    await input.click();
+    await page.keyboard.type('ap');
+    await expect(input).toHaveValue('ap');
+    await expect(item(page, 'Banana')).toHaveCount(0);
+    const outside = page.getByRole('button', { name: 'Outside' });
+
+    await dispatchKey(outside, { key: 'Shift' });
+
+    const popup = page.getByTestId('submenu');
+    await expect(popup).toHaveAttribute('data-ending-style', '');
+    await expect(input).toHaveValue('ap');
+    await dispatchKey(outside, { key: 'Alt' });
+    await expect(item(page, 'Apricot')).toBeVisible();
+    await expect(item(page, 'Banana')).toHaveCount(0);
+
+    await popup.evaluate((element) => element.getAnimations().forEach((animation) => animation.finish()));
+    await expect(popup).toHaveCount(0);
+
+    await item(page, 'Fruit').click();
+    await expect(submenuInput(page)).toHaveValue('');
+    await expect(item(page, 'Banana')).toBeVisible();
+  });
+});

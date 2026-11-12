@@ -21,12 +21,14 @@
     (`data-testid="parent-list"`, as a filterable root's list is). `detached=true` replaces the root's trigger with two
     detached triggers before the menu, "First trigger" and "Second trigger", on a handle. `shadow=true` portals the
     submenu into an open shadow root on `[data-shadow-host]`, created after the first render. `exiting=true` gives both
-    popups the class `exiting`, a 300 ms opacity exit (open the page with `animations=1` for it to run). `childOpen=true`
+    popups the class `exiting`, a 300 ms opacity exit (open the page with `animations=1` for it to run); `slowExit=true` makes
+    that exit 10 s. `childOpen=true`
     starts the submenu open; `childQuery` makes the filterable submenu's query controlled, starting at that text;
     `childDefault` sets its uncontrolled DefaultValue; `childCancel=true` cancels every change of it. Each submenu query
     request is recorded as `value:reason` in `data-child-value-changes` (`|`-separated). `afterInput=true` adds an input
     "After" (`data-testid="after-input"`) after the menu. `controlledChild=true` makes the submenu's open state this page's
-    and adds a button "Outside" after the menu whose Shift keydown closes the submenu (no focus move). Each highlight report of the root is recorded as
+    (starting at `childOpen`) and adds a button "Outside" after the menu whose Shift keydown closes the submenu (no focus
+    move); `extra` names an item that an Alt keydown on "Outside" appends to the submenu's list. Each highlight report of the root is recorded as
     `label:reason:key` (`none` for no item) in `data-highlights`, and each submenu open request as `open:reason` in
     `data-submenu-changes` (`|`-separated). `data-attached` turns "true" once the root's session has attached and, for a
     filterable root that starts open, its input's and list's `menu-filter` handles.
@@ -39,7 +41,7 @@
     }
     @if (Exiting)
     {
-        <style>.exiting { transition: opacity 300ms; } .exiting[data-ending-style] { opacity: 0; }</style>
+        <style>.exiting { transition: opacity @(SlowExit ? "10s" : "300ms"); } .exiting[data-ending-style] { opacity: 0; }</style>
     }
     <div data-shadow-host @ref="shadowHost"></div>
     <DirectionProvider Direction="@(Dir == "rtl" ? TextDirection.Rtl : TextDirection.Ltr)">
@@ -142,6 +144,9 @@
     [SupplyParameterFromQuery(Name = "exiting")]
     public bool Exiting { get; set; }
 
+    [SupplyParameterFromQuery(Name = "slowExit")]
+    public bool SlowExit { get; set; }
+
     [SupplyParameterFromQuery(Name = "shadow")]
     public bool Shadow { get; set; }
 
@@ -149,6 +154,13 @@
     public bool ControlledChild { get; set; }
 
     private bool childOpenState;
+    private bool extraAdded;
+
+    [SupplyParameterFromQuery(Name = "extra")]
+    public string? Extra { get; set; }
+
+    /// <inheritdoc />
+    protected override void OnInitialized() => childOpenState = ChildOpen;
 
     private Dictionary<string, object>? ChildRootParameters => ControlledChild
         ? new() { ["Open"] = childOpenState, ["OpenChanged"] = EventCallback.Factory.Create<bool>(this, value => childOpenState = value) }
@@ -159,6 +171,10 @@
         if (args.Key == "Shift")
         {
             childOpenState = false;
+        }
+        else if (args.Key == "Alt")
+        {
+            extraAdded = true;
         }
     }
 
@@ -315,6 +331,10 @@
                         @foreach (string name in Names(Children, "Projects,Archive"))
                         {
                             <MenuItem @key="name">@name</MenuItem>
+                        }
+                        @if (extraAdded && Extra is not null)
+                        {
+                            <MenuItem @key="Extra">@Extra</MenuItem>
                         }
                     </MenuList>
                 </MenuPopup>
