@@ -2,6 +2,8 @@ using AngleSharp.Dom;
 using Blazix.Primitives.Interop;
 using Bunit;
 using Microsoft.AspNetCore.Components;
+using Microsoft.AspNetCore.Components.Rendering;
+using Microsoft.JSInterop;
 
 // Family tests use the project's root namespace.
 namespace Blazix.Primitives.Tests.Components;
@@ -74,6 +76,24 @@ public sealed class AutocompleteFieldTests : IDisposable
         await cut.InvokeAsync(() => cut.Find("[data-testid=input]").Blur());
 
         Assert.True(cut.Find("[data-testid=input]").HasAttribute("data-touched"));
+    }
+
+    [Fact(DisplayName = "port: the field's value is the displayed text, so an inline completion fills it")]
+    [Trait("Requirement", "AUT-FRM-01")]
+    [Trait("Requirement", "AUT-STA-04")]
+    public async Task An_inline_completion_fills_the_field()
+    {
+        IRenderedComponent<FieldRoot> cut = Render(new() { ["Items"] = s_items, ["Mode"] = AutocompleteMode.Inline, ["DefaultOpen"] = true });
+        Assert.False(cut.Find("[data-testid=input]").HasAttribute("data-filled"));
+
+        string itemId = cut.Find("[data-testid=item-apple]").Id!;
+        string json = $$"""{"index":0,"itemId":"{{itemId}}","event":{{ComboboxTestContext.Key("ArrowDown")}},"revision":1000}""";
+        JSRuntimeInvocation attach = test.Composite.Invocations["attach"].Last(invocation => invocation.Arguments[1] is string options && options.Contains("\"virtual\":true", StringComparison.Ordinal));
+        CompositeTwin twin = ((DotNetObjectReference<CompositeTwin>)attach.Arguments[2]!).Value;
+        await cut.InvokeAsync(() => twin.OnListHighlight(json));
+
+        Assert.Equal("apple", cut.FindComponent<AutocompleteHarness>().Instance.Root!.Store.State.InputValue);
+        Assert.True(cut.Find("[data-testid=input]").HasAttribute("data-filled"));
     }
 
     private IRenderedComponent<FieldRoot> Render(Dictionary<string, object?> root, string? name = null) =>
