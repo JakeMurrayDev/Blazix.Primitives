@@ -38,6 +38,19 @@ public sealed class MenuFilterClearTests : BunitContext
         Assert.False(clear.HasAttribute(MenuClearDataAttributes.Disabled));
     }
 
+    // MenuFilterParts.test.tsx: aria-hidden takes the button out of the accessibility tree, which bUnit does not compute.
+    [Fact(DisplayName = "excludes Clear from the tab order and accessibility tree")]
+    [Trait("Requirement", "MNU-ARIA-16")]
+    [Trait("Requirement", "MNU-PTR-21")]
+    public void Excludes_Clear_from_the_tab_order_and_accessibility_tree()
+    {
+        IRenderedComponent<MenuFilterClearHost> cut = Render<MenuFilterClearHost>(p => p.Add(x => x.DefaultQuery, "query"));
+        IElement clear = cut.Find(ClearSelector);
+
+        Assert.Equal("-1", clear.GetAttribute("tabindex"));
+        Assert.Equal("true", clear.GetAttribute("aria-hidden"));
+    }
+
     [Fact(DisplayName = "reports clear-press when the clear button is used")]
     [Trait("Requirement", "MNU-EVT-17")]
     [Trait("Requirement", "MNU-PTR-21")]
