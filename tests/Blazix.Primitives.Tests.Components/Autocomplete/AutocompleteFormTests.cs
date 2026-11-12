@@ -179,6 +179,33 @@ public sealed class AutocompleteFormTests : IDisposable
         return cut.InvokeAsync(() => twin.OnAutofill(payload));
     }
 
+    [Fact(DisplayName = "submits the popup input value through native FormData when rendering a field-aware input")]
+    [Trait("Requirement", "AUT-FRM-07")]
+    [Trait("Requirement", "AUT-FRM-02")]
+    [Trait("Requirement", "AUT-DOM-01")]
+    public async Task Submits_the_popup_input_value_when_rendering_a_field_aware_input()
+    {
+        IRenderedComponent<ComboboxFieldHost> cut = test.Context.Render<ComboboxFieldHost>(p => p
+            .Add(x => x.InForm, true)
+            .Add(x => x.CaptureFormSubmit, true)
+            .Add(x => x.FieldName, "search")
+            .Add(x => x.Content, (RenderFragment)(builder =>
+            {
+                builder.OpenComponent<AutocompleteFieldAwareInputHost>(0);
+                builder.CloseComponent();
+            })));
+
+        await test.PressAsync(cut, "[data-testid=trigger]", "trigger-press");
+        Assert.False(cut.Find("[data-testid=input]").HasAttribute("name"));
+        await test.ClickOptionNamedAsync(cut, "alpha");
+        Assert.Equal("alpha", cut.Find("[data-testid=trigger]").TextContent);
+
+        await test.SubmitAsync(cut);
+
+        FormValues values = Assert.Single(cut.Instance.FormSubmits);
+        Assert.Equal("alpha", values["search"]);
+    }
+
     private IRenderedComponent<AutocompleteFormHost> Render(Dictionary<string, object?> root, Dictionary<string, object>? inputAttributes = null, bool insidePopup = false) =>
         test.Context.Render<AutocompleteFormHost>(p => p
             .Add(x => x.RootParameters, root)
