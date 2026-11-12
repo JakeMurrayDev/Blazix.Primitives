@@ -412,6 +412,17 @@ test.describe('autoHighlight', () => {
     await expect(input(page)).toHaveAttribute('aria-activedescendant', await idOf(item(page, 'Delete')));
   });
 
+  // MNU-STA-18.
+  test('clears the highlight when no items match', async ({ page, mode }) => {
+    await renderAuto(page, mode, 'true');
+    await input(page).focus();
+
+    await page.keyboard.type('missing');
+
+    await expect(input(page)).not.toHaveAttribute('aria-activedescendant', /.+/);
+    await expect(page.getByRole('menuitem')).toHaveCount(0);
+  });
+
   test('always highlights the first item when autoHighlight is "always"', async ({ page, mode }) => {
     await renderAuto(page, mode, 'always');
 
