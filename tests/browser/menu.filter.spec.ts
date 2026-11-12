@@ -773,3 +773,67 @@ test.describe('prop: onItemHighlighted', () => {
     await expect(input(page)).not.toHaveAttribute('aria-activedescendant', /.+/);
   });
 });
+
+// Titles of MenuFilterRoot.test.tsx and MenuList.test.tsx that run on `menu-filter-root` as it is (M5 track 12), verbatim:
+// MNU-DIS-02, KEY-14, DOM-24 and ARIA-06. The trees' items differ (Rename, Delete and Duplicate here); the keys follow them.
+test.describe('filterable menu keys and semantics', () => {
+  async function renderWith(page: Page, mode: RenderMode, search = ''): Promise<Locator> {
+    await page.goto(`/${mode}/menu-filter-root${search}`, { waitUntil: 'commit' });
+    await page.locator(Fixture.started).waitFor({ state: 'attached' });
+    const fixture = page.locator(Fixture.interactive('menu-filter-root'));
+    await expect(fixture).toHaveAttribute('data-attached', 'true');
+    return fixture;
+  }
+
+  test('closes on Escape even with a query typed', async ({ page, mode }) => {
+    await renderWith(page, mode);
+    await input(page).fill('ren');
+    await expect(input(page)).toHaveValue('ren');
+    await expect(input(page)).toBeFocused();
+
+    await page.keyboard.press('Escape');
+
+    // Escape closes outright; it does not clear the query first.
+    await expect(page.getByRole('menu')).toHaveCount(0);
+    await expect(page.getByRole('button', { name: 'Actions' })).toBeFocused();
+  });
+
+  test('does not move the highlight while typing into the input', async ({ page, mode }) => {
+    await renderWith(page, mode);
+    await input(page).focus();
+
+    await page.keyboard.type('d');
+
+    await expect(item(page, 'Rename')).toHaveCount(0);
+    await expect(input(page)).not.toHaveAttribute('aria-activedescendant', /.+/);
+  });
+
+  test('keeps virtual focus on the input without making the list tabbable', async ({ page, mode }) => {
+    await renderWith(page, mode);
+    const list = page.getByRole('menu');
+    const rename = item(page, 'Rename');
+    await expect(input(page)).toBeFocused();
+    await expect(list).not.toHaveAttribute('aria-hidden');
+    await expect(list).toHaveAttribute('tabindex', '-1');
+    await expect(rename).toHaveAttribute('tabindex', '-1');
+    await expect(rename).not.toHaveAttribute('aria-expanded');
+
+    await page.keyboard.press('ArrowDown');
+
+    await expect(input(page)).toHaveAttribute('aria-activedescendant', (await rename.getAttribute('id')) ?? 'missing');
+    await expect(input(page)).toBeFocused();
+  });
+
+  // MenuList.test.tsx's tree uses autoHighlight="always", so the first item is highlighted from the open.
+  test('exposes horizontal navigation on the menu instead of the dialog', async ({ page, mode }) => {
+    await renderWith(page, mode, '?orientation=horizontal&auto=always');
+    await expect(page.getByRole('menu')).toHaveAttribute('aria-orientation', 'horizontal');
+    await expect(page.getByRole('dialog')).not.toHaveAttribute('aria-orientation');
+    await expect(input(page)).toHaveAttribute('aria-activedescendant', (await item(page, 'Rename').getAttribute('id')) ?? 'missing');
+    await expect(input(page)).toBeFocused();
+
+    await page.keyboard.press('ArrowRight');
+
+    await expect(input(page)).toHaveAttribute('aria-activedescendant', (await item(page, 'Delete').getAttribute('id')) ?? 'missing');
+  });
+});
