@@ -312,6 +312,18 @@ test.describe('filterable menu initial highlight', () => {
 
   });
 
+  // MNU-STA-01, EVT-02 (MenuFilterRoot.test.tsx).
+  test('stays closed when onOpenChange is canceled', async ({ page, mode }) => {
+    await page.goto(`/${mode}/menu-filter-initial?cancelOpen=true`, { waitUntil: 'commit' });
+    await page.locator(Fixture.started).waitFor({ state: 'attached' });
+    await expect(page.locator(Fixture.interactive('menu-filter-initial'))).toHaveAttribute('data-attached', 'true');
+
+    await trigger(page).click();
+    await page.evaluate(() => new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve))));
+
+    await expect(page.getByRole('menu')).toHaveCount(0);
+  });
+
   // MNU-KEY-23 (MenuFilterRoot.test.tsx's KeyboardNavigationMenu: Rename, Duplicate, Delete). On the fixture's `plain` list
   // (Rename, Delete) one ArrowDown reaches the last item where Base UI's tree takes two.
   test('walks the list with the arrow keys and releases the highlight at the end', async ({ page, mode }) => {
