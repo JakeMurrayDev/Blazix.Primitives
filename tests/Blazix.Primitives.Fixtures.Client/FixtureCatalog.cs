@@ -206,6 +206,7 @@ public static class FixtureCatalog
         ["menu-root"] = new(typeof(MenuRootFixture)),
         ["context-menu-root"] = new(typeof(ContextMenuRootFixture)),
         ["menubar-root"] = new(typeof(MenubarRootFixture)),
+        ["menubar-filter"] = new(typeof(MenubarFilterFixture)),
         ["menu-dialog"] = new(typeof(MenuDialogFixture)),
         ["menu-transition"] = new(typeof(MenuTransitionFixture)),
         ["menu-triggerless"] = new(typeof(MenuTriggerlessFixture)),
