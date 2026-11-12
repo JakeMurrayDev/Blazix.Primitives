@@ -659,6 +659,8 @@ test.describe('horizontal list without autoHighlight', () => {
 
     await page.keyboard.press('ArrowDown');
 
+    // The open renders the items a round trip later on Server; read the id once the input is there.
+    await expect(input(page)).toBeVisible();
     await expect(input(page)).toHaveAttribute('aria-activedescendant', await idOf(item(page, 'Rename')));
   });
 });
