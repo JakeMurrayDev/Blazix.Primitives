@@ -433,6 +433,13 @@ internal sealed class MenuRootBehavior<TPayload> : IAsyncDisposable
 
     private void OnCommitted()
     {
+        // MenuRoot.tsx:524-527 (M5 track 12): under virtual focus, a keyboard open highlights an item as an ordinary menu's
+        // does, and a pointer open highlights none.
+        if (context?.Filter is not null)
+        {
+            list!.FocusItemOnOpen = root.Store.State.KeyboardOpen;
+        }
+
         if (rendered)
         {
             CopySessionInputs();

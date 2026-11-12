@@ -116,7 +116,13 @@ public sealed class MenuInput : PartBase<MenuInputState>
     }
 
     /// <inheritdoc />
-    protected override void OnParametersSet() => reference!.SetConsumerAttributes(AdditionalAttributes);
+    protected override void OnParametersSet()
+    {
+        reference!.SetConsumerAttributes(AdditionalAttributes);
+
+        // MenuFilterPopup.tsx:38-50: the popup focuses the input on open, by its id.
+        filter!.SetInputId(Id);
+    }
 
     /// <inheritdoc />
     protected override async Task OnAfterRenderAsync(bool firstRender)
@@ -149,6 +155,11 @@ public sealed class MenuInput : PartBase<MenuInputState>
             filterSubscription?.Dispose();
             reference?.Dispose();
             inputRegistration?.Dispose();
+            if (filter is not null && string.Equals(filter.InputId, Id, StringComparison.Ordinal))
+            {
+                filter.SetInputId(null);
+            }
+
             if (module is not null)
             {
                 _ = module.DisposeAsync().AsTask();

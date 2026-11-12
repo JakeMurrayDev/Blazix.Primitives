@@ -62,6 +62,7 @@ internal sealed class MenuPopupBehavior : IAsyncDisposable
     private MenuSelection<bool>? keyboardOpen;
     private IDisposable? boundaryPart;
     private IDisposable? retainRegistration;
+    private IDisposable? inputIdSubscription;
     private FocusManagerBehavior? focus;
     private TransitionsTwin? transitions;
     private TwinHandle<TransitionsOptions>? transitionsHandle;
@@ -169,6 +170,7 @@ internal sealed class MenuPopupBehavior : IAsyncDisposable
         subscription?.Dispose();
         subscription = null;
         retainRegistration?.Dispose();
+        inputIdSubscription?.Dispose();
         boundaryPart?.Dispose();
         root?.ClearPopupElement();
         list.Dispose();
@@ -215,6 +217,9 @@ internal sealed class MenuPopupBehavior : IAsyncDisposable
         boundaryPart = menu.RegisterBoundaryPart();
         this.positioner.AddListener(mirrorChanged);
         list.SetList(menu.List, CompositeListRole.Floating);
+
+        // MenuFilterPopup.tsx:38-50 (M5 track 12): a filterable popup's initial focus is its input, named by its id.
+        inputIdSubscription = menu.Filter?.SubscribeInputId(OnChanged);
     }
 
     /// <summary>Applies the part's focus parameters and its rendered id.</summary>
@@ -358,6 +363,20 @@ internal sealed class MenuPopupBehavior : IAsyncDisposable
         requestRender();
     }
 
+    // MenuFilterPopup.tsx:28-50 (M5 track 12): the input holds real focus, so the popup is never the target. A submenu
+    // may focus its input only after a keyboard, list-navigation, hover or press open; a hover open, or a touch or pen
+    // tap that would raise the on-screen keyboard, leaves focus where it is.
+    private FocusTargetValue FilterInitialFocus(MenuParentKind? kind, InteractionType? method, string? inputId)
+    {
+        bool isOpen = open!.Value;
+        EventReason? reason = openChangeReason!.Value;
+        bool mayFocusInput = kind != MenuParentKind.Menu
+            || (isOpen && (method == InteractionType.Keyboard || reason is EventReason.ListNavigation or EventReason.TriggerHover or EventReason.TriggerPress));
+        bool hoverOpen = isOpen && reason == EventReason.TriggerHover;
+        bool touchOpen = method is InteractionType.Touch or InteractionType.Pen;
+        return mayFocusInput && !hoverOpen && !touchOpen && inputId is not null ? new FocusTargetValue(inputId) : new FocusTargetValue(false);
+    }
+
     // MenuPopup.tsx:81-96, 176-216.
     private FocusManagerInputs FocusInputs()
     {
@@ -375,6 +394,10 @@ internal sealed class MenuPopupBehavior : IAsyncDisposable
         FocusTargetValue? initial = kind == MenuParentKind.Menu
             ? new FocusTargetValue(false)
             : !string.IsNullOrEmpty(listElementId!.Value) ? (highlighted ? new FocusTargetValue(false) : new FocusTargetValue(listElementId.Value!)) : default(FocusTargetValue?);
+        if (menu.Filter is { } filter)
+        {
+            initial = FilterInitialFocus(kind, method, filter.InputId);
+        }
 
         // The return focus: the consumer's, else the trigger for a top-level or context menu, a menu with an active
         // trigger, or a bar's menu not closed by an outside press.

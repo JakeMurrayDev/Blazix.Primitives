@@ -238,6 +238,7 @@ internal sealed class MenuFilterRootContext
     private IReadOnlyList<string> textIds = [];
     private bool textIdsDirty;
     private Action? textIdsChanged;
+    private Action? inputIdChanged;
     private string inputText;
     private string? flushedQuery;
     private Func<string, string, bool>? flushedMatch;
@@ -310,6 +311,9 @@ internal sealed class MenuFilterRootContext
     /// <summary>Gets the id of the filter list, which the input's <c>aria-controls</c> names, or <see langword="null"/>.</summary>
     public string? ListId { get; private set; }
 
+    /// <summary>Gets the id of the menu's input, the focus owner the popup focuses on open, or <see langword="null"/>.</summary>
+    public string? InputId { get; private set; }
+
     /// <summary>Gets the input's element, the list's reference and the nested menus' return target, or <see langword="null"/>.</summary>
     public ElementReference? InputElement { get; private set; }
 
@@ -369,6 +373,19 @@ internal sealed class MenuFilterRootContext
         }
     }
 
+    // MenuFilterPopup.tsx:38-50 (M5 track 12): the popup's initial focus is the input, which it names by id.
+    /// <summary>Records the input's rendered id, and tells the popup when it changed.</summary>
+    /// <param name="id">The id, or <see langword="null"/> when no input is rendered.</param>
+    public void SetInputId(string? id)
+    {
+        string? next = string.IsNullOrEmpty(id) ? null : id;
+        if (!string.Equals(InputId, next, StringComparison.Ordinal))
+        {
+            InputId = next;
+            inputIdChanged?.Invoke();
+        }
+    }
+
     /// <summary>Subscribes to changes of the query, the provider's options and the list's id: the Input's and the Clear's.</summary>
     /// <param name="changed">The callback run after a change, once <see cref="QueryRevision"/> and the visible set are current.</param>
     /// <returns>The subscription; disposing it unsubscribes.</returns>
@@ -405,6 +422,15 @@ internal sealed class MenuFilterRootContext
     {
         textIdsChanged = changed;
         return new TextIdsSubscription(this, changed);
+    }
+
+    /// <summary>Subscribes to changes of the input's id: the Popup's.</summary>
+    /// <param name="changed">The callback run after the id changed.</param>
+    /// <returns>The subscription; disposing it unsubscribes.</returns>
+    public IDisposable SubscribeInputId(Action changed)
+    {
+        inputIdChanged = changed;
+        return new InputIdSubscription(this, changed);
     }
 
     /// <summary>Registers an item with the engine and sets its visibility for its first render.</summary>
@@ -616,6 +642,18 @@ internal sealed class MenuFilterRootContext
             {
                 disposed = true;
                 owner.inputs--;
+            }
+        }
+    }
+
+    private sealed class InputIdSubscription(MenuFilterRootContext owner, Action changed) : IDisposable
+    {
+        /// <inheritdoc />
+        public void Dispose()
+        {
+            if (owner.inputIdChanged == changed)
+            {
+                owner.inputIdChanged = null;
             }
         }
     }
