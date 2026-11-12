@@ -1,0 +1,27 @@
+@namespace Blazix.Primitives.Tests.Components
+@* A filterable submenu of a context menu (MNU-STR-14, M5 track 12): a MenuFilterProvider around an open
+   ContextMenuSubmenuRoot whose popup holds the filter's Input and a List with one item, Documents. *@
+<ContextMenuRoot DefaultOpen="true">
+    <ContextMenuTrigger>Area</ContextMenuTrigger>
+    <ContextMenuPortal>
+        <ContextMenuPositioner>
+            <ContextMenuPopup>
+                <MenuFilterProvider>
+                    <ContextMenuSubmenuRoot DefaultOpen="true">
+                        <ContextMenuSubmenuTrigger>Move to folder</ContextMenuSubmenuTrigger>
+                        <ContextMenuPortal>
+                            <ContextMenuPositioner>
+                                <ContextMenuPopup>
+                                    <MenuInput aria-label="Filter folders" />
+                                    <MenuList>
+                                        <ContextMenuItem>Documents</ContextMenuItem>
+                                    </MenuList>
+                                </ContextMenuPopup>
+                            </ContextMenuPositioner>
+                        </ContextMenuPortal>
+                    </ContextMenuSubmenuRoot>
+                </MenuFilterProvider>
+            </ContextMenuPopup>
+        </ContextMenuPositioner>
+    </ContextMenuPortal>
+</ContextMenuRoot>
