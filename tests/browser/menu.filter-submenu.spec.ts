@@ -1118,3 +1118,23 @@ test.describe('the tab order of a filterable list', () => {
     await expect(input).toBeFocused();
   });
 });
+
+// MenuFilterRoot.test.tsx (MNU-FOC-14, EVT-07): a controlled filterable submenu "Move to folder" (Documents) in a
+// non-modal menu; Base UI's closeSubmenu() is the Outside button's Shift keydown, which moves no focus.
+test.describe('a controlled submenu closing after focus moved out', () => {
+  test('does not reclaim focus when a controlled submenu closes after focus moves outside', async ({ page, mode }) => {
+    await render(page, mode, { modal: false, controlledChild: true, before: '', label: 'Move to folder', after: '', children: 'Documents', hover: false });
+    const parentInput = page.getByRole('searchbox', { name: 'Filter actions' });
+    await parentInput.focus();
+    await page.keyboard.press('ArrowDown');
+    await page.keyboard.press('ArrowRight');
+    await expect(submenuInput(page)).toBeFocused();
+
+    const outside = page.getByRole('button', { name: 'Outside' });
+    await outside.focus();
+    await outside.evaluate((element) => element.dispatchEvent(new KeyboardEvent('keydown', { key: 'Shift', bubbles: true })));
+
+    await expect(submenuInput(page)).toHaveCount(0);
+    await expect(outside).toBeFocused();
+  });
+});

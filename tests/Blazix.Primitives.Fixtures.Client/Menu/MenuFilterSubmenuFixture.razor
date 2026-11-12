@@ -1,5 +1,6 @@
 @namespace Blazix.Primitives.Fixtures.Client.MenuFixtures
 @using Blazix.Primitives
+@using Microsoft.AspNetCore.Components.Web
 @using Microsoft.JSInterop
 @inject IJSRuntime JS
 
@@ -24,7 +25,8 @@
     starts the submenu open; `childQuery` makes the filterable submenu's query controlled, starting at that text;
     `childDefault` sets its uncontrolled DefaultValue; `childCancel=true` cancels every change of it. Each submenu query
     request is recorded as `value:reason` in `data-child-value-changes` (`|`-separated). `afterInput=true` adds an input
-    "After" (`data-testid="after-input"`) after the menu. Each highlight report of the root is recorded as
+    "After" (`data-testid="after-input"`) after the menu. `controlledChild=true` makes the submenu's open state this page's
+    and adds a button "Outside" after the menu whose Shift keydown closes the submenu (no focus move). Each highlight report of the root is recorded as
     `label:reason:key` (`none` for no item) in `data-highlights`, and each submenu open request as `open:reason` in
     `data-submenu-changes` (`|`-separated). `data-attached` turns "true" once the root's session has attached and, for a
     filterable root that starts open, its input's and list's `menu-filter` handles.
@@ -50,6 +52,10 @@
             <MenuFilterProvider>@RootMenu</MenuFilterProvider>
         }
     </DirectionProvider>
+    @if (ControlledChild)
+    {
+        <button type="button" data-key-control @onkeydown="CloseChildOnShift">Outside</button>
+    }
     @if (AfterInput)
     {
         <input data-testid="after-input" aria-label="After" />
@@ -138,6 +144,23 @@
 
     [SupplyParameterFromQuery(Name = "shadow")]
     public bool Shadow { get; set; }
+
+    [SupplyParameterFromQuery(Name = "controlledChild")]
+    public bool ControlledChild { get; set; }
+
+    private bool childOpenState;
+
+    private Dictionary<string, object>? ChildRootParameters => ControlledChild
+        ? new() { ["Open"] = childOpenState, ["OpenChanged"] = EventCallback.Factory.Create<bool>(this, value => childOpenState = value) }
+        : null;
+
+    private void CloseChildOnShift(KeyboardEventArgs args)
+    {
+        if (args.Key == "Shift")
+        {
+            childOpenState = false;
+        }
+    }
 
     [SupplyParameterFromQuery(Name = "afterInput")]
     public bool AfterInput { get; set; }
@@ -266,7 +289,7 @@
         }
     </text>;
 
-    private RenderFragment Submenu => @<MenuSubmenuRoot OnOpenChange="RecordSubmenu" DefaultOpen="@ChildOpen">
+    private RenderFragment Submenu => @<MenuSubmenuRoot OnOpenChange="RecordSubmenu" DefaultOpen="@ChildOpen" @attributes="ChildRootParameters">
         <MenuSubmenuTrigger data-testid="submenu-trigger" Delay="@(Delay is { } ms ? (Duration?)ms : null)" CloseDelay="@(CloseDelay is { } close ? (Duration?)close : null)" OpenOnHover="@(Hover != "false")">@(Label ?? "Move to")</MenuSubmenuTrigger>
         <MenuPortal Container="@submenuContainer">
             <MenuPositioner>
