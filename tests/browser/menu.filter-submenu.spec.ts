@@ -893,3 +893,26 @@ test.describe('leaving a plain submenu while it animates out', () => {
     });
   }
 });
+
+// useMenuFilterSubmenuTrigger.test.tsx.
+test.describe('<Menu.SubmenuTrigger />', () => {
+  // MNU-FOC-15.
+  test('keeps real focus on the parent input until the submenu opens', async ({ page, mode }) => {
+    await render(page, mode, { label: 'Move to folder', after: '', children: 'Documents', hover: false });
+    const input = page.getByRole('searchbox', { name: 'Filter actions' });
+    await input.focus();
+
+    // Move virtual focus onto the submenu trigger; real focus stays on the input.
+    await page.keyboard.press('ArrowDown');
+    await page.keyboard.press('ArrowDown');
+    const submenuTrigger = item(page, 'Move to folder');
+    await expect(input).toHaveAttribute('aria-activedescendant', (await submenuTrigger.getAttribute('id')) ?? 'missing');
+    await expect(submenuTrigger).toHaveAttribute('tabindex', '-1');
+    await expect(input).toBeFocused();
+
+    // Opening the submenu hands it ownership of focus.
+    await submenuTrigger.click();
+
+    await expect(submenuInput(page)).toBeFocused();
+  });
+});
