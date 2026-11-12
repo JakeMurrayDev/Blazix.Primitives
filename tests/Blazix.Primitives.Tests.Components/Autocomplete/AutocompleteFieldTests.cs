@@ -96,10 +96,107 @@ public sealed class AutocompleteFieldTests : IDisposable
         Assert.True(cut.Find("[data-testid=input]").HasAttribute("data-filled"));
     }
 
-    private IRenderedComponent<FieldRoot> Render(Dictionary<string, object?> root, string? name = null) =>
+    [Fact(DisplayName = "prop: validationMode=onChange")]
+    [Trait("Requirement", "AUT-FRM-03")]
+    public async Task Validation_mode_on_change_validates_the_typed_text()
+    {
+        List<object?> validated = [];
+        IRenderedComponent<FieldRoot> cut = Render(new() { ["Items"] = s_items }, field: field => field
+            .Add(x => x.ValidationMode, ValidationMode.OnChange)
+            .Add(x => x.Validate, args =>
+            {
+                validated.Add(args.Value);
+                return ValueTask.FromResult<FieldValidationResult?>(args.Value as string == "ap" ? "error" : null);
+            }));
+
+        await TypeAsync(cut, "ap");
+
+        Assert.Contains("ap", validated);
+        cut.WaitForAssertion(() => Assert.Equal("true", cut.Find("[data-testid=input]").GetAttribute("aria-invalid")));
+    }
+
+    [Fact(DisplayName = "prop: validationMode=onBlur")]
+    [Trait("Requirement", "AUT-FRM-05")]
+    public async Task Validation_mode_on_blur_validates_on_blur()
+    {
+        IRenderedComponent<FieldRoot> cut = Render(new() { ["Items"] = s_items }, field: field => field
+            .Add(x => x.ValidationMode, ValidationMode.OnBlur)
+            .Add(x => x.Validate, args => ValueTask.FromResult<FieldValidationResult?>(args.Value as string == "ap" ? "error" : null)));
+
+        await cut.InvokeAsync(() => cut.Find("[data-testid=input]").Focus());
+        await TypeAsync(cut, "ap");
+        Assert.False(cut.Find("[data-testid=input]").HasAttribute("aria-invalid"));
+
+        await cut.InvokeAsync(() => cut.Find("[data-testid=input]").Blur());
+
+        cut.WaitForAssertion(() => Assert.Equal("true", cut.Find("[data-testid=input]").GetAttribute("aria-invalid")));
+    }
+
+    [Fact(DisplayName = "[data-valid]")]
+    [Trait("Requirement", "AUT-FRM-04")]
+    [Trait("Requirement", "AUT-FRM-05")]
+    public async Task Data_valid_after_a_valid_blur()
+    {
+        IRenderedComponent<FieldRoot> cut = Render(new() { ["Items"] = s_items }, field: field => field.Add(x => x.ValidationMode, ValidationMode.OnBlur));
+        Assert.False(cut.Find("[data-testid=input]").HasAttribute("data-valid"));
+
+        await cut.InvokeAsync(() => cut.Find("[data-testid=input]").Focus());
+        await TypeAsync(cut, "banana");
+        await cut.InvokeAsync(() => cut.Find("[data-testid=input]").Blur());
+
+        cut.WaitForAssertion(() => Assert.True(cut.Find("[data-testid=input]").HasAttribute("data-valid")));
+        Assert.False(cut.Find("[data-testid=input]").HasAttribute("data-invalid"));
+    }
+
+    [Fact(DisplayName = "[data-focused]")]
+    [Trait("Requirement", "AUT-FRM-05")]
+    public async Task Data_focused_follows_the_input()
+    {
+        IRenderedComponent<FieldRoot> cut = Render(new() { ["Items"] = s_items });
+
+        await cut.InvokeAsync(() => cut.Find("[data-testid=input]").Focus());
+        Assert.True(cut.Find("[data-testid=input]").HasAttribute("data-focused"));
+
+        await cut.InvokeAsync(() => cut.Find("[data-testid=input]").Blur());
+        Assert.False(cut.Find("[data-testid=input]").HasAttribute("data-focused"));
+    }
+
+    [Fact(DisplayName = "clears external errors on change")]
+    [Trait("Requirement", "AUT-FRM-03")]
+    public async Task Clears_external_errors_on_change()
+    {
+        void Field(RenderTreeBuilder builder)
+        {
+            builder.OpenComponent<FieldRoot>(0);
+            builder.AddComponentParameter(1, nameof(FieldRoot.Name), "search");
+            builder.AddComponentParameter(2, nameof(FieldRoot.ChildContent), (RenderFragment)(inner =>
+            {
+                inner.OpenComponent<AutocompleteHarness>(0);
+                inner.AddComponentParameter(1, nameof(AutocompleteHarness.RootParameters), new Dictionary<string, object?> { ["Items"] = s_items });
+                inner.CloseComponent();
+                inner.OpenComponent<FieldError>(2);
+                inner.AddComponentParameter(3, "data-testid", "error");
+                inner.CloseComponent();
+            }));
+            builder.CloseComponent();
+        }
+
+        IRenderedComponent<Form> cut = test.Context.Render<Form>(p => p.Add(x => x.Errors, new FormErrors { ["search"] = "test" }).Add(x => x.ChildContent, (RenderFragment)Field));
+        Assert.Contains("test", cut.Find("[data-testid=error]").TextContent, StringComparison.Ordinal);
+        Assert.Equal("true", cut.Find("[data-testid=input]").GetAttribute("aria-invalid"));
+
+        string json = $$"""{"text":"b","typed":true,"composing":false,"event":{{ComboboxTestContext.InputEvent}}}""";
+        ComboboxTwin twin = test.TwinOf(ComboboxTwin.InputPart);
+        await cut.InvokeAsync(() => twin.OnInputChange(json));
+
+        cut.WaitForAssertion(() => Assert.False(cut.Find("[data-testid=input]").HasAttribute("aria-invalid")));
+    }
+
+    private IRenderedComponent<FieldRoot> Render(Dictionary<string, object?> root, string? name = null, Action<ComponentParameterCollectionBuilder<FieldRoot>>? field = null) =>
         test.Context.Render<FieldRoot>(p =>
         {
             p.Add(x => x.Name, name);
+            field?.Invoke(p);
             p.AddChildContent(builder =>
             {
                 builder.OpenComponent<FieldLabel>(0);
