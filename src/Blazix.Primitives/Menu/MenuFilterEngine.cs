@@ -82,6 +82,7 @@ internal sealed class MenuFilterEngine
     private HashSet<MenuFilterItem>? visibleItems;
     private HashSet<MenuFilterItem>? spare;
     private string? lastFilterQuery;
+    private int lastKnownVisible = -1;
 
     /// <summary>Initializes a new instance of the <see cref="MenuFilterEngine"/> class whose registrations ask for nothing.</summary>
     public MenuFilterEngine()
@@ -148,6 +149,7 @@ internal sealed class MenuFilterEngine
         if (match is null)
         {
             Publish(null);
+            lastKnownVisible = -1;
             if (autoHighlightEnabled && registry.LiveItems.Count > 0)
             {
                 return queryChanged || !pass.HasHighlight ? MenuFilterHighlight.First : MenuFilterHighlight.Keep;
@@ -165,6 +167,8 @@ internal sealed class MenuFilterEngine
         HashSet<MenuFilterItem> next = spare ?? [];
         next.Clear();
         bool hasNewMatch = visibleItems is null;
+        bool hasNewKnownMatch = visibleItems is null;
+        int knownVisible = 0;
         foreach (MenuFilterItem item in registry.LiveValues)
         {
             // Design point 2 (b'): an item whose text has not been reported stays visible until it is.
@@ -172,15 +176,27 @@ internal sealed class MenuFilterEngine
             if (text is null || match(text, filterQuery))
             {
                 next.Add(item);
-                hasNewMatch |= visibleItems?.Contains(item) != true;
+                bool isNew = visibleItems?.Contains(item) != true;
+                hasNewMatch |= isNew;
+                if (text is not null)
+                {
+                    knownVisible++;
+                    hasNewKnownMatch |= isNew;
+                }
             }
         }
 
         // :172-184: new matches or a smaller result set invalidate the previous item identities; the first filtered result
-        // has none to invalidate unless the query itself changed.
+        // has none to invalidate unless the query itself changed. Base UI knows an item's text when it registers; here an
+        // item shows until its text arrives (design point 2 (b')), so only items whose text is known decide the highlight:
+        // an appended item the query hides then leaves it alone (MNU-STA-20).
+        bool knownChanged = hasNewKnownMatch || knownVisible != lastKnownVisible;
+        lastKnownVisible = knownVisible;
         if (hasNewMatch || visibleItems!.Count != next.Count)
         {
-            MenuFilterHighlight highlight = autoHighlightEnabled && next.Count > 0
+            MenuFilterHighlight highlight = !knownChanged
+                ? (autoHighlightEnabled && queryChanged && next.Count > 0 ? MenuFilterHighlight.First : MenuFilterHighlight.Keep)
+                : autoHighlightEnabled && next.Count > 0
                 ? MenuFilterHighlight.First
                 : visibleItems is not null || queryChanged ? MenuFilterHighlight.Clear : MenuFilterHighlight.Keep;
             Publish(next);
