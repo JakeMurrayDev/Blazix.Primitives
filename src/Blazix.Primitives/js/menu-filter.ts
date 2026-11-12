@@ -181,6 +181,10 @@ interface FocusOwner {
 
 const owners = new Map<string, FocusOwner>();
 
+// The trigger of each filterable submenu, by the submenu's session token: its popup's close key returns there
+// (MenuFilterSubmenuRoot.tsx:203, `activeTriggerElement`).
+const submenuTriggers = new Map<string, HTMLElement>();
+
 // The keys the Input keeps for its caret (the router's `edit`), which Base UI stops from reaching the popup
 // (useMenuFilterKeyDown.ts:138-140); a submenu popup's close key ignores them.
 const inputOwnedKeys = new WeakSet<KeyboardEvent>();
@@ -726,16 +730,30 @@ function attachSubmenuTrigger(trigger: HTMLElement, initial: MenuFilterOptions, 
   };
 
   trigger.addEventListener('keydown', onKeyDown, true);
+  const register = (): void => {
+    if (options.menuKey) {
+      submenuTriggers.set(options.menuKey, trigger);
+    }
+  };
+  const unregister = (): void => {
+    if (options.menuKey && submenuTriggers.get(options.menuKey) === trigger) {
+      submenuTriggers.delete(options.menuKey);
+    }
+  };
+  register();
 
   return {
     update(optionsJson: string): void {
       if (!disposed) {
+        unregister();
         options = parseOptions<MenuFilterOptions>(optionsJson);
+        register();
       }
     },
     dispose(): void {
       if (!disposed) {
         disposed = true;
+        unregister();
         trigger.removeEventListener('keydown', onKeyDown, true);
       }
     },
@@ -821,7 +839,7 @@ function attachPopup(popup: HTMLElement, initial: MenuFilterOptions, channel: Tw
     if (options.submenu === true && owner !== undefined && !inputOwnedKeys.has(event) && !event.isComposing && event.keyCode !== 229) {
       const ownerOptions = owner.options();
       if (isCrossOrientationCloseKey(event.key, ownerOptions.orientation ?? 'vertical', ownerOptions.rtl === true, false)) {
-        const trigger = popup.id ? popup.ownerDocument.querySelector<HTMLElement>(`[aria-controls="${CSS.escape(popup.id)}"]`) : null;
+        const trigger = options.menuKey ? (submenuTriggers.get(options.menuKey) ?? null) : null;
         skipListNavigation(event);
         event.preventDefault();
         event.stopPropagation();

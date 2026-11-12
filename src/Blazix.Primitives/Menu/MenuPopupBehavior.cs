@@ -239,6 +239,11 @@ internal sealed class MenuPopupBehavior : IAsyncDisposable
         if (menu.Filter is not null)
         {
             filterModule = new MenuFilterModuleAttachment(jsRuntime);
+
+            // MenuFilterSubmenuRoot.tsx:203-213 (MNU-KEY-32): a filterable submenu's close key closes it with the
+            // list-navigation reason; the module returns focus to the parent.
+            filterModule.Twin.SubmenuKey += report => _ = invokeAsync(() =>
+                menu.RequestOpenAsync(report.Open, new OpenChangeEventDetails(EventReason.ListNavigation, report.Event)));
         }
     }
 

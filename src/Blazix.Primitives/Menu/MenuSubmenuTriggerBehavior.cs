@@ -232,7 +232,10 @@ internal sealed class MenuSubmenuTriggerBehavior : IAsyncDisposable
         button.SetConsumerAttributes(attributes);
         interactions.SetConsumerAttributes(attributes);
         reference.SetConsumerAttributes(attributes);
-        reference.SetList(submenu.List, CompositeListRole.Reference);
+        // MenuRoot.tsx:604-636 (M5 track 12, the orchestrator's 2026-11-12 grant): a filterable submenu's Input is its list's
+        // reference under virtual focus, so the trigger takes the trigger role, as a filterable root's triggers do, and the
+        // submenu's aria-activedescendant goes to the Input.
+        reference.SetList(submenu.List, submenu.Filter is null ? CompositeListRole.Reference : CompositeListRole.Trigger);
         SyncInteractions();
     }
 
