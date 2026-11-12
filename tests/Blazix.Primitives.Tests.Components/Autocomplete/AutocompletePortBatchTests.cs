@@ -131,6 +131,28 @@ public sealed class AutocompletePortBatchTests : IDisposable
         cut.WaitForAssertion(() => Assert.Equal("true", cut.Find("[data-testid=input]").GetAttribute("aria-invalid")));
     }
 
+    // AUT-API-20 (Test: none; CMB-API-66's port): useFilteredItems() has no public accessor; the List's ItemContent maps the
+    // root's filtered items, every item in the Inline and None modes, subject to Limit.
+    [Fact(DisplayName = "port: the List's ItemContent receives the filtered items: every item in Inline and None modes, subject to Limit")]
+    [Trait("Requirement", "AUT-API-20")]
+    [Trait("Requirement", "AUT-API-11")]
+    public async Task Item_content_receives_the_filtered_items()
+    {
+        IRenderedComponent<AutocompleteHarness> list = Render(new() { ["Items"] = s_items, ["DefaultOpen"] = true });
+        await TypeAsync(list, "an");
+        Assert.Equal(["banana"], list.FindAll("[role=option]").Select(item => item.TextContent));
+
+        using ComboboxTestContext context = AutocompleteTesting.CreateContext();
+        IRenderedComponent<AutocompleteHarness> none = context.Context.Render<AutocompleteHarness>(p => p.Add(x => x.RootParameters, new Dictionary<string, object?>
+        {
+            ["Items"] = s_items, ["DefaultOpen"] = true, ["Mode"] = AutocompleteMode.None, ["Limit"] = 2,
+        }));
+        string json = $$"""{"text":"an","typed":true,"composing":false,"event":{{ComboboxTestContext.InputEvent}}}""";
+        ComboboxTwin twin = context.TwinOf(ComboboxTwin.InputPart);
+        await none.InvokeAsync(() => twin.OnInputChange(json));
+        Assert.Equal(["apple", "banana"], none.FindAll("[role=option]").Select(item => item.TextContent));
+    }
+
     private static string Text(IRenderedComponent<AutocompleteHarness> cut) => cut.Instance.Root!.Store.State.InputValue;
 
     private IRenderedComponent<AutocompleteHarness> Render(Dictionary<string, object?> parameters) =>
