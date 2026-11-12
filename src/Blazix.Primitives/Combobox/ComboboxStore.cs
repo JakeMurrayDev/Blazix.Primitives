@@ -19,6 +19,8 @@ internal abstract class ComboboxStore : PopupLifecycleStore<ComboboxStoreState>,
 {
     private int emptyParts;
 
+    private int popupParts;
+
     private bool inputFocusPending;
 
     /// <summary>Occurs when a part that the session's options read registered or left, such as an empty state.</summary>
@@ -92,6 +94,10 @@ internal abstract class ComboboxStore : PopupLifecycleStore<ComboboxStoreState>,
 
     /// <summary>Gets a value indicating whether an empty-state part is mounted.</summary>
     public bool EmptyMounted => emptyParts > 0;
+
+    // AUT-PTR-02 (AriaCombobox.tsx:866-868, popupRef.current; design point 1 (iii) of M5 track 11).
+    /// <summary>Gets a value indicating whether a popup part is mounted.</summary>
+    public bool PopupMounted => popupParts > 0;
 
     /// <summary>Gets the id of the trigger a press made the floating root's DOM reference, or <see langword="null"/>.</summary>
     public string? DomReferenceTriggerId { get; private set; }
@@ -208,6 +214,14 @@ internal abstract class ComboboxStore : PopupLifecycleStore<ComboboxStoreState>,
         return new EmptyRegistration(this);
     }
 
+    /// <summary>Registers a mounted popup part.</summary>
+    /// <returns>A registration whose disposal records the part's removal.</returns>
+    public IDisposable RegisterPopup()
+    {
+        popupParts++;
+        return new PopupRegistration(this);
+    }
+
     /// <summary>Mounts the list while closed, for typeahead or autofill.</summary>
     public abstract void ForceMount();
 
@@ -268,7 +282,22 @@ internal abstract class ComboboxStore : PopupLifecycleStore<ComboboxStoreState>,
 
             store.NotifySessionInputsChanged();
         }
-}
+    }
+
+    private sealed class PopupRegistration(ComboboxStore store) : IDisposable
+    {
+        private bool disposed;
+
+        /// <inheritdoc />
+        public void Dispose()
+        {
+            if (!disposed)
+            {
+                disposed = true;
+                store.popupParts--;
+            }
+        }
+    }
 }
 
 // The value half (store.ts's selectedValue, items, isItemEqualToValue, itemToStringLabel; AriaCombobox.tsx's derivations):
@@ -1550,7 +1579,9 @@ internal sealed class ComboboxStore<TValue> : ComboboxStore
         // consumer's change (useValueChanged(selectedValue) runs on a change only).
         OnSelectionCommitted(ObserveSelectedValue());
 
-        bool fillInput = (State.SelectionMode == ComboboxSelectionMode.None && inputs.FillInputOnItemPress) || (Single && !State.InputInsidePopup);
+        // AUT-PTR-02, §16 Q7 (AriaCombobox.tsx:866-868; design point 1 (iii) of M5 track 11, settled by the orchestrator
+        // 2026-11-12): None mode fills only while a Popup part is mounted (popupRef.current), so an inline list without one never fills.
+        bool fillInput = (State.SelectionMode == ComboboxSelectionMode.None && PopupMounted && inputs.FillInputOnItemPress) || (Single && !State.InputInsidePopup);
         if (fillInput)
         {
             await SetInputValueAsync(present ? LabelOf(value) : string.Empty, CreateDetails(details.Reason, details.Event));
