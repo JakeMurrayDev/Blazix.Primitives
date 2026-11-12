@@ -125,6 +125,15 @@ test.describe('<Autocomplete.Root />', () => {
     await expect.poll(() => page.evaluate(() => (window as unknown as { escapes: number }).escapes)).toBe(1);
   });
 
+  test('submits the typed input value when name is provided on Autocomplete.Root', async ({ page, mode }) => {
+    await goto(page, mode);
+    await typeText(page, 'xyz');
+    await input(page).press('Escape');
+
+    const entries = await page.evaluate(() => new FormData(document.querySelector('[data-testid=form]') as HTMLFormElement).getAll('tag').map(String));
+    expect(entries).toEqual(['xyz']);
+  });
+
   test('when true, clicking with pointer submits the owning form', async ({ page, mode }) => {
     await goto(page, mode, { submit: true });
     await page.evaluate(() => {
