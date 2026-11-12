@@ -397,6 +397,18 @@ test.describe('<Menu.FilterProvider><Menu.Root/></Menu.FilterProvider> with a fi
     await expect(submenuInput(page)).toHaveCount(0);
   });
 
+  // MNU-PTR-17.
+  test('retains the parent highlight when a submenu opens from a pointer', async ({ page, mode }) => {
+    await render(page, mode, { before: '', label: 'Move to folder', after: '', children: 'Documents', delay: 0 });
+    await parentInput(page).focus();
+    const submenuTrigger = item(page, 'Move to folder');
+
+    await submenuTrigger.hover();
+
+    await expect(submenuInput(page)).toBeVisible();
+    await expect(parentInput(page)).toHaveAttribute('aria-activedescendant', await idOf(submenuTrigger));
+  });
+
   // MNU-FOC-15.
   test('moves focus into the submenu input once the pointer enters it', async ({ page, mode }) => {
     await render(page, mode, { before: '', label: 'Move to folder', after: '', children: 'Documents', delay: 0 });
