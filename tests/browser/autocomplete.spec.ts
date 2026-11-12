@@ -270,6 +270,29 @@ test.describe('<Autocomplete.Root />', () => {
     expect(await page.getByTestId('form').evaluate((form) => (form as HTMLFormElement).checkValidity())).toBe(false);
   });
 
+  test('submits to an external form when `form` is provided', async ({ page, mode }) => {
+    const fixture = await goto(page, mode, { externalForm: true });
+    await typeText(page, 'xyz');
+    await expect.poll(() => recorded(fixture, 'data-value-changes')).toContain('xyz:input-change');
+
+    await expect(input(page)).toHaveAttribute('form', 'external-form');
+    expect(await page.evaluate(() => new FormData(document.getElementById('external-form') as HTMLFormElement).getAll('tag').map(String))).toEqual(['xyz']);
+  });
+
+  test('when true, clicking with pointer submits an associated external form when `form` is provided', async ({ page, mode }) => {
+    await goto(page, mode, { externalForm: true, submit: true });
+    await page.evaluate(() => {
+      (window as unknown as { submitted: string[] }).submitted = [];
+      document.getElementById('external-form')!.addEventListener('submit', (event) => {
+        (window as unknown as { submitted: string[] }).submitted.push(String(new FormData(event.target as HTMLFormElement).get('tag')));
+      });
+    });
+    await typeText(page, 'ch');
+
+    await page.getByTestId('item-cherry').click();
+    await expect.poll(() => submitted(page)).toEqual(['cherry']);
+  });
+
   test('when true, clicking with pointer submits the owning form', async ({ page, mode }) => {
     await goto(page, mode, { submit: true });
     await page.evaluate(() => {
