@@ -111,6 +111,20 @@ test.describe('<Autocomplete.Root />', () => {
     await expect(input(page)).toHaveAttribute('aria-activedescendant', /.+/);
   });
 
+  test('retains highlight when clearing the query with autoHighlight enabled', async ({ page, mode }) => {
+    await goto(page, mode, { autoHighlight: 'true', openOnInputClick: true });
+    await input(page).click();
+    await input(page).pressSequentially('ban');
+    await expect(options(page)).toHaveCount(1);
+    await expect(input(page)).toHaveAttribute('aria-activedescendant', /.+/);
+    const before = await input(page).getAttribute('aria-activedescendant');
+
+    await input(page).press('ControlOrMeta+a');
+    await input(page).press('Backspace');
+    await expect(options(page)).toHaveCount(3);
+    await expect(input(page)).toHaveAttribute('aria-activedescendant', before!);
+  });
+
   test('mode="both": inline overlay + autocomplete handles filtering', async ({ page, mode }) => {
     const fixture = await goto(page, mode, { mode: 'both' });
     await typeText(page, 'a');

@@ -116,6 +116,26 @@ public sealed class AutocompleteAutoHighlightTests : IDisposable
         Assert.All(cut.FindAll("[role=option]"), item => Assert.False(item.HasAttribute("data-selected")));
     }
 
+    // ComboboxRoot.test.tsx's Autocomplete title (AUT-STA-11): the List renders directly under the root, so it stays visible
+    // when the cleared text closes the popup, and Always restores the first item (AriaCombobox.tsx:1124-1130).
+    [Fact(DisplayName = "restores the first highlight after an always-highlighted query becomes empty")]
+    [Trait("Requirement", "AUT-STA-11")]
+    public async Task Restores_the_first_highlight_after_an_always_highlighted_query_becomes_empty()
+    {
+        IRenderedComponent<AutocompleteInlineHost> cut = test.Context.Render<AutocompleteInlineHost>(p => p.Add(x => x.RootParameters, new Dictionary<string, object?>
+        {
+            ["Items"] = (IReadOnlyList<string>)["apple"], ["DefaultOpen"] = true, ["AutoHighlight"] = (AutoHighlightValue?)AutoHighlightValue.Always,
+        }));
+        ComboboxTwin twin = test.TwinOf(ComboboxTwin.InputPart);
+        await cut.InvokeAsync(() => twin.OnInputChange($$"""{"text":"z","typed":true,"composing":false,"event":{{ComboboxTestContext.InputEvent}}}"""));
+        Assert.Empty(cut.FindAll("[role=option]"));
+
+        await cut.InvokeAsync(() => twin.OnInputChange($$"""{"text":"","typed":true,"composing":false,"event":{{ComboboxTestContext.InputEvent}}}"""));
+
+        Assert.Single(cut.FindAll("[role=option]"));
+        Assert.Equal(0, cut.Instance.Root!.Store.State.ActiveIndex);
+    }
+
     private IRenderedComponent<AutocompleteHarness> Render(Dictionary<string, object?> parameters) =>
         test.Context.Render<AutocompleteHarness>(p => p.Add(x => x.RootParameters, parameters));
 
