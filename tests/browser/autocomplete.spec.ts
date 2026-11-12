@@ -98,6 +98,19 @@ test.describe('<Autocomplete.Root />', () => {
     await expect(input(page)).toHaveAttribute('aria-activedescendant', (await banana.getAttribute('id'))!);
   });
 
+  test('does not highlight first/last item when pressing ArrowDown/ArrowUp initially', async ({ page, mode }) => {
+    await goto(page, mode);
+    await input(page).click();
+    await expect(input(page)).not.toHaveAttribute('aria-activedescendant', /.+/);
+
+    await input(page).press('ArrowDown');
+    await expect(options(page)).toHaveCount(3);
+    await expect(input(page)).not.toHaveAttribute('aria-activedescendant', /.+/);
+
+    await input(page).press('ArrowDown');
+    await expect(input(page)).toHaveAttribute('aria-activedescendant', /.+/);
+  });
+
   test('mode="both": inline overlay + autocomplete handles filtering', async ({ page, mode }) => {
     const fixture = await goto(page, mode, { mode: 'both' });
     await typeText(page, 'a');
