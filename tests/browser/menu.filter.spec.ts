@@ -723,30 +723,6 @@ test.describe('focus ownership inside the popup', () => {
   });
 });
 
-// MenuFilterRoot.scoping.test.tsx's "prop: onItemHighlighted" (MNU-EVT-*, STA-20; FilterDropdownRoot.tsx:109-125) on
-// `menu-filter-root` with `insert=true`, titles verbatim: an item set change that moves another item under the highlighted
-// index clears the highlight instead of reporting that item.
-test.describe('prop: onItemHighlighted', () => {
-  test('does not report the item that takes the highlighted index when an item is inserted', async ({ page, mode }) => {
-    await page.goto(`/${mode}/menu-filter-root?insert=true`, { waitUntil: 'commit' });
-    await page.locator(Fixture.started).waitFor({ state: 'attached' });
-    const fixture = page.locator(Fixture.interactive('menu-filter-root'));
-    await expect(fixture).toHaveAttribute('data-attached', 'true');
-    await input(page).focus();
-    await page.keyboard.press('ArrowDown');
-    await page.keyboard.press('ArrowDown');
-    await expect(fixture).toHaveAttribute('data-highlights', 'Rename|Delete');
-
-    // The modal menu's backdrop covers the page, so the fixture's control is pressed programmatically, as Base UI's setProps
-    // re-renders without moving focus.
-    await page.getByRole('button', { name: 'Insert item' }).evaluate((element) => (element as HTMLButtonElement).click());
-
-    await expect(item(page, 'Archive')).toBeVisible();
-    await expect(fixture).toHaveAttribute('data-highlights', 'Rename|Delete|none');
-    await expect(input(page)).not.toHaveAttribute('aria-activedescendant', /.+/);
-  });
-});
-
 // Titles of MenuFilterRoot.test.tsx and MenuList.test.tsx that run on `menu-filter-root` as it is (M5 track 12), verbatim:
 // MNU-DIS-02, KEY-14, DOM-24 and ARIA-06. The trees' items differ (Rename, Delete and Duplicate here); the keys follow them.
 test.describe('filterable menu keys and semantics', () => {
