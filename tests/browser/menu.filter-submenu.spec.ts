@@ -845,3 +845,51 @@ test.describe('detached triggers of a filterable menu', () => {
     await expect(fixture).toHaveAttribute('data-highlights', before);
   });
 });
+
+test.describe('closing a filtered submenu portaled into a shadow root', () => {
+  // MNU-KEY-32. Playwright's locators pierce the open shadow root.
+  test('moves a filterable parent on when a submenu portaled into a shadow root closes', async ({ page, mode }) => {
+    await render(page, mode, { child: 'plain', closed: true, orientation: 'horizontal', before: 'First', label: 'More', after: 'Last', children: 'Child', shadow: true });
+
+    await page.getByRole('button', { name: 'Actions' }).focus();
+    await page.keyboard.press('Enter');
+    await expect(page.getByRole('searchbox', { name: 'Filter actions' })).toBeFocused();
+    await page.keyboard.press('ArrowRight');
+    const more = item(page, 'More');
+    await expect(more).toHaveAttribute('data-highlighted', '');
+
+    await page.keyboard.press('ArrowDown');
+    const submenu = page.locator('[data-shadow-host]').getByTestId('submenu');
+    await expect(submenu).toBeVisible();
+    await expect(item(page, 'Child')).toBeFocused();
+    await page.keyboard.press('ArrowLeft');
+
+    await expect(submenu).toHaveCount(0);
+    await expect(item(page, 'First')).toHaveAttribute('data-highlighted', '');
+  });
+});
+
+// MenuFilterRoot.scoping.test.tsx's "leaving a plain submenu while it animates out": a plain submenu "Share" (Email) after
+// Rename in a filterable parent, both popups with a 300 ms exit, animations on.
+test.describe('leaving a plain submenu while it animates out', () => {
+  for (const key of ['ArrowLeft', 'Escape']) {
+    // MNU-KEY-29.
+    test(`highlights the trigger as soon as ${key} closes the submenu`, async ({ page, mode }) => {
+      await render(page, mode, { animations: 1, exiting: true, child: 'plain', label: 'Share', after: '', children: 'Email' });
+      const input = page.getByRole('searchbox', { name: 'Filter actions' });
+      await input.focus();
+
+      await page.keyboard.press('ArrowDown');
+      await page.keyboard.press('ArrowDown');
+      await page.keyboard.press('ArrowRight');
+      await expect(item(page, 'Email')).toBeFocused();
+
+      await page.keyboard.press(key);
+
+      await expect(page.getByTestId('submenu')).toHaveAttribute('data-ending-style', '');
+      await expect(input).toBeFocused();
+      await expect(item(page, 'Share')).toHaveAttribute('data-highlighted', '');
+      await expect(input).not.toHaveAttribute('data-highlighted');
+    });
+  }
+});
