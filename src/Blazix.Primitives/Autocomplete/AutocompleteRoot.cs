@@ -311,6 +311,9 @@ public sealed class AutocompleteRoot<TValue> : ComponentBase, IAsyncDisposable
         }
 
         lastControlledValue = text!.IsControlled ? text.Value : null;
+
+        // AUT-FRM-02, EDGE-03 (design point 8 (a)): the prerendered hidden input is nameless.
+        Behavior.Interactive = RendererInfo.IsInteractive;
         ApplyEngine();
     }
 

@@ -86,6 +86,11 @@ internal sealed class ComboboxRootBehavior<TValue> : IAsyncDisposable
     /// <summary>Gets a task that completes when the session handle is attached.</summary>
     public Task SessionAttached => session?.TwinAttached ?? Task.CompletedTask;
 
+    // AUT-FRM-02, EDGE-03 (design point 8 (a) of M5 track 11, settled by the orchestrator 2026-11-12): the adopting root's
+    // RendererInfo.IsInteractive (ADR 06's signal); a None-mode hidden input takes its name only from an interactive render.
+    /// <summary>Gets or sets a value indicating whether the root renders interactively; the default is <see langword="true"/>.</summary>
+    public bool Interactive { get; set; } = true;
+
     /// <summary>Gets the list navigation the list's handles join.</summary>
     public ListNavigationBehavior List => list ?? throw new InvalidOperationException($"Blazix: the list navigation of `<{root.Store.Family}Root>` is created at its first parameter set.");
 
@@ -318,14 +323,22 @@ internal sealed class ComboboxRootBehavior<TValue> : IAsyncDisposable
     }
 
     // AriaCombobox.tsx:1589-1593, 1691: the name the hidden input submits, and its id when it has none.
-    private static string? HiddenName(ComboboxStore<TValue> store)
+    private string? HiddenName(ComboboxStore<TValue> store)
     {
         ComboboxStoreState state = store.State;
+
+        // AUT-FRM-02, EDGE-03 (design point 8 (a)): before hydration no input has registered, so a prerendered None-mode
+        // hidden input is nameless, as Base UI's server markup names only the visible or inline input.
+        if (state.SelectionMode == ComboboxSelectionMode.None && !Interactive)
+        {
+            return null;
+        }
+
         bool inputOwnsFormValue = state.SelectionMode == ComboboxSelectionMode.None && (state.Inline || !state.InputInsidePopup);
         return state.SelectionMode == ComboboxSelectionMode.Multiple || (state.SelectionMode == ComboboxSelectionMode.None && inputOwnsFormValue) ? null : store.Name;
     }
 
-    private static string? HiddenInputId(ComboboxStore<TValue> store) => HiddenName(store) is null ? store.State.Id + "-hidden-input" : null;
+    private string? HiddenInputId(ComboboxStore<TValue> store) => HiddenName(store) is null ? store.State.Id + "-hidden-input" : null;
 
     private async Task SyncFormAsync()
     {
