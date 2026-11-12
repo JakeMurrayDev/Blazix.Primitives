@@ -518,6 +518,7 @@ internal sealed class MenuFilterRootContext
         flushedMatch = match;
         bool wasEmpty = Engine.IsEmpty;
         PendingHighlight = Engine.Recompute(new MenuFilterPass(root.State.Open, query, match, provider.AutoHighlight, root.HighlightedItemId is not null));
+        ApplyHighlight(PendingHighlight);
         if (Engine.IsEmpty != wasEmpty)
         {
             Notify();
@@ -567,6 +568,20 @@ internal sealed class MenuFilterRootContext
             {
                 partSubscribers[i]();
             }
+        }
+    }
+
+    // FilterDropdownRoot.tsx:131-196 (M5 track 12): the recompute's highlight reaches the list's virtual focus, the first
+    // visible item or none; the module keeps the index over the filtered render.
+    private void ApplyHighlight(MenuFilterHighlight highlight)
+    {
+        if (highlight == MenuFilterHighlight.First)
+        {
+            _ = root.RequestHighlightAsync(0);
+        }
+        else if (highlight == MenuFilterHighlight.Clear)
+        {
+            _ = root.RequestHighlightAsync(null);
         }
     }
 
