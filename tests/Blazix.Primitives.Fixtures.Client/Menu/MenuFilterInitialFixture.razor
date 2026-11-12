@@ -4,7 +4,8 @@
 @*
     The `menu-filter-initial` fixture (tests/browser/menu.filter.spec.ts, M5 track 12): MenuFilterRoot.initialHighlight
     .test.tsx's Test, closed: a trigger "Actions" (`hover=true` opens it on hover with no delay; `orientation=horizontal`
-    sets the root's orientation; `plain=true` drops the disabled item), an input, Empty reading
+    sets the root's orientation; `plain=true` drops the disabled item; `after=true` adds an input "After"
+    (`data-testid="after"`) after the menu), an input, Empty reading
     "No actions found.", and a list of a disabled Unavailable, Rename and Delete. `data-attached` turns "true" once the
     menu's session has attached.
 *@
@@ -14,7 +15,7 @@
             <MenuTrigger TPayload="NoPayload" OpenOnHover="@Hover" Delay="0">Actions</MenuTrigger>
             <MenuPortal>
                 <MenuPositioner>
-                    <MenuPopup>
+                    <MenuPopup data-testid="popup">
                         <MenuInput aria-label="Filter actions" />
                         <MenuEmpty>No actions found.</MenuEmpty>
                         <MenuList>
@@ -30,6 +31,10 @@
             </MenuPortal>
         </MenuRoot>
     </MenuFilterProvider>
+    @if (After)
+    {
+        <input data-testid="after" aria-label="After" />
+    }
 </FixtureContainer>
 
 @code {
@@ -45,6 +50,9 @@
 
     [SupplyParameterFromQuery(Name = "plain")]
     public bool Plain { get; set; }
+
+    [SupplyParameterFromQuery(Name = "after")]
+    public bool After { get; set; }
 
     /// <inheritdoc />
     protected override async Task OnAfterRenderAsync(bool firstRender)

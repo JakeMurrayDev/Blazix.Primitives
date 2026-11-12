@@ -266,6 +266,39 @@ test.describe('filterable menu initial highlight', () => {
     await expect(input(page)).toHaveAttribute('data-highlighted', '');
   });
 
+  // MNU-PTR-19, FOC-* (MenuFilterRoot.scoping.test.tsx): Menu's focus manager is modal only under a context menu, so an
+  // open by hover or by an assistive technology's click hides nothing outside the popup.
+  async function hiddenFromAssistiveTechnology(locator: Locator): Promise<boolean> {
+    return locator.evaluate((element) => element.closest('[aria-hidden="true"], [inert]') !== null);
+  }
+
+  test('does not trap a hover-opened popup', async ({ page, mode }) => {
+    await page.goto(`/${mode}/menu-filter-initial?hover=true&after=true`, { waitUntil: 'commit' });
+    await page.locator(Fixture.started).waitFor({ state: 'attached' });
+    await expect(page.locator(Fixture.interactive('menu-filter-initial'))).toHaveAttribute('data-attached', 'true');
+
+    await trigger(page).hover();
+
+    await expect(page.getByTestId('popup')).toBeVisible();
+    expect(await hiddenFromAssistiveTechnology(page.getByTestId('after'))).toBe(false);
+  });
+
+  // An assistive technology activation reports no pointer type; the events are dispatched as Base UI's fireEvent does.
+  test('does not trap a popup opened by an assistive technology click', async ({ page, mode }) => {
+    await page.goto(`/${mode}/menu-filter-initial?after=true`, { waitUntil: 'commit' });
+    await page.locator(Fixture.started).waitFor({ state: 'attached' });
+    await expect(page.locator(Fixture.interactive('menu-filter-initial'))).toHaveAttribute('data-attached', 'true');
+
+    await trigger(page).evaluate((element) => {
+      element.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, cancelable: true, pointerType: '' }));
+      element.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, cancelable: true }));
+      element.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, detail: 1 }));
+    });
+
+    await expect(page.getByTestId('popup')).toBeVisible();
+    expect(await hiddenFromAssistiveTechnology(page.getByTestId('after'))).toBe(false);
+  });
+
   // MNU-FOC-16 (MenuFilterRoot.test.tsx): Safari focuses the trigger on mousedown before the closing click lands.
   test('does not seed a highlight when the trigger regains focus while open', async ({ page, mode }) => {
     await open(page, mode);
