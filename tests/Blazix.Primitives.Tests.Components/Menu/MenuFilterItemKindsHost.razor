@@ -1,0 +1,45 @@
+@namespace Blazix.Primitives.Tests.Components
+@* MenuFilterRoot.test.tsx's label and checkbox trees (MNU-API-36, API-41), one per `Case`, each an open filterable menu:
+   - `label`: an item labelled "Apple" that renders "Fruit one", and Banana;
+   - `submenu-label`: Rename and a closed filterable submenu whose trigger is labelled "Move to directory" and renders
+     "Move to folder";
+   - `checkbox`: an uncontrolled checkbox item "Show details", checked by default, and Rename. *@
+<MenuFilterProvider>
+    <MenuRoot TPayload="NoPayload" DefaultOpen="true">
+        <MenuTrigger TPayload="NoPayload">Actions</MenuTrigger>
+        <MenuPortal>
+            <MenuPositioner>
+                <MenuPopup>
+                    <MenuInput aria-label="Filter actions" />
+                    <MenuList>
+                        @switch (Case)
+                        {
+                            case "label":
+                                <MenuItem Label="Apple">Fruit one</MenuItem>
+                                <MenuItem>Banana</MenuItem>
+                                break;
+                            case "submenu-label":
+                                <MenuItem>Rename</MenuItem>
+                                <MenuFilterProvider>
+                                    <MenuSubmenuRoot>
+                                        <MenuSubmenuTrigger Label="Move to directory">Move to folder</MenuSubmenuTrigger>
+                                        <MenuPortal><MenuPositioner><MenuPopup><MenuItem>Documents</MenuItem></MenuPopup></MenuPositioner></MenuPortal>
+                                    </MenuSubmenuRoot>
+                                </MenuFilterProvider>
+                                break;
+                            case "checkbox":
+                                <MenuCheckboxItem DefaultChecked="true">Show details</MenuCheckboxItem>
+                                <MenuItem>Rename</MenuItem>
+                                break;
+                        }
+                    </MenuList>
+                </MenuPopup>
+            </MenuPositioner>
+        </MenuPortal>
+    </MenuRoot>
+</MenuFilterProvider>
+
+@code {
+    [Parameter]
+    public string? Case { get; set; }
+}
