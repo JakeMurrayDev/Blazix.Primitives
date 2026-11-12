@@ -79,6 +79,25 @@ test.describe('<Autocomplete.Root />', () => {
     await expect(page.getByTestId('item-banana')).toHaveAttribute('data-highlighted', '');
   });
 
+  test('calls onItemHighlighted when the popup auto highlights on open', async ({ page, mode }) => {
+    const fixture = await goto(page, mode, { autoHighlight: 'always', openOnInputClick: true });
+    await input(page).click();
+    await expect(options(page)).toHaveCount(3);
+
+    await expect(page.getByTestId('item-apple')).toHaveAttribute('data-highlighted', '');
+    await expect.poll(() => recorded(fixture, 'data-highlights')).toContain('apple:none:0');
+  });
+
+  test('links aria-activedescendant to the highlighted item after filtering', async ({ page, mode }) => {
+    await goto(page, mode, { autoHighlight: 'true' });
+    await typeText(page, 'b');
+    await expect(options(page)).toHaveCount(1);
+
+    const banana = page.getByTestId('item-banana');
+    await expect(banana).toHaveAttribute('data-highlighted', '');
+    await expect(input(page)).toHaveAttribute('aria-activedescendant', (await banana.getAttribute('id'))!);
+  });
+
   test('mode="both": inline overlay + autocomplete handles filtering', async ({ page, mode }) => {
     const fixture = await goto(page, mode, { mode: 'both' });
     await typeText(page, 'a');
