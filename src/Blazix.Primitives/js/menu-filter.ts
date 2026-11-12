@@ -35,7 +35,7 @@ import {
 } from './twin';
 
 /** The part names, as `MenuFilterTwin`'s constants. */
-export type MenuFilterPart = 'input' | 'trigger' | 'list' | 'popup';
+export type MenuFilterPart = 'input' | 'trigger' | 'list' | 'popup' | 'clear';
 
 /** The options of a `menu-filter` handle, as `MenuFilterOptions` serializes them. */
 export interface MenuFilterOptions extends TwinOptions {
@@ -509,6 +509,41 @@ function attachList(list: HTMLElement, initial: MenuFilterOptions, channel: Twin
   };
 }
 
+// The Clear (FilterDropdownClear.tsx:46-58, MNU-PTR-21): a press does not take focus from the input, and a click returns
+// focus to it.
+function attachClear(clear: HTMLElement, initial: MenuFilterOptions): TwinHandle {
+  let options = initial;
+  let disposed = false;
+
+  const onMouseDown = (event: MouseEvent): void => {
+    event.preventDefault();
+  };
+  const onClick = (): void => {
+    const owner = options.menuKey ? owners.get(options.menuKey) : undefined;
+    if (owner !== undefined) {
+      refocusOwner(owner.input);
+    }
+  };
+
+  clear.addEventListener('mousedown', onMouseDown);
+  clear.addEventListener('click', onClick);
+
+  return {
+    update(optionsJson: string): void {
+      if (!disposed) {
+        options = parseOptions<MenuFilterOptions>(optionsJson);
+      }
+    },
+    dispose(): void {
+      if (!disposed) {
+        disposed = true;
+        clear.removeEventListener('mousedown', onMouseDown);
+        clear.removeEventListener('click', onClick);
+      }
+    },
+  };
+}
+
 // The Trigger (MenuFilterDropdown.tsx:124-150, MNU-KEY-28): while the popup is open the input holds real focus, so the
 // vertical arrows typed on the trigger move to the input and run there, a typed character's default action follows focus
 // into the input, and the cross-axis arrows are left out of the list navigation (they drive submenus). The trigger's own
@@ -668,6 +703,9 @@ export function attach(
       break;
     case 'trigger':
       inner = attachTrigger(element, options);
+      break;
+    case 'clear':
+      inner = attachClear(element, options);
       break;
     default:
       throw new Error(`menu-filter: the ${options.part} part is not implemented`);

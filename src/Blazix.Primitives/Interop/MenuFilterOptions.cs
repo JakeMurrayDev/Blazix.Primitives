@@ -7,7 +7,7 @@ namespace Blazix.Primitives.Interop;
 /// <summary>Holds the options of the <c>menu-filter</c> module's handle.</summary>
 internal sealed record MenuFilterOptions : TwinOptions
 {
-    /// <summary>Gets the part the handle is attached to, one of the <c>MenuFilterTwin</c> part names: <c>input</c>, <c>trigger</c>, <c>list</c> or <c>popup</c>.</summary>
+    /// <summary>Gets the part the handle is attached to, one of the <c>MenuFilterTwin</c> part names: <c>input</c>, <c>trigger</c>, <c>list</c>, <c>popup</c> or <c>clear</c>.</summary>
     public string Part { get; init; } = "input";
 
     /// <summary>Gets the key that joins the handles of one filterable menu.</summary>

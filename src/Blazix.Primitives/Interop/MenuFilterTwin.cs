@@ -28,6 +28,9 @@ internal sealed class MenuFilterTwin(IJSRuntime jsRuntime)
     /// <summary>The part name of the Popup's handle.</summary>
     public const string PopupPart = "popup";
 
+    /// <summary>The part name of the Clear's handle.</summary>
+    public const string ClearPart = "clear";
+
     /// <summary>Occurs when the input reported a change of the query.</summary>
     public event Action<MenuFilterValueChange>? ValueChanged;
 

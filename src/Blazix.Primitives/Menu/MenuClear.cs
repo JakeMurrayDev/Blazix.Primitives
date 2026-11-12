@@ -1,3 +1,4 @@
+using Blazix.Primitives.Interop;
 using Blazix.Primitives.Rendering;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Rendering;
@@ -41,6 +42,8 @@ public sealed class MenuClear : PartBase<MenuClearState>
     private ButtonBehavior? button;
     private MenuFilterRootContext? filter;
     private IDisposable? filterSubscription;
+    private MenuFilterModuleAttachment? clearModule;
+    private string? clearElementId;
     private MenuClearState state = new(false);
 
     /// <summary>Initializes a new instance of the <see cref="MenuClear"/> class.</summary>
@@ -67,6 +70,9 @@ public sealed class MenuClear : PartBase<MenuClearState>
 
     [CascadingParameter]
     private MenuRootContext? RootContext { get; set; }
+
+    [CascadingParameter]
+    private PopupPortalContext? Portal { get; set; }
 
     /// <summary>Gets or sets a value indicating whether the button ignores user interaction.</summary>
     /// <value>The default is <see langword="false"/>. The button is also disabled while its menu is.</value>
@@ -121,7 +127,12 @@ public sealed class MenuClear : PartBase<MenuClearState>
     }
 
     /// <inheritdoc />
-    protected override Task OnAfterRenderAsync(bool firstRender) => button!.AfterRenderAsync(Enabled, Element, Id, composite: false);
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        Task buttonSync = button!.AfterRenderAsync(Enabled, Element, Id, composite: false);
+        await SyncClearModuleAsync();
+        await buttonSync;
+    }
 
     /// <inheritdoc />
     protected override void Dispose(bool disposing)
@@ -130,6 +141,10 @@ public sealed class MenuClear : PartBase<MenuClearState>
         {
             filterSubscription?.Dispose();
             button?.Dispose();
+            if (clearModule is not null)
+            {
+                _ = clearModule.DisposeAsync().AsTask();
+            }
         }
 
         base.Dispose(disposing);
@@ -157,4 +172,31 @@ public sealed class MenuClear : PartBase<MenuClearState>
     // MNU-EVT-17, PTR-21: a disabled button requests nothing.
     private Task HandleClickAsync(MouseEventArgs e) =>
         IsDisabled ? Task.CompletedTask : filter!.RequestQueryAsync("", EventReason.ClearPress, EventSnapshot.FromEventArgs(e));
+
+    // FilterDropdownClear.tsx:46-58 (MNU-PTR-21, M5 track 12): the Clear's `menu-filter` handle keeps a press from taking focus
+    // from the input and returns focus to it on a click. The element re-mounts each time the query fills, so the handle follows
+    // it: a new element gets a new handle, and a removed one's handle is disposed.
+    private async Task SyncClearModuleAsync()
+    {
+        string? elementId = Enabled && Element is { } rendered ? rendered.Id : null;
+        if (string.Equals(elementId, clearElementId, StringComparison.Ordinal))
+        {
+            return;
+        }
+
+        clearElementId = elementId;
+        MenuFilterModuleAttachment? previous = clearModule;
+        clearModule = null;
+        if (previous is not null)
+        {
+            await previous.DisposeAsync();
+        }
+
+        if (elementId is not null && Element is { } element)
+        {
+            await PopupPortalContext.WhenMoved(Portal);
+            clearModule = new MenuFilterModuleAttachment(JSRuntime);
+            await clearModule.SyncAsync(element, new MenuFilterOptions { Part = MenuFilterTwin.ClearPart, MenuKey = RootContext!.SessionToken });
+        }
+    }
 }
