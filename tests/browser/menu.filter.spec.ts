@@ -505,3 +505,38 @@ test.describe('the filterable popup\'s refocus', () => {
     await expect(input(page)).toBeFocused();
   });
 });
+
+// Menu.Clear's press (FilterDropdownClear.tsx:46-58; MNU-PTR-21; M5 track 12) on `menu-filter-root`: the press keeps
+// focus on the input, and the clear resets the highlight per autoHighlight.
+test.describe('Menu.Clear', () => {
+  test('clears a navigated highlight when Clear is pressed', async ({ page, mode }) => {
+    await page.goto(`/${mode}/menu-filter-root?auto=true`, { waitUntil: 'commit' });
+    await page.locator(Fixture.started).waitFor({ state: 'attached' });
+    await expect(page.locator(Fixture.interactive('menu-filter-root'))).toHaveAttribute('data-attached', 'true');
+    await input(page).focus();
+    await page.keyboard.type('e');
+    // The typed query's automatic highlight is C#'s, which reaches the module one leg later on Server (ADR 01's
+    // "JS-owned values that originate in C# state" row); Base UI applies it before the next key.
+    await expect(item(page, 'Rename')).toHaveAttribute('data-highlighted', '');
+    await page.keyboard.press('ArrowDown');
+    await expect(item(page, 'Delete')).toHaveAttribute('data-highlighted', '');
+
+    await clear(page).click();
+
+    await expect(input(page)).not.toHaveAttribute('aria-activedescendant');
+    await expect(item(page, 'Delete')).not.toHaveAttribute('data-highlighted');
+  });
+
+  // PTR-21: the press does not take focus from the input, and the click returns it there.
+  test('port: a press on Clear keeps focus on the input', async ({ page, mode }) => {
+    await render(page, mode);
+    await input(page).focus();
+    await page.keyboard.type('r');
+    await expect(clear(page)).toBeVisible();
+
+    await clear(page).click();
+
+    await expect(input(page)).toHaveValue('');
+    await expect(input(page)).toBeFocused();
+  });
+});
