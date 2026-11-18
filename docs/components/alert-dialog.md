@@ -8,7 +8,7 @@
 | Docs page | `docs/src/app/(docs)/react/components/alert-dialog/page.mdx` |
 | Prefix | `ADL` |
 | Status | implemented |
-| Revised | 2026-11-10 |
+| Revised | 2026-11-18 |
 | Builds on | [dialog](dialog.md) |
 | Derived by | none |
 | Depends on | [rendering-and-composition](../architecture/rendering-and-composition.md), [event-details-and-reasons](../architecture/event-details-and-reasons.md), [popup-store-and-handles](../architecture/popup-store-and-handles.md), [transitions-and-mounting](../architecture/transitions-and-mounting.md), [button-behavior](../architecture/button-behavior.md), [floating-and-positioning](../architecture/floating-and-positioning.md), [shared-utilities](../architecture/shared-utilities.md) (all inherited through Dialog) |
@@ -204,6 +204,7 @@ The open state, the trigger association, the payload, the controlled/uncontrolle
 - **ADL-STA-02** — MUST. A nested AlertDialog reports itself to its parent as a dialog, never as a drawer: open, it reports `(ownNestedOpenDialogCount + 1, ownNestedOpenDrawerCount + 0)` (DLG-STA-05). An AlertDialog opened inside a nested Drawer therefore does not raise any Drawer's nested-drawer count.
   Source: `dialog/root/useRenderDialogRoot.tsx:35,101`; `dialog/root/useDialogRoot.ts:109-123`. Test: [L2] `DrawerPopup.test.tsx` "does not treat alert dialogs inside nested drawers as nested drawers"; `DialogPopup.test.tsx` "increments for nested alert dialog and decrements on close (cross-type)".
   Port note 2026-10-29 (M4 track 9, [issue 124](https://github.com/JakeMurrayDev/Blazix.Primitives/issues/124); ADR 13 Amendments 2026-10-22): the Drawer clause (`DrawerPopup.test.tsx` "does not treat alert dialogs inside nested drawers as nested drawers") is open to M6 (Drawer) and does not hold the document's `implemented` status; the dialog clause runs at [L2] in `AlertDialogNestingTests`.
+  Port note 2026-11-18 (M6 track 8a, [issue 279](https://github.com/JakeMurrayDev/Blazix.Primitives/issues/279); decision 20 (a) of the M6 plan, chosen by the user 2026-11-18): the Drawer clause runs. An AlertDialog inside a nested Drawer reports `+ 0` drawers (`DialogRootBehavior`); `DrawerPopup.test.tsx` "does not treat alert dialogs inside nested drawers as nested drawers" runs at [L2] in `DrawerNestingTests`, beside `AlertDialogNestingTests`.
 
 ## 5. Rendered DOM and ARIA
 
@@ -480,7 +481,7 @@ Port note 2026-10-29 (M4 track 9, [issue 124](https://github.com/JakeMurrayDev/B
   - `DialogPopup.test.tsx`'s two run at [L2] in `AlertDialogNestingTests`.
   - `DialogRoot.test.tsx`'s run in `dialog.spec.ts` and `ToolbarButton.test.tsx`'s in `toolbar.spec.ts`.
   - `popupHandle.test.ts`'s run at [L1].
-  - `DrawerPopup.test.tsx`'s is open to M6 (ADL-STA-02); `MenuRoot.test.tsx`'s is re-cited (ADL-FOC-01).
+  - `DrawerPopup.test.tsx`'s runs at [L2] in `DrawerNestingTests` (ADL-STA-02, port note 2026-11-18); `MenuRoot.test.tsx`'s is re-cited (ADL-FOC-01).
 
 ## 14. React-specific notes and porting considerations
 
