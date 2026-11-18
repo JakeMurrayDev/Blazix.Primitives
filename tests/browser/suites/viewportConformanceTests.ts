@@ -118,16 +118,6 @@ const anchoringCases: readonly AnchoringCase[] = [
   { side: 'inline-end', direction: 'rtl', expected: { position: 'absolute', top: '0px', right: '0px' } },
 ];
 
-// Quarantined (ADR 11 §4) until 2026-12-02, for every family that runs the suite: test.fixme with the @quarantine tag and
-// the issue. Issue 176, re-justified 2026-11-18 (M6 track 0, issue 261; chosen by the user 2026-11-18): not a poll over a
-// transition that ends first, as first read, but a library defect. On Server under circuit latency the morph never starts
-// (no previous container, no data-transitioning; delayCircuit(20) fails it 16 of 16 across the four families, 0 of 160
-// without), because the js/popup.ts viewport handle decides the morph before the session's active trigger commits and
-// nothing decides it again. The fix is its own pull request.
-const quarantined: Record<string, string> = {
-  'cleans up the transition when a lagging payload remounts the current container': 'https://github.com/JakeMurrayDev/Blazix.Primitives/issues/176',
-};
-
 export function viewportConformanceTests(config: ViewportConformanceConfig): void {
   const { fixture: fixtureName, openOn, open: listedOpen = {}, only } = config;
 
@@ -170,14 +160,6 @@ export function viewportConformanceTests(config: ViewportConformanceConfig): voi
   /** Declares a title; one listed open is skipped with its reason. */
   function it(title: string, body: (args: { page: Page; mode: RenderMode }) => Promise<void>): void {
     if (only && !only.includes(title)) {
-      return;
-    }
-
-    const issue = quarantined[title];
-    if (issue) {
-      test.fixme(title, { tag: '@quarantine', annotation: { type: 'issue', description: issue } }, async ({ page, mode }) => {
-        await body({ page, mode });
-      });
       return;
     }
 
@@ -278,6 +260,7 @@ export function viewportConformanceTests(config: ViewportConformanceConfig): voi
         await expect(viewport).not.toHaveAttribute('data-transitioning');
         await expect(viewport).not.toHaveAttribute('data-activation-direction');
 
+        await waitForViewportAttached(page);
         await recordViewport(page);
         await activateTrigger(page, getTrigger(page, 2));
 
@@ -315,6 +298,7 @@ export function viewportConformanceTests(config: ViewportConformanceConfig): voi
         await activateTrigger(page, getTrigger(page, 1));
         await expect(getContent(page, 'Content 1')).toBeVisible();
 
+        await waitForViewportAttached(page);
         await recordViewport(page);
         await activateTrigger(page, getTrigger(page, 2));
 
@@ -330,6 +314,7 @@ export function viewportConformanceTests(config: ViewportConformanceConfig): voi
         await activateTrigger(page, trigger1);
         await expect(getContent(page, 'Content 1')).toBeVisible();
 
+        await waitForViewportAttached(page);
         await recordViewport(page);
         await activateTrigger(page, trigger2);
         await expect
@@ -346,6 +331,7 @@ export function viewportConformanceTests(config: ViewportConformanceConfig): voi
         await activateTrigger(page, trigger1);
         await expect(getContent(page, 'Content 1')).toBeVisible();
 
+        await waitForViewportAttached(page);
         await recordViewport(page);
         await activateTrigger(page, trigger2);
 
@@ -379,6 +365,7 @@ export function viewportConformanceTests(config: ViewportConformanceConfig): voi
         await activateTrigger(page, getTrigger(page, 1));
         await expect(getContent(page, 'Content 1')).toBeVisible();
 
+        await waitForViewportAttached(page);
         await recordViewport(page);
         await activateTrigger(page, getTrigger(page, 2));
 
@@ -419,6 +406,7 @@ export function viewportConformanceTests(config: ViewportConformanceConfig): voi
         await activateTrigger(page, getTrigger(page, 1));
         await expect(page.locator('[data-current]')).toHaveCount(1);
 
+        await waitForViewportAttached(page);
         await recordViewport(page);
         await activateTrigger(page, getTrigger(page, 2));
 
@@ -470,7 +458,8 @@ export function viewportConformanceTests(config: ViewportConformanceConfig): voi
       // the remount's batch can land before the session's reference moves to the new trigger. Each runs where it was red
       // on main's module, 8 of 8 per family at `--repeat-each=8` (2026-11-19): the lagging-payload title on every family,
       // and three more on the focus-opened families (PreviewCard, Tooltip). 30 ms is the delay that made every one
-      // deterministic; at 20 ms two of Tooltip's were 7 of 8, at 50 ms only the lagging title failed.
+      // deterministic; at 20 ms two of Tooltip's were 7 of 8, at 50 ms only the lagging title failed. Each switches after
+      // `waitForViewportAttached`, as its title does: a switch before the attach morphs nothing on Server (ADR 01's row).
       // Server only: WebAssembly has no circuit.
       const latencyTitles = new Set([
         'cleans up the transition when a lagging payload remounts the current container',
@@ -627,6 +616,24 @@ function runningOn(records: readonly ViewportRecord[], text: string): number {
 /** {@link running} on the `role` container of the latest record. */
 function runningOnLatest(records: readonly ViewportRecord[], role: 'previous' | 'current'): number {
   return running(records, records.at(-1)?.[role]?.id ?? null);
+}
+
+/**
+ * Waits for the Viewport's `popup` handle to attach: its first measurement writes `--positioner-width` on the Positioner
+ * (usePopupAutoResize), which no other handle of these families writes and C# never renders. Issue 176 (ADR 04
+ * Amendments 2026-11-19, chosen by the user): on Server the handle attaches several legs after the opening render (about
+ * 430 ms at a 50 ms one-way delay), and a trigger change that completes before it morphs nothing (ADR 01's relaxation
+ * row), so a morph title switches only after it, as Base UI's switches after its commit.
+ */
+async function waitForViewportAttached(page: Page): Promise<void> {
+  await expect
+    .poll(() =>
+      page.locator('[data-testid="popup"]').evaluate((popup) => {
+        const positioner = popup.parentElement?.closest<HTMLElement>('[data-open],[data-closed]');
+        return positioner?.style.getPropertyValue('--positioner-width') ?? '';
+      }),
+    )
+    .not.toBe('');
 }
 
 /** Presses a fixture control in the page: no pointer or focus moves, so the popup sees no outside press and no blur. */
