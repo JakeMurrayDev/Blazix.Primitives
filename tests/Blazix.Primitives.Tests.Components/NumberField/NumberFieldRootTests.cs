@@ -491,6 +491,21 @@ public sealed class NumberFieldRootTests : IDisposable
         Assert.Equal("quantity", cut.Find("button[aria-label=Increase]").GetAttribute("aria-controls"));
     }
 
+    // ADR 08 Amendments 2026-11-18 (decision 10 (a)); issue 277 design point 3: the shorthand's Razor form, and Step's numeric
+    // literal through StepValue's conversion from double (the probe line of ADR 08 Amendments 2026-11-03).
+    [Fact(DisplayName = "port: Format takes a format string written as an expression, and Step a numeric literal")]
+    [Trait("Requirement", "NUM-API-11")]
+    [Trait("Requirement", "NUM-API-06")]
+    public void Format_takes_a_format_string_written_as_an_expression_and_Step_a_numeric_literal()
+    {
+        IRenderedComponent<NumberFieldFormatHost> cut = test.Context.Render<NumberFieldFormatHost>();
+
+        IReadOnlyList<IElement> inputs = cut.FindAll("input[type=text]");
+        Assert.Equal("1,234.50", inputs[0].GetAttribute("value"));
+        Assert.Equal("25.6%", inputs[1].GetAttribute("value"));
+        Assert.Equal("2.5", cut.FindAll("input[type=number]")[2].GetAttribute("step"));
+    }
+
     private static RenderFragment Parts => builder =>
     {
         builder.OpenComponent<NumberFieldGroup>(0);
