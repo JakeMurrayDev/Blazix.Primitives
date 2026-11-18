@@ -139,8 +139,9 @@ test.describe('filtered Menu items', () => {
     await page.keyboard.type('ban');
     await expect(item(page, 'Apple')).toHaveCount(0);
     await expect(page.getByText('Banana')).toBeVisible();
-    // The query's highlight reset is C#'s and lands after the filtered list on Server (ADR 01; issue 261), where an arrow
-    // pressed before it is overwritten: the arrow waits for the reset's report, Base UI's synchronous state.
+    // The query's highlight reset is C#'s and lands after the filtered list on Server, where it overwrites an arrow pressed
+    // before it. ADR 01's row covers the reset's latency, not a stale reset winning over a newer key: a defect (issue 261's
+    // hand-over), which the title steps around by waiting for the reset's report, Base UI's synchronous state.
     await expect(fixture).toHaveAttribute('data-highlights', 'none');
 
     await page.keyboard.press('ArrowDown');

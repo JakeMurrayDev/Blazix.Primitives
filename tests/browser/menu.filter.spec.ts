@@ -408,12 +408,17 @@ test.describe('filterable menu initial highlight', () => {
     const hold = await holdCircuit(page, { from: (text) => text.includes('highlight') && text.includes('revision'), until: (text) => text.includes('ArrowDown') });
     await page.goto(`/${mode}/menu-filter-initial?plain=true&keepMounted=true`, { waitUntil: 'commit' });
     await page.locator(Fixture.started).waitFor({ state: 'attached' });
-    await expect(page.locator(Fixture.interactive('menu-filter-initial'))).toHaveAttribute('data-attached', 'true');
+    const fixture = page.locator(Fixture.interactive('menu-filter-initial'));
+    await expect(fixture).toHaveAttribute('data-attached', 'true');
     await trigger(page).click();
     await expect(input(page)).toBeFocused();
     hold.arm();
     await page.keyboard.type('ren');
     await expect(item(page, 'Delete')).toHaveCount(0);
+    // The query's highlight reset is C#'s and lands after the filtered list on Server, where it overwrites an arrow pressed
+    // before it. ADR 01's row covers the reset's latency, not a stale reset winning over a newer key: a defect (issue 261's
+    // hand-over), which the title steps around by waiting for the reset's report, Base UI's synchronous state.
+    await expect(fixture).toHaveAttribute('data-highlights', /(^|\|)none$/);
     await page.keyboard.press('ArrowDown');
     await expect(input(page)).toHaveAttribute('aria-activedescendant', await idOf(item(page, 'Rename')));
 
