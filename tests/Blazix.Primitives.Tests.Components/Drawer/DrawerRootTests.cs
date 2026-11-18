@@ -30,7 +30,7 @@ public sealed class DrawerRootTests : IDisposable
     /// <inheritdoc />
     public void Dispose() => test.Dispose();
 
-    public static TheoryData<string> DrawerRootConsumers => ["Content", "VirtualKeyboardProvider", "Popup", "Viewport"];
+    public static TheoryData<string> DrawerRootConsumers => ["Content", "VirtualKeyboardProvider", "Popup", "Viewport", "SwipeArea"];
 
     [Fact(DisplayName = "exposes the attributes rendered by borrowed trigger and close parts")]
     [Trait("Requirement", "DRW-STR-01")]
@@ -202,14 +202,15 @@ public sealed class DrawerRootTests : IDisposable
     }
 
     // Base UI's MissingRootContextConsumer reads useDrawerRootContext alone; the port's parts that read the Drawer root's own
-    // state are Content, VirtualKeyboardProvider, Popup and Viewport (the Popup and the Viewport under a Dialog root, so only
-    // the Drawer context is missing; DrawerViewport.tsx:100 reads useDrawerRootContext()).
+    // state are Content, VirtualKeyboardProvider, Popup, Viewport and SwipeArea (the last three under a Dialog root, so only
+    // the Drawer context is missing; DrawerViewport.tsx:100 and DrawerSwipeArea.tsx:89 read useDrawerRootContext()).
     [Theory(DisplayName = "throws a descriptive error when the root context is missing")]
     [MemberData(nameof(DrawerRootConsumers))]
     [Trait("Requirement", "DRW-EDGE-02")]
     [Trait("Requirement", "DRW-STR-05")]
     [Trait("Requirement", "DRW-STR-06")]
     [Trait("Requirement", "DRW-STR-09")]
+    [Trait("Requirement", "DRW-STR-07")]
     public void Throws_a_descriptive_error_when_the_root_context_is_missing(string part)
     {
         InvalidOperationException error = Assert.Throws<InvalidOperationException>(() => test.Context.Render(Consumer(part)));
@@ -275,6 +276,13 @@ public sealed class DrawerRootTests : IDisposable
                 builder.AddComponentParameter(1, nameof(DialogRoot<NoPayload>.Open), true);
                 builder.AddComponentParameter(2, nameof(DialogRoot<NoPayload>.ChildContent), (RenderFragment)(root =>
                 {
+                    if (part == "SwipeArea")
+                    {
+                        root.OpenComponent<DrawerSwipeArea>(2);
+                        root.CloseComponent();
+                        return;
+                    }
+
                     root.OpenComponent<DialogPortal>(0);
                     root.AddComponentParameter(1, nameof(DialogPortal.ChildContent), (RenderFragment)(portal =>
                     {

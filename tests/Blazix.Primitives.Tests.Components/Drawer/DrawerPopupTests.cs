@@ -197,6 +197,44 @@ public sealed class DrawerPopupTests : IDisposable
         Assert.Equal("my-popup", cut.Find("#open").GetAttribute("aria-controls"));
     }
 
+    // Base UI's cited title ("applies a negative snap point offset to upward drawers") is browser-only (8b); this one reads the
+    // attribute alone, for the default and for each member.
+    [Theory(DisplayName = "port: the popup renders data-swipe-direction from the root's swipe direction, down by default")]
+    [InlineData(null, "down")]
+    [InlineData(SwipeDirection.Up, "up")]
+    [InlineData(SwipeDirection.Down, "down")]
+    [InlineData(SwipeDirection.Left, "left")]
+    [InlineData(SwipeDirection.Right, "right")]
+    [Trait("Requirement", "DRW-API-01")]
+    [Trait("Requirement", "DRW-DOM-05")]
+    public void The_popup_renders_data_swipe_direction(SwipeDirection? direction, string expected)
+    {
+        IRenderedComponent<IComponent> cut = test.Context.Render(OpenDrawer(withViewport: true, Popup(), swipeDirection: direction));
+
+        Assert.Equal(expected, cut.Find("[role=dialog]").GetAttribute(DrawerPopupDataAttributes.SwipeDirection));
+    }
+
+    [Fact(DisplayName = "port: the popup's state carries the resolved swipe direction")]
+    [Trait("Requirement", "DRW-STA-01")]
+    public void The_popups_state_carries_the_resolved_swipe_direction()
+    {
+        DrawerPopupState? seen = null;
+        RenderFragment popup = builder =>
+        {
+            builder.OpenComponent<DrawerPopup>(0);
+            builder.AddComponentParameter(1, nameof(DrawerPopup.ClassValue), (Func<DrawerPopupState, string?>)(state =>
+            {
+                seen = state;
+                return null;
+            }));
+            builder.CloseComponent();
+        };
+
+        test.Context.Render(OpenDrawer(withViewport: true, popup, swipeDirection: SwipeDirection.Left));
+
+        Assert.Equal(SwipeDirection.Left, seen!.SwipeDirection);
+    }
+
     // A DrawerPopup with the given attributes.
     private static RenderFragment Popup(params (string Name, object Value)[] attributes) => builder =>
     {
@@ -211,15 +249,20 @@ public sealed class DrawerPopupTests : IDisposable
     };
 
     // Root open > Portal > (Viewport >) popup, as Base UI's trees.
-    private static RenderFragment OpenDrawer(bool withViewport, RenderFragment popup, bool? modal = null) =>
-        Drawer(open: true, trigger: false, withViewport, popup, modal);
+    private static RenderFragment OpenDrawer(bool withViewport, RenderFragment popup, bool? modal = null, SwipeDirection? swipeDirection = null) =>
+        Drawer(open: true, trigger: false, withViewport, popup, modal, swipeDirection);
 
-    private static RenderFragment Drawer(bool open, bool trigger, bool withViewport, RenderFragment popup, bool? modal = null) => builder =>
+    private static RenderFragment Drawer(bool open, bool trigger, bool withViewport, RenderFragment popup, bool? modal = null, SwipeDirection? swipeDirection = null) => builder =>
     {
         builder.OpenComponent<DrawerRoot<NoPayload>>(0);
         if (open)
         {
             builder.AddComponentParameter(1, nameof(DrawerRoot<NoPayload>.Open), true);
+        }
+
+        if (swipeDirection is { } direction)
+        {
+            builder.AddComponentParameter(4, nameof(DrawerRoot<NoPayload>.SwipeDirection), (SwipeDirection?)direction);
         }
 
         if (modal is { } value)

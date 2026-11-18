@@ -6,7 +6,7 @@ using Microsoft.AspNetCore.Components;
 // Family tests use the project's root namespace (tests/Blazix.Primitives.Tests.Components/CONTEXT.md).
 namespace Blazix.Primitives.Tests.Components;
 
-// Base UI runs describeConformance for Drawer.Popup, Viewport, Content and SwipeArea (SwipeArea is not built yet). The port's
+// Base UI runs describeConformance for Drawer.Popup, Viewport, Content and SwipeArea. The port's
 // Trigger, Close, Title, Description, Backdrop, Indent and IndentBackground are sealed types of their own (decision 20 (a) of
 // the M6 plan), so each runs the suite too, the AlertDialog precedent; the borrowed parts inside the trees Dialog's suite
 // uses. A part inside an open root renders again on mount, and bUnit keeps an element's reference capture only from its
@@ -304,5 +304,33 @@ public sealed class DrawerIndentBackgroundConformanceTests : PartConformanceTest
     protected override void SetClassValue(ComponentParameterCollectionBuilder<DrawerIndentBackground> p, Func<string?> classValue)
     {
         p.Add(x => x.ClassValue, (Func<DrawerIndentBackgroundState, string?>)(_ => classValue()));
+    }
+}
+
+/// <summary>DRW-STR-07: Drawer.SwipeArea's conformance suite (<c>refInstanceof: HTMLDivElement</c>), inside a closed root.</summary>
+public sealed class DrawerSwipeAreaConformanceTests : PartConformanceTests<DrawerSwipeArea>
+{
+    public DrawerSwipeAreaConformanceTests()
+    {
+        Context.JSInterop.Mode = JSRuntimeMode.Loose;
+        Context.RenderTree.Add<DrawerRoot<NoPayload>>();
+    }
+
+    /// <inheritdoc />
+    protected override ConformanceOptions<DrawerSwipeArea> Options { get; } = new("div");
+
+    /// <inheritdoc />
+    protected override ElementReference? ElementOf(DrawerSwipeArea part) => part.Element;
+
+    /// <inheritdoc />
+    protected override void SetRenderFunction(ComponentParameterCollectionBuilder<DrawerSwipeArea> p, Func<IReadOnlyDictionary<string, object>, RenderFragment> render)
+    {
+        p.Add(x => x.RenderFunction, (RenderFragment<RenderProps<DrawerSwipeAreaState>>)(props => render(props.Attributes)));
+    }
+
+    /// <inheritdoc />
+    protected override void SetClassValue(ComponentParameterCollectionBuilder<DrawerSwipeArea> p, Func<string?> classValue)
+    {
+        p.Add(x => x.ClassValue, (Func<DrawerSwipeAreaState, string?>)(_ => classValue()));
     }
 }
