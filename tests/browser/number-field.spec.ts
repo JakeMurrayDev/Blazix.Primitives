@@ -1,18 +1,21 @@
 import { type Locator } from '@playwright/test';
 import { test, expect, type Page, type RenderMode } from './helpers';
 import { Fixture } from './helpers/navigation';
+import { pointOf, testWithTouch, touchDrag } from './helpers/touch';
 
 // The [L4] rows of docs/components/number-field.md that the steppers prove with a real mouse (issue 277, 6a): NUM-PTR-01..06,
 // NUM-FOC-03, NUM-EDGE-13, over the `button` module's press-and-hold repeater (UBT-ALG-07) and the hold surface of decision
 // 16 (a). Titles are Base UI's (number-field/root/useNumberFieldStepperButton.test.tsx, increment/NumberFieldIncrement.test.tsx),
 // run once per stepper where Base UI runs them with describe.each. Base UI dispatches the events under fake timers; here the
 // real mouse presses and moves, and the page's clock is paused and run forward (ADR 06 §2). The titles that type into the
-// input, the touch and pen titles (track 1's CDP touch helper) and the commit titles (track 1's ValueCommittedEventArgs)
-// follow in later commits.
+// input follow in 6b. The touch and pen titles press with real CDP input (track 1's touchDrag, Input.dispatchMouseEvent's
+// pointerType pen), so the browser's own compatibility mouse events and click follow the touch.
 
 const START_AUTO_CHANGE_DELAY = 400;
 const CHANGE_VALUE_TICK_DELAY = 60;
 const FREEZE_MARGIN = 50;
+// Mirrors the touch settle delay in usePressAndHold (NumberFieldIncrement.test.tsx's TOUCH_TIMEOUT).
+const TOUCH_TIMEOUT = 50;
 
 // The clock belongs to the worker's browser context: a title that paused it resumes it, or the next page's WebAssembly boot
 // waits on its timers (tests/browser/CONTEXT.md).
@@ -262,3 +265,139 @@ test('places the caret at the end of the input when a mouse press focuses it', a
   expect(end).toBe(value.length);
   await page.mouse.up();
 });
+
+// The touch and pen titles (NUM-PTR-01, NUM-PTR-02, NUM-PTR-06; UBT-PTR-16..19): useNumberFieldStepperButton.test.tsx
+// "touch" and "press and hold", NumberFieldIncrement.test.tsx "press and hold". Each title opens a context with touch.
+for (const stepper of [
+  { name: 'NumberField.Increment', testId: 'increment', steps: { 1: '1', 2: '2', 3: '3' }, reason: 'increment-press' },
+  { name: 'NumberField.Decrement', testId: 'decrement', steps: { 1: '-1', 2: '-2', 3: '-3' }, reason: 'decrement-press' },
+] as const) {
+  testWithTouch.describe(`<${stepper.name} /> touch`, () => {
+    testWithTouch('treats pen pointer as touch-like', async ({ touchPage: page, mode }) => {
+      const fixture = await gotoHold(page, mode);
+      const point = await pointOf(fixture.getByTestId(stepper.testId));
+      await freezeClock(page);
+      const cdp = await page.context().newCDPSession(page);
+      try {
+        await cdp.send('Input.dispatchMouseEvent', { type: 'mousePressed', ...point, button: 'left', clickCount: 1, pointerType: 'pen' });
+
+        // A mouse press focuses the input; touch-like presses leave focus alone. Base UI's jsdom press focuses nothing, so
+        // it reads document.body; a real press focuses the button natively, so here the input is not focused.
+        await expect(fixture.getByTestId('input')).not.toBeFocused();
+        await cdp.send('Input.dispatchMouseEvent', { type: 'mouseReleased', ...point, button: 'left', clickCount: 1, pointerType: 'pen' });
+        await expect(fixture.getByTestId('input')).not.toBeFocused();
+      } finally {
+        await cdp.detach();
+      }
+    });
+
+    // Base UI runs it twice, with the click before and after touchend (it.each); a real tap has the browser's one order.
+    testWithTouch("port: always steps on quick touch, in the browser's order of touchend and click (before TOUCH_TIMEOUT)", async ({ touchPage: page, mode }) => {
+      const fixture = await gotoHold(page, mode);
+      const point = await pointOf(fixture.getByTestId(stepper.testId));
+      const input = fixture.getByTestId('input');
+      await freezeClock(page);
+
+      await touchDrag(page, [[point]]);
+      await expect(input).toHaveValue(stepper.steps[1]);
+
+      await touchDrag(page, [[point]]);
+      await expect(input).toHaveValue(stepper.steps[2]);
+      await expect(fixture).toHaveAttribute('data-changes', /^\S+ \S+$/);
+    });
+
+    testWithTouch('fires onValueCommitted once on first soft tap (touch)', async ({ touchPage: page, mode }) => {
+      const fixture = await gotoHold(page, mode);
+      const point = await pointOf(fixture.getByTestId(stepper.testId));
+      await freezeClock(page);
+
+      await touchDrag(page, [[point]]);
+
+      await expect(fixture.getByTestId('input')).toHaveValue(stepper.steps[1]);
+      await expect(fixture).toHaveAttribute('data-commits', `${stepper.steps[1]}/${stepper.reason}`);
+    });
+
+    testWithTouch('starts the hold once a touch press settles and ignores the compatibility click', async ({ touchPage: page, mode }) => {
+      const fixture = await gotoHold(page, mode);
+      const point = await pointOf(fixture.getByTestId(stepper.testId));
+      const input = fixture.getByTestId('input');
+      await freezeClock(page);
+
+      await touchDrag(page, [[point]], {
+        beforeRelease: async () => {
+          await expect(input).toHaveValue('0');
+
+          await page.clock.runFor(TOUCH_TIMEOUT);
+          await expect(input).toHaveValue(stepper.steps[1]);
+
+          await page.clock.runFor(START_AUTO_CHANGE_DELAY);
+          await page.clock.runFor(CHANGE_VALUE_TICK_DELAY);
+          await page.clock.runFor(CHANGE_VALUE_TICK_DELAY);
+          await expect(input).toHaveValue(stepper.steps[3]);
+        },
+      });
+      await page.clock.runFor(CHANGE_VALUE_TICK_DELAY);
+
+      await expect(input).toHaveValue(stepper.steps[3]);
+      await expect(fixture).toHaveAttribute('data-changes', /^(\S+ ){2}\S+$/);
+    });
+
+    testWithTouch('does not start the hold when the touch moves like a scroll', async ({ touchPage: page, mode }) => {
+      const fixture = await gotoHold(page, mode);
+      const point = await pointOf(fixture.getByTestId(stepper.testId), { x: 4, y: 4 });
+      const input = fixture.getByTestId('input');
+      await freezeClock(page);
+
+      await touchDrag(page, [[point, { x: point.x, y: point.y + 20 }]], {
+        beforeRelease: async () => {
+          await page.clock.runFor(TOUCH_TIMEOUT);
+          await page.clock.runFor(START_AUTO_CHANGE_DELAY);
+          await page.clock.runFor(CHANGE_VALUE_TICK_DELAY);
+          await expect(input).toHaveValue('0');
+        },
+      });
+
+      await expect(input).toHaveValue('0');
+      await expect(fixture).toHaveAttribute('data-changes', '');
+    });
+
+    testWithTouch('treats a touch press with several small moves as a tap', async ({ touchPage: page, mode }) => {
+      const fixture = await gotoHold(page, mode);
+      const point = await pointOf(fixture.getByTestId(stepper.testId), { x: 4, y: 4 });
+      const input = fixture.getByTestId('input');
+      await freezeClock(page);
+
+      const moves = [1, 2, 3].map((dx) => ({ x: point.x + dx, y: point.y }));
+      await touchDrag(page, [[point, ...moves]], {
+        beforeRelease: async () => {
+          await page.clock.runFor(TOUCH_TIMEOUT);
+          await page.clock.runFor(START_AUTO_CHANGE_DELAY);
+          await expect(input).toHaveValue('0');
+        },
+      });
+
+      await expect(input).toHaveValue(stepper.steps[1]);
+    });
+
+    testWithTouch('cancels the compatibility click from a touch press when disabled', async ({ touchPage: page, mode }) => {
+      const fixture = await gotoHold(page, mode);
+      const point = await pointOf(fixture.getByTestId(stepper.testId));
+      const input = fixture.getByTestId('input');
+      await freezeClock(page);
+
+      await touchDrag(page, [[point]], {
+        beforeRelease: async () => {
+          // Base UI's setProps({ disabled: true }) then setProps({ disabled: false }): keys on the fixture's control.
+          await fixture.locator('[data-set-disabled]').dispatchEvent('keydown', { key: 'Shift' });
+          await expect(input).toBeDisabled();
+          await fixture.locator('[data-set-disabled]').dispatchEvent('keydown', { key: 'Control' });
+          await expect(input).toBeEnabled();
+        },
+      });
+      await page.clock.runFor(CHANGE_VALUE_TICK_DELAY);
+
+      await expect(input).toHaveValue('0');
+      await expect(fixture).toHaveAttribute('data-changes', '');
+    });
+  });
+}
