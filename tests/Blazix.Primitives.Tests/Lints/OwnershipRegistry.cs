@@ -426,5 +426,17 @@ internal static class OwnershipRegistry
         new("context-menu", "RadioItemIndicator", "data-starting-style", Writer.Js, "ContextMenuRadioItemIndicatorState.TransitionStatus"),
         new("context-menu", "RadioItemIndicator", "data-ending-style", Writer.Js, "ContextMenuRadioItemIndicatorState.TransitionStatus"),
         new("context-menu", "ARIA", "aria-hidden", Writer.Js),
+        // Toast (M6 track 9a, issue 280; ADR 04 Amendments 2026-11-18, the `toast` scope; toast.md §5.2): the `toast` module
+        // writes the Root's swipe attributes, its movement variables and, during a swipe and its release, its inline
+        // transition and transform; `transitions` writes the transition attributes from the store's status, mirrored in
+        // ToastRootState.TransitionStatus. The swipe fields of the state record arrive with SwipeDirection (track 1), and
+        // their entries name them then. Every other Toast attribute is C#'s.
+        new("toast", "Root", "data-swiping", Writer.Js),
+        new("toast", "Root", "data-swipe-direction", Writer.Js),
+        new("toast", "Root", "data-starting-style", Writer.CsharpToJs, "ToastRootState.TransitionStatus"),
+        new("toast", "Root", "data-ending-style", Writer.CsharpToJs, "ToastRootState.TransitionStatus"),
+        new("toast", "Root", "--toast-swipe-movement-x", Writer.Js),
+        new("toast", "Root", "transition", Writer.Js),
+        new("toast", "Root", "transform", Writer.Js),
     ];
 }
