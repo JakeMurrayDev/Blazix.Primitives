@@ -132,7 +132,10 @@ export interface SwipeTrackerOptions {
   movementCssVars: { x: string; y: string };
   /** The distance, in pixels, a release must exceed to dismiss: a number, or a function read per gesture; 40 by default. */
   swipeThreshold?: number | ((details: { element: HTMLElement; direction: SwipeDirection }) => number) | undefined;
-  /** Gates the start of a gesture; evaluated on the press and on each later move while the press is pending. */
+  /**
+   * Gates the start of a gesture; evaluated on the press and on each later move while the press is pending. The position
+   * and details objects are reused between calls, so read them at once.
+   */
   canStart?: ((position: SwipePoint, details: { nativeEvent: PointerEvent | TouchEvent; direction: SwipeDirection | undefined }) => boolean) | undefined;
   /** Whether a gesture refuses to start inside a scrollable ancestor of the target on the gesture axis; `false` by default. */
   ignoreScrollableAncestors?: boolean | undefined;
@@ -141,6 +144,7 @@ export interface SwipeTrackerOptions {
   /** Whether the tracker writes the drag transform and movement variables to the element; `true` by default. */
   trackDrag?: boolean | undefined;
   onSwipeStart?: ((event: PointerEvent | TouchEvent) => void) | undefined;
+  /** Called when the progress or its details change; the details object is reused between calls, so read it at once. */
   onProgress?: ((progress: number, details?: SwipeProgressDetails) => void) | undefined;
   onCancel?: ((event: PointerEvent | TouchEvent) => void) | undefined;
   onSwipingChange?: ((swiping: boolean) => void) | undefined;
@@ -180,27 +184,22 @@ export interface SwipeTracker {
   reset(): void;
 }
 
-// The input a handler normalises: a pointer event, a touch event, or a native touchmove fed through `moveNative`.
-interface SwipeInput {
-  readonly touch: boolean;
-  readonly nativeEvent: PointerEvent | TouchEvent;
-  readonly currentTarget: HTMLElement | null;
-}
-
-function pointerInput(event: PointerEvent): SwipeInput {
-  return { touch: false, nativeEvent: event, currentTarget: event.currentTarget as HTMLElement | null };
-}
-
-function touchInput(event: TouchEvent, currentTarget?: HTMLElement): SwipeInput {
-  return { touch: true, nativeEvent: event, currentTarget: currentTarget ?? (event.currentTarget as HTMLElement | null) };
-}
+// Design point 8 (a) of the Drawer track (chosen by the user 2026-11-19, ADR 04 Amendments 2026-11-19): the tracker
+// allocates no object per move. Base UI's refs of `{ x, y }` objects are scalar fields here, the progress details and
+// the `canStart` arguments are one reused object each, and the handlers take the event's fields as arguments rather
+// than a wrapper. Allocation remains at a press, a release, a cancel and a `getDragStyles()` read; a move builds only the
+// CSS strings the drag styles write (PSH-DOM-17).
 
 function getValidTimeStamp(timeStamp: number): number | null {
   return Number.isFinite(timeStamp) && timeStamp > 0 ? timeStamp : null;
 }
 
-function getDragTransform(dragOffset: SwipePoint, scale: number): string {
-  return `translate3d(${dragOffset.x}px,${dragOffset.y}px,0) scale(${scale})`;
+function getDragTransform(x: number, y: number, scale: number): string {
+  return `translate3d(${x}px,${y}px,0) scale(${scale})`;
+}
+
+function canSwipeOnAxis(delta: number, scrollOffset: number, maxScrollOffset: number, allowTowardStart: boolean, allowTowardEnd: boolean): boolean {
+  return (delta > 0 && scrollOffset <= 0 && allowTowardStart) || (delta < 0 && scrollOffset >= Math.max(0, maxScrollOffset) && allowTowardEnd);
 }
 
 function hasPrimaryMouseButton(buttons: number): boolean {
@@ -282,29 +281,51 @@ export function createSwipeTracker(initialOptions: SwipeTrackerOptions): SwipeTr
   let dragDismissed = false;
   let isSwiping = false;
 
-  let dragStartPos: SwipePoint = { x: 0, y: 0 };
-  let dragOffset: SwipePoint = { x: 0, y: 0 };
-  let lastMovePos: SwipePoint | null = null;
-  let initialTransform = { x: 0, y: 0, scale: 1 };
+  let dragStartX = 0;
+  let dragStartY = 0;
+  let dragOffsetX = 0;
+  let dragOffsetY = 0;
+  let hasLastMove = false;
+  let lastMoveX = 0;
+  let lastMoveY = 0;
+  let initialX = 0;
+  let initialY = 0;
+  let initialScale = 1;
   let intendedSwipeDirection: SwipeDirection | undefined;
   let maxSwipeDisplacement = 0;
   let cancelledSwipe = false;
-  let swipeCancelBaseline: SwipePoint = { x: 0, y: 0 };
+  let baselineX = 0;
+  let baselineY = 0;
   let isFirstPointerMove = false;
   let pendingSwipe = false;
-  let pendingSwipeStartPos: SwipePoint | null = null;
+  let hasPendingStart = false;
+  let pendingStartX = 0;
+  let pendingStartY = 0;
   let swipeFromScrollable = false;
   let sawPrimaryButtonsOnMove = false;
-  let elementSize = { width: 0, height: 0 };
+  let elementWidth = 0;
+  let elementHeight = 0;
   let swipeProgress = 0;
   let swipeThreshold = swipeThresholdDefault;
   let swipeThresholdFunction: ((details: { element: HTMLElement; direction: SwipeDirection }) => number) | null = null;
   let swipeStartTime: number | null = null;
-  let lastDragSample: { x: number; y: number; time: number } | null = null;
+  let hasSample = false;
+  let sampleX = 0;
+  let sampleY = 0;
+  let sampleTime = 0;
   let hasStationarySample = false;
-  let lastDragVelocity: SwipePoint = { x: 0, y: 0 };
-  let lastProgressDetails: SwipeProgressDetails | null = null;
+  let velocityX = 0;
+  let velocityY = 0;
+  let hasLastDetails = false;
   let dragStyleSnapshot: [string, string] | null = null;
+
+  // The reused objects: the progress details and the `canStart` arguments.
+  const progressDetails: SwipeProgressDetails = { deltaX: 0, deltaY: 0, direction: undefined };
+  const startPoint: SwipePoint = { x: 0, y: 0 };
+  const startDetails: { nativeEvent: PointerEvent | TouchEvent; direction: SwipeDirection | undefined } = {
+    nativeEvent: undefined as unknown as PointerEvent,
+    direction: undefined,
+  };
 
   function setSwiping(nextSwiping: boolean): void {
     if (isSwiping === nextSwiping) {
@@ -326,32 +347,40 @@ export function createSwipeTracker(initialOptions: SwipeTrackerOptions): SwipeTr
     swipeThreshold = Math.max(0, swipeThresholdFunction({ element, direction }));
   }
 
-  // PSH-ALG-09's report.
-  function updateSwipeProgress(progress: number, details?: SwipeProgressDetails): void {
+  // PSH-ALG-09's report. `withDetails` false is Base UI's call without details.
+  function updateSwipeProgress(progress: number, withDetails: boolean, deltaX = 0, deltaY = 0, direction?: SwipeDirection): void {
     const nextProgress = Number.isFinite(progress) ? clamp(progress, 0, 1) : 0;
     const progressChanged = nextProgress !== swipeProgress;
-    let detailsChanged = false;
-
-    if (details) {
-      const lastDetails = lastProgressDetails;
-      detailsChanged =
-        !lastDetails ||
-        lastDetails.deltaX !== details.deltaX ||
-        lastDetails.deltaY !== details.deltaY ||
-        lastDetails.direction !== details.direction;
-    }
+    const detailsChanged =
+      withDetails &&
+      (!hasLastDetails || progressDetails.deltaX !== deltaX || progressDetails.deltaY !== deltaY || progressDetails.direction !== direction);
 
     if (!progressChanged && !detailsChanged) {
       return;
     }
 
     swipeProgress = nextProgress;
-    if (details) {
-      lastProgressDetails = details;
-    } else if (progressChanged) {
-      lastProgressDetails = null;
+    if (withDetails) {
+      hasLastDetails = true;
+      progressDetails.deltaX = deltaX;
+      progressDetails.deltaY = deltaY;
+      progressDetails.direction = direction;
+      options.onProgress?.(nextProgress, progressDetails);
+    } else {
+      hasLastDetails = false;
+      options.onProgress?.(nextProgress, undefined);
     }
-    options.onProgress?.(nextProgress, details);
+  }
+
+  function allowedToStart(nativeEvent: PointerEvent | TouchEvent, x: number, y: number): boolean {
+    if (!options.canStart) {
+      return true;
+    }
+    startPoint.x = x;
+    startPoint.y = y;
+    startDetails.nativeEvent = nativeEvent;
+    startDetails.direction = primaryDirection;
+    return options.canStart(startPoint, startDetails);
   }
 
   // PSH-DOM-17's imperative writer.
@@ -375,41 +404,40 @@ export function createSwipeTracker(initialOptions: SwipeTrackerOptions): SwipeTr
       dragStyleSnapshot = null;
     }
 
-    const deltaX = dragOffset.x - initialTransform.x;
-    const deltaY = dragOffset.y - initialTransform.y;
-
     if (swiping) {
-      style.transform = getDragTransform(dragOffset, initialTransform.scale);
+      style.transform = getDragTransform(dragOffsetX, dragOffsetY, initialScale);
     }
 
-    style.setProperty(options.movementCssVars.x, `${deltaX}px`);
-    style.setProperty(options.movementCssVars.y, `${deltaY}px`);
+    style.setProperty(options.movementCssVars.x, `${dragOffsetX - initialX}px`);
+    style.setProperty(options.movementCssVars.y, `${dragOffsetY - initialY}px`);
   }
 
   // PSH-ALG-10's sampling.
-  function recordDragSample(offset: SwipePoint, timeStamp: number | null): void {
+  function recordDragSample(x: number, y: number, timeStamp: number | null): void {
     if (timeStamp === null) {
       return;
     }
 
-    const lastSample = lastDragSample;
-    if (lastSample && timeStamp > lastSample.time) {
+    if (hasSample && timeStamp > sampleTime) {
       // Some Android devices emit one effectively stationary move immediately before release. The last moving sample
       // and its timestamp are kept; repeated stationary moves still clear the velocity, and a release after a hold
       // still expires the last moving sample.
-      const stationary =
-        Math.abs(offset.x - lastSample.x) < MIN_VELOCITY_SAMPLE_DISTANCE && Math.abs(offset.y - lastSample.y) < MIN_VELOCITY_SAMPLE_DISTANCE;
+      const stationary = Math.abs(x - sampleX) < MIN_VELOCITY_SAMPLE_DISTANCE && Math.abs(y - sampleY) < MIN_VELOCITY_SAMPLE_DISTANCE;
       const skipSample = stationary && !hasStationarySample;
       hasStationarySample = stationary;
       if (skipSample) {
         return;
       }
 
-      const durationMs = Math.max(timeStamp - lastSample.time, MIN_RELEASE_VELOCITY_DURATION_MS);
-      lastDragVelocity = { x: (offset.x - lastSample.x) / durationMs, y: (offset.y - lastSample.y) / durationMs };
+      const durationMs = Math.max(timeStamp - sampleTime, MIN_RELEASE_VELOCITY_DURATION_MS);
+      velocityX = (x - sampleX) / durationMs;
+      velocityY = (y - sampleY) / durationMs;
     }
 
-    lastDragSample = { x: offset.x, y: offset.y, time: timeStamp };
+    hasSample = true;
+    sampleX = x;
+    sampleY = y;
+    sampleTime = timeStamp;
   }
 
   // PSH-PTR-27.
@@ -417,50 +445,40 @@ export function createSwipeTracker(initialOptions: SwipeTrackerOptions): SwipeTr
     currentSwipeDirection = undefined;
     setSwiping(false);
     dragDismissed = false;
-    updateSwipeProgress(0);
+    updateSwipeProgress(0, false);
 
     swipeThreshold = swipeThresholdDefault;
     swipeThresholdFunction = null;
-    dragStartPos = { x: 0, y: 0 };
-    dragOffset = { x: 0, y: 0 };
-    initialTransform = { x: 0, y: 0, scale: 1 };
+    dragStartX = dragStartY = 0;
+    dragOffsetX = dragOffsetY = 0;
+    initialX = initialY = 0;
+    initialScale = 1;
     intendedSwipeDirection = undefined;
     maxSwipeDisplacement = 0;
     cancelledSwipe = false;
-    swipeCancelBaseline = { x: 0, y: 0 };
+    baselineX = baselineY = 0;
     isFirstPointerMove = false;
-    lastMovePos = null;
+    hasLastMove = false;
     pendingSwipe = false;
-    pendingSwipeStartPos = null;
+    hasPendingStart = false;
     swipeFromScrollable = false;
     sawPrimaryButtonsOnMove = false;
-    elementSize = { width: 0, height: 0 };
+    elementWidth = elementHeight = 0;
     swipeStartTime = null;
-    lastDragSample = null;
+    hasSample = false;
     hasStationarySample = false;
-    lastDragVelocity = { x: 0, y: 0 };
-    lastProgressDetails = null;
+    velocityX = velocityY = 0;
+    hasLastDetails = false;
     syncDragStyles(false);
   }
 
-  // PSH-EDGE-12: a touch event without a primary touch point has no position.
-  function getPrimaryPointerPosition(input: SwipeInput): SwipePoint | null {
-    if (input.touch) {
-      const touch = (input.nativeEvent as TouchEvent).touches?.[0];
-      return touch ? { x: touch.clientX, y: touch.clientY } : null;
-    }
-    const event = input.nativeEvent as PointerEvent;
-    return { x: event.clientX, y: event.clientY };
+  function isTouchLike(nativeEvent: PointerEvent | TouchEvent, touch: boolean): boolean {
+    return touch || (nativeEvent as PointerEvent).pointerType === 'touch';
   }
 
-  function isTouchLike(input: SwipeInput): boolean {
-    return input.touch || (input.nativeEvent as PointerEvent).pointerType === 'touch';
-  }
-
-  function getTargetAtPoint(position: SwipePoint, nativeEvent: Event): HTMLElement | null {
+  function getTargetAtPoint(x: number, y: number, nativeEvent: Event): HTMLElement | null {
     const root = options.element()?.getRootNode();
-    const elementAtPoint = getElementAtPoint(root, position.x, position.y);
-    return (elementAtPoint ?? getTarget(nativeEvent)) as HTMLElement | null;
+    return (getElementAtPoint(root, x, y) ?? getTarget(nativeEvent)) as HTMLElement | null;
   }
 
   // PSH-EDGE-13: the swiped element is positioned relative to the viewport, so the page scroller never gates the
@@ -473,19 +491,21 @@ export function createSwipeTracker(initialOptions: SwipeTrackerOptions): SwipeTr
 
   // PSH-PTR-10 and PSH-PTR-11.
   function startSwipeAtPosition(
-    input: SwipeInput,
-    position: SwipePoint,
-    startOptions?: { ignoreScrollableTarget?: boolean; ignoreScrollableAncestors?: boolean },
+    nativeEvent: PointerEvent | TouchEvent,
+    touch: boolean,
+    x: number,
+    y: number,
+    ignoreScrollableTarget = false,
+    ignoreScrollableAncestorsOnStart = false,
   ): boolean {
     swipeFromScrollable = false;
-    const touchLike = isTouchLike(input);
-    const target = getTargetAtPoint(position, input.nativeEvent);
+    const touchLike = isTouchLike(nativeEvent, touch);
+    const target = getTargetAtPoint(x, y, nativeEvent);
 
     const element = options.element();
     const body = ownerDocument(element).body;
 
     const scrollableTarget = touchLike && body ? findGestureScrollableTouchTarget(target, body) : null;
-    const ignoreScrollableTarget = startOptions?.ignoreScrollableTarget ?? false;
     if (scrollableTarget && !ignoreScrollableTarget) {
       return false;
     }
@@ -497,8 +517,7 @@ export function createSwipeTracker(initialOptions: SwipeTrackerOptions): SwipeTr
     }
 
     if ((options.ignoreScrollableAncestors ?? false) && element && target) {
-      const ignoreAncestors = startOptions?.ignoreScrollableAncestors ?? false;
-      if (!ignoreAncestors && findScrollableAncestor(target, element, scrollAxis) != null) {
+      if (!ignoreScrollableAncestorsOnStart && findScrollableAncestor(target, element, scrollAxis) != null) {
         return false;
       }
     }
@@ -507,35 +526,43 @@ export function createSwipeTracker(initialOptions: SwipeTrackerOptions): SwipeTr
     intendedSwipeDirection = undefined;
     maxSwipeDisplacement = 0;
 
-    dragStartPos = position;
-    swipeStartTime = getValidTimeStamp(input.nativeEvent.timeStamp);
-    lastDragSample = null;
+    dragStartX = x;
+    dragStartY = y;
+    swipeStartTime = getValidTimeStamp(nativeEvent.timeStamp);
+    hasSample = false;
     hasStationarySample = false;
-    lastDragVelocity = { x: 0, y: 0 };
-    swipeCancelBaseline = position;
-    lastMovePos = position;
+    velocityX = velocityY = 0;
+    baselineX = x;
+    baselineY = y;
+    hasLastMove = true;
+    lastMoveX = x;
+    lastMoveY = y;
     swipeThreshold = swipeThresholdDefault;
     swipeThresholdFunction = typeof options.swipeThreshold === 'function' ? options.swipeThreshold : null;
 
     if (element) {
-      elementSize = { width: element.offsetWidth, height: element.offsetHeight };
+      elementWidth = element.offsetWidth;
+      elementHeight = element.offsetHeight;
       resolveSwipeThreshold(primaryDirection);
       const transform = getElementTransform(element);
 
-      initialTransform = transform;
-      dragOffset = { x: transform.x, y: transform.y };
-      recordDragSample({ x: transform.x, y: transform.y }, swipeStartTime);
+      initialX = transform.x;
+      initialY = transform.y;
+      initialScale = transform.scale;
+      dragOffsetX = transform.x;
+      dragOffsetY = transform.y;
+      recordDragSample(transform.x, transform.y, swipeStartTime);
 
-      if (!input.touch) {
-        safelyChangePointerCapture(element, (input.nativeEvent as PointerEvent).pointerId, 'setPointerCapture');
+      if (!touch) {
+        safelyChangePointerCapture(element, (nativeEvent as PointerEvent).pointerId, 'setPointerCapture');
       }
     }
 
-    options.onSwipeStart?.(input.nativeEvent);
+    options.onSwipeStart?.(nativeEvent);
 
     setSwiping(true);
     isFirstPointerMove = true;
-    updateSwipeProgress(0);
+    updateSwipeProgress(0, false);
     syncDragStyles(true);
 
     return true;
@@ -543,13 +570,13 @@ export function createSwipeTracker(initialOptions: SwipeTrackerOptions): SwipeTr
 
   function clearPendingSwipeStartState(): void {
     pendingSwipe = false;
-    pendingSwipeStartPos = null;
+    hasPendingStart = false;
   }
 
   function resetPendingSwipeState(): void {
     clearPendingSwipeStartState();
     swipeFromScrollable = false;
-    lastMovePos = null;
+    hasLastMove = false;
   }
 
   // PSH-PTR-20.
@@ -562,7 +589,8 @@ export function createSwipeTracker(initialOptions: SwipeTrackerOptions): SwipeTr
 
     setSwiping(false);
 
-    dragOffset = { x: initialTransform.x, y: initialTransform.y };
+    dragOffsetX = initialX;
+    dragOffsetY = initialY;
     currentSwipeDirection = undefined;
     sawPrimaryButtonsOnMove = false;
     syncDragStyles(false);
@@ -572,29 +600,22 @@ export function createSwipeTracker(initialOptions: SwipeTrackerOptions): SwipeTr
       safelyChangePointerCapture(element, event.pointerId, 'releasePointerCapture');
     }
 
-    updateSwipeProgress(0, { deltaX: 0, deltaY: 0, direction: undefined });
+    updateSwipeProgress(0, true, 0, 0, undefined);
 
     options.onCancel?.(event);
   }
 
-  // PSH-ALG-08.
-  function applyDirectionalDamping(deltaX: number, deltaY: number): SwipePoint {
-    const exponent = (value: number) => Math.sign(value) * Math.abs(value) ** 0.5;
-    const dampAxis = (delta: number, allowNegative: boolean, allowPositive: boolean) =>
-      (!allowNegative && delta < 0) || (!allowPositive && delta > 0) ? exponent(delta) : delta;
-
-    return {
-      x: hasHorizontal ? dampAxis(deltaX, allowLeft, allowRight) : exponent(deltaX),
-      y: hasVertical ? dampAxis(deltaY, allowUp, allowDown) : exponent(deltaY),
-    };
+  // PSH-ALG-08: one axis of the directional damping.
+  function damp(delta: number, axisAllowed: boolean, allowNegative: boolean, allowPositive: boolean): number {
+    if (!axisAllowed || (!allowNegative && delta < 0) || (!allowPositive && delta > 0)) {
+      return Math.sign(delta) * Math.abs(delta) ** 0.5;
+    }
+    return delta;
   }
 
   // PSH-ALG-12's edge test: toward the axis start edge (down/right) is allowed when scrolled to the start, toward the
   // end edge (up/left) when scrolled to the end.
   function canSwipeFromScrollEdgeOnPendingMove(scrollTarget: HTMLElement, deltaX: number, deltaY: number): boolean | null {
-    const canSwipeOnAxis = (delta: number, scrollOffset: number, maxScrollOffset: number, allowTowardStart: boolean, allowTowardEnd: boolean) =>
-      (delta > 0 && scrollOffset <= 0 && allowTowardStart) || (delta < 0 && scrollOffset >= Math.max(0, maxScrollOffset) && allowTowardEnd);
-
     if (hasVertical && deltaY !== 0) {
       return canSwipeOnAxis(deltaY, scrollTarget.scrollTop, scrollTarget.scrollHeight - scrollTarget.clientHeight, allowDown, allowUp);
     }
@@ -607,58 +628,70 @@ export function createSwipeTracker(initialOptions: SwipeTrackerOptions): SwipeTr
   }
 
   // PSH-PTR-09.
-  function handleStart(input: SwipeInput): void {
-    if (!options.enabled) {
+  function handleStart(nativeEvent: PointerEvent | TouchEvent, touch: boolean): void {
+    if (!options.enabled || nativeEvent.defaultPrevented) {
       return;
     }
 
-    if (input.nativeEvent.defaultPrevented) {
+    if (!touch && (nativeEvent as PointerEvent).button !== 0) {
       return;
     }
 
-    if (!input.touch && (input.nativeEvent as PointerEvent).button !== 0) {
-      return;
-    }
-
-    const startPos = getPrimaryPointerPosition(input);
-    if (!startPos) {
-      return;
+    let x: number;
+    let y: number;
+    if (touch) {
+      // PSH-EDGE-12.
+      const first = (nativeEvent as TouchEvent).touches?.[0];
+      if (!first) {
+        return;
+      }
+      x = first.clientX;
+      y = first.clientY;
+    } else {
+      x = (nativeEvent as PointerEvent).clientX;
+      y = (nativeEvent as PointerEvent).clientY;
     }
 
     pendingSwipe = true;
-    pendingSwipeStartPos = startPos;
+    hasPendingStart = true;
+    pendingStartX = x;
+    pendingStartY = y;
     swipeFromScrollable = false;
-    sawPrimaryButtonsOnMove = !input.touch;
+    sawPrimaryButtonsOnMove = !touch;
 
-    const allowedToStart = options.canStart
-      ? options.canStart(startPos, { nativeEvent: input.nativeEvent, direction: primaryDirection })
-      : true;
-    if (!allowedToStart) {
+    if (!allowedToStart(nativeEvent, x, y)) {
       return;
     }
 
-    if (startSwipeAtPosition(input, startPos)) {
+    if (startSwipeAtPosition(nativeEvent, touch, x, y)) {
       clearPendingSwipeStartState();
     }
   }
 
   // PSH-ALG-07.
-  function handleMoveCore(input: SwipeInput, position: SwipePoint, movement: SwipePoint): void {
+  function handleMoveCore(
+    nativeEvent: PointerEvent | TouchEvent,
+    touch: boolean,
+    currentTarget: HTMLElement | null,
+    clientX: number,
+    clientY: number,
+    movementX: number,
+    movementY: number,
+  ): void {
     if (!options.enabled || !isSwiping) {
       return;
     }
 
     // PSH-PTR-19.
-    const target = getTarget(input.nativeEvent) as HTMLElement | null;
-    if (isTouchLike(input) && !swipeFromScrollable && input.currentTarget) {
-      if (findGestureScrollableTouchTarget(target, input.currentTarget)) {
+    if (isTouchLike(nativeEvent, touch) && !swipeFromScrollable && currentTarget) {
+      if (findGestureScrollableTouchTarget(getTarget(nativeEvent), currentTarget)) {
         return;
       }
     }
 
     // PSH-PTR-18: prevents text selection on Safari; touch moves are never prevented.
-    if (!input.touch) {
-      input.nativeEvent.preventDefault();
+    if (!touch) {
+      nativeEvent.preventDefault();
     }
 
     // PSH-PTR-13: the first move re-anchors the origin to absorb the gap between the press and the first move (notably
@@ -667,40 +700,32 @@ export function createSwipeTracker(initialOptions: SwipeTrackerOptions): SwipeTr
     if (isFirstPointerMove) {
       isFirstPointerMove = false;
       if (options.trackDrag ?? true) {
-        dragStartPos = position;
-        const moveTime = getValidTimeStamp(input.nativeEvent.timeStamp);
+        dragStartX = clientX;
+        dragStartY = clientY;
+        const moveTime = getValidTimeStamp(nativeEvent.timeStamp);
         if (moveTime !== null) {
           swipeStartTime = moveTime;
         }
-        lastDragSample = null;
+        hasSample = false;
         hasStationarySample = false;
       }
     }
 
-    const clientX = position.x;
-    const clientY = position.y;
-
-    if ((movement.y < 0 && clientY > swipeCancelBaseline.y) || (movement.y > 0 && clientY < swipeCancelBaseline.y)) {
-      swipeCancelBaseline = { x: swipeCancelBaseline.x, y: clientY };
+    if ((movementY < 0 && clientY > baselineY) || (movementY > 0 && clientY < baselineY)) {
+      baselineY = clientY;
     }
 
-    if ((movement.x < 0 && clientX > swipeCancelBaseline.x) || (movement.x > 0 && clientX < swipeCancelBaseline.x)) {
-      swipeCancelBaseline = { x: clientX, y: swipeCancelBaseline.y };
+    if ((movementX < 0 && clientX > baselineX) || (movementX > 0 && clientX < baselineX)) {
+      baselineX = clientX;
     }
 
-    const deltaX = clientX - dragStartPos.x;
-    const deltaY = clientY - dragStartPos.y;
-    const cancelDeltaY = clientY - swipeCancelBaseline.y;
-    const cancelDeltaX = clientX - swipeCancelBaseline.x;
+    const deltaX = clientX - dragStartX;
+    const deltaY = clientY - dragStartY;
 
     // PSH-PTR-14 and PSH-PTR-15.
     if (!intendedSwipeDirection) {
-      let candidate: SwipeDirection;
-      if (Math.abs(deltaX) >= Math.abs(deltaY)) {
-        candidate = deltaX > 0 ? 'right' : 'left';
-      } else {
-        candidate = deltaY > 0 ? 'down' : 'up';
-      }
+      const candidate: SwipeDirection =
+        Math.abs(deltaX) >= Math.abs(deltaY) ? (deltaX > 0 ? 'right' : 'left') : deltaY > 0 ? 'down' : 'up';
 
       const isAllowed =
         (candidate === 'left' && allowLeft) ||
@@ -715,7 +740,7 @@ export function createSwipeTracker(initialOptions: SwipeTrackerOptions): SwipeTr
       }
     } else {
       const direction = intendedSwipeDirection;
-      const currentDisplacement = getDisplacement(direction, cancelDeltaX, cancelDeltaY);
+      const currentDisplacement = getDisplacement(direction, clientX - baselineX, clientY - baselineY);
       if (currentDisplacement > swipeThreshold) {
         cancelledSwipe = false;
         currentSwipeDirection = direction;
@@ -726,60 +751,51 @@ export function createSwipeTracker(initialOptions: SwipeTrackerOptions): SwipeTr
     }
 
     // PSH-PTR-16.
-    const dampedDelta = applyDirectionalDamping(deltaX, deltaY);
-    let newOffsetX = initialTransform.x;
-    let newOffsetY = initialTransform.y;
-
-    if (hasHorizontal) {
-      newOffsetX += dampedDelta.x;
-    }
-    if (hasVertical) {
-      newOffsetY += dampedDelta.y;
-    }
+    const newOffsetX = hasHorizontal ? initialX + damp(deltaX, hasHorizontal, allowLeft, allowRight) : initialX;
+    const newOffsetY = hasVertical ? initialY + damp(deltaY, hasVertical, allowUp, allowDown) : initialY;
 
     // The drag styles are rewritten only when the offset changed: they carry the raw frozen transform, and a consumer's
     // progress listener overwrites them with damped styles, but an unchanged report is deduplicated and never reaches
     // it (useSwipeDismiss.ts:676-682).
-    const offsetChanged = newOffsetX !== dragOffset.x || newOffsetY !== dragOffset.y;
+    const offsetChanged = newOffsetX !== dragOffsetX || newOffsetY !== dragOffsetY;
 
-    dragOffset = { x: newOffsetX, y: newOffsetY };
+    dragOffsetX = newOffsetX;
+    dragOffsetY = newOffsetY;
     if (offsetChanged) {
       syncDragStyles(true);
     }
-    recordDragSample({ x: newOffsetX, y: newOffsetY }, getValidTimeStamp(input.nativeEvent.timeStamp));
-    const dragDeltaX = newOffsetX - initialTransform.x;
-    const dragDeltaY = newOffsetY - initialTransform.y;
+    recordDragSample(newOffsetX, newOffsetY, getValidTimeStamp(nativeEvent.timeStamp));
+    const dragDeltaX = newOffsetX - initialX;
+    const dragDeltaY = newOffsetY - initialY;
 
     // PSH-PTR-17.
     let progress = 0;
     const progressDirection = primaryDirection ?? intendedSwipeDirection;
     if (progressDirection) {
-      const size = progressDirection === 'left' || progressDirection === 'right' ? elementSize.width : elementSize.height;
-      const scale = initialTransform.scale || 1;
+      const size = progressDirection === 'left' || progressDirection === 'right' ? elementWidth : elementHeight;
+      const scale = initialScale || 1;
       const progressDisplacement = getDisplacement(progressDirection, dragDeltaX, dragDeltaY);
       if (size > 0 && scale > 0 && progressDisplacement > 0) {
         progress = progressDisplacement / (size * scale);
       }
     }
 
-    updateSwipeProgress(progress, { deltaX: dragDeltaX, deltaY: dragDeltaY, direction: intendedSwipeDirection });
+    updateSwipeProgress(progress, true, dragDeltaX, dragDeltaY, intendedSwipeDirection);
   }
 
   // PSH-PTR-23..26 and PSH-ALG-11.
-  function handleEnd(input: SwipeInput): void {
+  function handleEnd(nativeEvent: PointerEvent | TouchEvent, touch: boolean): void {
     if (!options.enabled) {
       return;
     }
 
-    const resolvedDragOffset = dragOffset;
-    const resolvedInitialTransform = initialTransform;
-    const releaseDeltaX = resolvedDragOffset.x - resolvedInitialTransform.x;
-    const releaseDeltaY = resolvedDragOffset.y - resolvedInitialTransform.y;
-    const progressDetails: SwipeProgressDetails = { deltaX: releaseDeltaX, deltaY: releaseDeltaY, direction: intendedSwipeDirection };
+    const releaseDeltaX = dragOffsetX - initialX;
+    const releaseDeltaY = dragOffsetY - initialY;
+    const releaseDirection = intendedSwipeDirection;
 
     if (!isSwiping) {
       resetPendingSwipeState();
-      updateSwipeProgress(0, progressDetails);
+      updateSwipeProgress(0, true, releaseDeltaX, releaseDeltaY, releaseDirection);
       return;
     }
 
@@ -788,32 +804,27 @@ export function createSwipeTracker(initialOptions: SwipeTrackerOptions): SwipeTr
     sawPrimaryButtonsOnMove = false;
 
     const element = options.element();
-    if (element && !input.touch) {
-      safelyChangePointerCapture(element, (input.nativeEvent as PointerEvent).pointerId, 'releasePointerCapture');
+    if (element && !touch) {
+      safelyChangePointerCapture(element, (nativeEvent as PointerEvent).pointerId, 'releasePointerCapture');
     }
 
-    const deltaX = releaseDeltaX;
-    const deltaY = releaseDeltaY;
     const startTime = swipeStartTime;
-    const endTime = getValidTimeStamp(input.nativeEvent.timeStamp);
+    const endTime = getValidTimeStamp(nativeEvent.timeStamp);
     const durationMs = startTime !== null && endTime !== null && endTime > startTime ? endTime - startTime : 0;
     const velocityDurationMs = durationMs > 0 ? Math.max(durationMs, MIN_VELOCITY_DURATION_MS) : 0;
-    const velocityX = velocityDurationMs > 0 ? deltaX / velocityDurationMs : 0;
-    const velocityY = velocityDurationMs > 0 ? deltaY / velocityDurationMs : 0;
-    let releaseVelocityX = lastDragVelocity.x;
-    let releaseVelocityY = lastDragVelocity.y;
-    const lastSample = lastDragSample;
-    if (lastSample && endTime !== null && endTime >= lastSample.time) {
-      const ageMs = endTime - lastSample.time;
+    let releaseVelocityX = velocityX;
+    let releaseVelocityY = velocityY;
+    if (hasSample && endTime !== null && endTime >= sampleTime) {
+      const ageMs = endTime - sampleTime;
       if (ageMs <= MAX_RELEASE_VELOCITY_AGE_MS) {
         const sampleDurationMs = Math.max(ageMs, MIN_RELEASE_VELOCITY_DURATION_MS);
-        const deltaFromLastSampleX = resolvedDragOffset.x - lastSample.x;
-        const deltaFromLastSampleY = resolvedDragOffset.y - lastSample.y;
-        if (Math.abs(deltaFromLastSampleX) >= MIN_VELOCITY_SAMPLE_DISTANCE) {
-          releaseVelocityX = deltaFromLastSampleX / sampleDurationMs;
+        const deltaFromSampleX = dragOffsetX - sampleX;
+        const deltaFromSampleY = dragOffsetY - sampleY;
+        if (Math.abs(deltaFromSampleX) >= MIN_VELOCITY_SAMPLE_DISTANCE) {
+          releaseVelocityX = deltaFromSampleX / sampleDurationMs;
         }
-        if (Math.abs(deltaFromLastSampleY) >= MIN_VELOCITY_SAMPLE_DISTANCE) {
-          releaseVelocityY = deltaFromLastSampleY / sampleDurationMs;
+        if (Math.abs(deltaFromSampleY) >= MIN_VELOCITY_SAMPLE_DISTANCE) {
+          releaseVelocityY = deltaFromSampleY / sampleDurationMs;
         }
       } else {
         releaseVelocityX = 0;
@@ -822,22 +833,27 @@ export function createSwipeTracker(initialOptions: SwipeTrackerOptions): SwipeTr
     }
 
     const releaseDecision = options.onRelease?.({
-      event: input.nativeEvent,
-      direction: intendedSwipeDirection,
-      deltaX,
-      deltaY,
-      velocityX,
-      velocityY,
+      event: nativeEvent,
+      direction: releaseDirection,
+      deltaX: releaseDeltaX,
+      deltaY: releaseDeltaY,
+      velocityX: velocityDurationMs > 0 ? releaseDeltaX / velocityDurationMs : 0,
+      velocityY: velocityDurationMs > 0 ? releaseDeltaY / velocityDurationMs : 0,
       releaseVelocityX,
       releaseVelocityY,
     });
     const hasReleaseDecision = typeof releaseDecision === 'boolean';
 
-    if (cancelledSwipe && !hasReleaseDecision) {
-      dragOffset = { x: resolvedInitialTransform.x, y: resolvedInitialTransform.y };
+    const snapBack = () => {
+      dragOffsetX = initialX;
+      dragOffsetY = initialY;
       currentSwipeDirection = undefined;
       syncDragStyles(false);
-      updateSwipeProgress(0, progressDetails);
+      updateSwipeProgress(0, true, releaseDeltaX, releaseDeltaY, releaseDirection);
+    };
+
+    if (cancelledSwipe && !hasReleaseDecision) {
+      snapBack();
       return;
     }
 
@@ -846,10 +862,10 @@ export function createSwipeTracker(initialOptions: SwipeTrackerOptions): SwipeTr
 
     if (hasReleaseDecision) {
       shouldClose = releaseDecision;
-      dismissDirection = intendedSwipeDirection ?? primaryDirection;
+      dismissDirection = releaseDirection ?? primaryDirection;
     } else {
       for (const direction of options.directions) {
-        if (getDisplacement(direction, deltaX, deltaY) > swipeThreshold) {
+        if (getDisplacement(direction, releaseDeltaX, releaseDeltaY) > swipeThreshold) {
           shouldClose = true;
           dismissDirection = direction;
           break;
@@ -862,25 +878,32 @@ export function createSwipeTracker(initialOptions: SwipeTrackerOptions): SwipeTr
       currentSwipeDirection = dismissDirection;
       dragDismissed = true;
       syncDragStyles(false);
-      options.onDismiss?.(input.nativeEvent, { direction: dismissDirection });
+      options.onDismiss?.(nativeEvent, { direction: dismissDirection });
     } else {
-      dragOffset = { x: resolvedInitialTransform.x, y: resolvedInitialTransform.y };
-      currentSwipeDirection = undefined;
-      syncDragStyles(false);
-      updateSwipeProgress(0, progressDetails);
+      snapBack();
     }
   }
 
-  function handleMove(input: SwipeInput): void {
-    const currentPos = getPrimaryPointerPosition(input);
-    if (!currentPos) {
-      return;
+  function handleMove(nativeEvent: PointerEvent | TouchEvent, touch: boolean, currentTarget: HTMLElement | null): void {
+    let x: number;
+    let y: number;
+    if (touch) {
+      // PSH-EDGE-12.
+      const first = (nativeEvent as TouchEvent).touches?.[0];
+      if (!first) {
+        return;
+      }
+      x = first.clientX;
+      y = first.clientY;
+    } else {
+      x = (nativeEvent as PointerEvent).clientX;
+      y = (nativeEvent as PointerEvent).clientY;
     }
 
     let endAfterMove = false;
 
-    if (!input.touch) {
-      const event = input.nativeEvent as PointerEvent;
+    if (!touch) {
+      const event = nativeEvent as PointerEvent;
       const hasPrimaryButton = hasPrimaryMouseButton(event.buttons);
       if (hasPrimaryButton) {
         sawPrimaryButtonsOnMove = true;
@@ -897,7 +920,7 @@ export function createSwipeTracker(initialOptions: SwipeTrackerOptions): SwipeTr
       if (event.buttons === 0 && sawPrimaryButtonsOnMove) {
         if (!isSwiping) {
           // The gesture never activated: discard it.
-          handleEnd(input);
+          handleEnd(nativeEvent, touch);
           return;
         }
         // The release move can carry the threshold-crossing displacement and the peak velocity, so it is applied
@@ -907,31 +930,23 @@ export function createSwipeTracker(initialOptions: SwipeTrackerOptions): SwipeTr
     }
 
     if (!isSwiping && pendingSwipe) {
-      if (!isTouchLike(input) && input.nativeEvent.defaultPrevented) {
+      const touchLike = isTouchLike(nativeEvent, touch);
+      if (!touchLike && nativeEvent.defaultPrevented) {
         resetPendingSwipeState();
         return;
       }
 
-      const allowedToStart = options.canStart
-        ? options.canStart(currentPos, { nativeEvent: input.nativeEvent, direction: primaryDirection })
-        : true;
-
-      if (allowedToStart) {
-        const pendingStartPos = pendingSwipeStartPos;
+      if (allowedToStart(nativeEvent, x, y)) {
         let ignoreScrollableOnStart = false;
-        if (isTouchLike(input)) {
+        if (touchLike) {
           const element = options.element();
-          if (pendingStartPos && element) {
-            const target = getTargetAtPoint(currentPos, input.nativeEvent);
+          if (hasPendingStart && element) {
+            const target = getTargetAtPoint(x, y, nativeEvent);
             const body = ownerDocument(element).body;
             const scrollTarget = body ? findGestureScrollableTouchTarget(target, body) : null;
 
             if (scrollTarget && (contains(element, scrollTarget) || contains(scrollTarget, element))) {
-              const canSwipeFromEdge = canSwipeFromScrollEdgeOnPendingMove(
-                scrollTarget,
-                currentPos.x - pendingStartPos.x,
-                currentPos.y - pendingStartPos.y,
-              );
+              const canSwipeFromEdge = canSwipeFromScrollEdgeOnPendingMove(scrollTarget, x - pendingStartX, y - pendingStartY);
 
               if (canSwipeFromEdge === false) {
                 return;
@@ -944,18 +959,17 @@ export function createSwipeTracker(initialOptions: SwipeTrackerOptions): SwipeTr
           }
         }
 
-        const started = startSwipeAtPosition(input, currentPos, {
-          ignoreScrollableTarget: ignoreScrollableOnStart,
-          ignoreScrollableAncestors: ignoreScrollableOnStart,
-        });
-        if (started) {
+        const hadPendingStart = hasPendingStart;
+        const fromX = pendingStartX;
+        const fromY = pendingStartY;
+        if (startSwipeAtPosition(nativeEvent, touch, x, y, ignoreScrollableOnStart, ignoreScrollableOnStart)) {
           clearPendingSwipeStartState();
-          if (pendingStartPos && ignoreScrollableOnStart) {
+          if (hadPendingStart && ignoreScrollableOnStart) {
             // The displacement between the press and the move that activates a swipe from a scroll edge is kept, so
             // quick flicks can dismiss.
-            dragStartPos = pendingStartPos;
-            swipeCancelBaseline = pendingStartPos;
-            lastMovePos = pendingStartPos;
+            dragStartX = baselineX = lastMoveX = fromX;
+            dragStartY = baselineY = lastMoveY = fromY;
+            hasLastMove = true;
             isFirstPointerMove = false;
           } else {
             // The swipe starts from the current in-bounds position without dropping the next move's displacement,
@@ -966,23 +980,27 @@ export function createSwipeTracker(initialOptions: SwipeTrackerOptions): SwipeTr
       }
     }
 
-    const previousPos = lastMovePos;
-    const movement = previousPos === null ? { x: 0, y: 0 } : { x: currentPos.x - previousPos.x, y: currentPos.y - previousPos.y };
+    const movementX = hasLastMove ? x - lastMoveX : 0;
+    const movementY = hasLastMove ? y - lastMoveY : 0;
 
-    lastMovePos = currentPos;
-    handleMoveCore(input, currentPos, movement);
+    hasLastMove = true;
+    lastMoveX = x;
+    lastMoveY = y;
+    handleMoveCore(nativeEvent, touch, currentTarget, x, y, movementX, movementY);
 
     if (endAfterMove) {
-      handleEnd(input);
+      handleEnd(nativeEvent, touch);
     }
   }
 
-  const onPointerDown = (event: PointerEvent) => handleStart(pointerInput(event));
-  const onPointerMove = (event: PointerEvent) => handleMove(pointerInput(event));
-  const onPointerEnd = (event: PointerEvent) => handleEnd(pointerInput(event));
-  const onTouchStart = (event: TouchEvent) => handleStart(touchInput(event));
-  const onTouchMove = (event: TouchEvent) => handleMove(touchInput(event));
-  const onTouchEnd = (event: TouchEvent) => handleEnd(touchInput(event));
+  const onPointerDown = (event: PointerEvent) => handleStart(event, false);
+  const onPointerMove = (event: PointerEvent) => handleMove(event, false, event.currentTarget as HTMLElement | null);
+  const onPointerEnd = (event: PointerEvent) => handleEnd(event, false);
+  const onTouchStart = (event: TouchEvent) => handleStart(event, true);
+  const onTouchMove = (event: TouchEvent) => handleMove(event, true, event.currentTarget as HTMLElement | null);
+  const onTouchEnd = (event: TouchEvent) => handleEnd(event, true);
+  const pointerProps: SwipePointerHandlers = { pointerdown: onPointerDown, pointermove: onPointerMove, pointerup: onPointerEnd, pointercancel: onPointerEnd };
+  const touchProps: SwipeTouchHandlers = { touchstart: onTouchStart, touchmove: onTouchMove, touchend: onTouchEnd, touchcancel: onTouchEnd };
 
   return {
     get swiping() {
@@ -999,22 +1017,20 @@ export function createSwipeTracker(initialOptions: SwipeTrackerOptions): SwipeTr
       derive();
     },
     getPointerProps() {
-      return options.enabled
-        ? { pointerdown: onPointerDown, pointermove: onPointerMove, pointerup: onPointerEnd, pointercancel: onPointerEnd }
-        : {};
+      return options.enabled ? pointerProps : {};
     },
     getTouchProps() {
-      return options.enabled ? { touchstart: onTouchStart, touchmove: onTouchMove, touchend: onTouchEnd, touchcancel: onTouchEnd } : {};
+      return options.enabled ? touchProps : {};
     },
     moveNative(event, currentTarget) {
-      handleMove(touchInput(event, currentTarget));
+      handleMove(event, true, currentTarget);
     },
     // PSH-DOM-17's render values: the live gesture, never a stale flag, so a render that commits mid-gesture keeps the
     // transform the imperative writer set.
     getDragStyles() {
       const { x, y } = options.movementCssVars;
-      const deltaX = dragOffset.x - initialTransform.x;
-      const deltaY = dragOffset.y - initialTransform.y;
+      const deltaX = dragOffsetX - initialX;
+      const deltaY = dragOffsetY - initialY;
 
       if (!isSwiping && deltaX === 0 && deltaY === 0 && !dragDismissed) {
         return { [x]: '0px', [y]: '0px' };
@@ -1024,7 +1040,7 @@ export function createSwipeTracker(initialOptions: SwipeTrackerOptions): SwipeTr
       if (isSwiping) {
         // While swiping, the element is frozen at its current visual transform so it does not snap to the end position.
         styles.transition = 'none';
-        styles.transform = getDragTransform(dragOffset, initialTransform.scale);
+        styles.transform = getDragTransform(dragOffsetX, dragOffsetY, initialScale);
       }
       styles[x] = `${deltaX}px`;
       styles[y] = `${deltaY}px`;
