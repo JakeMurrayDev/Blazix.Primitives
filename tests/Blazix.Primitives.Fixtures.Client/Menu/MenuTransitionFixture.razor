@@ -15,7 +15,8 @@
     - `checkbox-indicator`, `radio-indicator` (MenuCheckboxItemIndicator.test.tsx, MenuRadioItemIndicator.test.tsx): an open,
       non-modal root with one item checked until `[data-uncheck]`; `indicatorKeepMounted`, `indicatorClass`.
     - `hover-triggers` (MenuRoot.detached-triggers.test.tsx): two detached hover triggers `trigger-1`, `trigger-2` with a
-      payload; `late-commit`: a controlled root following the trigger of each open, committing a close 400 ms later.
+      payload, the positioner's top, left and transform transitioning over `switch` ms (120) and the popup fading out over
+      `exit` ms (250), as `popover-detached`'s `hover-switch` (issue 261); `late-commit`: a controlled root following the trigger of each open, committing a close 400 ms later.
     The container records `data-open-changes`, `data-open-change-completes` and `data-submenu-open-changes`.
 *@
 <FixtureContainer Name="menu-transition" data-attached="@(Attached ? "true" : "false")" data-sync="@Sync"
@@ -26,8 +27,8 @@
         .transition-state[data-open]:not([data-starting-style]) { opacity: 1; }
         @@keyframes menu-transition-test-anim { to { opacity: 0; } }
         .animation-test-indicator[data-ending-style] { animation: menu-transition-test-anim 1ms; }
-        .positioner { transition: top 120ms linear, left 120ms linear, transform 120ms linear; }
-        .popup { opacity: 1; transition: opacity 250ms linear; }
+        .positioner { transition: top @(switchMs)ms linear, left @(switchMs)ms linear, transform @(switchMs)ms linear; }
+        .popup { opacity: 1; transition: opacity @(exitMs)ms linear; }
         .popup[data-ending-style] { opacity: 0; }
         .positioner[data-instant], .popup[data-instant] { transition: none; }
         @if (lateStyle)
@@ -142,6 +143,8 @@
     private readonly MenuHandle<int> payloadHandle = new();
     private bool followOpen;
     private bool lateStyle;
+    private int switchMs = 120;
+    private int exitMs = 250;
     private bool controlled;
     private bool open;
     private bool defaultOpen;
@@ -195,6 +198,8 @@
         showSubPopup = QueryFlag("hideSubPopup") != true;
         indicatorKeepMounted = QueryFlag("indicatorKeepMounted") == true;
         indicatorClass = Query("indicatorClass");
+        switchMs = int.TryParse(Query("switch"), out int switching) ? switching : switchMs;
+        exitMs = int.TryParse(Query("exit"), out int exiting) ? exiting : exitMs;
     }
 
     private void RecordSubmenuChange(ValueChangeEventArgs<bool> args) =>

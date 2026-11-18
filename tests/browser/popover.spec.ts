@@ -1,5 +1,6 @@
 import { type Locator, type Route } from '@playwright/test';
 import { delayCircuit, expect, Fixture, fixtureUrl, isScrollLocked, test, throttleCpu, type Page, type RenderMode } from './helpers';
+import { finishSwitchTransitions, recordSwitchTransitions, switchTransitions } from './helpers/switchTransitions';
 import { detachedTriggersConformanceTests } from './suites/detachedTriggersConformanceTests';
 import { popupConformanceTests } from './suites/popupConformanceTests';
 import { gotoPopupFixture, openChangeCompletes, openChanges, pressControl, recordTransitionStates, settle, type PopupFixtureOptions } from './suites/popupFixture';
@@ -1399,42 +1400,6 @@ const clearInstants = (page: Page) => page.evaluate(() => {
   const recorded = (window as unknown as { instants: { ending: unknown[]; pending: unknown[] } }).instants;
   recorded.ending.length = 0;
   recorded.pending.length = 0;
-});
-
-// The positioner's transitions from now on, each recorded at its `transitionrun` (issue 175): a switch between triggers moves
-// the positioner, and its transitions are the ones a trigger-change callback waits on.
-async function recordSwitchTransitions(page: Page): Promise<void> {
-  await page.evaluate(() => {
-    const recorded: Animation[] = [];
-    (window as unknown as { switchTransitions: Animation[] }).switchTransitions = recorded;
-    document.addEventListener('transitionrun', (event) => {
-      const target = event.target as Element;
-      if (target.getAttribute('data-testid') !== 'positioner') {
-        return;
-      }
-      const property = (event as TransitionEvent).propertyName;
-      for (const animation of target.getAnimations()) {
-        if ((animation as CSSTransition).transitionProperty === property && !recorded.includes(animation)) {
-          recorded.push(animation);
-        }
-      }
-    }, true);
-  });
-}
-
-const switchTransitions = (page: Page) => page.evaluate(() => (window as unknown as { switchTransitions: Animation[] }).switchTransitions.length);
-
-// Finishes every recorded switch transition still running and waits until each has settled. A canceled one (a second
-// positioning pass replaced it) is skipped: canceling replaces an animation's `finished` promise with a new pending one,
-// which never settles (issue 261).
-const finishSwitchTransitions = (page: Page) => page.evaluate(async () => {
-  const running = (window as unknown as { switchTransitions: Animation[] }).switchTransitions.filter(
-    (animation) => animation.playState === 'running' || animation.playState === 'paused',
-  );
-  for (const animation of running) {
-    animation.finish();
-  }
-  await Promise.allSettled(running.map((animation) => animation.finished));
 });
 
 // PopoverRoot.detached-triggers.test.tsx's multiple detached triggers and multiple triggers within Root, on
