@@ -107,8 +107,13 @@ internal sealed class DialogStore<TPayload> : PopupStore<DialogStoreState<TPaylo
 
     /// <summary>Gets the family's name in diagnostics for a mode.</summary>
     /// <param name="mode">The mode.</param>
-    /// <returns><c>Dialog</c> or <c>AlertDialog</c>.</returns>
-    public static string NameOf(DialogMode mode) => mode == DialogMode.AlertDialog ? "AlertDialog" : "Dialog";
+    /// <returns><c>Dialog</c>, <c>AlertDialog</c> or <c>Drawer</c>.</returns>
+    public static string NameOf(DialogMode mode) => mode switch
+    {
+        DialogMode.AlertDialog => "AlertDialog",
+        DialogMode.Drawer => "Drawer",
+        _ => "Dialog",
+    };
 
     // DLG-STA-02, DLG-API-03/06, ADL §3.5: the prop-derived fields, after the mode's overrides.
     /// <summary>Applies the root's modality, pointer dismissal and nesting, after the mode's forced values.</summary>
