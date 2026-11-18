@@ -1,7 +1,7 @@
-// L3 (ADR 06 §1): the `swipe` mechanism module's shared constants, selectors and displacement in jsdom. Base UI tests none
-// of them directly (they are module constants of utils/useSwipeDismiss.ts and internals/constants.ts), so every title is
-// the port's own: PSH §4.7.5's constants and displacement, and UTL-EDGE-19's swipe-ignore clause. The tracker's titles are
-// session D's (PR 8b).
+// L3 (ADR 06 §1): the `swipe` mechanism module's shared constants, selectors and displacement in jsdom. Base UI tests
+// none of them directly (they are module constants of utils/useSwipeDismiss.ts and internals/constants.ts), so every
+// title is the port's own: PSH §4.7.5's constants and displacement, and UTL-EDGE-19's swipe-ignore clause. The
+// tracker's titles are session D's (PR 8b).
 import { describe, expect, it } from 'vitest';
 import {
   BASE_UI_SWIPE_IGNORE_ATTRIBUTE,
