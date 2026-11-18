@@ -58,7 +58,7 @@ public sealed class NumberFieldEditContextTests : IDisposable
 
         await test.ClickAsync(cut, cut.FindComponent<NumberFieldIncrement>().Instance);
 
-        Assert.Equal("1", cut.Find("input[type=text]").GetAttribute("value"));
+        Assert.Equal("1", test.Text);
         Assert.Equal(0, changes);
     }
 

@@ -19,6 +19,7 @@ public sealed class NumberFieldTestContext : IDisposable
 {
     public const string ButtonModulePath = "./_content/Blazix.Primitives/js/button.js";
     public const string FormModulePath = "./_content/Blazix.Primitives/js/form.js";
+    public const string NumberFieldModulePath = "./_content/Blazix.Primitives/js/number-field.js";
 
     public const string InteractionsModulePath = "./_content/Blazix.Primitives/js/interactions.js";
 
@@ -39,6 +40,10 @@ public sealed class NumberFieldTestContext : IDisposable
         FormHandle = FormModule.SetupModule("attach", _ => true);
         FormHandle.SetupVoid("update", _ => true).SetVoidResult();
         FormHandle.SetupVoid("dispose", _ => true).SetVoidResult();
+        NumberFieldModule = Context.JSInterop.SetupModule(NumberFieldModulePath);
+        NumberFieldHandle = NumberFieldModule.SetupModule("attach", _ => true);
+        NumberFieldHandle.SetupVoid("update", _ => true).SetVoidResult();
+        NumberFieldHandle.SetupVoid("dispose", _ => true).SetVoidResult();
     }
 
     public BunitContext Context { get; } = new();
@@ -52,6 +57,17 @@ public sealed class NumberFieldTestContext : IDisposable
     public BunitJSModuleInterop FormModule { get; }
 
     public BunitJSModuleInterop FormHandle { get; }
+
+    public BunitJSModuleInterop NumberFieldModule { get; }
+
+    public BunitJSModuleInterop NumberFieldHandle { get; }
+
+    /// <summary>The options JSON of every <c>number-field</c> attach and update, in order.</summary>
+    public IReadOnlyList<string> NumberFieldOptions =>
+        [
+            .. NumberFieldModule.Invocations["attach"].Select(i => (string)i.Arguments[1]!),
+            .. NumberFieldHandle.Invocations["update"].Select(i => (string)i.Arguments[0]!),
+        ];
 
     /// <summary>The options JSON of every <c>button</c> update, in order.</summary>
     public IReadOnlyList<string> ButtonUpdates => [.. ButtonHandle.Invocations["update"].Select(i => (string)i.Arguments[0]!)];
@@ -123,6 +139,31 @@ public sealed class NumberFieldTestContext : IDisposable
         ButtonTwin twin = ButtonTwin(stepper);
         string json = $$"""{"event":{{EventJson("pointerup")}}}""";
         return cut.InvokeAsync(() => twin.OnHoldStop(json));
+    }
+
+    // The module owns the visible input's `value` from attach (C# → JS): the text the user sees is the last text C# sent.
+    /// <summary>Gets the text the visible input shows: the last text sent to the <c>number-field</c> module.</summary>
+    public string Text => JsonDocument.Parse(NumberFieldOptions[^1]).RootElement.GetProperty("value").GetString()!;
+
+    /// <summary>The <see cref="NumberFieldTwin"/> attached last.</summary>
+    internal NumberFieldTwin NumberFieldTwin() =>
+        ((DotNetObjectReference<NumberFieldTwin>)NumberFieldModule.Invocations["attach"][^1].Arguments[2]!).Value;
+
+    /// <summary>Reports a focus of the visible input, as the module does.</summary>
+    internal Task FocusAsync<TComponent>(IRenderedComponent<TComponent> cut)
+        where TComponent : IComponent
+    {
+        NumberFieldTwin twin = NumberFieldTwin();
+        return cut.InvokeAsync(() => twin.OnInputFocus("""{"event":{"kind":"FocusEvent","type":"focus"}}"""));
+    }
+
+    /// <summary>Reports a blur of the visible input with the text it shows, as the module does.</summary>
+    internal Task BlurAsync<TComponent>(IRenderedComponent<TComponent> cut, string text, int revision = 1)
+        where TComponent : IComponent
+    {
+        NumberFieldTwin twin = NumberFieldTwin();
+        string json = JsonSerializer.Serialize(new { text, revision, @event = new { kind = "FocusEvent", type = "blur" } });
+        return cut.InvokeAsync(() => twin.OnInputBlur(json));
     }
 
     private static string Bool(bool value) => value ? "true" : "false";

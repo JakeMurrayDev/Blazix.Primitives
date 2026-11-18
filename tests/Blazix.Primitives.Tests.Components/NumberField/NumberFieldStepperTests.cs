@@ -78,7 +78,7 @@ public abstract class NumberFieldStepperTests : IDisposable
 
         await test.ClickAsync(cut, Stepper(cut));
 
-        Assert.Equal("0", Input(cut).GetAttribute("value"));
+        Assert.Equal("0", test.Text);
     }
 
     [Fact(DisplayName = "steps once from defaultValue=0")]
@@ -89,7 +89,7 @@ public abstract class NumberFieldStepperTests : IDisposable
 
         await test.ClickAsync(cut, Stepper(cut));
 
-        Assert.Equal(Step1, Input(cut).GetAttribute("value"));
+        Assert.Equal(Step1, test.Text);
     }
 
     [Fact(DisplayName = "seeds an empty fully-negative range in range on the first step")]
@@ -100,7 +100,7 @@ public abstract class NumberFieldStepperTests : IDisposable
 
         await test.ClickAsync(cut, Stepper(cut));
 
-        Assert.Equal("-5", Input(cut).GetAttribute("value"));
+        Assert.Equal("-5", test.Text);
     }
 
     [Fact(DisplayName = "seeds an empty field in range without directional snapping")]
@@ -115,7 +115,7 @@ public abstract class NumberFieldStepperTests : IDisposable
 
         await test.ClickAsync(cut, Stepper(cut));
 
-        Assert.Equal("-5", Input(cut).GetAttribute("value"));
+        Assert.Equal("-5", test.Text);
     }
 
     [Fact(DisplayName = "only calls onValueChange once per step")]
@@ -138,10 +138,10 @@ public abstract class NumberFieldStepperTests : IDisposable
         IRenderedComponent<NumberFieldStepperHost> cut = Render(p => p.Add(x => x.Controlled, true));
 
         await cut.InvokeAsync(() => cut.Instance.ExternalValue(1.23456));
-        Assert.Equal(1.23456.ToString("#,##0.###", CultureInfo.GetCultureInfo("en-US")), Input(cut).GetAttribute("value"));
+        Assert.Equal(1.23456.ToString("#,##0.###", CultureInfo.GetCultureInfo("en-US")), test.Text);
 
         await test.ClickAsync(cut, Stepper(cut));
-        Assert.Equal(FromFractional.ToString("#,##0.###", CultureInfo.GetCultureInfo("en-US")), Input(cut).GetAttribute("value"));
+        Assert.Equal(FromFractional.ToString("#,##0.###", CultureInfo.GetCultureInfo("en-US")), test.Text);
     }
 
     [Fact(DisplayName = "steps uncontrolled defaultValue from numeric state, not rounded display text")]
@@ -150,12 +150,12 @@ public abstract class NumberFieldStepperTests : IDisposable
     public async Task Steps_uncontrolled_defaultValue_from_numeric_state_not_rounded_display_text()
     {
         IRenderedComponent<NumberFieldStepperHost> cut = Render(p => p.Add(x => x.DefaultValue, 1.23456));
-        Assert.Equal("1.235", Input(cut).GetAttribute("value"));
+        Assert.Equal("1.235", test.Text);
 
         await test.ClickAsync(cut, Stepper(cut));
 
         Assert.Equal([FromFractional], cut.Instance.Changes);
-        Assert.Equal(FromFractional.ToString("#,##0.###", CultureInfo.GetCultureInfo("en-US")), Input(cut).GetAttribute("value"));
+        Assert.Equal(FromFractional.ToString("#,##0.###", CultureInfo.GetCultureInfo("en-US")), test.Text);
     }
 
     // NUM-PTR-03 at L2: the hold's tick that applied nothing at the boundary stops the repeat through the hold stop.
@@ -171,13 +171,13 @@ public abstract class NumberFieldStepperTests : IDisposable
 
         await test.PressAsync(cut, Stepper(cut));
 
-        Assert.Equal(BoundaryValue.ToString(CultureInfo.InvariantCulture), Input(cut).GetAttribute("value"));
+        Assert.Equal(BoundaryValue.ToString(CultureInfo.InvariantCulture), test.Text);
         Assert.Single(cut.Instance.Changes);
 
         await test.TickAsync(cut, Stepper(cut));
         await test.TickAsync(cut, Stepper(cut));
 
-        Assert.Equal(BoundaryValue.ToString(CultureInfo.InvariantCulture), Input(cut).GetAttribute("value"));
+        Assert.Equal(BoundaryValue.ToString(CultureInfo.InvariantCulture), test.Text);
         Assert.Single(cut.Instance.Changes);
         Assert.Contains(test.ButtonUpdates, update => update.Contains("\"holdStop\":", StringComparison.Ordinal));
         Assert.True(Button(cut).HasAttribute("disabled"));
@@ -195,7 +195,7 @@ public abstract class NumberFieldStepperTests : IDisposable
 
         await test.ClickAsync(cut, Stepper(cut));
 
-        Assert.Equal(string.Empty, Input(cut).GetAttribute("value"));
+        Assert.Equal(string.Empty, test.Text);
         Assert.Empty(cut.Instance.Changes);
     }
 
@@ -208,7 +208,7 @@ public abstract class NumberFieldStepperTests : IDisposable
 
         await test.ClickAsync(cut, Stepper(cut));
 
-        Assert.Equal(string.Empty, Input(cut).GetAttribute("value"));
+        Assert.Equal(string.Empty, test.Text);
         Assert.Empty(cut.Instance.Changes);
     }
 
@@ -219,12 +219,12 @@ public abstract class NumberFieldStepperTests : IDisposable
     {
         IRenderedComponent<NumberFieldStepperHost> cut = Render(p => p.Add(x => x.DefaultValue, 0).Add(x => x.StepperDisabled, true));
         Assert.True(Button(cut).HasAttribute("disabled"));
-        Assert.Equal("0", Input(cut).GetAttribute("value"));
+        Assert.Equal("0", test.Text);
 
         await test.PressAsync(cut, Stepper(cut));
 
         Assert.Empty(cut.Instance.Changes);
-        Assert.Equal("0", Input(cut).GetAttribute("value"));
+        Assert.Equal("0", test.Text);
     }
 
     [Theory(DisplayName = "passes disabled state to className when $scenario")]

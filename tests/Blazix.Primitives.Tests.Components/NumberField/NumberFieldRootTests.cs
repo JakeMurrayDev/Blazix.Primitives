@@ -29,7 +29,7 @@ public sealed class NumberFieldRootTests : IDisposable
     {
         IRenderedComponent<NumberFieldRoot> cut = Render(p => p.Add(x => x.DefaultValue, 1));
 
-        Assert.Equal("1", Input(cut).GetAttribute("value"));
+        Assert.Equal("1", test.Text);
     }
 
     [Fact(DisplayName = "should accept an `undefined` value")]
@@ -37,7 +37,7 @@ public sealed class NumberFieldRootTests : IDisposable
     public void Should_accept_an_undefined_value()
     {
         IRenderedComponent<NumberFieldRoot> cut = Render(p => p.Add(x => x.DefaultValue, 3));
-        Assert.Equal("3", Input(cut).GetAttribute("value"));
+        Assert.Equal("3", test.Text);
 
         IRenderedComponent<NumberFieldRoot> empty = Render();
         Assert.Equal(string.Empty, Input(empty).GetAttribute("value"));
@@ -49,11 +49,11 @@ public sealed class NumberFieldRootTests : IDisposable
     public void Should_accept_a_number_value_that_can_change_over_time()
     {
         IRenderedComponent<NumberFieldRoot> cut = Render(p => p.Add(x => x.Value, 1));
-        Assert.Equal("1", Input(cut).GetAttribute("value"));
+        Assert.Equal("1", test.Text);
 
         cut.Render(p => p.Add(x => x.Value, 2));
 
-        Assert.Equal("2", Input(cut).GetAttribute("value"));
+        Assert.Equal("2", test.Text);
     }
 
     [Fact(DisplayName = "should accept a `null` value")]
@@ -64,13 +64,13 @@ public sealed class NumberFieldRootTests : IDisposable
         IRenderedComponent<NumberFieldRoot> cut = Render(p => p
             .Add(x => x.Value, null)
             .Add(x => x.OnValueChange, (ValueChangeEventArgs<double?> e) => changes.Add(e.Value)));
-        Assert.Equal(string.Empty, Input(cut).GetAttribute("value"));
+        Assert.Equal(string.Empty, test.Text);
 
         // Controlled by null: a step reports its value and the field keeps showing the consumer's null.
         await test.ClickAsync(cut, cut.FindComponent<NumberFieldIncrement>().Instance);
 
         Assert.Equal([0d], changes);
-        Assert.Equal(string.Empty, Input(cut).GetAttribute("value"));
+        Assert.Equal(string.Empty, test.Text);
     }
 
     [Fact(DisplayName = "includes the reason for increment button presses")]
@@ -199,7 +199,7 @@ public sealed class NumberFieldRootTests : IDisposable
             .Add(x => x.Form, "external"));
         IElement hidden = HiddenInput(cut);
 
-        Assert.Equal("1,234.5", Input(cut).GetAttribute("value"));
+        Assert.Equal("1,234.5", test.Text);
         Assert.Equal("1234.5", hidden.GetAttribute("value"));
         Assert.Equal("0.5", hidden.GetAttribute("min"));
         Assert.Equal("1e+21", hidden.GetAttribute("max"));
@@ -225,7 +225,7 @@ public sealed class NumberFieldRootTests : IDisposable
 
         await test.ClickAsync(cut, cut.FindComponent<NumberFieldIncrement>().Instance);
 
-        Assert.Equal("6", Input(cut).GetAttribute("value"));
+        Assert.Equal("6", test.Text);
     }
 
     [Fact(DisplayName = "should increment the value by the `step` prop")]
@@ -236,7 +236,7 @@ public sealed class NumberFieldRootTests : IDisposable
 
         await test.ClickAsync(cut, cut.FindComponent<NumberFieldIncrement>().Instance);
 
-        Assert.Equal("6", Input(cut).GetAttribute("value"));
+        Assert.Equal("6", test.Text);
     }
 
     [Fact(DisplayName = "should snap when incrementing to the nearest multiple of the `step` prop")]
@@ -247,7 +247,7 @@ public sealed class NumberFieldRootTests : IDisposable
 
         await test.ClickAsync(cut, cut.FindComponent<NumberFieldIncrement>().Instance);
 
-        Assert.Equal("6", Input(cut).GetAttribute("value"));
+        Assert.Equal("6", test.Text);
     }
 
     [Fact(DisplayName = "should decrement the value by the `step` prop")]
@@ -258,7 +258,7 @@ public sealed class NumberFieldRootTests : IDisposable
 
         await test.ClickAsync(cut, cut.FindComponent<NumberFieldDecrement>().Instance);
 
-        Assert.Equal("4", Input(cut).GetAttribute("value"));
+        Assert.Equal("4", test.Text);
     }
 
     [Fact(DisplayName = "should snap when decrementing to the nearest multiple of the `step` prop")]
@@ -269,7 +269,7 @@ public sealed class NumberFieldRootTests : IDisposable
 
         await test.ClickAsync(cut, cut.FindComponent<NumberFieldDecrement>().Instance);
 
-        Assert.Equal("4", Input(cut).GetAttribute("value"));
+        Assert.Equal("4", test.Text);
     }
 
     // Base UI's describe.skipIf(isJSDOM) block (the modifier keys of a jsdom click are dropped); the click report carries
@@ -283,7 +283,7 @@ public sealed class NumberFieldRootTests : IDisposable
 
         await test.ClickAsync(cut, cut.FindComponent<NumberFieldIncrement>().Instance, shiftKey: true);
 
-        Assert.Equal("15", Input(cut).GetAttribute("value"));
+        Assert.Equal("15", test.Text);
     }
 
     [Fact(DisplayName = "should increment the value by the default `smallStep` prop of 0.1 while holding the alt key")]
@@ -295,7 +295,7 @@ public sealed class NumberFieldRootTests : IDisposable
 
         await test.ClickAsync(cut, cut.FindComponent<NumberFieldIncrement>().Instance, altKey: true);
 
-        Assert.Equal("5.1", Input(cut).GetAttribute("value"));
+        Assert.Equal("5.1", test.Text);
     }
 
     [Fact(DisplayName = "should use explicit `largeStep` value if provided while holding the shift key")]
@@ -306,7 +306,7 @@ public sealed class NumberFieldRootTests : IDisposable
 
         await test.ClickAsync(cut, cut.FindComponent<NumberFieldIncrement>().Instance, shiftKey: true);
 
-        Assert.Equal("10", Input(cut).GetAttribute("value"));
+        Assert.Equal("10", test.Text);
     }
 
     [Fact(DisplayName = "should not use the `smallStep` prop if no longer holding the alt key")]
@@ -317,10 +317,10 @@ public sealed class NumberFieldRootTests : IDisposable
         NumberFieldIncrement increment = cut.FindComponent<NumberFieldIncrement>().Instance;
 
         await test.ClickAsync(cut, increment, altKey: true);
-        Assert.Equal("5.1", Input(cut).GetAttribute("value"));
+        Assert.Equal("5.1", test.Text);
 
         await test.ClickAsync(cut, increment);
-        Assert.Equal("6.1", Input(cut).GetAttribute("value"));
+        Assert.Equal("6.1", test.Text);
     }
 
     [Fact(DisplayName = "reformats the visible text when the format prop changes at the same value")]
@@ -330,13 +330,13 @@ public sealed class NumberFieldRootTests : IDisposable
     public void Reformats_the_visible_text_when_the_format_prop_changes_at_the_same_value()
     {
         IRenderedComponent<NumberFieldRoot> cut = Render(p => p.Add(x => x.Value, 1000));
-        Assert.Equal(NumberFormatter.Get(s_enUs, null).Format(1000), Input(cut).GetAttribute("value"));
+        Assert.Equal(NumberFormatter.Get(s_enUs, null).Format(1000), test.Text);
 
         NumberFormatOptions usd = new() { Style = NumberFormatStyle.Currency, Currency = "USD" };
         cut.Render(p => p.Add(x => x.Value, 1000).Add(x => x.Format, usd));
 
-        Assert.Equal("$1,000.00", Input(cut).GetAttribute("value"));
-        Assert.Equal(NumberFormatter.Get(s_enUs, usd).Format(1000), Input(cut).GetAttribute("value"));
+        Assert.Equal("$1,000.00", test.Text);
+        Assert.Equal(NumberFormatter.Get(s_enUs, usd).Format(1000), test.Text);
     }
 
     [Fact(DisplayName = "should format the value using the provided options")]
@@ -349,7 +349,7 @@ public sealed class NumberFieldRootTests : IDisposable
             .Add(x => x.DefaultValue, 1000)
             .Add(x => x.Format, new NumberFormatOptions { Style = NumberFormatStyle.Currency, Currency = "USD" }));
 
-        Assert.Equal("$1,000.00", Input(cut).GetAttribute("value"));
+        Assert.Equal("$1,000.00", test.Text);
     }
 
     [Fact(DisplayName = "reflects controlled value changes in the textbox")]
@@ -357,11 +357,11 @@ public sealed class NumberFieldRootTests : IDisposable
     public void Reflects_controlled_value_changes_in_the_textbox()
     {
         IRenderedComponent<NumberFieldRoot> cut = Render(p => p.Add(x => x.Value, 1));
-        Assert.Equal("1", Input(cut).GetAttribute("value"));
+        Assert.Equal("1", test.Text);
 
         cut.Render(p => p.Add(x => x.Value, 1234));
 
-        Assert.Equal(1234.ToString("N0", s_enUs), Input(cut).GetAttribute("value"));
+        Assert.Equal(1234.ToString("N0", s_enUs), test.Text);
     }
 
     [Fact(DisplayName = "should set the inputMode to numeric")]
@@ -382,7 +382,7 @@ public sealed class NumberFieldRootTests : IDisposable
         CultureInfo deDe = CultureInfo.GetCultureInfo("de-DE");
         IRenderedComponent<NumberFieldRoot> cut = Render(p => p.Add(x => x.DefaultValue, 1000.5), deDe);
 
-        Assert.Equal("1.000,5", Input(cut).GetAttribute("value"));
+        Assert.Equal("1.000,5", test.Text);
     }
 
     [Fact(DisplayName = "should use the default locale if no locale is provided")]
@@ -395,7 +395,7 @@ public sealed class NumberFieldRootTests : IDisposable
         {
             IRenderedComponent<NumberFieldRoot> cut = test.Context.Render<NumberFieldRoot>(p => p.Add(x => x.DefaultValue, 1000.5).Add(x => x.ChildContent, Parts));
 
-            Assert.Equal("1.000,5", Input(cut).GetAttribute("value"));
+            Assert.Equal("1.000,5", test.Text);
         }
         finally
         {
@@ -410,11 +410,11 @@ public sealed class NumberFieldRootTests : IDisposable
     {
         CultureInfo pl = CultureInfo.GetCultureInfo("pl");
         IRenderedComponent<NumberFieldRoot> cut = Render(p => p.Add(x => x.DefaultValue, 12345.5), pl);
-        Assert.Equal("12 345,5", Input(cut).GetAttribute("value"));
+        Assert.Equal("12 345,5", test.Text);
 
         await test.ClickAsync(cut, cut.FindComponent<NumberFieldIncrement>().Instance);
 
-        Assert.Equal("12 346,5", Input(cut).GetAttribute("value"));
+        Assert.Equal("12 346,5", test.Text);
     }
 
     [Fact(DisplayName = "has role prop")]
@@ -517,11 +517,11 @@ public sealed class NumberFieldRootTests : IDisposable
 
         cut.Render(p => p.Add(x => x.Value, 7));
 
-        Assert.Equal("1", Input(cut).GetAttribute("value"));
+        Assert.Equal("1", test.Text);
         Assert.Contains(test.Logger.Entries, e => e.Message.StartsWith("A component is changing the uncontrolled value state of NumberField to be controlled.", StringComparison.Ordinal));
 
         await test.ClickAsync(cut, cut.FindComponent<NumberFieldIncrement>().Instance);
-        Assert.Equal("2", Input(cut).GetAttribute("value"));
+        Assert.Equal("2", test.Text);
     }
 
     // NUM-EVT-03 (Test: none in the document): a step's details carry its direction; the seed of an empty field has none.
@@ -537,7 +537,27 @@ public sealed class NumberFieldRootTests : IDisposable
         await test.ClickAsync(cut, cut.FindComponent<NumberFieldIncrement>().Instance);
 
         Assert.Equal([null, -1, 1], directions);
-        Assert.Equal("0", Input(cut).GetAttribute("value"));
+        Assert.Equal("0", test.Text);
+    }
+
+    // NUM-STA-05/06, design point 7 (a): the first text is rendered and handed to the module, which writes C#'s answers;
+    // the answer to a blur echoes the blur's revision, so the module never applies an older text over a newer one.
+    [Fact(DisplayName = "port: the input's text is handed to the module at attach, and the answer to a blur echoes its revision")]
+    [Trait("Requirement", "NUM-STA-05")]
+    [Trait("Requirement", "NUM-STA-06")]
+    [Trait("Requirement", "NUM-DOM-08")]
+    public async Task The_inputs_text_is_handed_to_the_module_and_the_answer_to_a_blur_echoes_its_revision()
+    {
+        IRenderedComponent<NumberFieldRoot> cut = Render(p => p.Add(x => x.DefaultValue, 1234.5));
+        Assert.Equal("1,234.5", Input(cut).GetAttribute("value"));
+        Assert.Equal("""{"value":"1,234.5","revision":0}""", Assert.Single(test.NumberFieldOptions));
+
+        await test.ClickAsync(cut, cut.FindComponent<NumberFieldIncrement>().Instance);
+        Assert.Equal("""{"value":"1,235.5","revision":0}""", test.NumberFieldOptions[^1]);
+        Assert.Equal("1,234.5", Input(cut).GetAttribute("value"));
+
+        await test.BlurAsync(cut, "1,235.5", revision: 3);
+        Assert.Equal("""{"value":"1,235.5","revision":3}""", test.NumberFieldOptions[^1]);
     }
 
     private static RenderFragment Parts => builder =>

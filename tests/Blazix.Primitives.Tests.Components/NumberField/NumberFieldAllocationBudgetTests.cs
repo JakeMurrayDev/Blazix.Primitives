@@ -17,10 +17,14 @@ public sealed class NumberFieldAllocationBudgetTests : IDisposable
     // First measurement 2026-11-18 (arm64, .NET 11, Release, dynamic PGO off), the least of five in a process of its own, the
     // same in each of five processes: 848 bytes for the re-render of the root, its input and its stepper (Switch's root alone
     // is 704); 15,504 bytes for a hold tick and 15,488 for a click step, most of it the source-generated parse of the
-    // report's JSON, the request's async state machines and the three parts' new state records.
-    private const long RerenderBudgetBytes = 848;
-    private const long HoldTickBudgetBytes = 15504;
-    private const long ClickStepBudgetBytes = 15488;
+    // report's JSON, the request's async state machines and the three parts' new state records. Re-pinned 2026-11-19, before
+    // the budget reached main, when the input attached the `number-field` module (design point 2 (b)): 912 bytes for the
+    // re-render (the input's twin comparison and its two declined handlers, +64), and 2,472 and 2,456 bytes for the tick and
+    // the click, the same in five processes. The two steps fell by about 13 KB when the input's text moved to the module's
+    // options; the cause of the size of that drop is not yet analysed (issue 277's hand-over).
+    private const long RerenderBudgetBytes = 912;
+    private const long HoldTickBudgetBytes = 2472;
+    private const long ClickStepBudgetBytes = 2456;
 
     private static readonly CultureInfo s_enUs = CultureInfo.GetCultureInfo("en-US");
 
@@ -77,7 +81,7 @@ public sealed class NumberFieldAllocationBudgetTests : IDisposable
             await ticked;
         }
 
-        Assert.Equal("25", cut.Find("input[type=text]").GetAttribute("value"));
+        Assert.Equal("25", test.Text);
         Assert.True(allocated <= HoldTickBudgetBytes, $"a hold tick allocated {allocated} bytes; the budget is {HoldTickBudgetBytes}");
     }
 
@@ -103,7 +107,7 @@ public sealed class NumberFieldAllocationBudgetTests : IDisposable
             await clicked;
         }
 
-        Assert.Equal("25", cut.Find("input[type=text]").GetAttribute("value"));
+        Assert.Equal("25", test.Text);
         Assert.True(allocated <= ClickStepBudgetBytes, $"a click step allocated {allocated} bytes; the budget is {ClickStepBudgetBytes}");
     }
 

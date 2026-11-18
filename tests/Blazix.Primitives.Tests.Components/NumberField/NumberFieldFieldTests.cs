@@ -115,11 +115,98 @@ public sealed class NumberFieldFieldTests : IDisposable
         Assert.True(Input(cut).HasAttribute("data-dirty"));
     }
 
+    [Fact(DisplayName = "[data-touched]")]
+    [Trait("Requirement", "NUM-FRM-07")]
+    [Trait("Requirement", "NUM-DOM-04")]
+    public async Task Data_touched()
+    {
+        IRenderedComponent<FieldRoot> cut = Render();
+        Assert.False(Input(cut).HasAttribute("data-touched"));
+
+        await test.FocusAsync(cut);
+        await test.BlurAsync(cut, string.Empty);
+
+        Assert.True(Input(cut).HasAttribute("data-touched"));
+    }
+
+    [Fact(DisplayName = "adds [data-focused] attribute on every focus")]
+    [Trait("Requirement", "NUM-FOC-05")]
+    [Trait("Requirement", "NUM-DOM-04")]
+    public async Task Adds_data_focused_attribute_on_every_focus()
+    {
+        IRenderedComponent<FieldRoot> cut = Render();
+        Assert.False(Input(cut).HasAttribute("data-focused"));
+
+        await test.FocusAsync(cut);
+        Assert.True(Input(cut).HasAttribute("data-focused"));
+
+        await test.BlurAsync(cut, string.Empty);
+        Assert.False(Input(cut).HasAttribute("data-focused"));
+
+        await test.FocusAsync(cut);
+        Assert.True(Input(cut).HasAttribute("data-focused"));
+    }
+
+    [Fact(DisplayName = "keeps focus state in sync on a readOnly field")]
+    [Trait("Requirement", "NUM-FOC-05")]
+    [Trait("Requirement", "NUM-API-14")]
+    public async Task Keeps_focus_state_in_sync_on_a_readOnly_field()
+    {
+        IRenderedComponent<FieldRoot> cut = Render(readOnly: true);
+
+        await test.FocusAsync(cut);
+        Assert.True(Input(cut).HasAttribute("data-focused"));
+
+        await test.BlurAsync(cut, string.Empty);
+        Assert.False(Input(cut).HasAttribute("data-focused"));
+        Assert.True(Input(cut).HasAttribute("data-touched"));
+    }
+
+    [Fact(DisplayName = "is removed when the focused input becomes disabled")]
+    [Trait("Requirement", "NUM-FOC-05")]
+    [Trait("Requirement", "NUM-EDGE-12")]
+    public async Task Is_removed_when_the_focused_input_becomes_disabled()
+    {
+        IRenderedComponent<FieldRoot> cut = Render();
+        await test.FocusAsync(cut);
+        Assert.True(Input(cut).HasAttribute("data-focused"));
+
+        cut.Render(p => p.Add(x => x.Disabled, true));
+
+        Assert.False(Input(cut).HasAttribute("data-focused"));
+    }
+
+    // NUM-EVT-14 at L2, the WebAssembly half: a consumer's onfocus that calls PreventPartHandler() inside the input-focus
+    // decision keeps the field unfocused, and Blazor's own dispatch of the same focus does not run it a second time.
+    [Fact(DisplayName = "port: a consumer onfocus that prevents the part's handler at input-focus keeps the field unfocused")]
+    [Trait("Requirement", "NUM-EVT-14")]
+    [Trait("Requirement", "NUM-FOC-05")]
+    public async Task A_consumer_onfocus_that_prevents_the_parts_handler_keeps_the_field_unfocused()
+    {
+        int calls = 0;
+        IRenderedComponent<FieldRoot> cut = Render(input: new Dictionary<string, object>
+        {
+            ["onfocus"] = Microsoft.AspNetCore.Components.EventCallback.Factory.Create<Microsoft.AspNetCore.Components.Web.FocusEventArgs>(this, e =>
+            {
+                calls++;
+                e.PreventPartHandler();
+            }),
+        });
+
+        string verdict = await cut.InvokeAsync(() => test.NumberFieldTwin().Decide(NumberFieldTwin.InputFocusPoint, """{"kind":"FocusEvent","type":"focus"}"""));
+        await Input(cut).TriggerEventAsync("onfocus", new Microsoft.AspNetCore.Components.Web.FocusEventArgs { Type = "focus" });
+
+        Assert.Equal("stop", verdict);
+        Assert.Equal(1, calls);
+        Assert.False(Input(cut).HasAttribute("data-focused"));
+    }
+
     private IRenderedComponent<FieldRoot> Render(
         Action<ComponentParameterCollectionBuilder<FieldRoot>>? field = null,
         double? defaultValue = null,
         IReadOnlyDictionary<string, object>? input = null,
-        RenderFragment? after = null)
+        RenderFragment? after = null,
+        bool readOnly = false)
     {
         RenderFragment parts = b =>
         {
@@ -146,9 +233,10 @@ public sealed class NumberFieldFieldTests : IDisposable
                     b.AddComponentParameter(2, nameof(NumberFieldRoot.DefaultValue), defaultValue);
                 }
 
-                b.AddComponentParameter(3, nameof(NumberFieldRoot.ChildContent), parts);
+                b.AddComponentParameter(3, nameof(NumberFieldRoot.ReadOnly), readOnly);
+                b.AddComponentParameter(5, nameof(NumberFieldRoot.ChildContent), parts);
                 b.CloseComponent();
-                b.AddContent(4, after);
+                b.AddContent(6, after);
             }));
         });
     }
