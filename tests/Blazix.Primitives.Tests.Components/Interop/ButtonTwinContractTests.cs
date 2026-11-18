@@ -153,7 +153,7 @@ public sealed class ButtonTwinContractTests
         using BunitContext context = new();
         ButtonTwin twin = new(context.JSInterop.JSRuntime);
         List<string> log = [];
-        twin.HoldTicked += e => log.Add($"tick:{e.Type}:{e.ShiftKey}");
+        twin.HoldTicked += e => log.Add($"tick:{e.Event.Type}:{e.Event.ShiftKey}");
         twin.HoldStopped += e => log.Add($"stop:{e.Type}");
         twin.HoldClicked += e => log.Add($"click:{e.Detail}");
 
@@ -172,30 +172,31 @@ public sealed class ButtonTwinContractTests
     [Trait("Requirement", "NUM-PTR-03")]
     public void The_hold_focus_target_and_the_hold_stop_are_sent_only_when_set()
     {
-        ButtonOptions options = new() { DevelopmentChecks = false, PressAndHold = new PressAndHoldOptions(), HoldFocusTarget = "base-ui-7", HoldStop = 2 };
+        ButtonOptions options = new() { DevelopmentChecks = false, PressAndHold = new PressAndHoldOptions { FocusTarget = "base-ui-7", Stop = 2 } };
 
         Assert.Equal(
-            """{"disabled":false,"native":true,"composite":false,"pressAndHold":{"tickDelay":60,"startDelay":400,"scrollDistance":8},"reportInteractionType":false,"developmentChecks":false,"holdFocusTarget":"base-ui-7","holdStop":2}""",
+            """{"disabled":false,"native":true,"composite":false,"pressAndHold":{"tickDelay":60,"startDelay":400,"scrollDistance":8,"focusTarget":"base-ui-7","stop":2},"reportInteractionType":false,"developmentChecks":false}""",
             JsonSerializer.Serialize(options, BlazixJsonContext.Default.ButtonOptions));
-        Assert.DoesNotContain("hold", JsonSerializer.Serialize(new ButtonOptions { DevelopmentChecks = false }, BlazixJsonContext.Default.ButtonOptions), StringComparison.Ordinal);
+        Assert.Equal(
+            """{"tickDelay":60,"startDelay":400,"scrollDistance":8}""",
+            JsonSerializer.Serialize(new PressAndHoldOptions(), BlazixJsonContext.Default.PressAndHoldOptions));
     }
 
     // NUM-PTR-05: the stepper syncs the dirty text once per press, at the first tick of a sequence.
-    [Fact(DisplayName = "port: the first tick of a sequence raises HoldStarted before HoldTicked")]
+    [Fact(DisplayName = "port: the first tick of a sequence is reported as its start")]
     [Trait("Requirement", "UBT-EVT-10")]
     [Trait("Requirement", "NUM-PTR-05")]
-    public void The_first_tick_of_a_sequence_raises_HoldStarted_before_HoldTicked()
+    public void The_first_tick_of_a_sequence_is_reported_as_its_start()
     {
         using BunitContext context = new();
         ButtonTwin twin = new(context.JSInterop.JSRuntime);
         List<string> log = [];
-        twin.HoldStarted += e => log.Add($"start:{e.Type}");
-        twin.HoldTicked += e => log.Add($"tick:{e.Type}");
+        twin.HoldTicked += e => log.Add($"{e.Event.Type}:{e.Start}");
 
         twin.OnHoldTick($$"""{"event":{{PointerdownJson}},"start":true}""");
         twin.OnHoldTick($$"""{"event":{{PointerdownJson}}}""");
 
-        Assert.Equal(new[] { "start:pointerdown", "tick:pointerdown", "tick:pointerdown" }, log);
+        Assert.Equal(["pointerdown:True", "pointerdown:False"], log);
     }
 
     // NUM-PTR-02; issue 277 design point 1 (a), the name chosen by the user 2026-11-18.

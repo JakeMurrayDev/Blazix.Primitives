@@ -179,7 +179,7 @@ public abstract class NumberFieldStepperTests : IDisposable
 
         Assert.Equal(BoundaryValue.ToString(CultureInfo.InvariantCulture), test.Text);
         Assert.Single(cut.Instance.Changes);
-        Assert.Contains(test.ButtonUpdates, update => update.Contains("\"holdStop\":", StringComparison.Ordinal));
+        Assert.Contains(test.ButtonUpdates, update => update.Contains("\"stop\":", StringComparison.Ordinal));
         Assert.True(Button(cut).HasAttribute("disabled"));
     }
 

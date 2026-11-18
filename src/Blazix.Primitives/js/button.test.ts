@@ -1151,7 +1151,7 @@ describe('usePressAndHold', () => {
     input.id = 'nf-input';
     input.value = '1234';
     document.body.appendChild(input);
-    const { element, fake } = stepper({ holdFocusTarget: 'nf-input' });
+    const { element, fake } = stepper({ pressAndHold: { focusTarget: 'nf-input' } });
 
     pointer(element, 'pointerdown', { pointerType: 'mouse' });
 
@@ -1162,7 +1162,7 @@ describe('usePressAndHold', () => {
 
     // UBT-PTR-20: a stylus or finger press steps without focusing, so it does not raise the software keyboard.
     input.blur();
-    const pen = stepper({ holdFocusTarget: 'nf-input' });
+    const pen = stepper({ pressAndHold: { focusTarget: 'nf-input' } });
     touch(pen.element, 'touchstart');
     pointer(pen.element, 'pointerdown', { pointerType: 'pen' });
     vi.advanceTimersByTime(TOUCH_TIMEOUT);
@@ -1172,14 +1172,14 @@ describe('usePressAndHold', () => {
   });
 
   // NUM-PTR-03, UBT-PTR-06/07 (a tick that returns false stops the sequence); issue 277 deliverable 3 (iii): C# answers a
-  // tick that applied nothing by raising `holdStop`, which stops the repeat and keeps the release report.
+  // tick that applied nothing by raising `pressAndHold.stop`, which stops the repeat and keeps the release report.
   it('port: a raised hold stop stops the repeat and the release still reports', () => {
     const { element, handle, fake } = stepper();
 
     pointer(element, 'pointerdown', { pointerType: 'mouse' });
     expect(ticks(fake)).toBe(1);
 
-    handle.update(optionsJson({ pressAndHold: {}, focusableWhenDisabled: true, holdStop: 1 }));
+    handle.update(optionsJson({ pressAndHold: { stop: 1 }, focusableWhenDisabled: true }));
     vi.advanceTimersByTime(START_AUTO_CHANGE_DELAY + CHANGE_VALUE_TICK_DELAY * 3);
     expect(ticks(fake)).toBe(1);
 
@@ -1215,7 +1215,7 @@ describe('usePressAndHold', () => {
     const input = document.createElement('input');
     input.id = 'nf-veto-input';
     document.body.appendChild(input);
-    const vetoed = stepper({ holdFocusTarget: 'nf-veto-input' }, undefined, { synchronous: true, verdict: 'stop' });
+    const vetoed = stepper({ pressAndHold: { focusTarget: 'nf-veto-input' } }, undefined, { synchronous: true, verdict: 'stop' });
 
     pointer(vetoed.element, 'pointerdown', { pointerType: 'mouse' });
 
