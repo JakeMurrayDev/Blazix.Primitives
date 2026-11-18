@@ -122,7 +122,7 @@ public sealed class ToastTitleConformanceTests : PartConformanceTests<ToastTitle
     }
 
     /// <inheritdoc />
-    protected override ConformanceOptions<ToastTitle> Options { get; } = new("h2");
+    protected override ConformanceOptions<ToastTitle> Options { get; } = new("h2") { RendersAgainOnMount = true };
 
     /// <inheritdoc />
     protected override ElementReference? ElementOf(ToastTitle part) => part.Element;
@@ -153,7 +153,7 @@ public sealed class ToastDescriptionConformanceTests : PartConformanceTests<Toas
     }
 
     /// <inheritdoc />
-    protected override ConformanceOptions<ToastDescription> Options { get; } = new("p");
+    protected override ConformanceOptions<ToastDescription> Options { get; } = new("p") { RendersAgainOnMount = true };
 
     /// <inheritdoc />
     protected override ElementReference? ElementOf(ToastDescription part) => part.Element;
