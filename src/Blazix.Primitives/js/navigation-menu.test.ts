@@ -186,6 +186,8 @@ interface RenderOptions {
   verdict?: 'run' | 'stop';
   /** `false` leaves the Positioner's, Popup's and Viewport's handles unattached, as on Server before their attach arrives. */
   popupHandles?: boolean;
+  /** `true` renders an inline Viewport's guards as its first and last children, as C# renders them (issue 241). */
+  inlineGuards?: boolean;
   /** Runs on each Trigger before its handle attaches, for a listener that must precede the handle's. */
   beforeTriggerAttach?: (trigger: HTMLElement) => void;
 }
@@ -254,6 +256,11 @@ function renderMenu(options: RenderOptions = {}): Rendered {
   } else {
     target = document.createElement('div');
     viewport.appendChild(target);
+    if (options.inlineGuards) {
+      viewportGuards = { before: createGuard(), after: createGuard() };
+      viewport.prepend(viewportGuards.before);
+      viewport.append(viewportGuards.after);
+    }
     list.parentElement!.appendChild(viewport);
   }
 
@@ -1333,6 +1340,25 @@ describe('the Viewport', () => {
 
     trigger.dispatchEvent(new FocusEvent('focus'));
     expect(rendered.twin.reported(VIEWPORT_INERT_REPORT)).toHaveLength(2);
+  });
+
+  // Issue 241 (NAV-KEY-16, NAV-STA-09): on Server C# can render the set after the Trigger's focus cleared it, so the Tab
+  // after the Trigger meets an inert Viewport, which Base UI's synchronous clear never leaves; the guard lifts it.
+  it('port: the guard after the active trigger lifts an inert that C# rendered after the trigger focus cleared it, and focuses into the viewport', async () => {
+    const rendered = renderMenu({ positioner: false, inlineGuards: true, open: 'item-1' });
+    await settle();
+    const link = rendered.item('item-1').content!.querySelector('a')!;
+    const trigger = rendered.item('item-1').trigger;
+    const leading = trigger.nextElementSibling as HTMLElement;
+    link.dispatchEvent(new FocusEvent('focusout', { bubbles: true, relatedTarget: document.querySelector('[data-testid="after"]') }));
+    trigger.focus();
+    rendered.viewport.setAttribute('inert', '');
+
+    leading.focus();
+
+    expect(document.activeElement).toBe(link);
+    expect(rendered.viewport.hasAttribute('inert')).toBe(false);
+    expect(rendered.twin.reported(VIEWPORT_INERT_REPORT)).toEqual([{ inert: true }, { inert: false }, { inert: false }]);
   });
 });
 
