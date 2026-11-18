@@ -124,14 +124,14 @@ internal static class OwnershipRegistry
         // Drawer (M6 track 8a, issue 279; ADR 04 Amendments 2026-10-29's lint over drawer.md §3's part-headed tables and ADR 04
         // Amendments 2026-11-18, the bands and the §2 exception): the transitions module writes the Backdrop's, the
         // Viewport's and the Popup's transition attributes, mirrored in each state's TransitionStatus; the `drawer` module
-        // (8b) writes data-swiping (mirrored on the Popup, and on the SwipeArea once it lands; none on the Backdrop),
+        // (8b) writes data-swiping (mirrored on the Popup and on the SwipeArea; none on the Backdrop),
         // data-swipe-dismiss and the gesture variables; the C# → JS cells are rendered by C# until the module takes the
         // element. `--nested-drawers` and `--drawer-frontmost-height` are C#'s in the commit path with JavaScript's later
         // changes above them (the dated §2 exception, decision 21 (a)). The lint reads `--drawer-swipe-movement-x` / `-y`
         // as one name.
         new("drawer", "Indent", "--drawer-swipe-progress", Writer.CsharpToJs),
         new("drawer", "Indent", "--drawer-height", Writer.Js),
-        new("drawer", "SwipeArea", "data-swiping", Writer.Js),
+        new("drawer", "SwipeArea", "data-swiping", Writer.Js, "DrawerSwipeAreaState.Swiping"),
         new("drawer", "Backdrop", "pointer-events", Writer.CsharpToJs),
         new("drawer", "Backdrop", "data-starting-style", Writer.Js, "DrawerBackdropState.TransitionStatus"),
         new("drawer", "Backdrop", "data-ending-style", Writer.Js, "DrawerBackdropState.TransitionStatus"),
