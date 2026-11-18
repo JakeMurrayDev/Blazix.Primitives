@@ -595,6 +595,38 @@ public sealed class NumberFieldRootTests : IDisposable
         Assert.Equal(2, calls);
     }
 
+    // NUM-PTR-02 under ADR 01's consumer-veto row, measured 2026-11-19: on Server the press has already started the hold when
+    // the consumer's veto arrives, so the part stops the sequence then (the hold's stop counter), as it does at a boundary;
+    // a press the consumer did not veto keeps its hold.
+    [Fact(DisplayName = "port: a consumer veto that arrives after the press started stops the hold")]
+    [Trait("Requirement", "NUM-PTR-02")]
+    public async Task A_consumer_veto_that_arrives_after_the_press_started_stops_the_hold()
+    {
+        bool veto = false;
+        IRenderedComponent<NumberFieldRoot> cut = test.Context.Render<NumberFieldRoot>(p => p
+            .Add(x => x.Culture, s_enUs)
+            .Add(x => x.DefaultValue, 0)
+            .Add(x => x.ChildContent, (RenderFragment)(b =>
+            {
+                b.OpenComponent<NumberFieldIncrement>(0);
+                b.AddComponentParameter(1, "onpointerdown", EventCallback.Factory.Create<Microsoft.AspNetCore.Components.Web.PointerEventArgs>(this, e =>
+                {
+                    if (veto)
+                    {
+                        e.PreventPartHandler();
+                    }
+                }));
+                b.CloseComponent();
+            })));
+
+        await cut.Find("button").TriggerEventAsync("onpointerdown", new Microsoft.AspNetCore.Components.Web.PointerEventArgs { Type = "pointerdown" });
+        Assert.DoesNotContain(test.ButtonUpdates, update => update.Contains("\"stop\"", StringComparison.Ordinal));
+
+        veto = true;
+        await cut.Find("button").TriggerEventAsync("onpointerdown", new Microsoft.AspNetCore.Components.Web.PointerEventArgs { Type = "pointerdown" });
+        Assert.Contains("\"stop\":1", test.ButtonUpdates[^1], StringComparison.Ordinal);
+    }
+
     private static RenderFragment Parts => builder =>
     {
         builder.OpenComponent<NumberFieldGroup>(0);
