@@ -6,13 +6,14 @@
     The `number-field-hold` fixture (tests/browser/number-field.spec.ts): useNumberFieldStepperButton.test.tsx's
     TestNumberField, one root with a decrement button, an input and an increment button, under en-US. `?case=` picks the
     root's props: `basic` (defaultValue 0), `boundary` (defaultValue 9, max 10), `boundary-down` (defaultValue -9, min -10), `readonly`, `disabled`, `empty` (no
-    defaultValue). Every OnValueChange is recorded as `value/reason/direction` in the container's data-changes; the
-    data-set-disabled control disables the root on a Shift keydown (a press elsewhere would end the hold).
+    defaultValue). Every OnValueChange is recorded as `value/reason/direction` in the container's data-changes, and every
+    OnValueCommitted as `value/reason` in data-commits; the data-set-disabled control disables the root on a Shift
+    keydown and enables it again on a Control keydown (a press elsewhere would end the hold).
 *@
-<FixtureContainer Name="number-field-hold" data-attached="@(attached ? "true" : "false")" data-changes="@string.Join(' ', changes)">
+<FixtureContainer Name="number-field-hold" data-attached="@(attached ? "true" : "false")" data-changes="@string.Join(' ', changes)" data-commits="@string.Join(' ', commits)">
     <button type="button" data-set-disabled @onkeydown="SetDisabled">Disable</button>
     <style>[data-stepper] { width: 3rem; height: 2rem; } [data-input] { width: 8rem; }</style>
-    <NumberFieldRoot DefaultValue="DefaultValue" Min="Min" Max="Max" ReadOnly="@(Case == "readonly")" Disabled="disabled" Culture="culture" OnValueChange="Change">
+    <NumberFieldRoot DefaultValue="DefaultValue" Min="Min" Max="Max" ReadOnly="@(Case == "readonly")" Disabled="disabled" Culture="culture" OnValueChange="Change" OnValueCommitted="Commit">
         <NumberFieldDecrement @ref="decrement" data-stepper data-testid="decrement" />
         <NumberFieldInput data-input data-testid="input" />
         <NumberFieldIncrement @ref="increment" data-stepper data-testid="increment" />
@@ -23,6 +24,7 @@
     private static readonly CultureInfo culture = CultureInfo.GetCultureInfo("en-US");
 
     private readonly List<string> changes = [];
+    private readonly List<string> commits = [];
     private NumberFieldDecrement? decrement;
     private NumberFieldIncrement? increment;
     private bool attached;
@@ -67,11 +69,17 @@
         changes.Add($"{value}/{e.Details.Reason.ToLiteral()}/{(direction is int d ? d.ToString(CultureInfo.InvariantCulture) : "none")}");
     }
 
+    private void Commit(ValueCommittedEventArgs<double?> e)
+    {
+        string value = e.Value is double number ? number.ToString(CultureInfo.InvariantCulture) : "null";
+        commits.Add($"{value}/{e.Details.Reason.ToLiteral()}");
+    }
+
     private void SetDisabled(KeyboardEventArgs e)
     {
-        if (e.Key == "Shift")
+        if (e.Key is "Shift" or "Control")
         {
-            disabled = true;
+            disabled = e.Key == "Shift";
         }
     }
 }
