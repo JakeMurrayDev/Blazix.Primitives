@@ -26,10 +26,11 @@ public sealed class SliderAllocationBudgetTests : IDisposable
     // dispatch, so each part's render is its own batch, and bUnit rebuilds the root's markup after each one; as in the
     // Tabs activation, that markup is most of it.
     private const long StepBudgetBytes = 50864;
-    // 4,192 bytes for the re-render (2026-11-19, macOS arm64, Release, least of five, the same in three processes; 5,168 before
-    // SliderOptions compared its lists by element, when every flush sent an update): the root and its cascade render again,
-    // and with them the parts whose child content is a fragment; no update is sent.
-    private const long RerenderBudgetBytes = 4192;
+    // 4,200 bytes for the re-render (2026-11-19, macOS arm64, Release, least of five, the same in five processes; 4,192 before
+    // main's renders-only-with-content gate of Toast 9a, and 5,168 before SliderOptions compared its lists by element, when
+    // every flush sent an update): the root and its cascade render again, and with them the parts whose child content is a
+    // fragment; no update is sent. ADR 16 Amendments 2026-11-19 (the re-pin after merging main).
+    private const long RerenderBudgetBytes = 4200;
     // 50,864 bytes for a step through a consumer's OnValueChange and OnValueCommitted, the same as without them: the change
     // and commit arguments are made either way, and an EventCallback over a synchronous lambda completes inline.
     private const long CallbackStepBudgetBytes = 50864;
