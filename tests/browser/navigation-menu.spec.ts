@@ -1792,8 +1792,9 @@ test.describe('<NavigationMenu.Trigger /> keyboard and focus', () => {
     await expect(page.getByTestId('nested-trigger-engineering-leads')).toBeFocused();
   });
 
-  // Issue 241 (M6 track 3; NAV-KEY-16, NAV-STA-09): the Shift+Tab back to a nested Trigger reports `viewportInert` set
-  // (the Viewport's blur), then cleared (the Trigger's focus, before C# has rendered the set). On Server C# can render the
+  // Issue 241 (M6 track 3; NAV-KEY-16, NAV-STA-09; ADR 04 Amendments 2026-11-18 and 2026-11-19): the Shift+Tab back to a
+  // nested Trigger reports `viewportInert` set (the Viewport's blur), then cleared (the Trigger's focus, before C# has
+  // rendered the set). On Server C# can render the
   // set after the clear, so the next Tab reaches the Trigger's trailing guard with the Viewport inert. Base UI clears the
   // state synchronously in the Trigger's onFocus, so its guard never meets an inert Viewport. The clears (the Trigger's C#
   // onfocus and the module's report) are held until C# has rendered the stale `inert`, which a recorder counts.

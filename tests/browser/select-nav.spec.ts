@@ -499,7 +499,7 @@ test.describe('item-aligned popup interaction', () => {
     });
   }
 
-  // Issue 252 (M6 track 3; SEL-POS-13, SEL-POS-11): on Server the items' registration reaches the Positioner a round trip
+  // Issue 252 (M6 track 3; SEL-POS-13, SEL-POS-11; ADR 04 Amendments 2026-11-19): on Server the items' registration reaches the Positioner a round trip
   // after the aligned placement, as an item-map change, and its height clear undid the placement (Base UI's map changes at
   // mount, before its first pass and the placement). The registration's update is held until the page has placed.
   test('port: keeps the aligned placement when the items register after it, under circuit latency on Server', async ({ page, mode }) => {
