@@ -5,7 +5,8 @@
 // (AVA-ALG-01/02, ADR 04 Amendments 2026-10-18).
 // Transcribed from Base UI v1.9.0: packages/utils/src/{owner,shadowDom}.ts; packages/react/src/utils/{getCssDimensions,
 // getElementTransform,getPseudoElementBounds,getElementAtPoint,scrollable,scrollEdges,valueToPercent}.ts;
-// internals/useInitialLiveRegionTextMutation.ts; avatar/image/useImageLoadingStatus.ts and AvatarImage.tsx.
+// packages/utils/src/clamp.ts; internals/useInitialLiveRegionTextMutation.ts; avatar/image/useImageLoadingStatus.ts and
+// AvatarImage.tsx.
 // Requirements: shared-utilities.md §4.10 (UTL-DOM-18..22), §4.11 (UTL-DOM-23..31), §4.13, §4.16, UTL-ALG-11..14.
 // The Floating UI DOM predicates Base UI imports are re-implemented here with the same semantics, so this module and
 // the button module stay out of `js/positioning.js`, which bundles the engine (ADR 04 §4, Amendments 2026-10-27).
@@ -464,6 +465,23 @@ export function normalizeScrollOffset(value: number, max: number): number {
   return clamped;
 }
 
+// UTL-EDGE-14: the loops' clamp, beside C#'s RangeMath.Clamp (ADR 01 decision 2, one implementation per loop; the
+// UTL-DOM-31 precedent). `floating-ui.ts`'s re-export of the engine's clamp is the positioning module's alone.
+/**
+ * Clamps a value to a range.
+ * @param value The value.
+ * @param min The lower bound; `Number.MIN_SAFE_INTEGER` when omitted.
+ * @param max The upper bound; `Number.MAX_SAFE_INTEGER` when omitted.
+ * @returns `Math.max(min, Math.min(value, max))`.
+ */
+export function clamp(
+  value: number,
+  min: number = Number.MIN_SAFE_INTEGER,
+  max: number = Number.MAX_SAFE_INTEGER,
+): number {
+  return Math.max(min, Math.min(value, max));
+}
+
 /**
  * Maps a value onto a percentage of a range, without clamping.
  * @param value The value.
@@ -544,8 +562,8 @@ export function observeIntersection(
  * - `component` holds a value a component writes with `style.setProperty` or `element.style` after render, which
  *   overrides the consumer, so it ranks last.
  *
- * A property may hold a value in several bands; the highest rank shows, and removing it there hands the property back to
- * the next band that holds it.
+ * A property may hold a value in several bands; the highest rank shows, and removing it there hands the property back
+ * to the next band that holds it.
  */
 export type StyleLayerName =
   | 'positioning'
@@ -557,8 +575,8 @@ export type StyleLayerName =
   | 'component';
 
 // SEL-DOM-20, SEL-POS-07 (M5 track 9, granted by the orchestrator 2026-11-04; design point 1 (a), settled by the
-// orchestrator 2026-11-04): the aligned band is over the other positioning bands. ADR 04 Amendments 2026-11-18, the bands
-// paragraph (decision 5 as revised, chosen by the user 2026-11-18): `component-under` right under the consumer,
+// orchestrator 2026-11-04): the aligned band is over the other positioning bands. ADR 04 Amendments 2026-11-18, the
+// bands paragraph (decision 5 as revised, chosen by the user 2026-11-18): `component-under` right under the consumer,
 // `component` last. The consumer's rank is the number of bands under it.
 const underConsumer: readonly StyleLayerName[] = ['positioning', 'transitions', 'component-under'];
 const overConsumer: readonly StyleLayerName[] = ['positioning-measured', 'auto-resize', 'aligned', 'component'];
