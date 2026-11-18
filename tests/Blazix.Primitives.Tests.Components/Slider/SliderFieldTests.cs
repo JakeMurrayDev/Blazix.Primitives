@@ -104,6 +104,33 @@ public sealed class SliderFieldTests : IDisposable
         Assert.Equal(descriptionId, Inputs(cut)[0].GetAttribute("aria-describedby"));
     }
 
+    [Fact(DisplayName = "port: a value change inside a field never sets data-filled")]
+    [Trait("Requirement", "SLD-STA-22")]
+    public async Task A_value_change_inside_a_field_never_sets_data_filled()
+    {
+        SliderControlState? seen = null;
+        IRenderedComponent<SliderHost> cut = Host(Context, InField(_ => { }, Part<SliderRoot>(r =>
+        {
+            r.AddUnmatched("data-testid", "root");
+            r.AddChildContent(Part<SliderControl>(c =>
+            {
+                c.Add(x => x.ClassValue, s =>
+                {
+                    seen = s;
+                    return null;
+                });
+                c.AddChildContent(Thumb());
+            }));
+        })));
+        IRenderedComponent<SliderRoot> root = cut.FindComponent<SliderRoot>();
+
+        await test.RequestAsync(root, "keyboard", 0, [1]);
+
+        Assert.Equal("1", cut.Find("input").GetAttribute("aria-valuenow"));
+        Assert.Empty(cut.FindAll("[data-filled]"));
+        Assert.False(seen!.Filled);
+    }
+
     [Fact(DisplayName = "[data-touched]")]
     [Trait("Requirement", "SLD-FRM-05")]
     [Trait("Requirement", "SLD-FRM-15")]

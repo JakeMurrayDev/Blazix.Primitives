@@ -42,6 +42,22 @@ public sealed class SliderRootTests : IDisposable
         Assert.EndsWith("`OnValuesChange` for a list.", error.Message, StringComparison.Ordinal);
     }
 
+    [Fact(DisplayName = "port: no part renders touch-action or user-select")]
+    [Trait("Requirement", "SLD-PTR-22")]
+    public void No_part_renders_touch_action_or_user_select()
+    {
+        // The consumer styles the Control with them (the SHOULD of the row); the parts render an inline style of their own.
+        IRenderedComponent<SliderRoot> cut = Context.Render<SliderRoot>(p => p.Add(x => x.DefaultValue, 30).AddChildContent(Anatomy(Thumb())));
+
+        Assert.NotEmpty(cut.FindAll("[style]"));
+        Assert.All(cut.FindAll("[style]"), element =>
+        {
+            string style = element.GetAttribute("style")!;
+            Assert.DoesNotContain("touch-action", style, StringComparison.Ordinal);
+            Assert.DoesNotContain("user-select", style, StringComparison.Ordinal);
+        });
+    }
+
     [Fact(DisplayName = "sets the data-orientation attribute")]
     [Trait("Requirement", "SLD-DOM-01")]
     [Trait("Requirement", "SLD-DOM-02")]
