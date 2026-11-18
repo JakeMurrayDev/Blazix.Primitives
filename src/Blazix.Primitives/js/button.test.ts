@@ -894,8 +894,8 @@ describe('usePressAndHold', () => {
     vi.useFakeTimers();
   });
 
-  function stepper(options: Partial<ButtonOptions> = {}, parent?: HTMLElement) {
-    return mount('button', { pressAndHold: {}, focusableWhenDisabled: true, ...options }, parent ? { parent } : {});
+  function stepper(options: Partial<ButtonOptions> = {}, parent?: HTMLElement, twin?: FakeTwinOptions) {
+    return mount('button', { pressAndHold: {}, focusableWhenDisabled: true, ...options }, { ...(parent ? { parent } : {}), ...(twin ? { twin } : {}) });
   }
 
   const ticks = (fake: FakeTwin) => fake.reported('OnHoldTick').length;
@@ -1206,6 +1206,27 @@ describe('usePressAndHold', () => {
       ['pointerdown', false],
       ['mouseenter', true],
     ]);
+  });
+
+  // NUM-PTR-02, ADR 01's C#-origin veto row; issue 277 design point 1 (a), the name chosen by the user 2026-11-18: a C#
+  // consumer's veto of a stepper's pointerdown is the `hold-start` decision (fallback run), asked before the input focus and
+  // the first tick.
+  it('port: a hold-start veto keeps a press from focusing and ticking on WebAssembly; Server runs it', () => {
+    const input = document.createElement('input');
+    input.id = 'nf-veto-input';
+    document.body.appendChild(input);
+    const vetoed = stepper({ holdFocusTarget: 'nf-veto-input' }, undefined, { synchronous: true, verdict: 'stop' });
+
+    pointer(vetoed.element, 'pointerdown', { pointerType: 'mouse' });
+
+    expect(vetoed.fake.decisions.map((d) => d.point)).toEqual(['hold-start']);
+    expect(ticks(vetoed.fake)).toBe(0);
+    expect(document.activeElement).not.toBe(input);
+
+    const server = stepper();
+    pointer(server.element, 'pointerdown', { pointerType: 'mouse' });
+    expect(ticks(server.fake)).toBe(1);
+    input.remove();
   });
 
   it('runs nothing without the press-and-hold options', () => {
