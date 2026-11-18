@@ -169,3 +169,11 @@ Facts the port found against context-menu.md, each recorded on its row:
 ## 2026-11-18, M6 shared pieces (M6 track 1, [issue 272](https://github.com/JakeMurrayDev/Blazix.Primitives/issues/272))
 
 - The Razor literal rule seen by the union-binding spike under RC2 (a bare attribute value on a union with a `string` case is a string literal) does not hold on SDK 11.0.100: the value is a C# expression (`spikes/m6-value-shapes/`, `Probe/Failing/R01`). Checked against the library: `<PopoverPositioner Anchor="my-anchor" />` gives `CS0103: The name 'my' does not exist in the current context`, and `<PopoverPortal Container="#target" />` gives `CS1024: Preprocessor directive expected`. The XML documentation of `AnchorValue` ("an element id is written as plain text, such as `Anchor="my-anchor"`") and of `PortalContainerValue` (`Container="#target"`) is therefore wrong on this SDK; the forms that compile are `Anchor="@("my-anchor")"` and `Container="@("#target")"`. Reported to the orchestrator; not changed by track 1.
+
+## 2026-11-19, NumberField's PR 6a (M6 track 6, [issue 277](https://github.com/JakeMurrayDev/Blazix.Primitives/issues/277), [PR 292](https://github.com/JakeMurrayDev/Blazix.Primitives/pull/292))
+
+- NUM §5.3: the visible input's `value` Writer read C#; it is C# → JS (ADR 04 Amendments 2026-11-18, NumberField point 7 (a)). The ownership lint found it once the NumberField folder existed (NUM-DOM-13's ScrubAreaCursor `style` also needed its registry row).
+- NUM-DOM-06: the hidden `<input type="number">` renders no id, and the form module matches a submission's controls by element id. As for a named Select, the field validates from the last validity report of its refresh; the Form titles that render NumberField (`FormNumberFieldTests`) read the typed value from the registry.
+- NUM-PTR-02, "treats pen pointer as touch-like": Base UI's jsdom press focuses nothing (`document.body`); a real pen press focuses the button natively, so the L4 title asserts that the input is not focused.
+- NUM-PTR-01, "always steps on quick touch ($order, …)": a real CDP tap has the browser's one order of `touchend` and the compatibility `click`, so the `it.each` title runs once per stepper as a port title.
+- NUM §16 items 1–14 are resolved by the dated notes of 2026-11-19 in §16 (replicated, or as built).
