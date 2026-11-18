@@ -169,7 +169,7 @@ Source: `toast/useToastManager.ts:26-107`. Test: [L2] `useToastManager.test.tsx`
 | Prop | Type | Default | Description | Req |
 |---|---|---|---|---|
 | `className`, `style`, `render` | per RND | — | See [rendering-and-composition](../architecture/rendering-and-composition.md). A consumer `style` is merged after the part's `--toast-frontmost-height` entry. | — |
-| `children` | node | — | Rendered between the two inner focus guards (TST-DOM-04). | — |
+| `children` | node | — | Rendered between the two inner focus guards (TST-DOM-04). Port note (2026-11-19, M6 track 9a, [issue 280](https://github.com/JakeMurrayDev/Blazix.Primitives/issues/280); ADR 08 Amendments 2026-11-18, settled by the orchestrator): `ChildContent` takes plain content, and the function form, the toast list, is `ToastsContent : RenderFragment<IReadOnlyList<ToastObject<TData>>>?`, rendered instead of `ChildContent` when given. | — |
 | any other `<div>` attribute / handler | | — | Forwarded; overrides the part's defaults of TST-DOM-01 and TST-ARIA-01 (handlers are chained per RND-EVT-02). | TST-DOM-23 |
 
 **Consumed (not forwarded to the element):** `render`, `className`, `style`, `children` (re-inserted between the guards).
