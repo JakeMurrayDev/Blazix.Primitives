@@ -159,3 +159,9 @@ Facts the port found against context-menu.md, each recorded on its row:
 - MNU-STA-19 on Server: the typed query's automatic highlight is C#'s and lands one leg later (ADR 01, "JS-owned values that originate in C# state"); a key pressed before it is overwritten. The titles wait for the highlight, Base UI's synchronous state.
 - MNU-PTR-21: Clear's `mousedown` default (`FilterDropdownClear.tsx:46-49`) is the `menu-filter` module's `clear` part since `a86505c4`, which follows each element the Clear re-mounts; before it, focus returned only through the focus manager's restore.
 - `MenuList.test.tsx` "replays keys from an item that holds real focus and activates on Enter": its last step reads the input's value under jsdom, where the closing popup is still mounted; in a browser the press closes the menu first, so the port's title checks that the input is gone.
+
+## 2026-11-18, M6 planning corrections of record ([ADR 12 Amendments 2026-11-18](decisions/12-implementation-order-and-milestones.md), decision 25)
+
+- EVD §3's `onValueCommitted` summary said "fires only for applied changes", which holds for Slider only; NumberField commits on every press-and-hold and scrub release and on blur after typing, even unchanged (NUM-EVT-05, NUM-PTR-04, NUM-PTR-13, NUM-EVT-08). EVD-EVT-23 already said so; the summary now points to it.
+- DRW §3.10's `--drawer-keyboard-inset` writer cell read C#; ADR 04's ownership row (JS) is kept and the cell corrected (ADR 04 Amendments 2026-11-18).
+- Stale pointers corrected: TLB :534's "(M5)", TST §14's two pointers; dated "open to M6" notes added on INP-STR-03 and eight FLD bullets from PR 92's milestone column.

@@ -8,7 +8,7 @@
 | Docs page | `docs/src/app/(docs)/react/components/toolbar/page.mdx` |
 | Prefix | `TLB` |
 | Status | implemented |
-| Revised | 2026-11-11 |
+| Revised | 2026-11-18 |
 | Builds on | none ([separator](separator.md) is reused by `Toolbar.Separator`) |
 | Derived by | none; hosts [toggle-group](toggle-group.md) / [toggle](toggle.md) and any popup trigger via `Toolbar.Button` substitution |
 | Depends on | [rendering-and-composition](../architecture/rendering-and-composition.md), [event-details-and-reasons](../architecture/event-details-and-reasons.md) (indirectly, through hosted parts), [composite-and-list-navigation](../architecture/composite-and-list-navigation.md), [button-behavior](../architecture/button-behavior.md), [shared-utilities](../architecture/shared-utilities.md) |
@@ -531,8 +531,9 @@ Navigation is the composite root's ([CMP](../architecture/composite-and-list-nav
   Port note 2026-10-27: runs in `toolbar.spec.ts` "$direction, orientation: $orientation" (rtl rows) and "respects caret and selection boundaries in horizontal rtl toolbars".
 - **TLB-KEY-03** — MUST. Arrow keys of the other axis MUST NOT move focus and MUST NOT be consumed ([CMP-API-02](../architecture/composite-and-list-navigation.md), [CMP-KEY-11](../architecture/composite-and-list-navigation.md)), so a substituted control may use them (e.g. `NumberField.Input` stepping on <kbd>ArrowUp</kbd>/<kbd>ArrowDown</kbd> in a horizontal toolbar, `Select.Trigger` opening on <kbd>ArrowDown</kbd>).
   Source: `internals/composite/root/useCompositeRoot.ts:267-272,282,302`. Test: [L4] `ToolbarInput.test.tsx` "handles interactions" (NumberField, <kbd>ArrowUp</kbd> increments); `ToolbarButton.test.tsx` Select "handles interactions" (<kbd>ArrowDown</kbd> opens).
-  Port note 2026-10-27: re-cited (ADR 12 Amendments 2026-10-26 item 3): NumberField's and Select's titles (M5) are asserted by `toolbar.spec.ts` "port: a handled arrow is default-prevented and stopped; the cross-axis arrows, Home, End and a modified arrow are neither".
+  Port note 2026-10-27: re-cited (ADR 12 Amendments 2026-10-26 item 3): NumberField's (M6) and Select's (M5) titles are asserted by `toolbar.spec.ts` "port: a handled arrow is default-prevented and stopped; the cross-axis arrows, Home, End and a modified arrow are neither".
   Correction 2026-11-03 (ADR 12's milestone table; ADR 12 Amendments 2026-11-03 item 4): NumberField is M6, so the "(M5)" above reads M6 for NumberField's title; Select's title stays M5's.
+  Correction 2026-11-18 (ADR 12 Amendments 2026-11-18; the M6 plan's decision 25 (a)): the 2026-10-27 note's "NumberField's and Select's titles (M5)" is edited to name each title's milestone, as the 2026-11-03 correction reads it.
   Port note 2026-11-11 (M5 track 9, [issue 173](https://github.com/JakeMurrayDev/Blazix.Primitives/issues/173); PR 205's final review B2): Select's half of the cited title runs at L4, `toolbar.spec.ts` "handles interactions" (Base UI runs it in jsdom only, `ToolbarButton.test.tsx:472`), green on Server and WebAssembly.
 - **TLB-KEY-04** — MUST. The toolbar MUST NOT handle <kbd>Home</kbd> or <kbd>End</kbd> (the composite option is not enabled): they neither move the tab stop nor are consumed; inside a text input they move the caret natively.
   Source: `toolbar/root/ToolbarRoot.tsx:65-76` (no `enableHomeAndEndKeys`); `internals/composite/root/useCompositeRoot.ts:84,207-210`. Test: none.

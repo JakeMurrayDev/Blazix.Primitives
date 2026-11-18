@@ -8,7 +8,7 @@
 | Docs page | `docs/src/app/(docs)/react/components/drawer/page.mdx` |
 | Prefix | `DRW` |
 | Status | approved |
-| Revised | 2026-10-20 |
+| Revised | 2026-11-18 |
 | Builds on | [dialog](dialog.md) |
 | Derived by | none |
 | Depends on | [rendering-and-composition](../architecture/rendering-and-composition.md), [event-details-and-reasons](../architecture/event-details-and-reasons.md), [popup-store-and-handles](../architecture/popup-store-and-handles.md) (swipe tracker §4.7.5), [transitions-and-mounting](../architecture/transitions-and-mounting.md), [button-behavior](../architecture/button-behavior.md), [floating-and-positioning](../architecture/floating-and-positioning.md), [shared-utilities](../architecture/shared-utilities.md) |
@@ -253,7 +253,7 @@ State (`Drawer.Viewport.State`) = Dialog Viewport state `{ open, transitionStatu
 | `role="presentation"`, `hidden`, `pointer-events: none` when closed | DLG-ARIA-09, DLG-DOM-12/13 | — | C# |
 | `data-open` / `data-closed` / `data-starting-style` / `data-ending-style` / `data-nested` | DLG-DOM-14/15 | — | C# (`data-open`, `data-closed`, `data-nested`); JS (`data-starting-style`, `data-ending-style`) |
 | `data-nested-dialog-open` | never | DRW-DOM-22 | C# |
-| `--drawer-keyboard-inset` | while a VirtualKeyboardProvider is aligned | DRW-DOM-23 | C# |
+| `--drawer-keyboard-inset` | while a VirtualKeyboardProvider is aligned | DRW-DOM-23 | JS |
 
 ### 3.11 `Drawer.Popup`
 
@@ -1283,3 +1283,5 @@ Counts: STR 10, API 14, STA 18, DOM 33, ARIA 3, KEY 1, PTR 32, FOC 11, DIS 5, EV
 3. **dialog.md §1** says the author "marked Drawer differences inline as 'drawer mode'"; only DLG-STA-05 and DLG-DIS-10 do. Drawer's own Popup/Backdrop/Viewport implementations differ from Dialog's (initial focus default, `--nested-dialogs`, `data-nested-dialog-open`, backdrop `pointer-events`) — not contradictions of dialog.md, but the overview's claim that Drawer differences are noted inline is incomplete; a pointer to drawer.md §3.17 would help. Resolved (QA 2026-10-14): dialog.md §1 now points to §3.17.
 
 Amended 2026-10-20 (ADR 04 Amendments 2026-10-20, ADR 13 §3): the Root's `data-swiping` Writer cell in §3 changed from `C#` to `JS` — every Drawer part's `data-swiping` is JavaScript-written because `swiping` is a mirrored field; DRW-DOM-26's statement is unchanged.
+
+Amended 2026-11-18 (ADR 04 Amendments 2026-11-18, the M6 plan's decision 4 (a); ADR 12 Amendments 2026-11-18): the Viewport's `--drawer-keyboard-inset` Writer cell in §3.10 changed from `C#` to `JS`, agreeing with ADR 04 Amendments 2026-10-20, where the `drawer` module follows `visualViewport` and C# holds no field for the value. DRW-DOM-23's statement is unchanged.

@@ -7,7 +7,7 @@
 | Tests | `internals/createBaseUIEventDetails.spec.ts`, `internals/useValueChanged.test.tsx`, `packages/utils/src/useControlled.test.tsx`; partial (only the titles on this doc's `Test:` lines; the rest of each file is covered by the owning doc): `utils/popups/popupStoreUtils.test.tsx` ("getPopupOpenState" and "applyPopupOpenChange" blocks; rest PSH), `floating-ui-react/hooks/useDismiss.test.tsx` (Escape preventDefault titles; rest FLT), `merge-props/mergeProps.test.ts` (`preventBaseUIHandler` titles; rest RND); plus the component tests cited inline |
 | Prefix | `EVD` |
 | Status | approved |
-| Revised | 2026-11-04 |
+| Revised | 2026-11-18 |
 | Used by | Every component document. Directly: accordion, alert-dialog, autocomplete, checkbox, checkbox-group, collapsible, combobox, context-menu, dialog, drawer, field, form, input, menu, menubar, navigation-menu, number-field, otp-field, popover, preview-card, radio, radio-group, select, slider, switch, tabs, toggle, toggle-group, tooltip. Architecture: `floating-and-positioning.md` (FLT), `popup-store-and-handles.md` (PSH), `transitions-and-mounting.md` (TRN), `field-and-form-infrastructure.md` (FFI), `button-behavior.md` (UBT), `rendering-and-composition.md` (RND), `shared-utilities.md` (UTL) |
 
 ## 1. Purpose
@@ -189,11 +189,13 @@ Component documents cite `EVD-API-13` for these props and only add their own pro
 | `onInputValueChange` (Combobox) | `(inputValue: string, details) => void` | Change request for the text input; cancelable; may carry `isItemPress`. |
 | `onSnapPointChange` (Drawer) | `(snapPoint, details) => void` | Change request; cancelable; plain change-event details (no `preventUnmountOnClose`). |
 | `onItemHighlighted` (Menu, Combobox, Autocomplete) | `(item, details) => void` | Notification; highlight-event details; not cancelable. |
-| `onValueCommitted` (Slider, NumberField) | `(value, details) => void` | Notification; generic-event details; not cancelable; fires only for applied changes. |
+| `onValueCommitted` (Slider, NumberField) | `(value, details) => void` | Notification; generic-event details; not cancelable; firing rules per path in `EVD-EVT-23` (Slider only after an applied change; NumberField on every press-and-hold and scrub release and on blur after typing, even when nothing changed). |
 | `onValueInvalid`, `onValueComplete` (OTPField) | `(value: string, details) => void` | Notifications; generic-event details. |
 | `onFormSubmit` (Form) | `(values, details) => void` | Notification; generic-event details with `reason: 'none'`. |
 | `onOpenChangeComplete` (all popup roots, Collapsible/Accordion excluded) | `(open: boolean) => void` | Not an event-details callback; ordering relative to `onOpenChange` in `EVD-EVT-20`. NavigationMenu calls it only with `false`. |
 | the controlled/default prop pairs (`open`/`defaultOpen`, `value`/`defaultValue`, `checked`/`defaultChecked`, `pressed`/`defaultPressed`, `inputValue`/`defaultInputValue`, `snapPoint`/`defaultSnapPoint`, Menu.FilterProvider `value`/`defaultValue`) | — | Controlled/uncontrolled contract in §4.2 (`EVD-STA-01` … `EVD-STA-10`). |
+
+Correction (2026-11-18, ADR 12 Amendments 2026-11-18; the M6 plan's decision 25 (a)): the `onValueCommitted` row read "fires only for applied changes", which holds for Slider only. NumberField commits on every release of a stepper press-and-hold and of an active scrub, and on blur after typing, even when the value is unchanged (NUM-EVT-05, NUM-PTR-04, NUM-PTR-13, NUM-EVT-08). `EVD-EVT-23`'s statement already said so; only this summary was stale, and it now points to that requirement.
 
 ## 4. Behavioral requirements
 
