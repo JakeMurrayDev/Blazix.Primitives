@@ -1,0 +1,188 @@
+@namespace Blazix.Primitives.Tests.Components
+@* DrawerPopup.test.tsx's nested-drawer trees, one per Shape; every parent popup is "parent-popup" and holds a count probe of
+   its root (the port's useDialogRootContext), and ParentClassValue sees each render of it.
+   - "presence": a default-open parent whose popup holds a nested root controlled by ChildOpen, its portal kept mounted;
+     ChildMounted removes it ("reports nested presence and frontmost height before passive effects", DialogRoot.test.tsx
+     "reports nested drawer counts before passive effects").
+   - "dialog-inside" / "alert-inside": an open parent, an open nested drawer, and inside its popup a closed Dialog or
+     AlertDialog with its own trigger ("does not treat (alert) dialogs inside nested drawers as nested drawers").
+   - "siblings": an open parent whose popup holds an open nested drawer, then a closed handle-backed one ("keeps the parent
+     nested state when a closed handle-backed nested drawer mounts").
+   - "close-nested": an open parent whose popup holds an uncontrolled nested drawer with its trigger and a Close, its portal
+     kept mounted ("clears parent nested drawer state as soon as a nested drawer closes").
+   - "through-dialog": an open parent drawer whose popup holds an open Dialog, whose popup holds an open drawer (DRW-STR-10).
+   - "dialog-parent": an open Dialog whose popup holds a drawer controlled by ChildOpen and ChildModal, with the alert-state
+     probe inside it (DLG-DIS-10's drawer sentence). *@
+@switch (Shape)
+{
+    case "presence":
+        <DrawerRoot TPayload="NoPayload" @ref="Parent" DefaultOpen="true" Modal="false">
+            <DrawerPortal>
+                <DrawerViewport>
+                    <DrawerPopup data-testid="parent-popup" ClassValue="ParentClassValue">
+                        <DrawerCountProbe TestId="parent-counts" Recorded="RecordParentDrawers" />
+                        @if (ChildMounted)
+                        {
+                            <DrawerRoot TPayload="NoPayload" @ref="Child" Open="ChildOpen" Modal="false">
+                                <DrawerPortal KeepMounted="true">
+                                    <DrawerViewport>
+                                        <DrawerPopup data-testid="child-popup">Child drawer</DrawerPopup>
+                                    </DrawerViewport>
+                                </DrawerPortal>
+                            </DrawerRoot>
+                        }
+                    </DrawerPopup>
+                </DrawerViewport>
+            </DrawerPortal>
+        </DrawerRoot>
+        break;
+    case "dialog-inside":
+    case "alert-inside":
+        <DrawerRoot TPayload="NoPayload" @ref="Parent" Open="true" Modal="false">
+            <DrawerPortal>
+                <DrawerViewport data-testid="parent-viewport">
+                    <DrawerPopup data-testid="parent-popup" ClassValue="ParentClassValue">
+                        <DrawerCountProbe TestId="parent-counts" Recorded="RecordParentDrawers" />
+                        <DrawerRoot TPayload="NoPayload" @ref="Child" Open="true" Modal="false">
+                            <DrawerPortal>
+                                <DrawerViewport data-testid="child-viewport">
+                                    <DrawerPopup data-testid="child-popup">
+                                        @if (Shape == "dialog-inside")
+                                        {
+                                            <DialogRoot TPayload="NoPayload" Modal="false">
+                                                <DialogTrigger id="open-dialog">Open dialog</DialogTrigger>
+                                                <DialogPortal>
+                                                    <DialogPopup data-testid="dialog-popup">Dialog</DialogPopup>
+                                                </DialogPortal>
+                                            </DialogRoot>
+                                        }
+                                        else
+                                        {
+                                            <AlertDialogRoot TPayload="NoPayload">
+                                                <AlertDialogTrigger id="open-dialog">Open alert dialog</AlertDialogTrigger>
+                                                <AlertDialogPortal>
+                                                    <AlertDialogPopup data-testid="dialog-popup">
+                                                        Alert dialog
+                                                        <AlertDialogClose>Close alert dialog</AlertDialogClose>
+                                                    </AlertDialogPopup>
+                                                </AlertDialogPortal>
+                                            </AlertDialogRoot>
+                                        }
+                                    </DrawerPopup>
+                                </DrawerViewport>
+                            </DrawerPortal>
+                        </DrawerRoot>
+                    </DrawerPopup>
+                </DrawerViewport>
+            </DrawerPortal>
+        </DrawerRoot>
+        break;
+    case "siblings":
+        <DrawerRoot TPayload="NoPayload" @ref="Parent" Open="true" Modal="false">
+            <DrawerPortal>
+                <DrawerViewport>
+                    <DrawerPopup data-testid="parent-popup" ClassValue="ParentClassValue">
+                        <DrawerRoot TPayload="NoPayload" @ref="Child" Open="true" Modal="false">
+                            <DrawerPortal>
+                                <DrawerViewport>
+                                    <DrawerPopup data-testid="open-child">Open child</DrawerPopup>
+                                </DrawerViewport>
+                            </DrawerPortal>
+                        </DrawerRoot>
+                        @* After the open sibling, so its report comes last. *@
+                        <DrawerRoot TPayload="NoPayload" Handle="ClosedHandle" Modal="false">
+                            <DrawerPortal>
+                                <DrawerViewport>
+                                    <DrawerPopup data-testid="closed-child">Closed child</DrawerPopup>
+                                </DrawerViewport>
+                            </DrawerPortal>
+                        </DrawerRoot>
+                    </DrawerPopup>
+                </DrawerViewport>
+            </DrawerPortal>
+        </DrawerRoot>
+        break;
+    case "close-nested":
+        <DrawerRoot TPayload="NoPayload" @ref="Parent" Open="true" Modal="false">
+            <DrawerPortal>
+                <DrawerViewport>
+                    <DrawerPopup data-testid="parent-popup" ClassValue="ParentClassValue">
+                        <DrawerRoot TPayload="NoPayload" @ref="Child" Modal="false">
+                            <DrawerTrigger id="open-nested">Open nested drawer</DrawerTrigger>
+                            <DrawerPortal KeepMounted="true">
+                                <DrawerViewport>
+                                    <DrawerPopup data-testid="child-popup">
+                                        <DrawerClose data-testid="close-nested">Close nested drawer</DrawerClose>
+                                    </DrawerPopup>
+                                </DrawerViewport>
+                            </DrawerPortal>
+                        </DrawerRoot>
+                    </DrawerPopup>
+                </DrawerViewport>
+            </DrawerPortal>
+        </DrawerRoot>
+        break;
+    case "through-dialog":
+        <DrawerRoot TPayload="NoPayload" @ref="Parent" Open="true" Modal="false">
+            <DrawerPortal>
+                <DrawerViewport>
+                    <DrawerPopup data-testid="parent-popup" ClassValue="ParentClassValue">
+                        <DialogRoot TPayload="NoPayload" Open="true" Modal="false">
+                            <DialogPortal>
+                                <DialogPopup data-testid="dialog-popup">
+                                    <DrawerRoot TPayload="NoPayload" @ref="Child" Open="true" Modal="false">
+                                        <DrawerPortal>
+                                            <DrawerViewport>
+                                                <DrawerPopup data-testid="child-popup">Child drawer</DrawerPopup>
+                                            </DrawerViewport>
+                                        </DrawerPortal>
+                                    </DrawerRoot>
+                                </DialogPopup>
+                            </DialogPortal>
+                        </DialogRoot>
+                    </DrawerPopup>
+                </DrawerViewport>
+            </DrawerPortal>
+        </DrawerRoot>
+        break;
+    default:
+        <DialogRoot TPayload="NoPayload" Open="true" Modal="false">
+            <DialogPortal>
+                <DialogPopup data-testid="parent-popup">
+                    <DrawerCountProbe TestId="parent-counts" />
+                    <DrawerRoot TPayload="NoPayload" @ref="Child" Open="ChildOpen" Modal="ChildModal">
+                        <AlertDialogStateProbe />
+                        <DrawerPortal>
+                            <DrawerViewport>
+                                <DrawerPopup data-testid="child-popup">Drawer</DrawerPopup>
+                            </DrawerViewport>
+                        </DrawerPortal>
+                    </DrawerRoot>
+                </DialogPopup>
+            </DialogPortal>
+        </DialogRoot>
+        break;
+}
+
+@code {
+    public DrawerRoot<NoPayload>? Parent { get; private set; }
+
+    public DrawerRoot<NoPayload>? Child { get; private set; }
+
+    public DrawerHandle<NoPayload> ClosedHandle { get; } = new();
+
+    // Every drawer count the parent's probe was notified of, in order.
+    public List<int> ParentDrawerCounts { get; } = [];
+
+    [Parameter] public string Shape { get; set; } = "presence";
+
+    [Parameter] public bool ChildOpen { get; set; }
+
+    [Parameter] public bool ChildMounted { get; set; } = true;
+
+    [Parameter] public ModalValue? ChildModal { get; set; }
+
+    [Parameter] public Func<DrawerPopupState, string?>? ParentClassValue { get; set; }
+
+    private void RecordParentDrawers(int count) => ParentDrawerCounts.Add(count);
+}

@@ -1,0 +1,42 @@
+@namespace Blazix.Primitives.Tests.Components
+@* DrawerSwipeArea.test.tsx's trees: a root with one swipe area and no trigger, so the trigger registry holds the area alone.
+   Open is controlled; the area's id, direction, disabled flag and style come from the parameters, and Show unmounts it. *@
+<DrawerRoot TPayload="NoPayload" Open="Open" SwipeDirection="RootDirection">
+    @if (Show)
+    {
+        <DrawerSwipeArea data-testid="swipe-area" SwipeDirection="AreaDirection" Disabled="Disabled" @attributes="Attributes()" />
+    }
+</DrawerRoot>
+
+@code {
+    [Parameter] public bool Open { get; set; }
+
+    [Parameter] public SwipeDirection? RootDirection { get; set; }
+
+    [Parameter] public SwipeDirection? AreaDirection { get; set; }
+
+    [Parameter] public bool Disabled { get; set; }
+
+    [Parameter] public string? Id { get; set; }
+
+    [Parameter] public string? Style { get; set; }
+
+    [Parameter] public bool Show { get; set; } = true;
+
+    // The id and the style only when given, so that an absent one leaves the area's own.
+    private Dictionary<string, object> Attributes()
+    {
+        Dictionary<string, object> attributes = [];
+        if (Id is not null)
+        {
+            attributes["id"] = Id;
+        }
+
+        if (Style is not null)
+        {
+            attributes["style"] = Style;
+        }
+
+        return attributes;
+    }
+}

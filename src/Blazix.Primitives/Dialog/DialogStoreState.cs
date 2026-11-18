@@ -4,9 +4,10 @@ using Blazix.Primitives.Store;
 namespace Blazix.Primitives;
 
 // DLG §4.2 (dialog/store/DialogStore.ts:14-68), ADR 05 Amendments 2026-10-27 (the composed store record, chosen by the user
-// 2026-10-27): Dialog's fields beside the shared popup state. Left out: the drawer count and the viewport element (M6's
-// Drawer reads them), the three interaction prop bags and floatingRootContext (the `interactions` session owns them), and
-// openMethod (PopupStoreState.OpenMethod). Added: BackdropElementId, the consumer Backdrop's rendered id, which the
+// 2026-10-27): Dialog's fields beside the shared popup state. Left out: the viewport element (the `drawer` module measures
+// the viewport and resolves the snap points itself, so C# needs no element; M6 track 8a, issue 279, decision 7 (a) of the
+// M6 plan, chosen by the user 2026-11-18), the three interaction prop bags and floatingRootContext (the `interactions`
+// session owns them), and openMethod (PopupStoreState.OpenMethod). The drawer count is stored from M6 (DLG-STA-01, 04). Added: BackdropElementId, the consumer Backdrop's rendered id, which the
 // outside-press options name (Base UI holds the element in backdropRef).
 /// <summary>Represents the state of a dialog's store: the shared popup state and the dialog's own fields.</summary>
 /// <typeparam name="TPayload">The type of the payload the dialog's triggers carry.</typeparam>
@@ -16,6 +17,7 @@ namespace Blazix.Primitives;
 /// <param name="Role">The popup's role: <c>dialog</c>, or <c>alertdialog</c> for an alert dialog.</param>
 /// <param name="Nested">Whether the root is rendered inside another dialog-family root.</param>
 /// <param name="NestedOpenDialogCount">The depth of the chain of open dialogs below this one, as last reported.</param>
+/// <param name="NestedOpenDrawerCount">The number of open drawers in the chain of open dialogs below this one, as last reported.</param>
 /// <param name="TitleElementId">The rendered id of the mounted title, or <see langword="null"/> for none.</param>
 /// <param name="DescriptionElementId">The rendered id of the mounted description, or <see langword="null"/> for none.</param>
 /// <param name="BackdropElementId">The rendered id of the consumer backdrop, or <see langword="null"/> while none renders.</param>
@@ -27,6 +29,7 @@ internal sealed partial record DialogStoreState<TPayload>(
     string Role,
     bool Nested,
     int NestedOpenDialogCount,
+    int NestedOpenDrawerCount,
     string? TitleElementId,
     string? DescriptionElementId,
     string? BackdropElementId) : IStoreState<DialogStoreState<TPayload>>, IPopupStoreState<DialogStoreState<TPayload>, TPayload>
@@ -68,6 +71,7 @@ internal sealed partial record DialogStoreState<TPayload>(
         Role: DialogRole,
         Nested: false,
         NestedOpenDialogCount: 0,
+        NestedOpenDrawerCount: 0,
         TitleElementId: null,
         DescriptionElementId: null,
         BackdropElementId: null);
@@ -95,6 +99,9 @@ internal static class DialogSelectors<TPayload>
 
     /// <summary>Selects the nested open dialog count.</summary>
     public static readonly Func<DialogStoreState<TPayload>, int> NestedOpenDialogCount = static state => state.NestedOpenDialogCount;
+
+    /// <summary>Selects the nested open drawer count.</summary>
+    public static readonly Func<DialogStoreState<TPayload>, int> NestedOpenDrawerCount = static state => state.NestedOpenDrawerCount;
 
     /// <summary>Selects the title's id.</summary>
     public static readonly Func<DialogStoreState<TPayload>, string?> TitleElementId = static state => state.TitleElementId;
