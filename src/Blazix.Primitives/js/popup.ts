@@ -357,6 +357,10 @@ function attachViewport(viewport: HTMLElement, initial: PopupOptions, channel: T
     previous.removeAttribute(ENDING);
     choreography.request(() => {
       current.removeAttribute(STARTING);
+      // Issue 176 (PSH-ANI-09/10): the previous container's style is resolved before its ending style, so its exit runs
+      // as a transition in whatever frame it was inserted. A remount's measurement resolves it under `display: none`,
+      // from which no transition starts; on Server under latency nothing else resolved it before this frame.
+      void getComputedStyle(previous).opacity;
       previous.setAttribute(ENDING, '');
       const controller = new AbortController();
       cleanup = controller;
