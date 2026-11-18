@@ -49,10 +49,11 @@ internal static class SliderStyles
     // SLD-DOM-14: the shared visually hidden style with a 100% box, so VoiceOver's focus ring matches the thumb.
     private const string InputStyle = "clip-path: inset(50%); overflow: hidden; white-space: nowrap; border: 0; padding: 0; width: 100%; height: 100%; margin: 0; position: fixed; top: 0; left: 0";
 
+    // SLD-I18N-03: `writing-mode` for a vertical slider.
     /// <summary>Returns the inline style of a thumb's input.</summary>
     /// <param name="vertical">Whether the slider is vertical.</param>
     /// <param name="rtl">Whether the direction is right to left.</param>
-    /// <returns>The style, with <c>writing-mode</c> for a vertical slider (SLD-I18N-03).</returns>
+    /// <returns>The style, with <c>writing-mode</c> for a vertical slider.</returns>
     public static string Input(bool vertical, bool rtl) => !vertical ? InputStyle : rtl ? InputStyle + "; writing-mode: vertical-rl" : InputStyle + "; writing-mode: vertical-lr";
 
     // slider/thumb/SliderThumb.tsx:276-304.

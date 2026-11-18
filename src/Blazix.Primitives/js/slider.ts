@@ -327,10 +327,12 @@ export interface SliderOptions extends TwinOptions {
   rawDiffers?: boolean;
 }
 
-/** The decision point asked before a key on a thumb input is handled (ADR 04 §3: fallback `run`). */
+// ADR 04 §3: fallback `run`.
+/** The decision point asked before a key on a thumb input is handled. */
 export const KEY_POINT = 'key';
 
-/** The decision point asked before a press on the control starts a gesture (ADR 04 §3: fallback `start`). */
+// ADR 04 §3: fallback `start`.
+/** The decision point asked before a press on the control starts a gesture. */
 export const PRESS_POINT = 'press';
 
 /** The literal of a value request's reason. */

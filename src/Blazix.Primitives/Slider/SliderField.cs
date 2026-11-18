@@ -54,8 +54,9 @@ internal sealed class SliderField : IDisposable
     /// <value><see langword="true"/> inside a <c>FieldRoot</c>.</value>
     public bool InField => fieldScope is not null;
 
+    // SLD-API-05.
     /// <summary>Gets a value indicating whether the slider is disabled, its own flag or its field's.</summary>
-    /// <value>The effective disabled flag (SLD-API-05).</value>
+    /// <value>The effective disabled flag.</value>
     public bool Disabled => (fieldScope?.Disabled ?? false) || ownDisabled;
 
     /// <summary>Gets the effective form name: the field's, else the root's own, else the edit context's.</summary>
