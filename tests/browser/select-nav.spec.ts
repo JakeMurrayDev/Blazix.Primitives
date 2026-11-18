@@ -2,7 +2,7 @@
 // SelectPositioner.test.tsx's kept-mounted title and SelectScrollArrow.test.tsx's L4 title: Server then WebAssembly.
 // Fixtures: tests/Blazix.Primitives.Fixtures.Client/Select/SelectNav*Fixture.razor (and `select-positioner`).
 import { type Locator, type Page } from '@playwright/test';
-import { expect, test } from './helpers';
+import { delayCircuitMessages, expect, test } from './helpers';
 import { waitForPositioned } from './helpers/positioner';
 import { gotoPopupFixture, pressControl, settle } from './suites/popupFixture';
 
@@ -422,6 +422,11 @@ test.describe('prop: highlightItemOnHover', () => {
   // SEL-API-15, SEL-POS-10. Base UI fires `pointerdown` (mouse) and `mousedown` on the trigger and never releases; the real
   // press is a mouse down with no release, since a release would land on the aligned popup's first item and select it.
   test('highlights the first item after opening when alignItemWithTrigger is active and no value is selected', async ({ page, mode }) => {
+    // Issue 261: on Server the aligned placement's report can reach C# before the items' order report (the order of a
+    // nightly failure), so the page's order report is held 300 ms on every run.
+    if (mode === 'server') {
+      await delayCircuitMessages(page, 0, 'OnItemsChange', 300);
+    }
     await gotoPopupFixture(page, mode, 'select-nav-hover', { case: 'aligned-first' });
     const box = (await trigger(page).boundingBox())!;
     await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
