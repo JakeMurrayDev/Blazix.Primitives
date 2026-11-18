@@ -1,0 +1,16 @@
+<ToastViewport Toasts="@([.. manager.Toasts.OfType<ToastObject>()])" Context="list">
+    @foreach (var toast in list)
+    {
+        <ToastRoot Toast="toast" />
+    }
+</ToastViewport>
+@foreach (var toast in manager.Toasts)
+{
+    <ToastRoot Toast="toast" />
+}
+
+@code {
+    private readonly ToastManager manager = new();
+
+    protected override void OnInitialized() => manager.Add(new ToastObject("a"));
+}

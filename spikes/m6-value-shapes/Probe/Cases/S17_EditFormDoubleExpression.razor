@@ -1,0 +1,10 @@
+<EditForm Model="model"><SliderRoot Value="@model.Gain" ValueChanged="@((SliderValues? v) => { if (v is { } held && held.TryGetValue(out double d)) model.Gain = d; })" ValueExpression="@(() => model.Gain)" /></EditForm> model=@model.Gain
+
+@code {
+    private readonly Model model = new();
+
+    private sealed class Model
+    {
+        public double Gain { get; set; } = 25;
+    }
+}

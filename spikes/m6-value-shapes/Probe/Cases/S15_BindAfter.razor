@@ -1,0 +1,8 @@
+<SliderRoot @bind-Value="value" @bind-Value:after="After" /> field=@value after=@after
+
+@code {
+    private SliderValues? value = 25;
+    private int after;
+
+    private void After() => after++;
+}

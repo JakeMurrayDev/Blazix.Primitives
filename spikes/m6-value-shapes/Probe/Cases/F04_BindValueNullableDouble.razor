@@ -1,0 +1,8 @@
+<SliderTriplesRoot @bind-Value="value" @bind-Value:after="After" /> field=@value after=@after
+
+@code {
+    private double? value = 25;
+    private int after;
+
+    private void After() => after++;
+}

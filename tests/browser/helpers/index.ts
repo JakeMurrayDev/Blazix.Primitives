@@ -13,3 +13,6 @@ export {
   type ExternalLocker,
   type PageLockRecord,
 } from './scrollLock';
+export { testWithTouch, touchDrag, pointOf, type TouchDragOptions, type TouchPoint } from './touch';
+export { wheelOver, type WheelModifier, type WheelOptions } from './wheel';
+export { swipeOnTimeline, type Timeline, type TimelineEvent, type TimelineOptions } from './timeline';

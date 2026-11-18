@@ -166,6 +166,10 @@ Facts the port found against context-menu.md, each recorded on its row:
 - DRW §3.10's `--drawer-keyboard-inset` writer cell read C#; ADR 04's ownership row (JS) is kept and the cell corrected (ADR 04 Amendments 2026-11-18).
 - Stale pointers corrected: TLB :534's "(M5)", TST §14's two pointers; dated "open to M6" notes added on INP-STR-03 and eight FLD bullets from PR 92's milestone column.
 
+## 2026-11-18, M6 shared pieces (M6 track 1, [issue 272](https://github.com/JakeMurrayDev/Blazix.Primitives/issues/272))
+
+- The Razor literal rule seen by the union-binding spike under RC2 (a bare attribute value on a union with a `string` case is a string literal) does not hold on SDK 11.0.100: the value is a C# expression (`spikes/m6-value-shapes/`, `Probe/Failing/R01`). Checked against the library: `<PopoverPositioner Anchor="my-anchor" />` gives `CS0103: The name 'my' does not exist in the current context`, and `<PopoverPortal Container="#target" />` gives `CS1024: Preprocessor directive expected`. The XML documentation of `AnchorValue` ("an element id is written as plain text, such as `Anchor="my-anchor"`") and of `PortalContainerValue` (`Container="#target"`) is therefore wrong on this SDK; the forms that compile are `Anchor="@("my-anchor")"` and `Container="@("#target")"`. Reported to the orchestrator; not changed by track 1.
+
 ## 2026-11-19, Toast port, first half (M6 track 9a, [issue 280](https://github.com/JakeMurrayDev/Blazix.Primitives/issues/280))
 
 - `PartBase<TState>` declares `[Parameter] RenderFragment? ChildContent`. A part that redeclares it with `new` as a `RenderFragment<T>` compiles but throws at its first render ("declares more than one parameter matching the name 'childcontent'"). So the Viewport's list template is `ToastsContent` (ADR 08 Amendments 2026-11-18).
