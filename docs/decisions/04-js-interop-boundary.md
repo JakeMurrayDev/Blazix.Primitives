@@ -746,3 +746,10 @@ Both fall back to `run`. One keydown reaches two handles, so C# runs the consume
 - (DP8) *The iframe rows TST-STR-13 and TST-EDGE-08.* Probe a same-origin iframe first. If it cannot host them, the titles are `test.fixme` with an `open` annotation, and the two rows return to the user.
 - (DP10) *The sample.* The hero demo lands in 9b, with the variants added as their slices land.
 
+**2026-11-19, issue 176's fix shape: the Viewport handle subscribes to the session's reference moves (M6 track 2, [issue 176](https://github.com/JakeMurrayDev/Blazix.Primitives/issues/176), [issue 273](https://github.com/JakeMurrayDev/Blazix.Primitives/issues/273) design point 1; chosen by the user 2026-11-19, "Yes, subscribe", as session U recommended; written in full by the implementing pull request with its red titles).** Design point 13.13 of 2026-10-28 stands: the morph's trigger comes from the interactions session, not from C#.
+- *The subscription.* `popup`'s `attachViewport` subscribes to the session's existing `subscribePositionReference`. That fires on every move of `domReferenceElement`: the session update that changes `activeTriggerId`, a hand-off's `pendingAnchor`, and the anchor's fallback when the request settles.
+- *The late morph.* When the reference moves while the popup is open, after a `[data-current]` remount that started no morph, the handle runs `process()` once more. It morphs from the previous trigger to the new reference, cloning the content kept at the remount.
+- *What starts nothing.* A move while closed starts nothing. So does a cancelled request whose reference returns to the previous trigger. `lastHandledTrigger` keeps one morph per move.
+- *Cost.* One subscription per Viewport handle, and the morph waits for the session's update: the latency 13.13 accepted. No C# change, no family file, no change to `interactions`.
+- *The alternatives.* `ActiveTriggerId` on `PopupViewportOptions` would have reversed 13.13 and changed four implemented families and the twin contract. Doing both would have given one fact two sources.
+
