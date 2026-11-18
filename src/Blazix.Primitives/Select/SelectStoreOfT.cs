@@ -273,12 +273,19 @@ internal sealed class SelectStore<TValue> : SelectStore
             TouchText();
         }
 
+        Task pending = HighlightFirstItemIfPendingAsync();
         if (!changed || previousCount == 0 || nextSlots.Length == 0)
         {
-            return Task.CompletedTask;
+            return pending;
         }
 
-        return ReconcileAsync();
+        return pending.IsCompletedSuccessfully ? ReconcileAsync() : ReconcileAfterAsync(pending);
+
+        async Task ReconcileAfterAsync(Task first)
+        {
+            await first;
+            await ReconcileAsync();
+        }
     }
 
     /// <inheritdoc />
