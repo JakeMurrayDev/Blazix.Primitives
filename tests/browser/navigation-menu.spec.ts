@@ -219,6 +219,26 @@ async function delayPageMessagesMatching(page: Page, delays: ReadonlyArray<reado
   });
 }
 
+/**
+ * Counts the `inert` attributes C# renders on the nested Viewport into `<html data-inert-renders>` (issue 241): a recorded
+ * marker (ADR 06 §2), because the `navigation-menu` module may lift a stale one in the same task. Call it before the first
+ * navigation.
+ */
+async function recordNestedInertRenders(page: Page): Promise<void> {
+  await page.addInitScript(() => {
+    let renders = 0;
+    new MutationObserver((records) => {
+      for (const record of records) {
+        const element = record.target as Element;
+        if (record.oldValue === null && element.getAttribute('data-testid') === 'nested-viewport') {
+          renders++;
+          document.documentElement.setAttribute('data-inert-renders', String(renders));
+        }
+      }
+    }).observe(document, { subtree: true, attributes: true, attributeFilter: ['inert'], attributeOldValue: true });
+  });
+}
+
 /** Gates on the page's circuit messages (`gatePageMessages`). */
 interface PageMessageGates {
   /** Sends the messages gate `index` holds, in order, and lets its later matches through. */
@@ -1775,10 +1795,11 @@ test.describe('<NavigationMenu.Trigger /> keyboard and focus', () => {
   // Issue 241 (M6 track 3; NAV-KEY-16, NAV-STA-09): the Shift+Tab back to a nested Trigger reports `viewportInert` set
   // (the Viewport's blur), then cleared (the Trigger's focus, before C# has rendered the set). On Server C# can render the
   // set after the clear, so the next Tab reaches the Trigger's trailing guard with the Viewport inert. Base UI clears the
-  // state synchronously in the Trigger's onFocus, so its guard never meets an inert Viewport. The clear's report is held
-  // here until C# has rendered the stale `inert`.
+  // state synchronously in the Trigger's onFocus, so its guard never meets an inert Viewport. The clears (the Trigger's C#
+  // onfocus and the module's report) are held until C# has rendered the stale `inert`, which a recorder counts.
   test('port: tabs into a nested panel after a Shift+Tab whose stale inert render lands after the trigger focus, under circuit latency on Server', async ({ page, mode }) => {
     // The Trigger's C# onfocus and the module's clear both clear the flag; both are held, the Viewport's set is not.
+    await recordNestedInertRenders(page);
     await delayPageMessagesMatching(page, [[/"eventName":"focus"|\\"inert\\":false/, 400]]);
     await gotoMenu(page, mode, { nested: 'tabFlow' });
     await trigger(page, 1).click();
@@ -1793,7 +1814,7 @@ test.describe('<NavigationMenu.Trigger /> keyboard and focus', () => {
     await page.keyboard.press('Shift+Tab');
     await expect(developers).toBeFocused();
     if (mode === 'server') {
-      await expect(page.getByTestId('nested-viewport')).toHaveAttribute('inert');
+      await expect(page.locator('html')).toHaveAttribute('data-inert-renders', '1');
     }
     await page.keyboard.press('Tab');
 
@@ -1807,18 +1828,7 @@ test.describe('<NavigationMenu.Trigger /> keyboard and focus', () => {
   // (the Trigger's C# onfocus and the module's report) until the end, and a recorder counts the `inert` renders on the
   // nested Viewport (the module may lift one in the same task).
   test('port: keeps tabbing inside a nested panel when a stale inert render lands after focus entered it, under circuit latency on Server', async ({ page, mode }) => {
-    await page.addInitScript(() => {
-      let renders = 0;
-      new MutationObserver((records) => {
-        for (const record of records) {
-          const element = record.target as Element;
-          if (record.oldValue === null && element.getAttribute('data-testid') === 'nested-viewport') {
-            renders++;
-            document.documentElement.setAttribute('data-inert-renders', String(renders));
-          }
-        }
-      }).observe(document, { subtree: true, attributes: true, attributeFilter: ['inert'], attributeOldValue: true });
-    });
+    await recordNestedInertRenders(page);
     const gates = await gatePageMessages(page, [/\\"inert\\":true/, /"eventName":"focus"|\\"inert\\":false/]);
     try {
       await gotoMenu(page, mode, { nested: 'tabFlow' });
