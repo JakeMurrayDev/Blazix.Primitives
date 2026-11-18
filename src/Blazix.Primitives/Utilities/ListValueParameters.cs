@@ -49,4 +49,33 @@ internal static class ListValueParameters
             throw new InvalidOperationException($"Blazix: `{rootName}` received `{many}` while `Multiple` is false. Set `Multiple=\"true\"`, or use `Value`, `ValueChanged` (or `@bind-Value`), `DefaultValue` and `OnValueChange` for one value.");
         }
     }
+
+    // ADR 08 Amendments 2026-11-18 (the shared exclusive-triple check; settled by the orchestrator 2026-11-18): a root whose
+    // single and list parameters are exclusive and that has no Multiple flag, SliderRoot's shape.
+    /// <summary>Throws when the parameters supply a parameter of each triple.</summary>
+    /// <param name="parameters">The parameters the root receives, before it assigns them.</param>
+    /// <param name="rootName">The root's part name, such as <c>SliderRoot</c>, for the message.</param>
+    /// <exception cref="InvalidOperationException">A single-value parameter and a list parameter are both supplied.</exception>
+    public static void CheckExclusive(in ParameterView parameters, string rootName)
+    {
+        string? single = null;
+        string? many = null;
+        foreach (ParameterValue parameter in parameters)
+        {
+            switch (parameter.Name)
+            {
+                case "Value" or "ValueChanged" or "DefaultValue" or "OnValueChange" or "ValueExpression" or "OnValueCommitted":
+                    single ??= parameter.Name;
+                    break;
+                case "Values" or "ValuesChanged" or "DefaultValues" or "OnValuesChange" or "ValuesExpression" or "OnValuesCommitted":
+                    many ??= parameter.Name;
+                    break;
+            }
+        }
+
+        if (single is not null && many is not null)
+        {
+            throw new InvalidOperationException($"Blazix: `{rootName}` received `{single}` and `{many}`. Use `Value`, `ValueChanged` (or `@bind-Value`), `DefaultValue` and `OnValueChange` for one value, or `Values`, `ValuesChanged` (or `@bind-Values`), `DefaultValues` and `OnValuesChange` for a list.");
+        }
+    }
 }
