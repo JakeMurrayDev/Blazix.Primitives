@@ -7,6 +7,7 @@ import {
   INITIAL_LIVE_REGION_TEXT_MUTATION_RESET_DELAY,
   activeElement,
   attach,
+  clamp,
   closest,
   contains,
   deriveImageStatus,
@@ -565,6 +566,24 @@ describe('normalizeScrollOffset', () => {
   it('measures the scroll range as the overflow, never negative', () => {
     expect(getMaxScrollOffset(300, 100)).toBe(200);
     expect(getMaxScrollOffset(100, 300)).toBe(0);
+  });
+});
+
+// UTL-EDGE-14: the JavaScript half, beside C#'s RangeMath.Clamp (ADR 01 decision 2: one implementation per loop, the
+// UTL-DOM-31 precedent). The first title is Base UI's (packages/utils/src/clamp.test.ts), verbatim.
+describe('clamp', () => {
+  it('clamps a value based on min and max', () => {
+    expect(clamp(1, 2, 4)).toBe(2);
+    expect(clamp(5, 2, 4)).toBe(4);
+    expect(clamp(-5, -1, 5)).toBe(-1);
+  });
+
+  it('port: defaults the bounds to the safe integer range', () => {
+    expect(clamp(3)).toBe(3);
+    expect(clamp(Number.MAX_VALUE)).toBe(Number.MAX_SAFE_INTEGER);
+    expect(clamp(-Number.MAX_VALUE)).toBe(Number.MIN_SAFE_INTEGER);
+    expect(clamp(-5, 0)).toBe(0);
+    expect(clamp(5, undefined, 4)).toBe(4);
   });
 });
 
