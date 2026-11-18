@@ -1586,6 +1586,81 @@ describe('styleWriter', () => {
     expect(element.style.getPropertyValue('--anchor-width')).toBe('72px');
     expect(element.style.getPropertyPriority('opacity')).toBe('important');
   });
+
+  // ADR 04 Amendments 2026-11-18, design point 2 (b) of the Drawer track (settled by the orchestrator 2026-11-18; granted
+  // to session D, M6 track 8b): C# renders a Drawer Popup's `--nested-drawers` in the commit path, so a re-render
+  // rewrites the `style` attribute the writer composes. The writer absorbs the foreign write before paint.
+  describe('a foreign write', () => {
+    const flushObservers = () => new Promise<void>((resolve) => setTimeout(resolve, 0));
+
+    it('a foreign write restores the bands', async () => {
+      const element = document.createElement('div');
+      document.body.appendChild(element);
+      const writer = styleWriter(element);
+      writer.setConsumer('color: red');
+      writer.layer('transitions').set('transition', 'none');
+      writer.layer('component').set('--nested-drawers', '2');
+
+      element.setAttribute('style', 'color: blue; --nested-drawers: 1');
+      await flushObservers();
+
+      expect(element.style.getPropertyValue('color')).toBe('blue');
+      expect(element.style.getPropertyValue('transition')).toBe('none');
+      expect(element.style.getPropertyValue('--nested-drawers')).toBe('2');
+      element.remove();
+    });
+
+    it('a self write is ignored', async () => {
+      const element = document.createElement('div');
+      document.body.appendChild(element);
+      const writer = styleWriter(element);
+      writer.setConsumer('color: red');
+      writer.layer('component').set('height', '50px');
+      await flushObservers();
+
+      // Had the writer's own write been taken as the consumer's text, the consumer band would now hold the height.
+      writer.layer('component').remove('height');
+      expect(element.style.getPropertyValue('height')).toBe('');
+      expect(element.style.getPropertyValue('color')).toBe('red');
+      element.remove();
+    });
+
+    it('the consumer band holds the rendered declarations', async () => {
+      const element = document.createElement('div');
+      document.body.appendChild(element);
+      const writer = styleWriter(element);
+      writer.setConsumer('color: red');
+      writer.layer('component').set('--drawer-frontmost-height', '120px');
+
+      element.setAttribute('style', 'color: red; --nested-drawers: 1');
+      await flushObservers();
+      writer.layer('component').set('--nested-drawers', '3');
+      expect(element.style.getPropertyValue('--nested-drawers')).toBe('3');
+
+      // Removing the component value hands the property back to the rendered one; a value only a band held goes.
+      writer.layer('component').remove('--nested-drawers');
+      expect(element.style.getPropertyValue('--nested-drawers')).toBe('1');
+      writer.layer('component').remove('--drawer-frontmost-height');
+      expect(element.style.getPropertyValue('--drawer-frontmost-height')).toBe('');
+      element.remove();
+    });
+
+    it('port: a foreign write is absorbed before the writer next writes, even before its observer runs', () => {
+      const element = document.createElement('div');
+      document.body.appendChild(element);
+      const writer = styleWriter(element);
+      writer.setConsumer('color: red');
+      writer.layer('component').set('--nested-drawers', '2');
+
+      element.setAttribute('style', 'color: blue; --nested-drawers: 1');
+      writer.layer('transitions').set('transition', 'none');
+
+      expect(element.style.getPropertyValue('color')).toBe('blue');
+      expect(element.style.getPropertyValue('transition')).toBe('none');
+      expect(element.style.getPropertyValue('--nested-drawers')).toBe('2');
+      element.remove();
+    });
+  });
 });
 
 // CMP-ALG-03 (design point 6 (a) of M5 track 1, settled by the orchestrator 2026-11-04): the visibility predicates live in
