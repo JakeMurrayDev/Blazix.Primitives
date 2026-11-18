@@ -38,6 +38,8 @@ namespace Blazix.Primitives;
 /// <summary>The button mechanism of one button-like part: its consumer handler gate, its attributes and its <see cref="ButtonTwin"/>.</summary>
 internal sealed class ButtonBehavior : IDisposable
 {
+    private static readonly PressAndHoldOptions s_pressAndHold = new();
+
     private readonly IJSRuntime jsRuntime;
     private readonly ILogger logger;
     private readonly ButtonDevelopmentLog developmentLog;
@@ -58,6 +60,21 @@ internal sealed class ButtonBehavior : IDisposable
     private TwinHandle<ButtonOptions>? handle;
     private ButtonOptions? sentOptions;
     private string? lateId;
+    private int holdStop;
+
+    // UBT-ALG-07, UBT-EVT-10; issue 277 deliverable 3 (i), decision 16 (a), chosen by the user 2026-11-18: the hold reports
+    // of the twin, raised to the part (NumberField's steppers).
+    /// <summary>Occurs when a press-and-hold sequence starts, before its first tick, with the event that started it.</summary>
+    public event Action<EventSnapshot>? HoldStarted;
+
+    /// <summary>Occurs on every tick of a press-and-hold sequence, with the event that started it.</summary>
+    public event Action<EventSnapshot>? HoldTicked;
+
+    /// <summary>Occurs once when a started press-and-hold sequence is released, with the <c>pointerup</c>.</summary>
+    public event Action<EventSnapshot>? HoldStopped;
+
+    /// <summary>Occurs when a click performs a single action on a press-and-hold element (a keyboard click or a tap).</summary>
+    public event Action<EventSnapshot>? HoldClicked;
 
     /// <summary>Initializes a new instance of the <see cref="ButtonBehavior"/> class.</summary>
     /// <param name="jsRuntime">The runtime the twin imports its module through.</param>
@@ -145,6 +162,16 @@ internal sealed class ButtonBehavior : IDisposable
     /// <value>The part's restore, which raises the <c>dom</c> primitive's restore count; or <see langword="null"/>.</value>
     public Action? RestoreRequested { get; set; }
 
+    // UBT-ALG-07; issue 277 deliverable 3 (i).
+    /// <summary>Gets or sets a value indicating whether the press-and-hold repeater is on.</summary>
+    /// <value><see langword="true"/> for NumberField's steppers, whose presses tick and repeat; the default is <see langword="false"/>.</value>
+    public bool PressAndHold { get; set; }
+
+    // UBT-PTR-20; issue 277 deliverable 3 (ii).
+    /// <summary>Gets or sets the id of the element a mouse press focuses, with the caret at the end, before the first tick.</summary>
+    /// <value>The id of NumberField's input, or <see langword="null"/> for none.</value>
+    public string? HoldFocusTarget { get; set; }
+
     /// <summary>Gets the id the behavior drew for an element that a component root rendered.</summary>
     /// <value>The late id, or <see langword="null"/> while none was needed.</value>
     public string? LateId => lateId;
@@ -161,6 +188,10 @@ internal sealed class ButtonBehavior : IDisposable
             twin.NativeButtonMismatched -= ReportNativeButtonMismatch;
             twin.DisabledElementDetected -= ReportDisabledElement;
             twin.Toggled -= OnToggled;
+            twin.HoldStarted -= OnHoldStarted;
+            twin.HoldTicked -= OnHoldTicked;
+            twin.HoldStopped -= OnHoldStopped;
+            twin.HoldClicked -= OnHoldClicked;
             twin.ActivationDecider = null;
             twin.ToggleDecider = null;
             _ = twin.DisposeAsync().AsTask();
@@ -341,6 +372,22 @@ internal sealed class ButtonBehavior : IDisposable
     /// <returns>The consumer handler's task.</returns>
     public Task HandleKeyUpAsync(KeyboardEventArgs e) => RunConsumerKeyHandlerAsync(e, consumerKeyUp, ref decidedKeyUp);
 
+    // NUM-PTR-03, UBT-PTR-06/07; issue 277 deliverable 3 (iii): a tick that applied nothing stops the repeat.
+    /// <summary>Stops the running press-and-hold sequence at once; the release is still reported.</summary>
+    /// <returns>A task that completes when the module has the update, or at once while the behavior is not attached.</returns>
+    public Task StopHoldAsync()
+    {
+        holdStop++;
+        if (handle is null || handle.IsDisposed || sentOptions is null)
+        {
+            return Task.CompletedTask;
+        }
+
+        ButtonOptions options = sentOptions with { HoldStop = holdStop };
+        sentOptions = options;
+        return handle.UpdateAsync(options).AsTask();
+    }
+
     private static bool IsGated(string name)
     {
         return string.Equals(name, "onclick", StringComparison.OrdinalIgnoreCase)
@@ -360,6 +407,10 @@ internal sealed class ButtonBehavior : IDisposable
         created.NativeButtonMismatched += ReportNativeButtonMismatch;
         created.DisabledElementDetected += ReportDisabledElement;
         created.Toggled += OnToggled;
+        created.HoldStarted += OnHoldStarted;
+        created.HoldTicked += OnHoldTicked;
+        created.HoldStopped += OnHoldStopped;
+        created.HoldClicked += OnHoldClicked;
         return created;
     }
 
@@ -376,6 +427,9 @@ internal sealed class ButtonBehavior : IDisposable
             SuppressEnter = SuppressEnter,
             InputItem = InputItem,
             DisabledElementCheck = DisabledElementPart is not null,
+            PressAndHold = PressAndHold ? s_pressAndHold : null,
+            HoldFocusTarget = PressAndHold ? HoldFocusTarget : null,
+            HoldStop = holdStop,
         };
     }
 
@@ -384,13 +438,23 @@ internal sealed class ButtonBehavior : IDisposable
     {
         if (sentOptions is { } sent && sent.Disabled == Disabled && sent.FocusableWhenDisabled == FocusableWhenDisabled && sent.Native == Native && sent.Composite == composite
             && sent.HiddenInput == HiddenInput && sent.ReadOnly == ReadOnly && sent.SuppressEnter == SuppressEnter && sent.InputItem == InputItem
-            && sent.DisabledElementCheck == (DisabledElementPart is not null))
+            && sent.DisabledElementCheck == (DisabledElementPart is not null)
+            && (sent.PressAndHold is not null) == PressAndHold && string.Equals(sent.HoldFocusTarget, PressAndHold ? HoldFocusTarget : null, StringComparison.Ordinal)
+            && sent.HoldStop == holdStop)
         {
             return null;
         }
 
         return Options(composite);
     }
+
+    private void OnHoldStarted(EventSnapshot snapshot) => HoldStarted?.Invoke(snapshot);
+
+    private void OnHoldTicked(EventSnapshot snapshot) => HoldTicked?.Invoke(snapshot);
+
+    private void OnHoldStopped(EventSnapshot snapshot) => HoldStopped?.Invoke(snapshot);
+
+    private void OnHoldClicked(EventSnapshot snapshot) => HoldClicked?.Invoke(snapshot);
 
     private void ReportNativeButtonMismatch(bool expectedNative) => developmentLog.ReportNativeButtonMismatch(logger, expectedNative);
 
