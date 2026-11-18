@@ -193,14 +193,20 @@ for (const { name, triggers } of triggerModes) {
           element.dispatchEvent(new MouseEvent('click', { bubbles: true, composed: true, cancelable: true }));
         }, selector);
 
-      // Issue 166: the circuit delayed 100 ms each way on Server; the popup's handles attach a round trip or more after it
-      // shows in the shadow root.
+      // Issue 166: the popup's handles attach after its portal moved it into the shadow root, a round trip or more after it
+      // shows there on Server, and a press before them is lost. The focus manager's initial focus lands a frame after its
+      // own handle attached, beside the others, so the modal titles press once focus is in the popup (a stable end state,
+      // ADR 06 §2), with the circuit delayed 100 ms each way on Server, which loses the press without that wait.
+      const focusInShadow = (page: Page, selector: string) =>
+        page.evaluate((s) => (globalThis as unknown as { blazixFixtureDom: { lastClosedShadowRoot: ShadowRoot | null } }).blazixFixtureDom.lastClosedShadowRoot?.activeElement?.closest(s) != null, selector);
+
       test('closing via intentional outside press with user backdrop (modal=true): works when portaled into a shadow DOM', async ({ page, mode }) => {
         if (mode === 'server') {
           await delayCircuit(page, 100);
         }
         const fixture = await root(page, mode, { defaultOpen: true, modal: true, backdrop: true, container: 'shadow' });
         await expect.poll(() => inShadow(page, '[role="dialog"]')).toBe(true);
+        await expect.poll(() => focusInShadow(page, '[role="dialog"]')).toBe(true);
 
         await clickInShadow(page, '[data-testid="backdrop"]');
 
@@ -241,6 +247,7 @@ for (const { name, triggers } of triggerModes) {
         }
         const fixture = await root(page, mode, { defaultOpen: true, modal: true, container: 'shadow' });
         await expect.poll(() => inShadow(page, '[role="dialog"]')).toBe(true);
+        await expect.poll(() => focusInShadow(page, '[role="dialog"]')).toBe(true);
 
         await page.locator('body').dispatchEvent('click');
 
@@ -802,6 +809,20 @@ test.describe('closed shadow root', () => {
       return (root?.querySelector(selector) ?? document.querySelector(selector)) != null;
     }, testId);
 
+  /**
+   * Whether focus is inside the element with the test id, in the shadow root or the document. Issue 166: a popup's handles
+   * attach after its portal moved it, a round trip or more after it shows on Server; before them the outer popup's
+   * session reads a press inside it as outside, and a press closing the nested popup is lost. The focus manager's initial
+   * focus lands a frame after its own handle attached, beside the others, so a title presses once focus is in the popup
+   * (a stable end state, ADR 06 §2). The titles below run with the circuit delayed 100 ms each way on Server, which fails
+   * them without that wait.
+   */
+  const focusIn = (page: Page, testId: string) =>
+    page.evaluate((id) => {
+      const root = (globalThis as unknown as { blazixFixtureDom: { lastClosedShadowRoot: ShadowRoot | null } }).blazixFixtureDom.lastClosedShadowRoot;
+      return (root?.activeElement ?? document.activeElement)?.closest(`[data-testid="${id}"]`) != null;
+    }, testId);
+
   /** Base UI's `click`: the element's own `click()`, wherever it is. */
   const click = (page: Page, testId: string) =>
     page.evaluate((id) => {
@@ -827,9 +848,11 @@ test.describe('closed shadow root', () => {
               await delayCircuit(page, 100);
             }
             const fixture = await open(page, mode, { kind, outer: queryValue(outer), nested: queryValue(nested) });
+            await expect.poll(() => focusIn(page, 'outer')).toBe(true);
 
             await click(page, 'open-nested');
             await expect.poll(() => exists(page, 'nested')).toBe(true);
+            await expect.poll(() => focusIn(page, 'nested')).toBe(true);
 
             await click(page, 'close-nested');
 
@@ -872,9 +895,11 @@ test.describe('closed shadow root', () => {
             await delayCircuit(page, 100);
           }
           const fixture = await open(page, mode, { kind, outer: queryValue(outer), nested: queryValue(nested) });
+          await expect.poll(() => focusIn(page, 'outer')).toBe(true);
 
           await click(page, 'open-nested');
           await expect.poll(() => exists(page, 'nested')).toBe(true);
+          await expect.poll(() => focusIn(page, 'nested')).toBe(true);
           await page.keyboard.press('Escape');
           await expect.poll(() => exists(page, 'nested')).toBe(false);
           expect(await exists(page, 'outer')).toBe(true);
@@ -883,6 +908,7 @@ test.describe('closed shadow root', () => {
           // portal node (a nested root's Backdrop renders only with ForceRender, DLG-STR-05); a non-modal one on any element.
           await click(page, 'open-nested');
           await expect.poll(() => exists(page, 'nested')).toBe(true);
+          await expect.poll(() => focusIn(page, 'nested')).toBe(true);
           if (kind === 'modal') {
             await page.evaluate(() => {
               const root = (globalThis as unknown as { blazixFixtureDom: { lastClosedShadowRoot: ShadowRoot } }).blazixFixtureDom.lastClosedShadowRoot;

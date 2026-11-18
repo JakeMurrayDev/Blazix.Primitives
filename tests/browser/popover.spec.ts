@@ -1401,6 +1401,40 @@ const clearInstants = (page: Page) => page.evaluate(() => {
   recorded.pending.length = 0;
 });
 
+// The positioner's transitions from now on, each recorded at its `transitionrun` (issue 175): a switch between triggers moves
+// the positioner, and its transitions are the ones a trigger-change callback waits on.
+async function recordSwitchTransitions(page: Page): Promise<void> {
+  await page.evaluate(() => {
+    const recorded: Animation[] = [];
+    (window as unknown as { switchTransitions: Animation[] }).switchTransitions = recorded;
+    document.addEventListener('transitionrun', (event) => {
+      const target = event.target as Element;
+      if (target.getAttribute('data-testid') !== 'positioner') {
+        return;
+      }
+      const property = (event as TransitionEvent).propertyName;
+      for (const animation of target.getAnimations()) {
+        if ((animation as CSSTransition).transitionProperty === property && !recorded.includes(animation)) {
+          recorded.push(animation);
+        }
+      }
+    }, true);
+  });
+}
+
+const switchTransitions = (page: Page) => page.evaluate(() => (window as unknown as { switchTransitions: Animation[] }).switchTransitions.length);
+
+// Finishes every recorded switch transition still running and waits until each has settled (a replaced one was canceled).
+const finishSwitchTransitions = (page: Page) => page.evaluate(async () => {
+  const recorded = (window as unknown as { switchTransitions: Animation[] }).switchTransitions;
+  for (const animation of recorded) {
+    if (animation.playState === 'running' || animation.playState === 'paused') {
+      animation.finish();
+    }
+  }
+  await Promise.allSettled(recorded.map((animation) => animation.finished));
+});
+
 // PopoverRoot.detached-triggers.test.tsx's multiple detached triggers and multiple triggers within Root, on
 // `popover-detached` (POP-ANI-07/09, DOM-18/28, EVT-02/05/09, FOC-05, POS-03, DIS-01, PTR-16).
 test.describe('<Popover.Root /> multiple detached triggers', () => {
@@ -1482,24 +1516,35 @@ test.describe('<Popover.Root /> multiple detached triggers', () => {
     await expect(page.getByTestId('popup')).not.toHaveAttribute('data-instant');
   });
 
-  // Issue 175: the CPU throttled from the switch on, so a slow host's switch can end before the poll samples it.
+  // Issue 175: the switch was a 120 ms transition read by polling the positioner's live animations, which a slow host
+  // (the CPU throttled from the switch on) let end before the first sample; the close then also started after the switch,
+  // so the title asserted nothing. The switch's transitions are now the ones recorded at their `transitionrun`, and the switch
+  // and the exit last long enough that the close starts mid-switch and the popup is still mid-exit when the title ends the
+  // switch itself; the sync barrier then lets a stale report's render land before the asserts.
   test('does not restore the trigger-change instant after a hover close has started', async ({ page, mode }) => {
-    const { popup } = await renderHoverDetachedTriggers(page, mode, { settleTriggerChange: false, beforeSwitch: () => throttleCpu(page, 20) });
-    const positioner = page.getByTestId('positioner');
-    await expect.poll(() => positioner.evaluate((element) => element.getAnimations().length)).toBeGreaterThan(0);
-    await positioner.evaluate((element) => {
-      (window as unknown as { switchAnimations: Animation[] }).switchAnimations = element.getAnimations();
+    const { fixture, popup } = await renderHoverDetachedTriggers(page, mode, {
+      settleTriggerChange: false,
+      switchDuration: 10_000,
+      exitDuration: 20_000,
+      beforeSwitch: async () => {
+        await recordSwitchTransitions(page);
+        await throttleCpu(page, 20);
+      },
     });
+    await expect.poll(() => switchTransitions(page)).toBeGreaterThan(0);
     const popupHandle = await popup.elementHandle();
 
     await page.mouse.move(390, 190);
     await expect(popup).toHaveAttribute('data-ending-style');
-    await page.evaluate(() => Promise.all((window as unknown as { switchAnimations: Animation[] }).switchAnimations.map((animation) => animation.finished)));
+    // End the switch: a callback still waiting on it reports the trigger change now.
+    await finishSwitchTransitions(page);
+    await settle(fixture);
 
     // Still mid-exit: the stale callback must not have marked it instant and collapsed the transition.
     expect(await popupHandle!.evaluate((element) => element.isConnected)).toBe(true);
     await expect(popup).toHaveAttribute('data-ending-style');
     await expect(popup).not.toHaveAttribute('data-instant');
+    expect((await instants(page)).ending).not.toContain('trigger-change');
   });
 
   test('does not apply the trigger-change instant to a prop-driven close after a switch', async ({ page, mode }) => {

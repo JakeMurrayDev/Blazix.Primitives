@@ -1,5 +1,5 @@
 import { type Locator, type Page } from '@playwright/test';
-import { delayCircuit, expect, readDiagnostics, test, type RenderMode } from '../helpers';
+import { delayCircuit, expect, readDiagnostics, test, waitForPositioned, type RenderMode } from '../helpers';
 import { gotoPopupFixture, openChanges, pressControl, settle, type PopupFixtureOptions } from './popupFixture';
 
 // Base UI's detachedTriggersConformanceTests (packages/react/test/detachedTriggersConformanceTests.tsx at v1.9.0), titles
@@ -60,6 +60,19 @@ export function detachedTriggersConformanceTests(config: DetachedTriggersConfig)
     return gotoPopupFixture(page, mode, fixtureName, options);
   }
 
+  /**
+   * Moves the real pointer to the page's origin, out of the triggers. With a positioner it first waits for the positioner's
+   * first pass (`waitForPositioned`): until then the popup sits unpositioned at the origin, and from a second opening on the
+   * session still holds the previous placement, so the safe polygon finds the pointer inside the popup's box and waits for
+   * a later move, which never comes (issue 177; issue 191's class).
+   */
+  async function leaveTriggers(page: Page): Promise<void> {
+    if (positioner) {
+      await waitForPositioned(page.locator('[data-testid="positioner"]'));
+    }
+    await page.mouse.move(0, 0);
+  }
+
   /** Delays the Server circuit before the first navigation of a title that closes a hover-opened popup by leaving it. */
   async function delayHoverLeave(page: Page, mode: RenderMode, interaction: OpenInteraction): Promise<void> {
     if (interaction === 'hover' && mode === 'server') {
@@ -85,7 +98,7 @@ export function detachedTriggersConformanceTests(config: DetachedTriggersConfig)
         await page.keyboard.press('Escape');
       }
     } else if (interaction === 'hover') {
-      await page.mouse.move(0, 0);
+      await leaveTriggers(page);
     } else {
       await trigger.blur();
     }
@@ -93,7 +106,7 @@ export function detachedTriggersConformanceTests(config: DetachedTriggersConfig)
 
   async function switchTrigger(interaction: OpenInteraction, page: Page, to: Locator): Promise<void> {
     if (interaction === 'hover') {
-      await page.mouse.move(0, 0);
+      await leaveTriggers(page);
       await to.hover();
     } else {
       await openWith(interaction, to);

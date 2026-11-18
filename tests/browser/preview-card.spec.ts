@@ -73,15 +73,24 @@ async function freezeClock(page: Page): Promise<void> {
  * Moves the real pointer away from the cards, to the page's bottom-left corner. The safe polygon decides on the leave only
  * once the session holds the floating element and its placement; on Server they arrive after C#'s render, and until then
  * it waits for a later move. The first positioning pass removes the positioner's `opacity: 0` and publishes the placement
- * in one step (FLT-STA-08, FLT-ANI-02), so no open positioner may still carry it. Under a paused clock the frames run
- * first.
+ * in one step (FLT-STA-08, FLT-ANI-02), so no open positioner may still carry it. Under a paused clock each sample steps
+ * the clock a frame, as `waitForPositioned` does: on WebAssembly the chain from the portal's move to the pass continues on
+ * the page's timers, so a pass that had not landed after one step would otherwise never land (issue 261).
  */
 async function moveAway(page: Page): Promise<void> {
+  const unpositioned = page.locator('[role="presentation"][data-open][style*="opacity: 0"]');
   if (frozenPages.has(page)) {
     await page.clock.runFor(32);
+    await expect
+      .poll(async () => {
+        await page.clock.runFor(16);
+        return unpositioned.count();
+      })
+      .toBe(0);
+  } else {
+    await expect(unpositioned).toHaveCount(0);
   }
 
-  await expect(page.locator('[role="presentation"][data-open][style*="opacity: 0"]')).toHaveCount(0);
   await page.mouse.move(5, 700);
 }
 
@@ -100,8 +109,12 @@ async function delayModule(page: Page, name: string): Promise<void> {
   });
 }
 
-/** Moves the real pointer onto the center of an element, in one step. */
+/**
+ * Moves the real pointer onto the center of an element, in one step. The element must have a box first: a card's portal
+ * node stays `display: none` in place until the portal module moves it, and `toHaveText` passes before that (issue 180).
+ */
 async function moveOnto(page: Page, target: Locator): Promise<void> {
+  await expect(target).toBeVisible();
   const box = (await target.boundingBox())!;
   await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
 }
@@ -200,7 +213,8 @@ for (const variant of trio) {
 
       // With two detached triggers and no trigger id the card has no anchor and stays unpositioned (FLT-STA-09), so the
       // pointer crosses the positioner wherever it is; Base UI's title checks only that the content is still rendered.
-      // Issue 180: the held portal import keeps the card unmoved, `display: none`, after its text shows.
+      // Issue 180: the held portal import keeps the card unmoved, `display: none`, after its text shows; `moveOnto` waits
+      // for its box.
       test('does not close after hovering out of a popup opened externally', async ({ page, mode }) => {
         await delayModule(page, 'portal');
         const fixture = await open(page, mode, { open: false });
