@@ -132,27 +132,18 @@ test.describe('collation', () => {
     'ja-JP|カタカナ|かたかな': 'true,true,true',
   };
 
-  // WebAssembly loads the ICU data of the application's culture group (icudt_EFIGS.dat for en-US: English, French, Italian,
-  // German and Spanish), so tr-TR and ja-JP are not predefined there; Server runs the host's ICU, which has them.
-  const loaded = (mode: string, key: string) => mode === 'server' || !/^(tr-TR|ja-JP)\|/.test(key);
-
+  // Restated 2026-11-19 (M6 track 6, issue 277; design point 5 (a), granted by the orchestrator 2026-11-18; the M6 plan's
+  // decision 11 (a), chosen by the user 2026-11-18): the fixture host loads all globalization data
+  // (BlazorWebAssemblyLoadAllGlobalizationData, for NumberField's cultures), so tr-TR and ja-JP are predefined on WebAssembly
+  // too and every row holds on both modes. The `loaded` filter and the title "port: on WebAssembly a culture outside the
+  // loaded ICU data compares under the root collation" are gone with the EFIGS-only data they described; the root-collation
+  // fallback of a culture outside an application's loaded data stays a consumer fact in ADR 01.
   test('port: the collator filter answers the collation table on both modes for every culture the runtime has data for', async ({ page, mode }) => {
     const fixture = await gotoFixture(page, mode, 'list-values-collation');
 
-    for (const [key, expected] of Object.entries(subset).filter(([key]) => loaded(mode, key))) {
+    for (const [key, expected] of Object.entries(subset)) {
       await expect(fixture.locator(`[data-row="${key}"]`)).toHaveText(expected);
     }
-  });
-
-  // A culture outside the loaded ICU data is not predefined on WebAssembly: `new CultureInfo("tr-TR")` succeeds and compares
-  // under the root collation, so the dotless capital I matches `i` there, as under en-US (ADR 01's note: load the culture's
-  // data, for example with BlazorWebAssemblyLoadAllGlobalizationData, to keep its tailoring).
-  test('port: on WebAssembly a culture outside the loaded ICU data compares under the root collation', async ({ page, mode }) => {
-    test.skip(mode !== 'wasm', 'the ICU data of WebAssembly; Server runs the host ICU');
-    const fixture = await gotoFixture(page, mode, 'list-values-collation');
-
-    await expect(fixture.locator('[data-row="tr-TR|ISPARTA|isparta"]')).toHaveText('true,true,true (not predefined)');
-    await expect(fixture.locator('[data-row="ja-JP|カタカナ|かたかな"]')).toHaveText('true,true,true (not predefined)');
   });
 });
 
