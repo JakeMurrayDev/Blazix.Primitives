@@ -265,4 +265,36 @@ public sealed class FieldsetTests : IDisposable
         Assert.Equal(cut.Find("[data-testid=legend]").GetAttribute("id"), element.GetAttribute("aria-labelledby"));
         Assert.Equal("true", cut.Find("[role=radio]").GetAttribute("aria-disabled"));
     }
+
+    // FieldsetRoot.test.tsx "passes disabled to rendered Base UI roots", its Slider half (M6 track 4, issue 275; FST-DOM-09,
+    // FST-STR-01): the spread `disabled` binds to SliderRoot.Disabled, and every Slider part shows `data-disabled`.
+    [Fact(DisplayName = "passes disabled to rendered Base UI roots (Slider)")]
+    [Trait("Requirement", "FST-DOM-09")]
+    [Trait("Requirement", "FST-STR-01")]
+    public void Passes_disabled_to_rendered_Base_UI_roots_Slider()
+    {
+        using SliderTestContext slider = new();
+        RenderFragment<RenderProps<FieldsetRootState>> root = props => builder =>
+        {
+            builder.OpenComponent<SliderRoot>(0);
+            builder.AddMultipleAttributes(1, props.Attributes);
+            builder.AddComponentParameter(2, nameof(SliderRoot.DefaultValue), (double?)50);
+            builder.AddComponentParameter(3, nameof(SliderRoot.ChildContent), props.ChildContent);
+            builder.CloseComponent();
+        };
+        IRenderedComponent<FieldsetRoot> cut = slider.Context.Render<FieldsetRoot>(p => p
+            .Add(x => x.Disabled, true)
+            .Add(x => x.RenderFunction, root)
+            .AddChildContent(SliderTestContext.Anatomy()));
+
+        Assert.True(cut.FindComponent<SliderRoot>().Instance.Disabled);
+        foreach (string part in new[] { "value", "control", "track", "indicator", "thumb" })
+        {
+            Assert.True(cut.Find($"[data-testid={part}]").HasAttribute("data-disabled"), $"the {part} has no data-disabled");
+        }
+
+        IElement sliderRoot = cut.Find("[data-testid=value]").ParentElement!;
+        Assert.True(sliderRoot.HasAttribute("data-disabled"));
+        Assert.True(SliderTestContext.Inputs(cut)[0].HasAttribute("disabled"));
+    }
 }
