@@ -25,6 +25,7 @@ public sealed class NumberFieldIncrement : PartBase<NumberFieldIncrementState>
     private readonly Action rootChanged;
     private readonly EventCallback onKeyDown;
     private readonly EventCallback onKeyUp;
+    private readonly EventCallback onPointerDown;
     private NumberFieldStepper? stepper;
     private NumberFieldRootContext? context;
     private NumberFieldIncrementState? state;
@@ -35,6 +36,7 @@ public sealed class NumberFieldIncrement : PartBase<NumberFieldIncrementState>
         rootChanged = OnRootChanged;
         onKeyDown = CreateHandler<KeyboardEventArgs>("onkeydown", e => stepper!.Behavior.HandleKeyDownAsync(e));
         onKeyUp = CreateHandler<KeyboardEventArgs>("onkeyup", e => stepper!.Behavior.HandleKeyUpAsync(e));
+        onPointerDown = CreateHandler<PointerEventArgs>("onpointerdown", e => stepper!.Behavior.HandlePointerDownAsync(e));
     }
 
     [Inject]
@@ -91,6 +93,7 @@ public sealed class NumberFieldIncrement : PartBase<NumberFieldIncrementState>
     protected override void OnInitialized()
     {
         stepper = new NumberFieldStepper(true, JSRuntime, Logger, DevelopmentLog, IdGenerator, StateHasChanged, DispatchExceptionAsync, onKeyDown, onKeyUp, InvokeAsync);
+        stepper.Behavior.PointerDownHandler = onPointerDown;
         context = stepper.Initialize(RootContext);
         context.AddListener(rootChanged);
         base.OnInitialized();
