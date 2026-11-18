@@ -21,10 +21,11 @@ public sealed class NumberFieldAllocationBudgetTests : IDisposable
     // the budget reached main, when the input attached the `number-field` module (design point 2 (b)): 912 bytes for the
     // re-render (the input's twin comparison and its two declined handlers, +64), and 2,472 and 2,456 bytes for the tick and
     // the click, the same in five processes. The two steps fell by about 13 KB when the input's text moved to the module's
-    // options; the cause of the size of that drop is not yet analysed (issue 277's hand-over).
-    private const long RerenderBudgetBytes = 912;
-    private const long HoldTickBudgetBytes = 2472;
-    private const long ClickStepBudgetBytes = 2456;
+    // options; the cause of the size of that drop is not yet analysed (issue 277's hand-over). Re-pinned again the same day,
+    // still before main, with the steppers' hold-start veto (design point 1 (a)): +32 bytes each, 944, 2,504 and 2,488.
+    private const long RerenderBudgetBytes = 944;
+    private const long HoldTickBudgetBytes = 2504;
+    private const long ClickStepBudgetBytes = 2488;
 
     private static readonly CultureInfo s_enUs = CultureInfo.GetCultureInfo("en-US");
 
