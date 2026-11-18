@@ -37,7 +37,7 @@ Specs: `smoke.spec.ts` (the probe twin, the harness canary, and the button twin)
 ## Outputs
 
 - Playwright reports, traces and blob reports under `playwright-report/`, `test-results/` and `blob-report/` (ignored by git).
-- Run by the `browser-server` and `browser-wasm` CI jobs: on a pull request a change confined to one family's folder or spec files runs that family's `<family>.spec.ts` files in both modes, a shared path or the label `full-l4` runs everything, and documents-only changes run none (`.github/scripts/classify-paths.mjs`, rule in `.github/CONTEXT.md`); on `main` everything over four shards; nightly everything with `--repeat-each 3` over four shards. Two shards on a pull request; the blob reports are merged into one HTML report artifact.
+- Run by the `browser-server` and `browser-wasm` CI jobs: on a pull request a change confined to one family's folder or spec files runs that family's `<family>.spec.ts` files in both modes, a shared path or the label `full-l4` runs everything, and documents-only changes run none (`.github/scripts/classify-paths.mjs`, rule in `.github/CONTEXT.md`); on `main` everything over four shards; nightly everything with `--repeat-each 3` over four Server shards and eight WebAssembly shards (ADR 11 Amendments 2026-11-18). Two shards on a pull request; the blob reports are merged into one HTML report artifact.
 - The `red-check` job lists the tests here on the merge base and on the head (`playwright test --list --reporter=json`), and runs the spec files with added tests against the base's `src/` with these specs and the fixture host; a test that passes there fails the pull request. Tests added in a spec must fail against the base mode by mode.
 
 ## Human check

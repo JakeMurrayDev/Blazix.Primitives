@@ -42,7 +42,7 @@ export function summarizeNightly(report) {
   const stats = report.stats ?? {};
 
   const lines = [
-    '### Nightly L4 (full, both render modes, --repeat-each 3, four shards)',
+    '### Nightly L4 (full, both render modes, --repeat-each 3; four Server shards, eight WebAssembly shards)',
     '',
     `Test runs: ${total}; passed ${stats['expected'] ?? 0}, failed ${stats['unexpected'] ?? failures.length}, skipped ${stats['skipped'] ?? 0}.`,
     `Flaky tests: ${flaky}${flaky === 0 ? ' (retries are 0 and --fail-on-flaky-tests is set: a flaky result cannot occur unless retries were turned on)' : ''}`,
