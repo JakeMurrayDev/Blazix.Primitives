@@ -198,6 +198,28 @@ public sealed class ButtonTwinContractTests
         Assert.Equal(new[] { "start:pointerdown", "tick:pointerdown", "tick:pointerdown" }, log);
     }
 
+    // NUM-PTR-02; issue 277 design point 1 (a), the name chosen by the user 2026-11-18.
+    [Fact(DisplayName = "port: the hold-start point runs its decider with the press")]
+    [Trait("Requirement", "NUM-PTR-02")]
+    public void The_hold_start_point_runs_its_decider_with_the_press()
+    {
+        using BunitContext context = new();
+        List<EventSnapshot> seen = [];
+        ButtonTwin twin = new(context.JSInterop.JSRuntime)
+        {
+            HoldStartDecider = snapshot =>
+            {
+                seen.Add(snapshot);
+                return DecisionPolicy.Stop;
+            },
+        };
+
+        Assert.Equal("hold-start", ButtonTwin.HoldStartPoint);
+        Assert.Equal("stop", twin.Decide(ButtonTwin.HoldStartPoint, PointerdownJson));
+        Assert.Equal("pointerdown", Assert.Single(seen).Type);
+        Assert.Equal("run", new ButtonTwin(context.JSInterop.JSRuntime).Decide(ButtonTwin.HoldStartPoint, PointerdownJson));
+    }
+
     [Fact]
     [Trait("Requirement", "UBT-EDGE-01")]
     [Trait("Requirement", "UBT-EDGE-02")]
