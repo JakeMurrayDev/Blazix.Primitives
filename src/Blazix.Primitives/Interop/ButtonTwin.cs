@@ -19,6 +19,10 @@ internal sealed class ButtonTwin(IJSRuntime jsRuntime)
     /// <summary>Represents the name of the decision point the module asks about when the bridged hidden input is clicked.</summary>
     public const string TogglePoint = "toggle";
 
+    // NUM-PTR-02; issue 277 design point 1 (a), the name chosen by the user 2026-11-18; fallback run.
+    /// <summary>Represents the name of the decision point the module asks about before a press-and-hold press acts.</summary>
+    public const string HoldStartPoint = "hold-start";
+
     /// <summary>Occurs when the bridged hidden input was toggled and the toggle was not decided synchronously.</summary>
     /// <remarks>The argument carries the input's new <c>checked</c> property and the click it received.</remarks>
     public event Action<ButtonToggle>? Toggled;
@@ -63,6 +67,14 @@ internal sealed class ButtonTwin(IJSRuntime jsRuntime)
     /// arrives through <see cref="Toggled"/>.
     /// </value>
     public Func<EventSnapshot, DecisionPolicy>? ToggleDecider { get; set; }
+
+    /// <summary>Gets or sets the C# handler chain of the <c>hold-start</c> decision point.</summary>
+    /// <value>
+    /// A function that receives the <c>pointerdown</c> and returns <see cref="DecisionPolicy.Stop"/> when a consumer called
+    /// <c>PreventPartHandler()</c>, so the press neither focuses nor ticks; <see langword="null"/> always lets it. It runs
+    /// only on WebAssembly, synchronously inside the dispatch, and must not await.
+    /// </value>
+    public Func<EventSnapshot, DecisionPolicy>? HoldStartDecider { get; set; }
 
     /// <summary>Receives the module's classification of a press.</summary>
     /// <param name="payloadJson">The JSON of a <see cref="ButtonInteraction"/>.</param>
@@ -145,6 +157,7 @@ internal sealed class ButtonTwin(IJSRuntime jsRuntime)
         {
             ActivatePoint => ActivationDecider,
             TogglePoint => ToggleDecider,
+            HoldStartPoint => HoldStartDecider,
             _ => null,
         };
         return decider is null ? DecisionPolicy.Run : decider(snapshot);
