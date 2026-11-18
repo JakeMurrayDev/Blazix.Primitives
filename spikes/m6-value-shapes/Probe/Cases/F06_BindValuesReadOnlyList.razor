@@ -1,0 +1,8 @@
+<SliderTriplesRoot @bind-Values="values" @bind-Values:after="After" /> field=@Show.List(values) after=@after
+
+@code {
+    private IReadOnlyList<double> values = [25, 45];
+    private int after;
+
+    private void After() => after++;
+}
