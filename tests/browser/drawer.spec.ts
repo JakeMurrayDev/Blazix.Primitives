@@ -1,4 +1,4 @@
-import { expect, test, type Page, type RenderMode } from './helpers';
+import { expect, swipeOnTimeline, test, type Page, type RenderMode } from './helpers';
 import { gotoPopupFixture } from './suites/popupFixture';
 
 // The [L4] rows of docs/components/drawer.md (DRW), both render modes, Server first (ADR 04 §6). Titles are Base UI's
@@ -46,5 +46,27 @@ test.describe('<Drawer.Popup />', () => {
     await page.keyboard.press('a');
 
     expect(await page.evaluate(() => (window as unknown as { drawerKeys: string[] }).drawerKeys)).toEqual(['a']);
+  });
+});
+
+// M6 track 8b (issue 279), slice 1: the Viewport's mouse and pen dismiss gesture. The module's own contract is pinned at L3
+// (js/drawer.test.ts) and its C# half at L2 (DrawerViewportGestureTests); these titles are Base UI's browser titles.
+const swipeCase = (page: Page, mode: RenderMode, name: string, options: Record<string, string> = {}) =>
+  gotoPopupFixture(page, mode, 'drawer-swipe', { case: name, ...options });
+
+test.describe('<Drawer.Root /> swipe', () => {
+  // DRW-PTR-03, PTR-10 (DrawerRoot.test.tsx:600-633): with a 200 px wide popup the threshold is 100 px; 90 px keeps the
+  // drawer open and 120 px closes it. Both drags run on a 200 ms step, slower than the 0.5 px/ms fast path, as Base UI's
+  // timed swipes are, and from the popup's point (Base UI stubs elementFromPoint with the popup).
+  test('uses a size-based swipe threshold', async ({ page, mode }) => {
+    const fixture = await swipeCase(page, mode, 'right');
+    const popup = page.getByTestId('popup');
+
+    await swipeOnTimeline(popup, { x: 100, y: 100 }, { x: 190, y: 100 }, { startTimeMs: 1000, timeStepMs: 200 });
+    await expect(popup).toBeVisible();
+    await expect(fixture).toHaveAttribute('data-open-changes', '');
+
+    await swipeOnTimeline(popup, { x: 100, y: 100 }, { x: 220, y: 100 }, { startTimeMs: 2000, timeStepMs: 200 });
+    await expect(fixture).toHaveAttribute('data-open-changes', 'false:swipe');
   });
 });

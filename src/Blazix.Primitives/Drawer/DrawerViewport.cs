@@ -75,6 +75,7 @@ public sealed class DrawerViewport : PartBase<DrawerViewportState>
     private DrawerOptions? sentOptions;
     private IDisposable? rootSubscription;
     private IDisposable? drawerSubscription;
+    private readonly TaskCompletionSource gestureAttached = new(TaskCreationOptions.RunContinuationsAsynchronously);
     private int answeredDismiss;
     private ElementReference? sentPopup;
     private ElementReference? sentBackdrop;
@@ -115,6 +116,9 @@ public sealed class DrawerViewport : PartBase<DrawerViewportState>
 
     // For the fixtures: completes once the transitions handle is attached.
     internal Task TwinAttached => behavior?.TwinAttached ?? Task.CompletedTask;
+
+    // For the fixtures: completes once the `drawer` module's handle is attached.
+    internal Task GestureAttached => gestureAttached.Task;
 
     // For the tests: the context the popup reads.
     internal DrawerViewportContext ViewportContext => viewport;
@@ -253,6 +257,7 @@ public sealed class DrawerViewport : PartBase<DrawerViewportState>
             sentBackdrop = drawer.BackdropElement;
             attaching = twin.AttachAsync(element, options, references).AsTask();
             handle = await attaching;
+            gestureAttached.TrySetResult();
 
             // A change made while the attach was in flight.
             await SyncTwinAsync();

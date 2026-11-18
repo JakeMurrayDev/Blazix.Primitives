@@ -1,0 +1,31 @@
+@namespace Blazix.Primitives.Fixtures.Client.DrawerFixtures
+@using Blazix.Primitives
+@using Blazix.Primitives.Fixtures.Client.PopupFixtures
+@inherits PopupSuiteFixtureBase
+
+@*
+    The `drawer-swipe` fixture (tests/browser/drawer.spec.ts; M6 track 8b, issue 279): the Viewport's dismiss gesture.
+    - `case=right`: DrawerRoot.test.tsx's TestCase, an open drawer swiped to the right; its popup is fixed at the top
+      left, 200 px wide and 300 px tall, so the dismiss threshold is 100 px ("uses a size-based swipe threshold"); the
+      viewport covers the page, as a Drawer viewport does, so a point past the popup still lands in it.
+    The open changes are recorded as `open:reason` in `data-open-changes`; `cancelClose=true` cancels a close.
+*@
+<FixtureContainer Name="drawer-swipe" data-attached="@(Attached ? "true" : "false")" data-case="@Case"
+                  data-open-changes="@OpenChanges" data-open-change-completes="@OpenChangeCompletes">
+    <DrawerRoot TPayload="NoPayload" @ref="root" DefaultOpen="true" SwipeDirection="SwipeDirection.Right" OnOpenChange="RecordOpenChange">
+        <DrawerPortal>
+            <DrawerBackdrop data-testid="backdrop" />
+            <DrawerViewport @ref="viewport" data-testid="viewport" style="position: fixed; inset: 0;">
+                <DrawerPopup data-testid="popup" style="position: fixed; left: 0; top: 0; width: 200px; height: 300px;">Drawer</DrawerPopup>
+            </DrawerViewport>
+        </DrawerPortal>
+    </DrawerRoot>
+</FixtureContainer>
+
+@code {
+    private DrawerRoot<NoPayload>? root;
+    private DrawerViewport? viewport;
+
+    protected override IEnumerable<Task> Attachments =>
+        [root?.SessionAttached ?? Task.CompletedTask, viewport?.GestureAttached ?? Task.CompletedTask];
+}
