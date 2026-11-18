@@ -39,7 +39,8 @@ internal sealed class DialogRootBehavior<TPayload> : IAsyncDisposable
     private IDisposable? committed;
     private IDialogRootContext? parent;
     private IFloatingNodeContext? floatingParent;
-    private int reported;
+    private int reportedDialogs;
+    private int reportedDrawers;
     private bool rendered;
     private bool disposed;
     private InteractionsDismissOptions? dismiss;
@@ -91,9 +92,10 @@ internal sealed class DialogRootBehavior<TPayload> : IAsyncDisposable
         disposed = true;
 
         // DLG-STA-05: unmounting while open reports a closed chain; a closed root never reported.
-        if (reported != 0)
+        if (reportedDialogs != 0)
         {
-            reported = 0;
+            reportedDialogs = 0;
+            reportedDrawers = 0;
             parent?.ReportNestedOpen(0, 0);
         }
 
@@ -120,7 +122,7 @@ internal sealed class DialogRootBehavior<TPayload> : IAsyncDisposable
             session = new InteractionsSessionBehavior(jsRuntime, store.SessionToken!, RouteAsync, dispatchException);
             committed = store.Subscribe(
                 DialogFields.Open | DialogFields.Mounted | DialogFields.TransitionStatus | DialogFields.ActiveTriggerId | DialogFields.OpenChange
-                    | DialogFields.PopupId | DialogFields.NestedOpenDialogCount | DialogFields.Modality | DialogFields.DisablePointerDismissal
+                    | DialogFields.PopupId | DialogFields.NestedOpenDialogCount | DialogFields.NestedOpenDrawerCount | DialogFields.Modality | DialogFields.DisablePointerDismissal
                     | DialogFields.BackdropElementId,
                 committedChanged);
         }
@@ -139,10 +141,11 @@ internal sealed class DialogRootBehavior<TPayload> : IAsyncDisposable
         this.floatingParent = floatingParent;
         if (!ReferenceEquals(parent, parentContext))
         {
-            if (reported != 0)
+            if (reportedDialogs != 0)
             {
                 parent?.ReportNestedOpen(0, 0);
-                reported = 0;
+                reportedDialogs = 0;
+                reportedDrawers = 0;
             }
 
             parent = parentContext;
@@ -178,7 +181,9 @@ internal sealed class DialogRootBehavior<TPayload> : IAsyncDisposable
         }
     }
 
-    // DLG-STA-05 (useDialogRoot.ts:109-123): while open, the own count plus one; once closed, 0; never while closed before.
+    // DLG-STA-05 (useDialogRoot.ts:109-123): while open, the own counts plus one dialog, and plus one drawer in drawer mode;
+    // once closed, (0, 0); never while closed before. A Dialog or AlertDialog inside a nested Drawer adds no drawer
+    // (ADL-STA-02, DRW-STA-18; M6 track 8a, issue 279).
     private void ReportToParent()
     {
         if (parent is null || disposed)
@@ -187,11 +192,14 @@ internal sealed class DialogRootBehavior<TPayload> : IAsyncDisposable
         }
 
         DialogStore<TPayload> store = root.Store;
-        int next = store.Open ? store.NestedOpenDialogCount + 1 : 0;
-        if (next != reported)
+        bool open = store.Open;
+        int dialogs = open ? store.NestedOpenDialogCount + 1 : 0;
+        int drawers = open ? store.NestedOpenDrawerCount + (store.Mode == DialogMode.Drawer ? 1 : 0) : 0;
+        if (dialogs != reportedDialogs || drawers != reportedDrawers)
         {
-            reported = next;
-            parent.ReportNestedOpen(next, 0);
+            reportedDialogs = dialogs;
+            reportedDrawers = drawers;
+            parent.ReportNestedOpen(dialogs, drawers);
         }
     }
 

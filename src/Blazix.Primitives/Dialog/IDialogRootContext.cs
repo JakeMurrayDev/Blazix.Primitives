@@ -41,6 +41,9 @@ internal interface IDialogRootContext
     /// <summary>Gets the depth of the chain of open dialogs below this one.</summary>
     int NestedOpenDialogCount { get; }
 
+    /// <summary>Gets the number of open drawers in the chain of open dialogs below this one.</summary>
+    int NestedOpenDrawerCount { get; }
+
     /// <summary>Gets the effective modality regime.</summary>
     DialogModality Modality { get; }
 
@@ -136,7 +139,7 @@ internal interface IDialogRootContext
 
     /// <summary>Applies a nested root's report of its open chain.</summary>
     /// <param name="dialogs">The depth the nested root reports: its own count plus one while open, 0 once closed.</param>
-    /// <param name="drawers">The nested drawer count it reports; 0 until Drawer is ported.</param>
+    /// <param name="drawers">The open drawers in that chain: its own drawer count, plus one while open when it is a drawer; 0 once closed.</param>
     void ReportNestedOpen(int dialogs, int drawers);
 
     /// <summary>Registers a listener for a change of whether the current close keeps the dialog mounted, called at the call and before a write is published.</summary>
@@ -205,4 +208,7 @@ internal enum DialogFields
 
     /// <summary>The consumer backdrop's id.</summary>
     BackdropElementId = 1 << 14,
+
+    /// <summary>The nested open drawer count.</summary>
+    NestedOpenDrawerCount = 1 << 15,
 }

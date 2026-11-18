@@ -209,7 +209,8 @@ public sealed class DialogRootTests : IDisposable
     }
 
     // DLG-STA-01 and STA-05 restated over the C# store (design point 7 of M4 track 8): a nested root's report lands in the
-    // markup of the batch that opened it, not after it; Drawer's count is M6's.
+    // markup of the batch that opened it, not after it; Drawer's count runs over a Drawer harness (DrawerNestingTests, M6
+    // track 8a, issue 279).
     // DLG-EVT-05 as written (DLG §16 Q1 resolved as observed): the call is recorded at once, so a callback that prevents the
     // unmount and then cancels its own close still keeps the next close that is not canceled mounted, until Unmount().
     [Fact(DisplayName = "port: preventUnmountOnClose called in a canceled close keeps the next close mounted until unmount")]
