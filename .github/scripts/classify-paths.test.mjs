@@ -140,6 +140,27 @@ describe('dependent families', () => {
 
     expect(run(['src/Blazix.Primitives/Autocomplete/AutocompleteRoot.cs'], withCombobox).specs).toEqual(['tests/browser/autocomplete.spec.ts']);
   });
+
+  // M6 track 8a (issue 279; decision 20 (a) of the M6 plan, chosen by the user 2026-11-18; ADR 11 Amendments 2026-10-29's
+  // dependents rule): Drawer's parts are sealed shells and own types over the behaviours in Dialog/, so a change there also
+  // runs the Drawer specs beside AlertDialog's; one way.
+  it('a change under the Dialog folder also runs the Drawer specs, and not the other way round', () => {
+    const withDrawer = {
+      families: [...families, 'dialog', 'drawer'],
+      specFiles: [...specFiles, 'tests/browser/dialog.spec.ts', 'tests/browser/drawer.spec.ts', 'tests/browser/drawer.swipe.spec.ts'],
+    };
+    const shared = run(['src/Blazix.Primitives/Dialog/DialogStore.cs'], withDrawer);
+    expect(shared.l4).toBe('scoped');
+    expect(shared.families).toEqual(['alert-dialog', 'dialog', 'drawer']);
+    expect(shared.specs).toContain('tests/browser/drawer.spec.ts');
+    expect(shared.specs).toContain('tests/browser/drawer.swipe.spec.ts');
+    expect(shared.specs).toContain('tests/browser/alert-dialog.spec.ts');
+
+    expect(run(['src/Blazix.Primitives/Drawer/DrawerRoot.cs'], withDrawer).specs).toEqual([
+      'tests/browser/drawer.spec.ts',
+      'tests/browser/drawer.swipe.spec.ts',
+    ]);
+  });
 });
 
 describe('full L4', () => {
