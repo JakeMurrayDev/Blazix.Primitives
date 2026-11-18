@@ -5,7 +5,8 @@
 // (AVA-ALG-01/02, ADR 04 Amendments 2026-10-18).
 // Transcribed from Base UI v1.9.0: packages/utils/src/{owner,shadowDom}.ts; packages/react/src/utils/{getCssDimensions,
 // getElementTransform,getPseudoElementBounds,getElementAtPoint,scrollable,scrollEdges,valueToPercent}.ts;
-// internals/useInitialLiveRegionTextMutation.ts; avatar/image/useImageLoadingStatus.ts and AvatarImage.tsx.
+// packages/utils/src/clamp.ts; internals/useInitialLiveRegionTextMutation.ts; avatar/image/useImageLoadingStatus.ts and
+// AvatarImage.tsx.
 // Requirements: shared-utilities.md §4.10 (UTL-DOM-18..22), §4.11 (UTL-DOM-23..31), §4.13, §4.16, UTL-ALG-11..14.
 // The Floating UI DOM predicates Base UI imports are re-implemented here with the same semantics, so this module and
 // the button module stay out of `js/positioning.js`, which bundles the engine (ADR 04 §4, Amendments 2026-10-27).
@@ -464,6 +465,23 @@ export function normalizeScrollOffset(value: number, max: number): number {
   return clamped;
 }
 
+// UTL-EDGE-14: the loops' clamp, beside C#'s RangeMath.Clamp (ADR 01 decision 2, one implementation per loop; the
+// UTL-DOM-31 precedent). `floating-ui.ts`'s re-export of the engine's clamp is the positioning module's alone.
+/**
+ * Clamps a value to a range.
+ * @param value The value.
+ * @param min The lower bound; `Number.MIN_SAFE_INTEGER` when omitted.
+ * @param max The upper bound; `Number.MAX_SAFE_INTEGER` when omitted.
+ * @returns `Math.max(min, Math.min(value, max))`.
+ */
+export function clamp(
+  value: number,
+  min: number = Number.MIN_SAFE_INTEGER,
+  max: number = Number.MAX_SAFE_INTEGER,
+): number {
+  return Math.max(min, Math.min(value, max));
+}
+
 /**
  * Maps a value onto a percentage of a range, without clamping.
  * @param value The value.
@@ -532,18 +550,41 @@ export function observeIntersection(
 // ---------------------------------------------------------------------------------------------------------------
 
 /**
- * A named layer of declarations a module writes on an element. `positioning` and `transitions` lose to the consumer's
- * style (Base UI merges the positioner styles, then `transition: none`, then the consumer's props); `positioning-measured`
- * and `auto-resize` win over it (Base UI writes those variables with `setProperty` after render), and `aligned` wins over
- * every other band (Select's aligned placement writes the positioner's coordinates and size last). Within a band the later
- * name wins.
+ * A named layer of declarations a module writes on an element, in rank order, a higher rank winning:
+ * - `positioning` and `transitions` lose to the consumer's style (Base UI merges the positioner styles, then
+ *   `transition: none`, then the consumer's props);
+ * - `component-under` holds a value a component passes through a part's merged `style`, which the consumer's style
+ *   overrides, so it ranks just under the consumer;
+ * - the consumer's style;
+ * - `positioning-measured` and `auto-resize` win over it (Base UI writes those variables with `setProperty` after
+ *   render), and `aligned` wins over those (Select's aligned placement writes the positioner's coordinates and size
+ *   after them);
+ * - `component` holds a value a component writes with `style.setProperty` or `element.style` after render, which
+ *   overrides the consumer, so it ranks last.
+ *
+ * A property may hold a value in several bands; the highest rank shows, and removing it there hands the property back
+ * to the next band that holds it.
  */
-export type StyleLayerName = 'positioning' | 'transitions' | 'positioning-measured' | 'auto-resize' | 'aligned';
+export type StyleLayerName =
+  | 'positioning'
+  | 'transitions'
+  | 'component-under'
+  | 'positioning-measured'
+  | 'auto-resize'
+  | 'aligned'
+  | 'component';
 
 // SEL-DOM-20, SEL-POS-07 (M5 track 9, granted by the orchestrator 2026-11-04; design point 1 (a), settled by the
-// orchestrator 2026-11-04): the aligned band is the last.
-const styleLayerOrder: readonly StyleLayerName[] = ['positioning', 'transitions', 'positioning-measured', 'auto-resize', 'aligned'];
-const consumerRank = 2;
+// orchestrator 2026-11-04): the aligned band is over the other positioning bands. ADR 04 Amendments 2026-11-18, the
+// bands paragraph (decision 5 as revised, chosen by the user 2026-11-18): `component-under` right under the consumer,
+// `component` last. The consumer's rank is the number of bands under it.
+const underConsumer: readonly StyleLayerName[] = ['positioning', 'transitions', 'component-under'];
+const overConsumer: readonly StyleLayerName[] = ['positioning-measured', 'auto-resize', 'aligned', 'component'];
+const consumerRank = underConsumer.length;
+const styleLayerRanks: ReadonlyMap<StyleLayerName, number> = new Map([
+  ...underConsumer.map((name, index) => [name, index] as const),
+  ...overConsumer.map((name, index) => [name, consumerRank + 1 + index] as const),
+]);
 
 /** One module's declarations on an element. */
 export interface StyleLayer {
@@ -600,8 +641,11 @@ export function styleWriter(element: HTMLElement): StyleWriter {
     return existing;
   }
 
-  // Index 0..1 the under layers, 2 the consumer, 3..5 the over layers; a higher rank wins.
-  const sources: Array<Map<string, Declaration>> = [new Map(), new Map(), new Map(), new Map(), new Map(), new Map()];
+  // The under layers, then the consumer at `consumerRank`, then the over layers; a higher rank wins.
+  const sources: Array<Map<string, Declaration>> = Array.from(
+    { length: underConsumer.length + 1 + overConsumer.length },
+    () => new Map<string, Declaration>(),
+  );
   const applied = new Map<string, string>();
 
   const apply = (properties: Iterable<string>) => {
@@ -654,8 +698,7 @@ export function styleWriter(element: HTMLElement): StyleWriter {
       if (known) {
         return known;
       }
-      const index = styleLayerOrder.indexOf(name);
-      const rank = index < consumerRank ? index : index + 1;
+      const rank = styleLayerRanks.get(name)!;
       const layer: StyleLayer = {
         set(property, value) {
           const declarations = longhands(property, value);

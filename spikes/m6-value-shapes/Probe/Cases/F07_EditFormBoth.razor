@@ -1,0 +1,12 @@
+<EditForm Model="model"><SliderTriplesRoot @bind-Value="model.Volume" /><SliderTriplesRoot @bind-Values="model.Range" /></EditForm>
+
+@code {
+    private readonly Model model = new();
+
+    private sealed class Model
+    {
+        public double? Volume { get; set; } = 25;
+
+        public IReadOnlyList<double> Range { get; set; } = [25, 45];
+    }
+}

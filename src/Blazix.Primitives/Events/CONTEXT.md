@@ -28,6 +28,9 @@ The public surface, with what each member does (requirement IDs follow for trace
 - `readonly record struct ValueChangeEventArgs<T>(T Value, ChangeEventDetails Details)`: the single argument of every `On<X>Change` callback.
   - Delivered through a receiverless `EventCallback` it allocates nothing.
   - Delivered through a component receiver it costs about 66 bytes per delivery: a 32-byte box plus Blazor's own dispatch.
+- `readonly record struct ValueCommittedEventArgs<T>(T Value, GenericEventDetails Details)`: the single argument of every `On<X>Committed` callback (Slider's and NumberField's `OnValueCommitted`), the twin of `ValueChangeEventArgs<T>`; its details are a notification's, never cancelable (M6 track 1, [issue 272](https://github.com/JakeMurrayDev/Blazix.Primitives/issues/272), 2026-11-18; ADR 08 Amendments 2026-11-18).
+  - Delivered through a receiverless `EventCallback` it allocates nothing.
+  - Delivered through a component receiver it costs 65,776 bytes per 1,000 deliveries (least of five, SDK 11.0.100), as `ValueChangeEventArgs<T>` does.
 - `EventTrigger(string? Id, ElementReference? Element)`: the element that started a request. `Element` is `null` when only JavaScript holds it.
 - `EventSnapshot`: the native event's fields as a record (shape below). `EventSnapshot.CreatePlaceholder()` returns a new snapshot with `Kind = Event` and `Type = "base-ui"`. `IsInstanceOf(EventKind kind)` answers JavaScript's `instanceof` with the DOM's inheritance: every snapshot is an `Event`; focus, mouse, pointer, wheel, touch, keyboard and input events are `UIEvent`s; pointer and wheel events are `MouseEvent`s.
 - `Controlled<T>(string name, string state = "value", ILogger? logger = null)`: one controlled/uncontrolled value.

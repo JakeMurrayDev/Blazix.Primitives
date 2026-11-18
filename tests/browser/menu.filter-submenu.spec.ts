@@ -255,6 +255,10 @@ test.describe('closing a filtered submenu from the keyboard', () => {
       const input = page.getByRole('searchbox', { name: 'Filter actions' });
       const more = item(page, 'More');
       await expect(input).toHaveAttribute('aria-activedescendant', (await more.getAttribute('id')) ?? 'missing');
+      // Issue 288: the parent's highlight lands before the opening popup moves focus into its input (the port's focus
+      // follows the mount; Base UI's input takes it in the mounting commit), so the key waits for the focus. Pressed on the
+      // trigger, it opened nothing.
+      await expect(input).toBeFocused();
 
       await page.keyboard.press('ArrowDown');
       await expect(page.getByTestId('submenu')).toBeVisible();

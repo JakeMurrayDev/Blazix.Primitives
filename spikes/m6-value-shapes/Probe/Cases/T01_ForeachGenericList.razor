@@ -1,0 +1,8 @@
+@foreach (ToastObject<MyData> toast in toasts)
+{
+    <ToastRoot Toast="toast"><ToastTitle /><ToastDescription /><ToastClose /></ToastRoot>
+}
+
+@code {
+    private IReadOnlyList<ToastObject<MyData>> toasts = [new("a") { Data = new MyData(1) }, new("b") { Data = new MyData(2) }];
+}
