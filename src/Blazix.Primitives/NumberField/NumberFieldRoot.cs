@@ -293,7 +293,6 @@ public sealed class NumberFieldRoot : PartBase<NumberFieldRootState>
     protected override void OnParametersSet()
     {
         formatter = NumberFormatter.Get(Culture, Format);
-        ValueRef = CurrentValue;
         // A changed state notifies the parts; otherwise they are notified for the parameters they read beside the state
         // (the bounds of the steppers, the input's id and mode).
         if (!UpdateState())
@@ -434,6 +433,22 @@ public sealed class NumberFieldRoot : PartBase<NumberFieldRootState>
         return SetValueAsync(from + (amount * direction), new NumberFieldChangeEventDetails(reason, direction, snapshot));
     }
 
+    // NUM-API-04, NUM-EVT-05 (onValueCommitted, number-field/root/NumberFieldRoot.tsx:135-140). The consumer callback takes
+    // track 1's ValueCommittedEventArgs<T> (ADR 08 Amendments 2026-11-18, decision 13 (a)) and is added when it lands.
+    /// <summary>Reports that an interaction ended with a value.</summary>
+    /// <param name="committed">The committed value.</param>
+    /// <param name="reason">The reason of the interaction.</param>
+    /// <param name="snapshot">The event that ended it, or <see langword="null"/>.</param>
+    /// <returns>A task that completes when the consumer's callback has run.</returns>
+    internal Task CommitAsync(double? committed, EventReason reason, EventSnapshot? snapshot)
+    {
+        _ = committed;
+        _ = reason;
+        _ = snapshot;
+        HasPendingCommit = false;
+        return Task.CompletedTask;
+    }
+
     /// <summary>Sets the text the visible input shows.</summary>
     /// <param name="text">The text.</param>
     internal void SetInputValue(string text)
@@ -486,6 +501,10 @@ public sealed class NumberFieldRoot : PartBase<NumberFieldRootState>
     private bool UpdateState()
     {
         double? current = CurrentValue;
+
+        // Base UI's useValueAsRef: the value a step starts from is the rendered value; a stepper moves it ahead within one
+        // interaction after this point (NUM-PTR-05).
+        ValueRef = current;
 
         // NUM-STA-06: while sync is allowed the text is the formatted value after every update.
         if (AllowInputSync)
