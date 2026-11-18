@@ -1000,9 +1000,12 @@ test.describe('<Toolbar.Button />', () => {
       // which clear the DOM disabled property of a substituted toggle; otherwise that property, rendered by the toggle
       // until its handle attaches, makes the module move the initial tab stop off it. The `button` module is held back
       // so its handles attach last, the order a slow network gives (Base UI corrects the property in a layout effect,
-      // before its item map is published).
+      // before its item map is published). The route matches the fingerprinted module URL WebAssembly loads, and the title
+      // asserts it was hit, so the stall is real on both modes (issue 133).
       test('port: a disabled toggle substituted into the first toolbar button keeps the initial tab stop when the button handles attach last', async ({ page, mode }) => {
-        await page.route('**/js/button.js', (route) => {
+        let stalled = 0;
+        await page.route(/\/_content\/Blazix\.Primitives\/js\/button(\.[0-9a-z]+)?\.js$/, (route) => {
+          stalled += 1;
           setTimeout(() => void route.continue(), 1000);
         });
         const fixture = await gotoToolbar(page, mode, 'toolbar-toggle');
@@ -1012,6 +1015,7 @@ test.describe('<Toolbar.Button />', () => {
         await expect(item('first')).toHaveAttribute('tabindex', '0');
         await tabIn(page, before);
         await expect(item('first')).toBeFocused();
+        expect(stalled).toBeGreaterThanOrEqual(1);
       });
 
       // TLB-EDGE-12, TLB-STR-05 (the Toggle clause), TLB-FOC-01, CMP-STR-04 (E4): the docs' hero, two toolbar buttons
