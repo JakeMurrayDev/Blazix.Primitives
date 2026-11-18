@@ -47,6 +47,8 @@ public sealed class NumberFieldRoot : PartBase<NumberFieldRootState>
 {
     private const string DefaultTag = "div";
     private const string NumericInputMode = "numeric";
+    private const string DecimalInputMode = "decimal";
+    private const string TextInputMode = "text";
 
     private static readonly StateAttributesMapping<NumberFieldRootState> s_mapping = FieldValidityMapping.Create<NumberFieldRootState>();
 
@@ -92,6 +94,9 @@ public sealed class NumberFieldRoot : PartBase<NumberFieldRootState>
 
     [Inject]
     private DefaultFormScope Formless { get; set; } = null!;
+
+    [Inject]
+    private PlatformFlags Platform { get; set; } = null!;
 
     [CascadingParameter]
     private FieldRootContext? FieldContext { get; set; }
@@ -297,8 +302,10 @@ public sealed class NumberFieldRoot : PartBase<NumberFieldRootState>
     /// <summary>Gets the field half.</summary>
     internal NumberFieldField Field => fieldHalf!;
 
+    // NUM-STA-19: `numeric`, and on iOS `decimal` when no value can be negative, else `text` (the iOS numeric keyboard has no
+    // minus key). The iOS flag arrives after the first interactive render (PlatformFlags; ADR 01's row like MNU-A11Y-01's).
     /// <summary>Gets the visible input's <c>inputmode</c>.</summary>
-    internal string InputMode => NumericInputMode;
+    internal string InputMode => Platform.Ios == true ? (MinWithDefault >= 0 ? DecimalInputMode : TextInputMode) : NumericInputMode;
 
     /// <summary>Gets the formatter of the current culture and format.</summary>
     internal NumberFormatter Formatter => formatter ??= NumberFormatter.Get(Culture, Format);
@@ -371,6 +378,13 @@ public sealed class NumberFieldRoot : PartBase<NumberFieldRootState>
     /// <inheritdoc />
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
+        // NUM-STA-19: the platform flags are read once per scope from the first after-render, which a prerender never runs
+        // (the MenuRootBehavior precedent); a read that fails leaves `numeric`.
+        if (firstRender && Platform.Ios is null)
+        {
+            _ = ReadPlatformAsync();
+        }
+
         double? current = CurrentValue;
         await fieldHalf!.AfterRenderAsync(InputId, mountedInputs > 0, hiddenInput, BoxedValue(), valueVersion, Serialize(current), current.HasValue);
         if (!hiddenValueHandedOver && fieldHalf.TwinAttached.IsCompleted)
@@ -654,4 +668,21 @@ public sealed class NumberFieldRoot : PartBase<NumberFieldRootState>
     }
 
     private static string Serialize(double? number) => number is double n ? NumberSerializer.Serialize(n) : string.Empty;
+
+    private async Task ReadPlatformAsync()
+    {
+        try
+        {
+            await Platform.EnsureAsync(JSRuntime).ConfigureAwait(true);
+        }
+        catch (Exception exception) when (exception is not OperationCanceledException)
+        {
+            return;
+        }
+
+        if (Platform.Ios == true)
+        {
+            await InvokeAsync(context.Notify).ConfigureAwait(true);
+        }
+    }
 }
