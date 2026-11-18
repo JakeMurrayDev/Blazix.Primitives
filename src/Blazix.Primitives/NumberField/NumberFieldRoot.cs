@@ -64,6 +64,7 @@ public sealed class NumberFieldRoot : PartBase<NumberFieldRootState>
     private double? versionedValue;
     private object? boxedValue;
     private int mountedInputs;
+    private int echoedRevision;
     private string? inputId;
     private string inputValue = string.Empty;
     private NumberFormatter? formatter;
@@ -332,6 +333,10 @@ public sealed class NumberFieldRoot : PartBase<NumberFieldRootState>
     /// <summary>Gets the text the visible input shows.</summary>
     internal string InputValue => inputValue;
 
+    // Design point 7 (a): the revision of the last input report applied, echoed to the module with the text.
+    /// <summary>Gets the revision of the last input report the root applied.</summary>
+    internal int EchoedRevision => echoedRevision;
+
     /// <inheritdoc />
     public override Task SetParametersAsync(ParameterView parameters)
     {
@@ -553,6 +558,119 @@ public sealed class NumberFieldRoot : PartBase<NumberFieldRootState>
         return Task.CompletedTask;
     }
 
+    // NUM-FOC-05 (NumberFieldInput.tsx:131-136): a focus that no consumer vetoed acquires the field's focused flag unless
+    // disabled; read-only fields track focus.
+    /// <summary>Applies a focus of the visible input.</summary>
+    internal void HandleInputFocus()
+    {
+        if (EffectiveDisabled)
+        {
+            return;
+        }
+
+        fieldHalf!.HandleFocus();
+    }
+
+    // NUM-EVT-06..09, NUM-FRM-07, NUM-FRM-09, NUM-EDGE-05 (NumberFieldInput.tsx:137-230, the onBlur handler).
+    /// <summary>Applies a blur of the visible input: touched and focused, then the commit of the text it showed.</summary>
+    /// <param name="text">The text the input showed.</param>
+    /// <param name="revision">The revision of the module's report, echoed in the next options.</param>
+    /// <param name="snapshot">The blur.</param>
+    /// <returns>A task that completes when the commit and its callbacks have run.</returns>
+    internal async Task HandleInputBlurAsync(string text, int revision, EventSnapshot snapshot)
+    {
+        echoedRevision = Math.Max(echoedRevision, revision);
+        if (EffectiveDisabled)
+        {
+            return;
+        }
+
+        fieldHalf!.HandleBlur();
+        if (ReadOnly)
+        {
+            Refresh();
+            return;
+        }
+
+        bool hadManualInput = !AllowInputSync;
+        bool hadPendingProgrammaticChange = HasPendingCommit;
+        AllowInputSync = true;
+        double? value = CurrentValue;
+        bool onBlurMode = fieldHalf.InField && fieldHalf.ValidationMode == ValidationMode.OnBlur;
+
+        if (NumberParser.IsBlank(text))
+        {
+            NumberFieldChangeEventDetails clearDetails = new(EventReason.InputClear, null, snapshot);
+            await SetValueAsync(null, clearDetails).ConfigureAwait(true);
+            if (clearDetails.IsCanceled)
+            {
+                return;
+            }
+
+            if (onBlurMode)
+            {
+                await fieldHalf.CommitAsync(null).ConfigureAwait(true);
+            }
+
+            if (hadManualInput || hadPendingProgrammaticChange || value is not null)
+            {
+                await CommitAsync(null, EventReason.InputClear, snapshot).ConfigureAwait(true);
+            }
+
+            return;
+        }
+
+        if (NumberParser.Parse(text, Culture, Format) is not double parsed)
+        {
+            Refresh();
+            return;
+        }
+
+        // Intl's default precision is applied only when the format opts into rounding.
+        bool hasRoundingOptions = NumberStepValidation.HasRoundingOptions(Format);
+        double? committed = !hadManualInput && !hasRoundingOptions
+            ? value
+            : hasRoundingOptions ? NumberStepValidation.RemoveFloatingPointErrors(parsed, Format) : parsed;
+        bool shouldUpdateValue = !Equality.StrictEquals(value, committed) || value.HasValue != committed.HasValue;
+        bool shouldCommit = hadManualInput || shouldUpdateValue || hadPendingProgrammaticChange;
+
+        double? committedValue = committed;
+        if (shouldUpdateValue)
+        {
+            NumberFieldChangeEventDetails changeDetails = new(EventReason.InputBlur, null, snapshot);
+            fieldHalf.BlockRevalidation(true);
+            await SetValueAsync(committed, changeDetails).ConfigureAwait(true);
+            if (changeDetails.IsCanceled)
+            {
+                fieldHalf.BlockRevalidation(false);
+                return;
+            }
+
+            committedValue = LastChangedValue;
+            if (Equality.StrictEquals(committedValue, value) && committedValue.HasValue == value.HasValue)
+            {
+                fieldHalf.BlockRevalidation(false);
+            }
+        }
+
+        if (onBlurMode)
+        {
+            // BLZX2005: the validation commit takes the value in an object slot, once per blur (the RadioGroup precedent).
+#pragma warning disable BLZX2005
+            await fieldHalf.CommitAsync(committedValue is double number ? number : null).ConfigureAwait(true);
+#pragma warning restore BLZX2005
+        }
+
+        if (shouldCommit)
+        {
+            await CommitAsync(committedValue, EventReason.InputBlur, snapshot).ConfigureAwait(true);
+        }
+
+        // Normalize only the displayed text.
+        SetInputValue(FormatText(committedValue));
+        Refresh();
+    }
+
     /// <summary>Sets the text the visible input shows.</summary>
     /// <param name="text">The text.</param>
     internal void SetInputValue(string text)
@@ -611,7 +729,12 @@ public sealed class NumberFieldRoot : PartBase<NumberFieldRootState>
     /// <summary>Re-renders the root and its parts after a change of the fields a part renders.</summary>
     internal void Refresh()
     {
-        UpdateState();
+        // The parts render fields beside the state (the echoed revision, the bounds), so they are told either way.
+        if (!UpdateState())
+        {
+            context.Notify();
+        }
+
         StateHasChanged();
     }
 

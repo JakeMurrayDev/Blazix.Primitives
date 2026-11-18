@@ -167,6 +167,23 @@ internal static class NumberParser
         return double.IsFinite(number) ? number : null;
     }
 
+    // NumberFieldInput.tsx:153,236: `inputValue.trim() === ''` under String.prototype.trim's white space.
+    /// <summary>Determines whether a text is empty after ECMAScript's trim.</summary>
+    /// <param name="text">The text.</param>
+    /// <returns><see langword="true"/> when the text holds only white space or line terminators; otherwise, <see langword="false"/>.</returns>
+    public static bool IsBlank(string text)
+    {
+        foreach (char c in text)
+        {
+            if (!IsEcmaWhiteSpace(c))
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
     // ECMAScript parseFloat: leading StrWhiteSpaceChar skipped, then the longest prefix that is a StrDecimalLiteral.
     /// <summary>Parses the longest decimal-literal prefix of a text the way ECMAScript's <c>parseFloat</c> does.</summary>
     /// <param name="text">The text.</param>
