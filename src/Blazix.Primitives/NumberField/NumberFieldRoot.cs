@@ -1,10 +1,13 @@
 using System.Globalization;
+using System.Linq.Expressions;
 using Blazix.Primitives.Rendering;
 using Blazix.Primitives.Store;
 using Blazix.Primitives.Utilities;
 using Microsoft.AspNetCore.Components;
+using Microsoft.AspNetCore.Components.Forms;
 using Microsoft.AspNetCore.Components.Rendering;
 using Microsoft.Extensions.Logging;
+using Microsoft.JSInterop;
 
 namespace Blazix.Primitives;
 
@@ -20,6 +23,10 @@ namespace Blazix.Primitives;
 //   commit; the display text follows the value while the flag is set (NUM-STA-06, re-derived in UpdateState).
 // - The text is formatted by Utilities/NumberFormatter (NUM-I18N-01); the formatter is resolved once per (culture, format)
 //   pair and the text once per (value, formatter), so an unchanged render formats nothing (NUM-I18N-13).
+// - Inside a field the number field is the field's control (NUM §8): NumberFieldField claims the visible input's id,
+//   registers the value while a NumberFieldInput is mounted, makes the hidden input the validation input through the
+//   `form` module (whose `value` it owns after attach, C# → JS) and reacts to each new value; ADR 05 Amendments
+//   2026-10-22 and 2026-11-18 item 2: the cascaded EditContext through ValueExpression.
 /// <summary>
 /// Represents a numeric text field with optional stepper buttons: Base UI's <c>NumberField.Root</c>, rendered as a
 /// <c>div</c> followed by a visually hidden <c>input type="number"</c> that takes part in forms and native validation.
@@ -44,7 +51,17 @@ public sealed class NumberFieldRoot : PartBase<NumberFieldRootState>
     private static readonly StateAttributesMapping<NumberFieldRootState> s_mapping = FieldValidityMapping.Create<NumberFieldRootState>();
 
     private readonly NumberFieldRootContext context;
+    private readonly Action fieldChanged;
+    private readonly Action<ElementReference> captureHiddenInput;
     private Controlled<double?>? value;
+    private NumberFieldField? fieldHalf;
+    private ElementReference? hiddenInput;
+    private string? renderedHiddenValue;
+    private bool hiddenValueHandedOver;
+    private int valueVersion;
+    private double? versionedValue;
+    private object? boxedValue;
+    private int mountedInputs;
     private string? inputId;
     private string inputValue = string.Empty;
     private NumberFormatter? formatter;
@@ -60,6 +77,8 @@ public sealed class NumberFieldRoot : PartBase<NumberFieldRootState>
     public NumberFieldRoot()
     {
         context = new NumberFieldRootContext(this);
+        fieldChanged = Refresh;
+        captureHiddenInput = element => hiddenInput = element;
     }
 
     [Inject]
@@ -67,6 +86,21 @@ public sealed class NumberFieldRoot : PartBase<NumberFieldRootState>
 
     [Inject]
     private PartIdGenerator IdGenerator { get; set; } = null!;
+
+    [Inject]
+    private IJSRuntime JSRuntime { get; set; } = null!;
+
+    [Inject]
+    private DefaultFormScope Formless { get; set; } = null!;
+
+    [CascadingParameter]
+    private FieldRootContext? FieldContext { get; set; }
+
+    [CascadingParameter]
+    private IFormScope? FormScope { get; set; }
+
+    [CascadingParameter]
+    private EditContext? CascadedEditContext { get; set; }
 
     // NUM-API-01; ADR 05 §2 and Amendments 2026-11-18 item 2 (decision 13).
     /// <summary>Gets or sets the value, when the consumer owns it.</summary>
@@ -218,6 +252,18 @@ public sealed class NumberFieldRoot : PartBase<NumberFieldRootState>
     [Parameter]
     public new string? Id { get; set; }
 
+    // ADR 05 Amendments 2026-10-22 and 2026-11-18 item 2 (decision 14 (a)): EditContext participation.
+    /// <summary>Gets or sets the expression of the bound value, which <c>@bind-Value</c> supplies.</summary>
+    /// <value>
+    /// The expression that identifies the bound value; <see langword="null"/> by default. Inside an <c>EditForm</c> or any
+    /// other ancestor that cascades an <see cref="EditContext"/>, the field notifies the context of every committed change,
+    /// takes the identifier's field name as its name when <see cref="Name"/> is <see langword="null"/>, and inside a
+    /// <see cref="FieldRoot"/> shows the context's messages for the identifier as the field's errors. Without an edit
+    /// context it has no effect.
+    /// </value>
+    [Parameter]
+    public Expression<Func<double?>>? ValueExpression { get; set; }
+
     /// <inheritdoc />
     protected override string DefaultTagName => DefaultTag;
 
@@ -240,8 +286,16 @@ public sealed class NumberFieldRoot : PartBase<NumberFieldRootState>
     /// <summary>Gets the snapping base when no minimum is set: <see cref="Min"/>, else 0.</summary>
     internal double MinWithZeroDefault => Min ?? 0;
 
+    // NUM-API-13: the field's disabled state OR'd with the part's.
     /// <summary>Gets the field's effective disabled state.</summary>
-    internal bool EffectiveDisabled => Disabled;
+    internal bool EffectiveDisabled => fieldHalf!.Disabled;
+
+    // NUM-API-16: the field's name, else the part's own, else the EditContext identifier's field name.
+    /// <summary>Gets the effective form name.</summary>
+    internal string? EffectiveName => fieldHalf!.Name;
+
+    /// <summary>Gets the field half.</summary>
+    internal NumberFieldField Field => fieldHalf!;
 
     /// <summary>Gets the visible input's <c>inputmode</c>.</summary>
     internal string InputMode => NumericInputMode;
@@ -287,12 +341,15 @@ public sealed class NumberFieldRoot : PartBase<NumberFieldRootState>
 
         // NUM-API-18: the input's id is drawn in render order (ADR 02 decision 5), whether or not an Input part renders.
         inputId = IdGenerator.Next();
+        fieldHalf = new NumberFieldField(Formless, JSRuntime, fieldChanged, InvokeAsync, DispatchExceptionAsync);
+        fieldHalf.Initialize(FieldContext);
     }
 
     /// <inheritdoc />
     protected override void OnParametersSet()
     {
         formatter = NumberFormatter.Get(Culture, Format);
+        fieldHalf!.SetParameters(Name, Disabled, FormScope, CascadedEditContext, ValueExpression);
         // A changed state notifies the parts; otherwise they are notified for the parameters they read beside the state
         // (the bounds of the steppers, the input's id and mode).
         if (!UpdateState())
@@ -311,17 +368,44 @@ public sealed class NumberFieldRoot : PartBase<NumberFieldRootState>
         ChildContent = cascade;
     }
 
+    /// <inheritdoc />
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        double? current = CurrentValue;
+        await fieldHalf!.AfterRenderAsync(InputId, mountedInputs > 0, hiddenInput, BoxedValue(), valueVersion, Serialize(current), current.HasValue);
+        if (!hiddenValueHandedOver && fieldHalf.TwinAttached.IsCompleted)
+        {
+            hiddenValueHandedOver = true;
+        }
+    }
+
+    /// <inheritdoc />
+    protected override void Dispose(bool disposing)
+    {
+        if (disposing)
+        {
+            fieldHalf?.Dispose();
+        }
+
+        base.Dispose(disposing);
+    }
+
     // NUM-STR-01, NUM-DOM-06/07, NUM-ARIA-10; number-field/root/NumberFieldRoot.tsx:500-540.
     /// <inheritdoc />
     protected override void BuildAfterElement(RenderTreeBuilder builder)
     {
-        double? current = CurrentValue;
-        string? name = Name;
+        // The handover at attach (ADR 04 Amendments 2026-10-18): the value is rendered until the `form` module owns it.
+        if (!hiddenValueHandedOver)
+        {
+            renderedHiddenValue = Serialize(CurrentValue);
+        }
+
+        string? name = EffectiveName;
         builder.OpenElement(0, "input");
         builder.AddAttribute(1, "type", "number");
         builder.AddAttribute(2, "form", Form);
         builder.AddAttribute(3, "name", name);
-        builder.AddAttribute(4, "value", current is double number ? NumberSerializer.Serialize(number) : string.Empty);
+        builder.AddAttribute(4, "value", renderedHiddenValue);
         builder.AddAttribute(5, "min", Min is double min ? NumberSerializer.Serialize(min) : null);
         builder.AddAttribute(6, "max", Max is double max ? NumberSerializer.Serialize(max) : null);
         builder.AddAttribute(7, "step", (Step ?? default).AttributeText);
@@ -331,6 +415,11 @@ public sealed class NumberFieldRoot : PartBase<NumberFieldRootState>
         builder.AddAttribute(11, "aria-hidden", "true");
         builder.AddAttribute(12, "tabindex", "-1");
         builder.AddAttribute(13, "style", string.IsNullOrEmpty(name) ? VisuallyHidden.Style : VisuallyHidden.InputStyle);
+
+        // NUM-ARIA-04: the field's description ids without the consumer's, and its invalid state.
+        builder.AddAttribute(14, "aria-describedby", fieldHalf!.InField ? fieldHalf.DescribedBy(null) : null);
+        builder.AddAttribute(15, "aria-invalid", fieldHalf.AriaInvalid ? "true" : null);
+        builder.AddElementReferenceCapture(16, captureHiddenInput);
         builder.CloseElement();
     }
 
@@ -396,6 +485,7 @@ public sealed class NumberFieldRoot : PartBase<NumberFieldRootState>
                 return false;
             }
 
+            fieldHalf!.SetDirty(validated);
             HasPendingCommit = true;
         }
 
@@ -477,7 +567,22 @@ public sealed class NumberFieldRoot : PartBase<NumberFieldRootState>
         return formattedText;
     }
 
-    // NUM-STA-15: a scrub area's start and end (the `number-field` module's scrub role).
+    // NUM-FRM-06: the Input registers the field control; more than one is unsupported (§16 item 8), so the count only says
+    // whether one is mounted.
+    /// <summary>Records that a <see cref="NumberFieldInput"/> mounted or unmounted.</summary>
+    /// <param name="mounted"><see langword="true"/> when one mounted; <see langword="false"/> when one left.</param>
+    internal void SetInputMounted(bool mounted)
+    {
+        mountedInputs += mounted ? 1 : -1;
+    }
+
+    // ADR 05 Amendments 2026-11-18 item 2: the value enters the form registry's object slots boxed once per commit, never per
+    // render (the RadioGroup precedent).
+    /// <summary>Gets the value boxed once per committed value.</summary>
+    /// <returns>The boxed value, or <see langword="null"/> while it is <see langword="null"/>.</returns>
+    internal object? BoxedValue() => boxedValue;
+
+        // NUM-STA-15: a scrub area's start and end (the `number-field` module's scrub role).
     /// <summary>Sets whether a scrub area of the field is being scrubbed, and renders the change.</summary>
     /// <param name="value"><see langword="true"/> while a scrub is in progress.</param>
     internal void SetScrubbing(bool value)
@@ -506,14 +611,26 @@ public sealed class NumberFieldRoot : PartBase<NumberFieldRootState>
         // interaction after this point (NUM-PTR-05).
         ValueRef = current;
 
+        if (valueVersion == 0 || !Equality.StrictEquals(versionedValue, current) || versionedValue.HasValue != current.HasValue)
+        {
+            valueVersion++;
+            versionedValue = current;
+
+            // BLZX2005: FieldControlRegistration.Value and FieldValidationArguments.Value are object slots; the boxing
+            // happens once per committed value here, the RadioGroup precedent (ADR 05 Amendments 2026-10-22, 2026-11-18).
+#pragma warning disable BLZX2005
+            boxedValue = current is double number ? number : null;
+#pragma warning restore BLZX2005
+        }
+
         // NUM-STA-06: while sync is allowed the text is the formatted value after every update.
         if (AllowInputSync)
         {
             SetInputValue(FormatText(current));
         }
 
-        FieldStateSnapshot snapshot = FieldStateSnapshot.Default;
-        bool disabled = EffectiveDisabled;
+        FieldStateSnapshot snapshot = fieldHalf!.Snapshot;
+        bool disabled = snapshot.Disabled;
         if (state is { } previous
             && Equality.StrictEquals(previous.Value, current)
             && previous.Value.HasValue == current.HasValue
@@ -535,4 +652,6 @@ public sealed class NumberFieldRoot : PartBase<NumberFieldRootState>
         context.SetState(state);
         return true;
     }
+
+    private static string Serialize(double? number) => number is double n ? NumberSerializer.Serialize(n) : string.Empty;
 }

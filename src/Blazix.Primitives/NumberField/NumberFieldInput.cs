@@ -61,6 +61,7 @@ public sealed class NumberFieldInput : PartBase<NumberFieldInputState>
     {
         context = NumberFieldRootContext.Require(RootContext);
         context.AddListener(stateChanged);
+        context.Root.SetInputMounted(true);
         base.OnInitialized();
     }
 
@@ -70,6 +71,7 @@ public sealed class NumberFieldInput : PartBase<NumberFieldInputState>
         if (disposing)
         {
             context?.RemoveListener(stateChanged);
+            context?.Root.SetInputMounted(false);
         }
 
         base.Dispose(disposing);
@@ -91,5 +93,42 @@ public sealed class NumberFieldInput : PartBase<NumberFieldInputState>
         attributes.Set("autocorrect", "off");
         attributes.Set("spellcheck", "false");
         attributes.Set("aria-roledescription", RoleDescription);
+
+        // NUM-ARIA-03: the field label's id; a consumer aria-labelledby wins at the merge.
+        if (root.Field.FieldLabelId is { } labelId)
+        {
+            attributes.Set("aria-labelledby", labelId);
+        }
+    }
+
+    // ADR 02 Amendments 2026-10-21 (FinishAttributes); NUM-DOM-15: the field's validation props come last, so the composed
+    // aria-describedby keeps the consumer's ids first and aria-invalid wins over a consumer value (NUM-ARIA-02/04).
+    /// <inheritdoc />
+    protected override void FinishAttributes(AttributeList attributes)
+    {
+        NumberFieldField field = context!.Root.Field;
+        if (!field.InField)
+        {
+            return;
+        }
+
+        string? consumer = attributes.TryGetValue("aria-describedby", out AttributeValue current) && current.TryGetValue(out string text) ? text : null;
+        if (field.DescribedBy(consumer) is { } describedBy)
+        {
+            attributes.Set("aria-describedby", describedBy);
+        }
+        else
+        {
+            attributes.Remove("aria-describedby");
+        }
+
+        if (field.AriaInvalid)
+        {
+            attributes.Set("aria-invalid", "true");
+        }
+        else
+        {
+            attributes.Remove("aria-invalid");
+        }
     }
 }
