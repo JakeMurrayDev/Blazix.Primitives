@@ -2373,6 +2373,11 @@ interface ListState {
   readonly onOpenChange: (details: SessionOpenChangeDetails) => void;
   /** The element the highlight was last written on, for an item change's comparison (itemsChangeHighlight). */
   highlightedItem: HTMLElement | null;
+  /**
+   * Whether the highlight was committed while the registry still held removed elements: C#'s registration of the rendered
+   * items lands after the batch that rendered them, so its index is the previous registry's (issue 261).
+   */
+  staleHighlight: boolean;
 }
 
 /** One list handle as the shared logic sees it: its element, its channel and its current options. */
@@ -2652,9 +2657,16 @@ function commitHighlight(state: ListState, handle: ListHandle, next: number | nu
     return;
   }
   state.activeIndex = next;
+  state.staleHighlight = next !== null && hasRemovedElements(state.floating?.registry.elements ?? []);
   writeHighlight(state, handle);
   reportHighlight(state, handle, event);
   syncActiveIndex(state, handle, next);
+}
+
+// Whether a registry still holds an element the DOM no longer has: on Server, between the batch that removed it and the
+// registration update that follows a round trip later.
+function hasRemovedElements(elements: ReadonlyArray<HTMLElement | null | undefined>): boolean {
+  return elements.some((element) => element != null && !element.isConnected);
 }
 
 // `onNavigate`: the cursor proposed as the highlight.
@@ -2826,6 +2838,7 @@ function createListState(session: InteractionSession, list: CompositeListOptions
     index: selectedIndexOf(list) ?? -1,
     activeIndex: null,
     highlightedItem: null,
+    staleHighlight: false,
     key: null,
     pointerModality: true,
     forceSyncFocus: false,
@@ -3673,6 +3686,18 @@ function attachList(
           publications += 1;
           reportItemOrder(channel, ids, publications);
         }
+      }
+      // Issue 261: a highlight committed against a registry that still held removed elements was computed on the
+      // previous list, where Base UI's key always meets the committed one (React commits the filter before the key). Until
+      // the registry has caught up, the highlight follows its element to the element's new index, which is the index
+      // Base UI's key would have computed; every other publication stays positional (AriaCombobox.tsx:1198-1222).
+      if (state.staleHighlight) {
+        const moved = state.highlightedItem !== null && state.activeIndex !== null ? registry.elements.indexOf(state.highlightedItem) : -1;
+        if (moved !== -1 && moved !== state.activeIndex) {
+          state.activeIndex = moved;
+          state.index = moved;
+        }
+        state.staleHighlight = hasRemovedElements(registry.elements);
       }
       // MNU-STA-20 (FilterDropdownRoot.tsx:109-125; the orchestrator's 2026-11-12 grant): a positional highlight must not
       // move silently to another item. With itemsChangeHighlight, when a different element now holds the highlighted index,
