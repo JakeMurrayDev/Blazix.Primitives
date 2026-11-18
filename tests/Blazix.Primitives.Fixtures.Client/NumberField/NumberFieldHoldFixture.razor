@@ -1,0 +1,77 @@
+@namespace Blazix.Primitives.Fixtures.Client.NumberFieldFixtures
+@using System.Globalization
+@using Blazix.Primitives
+
+@*
+    The `number-field-hold` fixture (tests/browser/number-field.spec.ts): useNumberFieldStepperButton.test.tsx's
+    TestNumberField, one root with a decrement button, an input and an increment button, under en-US. `?case=` picks the
+    root's props: `basic` (defaultValue 0), `boundary` (defaultValue 9, max 10), `boundary-down` (defaultValue -9, min -10), `readonly`, `disabled`, `empty` (no
+    defaultValue). Every OnValueChange is recorded as `value/reason/direction` in the container's data-changes; the
+    data-set-disabled control disables the root on a Shift keydown (a press elsewhere would end the hold).
+*@
+<FixtureContainer Name="number-field-hold" data-attached="@(attached ? "true" : "false")" data-changes="@string.Join(' ', changes)">
+    <button type="button" data-set-disabled @onkeydown="SetDisabled">Disable</button>
+    <style>[data-stepper] { width: 3rem; height: 2rem; } [data-input] { width: 8rem; }</style>
+    <NumberFieldRoot DefaultValue="DefaultValue" Min="Min" Max="Max" ReadOnly="@(Case == "readonly")" Disabled="disabled" Culture="culture" OnValueChange="Change">
+        <NumberFieldDecrement @ref="decrement" data-stepper data-testid="decrement" />
+        <NumberFieldInput data-input data-testid="input" />
+        <NumberFieldIncrement @ref="increment" data-stepper data-testid="increment" />
+    </NumberFieldRoot>
+</FixtureContainer>
+
+@code {
+    private static readonly CultureInfo culture = CultureInfo.GetCultureInfo("en-US");
+
+    private readonly List<string> changes = [];
+    private NumberFieldDecrement? decrement;
+    private NumberFieldIncrement? increment;
+    private bool attached;
+    private bool disabled;
+
+    [SupplyParameterFromQuery(Name = "case")]
+    public string? Case { get; set; }
+
+    private double? DefaultValue => Case switch
+    {
+        "boundary" => 9,
+        "boundary-down" => -9,
+        "empty" or "readonly" => null,
+        _ => 0,
+    };
+
+    private double? Min => Case == "boundary-down" ? -10 : null;
+
+    private double? Max => Case == "boundary" ? 10 : null;
+
+    protected override void OnParametersSet()
+    {
+        disabled = Case == "disabled";
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender || !RendererInfo.IsInteractive)
+        {
+            return;
+        }
+
+        await Task.WhenAll(decrement!.TwinAttached, increment!.TwinAttached);
+        attached = true;
+        StateHasChanged();
+    }
+
+    private void Change(ValueChangeEventArgs<double?> e)
+    {
+        int? direction = ((NumberFieldChangeEventDetails)e.Details).Direction;
+        string value = e.Value is double number ? number.ToString(CultureInfo.InvariantCulture) : "null";
+        changes.Add($"{value}/{e.Details.Reason.ToLiteral()}/{(direction is int d ? d.ToString(CultureInfo.InvariantCulture) : "none")}");
+    }
+
+    private void SetDisabled(KeyboardEventArgs e)
+    {
+        if (e.Key == "Shift")
+        {
+            disabled = true;
+        }
+    }
+}
