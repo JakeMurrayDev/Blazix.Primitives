@@ -1,5 +1,5 @@
 import { type Locator } from '@playwright/test';
-import { expect, holdCircuit, test, waitForPositioned, type Page, type RenderMode } from './helpers';
+import { expect, holdCircuit, test, waitForPositioned, type CircuitHold, type Page, type RenderMode } from './helpers';
 import { center, clickThrough, fire, gotoCombobox, moveTo, recorded, touchTest, waitMs, type FixtureOptions } from './combobox.helpers';
 import { pressControl, settle } from './suites/popupFixture';
 
@@ -268,30 +268,36 @@ test.describe('<Combobox.Item />', () => {
 
   // Virtualized items without an explicit `index` resolve it from the filtered values (CMB-API-22, issue 29): the fixture's list
   // renders the filtered items through ItemContent, with `indexed` passing each one's index.
-  // Issue 261: on Server the list's registry update for the filtered items leaves C# after the render batch that filtered
-  // them, so a key typed meanwhile meets the registry of the previous items. The circuit's messages after that batch are
-  // held, for 1 s, while the title presses its keys.
-  async function filterVirtualized(page: Page, mode: RenderMode, items: string, indexed: boolean, query: string, gone: string): Promise<Locator> {
-    const hold = await holdCircuit(page, { armOn: (text) => text.includes('OnInputChange'), from: (text) => text.includes('RenderBatch'), holdMatch: false });
+  async function filterVirtualized(page: Page, mode: RenderMode, items: string, indexed: boolean, query: string, gone: string, hold?: CircuitHold): Promise<Locator> {
     await gotoParts(page, mode, { items, virtualized: true, ...(indexed ? { indexed: true } : {}) });
     const field = page.getByTestId('input');
     await field.click();
     await expect(page.getByRole('listbox')).toBeVisible();
     await center(page.getByRole('listbox'));
 
-    hold.arm();
+    hold?.arm();
     await field.pressSequentially(query);
     await expect(option(page, gone)).toHaveCount(0);
     return field;
   }
 
+  // Issue 261: on Server the list's registry update for the filtered items leaves C# after the render batch that filtered
+  // them, so a key typed meanwhile meets the registry of the previous items. The circuit's messages after that batch are
+  // held until the title has pressed the arrow and checked it (release).
+  const holdAfterFilter = (page: Page) =>
+    holdCircuit(page, { armOn: (text) => text.includes('OnInputChange'), from: (text) => text.includes('RenderBatch'), holdMatch: false });
+
   test.describe('virtualized without explicit index', () => {
     test('selects the highlighted filtered item with the keyboard after filtering', async ({ page, mode }) => {
-      const field = await filterVirtualized(page, mode, 'one|two|three|four|five', false, 'f', 'one');
+      const hold = await holdAfterFilter(page);
+      const field = await filterVirtualized(page, mode, 'one|two|three|four|five', false, 'f', 'one', hold);
       await expect(option(page, 'four')).toBeVisible();
 
       await page.keyboard.press('ArrowDown');
       await expect(option(page, 'four')).toHaveAttribute('data-highlighted', '');
+      if (mode === 'server') {
+        await hold.release();
+      }
       await page.keyboard.press('Enter');
 
       await expect(field).toHaveValue('four');
@@ -310,10 +316,14 @@ test.describe('<Combobox.Item />', () => {
 
   test.describe('virtualized with explicit index', () => {
     test('selects the highlighted filtered item with the keyboard after filtering', async ({ page, mode }) => {
-      const field = await filterVirtualized(page, mode, 'one|two|three', true, 't', 'one');
+      const hold = await holdAfterFilter(page);
+      const field = await filterVirtualized(page, mode, 'one|two|three', true, 't', 'one', hold);
 
       await page.keyboard.press('ArrowDown');
       await expect(option(page, 'two')).toHaveAttribute('data-highlighted', '');
+      if (mode === 'server') {
+        await hold.release();
+      }
       await page.keyboard.press('Enter');
 
       await expect(field).toHaveValue('two');

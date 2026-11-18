@@ -442,8 +442,8 @@ test.describe('<Autocomplete.Root />', () => {
   test('commits a keyboard selection, restores trigger focus, and preserves it on reopen', async ({ page, mode }) => {
     // Issue 261: on Server the list's registry update for the filtered items lands a round trip after the batch that
     // filtered them; an arrow pressed meanwhile highlights the surviving item at its old index, and the update re-indexes
-    // it. The circuit's messages are held from that update (its one filtered item) for 1 s, while the title presses the arrow
-    // and checks it.
+    // it. The circuit's messages are held from that update (its one filtered item) until the title has
+    // pressed the arrow and checked it (release).
     const hold = await holdCircuit(page, { armOn: (text) => text.includes('OnInputChange') && text.includes('\\"text\\":\\"c\\"'), from: (text) => text.includes('\\u0022items\\u0022:[{') && (text.match(/\\u0022id\\u0022/g) ?? []).length === 1 });
     await goto(page, mode, { insidePopup: true });
     const trigger = page.getByTestId('trigger');
@@ -454,7 +454,9 @@ test.describe('<Autocomplete.Root />', () => {
     await expect(options(page)).toHaveCount(1);
     await input(page).press('ArrowDown');
     await expect(page.getByTestId('item-cherry')).toHaveAttribute('data-highlighted', '');
-    await hold.released();
+    if (mode === 'server') {
+      await hold.release();
+    }
 
     await input(page).press('Enter');
     await expect(page.getByRole('listbox')).toHaveCount(0);
