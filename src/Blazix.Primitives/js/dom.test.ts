@@ -1410,6 +1410,97 @@ describe('styleWriter', () => {
     expect(element.style.getPropertyValue('--transform-origin')).toBe('0px 0px');
   });
 
+  // ADR 04 Amendments 2026-11-18, the bands paragraph (decision 5 as revised, chosen by the user 2026-11-18): a value
+  // Base UI passes through a part's merged `style` prop, which the consumer's `style` overrides (Slider's Thumb and
+  // Indicator, ScrollArea's state-rendered variables, Toast's swipe movement).
+  it('places the component-under band under the consumer and over the transitions band', () => {
+    const element = document.createElement('div');
+    const writer = styleWriter(element);
+
+    writer.layer('positioning').set('left', '1px');
+    writer.layer('transitions').set('transition', 'none');
+    writer.layer('component-under').set('left', '25%');
+    writer.layer('component-under').set('transition', 'transform 200ms');
+    writer.layer('component-under').set('--scroll-area-corner-height', '12px');
+
+    expect(element.style.getPropertyValue('left')).toBe('25%');
+    expect(element.style.getPropertyValue('transition')).toBe('transform 200ms');
+    expect(element.style.getPropertyValue('--scroll-area-corner-height')).toBe('12px');
+
+    // The consumer's style wins over it, and hands each property back when it drops it.
+    writer.setConsumer('left: 40%; color: red');
+    expect(element.style.getPropertyValue('left')).toBe('40%');
+    writer.setConsumer('color: red');
+    expect(element.style.getPropertyValue('left')).toBe('25%');
+
+    // Clearing the band hands each property back to the band under it.
+    writer.layer('component-under').clear();
+    expect(element.style.getPropertyValue('left')).toBe('1px');
+    expect(element.style.getPropertyValue('transition')).toBe('none');
+    expect(element.style.getPropertyValue('--scroll-area-corner-height')).toBe('');
+  });
+
+  // ADR 04 Amendments 2026-11-18, the bands paragraph: a value Base UI writes with `style.setProperty` or `element.style`
+  // after render, which overrides the consumer (ScrollArea's Thumb `transform`, Toast's measurement `height`).
+  it('places the component band last: over the consumer, the aligned band and every other band', () => {
+    const element = document.createElement('div');
+    const writer = styleWriter(element);
+
+    writer.layer('positioning').set('height', '10px');
+    writer.layer('component-under').set('height', '15px');
+    writer.layer('positioning-measured').set('--transform-origin', '0px 0px');
+    writer.layer('auto-resize').set('height', '20px');
+    writer.layer('aligned').set('height', '30px');
+    writer.layer('aligned').set('--transform-origin', '50% 40%');
+    writer.setConsumer('height: 40px; transform: none; color: red');
+    writer.layer('component').set('height', '50px');
+    writer.layer('component').set('transform', 'translate3d(0px, 12px, 0px)');
+    writer.layer('component').set('--transform-origin', 'center');
+
+    expect(element.style.getPropertyValue('height')).toBe('50px');
+    expect(element.style.getPropertyValue('transform')).toBe('translate3d(0px, 12px, 0px)');
+    expect(element.style.getPropertyValue('--transform-origin')).toBe('center');
+    expect(element.style.getPropertyValue('color')).toBe('red');
+
+    // Clearing the band hands each property back to the next writer, the aligned band first.
+    writer.layer('component').clear();
+    expect(element.style.getPropertyValue('height')).toBe('30px');
+    expect(element.style.getPropertyValue('transform')).toBe('none');
+    expect(element.style.getPropertyValue('--transform-origin')).toBe('50% 40%');
+  });
+
+  it("keeps a component write over a later consumer style, and yields a component-under write to it", () => {
+    const element = document.createElement('div');
+    const writer = styleWriter(element);
+
+    writer.layer('component').set('transform', 'translate3d(0px, 8px, 0px)');
+    writer.layer('component-under').set('--toast-swipe-movement-y', '4px');
+    writer.setConsumer('transform: scale(2); --toast-swipe-movement-y: 9px');
+
+    expect(element.style.getPropertyValue('transform')).toBe('translate3d(0px, 8px, 0px)');
+    expect(element.style.getPropertyValue('--toast-swipe-movement-y')).toBe('9px');
+
+    writer.setConsumer('transform: scale(3); --toast-swipe-movement-y: 10px');
+    expect(element.style.getPropertyValue('transform')).toBe('translate3d(0px, 8px, 0px)');
+    expect(element.style.getPropertyValue('--toast-swipe-movement-y')).toBe('10px');
+  });
+
+  // Drawer's `--drawer-swipe-progress` (ADR 04 Amendments 2026-11-18, the bands paragraph as corrected 2026-11-18): a
+  // resting value in the merged style and an imperative one during the gesture, held one in each band.
+  it('shows the component value of a property held in both bands, and falls back to the component-under value when the component band removes it', () => {
+    const element = document.createElement('div');
+    const writer = styleWriter(element);
+
+    writer.layer('component-under').set('--drawer-swipe-progress', '0');
+    expect(element.style.getPropertyValue('--drawer-swipe-progress')).toBe('0');
+
+    writer.layer('component').set('--drawer-swipe-progress', '0.4');
+    expect(element.style.getPropertyValue('--drawer-swipe-progress')).toBe('0.4');
+
+    writer.layer('component').remove('--drawer-swipe-progress');
+    expect(element.style.getPropertyValue('--drawer-swipe-progress')).toBe('0');
+  });
+
   it('writes only the properties whose winning value changed', () => {
     const { element, writes } = spiedElement();
     const writer = styleWriter(element);
