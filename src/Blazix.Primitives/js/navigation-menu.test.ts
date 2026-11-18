@@ -1342,6 +1342,28 @@ describe('the Viewport', () => {
     expect(rendered.twin.reported(VIEWPORT_INERT_REPORT)).toHaveLength(2);
   });
 
+  // Issue 241's second order: the stale set can render while focus is already back inside the Viewport; C# renders
+  // `inert` only from the module's set, so one rendered after the module's clear is lifted at once, and a set the module
+  // still holds is kept.
+  it('port: lifts an inert that C# renders after the module cleared the set, and keeps one the module reported', async () => {
+    const rendered = renderMenu({ positioner: false, inlineGuards: true, open: 'item-1' });
+    await settle();
+    const link = rendered.item('item-1').content!.querySelector('a')!;
+    const trigger = rendered.item('item-1').trigger;
+    link.dispatchEvent(new FocusEvent('focusout', { bubbles: true, relatedTarget: document.querySelector('[data-testid="after"]') }));
+    rendered.viewport.setAttribute('inert', '');
+    await Promise.resolve();
+    expect(rendered.viewport.hasAttribute('inert')).toBe(true);
+
+    trigger.dispatchEvent(new FocusEvent('focus'));
+    expect(rendered.viewport.hasAttribute('inert')).toBe(false);
+    rendered.viewport.setAttribute('inert', '');
+    await Promise.resolve();
+
+    expect(rendered.viewport.hasAttribute('inert')).toBe(false);
+    expect(rendered.twin.reported(VIEWPORT_INERT_REPORT)).toEqual([{ inert: true }, { inert: false }]);
+  });
+
   // Issue 241 (NAV-KEY-16, NAV-STA-09): on Server C# can render the set after the Trigger's focus cleared it, so the Tab
   // after the Trigger meets an inert Viewport, which Base UI's synchronous clear never leaves; the guard lifts it.
   it('port: the guard after the active trigger lifts an inert that C# rendered after the trigger focus cleared it, and focuses into the viewport', async () => {
