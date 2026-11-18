@@ -49,7 +49,8 @@ internal sealed class ButtonTwin(IJSRuntime jsRuntime)
 
     /// <summary>Gets or sets the C# handler chain of the activation decision point.</summary>
     /// <value>
-    /// A function that receives the <c>keydown</c> or <c>keyup</c> about to activate the element and returns
+    /// A function that receives the <c>keydown</c> or <c>keyup</c> about to activate the element, or the <c>pointerdown</c> of a
+    /// press-and-hold press (the <c>hold-start</c> point), and returns
     /// <see cref="DecisionPolicy.Run"/> to let it, or <see cref="DecisionPolicy.Stop"/> when a consumer called
     /// <c>PreventPartHandler()</c>; <see langword="null"/> always lets it. It runs only on WebAssembly, synchronously
     /// inside the dispatch, and must not await.
@@ -65,13 +66,6 @@ internal sealed class ButtonTwin(IJSRuntime jsRuntime)
     /// </value>
     public Func<EventSnapshot, DecisionPolicy>? ToggleDecider { get; set; }
 
-    /// <summary>Gets or sets the C# handler chain of the <c>hold-start</c> decision point.</summary>
-    /// <value>
-    /// A function that receives the <c>pointerdown</c> and returns <see cref="DecisionPolicy.Stop"/> when a consumer called
-    /// <c>PreventPartHandler()</c>, so the press neither focuses nor ticks; <see langword="null"/> always lets it. It runs
-    /// only on WebAssembly, synchronously inside the dispatch, and must not await.
-    /// </value>
-    public Func<EventSnapshot, DecisionPolicy>? HoldStartDecider { get; set; }
 
     /// <summary>Receives the module's classification of a press.</summary>
     /// <param name="payloadJson">The JSON of a <see cref="ButtonInteraction"/>.</param>
@@ -149,7 +143,9 @@ internal sealed class ButtonTwin(IJSRuntime jsRuntime)
         {
             ActivatePoint => ActivationDecider,
             TogglePoint => ToggleDecider,
-            HoldStartPoint => HoldStartDecider,
+            // The press of a press-and-hold element shares the activation chain, which tells it by its `pointerdown`: a
+            // decider of its own would be a field and a delegate on every twin (Combobox's keystroke budget, ADR 16 rule 7).
+            HoldStartPoint => ActivationDecider,
             _ => null,
         };
         return decider is null ? DecisionPolicy.Run : decider(snapshot);

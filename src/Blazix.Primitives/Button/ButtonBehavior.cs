@@ -196,7 +196,6 @@ internal sealed class ButtonBehavior : IDisposable
             }
             twin.ActivationDecider = null;
             twin.ToggleDecider = null;
-            twin.HoldStartDecider = null;
             _ = twin.DisposeAsync().AsTask();
             twin = null;
             handle = null;
@@ -443,7 +442,7 @@ internal sealed class ButtonBehavior : IDisposable
 
     private ButtonTwin CreateTwin()
     {
-        ButtonTwin created = new(jsRuntime) { ActivationDecider = Decide, ToggleDecider = DecideToggle, HoldStartDecider = DecideHoldStart };
+        ButtonTwin created = new(jsRuntime) { ActivationDecider = Decide, ToggleDecider = DecideToggle };
         created.NativeButtonMismatched += ReportNativeButtonMismatch;
         created.DisabledElementDetected += ReportDisabledElement;
         created.Toggled += OnToggled;
@@ -505,6 +504,12 @@ internal sealed class ButtonBehavior : IDisposable
         if (string.Equals(snapshot.Type, "click", StringComparison.Ordinal))
         {
             return DecideClick(snapshot);
+        }
+
+        // The `hold-start` point (NUM-PTR-02) asks with the press of a press-and-hold element.
+        if (string.Equals(snapshot.Type, "pointerdown", StringComparison.Ordinal))
+        {
+            return DecideHoldStart(snapshot);
         }
 
         bool keyUp = string.Equals(snapshot.Type, "keyup", StringComparison.Ordinal);
