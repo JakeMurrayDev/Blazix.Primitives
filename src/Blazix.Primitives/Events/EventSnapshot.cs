@@ -228,7 +228,8 @@ public sealed record EventSnapshot
 }
 
 /// <summary>
-/// Represents the target of an <see cref="EventSnapshot"/>, serialized as <c>{ "id": …, "tagName": … }</c>.
+/// Represents the target of an <see cref="EventSnapshot"/>, serialized as <c>{ "id": …, "tagName": … }</c>, with
+/// <c>"value"</c> and <c>"name"</c> when a part redefines the target as the value it requests.
 /// </summary>
 public sealed record EventTargetInfo
 {
@@ -245,4 +246,21 @@ public sealed record EventTargetInfo
     /// <value>The tag name, upper case for HTML elements, or <see langword="null"/>.</value>
     [JsonPropertyName("tagName")]
     public string? TagName { get; init; }
+
+    // SLD-EVT-04 (design point 6 (a) of M6 track 4, settled by the orchestrator 2026-11-18): a slider's request redefines its
+    // event's target as `{ value, name }`, so form libraries read them; other families' snapshots leave both null.
+    /// <summary>
+    /// Gets or sets the value a request redefines its target with: a slider's candidate, as JSON text (a number, or an array
+    /// of numbers).
+    /// </summary>
+    /// <value>The value, or <see langword="null"/> for a target that is the element.</value>
+    [JsonPropertyName("value")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? Value { get; init; }
+
+    /// <summary>Gets or sets the form name a request redefines its target with.</summary>
+    /// <value>The name, or <see langword="null"/>.</value>
+    [JsonPropertyName("name")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? Name { get; init; }
 }

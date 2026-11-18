@@ -1,4 +1,7 @@
+using System.Text.Json;
+using Blazix.Primitives.Interop;
 using Bunit;
+using Microsoft.JSInterop;
 using Microsoft.AspNetCore.Components;
 using Scenario = Blazix.Primitives.Tests.Components.FieldFormScenarios.FormScenario;
 
@@ -377,6 +380,118 @@ public sealed class FieldRootFormTests : IDisposable
         IRenderedComponent<FieldFormScenarios> cut = Render(Scenario.MountValidation, p => p.Add(x => x.Validate, _ => new ValueTask<FieldValidationResult?>("Mount-time error")));
 
         cut.WaitForAssertion(() => Assert.Equal("Mount-time error", cut.Find("[data-testid=error]").TextContent));
+    }
+
+    // FieldRoot.test.tsx "receives all form values as the 2nd argument", its Slider half (M6 track 4, issue 275; FLD-STR-04,
+    // FLD-API-04, FLD-EVT-08, FLD-FRM-02): the Field.Control's validator sees a single slider's number and a range slider's
+    // list beside the control's string. The Slider's own context stands in for the `slider` and `form` modules; the
+    // submission reads every input as a valid control. The NumberField clause (`'number-field': 13`) is open to M6
+    // track 6; the checkbox, checkbox group, radio group, select and switch fields are their families' clauses.
+    [Fact(DisplayName = "receives all form values as the 2nd argument (Slider)")]
+    [Trait("Requirement", "FLD-STR-04")]
+    [Trait("Requirement", "FLD-API-04")]
+    [Trait("Requirement", "FLD-EVT-08")]
+    [Trait("Requirement", "FLD-FRM-02")]
+    [Trait("Requirement", "FFI-EVT-05")]
+    public async Task Receives_all_form_values_as_the_2nd_argument_Slider()
+    {
+        using SliderTestContext slider = new();
+        List<FieldValidationArguments> calls = [];
+        int submits = 0;
+        IRenderedComponent<SliderHost> cut = slider.Context.Render<SliderHost>(p => p.AddChildContent(SliderTestContext.Part<Form>(f => f
+            .Add(x => x.OnSubmit, EventCallback.Factory.Create<FormSubmitEventArgs>(this, _ => submits++))
+            .AddChildContent(SliderTestContext.Fragments(
+                SliderTestContext.Part<FieldRoot>(r => r
+                    .Add(x => x.Name, "input")
+                    .Add(x => x.Validate, arguments =>
+                    {
+                        calls.Add(arguments);
+                        return ValueTask.FromResult<FieldValidationResult?>(null);
+                    })
+                    .AddChildContent(SliderTestContext.Part<FieldControl>(c => c
+                        .Add(x => x.DefaultValue, "https://base-ui.com")
+                        .AddUnmatched("type", "url")
+                        .AddUnmatched("data-testid", "input")))),
+                SliderTestContext.Part<FieldRoot>(r => r
+                    .Add(x => x.Name, "slider")
+                    .AddChildContent(SliderTestContext.Part<SliderRoot>(s => s
+                        .Add(x => x.DefaultValue, 12)
+                        .AddChildContent(SliderTestContext.Part<SliderControl>())))),
+                SliderTestContext.Part<FieldRoot>(r => r
+                    .Add(x => x.Name, "range-slider")
+                    .AddChildContent(SliderTestContext.Part<SliderRoot>(s => s
+                        .Add(x => x.DefaultValues, new double[] { 25, 70 })
+                        .AddChildContent(SliderTestContext.Part<SliderControl>())))))))));
+
+        await SubmitAsync(slider, cut, ("input", "https://base-ui.com"));
+
+        FieldValidationArguments call = Assert.Single(calls);
+        Assert.Equal(["input", "slider", "range-slider"], call.Values.Keys);
+        Assert.Equal("https://base-ui.com", call.Values["input"]);
+        Assert.Equal(12d, call.Values["slider"]);
+        Assert.Equal([25, 70], Assert.IsAssignableFrom<IReadOnlyList<double>>(call.Values["range-slider"]));
+        Assert.Equal(1, submits);
+    }
+
+    // FieldRoot.test.tsx "submits the replacement control value when swapping field-aware controls", its Slider half (M6
+    // track 4, issue 275; FLD-STR-03, FLD-FRM-14): a Select.Root registered first submits its value, and the Slider.Root
+    // that replaces it submits its own. The Slider's context carries Select's modules in loose mode, and the Select renders
+    // its root and trigger only, since its popup plays no part in the submitted value.
+    [Fact(DisplayName = "submits the replacement control value when swapping field-aware controls")]
+    [Trait("Requirement", "FLD-STR-03")]
+    [Trait("Requirement", "FLD-FRM-14")]
+    [Trait("Requirement", "FFI-STR-07")]
+    public async Task Submits_the_replacement_control_value_when_swapping_field_aware_controls()
+    {
+        using SliderTestContext slider = new();
+        slider.Context.JSInterop.Mode = JSRuntimeMode.Loose;
+        List<FormSubmitEventArgs> submits = [];
+        RenderFragment Build(bool showSlider) => SliderTestContext.Part<Form>(f => f
+            .Add(x => x.OnFormSubmit, EventCallback.Factory.Create<FormSubmitEventArgs>(this, submits.Add))
+            .AddChildContent(SliderTestContext.Part<FieldRoot>(r => r
+                .Add(x => x.Name, "value")
+                .AddChildContent(showSlider
+                    ? SliderTestContext.Part<SliderRoot>(s => s
+                        .Add(x => x.DefaultValue, 12)
+                        .AddChildContent(SliderTestContext.Part<SliderControl>()))
+                    : SliderTestContext.Part<SelectRoot<string>>(s => s
+                        .Add(x => x.DefaultValue, "sans")
+                        .AddChildContent(SliderTestContext.Part<SelectTrigger<string>>()))))));
+        IRenderedComponent<SliderHost> cut = slider.Context.Render<SliderHost>(p => p.AddChildContent(Build(false)));
+
+        await SubmitAsync(slider, cut);
+
+        Assert.Single(submits);
+        Assert.Equal("sans", Assert.Single(submits[^1].Values).Value);
+
+        cut.Render(p => p.AddChildContent(Build(true)));
+        await SubmitAsync(slider, cut);
+
+        Assert.Equal(2, submits.Count);
+        KeyValuePair<string, object?> value = Assert.Single(submits[^1].Values);
+        Assert.Equal("value", value.Key);
+        Assert.Equal(12d, value.Value);
+    }
+
+    // The `form` module's submit request over the Slider's context: every rendered input with an id is a valid control,
+    // with the value given for its data-testid, else its rendered value.
+    private static async Task SubmitAsync(SliderTestContext slider, IRenderedComponent<SliderHost> cut, params (string TestId, string Value)[] values)
+    {
+        JSRuntimeInvocation attach = slider.FormModule.Invocations["attach"]
+            .Last(i => JsonSerializer.Deserialize((string)i.Arguments[1]!, BlazixJsonContext.Default.FormOptions)!.Submit is not null);
+        FormTwin twin = ((DotNetObjectReference<FormTwin>)attach.Arguments[2]!).Value;
+        FormSubmitRequest request = new()
+        {
+            Event = new EventSnapshot { Kind = EventKind.Event, Type = "submit", DefaultPrevented = true, Target = new EventTargetInfo { TagName = "FORM" } },
+            Controls = [.. cut.FindAll("input[id]").Select(input => new FormControlState
+            {
+                Id = input.GetAttribute("id")!,
+                Value = values.FirstOrDefault(v => v.TestId == input.GetAttribute("data-testid")).Value ?? input.GetAttribute("value") ?? string.Empty,
+                Validity = NativeValidity.Default,
+            })],
+        };
+        string json = JsonSerializer.Serialize(request, BlazixJsonContext.Default.FormSubmitRequest);
+        await cut.InvokeAsync(() => twin.OnSubmitRequest(json));
     }
 
     // Base UI's button calls actionsRef.validate(); the port's FieldRoot.ValidateAsync first asks the control for a fresh

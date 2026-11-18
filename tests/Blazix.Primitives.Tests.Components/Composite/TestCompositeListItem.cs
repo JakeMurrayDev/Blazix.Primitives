@@ -18,6 +18,10 @@ internal sealed class TestCompositeListItem : PartBase<EmptyState>
 
     public int Index => behavior!.Index;
 
+    /// <summary>Gets or sets the explicit index the item registers with.</summary>
+    [Parameter]
+    public int? ExplicitIndex { get; set; }
+
     public int Renders { get; private set; }
 
     /// <inheritdoc />
@@ -39,7 +43,7 @@ internal sealed class TestCompositeListItem : PartBase<EmptyState>
     /// <inheritdoc />
     protected override void OnParametersSet()
     {
-        behavior!.SetRegistration(Id);
+        behavior!.SetRegistration(Id, ExplicitIndex);
     }
 
     /// <inheritdoc />

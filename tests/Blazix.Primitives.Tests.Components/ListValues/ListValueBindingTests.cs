@@ -73,4 +73,18 @@ public sealed class ListValueBindingTests : IDisposable
 
         Assert.Equal("Blazix: `TestListRoot` received `OnValuesChange` while `Multiple` is false. Set `Multiple=\"true\"`, or use `Value`, `ValueChanged` (or `@bind-Value`), `DefaultValue` and `OnValueChange` for one value.", exception.Message);
     }
+
+    // ADR 08 Amendments 2026-11-18 (settled by the orchestrator 2026-11-18): the exclusive check, with no Multiple flag.
+    [Fact(DisplayName = "port: an exclusive root throws when a parameter of each triple is supplied, and accepts either alone")]
+    [Trait("Requirement", "SLD-API-02")]
+    public void An_exclusive_root_throws_when_a_parameter_of_each_triple_is_supplied()
+    {
+        InvalidOperationException exception = Assert.Throws<InvalidOperationException>(() => context.Render<TestExclusiveRoot>(parameters => parameters
+            .Add(root => root.Value, 1)
+            .Add(root => root.OnValuesChange, EventCallback.Factory.Create<ValueChangeEventArgs<IReadOnlyList<double>>>(this, _ => { }))));
+
+        Assert.Equal("Blazix: `TestExclusiveRoot` received `Value` and `OnValuesChange`. Use `Value`, `ValueChanged` (or `@bind-Value`), `DefaultValue` and `OnValueChange` for one value, or `Values`, `ValuesChanged` (or `@bind-Values`), `DefaultValues` and `OnValuesChange` for a list.", exception.Message);
+        context.Render<TestExclusiveRoot>(parameters => parameters.Add(root => root.Value, 1));
+        context.Render<TestExclusiveRoot>(parameters => parameters.Add(root => root.Values, new double[] { 1, 2 }));
+    }
 }

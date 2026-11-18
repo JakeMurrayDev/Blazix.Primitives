@@ -16,6 +16,9 @@ export type EventKind =
 export interface EventTargetInfo {
   id: string | null;
   tagName: string | null;
+  // SLD-EVT-04 (design point 6 (a) of M6 track 4): a slider's request redefines its target as `{ value, name }`.
+  value?: string | null;
+  name?: string | null;
 }
 
 export interface EventInfo {
@@ -101,9 +104,10 @@ function targetOf(event: Event): EventTargetInfo | null {
 /**
  * Snapshots a browser event inside its dispatch.
  * @param event The event, or `undefined` for a request with no browser event.
+ * @param target A target that replaces the event's own, for a request that redefines it; the event's when absent.
  * @returns The snapshot, or the placeholder.
  */
-export function eventInfo(event: Event | undefined): EventInfo {
+export function eventInfo(event: Event | undefined, target?: EventTargetInfo): EventInfo {
   if (event === undefined) {
     return placeholderEvent();
   }
@@ -123,7 +127,7 @@ export function eventInfo(event: Event | undefined): EventInfo {
     pointerType: kind === 'PointerEvent' ? (event as PointerEvent).pointerType : null,
     detail: event instanceof UIEvent ? event.detail : 0,
     buttons: mouse?.buttons ?? 0,
-    target: targetOf(event),
+    target: target ?? targetOf(event),
     defaultPrevented: event.defaultPrevented,
     timeStamp: event.timeStamp,
   };

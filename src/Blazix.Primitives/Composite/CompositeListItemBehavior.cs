@@ -34,6 +34,12 @@ internal sealed class CompositeListItemBehavior : IDisposable
     /// <value>The position of the item in the order the list last reported; -1 before the first report and without a list.</value>
     public int Index { get; private set; } = -1;
 
+    // M6 track 4 (decision 23 of the M6 plan, chosen by the user 2026-11-18; the Composite/ grant to Slider, ADR 04 note of
+    // 2026-11-18): a slider thumb with an Index registers with it, so the module and C# address the thumb by one index.
+    /// <summary>Gets the explicit index the item registered with.</summary>
+    /// <value>The index the item occupies, or <see langword="null"/> for its position in document order.</value>
+    public int? ExplicitIndex { get; private set; }
+
     /// <summary>Gets the id the item registered.</summary>
     /// <value>The id the part renders on its element; empty before the first parameter set.</value>
     public string Id { get; private set; } = string.Empty;
@@ -50,9 +56,10 @@ internal sealed class CompositeListItemBehavior : IDisposable
         list!.Unregister(this);
     }
 
-    /// <summary>Registers the item, or records a change of its id; called on every parameter set.</summary>
+    /// <summary>Registers the item, or records a change of its id or its explicit index; called on every parameter set.</summary>
     /// <param name="id">The id the part renders on its element.</param>
-    public void SetRegistration(string? id)
+    /// <param name="index">The explicit index the item occupies, or <see langword="null"/> for its position in document order.</param>
+    public void SetRegistration(string? id, int? index = null)
     {
         if (list is null)
         {
@@ -63,15 +70,17 @@ internal sealed class CompositeListItemBehavior : IDisposable
         if (!registered)
         {
             Id = value;
+            ExplicitIndex = index;
             registered = true;
             list.Register(this);
             return;
         }
 
-        if (!string.Equals(Id, value, StringComparison.Ordinal))
+        if (!string.Equals(Id, value, StringComparison.Ordinal) || ExplicitIndex != index)
         {
             string previousId = Id;
             Id = value;
+            ExplicitIndex = index;
             list.RegistrationChanged(this, previousId);
         }
     }

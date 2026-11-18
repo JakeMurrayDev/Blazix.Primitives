@@ -1,0 +1,43 @@
+@namespace Blazix.Primitives.Fixtures.Client.SliderFixtures
+@using Blazix.Primitives
+@inherits SliderFixtureBase
+
+@*
+    The `slider-thumb-disabled` fixture (tests/browser/slider.control.spec.ts): a range slider, DefaultValues 20 and 80,
+    whose second thumb is disabled through its own `Disabled` (SliderRoot.test.tsx "does not drag a thumb disabled via
+    the `disabled` prop"), `?collision=` (push | swap | none, default push). A 100 px Control, 10 px thumbs `thumb-0`,
+    `thumb-1`. Records OnValuesChange (`data-changes`) and OnValuesCommitted (`data-commits`).
+*@
+<FixtureContainer Name="slider-thumb-disabled" data-attached="@(Attached ? "true" : "false")" data-sync="@Sync"
+                  data-changes="@string.Join(" ", Changes)" data-commits="@string.Join(" ", Commits)">
+    <button type="button" data-sync-button @onclick="() => Sync++">Sync</button>
+    <div style="padding: 24px 0">
+        <SliderRoot @ref="Root" DefaultValues="@defaultValues" ThumbCollisionBehavior="@collision"
+                    Culture="@System.Globalization.CultureInfo.GetCultureInfo("en-US")"
+                    OnValuesChange="RecordChanges" OnValuesCommitted="RecordCommits" data-testid="root">
+            <SliderControl data-testid="control" style="box-sizing: content-box; width: 100px; height: 10px; position: relative">
+                <SliderTrack data-testid="track" style="position: relative; width: 100%; height: 100%">
+                    <SliderIndicator data-testid="indicator" />
+                    <SliderThumb Index="0" data-testid="thumb-0" style="width: 10px; height: 10px; background: red" />
+                    <SliderThumb Index="1" Disabled data-testid="thumb-1" style="width: 10px; height: 10px; background: gray" />
+                </SliderTrack>
+            </SliderControl>
+        </SliderRoot>
+    </div>
+</FixtureContainer>
+
+@code {
+    private readonly double[] defaultValues = [20, 80];
+    private SliderThumbCollisionBehavior collision;
+
+    /// <inheritdoc />
+    protected override void OnInitialized()
+    {
+        collision = Query("collision", "push") switch
+        {
+            "swap" => SliderThumbCollisionBehavior.Swap,
+            "none" => SliderThumbCollisionBehavior.None,
+            _ => SliderThumbCollisionBehavior.Push,
+        };
+    }
+}

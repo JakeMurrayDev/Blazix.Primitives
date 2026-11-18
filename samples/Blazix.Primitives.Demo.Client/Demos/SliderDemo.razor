@@ -1,0 +1,116 @@
+<DemoFrame Slug="slider" Note="A slider that shows its value, a range with two thumbs and a choice of what happens when they meet, a value bound from outside whose changes can be refused, a vertical slider, and the dragging state.">
+    <Hero>
+        <SliderRoot DefaultValue="25">
+            <SliderControl class="@ControlClass">
+                <SliderTrack class="@TrackClass">
+                    <SliderIndicator class="@IndicatorClass" />
+                    <SliderThumb aria-label="Volume" class="@ThumbClass" />
+                </SliderTrack>
+            </SliderControl>
+        </SliderRoot>
+    </Hero>
+    <Variants>
+        <div class="Variant">
+            <SliderRoot class="@WithValueRootClass" DefaultValue="60">
+                <SliderValue class="@ValueClass" />
+                <SliderControl class="@ControlClass">
+                    <SliderTrack class="@TrackClass">
+                        <SliderIndicator class="@IndicatorClass" />
+                        <SliderThumb aria-label="Brightness" class="@ThumbClass" />
+                    </SliderTrack>
+                </SliderControl>
+            </SliderRoot>
+            <span class="VariantName">SliderValue shows the formatted value</span>
+        </div>
+        <div class="Variant">
+            <SliderRoot class="@WithValueRootClass" DefaultValues="@(new double[] { 25, 45 })" ThumbCollisionBehavior="collision">
+                <SliderValue class="@ValueClass" />
+                <SliderControl class="@ControlClass">
+                    <SliderTrack class="@TrackClass">
+                        <SliderIndicator class="@IndicatorClass" />
+                        <SliderThumb Index="0" aria-label="Minimum value" class="@ThumbClass" />
+                        <SliderThumb Index="1" aria-label="Maximum value" class="@ThumbClass" />
+                    </SliderTrack>
+                </SliderControl>
+            </SliderRoot>
+            <label class="Slider">
+                When the thumbs meet
+                <select class="Control" @bind="collision">
+                    <option value="@SliderThumbCollisionBehavior.Push">Push</option>
+                    <option value="@SliderThumbCollisionBehavior.Swap">Swap</option>
+                    <option value="@SliderThumbCollisionBehavior.None">None</option>
+                </select>
+            </label>
+            <span class="VariantName">A range: DefaultValues with two thumbs, ThumbCollisionBehavior="@collision"</span>
+        </div>
+        <div class="Variant">
+            <SliderRoot class="@WithValueRootClass" @bind-Value="controlledValue" OnValueChange="OnControlledValueChange">
+                <SliderValue class="@ValueClass" />
+                <SliderControl class="@ControlClass">
+                    <SliderTrack class="@TrackClass">
+                        <SliderIndicator class="@IndicatorClass" />
+                        <SliderThumb aria-label="Controlled value" class="@ThumbClass" />
+                    </SliderTrack>
+                </SliderControl>
+            </SliderRoot>
+            <button type="button" class="Control" @onclick="() => controlledValue = 50">Set to 50 from outside</button>
+            <label class="@SwitchLabelClass">
+                <SwitchRoot class="@SwitchRootClass" @bind-Checked="cancelChanges">
+                    <SwitchThumb class="@SwitchThumbClass" />
+                </SwitchRoot>
+                Cancel changes
+            </label>
+            <span class="VariantName">value: <strong data-controlled-value>@(controlledValue?.ToString(System.Globalization.CultureInfo.InvariantCulture) ?? "null")</strong></span>
+        </div>
+        <div class="Variant">
+            <SliderRoot Orientation="Orientation.Vertical" DefaultValue="35">
+                <SliderControl class="@VerticalControlClass">
+                    <SliderTrack class="@VerticalTrackClass">
+                        <SliderIndicator class="@IndicatorClass" />
+                        <SliderThumb aria-label="Volume" class="@ThumbClass" />
+                    </SliderTrack>
+                </SliderControl>
+            </SliderRoot>
+            <span class="VariantName">Orientation="Orientation.Vertical": the up and down arrows move the thumb</span>
+        </div>
+        <div class="Variant">
+            <SliderRoot class="@DraggingRootClass" DefaultValue="40">
+                <SliderControl class="@ControlClass">
+                    <SliderTrack class="@TrackClass">
+                        <SliderIndicator class="@IndicatorClass" />
+                        <SliderThumb aria-label="Drag me" class="@ThumbClass" />
+                    </SliderTrack>
+                </SliderControl>
+                <span class="VariantName">dragging: <strong class="group-data-dragging:hidden">no</strong><strong class="hidden group-data-dragging:inline">yes</strong></span>
+            </SliderRoot>
+            <span class="VariantName">The root has data-dragging while a pointer drags a thumb; on Blazor Server the attribute lags one round trip.</span>
+        </div>
+    </Variants>
+</DemoFrame>
+
+@code {
+    private const string ControlClass = "flex w-56 touch-none items-center py-3 select-none";
+    private const string TrackClass = "h-1 w-full bg-neutral-200 select-none dark:bg-neutral-800";
+    private const string IndicatorClass = "bg-neutral-950 select-none dark:bg-white";
+    private const string ThumbClass = "size-4 border border-neutral-950 bg-white select-none has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-2 has-[:focus-visible]:outline-neutral-950 dark:has-[:focus-visible]:outline-white dark:border-white dark:bg-neutral-950";
+    private const string VerticalControlClass = "flex touch-none select-none data-[orientation=vertical]:h-32 data-[orientation=vertical]:px-3";
+    private const string VerticalTrackClass = "bg-neutral-200 select-none dark:bg-neutral-800 data-[orientation=vertical]:h-full data-[orientation=vertical]:w-1";
+    private const string WithValueRootClass = "flex w-56 flex-col gap-1";
+    private const string ValueClass = "text-sm text-neutral-950 dark:text-white";
+    private const string DraggingRootClass = "group flex items-center gap-4 px-2 outline-1 outline-transparent data-dragging:outline-neutral-950 dark:data-dragging:outline-white";
+    private const string SwitchLabelClass = "flex items-center gap-2 text-sm font-normal text-neutral-950 dark:text-white";
+    private const string SwitchRootClass = "flex h-5 w-9 shrink-0 border border-neutral-950 bg-white p-0.5 transition-colors duration-150 ease-[ease] dark:border-white dark:bg-neutral-950 data-checked:bg-neutral-950 dark:data-checked:bg-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-neutral-950 dark:focus-visible:outline-white";
+    private const string SwitchThumbClass = "size-3.5 bg-neutral-950 transition-[translate,background-color] duration-150 ease-[ease] data-checked:translate-x-4 data-checked:bg-white dark:bg-white dark:data-checked:bg-neutral-950";
+
+    private SliderThumbCollisionBehavior collision = SliderThumbCollisionBehavior.Push;
+    private double? controlledValue = 30;
+    private bool cancelChanges;
+
+    private void OnControlledValueChange(ValueChangeEventArgs<double> args)
+    {
+        if (cancelChanges)
+        {
+            args.Details.Cancel();
+        }
+    }
+}
