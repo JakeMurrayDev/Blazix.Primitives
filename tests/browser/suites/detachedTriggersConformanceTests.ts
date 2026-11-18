@@ -38,10 +38,6 @@ export interface DetachedTriggersConfig {
   only?: readonly string[];
 }
 
-// A title quarantined (ADR 11 §4) for every family that runs the suite: the title → the issue's URL (test.fixme with the
-// @quarantine tag and the issue).
-const quarantined: Record<string, string> = {};
-
 // The circuit's one-way delay of the titles that leave a hover-opened popup, on Server (issue 177): the Positioner's first
 // pass lands a round trip after the popup shows, so a leave that does not wait for it meets the unpositioned popup.
 const HOVER_LEAVE_LATENCY = 100;
@@ -156,14 +152,6 @@ export function detachedTriggersConformanceTests(config: DetachedTriggersConfig)
   /** Declares a title; one listed open is skipped with its reason. */
   function it(title: string, body: (args: { page: Page; mode: RenderMode }) => Promise<void>): void {
     if (only && !only.includes(title)) {
-      return;
-    }
-
-    const issue = quarantined[title];
-    if (issue) {
-      test.fixme(title, { tag: '@quarantine', annotation: { type: 'issue', description: issue } }, async ({ page, mode }) => {
-        await body({ page, mode });
-      });
       return;
     }
 
