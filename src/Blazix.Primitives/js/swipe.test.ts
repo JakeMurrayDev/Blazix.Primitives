@@ -732,6 +732,38 @@ describe('createSwipeTracker', () => {
     expect(details?.velocityY).toBeCloseTo(0, 2);
   });
 
+  // The port's style sink (M6 track 8b): the Drawer Popup's `style` belongs to dom's style writer, so the drawer module
+  // hands the tracker a band of it. Setting the drag styles there and removing them at the release is Base UI's
+  // snapshot and restore of the inline `transition` and `transform` (useSwipeDismiss.ts:214-247).
+  it('port: a tracker given a style sink writes the drag styles through it and hands them back at the release', () => {
+    const writes: string[] = [];
+    const sink = {
+      set: (property: string, value: string) => writes.push(`set ${property} ${value}`),
+      remove: (property: string) => writes.push(`remove ${property}`),
+    };
+    const { element } = mountTracker({ directions: ['down'], style: sink });
+    const inline = element.style.cssText;
+
+    pointerDown(element, { clientX: 0, clientY: 0 });
+    pointerMove(element, { clientX: 0, clientY: 0 });
+    pointerMove(element, { clientX: 0, clientY: 40 });
+    expect(writes).toEqual([
+      'set transition none',
+      'set transform translate3d(0px,0px,0) scale(1)',
+      'set --x 0px',
+      'set --y 0px',
+      'set transition none',
+      'set transform translate3d(0px,40px,0) scale(1)',
+      'set --x 0px',
+      'set --y 40px',
+    ]);
+
+    writes.length = 0;
+    pointerUp(element, { clientX: 0, clientY: 40 });
+    expect(writes).toEqual(['remove transition', 'remove transform', 'set --x 0px', 'set --y 0px']);
+    expect(element.style.cssText).toBe(inline);
+  });
+
   it('ignores pointer interactions that were default prevented', () => {
     const onSwipeStart = vi.fn();
     const { element: root } = mountTracker({ directions: ['down'], onSwipeStart }, { html: '<div data-testid="child"></div>' });
