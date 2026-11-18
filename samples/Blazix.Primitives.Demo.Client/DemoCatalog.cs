@@ -41,6 +41,7 @@ public static class DemoCatalog
         new("context-menu", "Context Menu", "A menu that opens at the pointer on a right click or a long press, with a submenu.", typeof(ContextMenuDemo)),
         new("menubar", "Menubar", "A bar of menus: once one is open, hovering or focusing another trigger opens it.", typeof(MenubarDemo)),
         new("select", "Select", "A button that opens a list of options to choose one from, placed over the button with the chosen option aligned.", typeof(SelectDemo)),
+        new("scroll-area", "Scroll Area", "A native scroll container with custom scrollbars, here two paragraphs of text.", typeof(ScrollAreaDemo)),
     ];
 
     public static DemoEntry? Find(string slug) =>
