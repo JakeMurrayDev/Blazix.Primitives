@@ -1645,6 +1645,26 @@ describe('styleWriter', () => {
       element.remove();
     });
 
+    // Select's measurement (select.ts `unsetTransformStyles`, SEL-POS-19) forces three declarations around a read and
+    // restores them in the same task, while its placement writes a band in between.
+    it('port: declarations added and restored inside one task are not absorbed, though the writer writes in between', async () => {
+      const element = document.createElement('div');
+      document.body.appendChild(element);
+      const writer = styleWriter(element);
+      writer.layer('aligned').set('position', 'relative');
+
+      element.style.setProperty('transform', 'none', 'important');
+      writer.layer('aligned').set('height', '100%');
+      element.style.removeProperty('transform');
+      await flushObservers();
+
+      writer.layer('aligned').clear();
+      expect(element.style.getPropertyValue('position')).toBe('');
+      expect(element.style.getPropertyValue('height')).toBe('');
+      expect(element.style.getPropertyValue('transform')).toBe('');
+      element.remove();
+    });
+
     it('port: a foreign write is absorbed before the writer next writes, even before its observer runs', () => {
       const element = document.createElement('div');
       document.body.appendChild(element);
