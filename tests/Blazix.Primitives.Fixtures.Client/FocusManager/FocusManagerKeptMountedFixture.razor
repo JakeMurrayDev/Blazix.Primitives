@@ -9,6 +9,9 @@
     disabled; the target button makes the next open's initial focus the second button. The open, the marking, the trap and
     their release land with the batch (ADR 04 Amendments 2026-10-27); the options are sent before that batch (design
     point 1 (d)); `?push=after` sends them from OnAfterRender only, the order design point 1 (c) has to wait for.
+    `?enabledWhileClosed=true` keeps the manager enabled while closed, as the parts' `!mounted` does for a kept-mounted
+    popup through its close: the default's Disabled flip at a close travels in the `update` before the closing batch,
+    which can land a frame earlier and release the marking there (M6 track 11, 2026-11-19; the orchestrator's grant).
 *@
 <FixtureContainer Name="focus-manager-kept-mounted" data-attached="@(Attached ? "true" : "false")" data-focus-out-closes="@FocusOutCloses" @onkeydown="OnKeyDown">
     <button type="button" id="fm-reference" data-reference @onclick="FromTrigger">Open</button>
@@ -31,7 +34,10 @@
     [SupplyParameterFromQuery(Name = "push")]
     public string? Push { get; set; }
 
-    private bool enabled => IsOpen && !hovered;
+    [SupplyParameterFromQuery(Name = "enabledWhileClosed")]
+    public bool EnabledWhileClosed { get; set; }
+
+    private bool enabled => (IsOpen || EnabledWhileClosed) && !hovered;
 
     protected override void OnInitialized()
     {

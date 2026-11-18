@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import {
   addedNames,
   dotnetOutcomes,
+  headPathspecsOnBase,
   isExempt,
   judge,
   parseDotnetList,
@@ -262,8 +263,19 @@ describe('a vitest file that does not load', () => {
     const { markdown, ok } = summarize([{ layer: 'l3', added, exempt: [], verdict }]);
     expect(ok).toBe(true);
     expect(markdown).toContain('| l3 | 2 | 2 | 0 |');
-    expect(markdown).toContain('red: the test file does not load against the base');
+    expect(markdown).toContain('red (does not load)');
     expect(markdown).toContain('`src/Blazix.Primitives/js/dom.test.ts` (2 tests)');
+  });
+
+  // Issue 178 (ADR 11 Amendments 2026-11-19, design point 3 (a), chosen by the user): PR 170's composite-list.test.ts
+  // failed to load on the base only because it imported a harness the pull request added under js/test-support/, so its
+  // eight titles counted as red though they passed against the base's module. The pull request's harness files go onto
+  // the base beside its test files; what still fails to load then is the subject itself.
+  it("runs against the base with the pull request's test files and test-support harnesses put back", () => {
+    expect(headPathspecsOnBase()).toEqual([
+      ':(glob)src/Blazix.Primitives/js/**/*.test.ts',
+      ':(glob)src/Blazix.Primitives/js/test-support/**',
+    ]);
   });
 });
 
