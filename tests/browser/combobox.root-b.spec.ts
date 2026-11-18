@@ -818,6 +818,9 @@ test.describe('<Combobox.Root />', () => {
 
       const cherry = page.getByRole('option', { name: 'cherry' });
       await expect(cherry).toBeVisible();
+      // The query has applied once cherry is the only option: the open's cherry, shown before it, is replaced by the
+      // filtered one.
+      await expect(page.getByRole('option')).toHaveCount(1);
       await expect(field).toHaveAttribute('aria-activedescendant', (await cherry.getAttribute('id'))!);
     });
 
@@ -831,6 +834,9 @@ test.describe('<Combobox.Root />', () => {
       await expect(page.getByRole('listbox')).toBeVisible();
       const cherry = page.getByRole('option', { name: 'cherry' });
       await expect(cherry).toBeVisible();
+      // The query has applied once cherry is the only option: the open's cherry, shown before it, is replaced by the
+      // filtered one.
+      await expect(page.getByRole('option')).toHaveCount(1);
       await expect(field).toHaveAttribute('aria-activedescendant', (await cherry.getAttribute('id'))!);
     });
 
