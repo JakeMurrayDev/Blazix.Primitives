@@ -1,5 +1,5 @@
 import { type Locator, type Page } from '@playwright/test';
-import { expect, test, type RenderMode } from '../helpers';
+import { delayCircuit, expect, test, type RenderMode } from '../helpers';
 import { gotoPopupFixture, pressInPage, settle, type PopupFixtureOptions } from './popupFixture';
 
 // Base UI's viewportConformanceTests (packages/react/test/viewportConformanceTests.tsx at v1.9.0), titles verbatim, as a
@@ -118,16 +118,6 @@ const anchoringCases: readonly AnchoringCase[] = [
   { side: 'inline-end', direction: 'rtl', expected: { position: 'absolute', top: '0px', right: '0px' } },
 ];
 
-// Quarantined (ADR 11 §4) until 2026-12-02, for every family that runs the suite: test.fixme with the @quarantine tag and
-// the issue. Issue 176, re-justified 2026-11-18 (M6 track 0, issue 261; chosen by the user 2026-11-18): not a poll over a
-// transition that ends first, as first read, but a library defect. On Server under circuit latency the morph never starts
-// (no previous container, no data-transitioning; delayCircuit(20) fails it 16 of 16 across the four families, 0 of 160
-// without), because the js/popup.ts viewport handle decides the morph before the session's active trigger commits and
-// nothing decides it again. The fix is its own pull request.
-const quarantined: Record<string, string> = {
-  'cleans up the transition when a lagging payload remounts the current container': 'https://github.com/JakeMurrayDev/Blazix.Primitives/issues/176',
-};
-
 export function viewportConformanceTests(config: ViewportConformanceConfig): void {
   const { fixture: fixtureName, openOn, open: listedOpen = {}, only } = config;
 
@@ -170,14 +160,6 @@ export function viewportConformanceTests(config: ViewportConformanceConfig): voi
   /** Declares a title; one listed open is skipped with its reason. */
   function it(title: string, body: (args: { page: Page; mode: RenderMode }) => Promise<void>): void {
     if (only && !only.includes(title)) {
-      return;
-    }
-
-    const issue = quarantined[title];
-    if (issue) {
-      test.fixme(title, { tag: '@quarantine', annotation: { type: 'issue', description: issue } }, async ({ page, mode }) => {
-        await body({ page, mode });
-      });
       return;
     }
 
@@ -264,7 +246,12 @@ export function viewportConformanceTests(config: ViewportConformanceConfig): voi
     }
 
     test.describe('morphing containers', () => {
-      it('creates morphing containers during transitions', async ({ page, mode }) => {
+      const morphTitles: Array<[string, (args: { page: Page; mode: RenderMode }) => Promise<void>]> = [];
+      const morph = (title: string, body: (args: { page: Page; mode: RenderMode }) => Promise<void>) => {
+        morphTitles.push([title, body]);
+        it(title, body);
+      };
+      morph('creates morphing containers during transitions', async ({ page, mode }) => {
         await renderPositionedTriggers(page, mode, { top: 10, left: 10 }, { top: 100, left: 200 }, '0.3s');
 
         await activateTrigger(page, getTrigger(page, 1));
@@ -302,7 +289,7 @@ export function viewportConformanceTests(config: ViewportConformanceConfig): voi
         await expect(getContent(page, 'Content 2')).toBeVisible();
       });
 
-      it('sets `data-activation-direction` from the previous to the new trigger', async ({ page, mode }) => {
+      morph('sets `data-activation-direction` from the previous to the new trigger', async ({ page, mode }) => {
         // `getActivationDirection` unit tests cover every direction and the tolerance.
         // This case checks the measured trigger centers reach the attribute.
         await renderPositionedTriggers(page, mode, { top: 100, left: 200 }, { top: 10, left: 10 }, '0.2s');
@@ -316,7 +303,7 @@ export function viewportConformanceTests(config: ViewportConformanceConfig): voi
         await expect.poll(() => viewportRecords(page)).toContainEqual(expect.objectContaining({ direction: ['left', 'up'] }));
       });
 
-      it('creates morphing containers after a kept-mounted popup closes and reopens', async ({ page, mode }) => {
+      morph('creates morphing containers after a kept-mounted popup closes and reopens', async ({ page, mode }) => {
         const fixture = await renderMorphing(page, mode, getMorphAnimationStyles('0.2s'), { case: 'controlled', keepMounted: true });
 
         const trigger1 = getTrigger(page, 1);
@@ -355,7 +342,7 @@ export function viewportConformanceTests(config: ViewportConformanceConfig): voi
         await expect(getContent(page, 'Content 2')).toBeVisible();
       });
 
-      it('shows the latest content after rapid trigger changes', async ({ page, mode }) => {
+      morph('shows the latest content after rapid trigger changes', async ({ page, mode }) => {
         await renderMorphing(page, mode, getMorphAnimationStyles('0.2s'), { triggerCount: 3 });
 
         const trigger1 = getTrigger(page, 1);
@@ -368,7 +355,7 @@ export function viewportConformanceTests(config: ViewportConformanceConfig): voi
         await expect(page.locator('[data-current]').getByText('Content 1', { exact: true })).toBeVisible();
       });
 
-      it('keeps the latest transition active during rapid trigger changes', async ({ page, mode }) => {
+      morph('keeps the latest transition active during rapid trigger changes', async ({ page, mode }) => {
         const fixture = await renderMorphing(page, mode, getMorphAnimationStyles('10s'), { triggerCount: 3 });
 
         await activateTrigger(page, getTrigger(page, 1));
@@ -407,13 +394,14 @@ export function viewportConformanceTests(config: ViewportConformanceConfig): voi
           );
       });
 
-      it('cleans up the transition when a lagging payload remounts the current container', async ({ page, mode }) => {
+      morph('cleans up the transition when a lagging payload remounts the current container', async ({ page, mode }) => {
         const styles = morphTransitionStyles + getTriggerStyles([{ top: 10, left: 10 }, { top: 100, left: 200 }]);
         const fixture = await renderMorphing(page, mode, styles, { case: 'lagging' });
 
         await activateTrigger(page, getTrigger(page, 1));
         await expect(page.locator('[data-current]')).toHaveCount(1);
 
+        await waitForViewportAttached(page);
         await recordViewport(page);
         await activateTrigger(page, getTrigger(page, 2));
 
@@ -460,6 +448,28 @@ export function viewportConformanceTests(config: ViewportConformanceConfig): voi
 
         await expect(getViewport(page)).not.toHaveAttribute('data-transitioning');
       });
+
+      // Issue 176 (M6 track 2; PSH-ANI-05, PSH-DOM-07..10): on the focus-opened families (PreviewCard, Tooltip) the
+      // session's reference moves to the new trigger at the focus, before C#'s render of the switch, and the Viewport's
+      // handle can attach in between. These titles run there under a 30 ms one-way circuit delay, where they were red 8 of
+      // 8 per family on main's module at `--repeat-each=8` (2026-11-19); at 20 ms two of Tooltip's were 7 of 8. They do
+      // not wait for the attach. Server only: WebAssembly has no circuit.
+      const latencyTitles = new Set(
+        openOn === 'focus'
+          ? [
+              'creates morphing containers during transitions',
+              'sets `data-activation-direction` from the previous to the new trigger',
+              'keeps the latest transition active during rapid trigger changes',
+            ]
+          : [],
+      );
+      for (const [title, body] of morphTitles.filter(([name]) => latencyTitles.has(name))) {
+        it(`port: ${title}, under circuit latency on Server`, async ({ page, mode }) => {
+          test.skip(mode !== 'server', 'No circuit to delay on WebAssembly');
+          await delayCircuit(page, 30);
+          await body({ page, mode });
+        });
+      }
     });
   });
 }
@@ -598,6 +608,25 @@ function runningOn(records: readonly ViewportRecord[], text: string): number {
 /** {@link running} on the `role` container of the latest record. */
 function runningOnLatest(records: readonly ViewportRecord[], role: 'previous' | 'current'): number {
   return running(records, records.at(-1)?.[role]?.id ?? null);
+}
+
+/**
+ * Waits for the Viewport's `popup` handle to attach: its first measurement writes `--positioner-width` on the Positioner
+ * (usePopupAutoResize), which no other handle of these families writes and C# never renders. Issue 176 (ADR 04
+ * Amendments 2026-11-19, chosen by the user): on Server the handle attaches several legs after the opening render (about
+ * 430 ms at a 50 ms one-way delay), and a trigger change whose render lands before it morphs nothing (ADR 01's
+ * relaxation row). The lagging-payload title waits for it: it switches as soon as `[data-current]` is in the page, where
+ * the other morph titles first wait for the content to show.
+ */
+async function waitForViewportAttached(page: Page): Promise<void> {
+  await expect
+    .poll(() =>
+      page.locator('[data-testid="popup"]').evaluate((popup) => {
+        const positioner = popup.parentElement?.closest<HTMLElement>('[data-open],[data-closed]');
+        return positioner?.style.getPropertyValue('--positioner-width') ?? '';
+      }),
+    )
+    .not.toBe('');
 }
 
 /** Presses a fixture control in the page: no pointer or focus moves, so the popup sees no outside press and no blur. */
