@@ -7,7 +7,7 @@
 | Tests | `packages/react/test/popupConformanceTests.tsx`, `test/detachedTriggersConformanceTests.tsx`, `test/viewportConformanceTests.tsx`, `test/popupFocusPropsTests.tsx`; `utils/popups/{store,popupTriggerMap,popupHandle,inlineRect}.test.ts`, `utils/popups/{popupStoreUtils,useTriggerFocusGuards}.test.tsx`, `utils/popups/popupStoreUtils.spec.ts` (type-level only), `utils/{useSwipeDismiss,usePopupViewport}.test.tsx`, `utils/popupStateMapping.test.ts` |
 | Prefix | `PSH` |
 | Status | approved |
-| Revised | 2026-11-18 |
+| Revised | 2026-11-19 |
 | Used by | `dialog.md` (DLG), `alert-dialog.md` (ADL), `drawer.md` (DRW), `popover.md` (POP), `menu.md` (MNU), `context-menu.md` (CTX), `menubar.md` (MBR), `tooltip.md` (TIP), `preview-card.md` (PRV), `select.md` (SEL), `combobox.md` (CMB), `autocomplete.md` (AUT), `navigation-menu.md` (NAV), `toast.md` (TST). See §6 for which pieces each uses. |
 
 ## 1. Purpose
@@ -410,6 +410,7 @@ Attribute names (`utils/CommonTriggerDataAttributes.ts`, `utils/CommonPopupDataA
   Source: `dialog/trigger/DialogTrigger.tsx:91`, `popover/trigger/PopoverTrigger.tsx:141`, `floating-ui-react/components/FloatingFocusManager.tsx:389`. Test: none.
 - **PSH-DOM-17** — MUST. The swipe tracker's drag styles on the tracked element: at rest (not swiping, zero delta, not dismissed) only the two movement variables, both `0px`; while swiping, inline `transition: none`, inline `transform: translate3d(<x>px,<y>px,0) scale(<s>)` where `<x>,<y>` is the current drag offset and `<s>` the element's initial scale, and the movement variables equal the offset minus the initial translation in `px`; after release or cancel the element's original inline `transition` and `transform` (snapshotted at swipe start) are restored and the movement variables keep the final delta (`0px` after a snap-back).
   Source: `utils/useSwipeDismiss.ts:60-62,214-247,969-994`. Test: [L3] `useSwipeDismiss.test.tsx` "applies the drag transform imperatively while swiping", "preserves inline transform and transition when resetting drag styles", "keeps the drag transform on a render that lags behind the swiping state", "cancels pointer swipe when the primary mouse button is released without pointerup".
+  Port note 2026-11-19 (M6 track 8b, [issue 279](https://github.com/JakeMurrayDev/Blazix.Primitives/issues/279); ADR 04 Amendments 2026-11-19, design point 3): `getDragStyles()` returns a property-to-value record and always reads the live gesture. "keeps the drag transform on a render that lags behind the swiping state" has no lagging React render in the port; its [L3] analogue reads `getDragStyles()` mid-gesture, as the `drawer` module's update path does.
 - **PSH-DOM-18** — MUST. The movement CSS variable names are supplied by the consumer: Drawer uses `--drawer-swipe-movement-x`/`-y`; Toast's own swipe implementation uses `--toast-swipe-movement-x`/`-y` (TST, not this tracker).
   Source: `drawer/viewport/DrawerViewport.tsx:316-319`, `drawer/popup/DrawerPopupCssVars.ts:20,25`, `toast/root/ToastRootCssVars.ts:20,25`. Test: none.
 
@@ -518,6 +519,7 @@ Constants (`utils/useSwipeDismiss.ts:32-39`): default threshold **40 px**; rever
   Source: `utils/useSwipeDismiss.ts:389-425`. Test: [L3] `useSwipeDismiss.test.tsx` "fires onSwipingChange on start and end", "applies exponential damping for opposite-direction movement" (`transition: none` right after start), "snapshots swipeThreshold for the active gesture (strict: %s)".
 - **PSH-PTR-12** — MUST. `swipeThreshold` numbers below 0 are clamped to 0; the default is 40 px; a function form is re-evaluated with `{ element, direction }` when the intended direction is first detected (PSH-PTR-14).
   Source: `utils/useSwipeDismiss.ts:110-113,168-182,646`. Test: [L3] `useSwipeDismiss.test.tsx` "respects custom swipeThreshold".
+  Port note 2026-11-19 (M6 track 8b, [issue 279](https://github.com/JakeMurrayDev/Blazix.Primitives/issues/279); ADR 04 Amendments 2026-11-19, design point 3): Base UI runs "snapshots swipeThreshold for the active gesture (strict: %s)" with and without StrictMode. The port has no StrictMode, so one [L3] title, "snapshots swipeThreshold for the active gesture", stands for both rows, with `setOptions` in place of `setProps`.
 - **PSH-PTR-13** — MUST. The first move after a start, when `trackDrag` is `true`, re-anchors the drag origin and the velocity start time to that move's position/time and discards earlier velocity samples (absorbing the press-to-first-move gap); when `trackDrag` is `false`, the original press position is kept so a quick flick whose whole travel lands in one move still registers.
   Source: `utils/useSwipeDismiss.ts:584-602`. Test: [L3] `useSwipeDismiss.test.tsx` "measures release velocity from the first move rather than the press".
 - **PSH-PTR-14** — MUST. Direction detection (PSH-ALG-07): until a direction is intended, each move picks the axis with the larger absolute delta from the origin (ties → horizontal) and the sign gives the candidate; the candidate becomes the intended direction only if it is in `directions`; otherwise no direction is set and the move is still tracked (damped).
@@ -550,6 +552,7 @@ Constants (`utils/useSwipeDismiss.ts:32-39`): default threshold **40 px**; rever
   Source: `utils/useSwipeDismiss.ts:278-306`. Test: [L3] `useSwipeDismiss.test.tsx` "preserves inline transform and transition when resetting drag styles".
 - **PSH-PTR-28** — MUST. The tracker exposes `getPointerProps()` (`onPointerDown/Move/Up/Cancel`) and `getTouchProps()` (`onTouchStart/Move/End/Cancel`), both empty when disabled, plus `moveNative(touchEvent, currentTarget)` for feeding a native `touchmove` captured elsewhere into the same pipeline; it also exposes `getDragStyles()` (PSH-DOM-17), `reset()` (PSH-PTR-27) and the state values `swiping`, `swipeDirection` and `dragDismissed`.
   Source: `utils/useSwipeDismiss.ts:959-1031,1107-1126`. Test: none.
+  Port note 2026-11-19 (M6 track 8b, [issue 279](https://github.com/JakeMurrayDev/Blazix.Primitives/issues/279); ADR 04 Amendments 2026-11-19, design point 3): the tracker is `createSwipeTracker(options)` in `js/swipe.ts`. `getPointerProps()` and `getTouchProps()` return listener maps keyed by DOM event type (`pointerdown`/`pointermove`/`pointerup`/`pointercancel`, `touchstart`/`touchmove`/`touchend`/`touchcancel`), bound with `bindSwipeHandlers(target, handlers)`. `elementRef` is `element: () => HTMLElement | null`, and a render's new options are `setOptions(options)`. `swiping`, `swipeDirection` and `dragDismissed` are getters. [L3] `swipe.test.ts`, all 28 titles of `useSwipeDismiss.test.tsx`.
 
 ### 4.8 FOC — focus management
 
@@ -886,6 +889,7 @@ else: snapBack   // offset ← initial, swipeDirection ← undefined, restore st
   Source: `utils/useSwipeDismiss.ts:780-826`. Test: [L3] `useSwipeDismiss.test.tsx` "allows onRelease to override dismissal", "respects custom swipeThreshold".
 
 - **PSH-ALG-12** — MUST. The implementation reproduces the following procedure exactly for starting a pending touch gesture from a scroll edge.
+  Port note 2026-11-19 (M6 track 8b, [issue 279](https://github.com/JakeMurrayDev/Blazix.Primitives/issues/279); ADR 04 Amendments 2026-11-19, design point 3): Base UI skips its two cited titles in jsdom (`it.skipIf(isJSDOM)`). Since `swipe` has no L4 host, the port runs both at [L3] with the page scroller's and the descendant's sizes stubbed (`scrollHeight`/`clientHeight`, `scrollWidth`/`clientWidth`/`scrollLeft`).
 
 ```
 onPendingTouchMove(pos):
@@ -1146,6 +1150,7 @@ Diagnostic texts below are quoted verbatim once; component documents cite the ID
   Source: `utils/useSwipeDismiss.ts:308-317,537-540,830-833`. Test: none.
 - **PSH-EDGE-13** — MUST. The page scroller (`<body>` or `<html>` made scrollable by a CSS reset) never gates a swipe start or move; only other scrollable touch targets do.
   Source: `utils/useSwipeDismiss.ts:335-351`. Test: [L3] `useSwipeDismiss.test.tsx` "starts a touch swipe when the page scroller is `body`".
+  Port note 2026-11-19 (M6 track 8b, [issue 279](https://github.com/JakeMurrayDev/Blazix.Primitives/issues/279); ADR 04 Amendments 2026-11-19, design point 3): [L3] `swipe.test.ts` "starts a touch swipe when the page scroller is `body`", with the page scroller's sizes stubbed (PSH-ALG-12's note).
 - **PSH-EDGE-14** — MUST. Detaching a Root store and immediately attaching the same store again (an attach/detach/attach replay of one mount) leaves the handle exposing that store, and imperative calls reach it; store-pointer subscribers are notified on both steps, because the exposed store passes through the fallback in between (PSH-STA-36).
   Source: `utils/popups/popupHandle.ts:149-152,175-198`. Test: [L1] `popupHandle.test.ts` "stays attached when the same root store detaches and reattaches (Strict Mode replay)".
 
