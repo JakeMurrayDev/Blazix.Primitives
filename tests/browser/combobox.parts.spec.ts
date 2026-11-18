@@ -225,12 +225,21 @@ test.describe('<Combobox.Item />', () => {
   });
 
   test('Enter selects highlighted item', async ({ page, mode }) => {
+    // Issue 261 (nightly 44255722620; about 1 in 30 on Server locally, base and branch alike): the list's handle attaches a
+    // round trip after the render that shows it, and an arrow pressed meanwhile is kept until it attaches, which the Enter
+    // that follows drops (the composite module's kept-key rule, settled 2026-11-11). The circuit's messages are held from
+    // that attach while the title presses its keys.
+    const hold = await holdCircuit(page, { from: (text) => text.includes('attach') && text.includes('\\u0022loopFocus\\u0022') });
     await gotoParts(page, mode, { static: true });
 
+    hold.arm();
     await input(page).click();
     await expect(page.getByRole('listbox')).toBeVisible();
     await page.keyboard.press('ArrowDown');
     await page.keyboard.press('Enter');
+    if (mode === 'server') {
+      await hold.release();
+    }
 
     await expect(input(page)).toHaveValue('one');
     await expect(page.getByRole('listbox')).toHaveCount(0);
