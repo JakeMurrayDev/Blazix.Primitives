@@ -12,6 +12,7 @@ using Blazix.Primitives.Fixtures.Client.CollapsibleFixtures;
 using Blazix.Primitives.Fixtures.Client.ComboboxFixtures;
 using Blazix.Primitives.Fixtures.Client.CompositeFixtures;
 using Blazix.Primitives.Fixtures.Client.DialogFixtures;
+using Blazix.Primitives.Fixtures.Client.DrawerFixtures;
 using Blazix.Primitives.Fixtures.Client.FieldFixtures;
 using Blazix.Primitives.Fixtures.Client.FieldsetFixtures;
 using Blazix.Primitives.Fixtures.Client.FloatingFixtures;
@@ -246,6 +247,7 @@ public static class FixtureCatalog
         ["alert-dialog-shared"] = new(typeof(AlertDialogSharedFixture)),
         ["alert-dialog-triggers"] = new(typeof(AlertDialogTriggersFixture)),
         ["alert-dialog-root"] = new(typeof(AlertDialogRootFixture)),
+        ["drawer-popup"] = new(typeof(DrawerPopupFixture)),
         ["tooltip-conformance"] = new(typeof(TooltipConformanceFixture)),
         ["tooltip-triggers"] = new(typeof(TooltipTriggersFixture)),
         ["tooltip-root"] = new(typeof(TooltipRootFixture)),
