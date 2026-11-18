@@ -260,7 +260,6 @@ export function viewportConformanceTests(config: ViewportConformanceConfig): voi
         await expect(viewport).not.toHaveAttribute('data-transitioning');
         await expect(viewport).not.toHaveAttribute('data-activation-direction');
 
-        await waitForViewportAttached(page);
         await recordViewport(page);
         await activateTrigger(page, getTrigger(page, 2));
 
@@ -298,7 +297,6 @@ export function viewportConformanceTests(config: ViewportConformanceConfig): voi
         await activateTrigger(page, getTrigger(page, 1));
         await expect(getContent(page, 'Content 1')).toBeVisible();
 
-        await waitForViewportAttached(page);
         await recordViewport(page);
         await activateTrigger(page, getTrigger(page, 2));
 
@@ -314,7 +312,6 @@ export function viewportConformanceTests(config: ViewportConformanceConfig): voi
         await activateTrigger(page, trigger1);
         await expect(getContent(page, 'Content 1')).toBeVisible();
 
-        await waitForViewportAttached(page);
         await recordViewport(page);
         await activateTrigger(page, trigger2);
         await expect
@@ -331,7 +328,6 @@ export function viewportConformanceTests(config: ViewportConformanceConfig): voi
         await activateTrigger(page, trigger1);
         await expect(getContent(page, 'Content 1')).toBeVisible();
 
-        await waitForViewportAttached(page);
         await recordViewport(page);
         await activateTrigger(page, trigger2);
 
@@ -365,7 +361,6 @@ export function viewportConformanceTests(config: ViewportConformanceConfig): voi
         await activateTrigger(page, getTrigger(page, 1));
         await expect(getContent(page, 'Content 1')).toBeVisible();
 
-        await waitForViewportAttached(page);
         await recordViewport(page);
         await activateTrigger(page, getTrigger(page, 2));
 
@@ -454,23 +449,20 @@ export function viewportConformanceTests(config: ViewportConformanceConfig): voi
         await expect(getViewport(page)).not.toHaveAttribute('data-transitioning');
       });
 
-      // Issue 176 (M6 track 2; PSH-STA-30, PSH-ANI-05..11): the morph titles under a 30 ms one-way circuit delay, where
-      // the remount's batch can land before the session's reference moves to the new trigger. Each runs where it was red
-      // on main's module, 8 of 8 per family at `--repeat-each=8` (2026-11-19): the lagging-payload title on every family,
-      // and three more on the focus-opened families (PreviewCard, Tooltip). 30 ms is the delay that made every one
-      // deterministic; at 20 ms two of Tooltip's were 7 of 8, at 50 ms only the lagging title failed. Each switches after
-      // `waitForViewportAttached`, as its title does: a switch before the attach morphs nothing on Server (ADR 01's row).
-      // Server only: WebAssembly has no circuit.
-      const latencyTitles = new Set([
-        'cleans up the transition when a lagging payload remounts the current container',
-        ...(openOn === 'focus'
+      // Issue 176 (M6 track 2; PSH-ANI-05, PSH-DOM-07..10): on the focus-opened families (PreviewCard, Tooltip) the
+      // session's reference moves to the new trigger at the focus, before C#'s render of the switch, and the Viewport's
+      // handle can attach in between. These titles run there under a 30 ms one-way circuit delay, where they were red 8 of
+      // 8 per family on main's module at `--repeat-each=8` (2026-11-19); at 20 ms two of Tooltip's were 7 of 8. They do
+      // not wait for the attach. Server only: WebAssembly has no circuit.
+      const latencyTitles = new Set(
+        openOn === 'focus'
           ? [
               'creates morphing containers during transitions',
               'sets `data-activation-direction` from the previous to the new trigger',
               'keeps the latest transition active during rapid trigger changes',
             ]
-          : []),
-      ]);
+          : [],
+      );
       for (const [title, body] of morphTitles.filter(([name]) => latencyTitles.has(name))) {
         it(`port: ${title}, under circuit latency on Server`, async ({ page, mode }) => {
           test.skip(mode !== 'server', 'No circuit to delay on WebAssembly');
@@ -622,8 +614,9 @@ function runningOnLatest(records: readonly ViewportRecord[], role: 'previous' | 
  * Waits for the Viewport's `popup` handle to attach: its first measurement writes `--positioner-width` on the Positioner
  * (usePopupAutoResize), which no other handle of these families writes and C# never renders. Issue 176 (ADR 04
  * Amendments 2026-11-19, chosen by the user): on Server the handle attaches several legs after the opening render (about
- * 430 ms at a 50 ms one-way delay), and a trigger change that completes before it morphs nothing (ADR 01's relaxation
- * row), so a morph title switches only after it, as Base UI's switches after its commit.
+ * 430 ms at a 50 ms one-way delay), and a trigger change whose render lands before it morphs nothing (ADR 01's
+ * relaxation row). The lagging-payload title waits for it: it switches as soon as `[data-current]` is in the page, where
+ * the other morph titles first wait for the content to show.
  */
 async function waitForViewportAttached(page: Page): Promise<void> {
   await expect
