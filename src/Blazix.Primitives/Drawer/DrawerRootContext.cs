@@ -49,6 +49,12 @@ internal sealed class DrawerRootContext
     /// <summary>Gets the direction that dismisses the drawer.</summary>
     public SwipeDirection SwipeDirection { get; private set; } = SwipeDirection.Down;
 
+    /// <summary>Gets the popup's element, which the viewport's drawer handle writes on, or <see langword="null"/> while none is rendered.</summary>
+    public ElementReference? PopupElement { get; private set; }
+
+    /// <summary>Gets the backdrop's element, which the viewport's drawer handle writes on, or <see langword="null"/> while none is rendered.</summary>
+    public ElementReference? BackdropElement { get; private set; }
+
     /// <summary>Gets the active snap point, or <see langword="null"/> for none.</summary>
     public SnapPointValue? ActiveSnapPoint { get; private set; }
 
@@ -110,6 +116,30 @@ internal sealed class DrawerRootContext
         {
             SwipeDirection = direction;
             Notify(DrawerFields.Settings);
+        }
+    }
+
+    // M6 track 8b (issue 279): the Popup and the Backdrop hand their elements to the Viewport's drawer handle, which
+    // writes their swipe attributes and styles (DrawerViewport.tsx reads popupRef and backdropRef).
+    /// <summary>Records the popup's element and notifies the parts when it changed.</summary>
+    /// <param name="element">The element, or <see langword="null"/> when the popup no longer renders.</param>
+    public void SetPopupElement(ElementReference? element)
+    {
+        if (!string.Equals(PopupElement?.Id, element?.Id, StringComparison.Ordinal))
+        {
+            PopupElement = element;
+            Notify(DrawerFields.Elements);
+        }
+    }
+
+    /// <summary>Records the backdrop's element and notifies the parts when it changed.</summary>
+    /// <param name="element">The element, or <see langword="null"/> when the backdrop no longer renders.</param>
+    public void SetBackdropElement(ElementReference? element)
+    {
+        if (!string.Equals(BackdropElement?.Id, element?.Id, StringComparison.Ordinal))
+        {
+            BackdropElement = element;
+            Notify(DrawerFields.Elements);
         }
     }
 
@@ -312,4 +342,7 @@ internal enum DrawerFields
 
     /// <summary>The swipe direction, the snap points and the active snap point.</summary>
     Settings = 1 << 4,
+
+    /// <summary>The popup's and the backdrop's elements.</summary>
+    Elements = 1 << 5,
 }

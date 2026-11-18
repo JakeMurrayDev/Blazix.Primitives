@@ -1,3 +1,4 @@
+using Blazix.Primitives.Interop;
 using Blazix.Primitives.Rendering;
 using Microsoft.AspNetCore.Components;
 using Microsoft.JSInterop;
@@ -68,6 +69,15 @@ public sealed class DrawerViewport : PartBase<DrawerViewportState>
     private RenderFragment? cascade;
     private DialogViewportBehavior? behavior;
     private DrawerViewportState state = new(false, null, false, false);
+    private DrawerTwin? twin;
+    private TwinHandle<DrawerOptions>? handle;
+    private Task<TwinHandle<DrawerOptions>>? attaching;
+    private DrawerOptions? sentOptions;
+    private IDisposable? rootSubscription;
+    private IDisposable? drawerSubscription;
+    private int answeredDismiss;
+    private ElementReference? sentPopup;
+    private ElementReference? sentBackdrop;
 
     [Inject]
     private IJSRuntime JSRuntime { get; set; } = null!;
@@ -126,6 +136,12 @@ public sealed class DrawerViewport : PartBase<DrawerViewportState>
         }
 
         behavior = new DialogViewportBehavior("Drawer", JSRuntime, StateHasChanged, InvokeAsync);
+
+        // M6 track 8b, slice 1: the `drawer` module's Viewport handle runs the dismiss gesture on the Popup.
+        twin = new DrawerTwin(JSRuntime);
+        twin.SwipingChanged += swiping => _ = InvokeAsync(() => viewport.SetSwiping(swiping));
+        twin.DismissRequested += request => _ = InvokeAsync(() => DismissAsync(request));
+        twin.DismissDecider = DecideDismiss;
         base.OnInitialized();
     }
 
@@ -143,11 +159,25 @@ public sealed class DrawerViewport : PartBase<DrawerViewportState>
     }
 
     /// <inheritdoc />
-    protected override Task OnAfterRenderAsync(bool firstRender) => behavior!.OnAfterRenderAsync(Enabled, Element, Portal);
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        await behavior!.OnAfterRenderAsync(Enabled, Element, Portal);
+        await SyncTwinAsync();
+    }
 
     /// <inheritdoc />
     protected override void Dispose(bool disposing)
     {
+        if (disposing)
+        {
+            rootSubscription?.Dispose();
+            drawerSubscription?.Dispose();
+            if (twin is not null)
+            {
+                _ = twin.DisposeAsync().AsTask();
+            }
+        }
+
         if (disposing && behavior is not null)
         {
             _ = behavior.DisposeAsync().AsTask();
@@ -157,7 +187,15 @@ public sealed class DrawerViewport : PartBase<DrawerViewportState>
     }
 
     /// <inheritdoc />
-    protected override void SubscribeSelectors() => behavior!.Subscribe(Context!, Portal);
+    protected override void SubscribeSelectors()
+    {
+        behavior!.Subscribe(Context!, Portal);
+
+        // The handle's options: the fields the gesture reads, and the elements it writes on. They reach the module without a
+        // render of the viewport.
+        rootSubscription = Context!.Subscribe(DialogFields.Open | DialogFields.Mounted | DialogFields.Nested | DialogFields.NestedOpenDrawerCount, SyncTwinLater);
+        drawerSubscription = Drawer!.Subscribe(DrawerFields.Settings | DrawerFields.Elements, SyncTwinLater);
+    }
 
     /// <inheritdoc />
     protected override void AddPartAttributes(AttributeList attributes) => behavior!.AddAttributes(attributes);
@@ -166,4 +204,103 @@ public sealed class DrawerViewport : PartBase<DrawerViewportState>
     // document names it part-owned, so the part's removal wins over the consumer (ADR 02 Amendments 2026-10-21).
     /// <inheritdoc />
     protected override void FinishAttributes(AttributeList attributes) => attributes.Remove("data-nested-dialog-open");
+
+    // M6 track 8b, slice 1: attaches the Viewport's handle once the Viewport renders, then sends each change of its
+    // options or of the elements it writes on.
+    private async Task SyncTwinAsync()
+    {
+        if (!Enabled || Element is not { } element || twin is null)
+        {
+            return;
+        }
+
+        DrawerRootContext drawer = Drawer!;
+        IDialogRootContext root = Context!;
+        string direction = SwipeDirectionLiterals.ToLiteral(drawer.SwipeDirection);
+        if (handle is not null && sentOptions is { } sent
+            && sent.Open == root.Open && sent.Mounted == root.Mounted && sent.Nested == root.Nested
+            && sent.NestedOpenDrawerCount == root.NestedOpenDrawerCount && string.Equals(sent.SwipeDirection, direction, StringComparison.Ordinal)
+            && sent.AnsweredDismiss == answeredDismiss && SameElements())
+        {
+            // ADR 16: an unchanged render sends nothing and allocates nothing here.
+            return;
+        }
+
+        TwinReferences references = new();
+        int? popup = drawer.PopupElement is { } popupElement ? references.Add(popupElement) : null;
+        int? backdrop = drawer.BackdropElement is { } backdropElement ? references.Add(backdropElement) : null;
+        DrawerOptions options = new()
+        {
+            Open = root.Open,
+            Mounted = root.Mounted,
+            Nested = root.Nested,
+            NestedOpenDrawerCount = root.NestedOpenDrawerCount,
+            SwipeDirection = direction,
+            AnsweredDismiss = answeredDismiss,
+            Popup = popup,
+            Backdrop = backdrop,
+        };
+
+        if (handle is null)
+        {
+            if (attaching is not null)
+            {
+                return;
+            }
+
+            sentOptions = options;
+            sentPopup = drawer.PopupElement;
+            sentBackdrop = drawer.BackdropElement;
+            attaching = twin.AttachAsync(element, options, references).AsTask();
+            handle = await attaching;
+
+            // A change made while the attach was in flight.
+            await SyncTwinAsync();
+            return;
+        }
+
+        // The references are compared through the options: an element change moves no index, so the elements themselves
+        // are compared too.
+        if (options == sentOptions && SameElements())
+        {
+            return;
+        }
+
+        sentOptions = options;
+        sentPopup = drawer.PopupElement;
+        sentBackdrop = drawer.BackdropElement;
+        await handle.UpdateAsync(options, references);
+    }
+
+    // DRW-PTR-14 on Server: the release a round trip later. The request is answered whatever its outcome, so the module
+    // rolls the dismissal back when the drawer is still open (design point 10 (a)).
+    private async Task DismissAsync(DrawerDismissRequest request)
+    {
+        OpenChangeEventDetails details = new(EventReason.Swipe, request.Event);
+        await Context!.RequestOpenAsync(false, details);
+        answeredDismiss = Math.Max(answeredDismiss, request.Request);
+        await SyncTwinAsync();
+    }
+
+    // DRW-PTR-14 on WebAssembly: the `dismiss` point, inside the release. Only an accepted request counts, as the module
+    // numbers only the dismissals it does not roll back at once.
+    private DecisionPolicy DecideDismiss(EventSnapshot snapshot)
+    {
+        OpenChangeEventDetails details = new(EventReason.Swipe, snapshot);
+        _ = Context!.RequestOpenAsync(false, details);
+        if (details.IsCanceled)
+        {
+            return DecisionPolicy.Stop;
+        }
+
+        answeredDismiss += 1;
+        SyncTwinLater();
+        return DecisionPolicy.Run;
+    }
+
+    private void SyncTwinLater() => _ = InvokeAsync(SyncTwinAsync);
+
+    private bool SameElements() =>
+        string.Equals(sentPopup?.Id, Drawer!.PopupElement?.Id, StringComparison.Ordinal)
+        && string.Equals(sentBackdrop?.Id, Drawer.BackdropElement?.Id, StringComparison.Ordinal);
 }

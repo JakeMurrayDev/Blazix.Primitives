@@ -256,6 +256,8 @@ public sealed class DrawerPopup : PartBase<DrawerPopupState>
                 "Blazix: `<DrawerPopup>` expected to be rendered within `<DrawerViewport>`. Omitting the viewport disables drawer swipe handling and touch scroll locking. Wrap `<DrawerPopup>` in `<DrawerViewport>`.");
         }
 
+        // M6 track 8b: the Viewport's drawer handle writes the swipe attributes and styles on this element.
+        Drawer!.SetPopupElement(Element);
         return behavior!.OnAfterRenderAsync(Element, RenderedId);
     }
 
@@ -264,6 +266,11 @@ public sealed class DrawerPopup : PartBase<DrawerPopupState>
     {
         if (disposing)
         {
+            if (Element is { } element && string.Equals(Drawer?.PopupElement?.Id, element.Id, StringComparison.Ordinal))
+            {
+                Drawer!.SetPopupElement(null);
+            }
+
             drawerCount?.Dispose();
             drawerStack?.Dispose();
             if (viewportChanged is not null)
