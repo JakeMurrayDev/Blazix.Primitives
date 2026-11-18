@@ -21,11 +21,13 @@ namespace Blazix.Primitives.Tests.Components;
 [Collection(AllocationBudgetsCollection.Name)]
 public sealed class ToastAllocationBudgetTests
 {
-    // First measurement 2026-11-19 (arm64, .NET 11, Release, the class alone, eight processes alike): 672 bytes at 1 toast
-    // and 5208 at 10, linear (about 504 bytes a toast): each root's style string, the viewport template's per-toast
-    // fragments, the new state records of the parts whose expanded flag moved, and Blazor's diff.
-    private const long HoverBudget1 = 672;
-    private const long HoverBudget10 = 5208;
+    // First measurement 2026-11-19 (arm64, .NET 11, Release, the class alone, three processes alike), with the root's swipe
+    // fields in its state record (8 bytes a root over the 672 and 5208 measured before them, in this pull request, before
+    // the budget first lands on main): 680 bytes at 1 toast and 5288 at 10, linear (about 512 bytes a toast): each root's
+    // style string, the viewport template's per-toast fragments, the new state records of the parts whose expanded flag
+    // moved, and Blazor's diff.
+    private const long HoverBudget1 = 680;
+    private const long HoverBudget10 = 5288;
     private const int Runs = 5;
 
     [Theory(DisplayName = "port: a hover that renders the viewport and every toast once stays within its budget")]

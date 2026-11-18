@@ -6,20 +6,24 @@ using Microsoft.AspNetCore.Components.Rendering;
 
 namespace Blazix.Primitives;
 
-// TST §3.4 state object (toast/root/ToastRoot.tsx:497-504); TST-STA-26. The transition status is mirrored: the
-// `transitions` module writes data-starting-style and data-ending-style from it (M6 track 9b). The swipe fields follow
-// with SwipeDirection (track 1).
+// TST §3.4 state object (toast/root/ToastRoot.tsx:497-504); TST-STA-26. Three fields are mirrored: the `transitions`
+// module writes data-starting-style and data-ending-style from the transition status, and the `toast` module writes
+// data-swiping and data-swipe-direction (M6 track 9b); C# projects none of them.
 /// <summary>Represents the state of a toast's root, which the part exposes as data attributes.</summary>
 /// <param name="TransitionStatus">The toast's enter or exit phase, or <see langword="null"/> while it is settled.</param>
 /// <param name="Expanded">A value indicating whether the stack of toasts is expanded.</param>
 /// <param name="Limited">A value indicating whether the toast is beyond the provider's limit.</param>
 /// <param name="Type">The toast's type, or <see langword="null"/>.</param>
+/// <param name="Swiping">A value indicating whether a swipe gesture is in progress.</param>
+/// <param name="SwipeDirection">The armed or dismissing swipe direction, or <see langword="null"/>.</param>
 [PartState]
 public sealed partial record ToastRootState(
     [property: MirroredField] TransitionStatus? TransitionStatus,
     bool Expanded,
     bool Limited,
-    string? Type);
+    string? Type,
+    [property: MirroredField] bool Swiping,
+    [property: MirroredField] SwipeDirection? SwipeDirection);
 
 // toast/root/ToastRootDataAttributes.ts:7-27 (TST-DOM-06, TST-DOM-07).
 /// <summary>Provides the data attributes a toast's root renders.</summary>
@@ -33,6 +37,12 @@ public static class ToastRootDataAttributes
 
     /// <summary>The toast's type, when it has one.</summary>
     public const string Type = "data-type";
+
+    /// <summary>Present while a swipe gesture is in progress.</summary>
+    public const string Swiping = "data-swiping";
+
+    /// <summary>The armed or dismissing swipe direction: <c>up</c>, <c>down</c>, <c>left</c> or <c>right</c>.</summary>
+    public const string SwipeDirection = "data-swipe-direction";
 
     /// <summary>Present from the toast's add until it is first measured.</summary>
     public const string StartingStyle = "data-starting-style";
@@ -53,6 +63,12 @@ public static class ToastRootCssVars
 
     /// <summary>The toast's measured height, in pixels, once it is measured and while it is not closing.</summary>
     public const string Height = "--toast-height";
+
+    /// <summary>The horizontal swipe offset, in pixels; <c>0px</c> at rest.</summary>
+    public const string SwipeMovementX = "--toast-swipe-movement-x";
+
+    /// <summary>The vertical swipe offset, in pixels; <c>0px</c> at rest.</summary>
+    public const string SwipeMovementY = "--toast-swipe-movement-y";
 }
 
 // Base UI's Toast.Root (toast/root/ToastRoot.tsx); TST-STR-03, TST-API-13, TST-DOM-06, TST-DOM-08..12, TST-ARIA-02..06,
@@ -78,7 +94,10 @@ public sealed class ToastRoot<TData> : PartBase<ToastRootState>
     private StoreSelection<ToastStoreState<TData>, bool>? focused;
     private RootView rendered;
     private RootView view;
-    private ToastRootState state = new(null, false, false, null);
+    private static readonly IReadOnlyList<SwipeDirection> s_defaultSwipeDirections = [Primitives.SwipeDirection.Down, Primitives.SwipeDirection.Right];
+    private static readonly IReadOnlyList<SwipeDirection> s_noSwipeDirections = [];
+
+    private ToastRootState state = new(null, false, false, null, false, null);
 
     /// <summary>Initializes a new instance of the <see cref="ToastRoot{TData}"/> class.</summary>
     public ToastRoot()
@@ -101,6 +120,16 @@ public sealed class ToastRoot<TData> : PartBase<ToastRootState>
     [Parameter]
     public ToastObject<TData> Toast { get; set; } = null!;
 
+    // TST-API-14, TST-I18N-01: ordered (a release takes the first allowed direction in the order given), physical, so a
+    // list rather than a [Flags] enum; Base UI's single string is a one-element list.
+    /// <summary>Gets or sets the directions in which a swipe dismisses the toast.</summary>
+    /// <value>
+    /// The directions, in the order a release tries them; or <see langword="null"/> (the default) for down, then right. The
+    /// directions are physical. A toast whose positioner settings set an anchor cannot be swiped away.
+    /// </value>
+    [Parameter]
+    public IReadOnlyList<SwipeDirection>? SwipeDirections { get; set; }
+
     /// <inheritdoc />
     protected override string DefaultTagName => "div";
 
@@ -111,14 +140,19 @@ public sealed class ToastRoot<TData> : PartBase<ToastRootState>
         {
             ToastObject<TData> toast = Current;
             bool isExpanded = view.Expanded;
+            // The swipe fields are the module's reports (M6 track 9b); until then they stay at rest.
             if (state.TransitionStatus != toast.TransitionStatus || state.Expanded != isExpanded || state.Limited != toast.Limited || !string.Equals(state.Type, toast.Type, StringComparison.Ordinal))
             {
-                state = new ToastRootState(toast.TransitionStatus, isExpanded, toast.Limited, toast.Type);
+                state = state with { TransitionStatus = toast.TransitionStatus, Expanded = isExpanded, Limited = toast.Limited, Type = toast.Type };
             }
 
             return state;
         }
     }
+
+    // TST-API-14, TST-PTR-22: the directions the `toast` module's gesture uses (M6 track 9b); an anchored toast has none.
+    internal IReadOnlyList<SwipeDirection> EffectiveSwipeDirections =>
+        Current.Positioner is { HasAnchor: true } ? s_noSwipeDirections : SwipeDirections ?? s_defaultSwipeDirections;
 
     /// <inheritdoc />
     protected override void OnInitialized()
