@@ -415,6 +415,26 @@ describe('select module: aligned placement (port titles)', () => {
     expect(placements()).toBe(2);
   });
 
+  // Issue 252 (SEL-POS-09, M6 track 3): with the heights kept through the items' registration (the title above), a
+  // re-placement within the open, here for a first text that registers late, measures from cleared heights, as Base UI's
+  // re-run does after its map change cleared them.
+  it('port: a re-placement within the open measures with the heights already cleared', () => {
+    const { positioner, popup, placements, update } = alignedPlacement(['Item 0', 'Item 1']);
+    expect(placements()).toBe(1);
+    expect(positioner.style.height).not.toBe('');
+    const measured: Array<{ positioner: string; popup: string }> = [];
+    const rect = positioner.getBoundingClientRect;
+    positioner.getBoundingClientRect = () => {
+      measured.push({ positioner: positioner.style.height, popup: popup.style.height });
+      return rect();
+    };
+
+    update({ selectedTextId: 'text-b', firstTextId: 'text-first' });
+
+    expect(placements()).toBe(2);
+    expect(measured[0]).toEqual({ positioner: '', popup: '' });
+  });
+
   // Interim review F1 (b) (M5 track 9): the first attempt found no Popup, and the Positioner was already positioned, so
   // no pass calls back again (anchor tracking is off while aligned): the update that brings the Popup asks again.
   it('places once the Popup arrives after a first attempt that found none (SEL-POS-07)', () => {
