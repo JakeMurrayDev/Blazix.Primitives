@@ -1,0 +1,14 @@
+@namespace Blazix.Primitives.Tests.Components
+@*
+    A Root with no Provider in its own file, so no cascading type parameter reaches it at compile time: its TData can only
+    be inferred through its Toast parameter, a ToastObject (ADR 08 Amendments 2026-11-18).
+*@
+
+<ToastRoot Toast="Toast">
+    <ToastTitle />
+</ToastRoot>
+
+@code {
+    [Parameter]
+    public ToastObject Toast { get; set; } = null!;
+}

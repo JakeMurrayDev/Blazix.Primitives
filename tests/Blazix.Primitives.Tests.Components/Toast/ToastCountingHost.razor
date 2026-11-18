@@ -1,0 +1,37 @@
+@namespace Blazix.Primitives.Tests.Components
+@*
+    The toast list with every part's class function counting its renders (the render-count rule: a claim is counted through
+    ClassValue, the lesson of issue 110).
+*@
+
+<ToastProvider TData="NoPayload" Manager="Manager">
+    <ToastViewport ClassValue="@(_ => Count("viewport"))">
+        <ToastsContent Context="toasts">
+            @foreach (ToastObject<NoPayload> toast in toasts)
+            {
+                <ToastRoot @key="toast.Id" Toast="toast" ClassValue="@(_ => Count("root:" + toast.Id))">
+                    <ToastContent ClassValue="@(_ => Count("content:" + toast.Id))">
+                        <ToastTitle ClassValue="@(_ => Count("title:" + toast.Id))" />
+                        <ToastDescription ClassValue="@(_ => Count("description:" + toast.Id))" />
+                        <ToastAction ClassValue="@(_ => Count("action:" + toast.Id))" />
+                        <ToastClose ClassValue="@(_ => Count("close:" + toast.Id))" />
+                    </ToastContent>
+                </ToastRoot>
+            }
+        </ToastsContent>
+    </ToastViewport>
+</ToastProvider>
+
+@code {
+    [Parameter]
+    public ToastManager<NoPayload>? Manager { get; set; }
+
+    [Parameter]
+    public Dictionary<string, int> Renders { get; set; } = [];
+
+    private string? Count(string part)
+    {
+        Renders[part] = Renders.GetValueOrDefault(part) + 1;
+        return null;
+    }
+}
