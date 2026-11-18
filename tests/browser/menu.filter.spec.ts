@@ -416,8 +416,8 @@ test.describe('filterable menu initial highlight', () => {
     await page.keyboard.type('ren');
     await expect(item(page, 'Delete')).toHaveCount(0);
     // The query's highlight reset is C#'s and lands after the filtered list on Server, where it overwrites an arrow pressed
-    // before it. ADR 01's row covers the reset's latency, not a stale reset winning over a newer key: a defect (issue 261's
-    // hand-over), which the title steps around by waiting for the reset's report, Base UI's synchronous state.
+    // before it. ADR 01's row covers the reset's latency, not a stale reset winning over a newer key: a defect, issue 271.
+    // Until it is fixed, the arrow waits for the reset's report, Base UI's synchronous state.
     await expect(fixture).toHaveAttribute('data-highlights', /(^|\|)none$/);
     await page.keyboard.press('ArrowDown');
     await expect(input(page)).toHaveAttribute('aria-activedescendant', await idOf(item(page, 'Rename')));
