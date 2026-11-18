@@ -239,16 +239,7 @@ test.describe('closing a filtered submenu from the keyboard', () => {
 
   for (const submenuFilterable of [false, true]) {
     // MNU-KEY-32.
-    // Quarantined (ADR 11 §4) on Server, the filterable-submenu variant only, until 2026-12-03, issue 288: its second CI
-    // sighting was PR 284's run 44341044812 (track 0 watched it after the first). WebAssembly and the plain variant run.
-    const quarantine = submenuFilterable
-      ? {
-          tag: '@quarantine',
-          annotation: { type: 'issue', description: 'https://github.com/JakeMurrayDev/Blazix.Primitives/issues/288 (expires 2026-12-03)' },
-        }
-      : {};
-    test(`does not wrap a filterable parent when closing from its first item (filterable submenu: ${submenuFilterable})`, quarantine, async ({ page, mode }) => {
-      test.fixme(submenuFilterable && mode === 'server', 'Quarantined on Server until 2026-12-03 (issue 288)');
+    test(`does not wrap a filterable parent when closing from its first item (filterable submenu: ${submenuFilterable})`, async ({ page, mode }) => {
       await render(page, mode, {
         child: submenuFilterable ? 'filter' : 'plain',
         closed: true,
@@ -264,6 +255,10 @@ test.describe('closing a filtered submenu from the keyboard', () => {
       const input = page.getByRole('searchbox', { name: 'Filter actions' });
       const more = item(page, 'More');
       await expect(input).toHaveAttribute('aria-activedescendant', (await more.getAttribute('id')) ?? 'missing');
+      // Issue 288: the parent's highlight lands before the opening popup moves focus into its input (the port's focus
+      // follows the mount; Base UI's input takes it in the mounting commit), so the key waits for the focus. Pressed on the
+      // trigger, it opened nothing.
+      await expect(input).toBeFocused();
 
       await page.keyboard.press('ArrowDown');
       await expect(page.getByTestId('submenu')).toBeVisible();
