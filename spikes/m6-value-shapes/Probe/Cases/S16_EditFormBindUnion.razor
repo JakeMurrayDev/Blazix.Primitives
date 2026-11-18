@@ -1,0 +1,10 @@
+<EditForm Model="model"><SliderRoot @bind-Value="model.Volume" /></EditForm> model=@model.Volume
+
+@code {
+    private readonly Model model = new();
+
+    private sealed class Model
+    {
+        public SliderValues? Volume { get; set; } = 25;
+    }
+}
