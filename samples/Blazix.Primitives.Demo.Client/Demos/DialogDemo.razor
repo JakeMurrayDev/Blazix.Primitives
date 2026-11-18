@@ -100,6 +100,92 @@
             </DialogRoot>
             <span class="VariantName">Close confirmation: closing with text in the field asks first, in an alert dialog</span>
         </div>
+        <div class="Variant">
+            <DialogRoot TPayload="NoPayload">
+                <DialogTrigger class="@ButtonClass">Open dialog</DialogTrigger>
+                <DialogPortal>
+                    <DialogBackdrop class="fixed inset-0 bg-black opacity-20 transition-opacity duration-150 data-starting-style:opacity-0 data-ending-style:opacity-0 dark:opacity-50 supports-[-webkit-touch-callout:none]:absolute" />
+                    <DialogViewport class="@InsideScrollViewportClass">
+                        <DialogPopup class="relative flex w-[min(40rem,calc(100vw-2rem))] max-h-full max-w-full min-h-0 flex-col bg-white dark:bg-neutral-950 text-neutral-950 dark:text-white border border-neutral-950 dark:border-white shadow-[0.25rem_0.25rem_0] shadow-black/12 dark:shadow-none transition-[scale,opacity] duration-100 ease-out data-starting-style:scale-[0.98] data-starting-style:opacity-0 data-ending-style:scale-[0.98] data-ending-style:opacity-0">
+                            <div class="flex flex-col gap-1 p-4 border-b border-neutral-950 dark:border-white">
+                                <DialogTitle class="text-base font-bold">Dialog</DialogTitle>
+                                <DialogDescription class="@DescriptionClass">This layout keeps the popup fully on screen while allowing its content to scroll.</DialogDescription>
+                            </div>
+                            <ScrollAreaRoot class="relative flex min-h-0 flex-auto overflow-hidden has-[>_:first-child:focus-visible]:outline-2 has-[>_:first-child:focus-visible]:outline-offset-0 has-[>_:first-child:focus-visible]:outline-neutral-950 dark:has-[>_:first-child:focus-visible]:outline-white">
+                                <ScrollAreaViewport class="flex-auto min-h-0 overflow-y-auto overscroll-contain outline-none">
+                                    <ScrollAreaContent class="flex flex-col">
+                                        @foreach (ContentSection item in s_insideScrollSections)
+                                        {
+                                            <section class="flex flex-col gap-1 p-4" @key="item.Title">
+                                                <h3 class="text-sm font-bold">@item.Title</h3>
+                                                <p class="text-sm text-neutral-700 dark:text-neutral-300">@item.Body</p>
+                                            </section>
+                                        }
+                                    </ScrollAreaContent>
+                                </ScrollAreaViewport>
+                                <ScrollAreaScrollbar class="pointer-events-none flex w-4 justify-center bg-black/12 dark:bg-white/12 opacity-0 transition-opacity duration-150 data-hovering:pointer-events-auto data-hovering:opacity-100 data-scrolling:pointer-events-auto data-scrolling:opacity-100 data-scrolling:duration-0">
+                                    <ScrollAreaThumb class="w-full bg-neutral-950 dark:bg-white" />
+                                </ScrollAreaScrollbar>
+                            </ScrollAreaRoot>
+                            <div class="flex justify-end gap-3 p-4 border-t border-neutral-950 dark:border-white">
+                                <DialogClose class="@ButtonClass">Close</DialogClose>
+                            </div>
+                        </DialogPopup>
+                    </DialogViewport>
+                </DialogPortal>
+            </DialogRoot>
+            <span class="VariantName">Inside scroll: the popup stays on screen and its body scrolls in a scroll area</span>
+        </div>
+        <div class="Variant">
+            <DialogRoot TPayload="NoPayload">
+                <DialogTrigger class="@ButtonClass">Open dialog</DialogTrigger>
+                <DialogPortal>
+                    <DialogBackdrop class="fixed inset-0 bg-black/20 dark:bg-black/50 transition-opacity duration-[600ms] ease-[var(--ease-out-fast)] data-starting-style:opacity-0 data-ending-style:opacity-0 data-ending-style:duration-[350ms] data-ending-style:ease-[cubic-bezier(0.375,0.015,0.545,0.455)] supports-[-webkit-touch-callout:none]:absolute" />
+                    <DialogViewport class="group/dialog fixed inset-0">
+                        @* Base UI unsets the root's `position: relative` (`style={{ position: undefined }}`), so the scrollbar sits against the dialog's viewport. *@
+                        <ScrollAreaRoot style="position: static" class="h-full overscroll-contain group-data-ending-style/dialog:pointer-events-none">
+                            <ScrollAreaViewport class="h-full overscroll-contain group-data-ending-style/dialog:pointer-events-none">
+                                <ScrollAreaContent class="flex min-h-full items-center justify-center">
+                                    <DialogPopup id="@OutsideScrollPopupId" InitialFocus="@OutsideScrollPopupId" class="outline-0 relative mx-auto my-16 flex w-[min(40rem,calc(100vw-2rem))] flex-col gap-4 bg-white dark:bg-neutral-950 p-4 text-neutral-950 dark:text-white border border-neutral-950 dark:border-white shadow-[0.25rem_0.25rem_0] shadow-black/12 dark:shadow-none transition-[translate] duration-[700ms] ease-[cubic-bezier(0.45,1.005,0,1.005)] data-starting-style:translate-y-[100dvh] data-ending-style:translate-y-[max(100dvh,100%)] data-ending-style:duration-[350ms] data-ending-style:ease-[cubic-bezier(0.375,0.015,0.545,0.455)] motion-reduce:transition-none">
+                                        <div class="relative flex flex-col gap-1 pr-8">
+                                            <DialogTitle class="text-base font-bold">Dialog</DialogTitle>
+                                            <DialogDescription class="@DescriptionClass">This layout keeps an outer container scrollable while the dialog can extend past the bottom edge.</DialogDescription>
+                                            <DialogClose aria-label="Close" class="absolute -top-1 -right-1 inline-flex items-center justify-center w-8 h-8 border-none bg-transparent p-0 text-neutral-950 dark:text-white hover:bg-neutral-100 dark:hover:bg-neutral-800 active:bg-neutral-200 dark:active:bg-neutral-700 focus-visible:outline-2 focus-visible:-outline-offset-1 focus-visible:outline-neutral-950 dark:focus-visible:outline-white">
+                                                <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-linecap="square" stroke-linejoin="round" style="display: block">
+                                                    <path d="m2.5 2.5 11 11m-11 0 11-11" />
+                                                </svg>
+                                            </DialogClose>
+                                        </div>
+
+                                        <div class="flex flex-col gap-4">
+                                            @foreach (ContentSection item in s_outsideScrollSections)
+                                            {
+                                                <section class="flex flex-col gap-1" @key="item.Title">
+                                                    <h3 class="text-sm font-bold">@item.Title</h3>
+                                                    <p class="text-sm text-neutral-700 dark:text-neutral-300">@item.Body</p>
+                                                </section>
+                                            }
+                                        </div>
+
+                                        <p class="@DescriptionClass">
+                                            Related docs:
+                                            @for (int i = 0; i < s_relatedLinks.Length; i++)
+                                            {
+                                                @(i > 0 ? ", " : null)<a class="text-neutral-950 dark:text-white underline underline-offset-[0.16em] decoration-[1px] hover:no-underline focus-visible:outline-2 focus-visible:outline-neutral-950 dark:focus-visible:outline-white focus-visible:outline-offset-2" href="@s_relatedLinks[i].Href">@s_relatedLinks[i].Label</a>
+                                            }.
+                                        </p>
+                                    </DialogPopup>
+                                </ScrollAreaContent>
+                            </ScrollAreaViewport>
+                            <ScrollAreaScrollbar class="pointer-events-none flex w-4 justify-center bg-black/12 dark:bg-white/12 opacity-0 transition-opacity duration-[250ms] data-scrolling:pointer-events-auto data-scrolling:opacity-100 data-scrolling:duration-[75ms] data-scrolling:delay-[0ms] hover:pointer-events-auto hover:opacity-100 hover:duration-[75ms] hover:delay-[0ms] group-data-ending-style/dialog:opacity-0 group-data-ending-style/dialog:duration-[250ms]">
+                                <ScrollAreaThumb class="w-full bg-neutral-950 dark:bg-white" />
+                            </ScrollAreaScrollbar>
+                        </ScrollAreaRoot>
+                    </DialogViewport>
+                </DialogPortal>
+            </DialogRoot>
+            <span class="VariantName">Outside scroll: the page behind the dialog scrolls in a scroll area while the dialog runs past the bottom edge</span>
+        </div>
     </Variants>
 </DemoFrame>
 
@@ -113,6 +199,53 @@
     private const string ConfirmationPopupClass = "fixed top-[calc(50%+1.25rem*var(--nested-dialogs))] left-1/2 -mt-8 flex w-96 max-w-[calc(100vw-3rem)] -translate-x-1/2 -translate-y-1/2 flex-col gap-4 scale-[calc(1-0.1*var(--nested-dialogs))] bg-white dark:bg-neutral-950 p-4 text-neutral-950 dark:text-white border border-neutral-950 dark:border-white shadow-[0.25rem_0.25rem_0] shadow-black/12 dark:shadow-none transition-[top,scale,opacity] duration-100 ease-out after:absolute after:inset-0 after:bg-black/5 after:opacity-0 after:transition-opacity after:duration-100 after:ease-out after:pointer-events-none data-ending-style:top-[calc(50%+0.25rem+1.25rem*var(--nested-dialogs))] data-ending-style:scale-[0.96] data-ending-style:opacity-0 data-nested-dialog-open:after:opacity-100 data-starting-style:top-[calc(50%+0.25rem+1.25rem*var(--nested-dialogs))] data-starting-style:scale-[0.96] data-starting-style:opacity-0";
     private const string TextareaClass = "min-h-32 w-full border border-neutral-950 dark:border-white bg-white dark:bg-neutral-950 p-2 text-sm any-pointer-coarse:text-base font-normal text-neutral-950 dark:text-white placeholder:text-neutral-500 dark:placeholder:text-neutral-400 focus:outline-2 focus:-outline-offset-1 focus:outline-neutral-950 dark:focus:outline-white";
     private const string PlainButtonClass = "flex h-8 items-center justify-center gap-2 border border-neutral-950 dark:border-white bg-white dark:bg-neutral-950 px-3 text-sm leading-none whitespace-nowrap font-normal text-neutral-950 dark:text-white select-none hover:bg-neutral-100 dark:hover:bg-neutral-800 active:bg-neutral-200 dark:active:bg-neutral-700 disabled:border-neutral-500 disabled:text-neutral-500 focus-visible:outline-2 focus-visible:-outline-offset-1 focus-visible:outline-neutral-950 dark:focus-visible:outline-white";
+
+    private const string InsideScrollViewportClass = "fixed inset-0 flex items-center justify-center overflow-hidden py-6 [@media(min-height:600px)]:pb-12 [@media(min-height:600px)]:pt-8";
+    private const string OutsideScrollPopupId = "dialog-demo-outside-scroll-popup";
+
+    private static readonly ContentSection[] s_sharedSections =
+    [
+        new("Opening and closing", "Control it using external state via the `Open` and `OnOpenChange` parameters, or let it manage state for you internally."),
+        new("Keyboard and focus behavior", "Focus moves inside the dialog when it opens. Tab and Shift+Tab loop within, and Esc requests close."),
+        new("Accessible labeling", "Set an explicit title and description using the `DialogTitle` and `DialogDescription` components."),
+        new("Backdrop and page scrolling", "The backdrop visually separates layers while background content is inert. Don’t rely on dimness alone—keep copy clear and buttons obvious so actions are easy to choose."),
+        new("Portals and stacking", "Dialogs render in a portal so they sit above the `isolation: isolate` app content and avoid local z-index wars."),
+        new("Viewport overflow", "Let long content overflow the bottom edge and reveal as you scroll the page container. Keep generous padding at the top and bottom so the dialog doesn’t feel jammed against the edges."),
+        new("Nested dialogs and confirmations", "If closing a dialog needs confirmation, open a child alert dialog rather than mutating the current one. The parent stays visible behind it; only the topmost layer should feel interactive."),
+        new("Transitions that respect motion settings", "Use small, fast transitions (opacity plus a few pixels of Y translation or scale). Subtle motion helps people notice what changed without slowing them down."),
+        new("Controlled vs. uncontrolled", "Controlled state is best when other parts of the page need to react to open/close. Uncontrolled is fine for local cases where only the dialog matters."),
+        new("Close affordances", "Always offer a visible close button in the corner. Don’t rely only on Esc or the backdrop for pointer outside presses. Touch screen readers and accessibility users benefit from a clear, targetable control to click to close the dialog."),
+        new("Forms inside dialogs", "Keep forms short; longer flows usually deserve a full page. Validate inline, keep button text specific (“Create project”), and disable destructive actions until the input is valid."),
+        new("Content guidelines", "Lead with the outcome (“Rename project?”) and follow with one or two short, concrete sentences. Avoid long prose; link out for details instead."),
+        new("SSR and hydration notes", "Because dialogs render in a portal, make sure your portal container exists on the client."),
+        new("Mobile ergonomics", "Use larger touch targets and keep the close button reachable with the thumb. Avoid full-screen modals unless the task truly needs a whole screen."),
+        new("Theming and density", "Match spacing and corner radius to your system. Use a slightly denser layout than pages so the dialog feels purpose-built, not like a mini web page."),
+        new("Internationalization", "Plan for longer text. Buttons can grow to two lines; titles should wrap gracefully. Keep destructive terms consistent across locales."),
+        new("Performance", "Children are mounted lazily when the dialog opens. If the dialog can reopen often, consider the `KeepMounted` parameter sparingly to perform the work only once on mount to avoid re-initializing complex component trees on each open."),
+        new("When a popover is better", "If the content is a small hint or a few quick actions anchored to a control, use a popover or menu instead of a dialog. Dialogs interrupt on purpose—use that sparingly."),
+        new("Follow-up and cleanup", "After a successful action, close the dialog and show confirmation in context (toast, inline message, or updated UI) so people can see the result of what they just did."),
+    ];
+
+    private static readonly ContentSection[] s_insideScrollSections =
+    [
+        new("What a dialog is for", "Use a dialog when you need the user to complete a focused task or read something important without navigating away. It opens on top of the page and returns focus back where it started when closed."),
+        new("Anatomy at a glance", "Root, Trigger, Portal, Backdrop, Popup, Title/Description, Close. Keep the title short and the first paragraph specific so screen readers announce something meaningful."),
+        .. s_sharedSections,
+    ];
+
+    private static readonly ContentSection[] s_outsideScrollSections =
+    [
+        new("What a dialog is for", "Use a dialog when you need the user to complete a focused task or read something important without navigating away. It opens on top of the page and returns focus back where it started when closed."),
+        new("Anatomy at a glance", "Root, Trigger, Portal, Backdrop, Viewport, Popup, Title, Description, Close. Keep the title short and the first paragraph specific so screen readers announce something meaningful."),
+        .. s_sharedSections,
+    ];
+
+    // The sample's own pages, in the page's render mode.
+    private static readonly (string Href, string Label)[] s_relatedLinks =
+    [
+        ("scroll-area", "Scroll Area"),
+        ("popover", "Popover"),
+    ];
 
     private readonly DialogHandle<NoPayload> detached = new();
     private bool tweetOpen;
@@ -138,4 +271,6 @@
         tweetOpen = false;
         tweet = string.Empty;
     }
+
+    private sealed record ContentSection(string Title, string Body);
 }
