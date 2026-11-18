@@ -191,6 +191,7 @@ export function touchOpenLocksScroll(viewportWidth: number, popupWidth: number):
 
 const COMPOSITE_KEYS = new Set(['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Home', 'End']);
 const PREVIOUS = 'data-previous';
+const POPUP_OPEN = 'data-popup-open';
 const CURRENT = 'data-current';
 const STARTING = 'data-starting-style';
 const ENDING = 'data-ending-style';
@@ -287,6 +288,9 @@ function attachViewport(viewport: HTMLElement, initial: PopupOptions, channel: T
   let previousContainer: HTMLElement | null = null;
   let previousTrigger: Element | null = null;
   let lastHandledTrigger: Element | null = null;
+  // Issue 176: the content a remount replaced while the session's reference was still the previous trigger, kept until
+  // the reference follows and the morph starts from it.
+  let keptContent: HTMLElement | null = null;
   let cleanup: AbortController | null = null;
   let resizeCleanup: AbortController | null = null;
   let committed: Dimensions | null = null;
@@ -319,11 +323,14 @@ function attachViewport(viewport: HTMLElement, initial: PopupOptions, channel: T
     if (token === sessionToken) {
       return;
     }
+    unsubscribeReference?.();
+    unsubscribeReference = null;
     if (session !== null) {
       releaseSession(session);
     }
     sessionToken = token;
     session = token === null ? null : acquireSession(token);
+    unsubscribeReference = session?.subscribePositionReference?.(() => onReferenceMove()) ?? null;
   };
   const findTrigger = (): Element | null => session?.domReferenceElement ?? null;
 
@@ -489,12 +496,27 @@ function attachViewport(viewport: HTMLElement, initial: PopupOptions, channel: T
     const trigger = open ? findTrigger() : null;
     if (open && trigger !== null && previousTrigger !== null && trigger !== previousTrigger && lastHandledTrigger !== trigger) {
       lastHandledTrigger = trigger;
-      startTransition(removed, previousTrigger, trigger);
+      startTransition(removed ?? keptContent, previousTrigger, trigger);
+      keptContent = null;
     } else if (remounted && previousContainer !== null) {
       // A lagging payload remounted the current container mid-transition: keep the previous one first, re-run the
       // choreography on the new container.
       viewport.insertBefore(previousContainer, currentContainer);
       runChoreography();
+    } else if (
+      open &&
+      removed !== null &&
+      keptContent === null &&
+      previousTrigger !== null &&
+      !previousTrigger.hasAttribute(POPUP_OPEN)
+    ) {
+      // Issue 176 (PSH-STA-30, PSH-ANI-09/10; ADR 04 Amendments 2026-11-19, chosen by the user): on Server the batch that
+      // moved the active trigger off the previous one (its `data-popup-open` gone) and remounted the content can land
+      // before the session's reference follows; the replaced content is kept for the morph the reference's move starts.
+      keptContent = removed;
+    }
+    if (!open) {
+      keptContent = null;
     }
     previousTrigger = open ? trigger : null;
     if (remounted) {
@@ -526,6 +548,16 @@ function attachViewport(viewport: HTMLElement, initial: PopupOptions, channel: T
   };
   const observer = new MutationObserver(onMutations);
   observer.observe(viewport, { childList: true });
+
+  // Issue 176: the session's reference moving after the remount (ADR 04 Amendments 2026-10-28's design point 13.13 kept,
+  // 2026-11-19): the morph starts once, from the previous trigger, with the kept content. A move with nothing kept (a
+  // hand-off before its commit, a canceled request's fallback) or while closed starts nothing.
+  let unsubscribeReference: (() => void) | null = null;
+  const onReferenceMove = () => {
+    if (!disposed && options.open === true && keptContent !== null) {
+      process(null, false);
+    }
+  };
 
   // A flip of the side re-anchors the popup (the anchoring styles follow the side, usePopupAutoResize's effect), and so
   // does the positioning handle's first write when the reader had nothing yet.
