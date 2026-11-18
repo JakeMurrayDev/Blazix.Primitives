@@ -318,6 +318,35 @@ describe.each([false, true])('the viewport (synchronous: %s)', (synchronous) => 
     expect(twin.reported<PopupViewportReport>(VIEWPORT_REPORT).at(-1)).toEqual({ activationDirection: 'right down', transitioning: false });
   });
 
+  // Issue 176: on Server under latency the remount's measurement resolved the inserted previous container only under its
+  // `display: none`, so the ending style the next frame set started no exit transition.
+  it('port: the frame that sets the ending style first resolves the shown previous container without it', async () => {
+    const rendered = renderViewport();
+    activate(rendered, 0);
+    attachTo(rendered.viewport, openViewport, createFakeTwin({ synchronous }));
+
+    activate(rendered, 1);
+    remount(rendered, 'Two');
+    await settle();
+    const previous = rendered.viewport.querySelector<HTMLElement>('[data-previous]')!;
+    const resolved: Array<{ ending: boolean; display: string }> = [];
+    const getComputedStyle = window.getComputedStyle.bind(window);
+    const spy = vi.spyOn(window, 'getComputedStyle').mockImplementation((element, pseudo) => {
+      if (element === previous) {
+        resolved.push({ ending: previous.hasAttribute('data-ending-style'), display: previous.style.display });
+      }
+      return getComputedStyle(element, pseudo);
+    });
+    try {
+      flushFrames();
+    } finally {
+      spy.mockRestore();
+    }
+
+    expect(previous.hasAttribute('data-ending-style')).toBe(true);
+    expect(resolved).toEqual([{ ending: false, display: '' }]);
+  });
+
   // Gap 19's residual (M4 track 6, settled by the orchestrator 2026-10-29, option (i')): on Server a hand-off that flips
   // the side brings the flip a message after the content batch, and on both modes it lands after the morph started. The
   // measurement's overrides (`display: none` on [data-previous], `transition: none` on [data-current]) would cut the morph
