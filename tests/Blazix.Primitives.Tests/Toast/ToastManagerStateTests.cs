@@ -710,6 +710,42 @@ public sealed class ToastManagerStateTests
         Assert.Equal(TransitionStatus.Ending, harness.Find(id)?.TransitionStatus);
     }
 
+    [Fact(DisplayName = "pauses timers when hovering over toast")]
+    [Trait("Requirement", "TST-STA-16")]
+    [Trait("Requirement", "TST-STA-21")]
+    public async Task Pauses_timers_when_hovering_over_toast()
+    {
+        // useToastManager.test.tsx's promise block: the store's part of it (the hover is the module's report, L4).
+        using ToastHarness<NoPayload> harness = new();
+        string id = await Settle(harness, Task.FromResult("ok"), new ToastObject { Description = "success", Timeout = 3000 }, "error");
+
+        harness.Store.SetHovering(true);
+        harness.Store.PauseTimers();
+        harness.Advance(5000);
+        Assert.True(harness.IsOpen(id));
+
+        harness.Store.SetHovering(false);
+        harness.Store.ResumeTimers();
+        harness.Advance(3000);
+        Assert.Equal(TransitionStatus.Ending, harness.Find(id)?.TransitionStatus);
+    }
+
+    [Fact(DisplayName = "auto-dismisses when timeout changes from 0 to a positive value")]
+    [Trait("Requirement", "TST-STA-19")]
+    public void Auto_dismisses_when_timeout_changes_from_0_to_a_positive_value()
+    {
+        using ToastHarness<NoPayload> harness = new();
+        string id = harness.Manager.Add(new ToastObject { Title = "title", Timeout = 0 });
+        harness.Advance(10_000);
+        Assert.True(harness.IsOpen(id));
+
+        harness.Manager.Update(id, toast => toast with { Timeout = 1000 });
+        harness.Advance(999);
+        Assert.True(harness.IsOpen(id));
+        harness.Advance(1);
+        Assert.Equal(TransitionStatus.Ending, harness.Find(id)?.TransitionStatus);
+    }
+
     private static async Task<string> Settle(ToastHarness<NoPayload> harness, Task<string> task, ToastPromiseState<string, NoPayload> success, ToastPromiseState<Exception, NoPayload> error)
     {
         Task<string> handled = harness.Manager.Promise(task, new ToastPromiseOptions<string> { Loading = "loading", Success = success, Error = error });

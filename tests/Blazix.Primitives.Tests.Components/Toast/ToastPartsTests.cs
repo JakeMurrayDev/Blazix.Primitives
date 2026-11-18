@@ -52,6 +52,30 @@ public sealed class ToastPartsTests : IDisposable
 
     public void Dispose() => test.Dispose();
 
+    [Fact(DisplayName = "renders the title")]
+    [Trait("Requirement", "TST-API-15")]
+    public void Renders_the_title()
+    {
+        IRenderedComponent<ToastHost> cut = test.RenderHost();
+
+        test.Run(cut, () => test.Manager.Add(new ToastObject { Title = "title" }));
+
+        Assert.Equal("title", cut.Find("[data-testid=title]").TextContent);
+        Assert.Equal("H2", cut.Find("[data-testid=title]").TagName);
+    }
+
+    [Fact(DisplayName = "renders the description")]
+    [Trait("Requirement", "TST-API-15")]
+    public void Renders_the_description()
+    {
+        IRenderedComponent<ToastHost> cut = test.RenderHost();
+
+        test.Run(cut, () => test.Manager.Add(new ToastObject { Description = "description" }));
+
+        Assert.Equal("description", cut.Find("[data-testid=description]").TextContent);
+        Assert.Equal("P", cut.Find("[data-testid=description]").TagName);
+    }
+
     [Fact(DisplayName = "performs an action when clicked")]
     [Trait("Requirement", "TST-PTR-27")]
     [Trait("Requirement", "TST-EVT-09")]
