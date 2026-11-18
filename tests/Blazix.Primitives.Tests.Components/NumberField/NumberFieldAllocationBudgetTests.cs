@@ -28,12 +28,15 @@ public sealed class NumberFieldAllocationBudgetTests : IDisposable
     // attribute frozen after the first render at f4be6621, the tick fell from 15,536 to 2,288 bytes and those types vanished.
     // The step still runs inside the measured region: the tick completes synchronously within InvokeAsync, and the module's
     // `update` with the new text is recorded before the region ends (scratch probe, not committed).
-    // The hold tick's first value on main is CI's Linux x64 figure, 2,536 bytes, 32 more than macOS arm64's 2,504: two of
-    // three CI runs of 41411694 measured exactly 2,536 (issue 304, the budgets' tolerance across hosts). The re-render and
-    // the click step passed on CI at their macOS figures, which stay.
+    // The hold tick's first value on main is CI's Linux x64 figure, 32 bytes over macOS arm64's: two of three CI runs of
+    // 41411694 measured exactly 2,536 against macOS's 2,504 (issue 304, the budgets' tolerance across hosts). The re-render
+    // and the click step passed on CI at their macOS figures. Then main's efb420c1 (SLD-EVT-04) gave EventTargetInfo two
+    // reference fields, 16 bytes more per snapshot target, which both steps deserialize: on macOS the click went from 2,488
+    // to 2,504 and the tick from 2,504 to 2,520 (the floor in three processes, 2026-11-19); the re-render is unchanged.
+    // The tick's 2,552 is CI's 2,536 plus that measured 16, not yet measured on Linux.
     private const long RerenderBudgetBytes = 944;
-    private const long HoldTickBudgetBytes = 2536;
-    private const long ClickStepBudgetBytes = 2488;
+    private const long HoldTickBudgetBytes = 2552;
+    private const long ClickStepBudgetBytes = 2504;
 
     private static readonly CultureInfo s_enUs = CultureInfo.GetCultureInfo("en-US");
 
