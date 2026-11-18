@@ -2965,6 +2965,53 @@ describe('highlightListEdge (port)', () => {
     expect(harness.highlights.slice(before).map((report) => report.index ?? null)).toEqual([null]);
   });
 
+  // Issue 261 (DP5, settled by the orchestrator 2026-11-18): on Server C#'s registration of the rendered items lands a
+  // round trip after the batch that rendered them. A highlight committed while the registry still holds removed elements
+  // follows its element to the element's new index on the publication that catches up, the index Base UI's key would have
+  // computed against its committed list (useListNavigation); a publication with no stale mark stays positional, as
+  // AriaCombobox.tsx:1198-1222 keeps activeIndex when the items change under it.
+  it('port: a highlight committed against a stale registry follows its element, and an item change under a current highlight stays positional', async () => {
+    const harness = app({ reference: 'input', list: { virtual: true }, session: { open: true } });
+    harness.reference.focus();
+    const floating = menu(harness);
+
+    // Positional: an item inserted before the highlighted one takes its index.
+    keyDown(harness.reference, 'ArrowDown');
+    keyDown(harness.reference, 'ArrowDown');
+    const two = harness.item(1);
+    await waitFor(() => {
+      expect(descendantOf(harness.reference)).toBe(two.id);
+    });
+    const inserted = harness.item(0).cloneNode(true) as HTMLElement;
+    inserted.id = 'inserted';
+    inserted.setAttribute('data-testid', 'item-inserted');
+    floating.prepend(inserted);
+    harness.update({});
+    await waitFor(() => {
+      expect(highlighted(harness.item(0))).toBe(true);
+    });
+    expect(highlighted(two)).toBe(false);
+
+    // Stale: a batch removed the first two items before the registry learned it; the arrow highlights the survivor at its
+    // old index, and the publication that catches up moves the index to the survivor's new one instead of writing the old
+    // index onto no item.
+    const stale = app({ reference: 'input', list: { virtual: true }, session: { open: true } });
+    stale.reference.focus();
+    const [one, twoStale, three] = [stale.item(0), stale.item(1), stale.item(2)];
+    one.remove();
+    twoStale.remove();
+    keyDown(stale.reference, 'ArrowDown');
+    await waitFor(() => {
+      expect(descendantOf(stale.reference)).toBe(three.id);
+    });
+
+    stale.update({});
+    await nextTask();
+
+    expect(highlighted(three)).toBe(true);
+    expect(descendantOf(stale.reference)).toBe(three.id);
+  });
+
   // MenuFilterSubmenuRoot.tsx:47-49 (the orchestrator's 2026-11-12 grant): leaving a filterable submenu highlights its
   // trigger in the parent list.
   it('port: highlightListItem highlights the given item of the list from its reference', async () => {
