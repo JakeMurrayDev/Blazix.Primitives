@@ -1,0 +1,35 @@
+@namespace Blazix.Primitives.Tests.Components
+@*
+    ToastAction.test.tsx's render-prop titles: one Root over a toast given as its parameter, holding the action in the form a
+    test names, and a form with attributes and a click handler of the part's own beside the toast's.
+*@
+
+<ToastProvider TData="NoPayload">
+    <ToastViewport>
+        <ToastRoot Toast="Toast">
+            @switch (Form)
+            {
+                case "render-prop":
+                    <ToastAction><Render><button type="button">render prop action</button></Render></ToastAction>
+                    break;
+                case "childless":
+                    <ToastAction><Render><button type="button" data-testid="action-render" /></Render></ToastAction>
+                    break;
+                case "attributes":
+                    <ToastAction id="from-part" title="part-title" onclick="@OnPartClick" />
+                    break;
+            }
+        </ToastRoot>
+    </ToastViewport>
+</ToastProvider>
+
+@code {
+    [Parameter]
+    public string Form { get; set; } = "render-prop";
+
+    [Parameter]
+    public ToastObject Toast { get; set; } = new() { Id = "test", Title = "title" };
+
+    [Parameter]
+    public Action? OnPartClick { get; set; }
+}
