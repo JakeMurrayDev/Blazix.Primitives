@@ -1,4 +1,4 @@
-import { type Locator } from '@playwright/test';
+import { type Locator, type Route } from '@playwright/test';
 import { test, expect, type Page, type RenderMode } from './helpers';
 import { Fixture } from './helpers/navigation';
 import { pointOf, testWithTouch, touchDrag } from './helpers/touch';
@@ -401,3 +401,63 @@ for (const stepper of [
     });
   });
 }
+
+// NUM-STA-19's iOS inputmode under ADR 01's platform-flags row ("MNU-A11Y-01 and any attribute a part renders from the
+// platform flags"; ADR 04 Amendments 2026-11-18, NumberField point 4 (a)): the root reads PlatformFlags from its first
+// interactive render, so the input renders `numeric` until the interactions module answers. The module computes iOS from
+// `navigator.platform` when it loads, so the init script sets it before any module runs (interactions.spec.ts's pattern).
+
+/** Holds every request for a module until `release` is called; WebAssembly requests the fingerprinted file name. */
+async function stall(page: Page, module: string): Promise<() => Promise<void>> {
+  const held: Route[] = [];
+  let released = false;
+  const url = new RegExp(`/_content/Blazix\\.Primitives/js/${module}(\\.[a-z0-9]+)?\\.js$`);
+  await page.route(url, (route) => (released ? route.continue() : held.push(route)));
+  return async () => {
+    released = true;
+    for (const route of held.splice(0)) {
+      await route.continue();
+    }
+  };
+}
+
+test.describe('platform flags (NUM-STA-19)', () => {
+  for (const [platformName, expected] of [
+    ['iPhone', 'text'],
+    ['Win32', 'numeric'],
+  ] as const) {
+    test(`port: the input renders inputmode numeric until the platform flags are read, then ${expected} on ${platformName}`, async ({ page, mode }) => {
+      await page.addInitScript((value) => {
+        Object.defineProperty(Navigator.prototype, 'platform', { get: () => value, configurable: true });
+        Object.defineProperty(Navigator.prototype, 'maxTouchPoints', { get: () => 0, configurable: true });
+      }, platformName);
+      const release = await stall(page, 'interactions');
+      const fixture = await gotoHold(page, mode);
+      const input = fixture.getByTestId('input');
+
+      await expect(input).toHaveAttribute('inputmode', 'numeric');
+
+      await release();
+      await expect(input).toHaveAttribute('inputmode', expected);
+    });
+  }
+});
+
+// NUM-PTR-02 under ADR 01's row "C#-origin consumer vetoes" (ADR 04 Amendments 2026-11-18, NumberField point 1 (a), the
+// `hold-start` point): a consumer onpointerdown that calls PreventPartHandler() runs inside the decision on WebAssembly,
+// so the press does not step; on Server the decision falls back to run and the veto lands a round trip late, so the first
+// step happens. The `veto` case puts that handler on the increment button.
+test('port: a C# consumer veto of the stepper pointerdown keeps the press from stepping on WebAssembly and is late on Server', async ({ page, mode }) => {
+  const fixture = await gotoHold(page, mode, 'veto');
+  const button = fixture.getByTestId('increment');
+  const input = fixture.getByTestId('input');
+  await hover(page, button);
+  await freezeClock(page);
+
+  await page.mouse.down();
+  await expect(fixture).toHaveAttribute('data-vetoes', '1');
+
+  await expect(input).toHaveValue(mode === 'wasm' ? '0' : '1');
+  await expect(fixture).toHaveAttribute('data-changes', mode === 'wasm' ? '' : /^1\/increment-press\/1$/);
+  await page.mouse.up();
+});
