@@ -717,6 +717,8 @@ interface SessionRecord extends InteractionSession {
    * the pending request, the popup counts as open for Escape dismissal (`isOpenForDismissal`).
    */
   pressOpen: PendingRequest | null;
+  /** Whether an outside press may dismiss; `false` while the Drawer SwipeArea's gesture holds it closed. */
+  outsidePressEnabled: boolean;
   /** The element the next relayed `focus-out` close without a trigger names (`nameRelayTrigger`). */
   namedTrigger: Element | null;
   triggers: Map<string, Element>;
@@ -816,6 +818,7 @@ function createSessionRecord(token: string): SessionRecord {
     closeInFlight: null,
     optimisticOpenEvent: null,
     pressOpen: null,
+    outsidePressEnabled: true,
     namedTrigger: null,
     triggers,
     channel: null,
@@ -947,6 +950,18 @@ export function getSession(token: string): InteractionSession | undefined {
  */
 export function nameRelayTrigger(session: InteractionSession, element: Element): void {
   (session as SessionRecord).namedTrigger = element;
+}
+
+// DRW-DIS-02; ADR 04 Amendments 2026-11-18, decision 21 (a): granted to session D (M6 track 8b), chosen by the user.
+/**
+ * Opens or closes a session's outside-press gate: while it is closed, no outside press dismisses the popup. The Drawer
+ * SwipeArea closes it synchronously from its gesture start and reopens it from its guard (useDialogRoot.ts:43-45,
+ * `outsidePressEnabledRef`).
+ * @param session The session.
+ * @param enabled Whether an outside press may dismiss; a new session's gate is open.
+ */
+export function setOutsidePressGate(session: InteractionSession, enabled: boolean): void {
+  (session as SessionRecord).outsidePressEnabled = enabled;
 }
 
 /**
@@ -1635,6 +1650,10 @@ function closeOnEscapeKeyDown(record: SessionRecord, event: KeyboardEvent): void
 // Dialog's `outsidePress` function (dialog/root/useDialogRoot.ts:43-80) as data: each predicate set narrows the presses
 // that dismiss; with none set every press passes, as without a function.
 function passesOutsidePressGuard(record: SessionRecord, event: MouseEvent | PointerEvent | TouchEvent): boolean {
+  // The gate comes first, as `outsidePressEnabledRef` does (useDialogRoot.ts:43-45).
+  if (!record.outsidePressEnabled) {
+    return false;
+  }
   const options = dismissState(record).options;
   if (options === null) {
     return true;
