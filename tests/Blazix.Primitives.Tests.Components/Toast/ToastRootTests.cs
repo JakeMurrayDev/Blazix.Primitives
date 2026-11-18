@@ -204,5 +204,49 @@ public sealed class ToastRootTests : IDisposable
         Assert.Equal("plain", cut.Find("h2").TextContent);
     }
 
+    [Fact(DisplayName = "port: the root's state carries the swipe fields, at rest unset, and C# renders neither swipe attribute")]
+    [Trait("Requirement", "TST-STA-26")]
+    [Trait("Requirement", "TST-DOM-06")]
+    public void The_roots_state_carries_the_swipe_fields_at_rest_unset_and_CSharp_renders_neither_swipe_attribute()
+    {
+        List<ToastRootState> states = [];
+        IRenderedComponent<ToastProvider<NoPayload>> cut = test.Context.Render<ToastProvider<NoPayload>>(p => p.AddChildContent<ToastViewport<NoPayload>>(v => v
+            .AddChildContent<ToastRoot<NoPayload>>(r => r
+                .Add(x => x.Toast, new ToastObject { Id = "a", Title = "a" })
+                .Add(x => x.ClassValue, state =>
+                {
+                    states.Add(state);
+                    return "root";
+                }))));
+
+        ToastRootState state = Assert.Single(states.Distinct());
+        Assert.False(state.Swiping);
+        Assert.Null(state.SwipeDirection);
+        IElement root = cut.Find(".root");
+        Assert.False(root.HasAttribute("data-swiping"));
+        Assert.False(root.HasAttribute("data-swipe-direction"));
+    }
+
+    [Fact(DisplayName = "port: the swipe directions default to down then right, keep the order given, and an anchored toast has none")]
+    [Trait("Requirement", "TST-API-14")]
+    [Trait("Requirement", "TST-PTR-22")]
+    [Trait("Requirement", "TST-I18N-01")]
+    public void The_swipe_directions_default_to_down_then_right_keep_the_order_given_and_an_anchored_toast_has_none()
+    {
+        ToastRoot<NoPayload> RenderRoot(ToastObject toast, IReadOnlyList<SwipeDirection>? directions)
+        {
+            IRenderedComponent<ToastProvider<NoPayload>> cut = test.Context.Render<ToastProvider<NoPayload>>(p => p.AddChildContent<ToastViewport<NoPayload>>(v => v
+                .AddChildContent<ToastRoot<NoPayload>>(r => r.Add(x => x.Toast, toast).Add(x => x.SwipeDirections, directions))));
+            return cut.FindComponent<ToastRoot<NoPayload>>().Instance;
+        }
+
+        Assert.Equal([SwipeDirection.Down, SwipeDirection.Right], RenderRoot(new ToastObject { Id = "a" }, null).EffectiveSwipeDirections);
+        Assert.Equal([SwipeDirection.Left, SwipeDirection.Up], RenderRoot(new ToastObject { Id = "b" }, [SwipeDirection.Left, SwipeDirection.Up]).EffectiveSwipeDirections);
+
+        // An anchor set even to none disables swiping.
+        Assert.Empty(RenderRoot(new ToastObject { Id = "c", Positioner = new ToastPositionerSettings { Anchor = null } }, null).EffectiveSwipeDirections);
+        Assert.Equal([SwipeDirection.Down, SwipeDirection.Right], RenderRoot(new ToastObject { Id = "d", Positioner = new ToastPositionerSettings { Side = Side.Top } }, null).EffectiveSwipeDirections);
+    }
+
     private static Microsoft.AspNetCore.Components.RenderFragment Text(string text) => builder => builder.AddContent(0, text);
 }
