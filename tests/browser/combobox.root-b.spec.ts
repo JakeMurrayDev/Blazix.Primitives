@@ -1,5 +1,5 @@
 import { type Locator } from '@playwright/test';
-import { expect, isScrollLocked, test, type Page, type RenderMode } from './helpers';
+import { delayCircuit, delayCircuitMessages, expect, isScrollLocked, test, type Page, type RenderMode } from './helpers';
 import { center, gotoCombobox, moveTo, recorded, touchTest, type FixtureOptions } from './combobox.helpers';
 import { settle } from './suites/popupFixture';
 
@@ -486,6 +486,11 @@ test.describe('<Combobox.Root />', () => {
     });
 
     test('keeps the popup input focused through keyboard selection and restores the last selection', async ({ page, mode }) => {
+      // Issue 261: on Server under latency, a key typed right after a filter was lost while the list's registry held the
+      // removed items (a filter recreated every item); the delay keeps that window open on every run.
+      if (mode === 'server') {
+        await delayCircuit(page, 30);
+      }
       await gotoRoot(page, mode, { items: 'apple|apricot|banana', multiple: true, trigger: true, triggerValue: true, popupInput: true });
 
       const trigger = page.getByTestId('trigger');
@@ -799,6 +804,12 @@ test.describe('<Combobox.Root />', () => {
 
   test.describe('prop: autoHighlight', () => {
     test('highlights the first matching item after typing (single mode)', async ({ page, mode }) => {
+      // Issue 261: on Server the open's render can land before the typed query's, and the item it shows is replaced by the
+      // filtered one (a new element with a new id), so its id was read before the query applied (8 of 8 with the input's
+      // report held 600 ms).
+      if (mode === 'server') {
+        await delayCircuitMessages(page, 30, 'OnInputChange', 600);
+      }
       await gotoRoot(page, mode, { items: 'apple|banana|cherry', autoHighlight: true });
 
       const field = page.getByRole('combobox');

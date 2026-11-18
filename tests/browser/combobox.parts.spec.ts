@@ -1,5 +1,5 @@
 import { type Locator } from '@playwright/test';
-import { expect, test, waitForPositioned, type Page, type RenderMode } from './helpers';
+import { expect, holdCircuit, test, waitForPositioned, type Page, type RenderMode } from './helpers';
 import { center, clickThrough, fire, gotoCombobox, moveTo, recorded, touchTest, waitMs, type FixtureOptions } from './combobox.helpers';
 import { pressControl, settle } from './suites/popupFixture';
 
@@ -268,13 +268,18 @@ test.describe('<Combobox.Item />', () => {
 
   // Virtualized items without an explicit `index` resolve it from the filtered values (CMB-API-22, issue 29): the fixture's list
   // renders the filtered items through ItemContent, with `indexed` passing each one's index.
+  // Issue 261: on Server the list's registry update for the filtered items leaves C# after the render batch that filtered
+  // them, so a key typed meanwhile meets the registry of the previous items. The circuit's messages after that batch are
+  // held, for 1 s, while the title presses its keys.
   async function filterVirtualized(page: Page, mode: RenderMode, items: string, indexed: boolean, query: string, gone: string): Promise<Locator> {
+    const hold = await holdCircuit(page, { armOn: (text) => text.includes('OnInputChange'), from: (text) => text.includes('RenderBatch'), holdMatch: false });
     await gotoParts(page, mode, { items, virtualized: true, ...(indexed ? { indexed: true } : {}) });
     const field = page.getByTestId('input');
     await field.click();
     await expect(page.getByRole('listbox')).toBeVisible();
     await center(page.getByRole('listbox'));
 
+    hold.arm();
     await field.pressSequentially(query);
     await expect(option(page, gone)).toHaveCount(0);
     return field;

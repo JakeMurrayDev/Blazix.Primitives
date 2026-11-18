@@ -1,5 +1,5 @@
 import { type Locator } from '@playwright/test';
-import { expect, test, type Page, type RenderMode } from './helpers';
+import { delayCircuit, expect, test, type Page, type RenderMode } from './helpers';
 import { center, fire, gotoCombobox, moveTo, recorded, type FixtureOptions } from './combobox.helpers';
 import { pressControl, settle } from './suites/popupFixture';
 
@@ -564,6 +564,11 @@ test.describe('<Combobox.Root />', () => {
 
   test.describe('prop: highlightItemOnHover', () => {
     test('highlights an item on mouse move by default', async ({ page, mode }) => {
+      // Issue 261: on Server under latency the pointer used to move before the opening render created the item, so `center`
+      // skipped the Positioner's wait and aimed at the unpositioned layout (8 of 8 at 30 ms each way).
+      if (mode === 'server') {
+        await delayCircuit(page, 30);
+      }
       await gotoRoot(page, mode, { items: 'apple|banana|cherry' });
 
       const field = page.getByRole('combobox');
