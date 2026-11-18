@@ -150,6 +150,11 @@ function current(text: string): HTMLElement {
 /** Opens the popup on a trigger as C# renders it: `aria-expanded` and `aria-controls` on the active trigger only, and the session's reference. */
 function activate(rendered: RenderedViewport, index: number): void {
   session.domReferenceElement = rendered.triggers[index] ?? null;
+  activateAttributes(rendered, index);
+}
+
+/** C#'s batch for a new active trigger, before the session's reference follows (issue 176): the triggers' attributes only. */
+function activateAttributes(rendered: RenderedViewport, index: number): void {
   rendered.triggers.forEach((trigger, i) => {
     if (i === index) {
       trigger.setAttribute('data-popup-open', '');
@@ -379,6 +384,7 @@ describe.each([false, true])('the viewport (synchronous: %s)', (synchronous) => 
     const twin = createFakeTwin({ synchronous });
     attachTo(rendered.viewport, openViewport, twin);
 
+    activateAttributes(rendered, 1);
     const next = remount(rendered, 'Two');
     await settle();
     moveReference(rendered.triggers[1]!);
@@ -399,12 +405,17 @@ describe.each([false, true])('the viewport (synchronous: %s)', (synchronous) => 
     expect(twin.reported<PopupViewportReport>(VIEWPORT_REPORT)).toHaveLength(reports);
   });
 
-  it('port: a reference that returns to the old trigger, or moves while closed, starts no morph, and a later move after a remount still does', async () => {
+  it('port: a reference that returns to the old trigger, moves while closed or moves after a same-trigger remount starts no morph, and a later move after a remount still does', async () => {
     const rendered = renderViewport();
     activate(rendered, 0);
     const twin = createFakeTwin({ synchronous });
     const handle = attachTo(rendered.viewport, openViewport, twin);
 
+    // A payload remount on the same trigger keeps nothing: a hand-off's early reference move after it morphs nothing.
+    remount(rendered, 'One again');
+    await settle();
+    moveReference(rendered.triggers[1]!);
+    moveReference(rendered.triggers[0]!);
     // A hand-off whose request C# canceled: the reference moves to the new trigger and falls back, with no remount.
     moveReference(rendered.triggers[1]!);
     moveReference(rendered.triggers[0]!);
@@ -417,12 +428,13 @@ describe.each([false, true])('the viewport (synchronous: %s)', (synchronous) => 
     await settle();
     expect(rendered.viewport.querySelector('[data-previous]')).toBe(null);
 
+    activateAttributes(rendered, 1);
     remount(rendered, 'Two');
     await settle();
     moveReference(rendered.triggers[1]!);
     await settle();
 
-    expect(rendered.viewport.querySelector('[data-previous]')?.textContent).toBe('One');
+    expect(rendered.viewport.querySelector('[data-previous]')?.textContent).toBe('One again');
     expect(rendered.viewport.getAttribute('data-activation-direction')).toBe('right down');
   });
 
