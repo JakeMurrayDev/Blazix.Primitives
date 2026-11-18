@@ -8,7 +8,7 @@
 | Docs page | `docs/src/app/(docs)/react/components/field/page.mdx` |
 | Prefix | `FLD` |
 | Status | implemented |
-| Revised | 2026-11-18 |
+| Revised | 2026-11-19 |
 | Builds on | none |
 | Derived by | [input](input.md) (`Input` is an alias of `Field.Control`, `input/Input.tsx:13-18`) |
 | Depends on | [rendering-and-composition](../architecture/rendering-and-composition.md), [event-details-and-reasons](../architecture/event-details-and-reasons.md), [field-and-form-infrastructure](../architecture/field-and-form-infrastructure.md), [transitions-and-mounting](../architecture/transitions-and-mounting.md), [shared-utilities](../architecture/shared-utilities.md) |
