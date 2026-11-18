@@ -12,6 +12,7 @@ using Blazix.Primitives.Fixtures.Client.CollapsibleFixtures;
 using Blazix.Primitives.Fixtures.Client.ComboboxFixtures;
 using Blazix.Primitives.Fixtures.Client.CompositeFixtures;
 using Blazix.Primitives.Fixtures.Client.DialogFixtures;
+using Blazix.Primitives.Fixtures.Client.DrawerFixtures;
 using Blazix.Primitives.Fixtures.Client.FieldFixtures;
 using Blazix.Primitives.Fixtures.Client.FieldsetFixtures;
 using Blazix.Primitives.Fixtures.Client.FloatingFixtures;
@@ -28,6 +29,7 @@ using Blazix.Primitives.Fixtures.Client.NavigationMenuFixtures;
 using Blazix.Primitives.Fixtures.Client.NumberFieldFixtures;
 using Blazix.Primitives.Fixtures.Client.PopoverFixtures;
 using Blazix.Primitives.Fixtures.Client.SelectFixtures;
+using Blazix.Primitives.Fixtures.Client.SliderFixtures;
 using Blazix.Primitives.Fixtures.Client.PopupFixtures;
 using Blazix.Primitives.Fixtures.Client.PortalFixtures;
 using Blazix.Primitives.Fixtures.Client.PreviewCardFixtures;
@@ -90,6 +92,20 @@ public static class FixtureCatalog
         ["accordion-reattach"] = new(typeof(AccordionReattachFixture)),
         ["accordion-hidden-until-found"] = new(typeof(AccordionHiddenUntilFoundFixture)),
         ["meter-basic"] = new(typeof(MeterBasicFixture)),
+        ["slider-basic"] = new(typeof(SliderBasicFixture)),
+        ["slider-range"] = new(typeof(SliderRangeFixture)),
+        ["slider-thumb-disabled"] = new(typeof(SliderThumbDisabledFixture)),
+        ["slider-vertical"] = new(typeof(SliderVerticalFixture)),
+        ["slider-rtl"] = new(typeof(SliderRtlFixture)),
+        ["slider-inset"] = new(typeof(SliderInsetFixture)),
+        ["slider-disabled"] = new(typeof(SliderDisabledFixture)),
+        ["slider-controlled"] = new(typeof(SliderControlledFixture)),
+        ["slider-field"] = new(typeof(SliderFieldFixture)),
+        ["slider-label"] = new(typeof(SliderLabelFixture)),
+        ["slider-edit-form"] = new(typeof(SliderEditFormFixture)),
+        ["slider-prerender"] = new(typeof(SliderPrerenderFixture), Prerender: true),
+        ["slider-relaxations"] = new(typeof(SliderRelaxationsFixture)),
+        ["slider-config"] = new(typeof(SliderConfigFixture)),
         ["meter-prerender"] = new(typeof(MeterPrerenderFixture), Prerender: true),
         ["number-field-hold"] = new(typeof(NumberFieldHoldFixture)),
         ["progress-basic"] = new(typeof(ProgressBasicFixture)),
@@ -248,6 +264,7 @@ public static class FixtureCatalog
         ["alert-dialog-shared"] = new(typeof(AlertDialogSharedFixture)),
         ["alert-dialog-triggers"] = new(typeof(AlertDialogTriggersFixture)),
         ["alert-dialog-root"] = new(typeof(AlertDialogRootFixture)),
+        ["drawer-popup"] = new(typeof(DrawerPopupFixture)),
         ["tooltip-conformance"] = new(typeof(TooltipConformanceFixture)),
         ["tooltip-triggers"] = new(typeof(TooltipTriggersFixture)),
         ["tooltip-root"] = new(typeof(TooltipRootFixture)),

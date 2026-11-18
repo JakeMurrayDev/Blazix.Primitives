@@ -31,6 +31,21 @@ public sealed class EventSnapshotTests
         Assert.Equal(1234.5, snapshot.TimeStamp);
     }
 
+    // SLD-EVT-04 (design point 6 (a) of M6 track 4, settled by the orchestrator 2026-11-18): the slider's request snapshot
+    // redefines its target as `{ value, name }`, the candidate as JSON text.
+    [Fact(DisplayName = "port: reads a target's value and name, which other snapshots leave null")]
+    [Trait("Requirement", "SLD-EVT-04")]
+    public void Port_reads_a_targets_value_and_name()
+    {
+        EventSnapshot? snapshot = JsonSerializer.Deserialize<EventSnapshot>("""{"kind":"KeyboardEvent","type":"keydown","target":{"id":null,"tagName":null,"value":"[20,50]","name":"volume"}}""");
+        EventSnapshot? plain = JsonSerializer.Deserialize<EventSnapshot>(PointerClickJson);
+
+        Assert.Equal("[20,50]", snapshot!.Target!.Value);
+        Assert.Equal("volume", snapshot.Target.Name);
+        Assert.Null(plain!.Target!.Value);
+        Assert.Null(plain.Target.Name);
+    }
+
     [Fact(DisplayName = "writes the documented property names")]
     [Trait("Requirement", "EVD-API-05")]
     public void Writes_the_documented_property_names()

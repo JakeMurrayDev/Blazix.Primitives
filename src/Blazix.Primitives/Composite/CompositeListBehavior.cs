@@ -268,7 +268,7 @@ internal sealed class CompositeListBehavior : IDisposable
         {
             if (IsFirstWithId(items[i], items[i].Id))
             {
-                registrations[next++] = new CompositeItemRegistration(items[i].Id, null);
+                registrations[next++] = new CompositeItemRegistration(items[i].Id, null) { Index = items[i].ExplicitIndex };
             }
         }
 

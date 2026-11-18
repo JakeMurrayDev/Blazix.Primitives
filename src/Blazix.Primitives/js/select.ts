@@ -331,6 +331,8 @@ function attachPositioner(element: SelectElement, initial: SelectOptions, twinRe
   // before it latched the report re-runs nothing.
   let fellBack = false;
   let placementKey: string | null = null;
+  // Issue 252: the option elements the placement measured.
+  let placedItems: readonly HTMLElement[] = [];
   // Each open is a session of its own: a reopen during the exit places again (SelectPopup.tsx:407-419's `open`).
   let openSession = 0;
   let reportedArrows: { up: boolean; down: boolean } | null = null;
@@ -418,6 +420,7 @@ function attachPositioner(element: SelectElement, initial: SelectOptions, twinRe
     initialPlaced = false;
     reachedMaxHeight = false;
     placementKey = null;
+    placedItems = [];
   };
 
   // SEL-POS-07 (select/popup/SelectPopup.tsx:227-419).
@@ -436,8 +439,16 @@ function attachPositioner(element: SelectElement, initial: SelectOptions, twinRe
     if (initialPlaced && key === placementKey) {
       return;
     }
+    // SEL-POS-09: a re-run within the open starts from cleared heights. Issue 252: the item-map change that cleared them
+    // before this re-run (a text that registers late arrives with the items' registration) no longer does when it reports
+    // the measured items.
+    if (initialPlaced) {
+      positionerLayer.remove('height');
+      popupLayer?.remove('height');
+    }
     placementKey = key;
     initialPlaced = true;
+    placedItems = items();
     popupLayer?.remove('--transform-origin');
     const restoreTransformStyles = unsetTransformStyles(popup);
     try {
@@ -857,7 +868,15 @@ function attachPositioner(element: SelectElement, initial: SelectOptions, twinRe
       const itemsRevision = options.itemsRevision ?? 0;
       if (itemsRevision !== previousItemsRevision) {
         previousItemsRevision = itemsRevision;
-        if (alignedSent && options.open) {
+        // Issue 252: on Server the items' registration arrives a round trip after the placement, as a map change; Base UI's
+        // map changes at mount, before its first pass and the placement, so its clear removes nothing there. A change that
+        // reports the option elements the placement measured keeps the placement; a replacement clears the heights.
+        const current = items();
+        const measured =
+          placedItems.length > 0 &&
+          current.length === placedItems.length &&
+          current.every((item, index) => item === placedItems[index]);
+        if (alignedSent && options.open && !measured) {
           positionerLayer.remove('height');
           popupLayer?.remove('height');
           reportedArrows = null;

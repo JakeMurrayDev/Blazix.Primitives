@@ -15,7 +15,8 @@ public sealed class FieldAllocationBudgetTests : IDisposable
 {
     // First measurement 2026-10-22 (arm64, .NET 11 RC2, Release): 1024 bytes, most of it the report's deserialization (the
     // report, its validity and event snapshot, the value string) and the handler's task.
-    private const long KeystrokeBudgetBytes = 1024;
+    // 2026-11-19 (ADR 16 Amendments 2026-11-19, chosen by the user): +8-16 B, `EventTargetInfo`'s `Value` and `Name` (SLD-EVT-04).
+    private const long KeystrokeBudgetBytes = 1032;
 
     private readonly FieldTestContext host = new();
 

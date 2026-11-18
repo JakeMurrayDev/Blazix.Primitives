@@ -183,6 +183,122 @@ async function nestedPanelMoved(page: Page, testId: string): Promise<void> {
   await expect(page.getByTestId('nested-viewport').getByTestId(testId)).toHaveCount(1);
 }
 
+/**
+ * Delays each of the page's circuit messages by the `extraMs` of the first pattern it matches, sending the rest at once
+ * (issue 241). A binary frame
+ * is split into its SignalR messages (each with its VarInt length prefix) and each is sent as a frame of its own, so a
+ * module report the page flushed in one frame with a matching message still goes first. The matching messages keep their
+ * order among themselves, as do the others. On WebAssembly there is no circuit and nothing matches.
+ */
+async function delayPageMessagesMatching(page: Page, delays: ReadonlyArray<readonly [RegExp, number]>): Promise<void> {
+  const delayOf = (text: string) => delays.find(([pattern]) => pattern.test(text))?.[1] ?? 0;
+  await page.routeWebSocket(/_blazor/, (socket) => {
+    const server = socket.connectToServer();
+    socket.onMessage((frame) => {
+      if (typeof frame === 'string') {
+        setTimeout(() => server.send(frame), delayOf(frame));
+        return;
+      }
+      let offset = 0;
+      while (offset < frame.length) {
+        let length = 0;
+        let shift = 0;
+        let cursor = offset;
+        let byte: number;
+        do {
+          byte = frame[cursor++]!;
+          length |= (byte & 0x7f) << shift;
+          shift += 7;
+        } while (byte & 0x80 && cursor < frame.length);
+        const message = frame.subarray(offset, cursor + length);
+        offset = cursor + length;
+        setTimeout(() => server.send(message), delayOf(message.toString('latin1')));
+      }
+    });
+    server.onMessage((message) => socket.send(message));
+  });
+}
+
+/**
+ * Counts the `inert` attributes C# renders on the nested Viewport into `<html data-inert-renders>` (issue 241): a recorded
+ * marker (ADR 06 §2), because the `navigation-menu` module may lift a stale one in the same task. Call it before the first
+ * navigation.
+ */
+async function recordNestedInertRenders(page: Page): Promise<void> {
+  await page.addInitScript(() => {
+    let renders = 0;
+    new MutationObserver((records) => {
+      for (const record of records) {
+        const element = record.target as Element;
+        if (record.oldValue === null && element.getAttribute('data-testid') === 'nested-viewport') {
+          renders++;
+          document.documentElement.setAttribute('data-inert-renders', String(renders));
+        }
+      }
+    }).observe(document, { subtree: true, attributes: true, attributeFilter: ['inert'], attributeOldValue: true });
+  });
+}
+
+/** Gates on the page's circuit messages (`gatePageMessages`). */
+interface PageMessageGates {
+  /** Sends the messages gate `index` holds, in order, and lets its later matches through. */
+  release(index: number): void;
+  /** Releases every gate, in index order. */
+  releaseAll(): void;
+}
+
+/**
+ * Holds the page's circuit messages that match each pattern until the title releases that gate (issue 241), splitting
+ * binary frames into their SignalR messages as `delayPageMessagesMatching` does; a message takes the first gate it matches,
+ * and the rest flow at once. Every gate is released by the title, never on a timer.
+ */
+async function gatePageMessages(page: Page, patterns: readonly RegExp[]): Promise<PageMessageGates> {
+  const held: Array<Array<string | Buffer>> = patterns.map(() => []);
+  const open = patterns.map(() => false);
+  let send: ((message: string | Buffer) => void) | null = null;
+  await page.routeWebSocket(/_blazor/, (socket) => {
+    const server = socket.connectToServer();
+    send = (message) => server.send(message);
+    const route = (message: string | Buffer) => {
+      const text = typeof message === 'string' ? message : message.toString('latin1');
+      const gate = patterns.findIndex((pattern) => pattern.test(text));
+      if (gate >= 0 && !open[gate]) {
+        held[gate]!.push(message);
+      } else {
+        server.send(message);
+      }
+    };
+    socket.onMessage((frame) => {
+      if (typeof frame === 'string') {
+        route(frame);
+        return;
+      }
+      let offset = 0;
+      while (offset < frame.length) {
+        let length = 0;
+        let shift = 0;
+        let cursor = offset;
+        let byte: number;
+        do {
+          byte = frame[cursor++]!;
+          length |= (byte & 0x7f) << shift;
+          shift += 7;
+        } while (byte & 0x80 && cursor < frame.length);
+        route(frame.subarray(offset, cursor + length));
+        offset = cursor + length;
+      }
+    });
+    server.onMessage((message) => socket.send(message));
+  });
+  const release = (index: number) => {
+    open[index] = true;
+    for (const message of held[index]!.splice(0)) {
+      send?.(message);
+    }
+  };
+  return { release, releaseAll: () => patterns.forEach((_, index) => release(index)) };
+}
+
 /** Base UI's `fireEvent.mouseMove(document, { clientX, clientY })`: a move the safe polygon reads, at a point. */
 async function fireDocumentMove(page: Page, point: { x: number; y: number }): Promise<void> {
   await page.evaluate((at) => {
@@ -1650,12 +1766,9 @@ test.describe('<NavigationMenu.Trigger /> keyboard and focus', () => {
   });
 
   // Gap G2 of the review of PR 168 (PR 184): a Shift+Tab out of an inline nested panel left its Links at tabindex -1.
-  // Quarantined (ADR 11 §4) until 2026-11-26, issue 241: on Server `nested-link-get-started` can stay inactive after the
-  // Tab from its nested trigger (PR 228's run 42885016205, 1 of 160 locally on 2026-11-11, PR 240's run 43063463263).
-  test.fixme('tabs between nested triggers and links without opening inactive panels', {
-    tag: '@quarantine',
-    annotation: { type: 'issue', description: 'https://github.com/JakeMurrayDev/Blazix.Primitives/issues/241' },
-  }, async ({ page, mode }) => {
+  // Issue 241 (fixed 2026-11-19, M6 track 3): on Server a Shift+Tab's stale `inert` render could land after the Trigger's
+  // focus, and the next Tab stopped at the Trigger's guard; the title below holds that order.
+  test('tabs between nested triggers and links without opening inactive panels', async ({ page, mode }) => {
     await gotoMenu(page, mode, { nested: 'tabFlow' });
     await trigger(page, 1).click();
     await expect(content(page, 1)).toBeVisible();
@@ -1677,6 +1790,75 @@ test.describe('<NavigationMenu.Trigger /> keyboard and focus', () => {
     await expect(page.getByTestId('nested-content-design-systems')).toHaveCount(0);
     await page.keyboard.press('Tab');
     await expect(page.getByTestId('nested-trigger-engineering-leads')).toBeFocused();
+  });
+
+  // Issue 241 (M6 track 3; NAV-KEY-16, NAV-STA-09; ADR 04 Amendments 2026-11-18 and 2026-11-19): the Shift+Tab back to a
+  // nested Trigger reports `viewportInert` set (the Viewport's blur), then cleared (the Trigger's focus, before C# has
+  // rendered the set). On Server C# can render the
+  // set after the clear, so the next Tab reaches the Trigger's trailing guard with the Viewport inert. Base UI clears the
+  // state synchronously in the Trigger's onFocus, so its guard never meets an inert Viewport. The clears (the Trigger's C#
+  // onfocus and the module's report) are held until C# has rendered the stale `inert`, which a recorder counts.
+  test('port: tabs into a nested panel after a Shift+Tab whose stale inert render lands after the trigger focus, under circuit latency on Server', async ({ page, mode }) => {
+    // Server only: the race is the circuit's message order, which WebAssembly does not have; red-check counts a title's best
+    // result across projects, so a WebAssembly pass would hide the Server red (CI run 44353313805).
+    test.skip(mode !== 'server', 'No circuit messages to gate on WebAssembly');
+    // The Trigger's C# onfocus and the module's clear both clear the flag; both are held, the Viewport's set is not.
+    await recordNestedInertRenders(page);
+    await delayPageMessagesMatching(page, [[/"eventName":"focus"|\\"inert\\":false/, 400]]);
+    await gotoMenu(page, mode, { nested: 'tabFlow' });
+    await trigger(page, 1).click();
+    await expect(content(page, 1)).toBeVisible();
+    await nestedPanelMoved(page, 'nested-content-developers');
+    const developers = page.getByTestId('nested-trigger-developers');
+    await developers.focus();
+    await expect(developers).toBeFocused();
+    await page.keyboard.press('Tab');
+    await expect(page.getByTestId('nested-link-get-started')).toBeFocused();
+
+    await page.keyboard.press('Shift+Tab');
+    await expect(developers).toBeFocused();
+    await expect(page.locator('html')).toHaveAttribute('data-inert-renders', '1');
+    await page.keyboard.press('Tab');
+
+    await expect(page.getByTestId('nested-link-get-started')).toBeFocused();
+    await page.keyboard.press('Tab');
+    await expect(page.getByTestId('nested-link-composition')).toBeFocused();
+  });
+
+  // Issue 241's second order (M6 track 3): the stale set can also render after the next Tab has entered the panel, and the
+  // Tab after it then leaves the inert Viewport and the menu. The set is held until focus is back in the panel, the clears
+  // (the Trigger's C# onfocus and the module's report) until the end, and a recorder counts the `inert` renders on the
+  // nested Viewport (the module may lift one in the same task).
+  test('port: keeps tabbing inside a nested panel when a stale inert render lands after focus entered it, under circuit latency on Server', async ({ page, mode }) => {
+    // Server only: the race is the circuit's message order, which WebAssembly does not have; red-check counts a title's best
+    // result across projects, so a WebAssembly pass would hide the Server red (CI run 44353313805).
+    test.skip(mode !== 'server', 'No circuit messages to gate on WebAssembly');
+    await recordNestedInertRenders(page);
+    const gates = await gatePageMessages(page, [/\\"inert\\":true/, /"eventName":"focus"|\\"inert\\":false/]);
+    try {
+      await gotoMenu(page, mode, { nested: 'tabFlow' });
+      await trigger(page, 1).click();
+      await expect(content(page, 1)).toBeVisible();
+      await nestedPanelMoved(page, 'nested-content-developers');
+      const developers = page.getByTestId('nested-trigger-developers');
+      await developers.focus();
+      await expect(developers).toBeFocused();
+      await page.keyboard.press('Tab');
+      await expect(page.getByTestId('nested-link-get-started')).toBeFocused();
+      await page.keyboard.press('Shift+Tab');
+      await expect(developers).toBeFocused();
+      await page.keyboard.press('Tab');
+      await expect(page.getByTestId('nested-link-get-started')).toBeFocused();
+      gates.release(0);
+      await expect(page.locator('html')).toHaveAttribute('data-inert-renders', '1');
+
+      await page.keyboard.press('Tab');
+
+      await expect(page.getByTestId('nested-link-composition')).toBeFocused();
+      await expect(content(page, 1)).toBeVisible();
+    } finally {
+      gates.releaseAll();
+    }
   });
 
   // Gap G2 of the review of PR 168 (PR 184): a Shift+Tab out of an inline nested panel left its Links at tabindex -1.

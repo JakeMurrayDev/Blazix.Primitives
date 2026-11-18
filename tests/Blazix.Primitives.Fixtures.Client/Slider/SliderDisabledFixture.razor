@@ -1,0 +1,40 @@
+@namespace Blazix.Primitives.Fixtures.Client.SliderFixtures
+@using Blazix.Primitives
+@inherits SliderFixtureBase
+
+@*
+    The `slider-disabled` fixture (tests/browser/slider.control.spec.ts): one single-thumb slider, DefaultValue from
+    `?value=` (default 0), disabled from the start with `?disabled=1`; the `toggle-disabled` button flips the Root's
+    `Disabled` (SliderRoot.test.tsx's `setProps({ disabled })`). A 100 px Control with a 10 px thumb and an `elsewhere`
+    box below it. Records OnValueChange (`data-changes`) and OnValueCommitted (`data-commits`).
+*@
+<FixtureContainer Name="slider-disabled" data-attached="@(Attached ? "true" : "false")" data-sync="@Sync"
+                  data-changes="@string.Join(" ", Changes)" data-commits="@string.Join(" ", Commits)">
+    <button type="button" data-sync-button @onclick="() => Sync++">Sync</button>
+    <button type="button" data-testid="toggle-disabled" @onclick="() => disabled = !disabled">Toggle</button>
+    <div style="padding: 24px 0">
+        <SliderRoot @ref="Root" DefaultValue="@defaultValue" Disabled="@disabled"
+                    Culture="@System.Globalization.CultureInfo.GetCultureInfo("en-US")"
+                    OnValueChange="RecordChange" OnValueCommitted="RecordCommit" data-testid="root">
+            <SliderControl data-testid="control" style="box-sizing: content-box; width: 100px; height: 10px; position: relative">
+                <SliderTrack data-testid="track" style="position: relative; width: 100%; height: 100%">
+                    <SliderIndicator data-testid="indicator" />
+                    <SliderThumb data-testid="thumb" aria-label="Volume" style="width: 10px; height: 10px; background: red" />
+                </SliderTrack>
+            </SliderControl>
+        </SliderRoot>
+    </div>
+    <div data-testid="elsewhere" style="width: 100px; height: 40px; margin-top: 20px; background: #eee"></div>
+</FixtureContainer>
+
+@code {
+    private double? defaultValue;
+    private bool disabled;
+
+    /// <inheritdoc />
+    protected override void OnInitialized()
+    {
+        defaultValue = double.Parse(Query("value", "0"), System.Globalization.CultureInfo.InvariantCulture);
+        disabled = Query("disabled", "0") == "1";
+    }
+}

@@ -65,6 +65,27 @@ public sealed class DialogStoreTests
         Assert.Equal("AlertDialog", store.ComponentName);
     }
 
+    // DLG-DIS-10's drawer sentence, DRW-STR-01 (M6 track 8a, issue 279; decision 20 (a) of the M6 plan, chosen by the user
+    // 2026-11-18): drawer mode forces nothing, and the family's name in diagnostics is Drawer.
+    [Fact(DisplayName = "port: drawer mode applies the root's modality and pointer dismissal as given, with the dialog role and the Drawer name")]
+    [Trait("Requirement", "DLG-DIS-10")]
+    [Trait("Requirement", "DRW-STR-01")]
+    public void Drawer_mode_forces_nothing()
+    {
+        DialogStore<NoPayload> store = new(DialogMode.Drawer, "popup-1", "token-1", "backdrop-1");
+        Assert.Equal(DialogModality.Modal, store.State.Modality);
+        Assert.False(store.State.DisablePointerDismissal);
+        Assert.Equal("dialog", store.State.Role);
+
+        store.ApplyRootSettings(DialogModality.NonModal, disablePointerDismissal: true, nested: true);
+
+        Assert.Equal(DialogModality.NonModal, store.State.Modality);
+        Assert.True(store.State.DisablePointerDismissal);
+        Assert.Equal("dialog", store.State.Role);
+        Assert.Equal("Drawer", store.ComponentName);
+        Assert.Equal("Drawer", DialogStore<NoPayload>.NameOf(DialogMode.Drawer));
+    }
+
     [Fact(DisplayName = "port: a nested report counts while the dialog is open or mounted, is dropped while it is neither, and resets once closed and unmounted")]
     [Trait("Requirement", "DLG-STA-04")]
     [Trait("Requirement", "DLG-STA-06")]
@@ -85,6 +106,39 @@ public sealed class DialogStoreTests
         await store.UnmountAsync();
         store.ResetNestedIfClosed();
         Assert.Equal(0, store.State.NestedOpenDialogCount);
+    }
+
+    // DLG-STA-01's drawer clause restated at L1 (dialog.md's port note of 2026-10-28), DLG-STA-04/06 over both counts (M6
+    // track 8a, issue 279; decision 20 (a) of the M6 plan, chosen by the user 2026-11-18).
+    [Fact(DisplayName = "port: a new dialog store has no nested drawer, and a nested report stores its drawer count beside the dialog count under the same drop and reset rules")]
+    [Trait("Requirement", "DLG-STA-01")]
+    [Trait("Requirement", "DLG-STA-04")]
+    [Trait("Requirement", "DLG-STA-06")]
+    public async Task A_nested_report_stores_the_drawer_count()
+    {
+        DialogStore<NoPayload> store = new(DialogMode.Dialog, "popup-1", "token-1", "backdrop-1");
+        Assert.Equal(0, store.State.NestedOpenDrawerCount);
+        store.ReportNestedOpen(1, 1);
+        Assert.Equal(0, store.State.NestedOpenDrawerCount);
+
+        await store.RequestOpenAsync(true, new OpenChangeEventDetails(EventReason.ImperativeAction));
+        store.ReportNestedOpen(2, 1);
+        Assert.Equal(2, store.State.NestedOpenDialogCount);
+        Assert.Equal(1, store.State.NestedOpenDrawerCount);
+        Assert.Equal(1, store.NestedOpenDrawerCount);
+
+        // Only the drawer count changes: the report is still written.
+        store.ReportNestedOpen(2, 2);
+        Assert.Equal(2, store.State.NestedOpenDrawerCount);
+
+        await store.RequestOpenAsync(false, new OpenChangeEventDetails(EventReason.ImperativeAction));
+        store.ResetNestedIfClosed();
+        Assert.Equal(2, store.State.NestedOpenDrawerCount);
+
+        await store.UnmountAsync();
+        store.ResetNestedIfClosed();
+        Assert.Equal(0, store.State.NestedOpenDialogCount);
+        Assert.Equal(0, store.State.NestedOpenDrawerCount);
     }
 
     [Fact(DisplayName = "port: OpenWithPayloadAsync is a member of the Dialog family's handle and not of the shared handle")]

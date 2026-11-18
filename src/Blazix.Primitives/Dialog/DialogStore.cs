@@ -67,6 +67,9 @@ internal sealed class DialogStore<TPayload> : PopupStore<DialogStoreState<TPaylo
     public int NestedOpenDialogCount => State.NestedOpenDialogCount;
 
     /// <inheritdoc />
+    public int NestedOpenDrawerCount => State.NestedOpenDrawerCount;
+
+    /// <inheritdoc />
     public DialogModality Modality => State.Modality;
 
     /// <inheritdoc />
@@ -107,8 +110,13 @@ internal sealed class DialogStore<TPayload> : PopupStore<DialogStoreState<TPaylo
 
     /// <summary>Gets the family's name in diagnostics for a mode.</summary>
     /// <param name="mode">The mode.</param>
-    /// <returns><c>Dialog</c> or <c>AlertDialog</c>.</returns>
-    public static string NameOf(DialogMode mode) => mode == DialogMode.AlertDialog ? "AlertDialog" : "Dialog";
+    /// <returns><c>Dialog</c>, <c>AlertDialog</c> or <c>Drawer</c>.</returns>
+    public static string NameOf(DialogMode mode) => mode switch
+    {
+        DialogMode.AlertDialog => "AlertDialog",
+        DialogMode.Drawer => "Drawer",
+        _ => "Dialog",
+    };
 
     // DLG-STA-02, DLG-API-03/06, ADL §3.5: the prop-derived fields, after the mode's overrides.
     /// <summary>Applies the root's modality, pointer dismissal and nesting, after the mode's forced values.</summary>
@@ -158,6 +166,11 @@ internal sealed class DialogStore<TPayload> : PopupStore<DialogStoreState<TPaylo
         if ((fields & DialogFields.NestedOpenDialogCount) != 0)
         {
             subscription.Select(DialogSelectors<TPayload>.NestedOpenDialogCount);
+        }
+
+        if ((fields & DialogFields.NestedOpenDrawerCount) != 0)
+        {
+            subscription.Select(DialogSelectors<TPayload>.NestedOpenDrawerCount);
         }
 
         if ((fields & DialogFields.Modality) != 0)
@@ -232,28 +245,30 @@ internal sealed class DialogStore<TPayload> : PopupStore<DialogStoreState<TPaylo
         new LabelSync(this, description ? DialogStoreState<TPayload>.DescriptionElementIdField : DialogStoreState<TPayload>.TitleElementIdField);
 
     // DLG-STA-04/06 (useDialogRoot.ts:91-99): the last report wins, and a report arriving while this dialog is neither open
-    // nor mounted is dropped, so a handle-backed root closed meanwhile carries no count into its next open.
+    // nor mounted is dropped, so a handle-backed root closed meanwhile carries no count into its next open. The drawer count
+    // follows the same rule (M6 track 8a, issue 279; DLG-STA-01, DRW-STA-18).
     /// <inheritdoc />
-    // The drawer count is Drawer's (M6): reported through the same call, not stored yet.
     public void ReportNestedOpen(int dialogs, int drawers)
     {
-        PopupStoreState<TPayload> popup = State.Popup;
-        if ((!popup.EffectiveOpen && !popup.Mounted) || State.NestedOpenDialogCount == dialogs)
+        DialogStoreState<TPayload> state = State;
+        PopupStoreState<TPayload> popup = state.Popup;
+        if ((!popup.EffectiveOpen && !popup.Mounted) || (state.NestedOpenDialogCount == dialogs && state.NestedOpenDrawerCount == drawers))
         {
             return;
         }
 
-        Write(State with { NestedOpenDialogCount = dialogs });
+        Write(state with { NestedOpenDialogCount = dialogs, NestedOpenDrawerCount = drawers });
     }
 
     // DLG-STA-06 (useDialogRoot.ts:101-106).
-    /// <summary>Resets the nested count once the dialog is closed and unmounted.</summary>
+    /// <summary>Resets the nested counts once the dialog is closed and unmounted.</summary>
     public void ResetNestedIfClosed()
     {
-        PopupStoreState<TPayload> popup = State.Popup;
-        if (!popup.EffectiveOpen && !popup.Mounted && State.NestedOpenDialogCount != 0)
+        DialogStoreState<TPayload> state = State;
+        PopupStoreState<TPayload> popup = state.Popup;
+        if (!popup.EffectiveOpen && !popup.Mounted && (state.NestedOpenDialogCount != 0 || state.NestedOpenDrawerCount != 0))
         {
-            Write(State with { NestedOpenDialogCount = 0 });
+            Write(state with { NestedOpenDialogCount = 0, NestedOpenDrawerCount = 0 });
         }
     }
 

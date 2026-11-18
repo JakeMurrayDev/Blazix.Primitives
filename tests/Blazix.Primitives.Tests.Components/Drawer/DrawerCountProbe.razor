@@ -1,0 +1,32 @@
+@namespace Blazix.Primitives.Tests.Components
+@using System.Globalization
+@implements IDisposable
+@* Reads the nearest dialog-family root's internal context (the port's useDialogRootContext) and renders its nested counts;
+   every change it is notified of hands the drawer count to Recorded (DrawerPopup.test.tsx's MutationObserver). *@
+<div data-testid="@TestId"
+     data-nested-dialogs="@Context!.NestedOpenDialogCount.ToString(CultureInfo.InvariantCulture)"
+     data-nested-drawers="@Context.NestedOpenDrawerCount.ToString(CultureInfo.InvariantCulture)"></div>
+
+@code {
+    private IDisposable? subscription;
+
+    [CascadingParameter]
+    private IDialogRootContext? Context { get; set; }
+
+    [Parameter] public string TestId { get; set; } = "counts";
+
+    [Parameter] public Action<int>? Recorded { get; set; }
+
+    /// <inheritdoc />
+    public void Dispose() => subscription?.Dispose();
+
+    /// <inheritdoc />
+    protected override void OnInitialized() =>
+        subscription = Context!.Subscribe(DialogFields.NestedOpenDialogCount | DialogFields.NestedOpenDrawerCount, Changed);
+
+    private void Changed()
+    {
+        Recorded?.Invoke(Context!.NestedOpenDrawerCount);
+        StateHasChanged();
+    }
+}

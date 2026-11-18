@@ -95,6 +95,29 @@ internal static class OwnershipRegistry
         new("checkbox", "Hidden checkbox input", "indeterminate", Writer.Js),
         new("checkbox", "Indicator", "data-starting-style", Writer.Js, "CheckboxIndicatorState.TransitionStatus"),
         new("checkbox", "Indicator", "data-ending-style", Writer.Js, "CheckboxIndicatorState.TransitionStatus"),
+        // Slider (M6 track 4, issue 275). ADR 04 §2's Slider row (amended 2026-11-18) and Amendments 2026-10-18 (the handover):
+        // C# renders the Thumb's and the Indicator's whole style once, and the `slider` module writes it from the attach, in the
+        // `component-under` band (ADR 04 Amendments 2026-11-18); decision 14 (a) of the M6 plan: the input's value too. No
+        // mirrored field (data-dragging is C#'s, rendered from the gesture report).
+        new("slider", "Indicator", "position", Writer.CsharpToJs),
+        new("slider", "Indicator", "height", Writer.CsharpToJs),
+        new("slider", "Indicator", "width", Writer.CsharpToJs),
+        new("slider", "Indicator", "inset-inline-start", Writer.CsharpToJs),
+        new("slider", "Indicator", "bottom", Writer.CsharpToJs),
+        new("slider", "Indicator", "--start-position", Writer.CsharpToJs),
+        new("slider", "Indicator", "--relative-size", Writer.CsharpToJs),
+        new("slider", "Indicator", "visibility", Writer.CsharpToJs),
+        new("slider", "Thumb", "position", Writer.CsharpToJs),
+        new("slider", "Thumb", "inset-inline-start", Writer.CsharpToJs),
+        new("slider", "Thumb", "bottom", Writer.CsharpToJs),
+        new("slider", "Thumb", "top", Writer.CsharpToJs),
+        new("slider", "Thumb", "left", Writer.CsharpToJs),
+        new("slider", "Thumb", "translate", Writer.CsharpToJs),
+        new("slider", "Thumb", "z-index", Writer.CsharpToJs),
+        new("slider", "Thumb", "--position", Writer.CsharpToJs),
+        new("slider", "Thumb", "visibility", Writer.CsharpToJs),
+        new("slider", "Thumb", "(non-inset, non-finite percent)", Writer.CsharpToJs),
+        new("slider", "input", "value", Writer.CsharpToJs),
         // Tabs (M3 track 5). ADR 04 Amendments 2026-10-22 (the composite row names the items of Tabs): the composite module
         // writes every Tab's roving tabindex from attach; C# renders "-1" (CMP-STA-15) and a consumer tabindex wins.
         new("tabs", "Tab", "tabindex", Writer.CsharpToJs),
@@ -126,6 +149,39 @@ internal static class OwnershipRegistry
         new("alert-dialog", "Popup", "data-starting-style", Writer.Js, "AlertDialogPopupState.TransitionStatus"),
         new("alert-dialog", "Popup", "data-ending-style", Writer.Js, "AlertDialogPopupState.TransitionStatus"),
         new("alert-dialog", "ARIA", "aria-hidden", Writer.Js),
+        // Drawer (M6 track 8a, issue 279; ADR 04 Amendments 2026-10-29's lint over drawer.md §3's part-headed tables and ADR 04
+        // Amendments 2026-11-18, the bands and the §2 exception): the transitions module writes the Backdrop's, the
+        // Viewport's and the Popup's transition attributes, mirrored in each state's TransitionStatus; the `drawer` module
+        // (8b) writes data-swiping (mirrored on the Popup and on the SwipeArea; none on the Backdrop),
+        // data-swipe-dismiss and the gesture variables; the C# → JS cells are rendered by C# until the module takes the
+        // element. `--nested-drawers` and `--drawer-frontmost-height` are C#'s in the commit path with JavaScript's later
+        // changes above them (the dated §2 exception, decision 21 (a)). The lint reads `--drawer-swipe-movement-x` / `-y`
+        // as one name.
+        new("drawer", "Indent", "--drawer-swipe-progress", Writer.CsharpToJs),
+        new("drawer", "Indent", "--drawer-height", Writer.Js),
+        new("drawer", "SwipeArea", "data-swiping", Writer.Js, "DrawerSwipeAreaState.Swiping"),
+        new("drawer", "Backdrop", "pointer-events", Writer.CsharpToJs),
+        new("drawer", "Backdrop", "data-starting-style", Writer.Js, "DrawerBackdropState.TransitionStatus"),
+        new("drawer", "Backdrop", "data-ending-style", Writer.Js, "DrawerBackdropState.TransitionStatus"),
+        new("drawer", "Backdrop", "data-swiping", Writer.Js),
+        new("drawer", "Backdrop", "data-swipe-dismiss", Writer.Js),
+        new("drawer", "Backdrop", "--drawer-swipe-progress", Writer.CsharpToJs),
+        new("drawer", "Backdrop", "--drawer-swipe-strength", Writer.CsharpToJs),
+        new("drawer", "Backdrop", "--drawer-height", Writer.Js),
+        new("drawer", "Viewport", "data-starting-style", Writer.Js, "DrawerViewportState.TransitionStatus"),
+        new("drawer", "Viewport", "data-ending-style", Writer.Js, "DrawerViewportState.TransitionStatus"),
+        new("drawer", "Viewport", "--drawer-keyboard-inset", Writer.Js),
+        new("drawer", "Popup", "data-starting-style", Writer.Js, "DrawerPopupState.TransitionStatus"),
+        new("drawer", "Popup", "data-ending-style", Writer.Js, "DrawerPopupState.TransitionStatus"),
+        new("drawer", "Popup", "data-swiping", Writer.Js, "DrawerPopupState.Swiping"),
+        new("drawer", "Popup", "data-swipe-dismiss", Writer.Js),
+        new("drawer", "Popup", "--nested-drawers", Writer.CsharpToJs),
+        new("drawer", "Popup", "--drawer-height", Writer.Js),
+        new("drawer", "Popup", "--drawer-frontmost-height", Writer.CsharpToJs),
+        new("drawer", "Popup", "--drawer-snap-point-offset", Writer.CsharpToJs),
+        new("drawer", "Popup", "--drawer-swipe-movement-x", Writer.Js),
+        new("drawer", "Popup", "--drawer-swipe-strength", Writer.Js),
+        new("drawer", "Popup", "--drawer-swipe-progress", Writer.Js),
         // Dialog (M4 track 8; ADR 04 §2 and Amendments 2026-10-27): the transitions module writes the Backdrop's, the
         // Viewport's and the Popup's transition attributes, mirrored in each state's TransitionStatus; C# renders the
         // initial status under the handover. `--nested-dialogs` is C#'s, written in the commit path (no entry).

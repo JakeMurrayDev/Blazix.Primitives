@@ -1,0 +1,45 @@
+@namespace Blazix.Primitives.Fixtures.Client.SliderFixtures
+@using System.ComponentModel.DataAnnotations
+@using Blazix.Primitives
+@inherits SliderFixtureBase
+
+@*
+    The `slider-edit-form` fixture (tests/browser/slider.field.spec.ts, `@verifies ADR-05/5`): Blazor's EditForm with
+    DataAnnotationsValidator and ValidationMessage over a FieldRoot and a SliderRoot bound with @bind-Value to a volume of
+    60 that must be at most 50. The slider notifies the EditContext of each committed change, takes the property's name,
+    and the field shows the validator's messages as its invalid state (ADR 05 Amendments 2026-10-22, Amendments 2026-11-18
+    item 2). Submissions are counted as data-valid-submits and data-invalid-submits.
+*@
+<FixtureContainer Name="slider-edit-form" data-attached="@(Attached ? "true" : "false")" data-sync="@Sync"
+                  data-valid-submits="@validSubmits" data-invalid-submits="@invalidSubmits">
+    <button type="button" data-sync-button @onclick="() => Sync++">Sync</button>
+
+    <EditForm Model="model" OnValidSubmit="() => validSubmits++" OnInvalidSubmit="() => invalidSubmits++">
+        <DataAnnotationsValidator />
+        <FieldRoot data-testid="field">
+            <SliderRoot @ref="Root" @bind-Value="model.Volume" Culture="@System.Globalization.CultureInfo.GetCultureInfo("en-US")"
+                        data-testid="root">
+                <SliderControl data-testid="control" style="width: 100px; height: 10px; position: relative">
+                    <SliderTrack data-testid="track" style="width: 100%; height: 100%">
+                        <SliderThumb data-testid="thumb-0" aria-label="Volume" style="width: 10px; height: 10px; background: red" />
+                    </SliderTrack>
+                </SliderControl>
+            </SliderRoot>
+            <FieldError data-testid="error" />
+        </FieldRoot>
+        <ValidationMessage For="() => model.Volume" data-testid="message" />
+        <button type="submit">Submit</button>
+    </EditForm>
+</FixtureContainer>
+
+@code {
+    private readonly Settings model = new();
+    private int validSubmits;
+    private int invalidSubmits;
+
+    private sealed class Settings
+    {
+        [Range(0, 50, ErrorMessage = "The volume must be at most 50.")]
+        public double? Volume { get; set; } = 60;
+    }
+}
