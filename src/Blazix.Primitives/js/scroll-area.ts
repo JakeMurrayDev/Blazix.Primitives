@@ -282,8 +282,9 @@ export interface DragInput {
   clientSize: number;
 }
 
+// SCR-PTR-05, SCR-PTR-06, SCR-PTR-13.
 /**
- * Maps a drag move onto a scroll offset (SCR-PTR-05, SCR-PTR-06, SCR-PTR-13).
+ * Maps a drag move onto a scroll offset.
  * @param input The drag's start, the displacement and the boxes.
  * @returns The offset to assign, which the browser clamps; the start offset when the thumb fills the track.
  */
@@ -311,10 +312,11 @@ export interface TrackPressInput {
   horizontalRtl: boolean;
 }
 
+// SCR-PTR-14, SCR-PTR-18; §16 Q8; SCR-PTR-15.
 /**
- * Maps a track press onto the offset that centers the thumb under the pointer (SCR-PTR-14, SCR-PTR-18).
+ * Maps a track press onto the offset that centers the thumb under the pointer.
  * @param input The pointer, the boxes and the direction.
- * @returns The offset to assign, unclamped (§16 Q8), or `null` when the thumb fills the track (SCR-PTR-15).
+ * @returns The offset to assign, unclamped, or `null` when the thumb fills the track.
  */
 export function trackPressScroll(input: TrackPressInput): number | null {
   const click = input.pointer - input.trackStart - input.thumbLength / 2 - input.padding + input.margin / 2;
@@ -340,8 +342,9 @@ export interface WheelInput {
   negativeRange: boolean;
 }
 
+// SCR-PTR-21..24.
 /**
- * Maps a wheel over a scrollbar onto a scroll offset (SCR-PTR-21..24).
+ * Maps a wheel over a scrollbar onto a scroll offset.
  * @param input The offset, the delta and the range.
  * @returns The clamped offset, or `null` when the wheel is not consumed: a zero delta, or the viewport is already at
  * the edge in the delta's direction, so the event chains to the ancestors.
@@ -437,7 +440,8 @@ function registerOverflowVariables(): void {
   }
 }
 
-/** The drag record the two scrollbars share (SCR-STA-21). */
+// SCR-STA-21.
+/** The drag record the two scrollbars share. */
 interface DragState {
   pointerId: number | null;
   startX: number;
@@ -447,7 +451,8 @@ interface DragState {
   orientation: ScrollAreaOrientation;
 }
 
-/** What one root shares with the handles of its parts, kept on the root element (SCR §2). */
+// SCR §2.
+/** What one root shares with the handles of its parts, kept on the root element. */
 interface RootState {
   readonly root: HTMLElement;
   twin: TwinChannel | null;
@@ -460,7 +465,8 @@ interface RootState {
   thumbX: HTMLElement | null;
   thumbY: HTMLElement | null;
   corner: HTMLElement | null;
-  /** SCR-STA-19: set by the first measurement attempt; never reset (§16 Q7). */
+  // SCR-STA-19; §16 Q7.
+  /** Set by the first measurement attempt; never reset. */
   measured: boolean;
   /** The viewport metrics the last measurement read: clientHeight, scrollHeight, clientWidth, scrollWidth. */
   lastMetrics: [number, number, number, number] | null;
@@ -476,14 +482,18 @@ interface RootState {
   reportedScrolling: { x: boolean; y: boolean };
   hovering: boolean;
   reportedHovering: boolean;
-  /** SCR-STA-16. */
+  // SCR-STA-16.
+  /** Whether the last `pointerenter`, `pointermove` or `pointerdown` on the root came from touch. */
   touchModality: boolean;
-  /** SCR-STA-14: starts true, cleared by an interaction on the viewport, restored 100 ms after the last scroll. */
+  // SCR-STA-14.
+  /** Starts true, cleared by an interaction on the viewport, restored 100 ms after the last scroll. */
   programmatic: boolean;
-  /** SCR-STA-11: the position the scrolling flags compare against, updated by user-driven scrolls only (§16 Q4). */
+  // SCR-STA-11; §16 Q4.
+  /** The position the scrolling flags compare against, updated by user-driven scrolls only. */
   scrollPosition: { x: number; y: number };
   drag: DragState;
-  /** SCR-PTR-03: whether a drag disabled the viewport's scroll snapping. */
+  // SCR-PTR-03.
+  /** Whether a drag disabled the viewport's scroll snapping. */
   snapDisabled: boolean;
   measureQueued: boolean;
   /** Runs the measurement now. */
