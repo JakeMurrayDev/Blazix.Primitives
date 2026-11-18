@@ -38,6 +38,9 @@ internal readonly struct RenderInputs<TState>
     public string DefaultTagName { get; init; }
 
     public bool Enabled { get; init; }
+
+    // ADR 02 Amendments 2026-11-18 (Toast DP11, settled by the orchestrator 2026-11-18): the part renders only with content.
+    public bool RequiresContent { get; init; }
 }
 
 // ADR 02 decision 4; RND-ALG-01/02/05/06/07/08; ADR 02 decision 1
@@ -106,6 +109,15 @@ internal static class RenderPipeline
         if (!inputs.Enabled)
         {
             // RND-DOM-25: nothing rendered and no work done; the element handle is released.
+            host.SetElement(null);
+            return;
+        }
+
+        // ADR 02 Amendments 2026-11-18 (Toast DP11, TST-DOM-16, TST-DOM-19; settled by the orchestrator 2026-11-18): a part
+        // that requires content and has none renders nothing, as when it is disabled, unless its substitute element brings
+        // children of its own. A substitute callback is always rendered: only the callback knows what it returns.
+        if (inputs.RequiresContent && inputs.ChildContent is null && inputs.RenderFunction is null && !Pass<TState>.SubstituteHasChildren(state, inputs.Render))
+        {
             host.SetElement(null);
             return;
         }
@@ -222,6 +234,64 @@ internal static class RenderPipeline
                     break;
                 default:
                     throw InvalidRoot($"a {root.FrameType} frame");
+            }
+        }
+
+        // Whether the substitute element's root brings children of its own: an element with a child frame that renders
+        // something, a markup root with inner markup, or a component given its own ChildContent. The substitute is rendered
+        // into the scratch builder here and again by the pass, only for a part that requires content and has none.
+        public static bool SubstituteHasChildren(PartRenderState state, RenderFragment? render)
+        {
+            if (render is null)
+            {
+                return false;
+            }
+
+            RenderTreeBuilder scratch = state.Scratch;
+            scratch.Clear();
+            render(scratch);
+            ArrayRange<RenderTreeFrame> frames = scratch.GetFrames();
+            int rootIndex = FindRoot(frames);
+            ref RenderTreeFrame root = ref frames.Array[rootIndex];
+            switch (root.FrameType)
+            {
+                case RenderTreeFrameType.Element:
+                    int end = rootIndex + root.ElementSubtreeLength;
+                    for (int i = rootIndex + 1; i < end; i += SubtreeLength(in frames.Array[i]))
+                    {
+                        ref RenderTreeFrame frame = ref frames.Array[i];
+                        switch (frame.FrameType)
+                        {
+                            case RenderTreeFrameType.Attribute:
+                            case RenderTreeFrameType.ElementReferenceCapture:
+                            case RenderTreeFrameType.NamedEvent:
+                                break;
+                            case RenderTreeFrameType.Text when string.IsNullOrEmpty(frame.TextContent):
+                            case RenderTreeFrameType.Markup when string.IsNullOrEmpty(frame.MarkupContent):
+                                break;
+                            default:
+                                return true;
+                        }
+                    }
+
+                    return false;
+                case RenderTreeFrameType.Markup:
+                    return !MarkupRootParser.TryParse(root.MarkupContent, out MarkupRootParser.Root parsed, out _) || !string.IsNullOrEmpty(parsed.InnerMarkup);
+                case RenderTreeFrameType.Component:
+                    int componentEnd = rootIndex + root.ComponentSubtreeLength;
+                    for (int i = rootIndex + 1; i < componentEnd; i += SubtreeLength(in frames.Array[i]))
+                    {
+                        ref RenderTreeFrame frame = ref frames.Array[i];
+                        if (frame.FrameType == RenderTreeFrameType.Attribute && string.Equals(frame.AttributeName, "ChildContent", StringComparison.Ordinal))
+                        {
+                            return true;
+                        }
+                    }
+
+                    return false;
+                default:
+                    // Not a root the pass can read: the pass throws its error.
+                    return true;
             }
         }
 

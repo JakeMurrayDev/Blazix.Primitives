@@ -216,7 +216,7 @@ public abstract class PartConformanceTests<TPart> : IDisposable
 
         Assert.Null(ElementOf(cut.Instance));
         Assert.NotNull(instanceFromRef);
-        IElement captured = FindCaptured(cut, instanceFromRef.Value);
+        IElement captured = Options.RendersAgainOnMount ? FindRendered(cut, instanceFromRef.Value) : FindCaptured(cut, instanceFromRef.Value);
         Assert.Equal(Options.TestRenderPropWith, captured.TagName, ignoreCase: true);
         Assert.Equal("wrapped", captured.GetAttribute("data-testid"));
     }
@@ -241,7 +241,7 @@ public abstract class PartConformanceTests<TPart> : IDisposable
 
         ElementReference? refA = ElementOf(cut.Instance);
         Assert.NotNull(refA);
-        IElement a = FindCaptured(cut, refA.Value);
+        IElement a = Options.RendersAgainOnMount ? FindRendered(cut, refA.Value) : FindCaptured(cut, refA.Value);
         Assert.Equal(Options.TestRenderPropWith, a.TagName, ignoreCase: true);
         Assert.Equal("wrapped", a.GetAttribute("data-testid"));
         // ADR 06 §1: non-null capture for RND-DOM-45. bUnit's markup carries only the first capture of an element
@@ -375,6 +375,14 @@ public abstract class PartConformanceTests<TPart> : IDisposable
     protected static IElement FindCaptured(IRenderedComponent<TPart> cut, ElementReference element)
     {
         return cut.Find($"[blazor\\:elementreference='{element.Id}']");
+    }
+
+    // ADR 06 Amendments 2026-11-18 (RendersAgainOnMount): bUnit's markup carries the first render's capture id, so the
+    // element is found by its test id, and the capture is asserted to have been made.
+    private static IElement FindRendered(IRenderedComponent<TPart> cut, ElementReference element)
+    {
+        Assert.False(string.IsNullOrEmpty(element.Id));
+        return cut.Find("[data-testid=wrapped]");
     }
 
     private void AddNativeButton(ComponentParameterCollectionBuilder<TPart> p)
