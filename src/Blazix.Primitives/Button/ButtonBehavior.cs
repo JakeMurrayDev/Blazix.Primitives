@@ -401,7 +401,7 @@ internal sealed class ButtonBehavior : IDisposable
 
         bool pending = repeater.DecidedPointerDown;
         repeater.DecidedPointerDown = false;
-        return !repeater.ConsumerPointerDown.IsHandler || Disabled || pending ? Task.CompletedTask : repeater.ConsumerPointerDown.InvokeAsync(e);
+        return !repeater.ConsumerPointerDown.IsHandler || Disabled || pending ? Task.CompletedTask : RunLatePointerDownAsync(repeater, e);
     }
 
     // NUM-PTR-03, UBT-PTR-06/07; issue 277 deliverable 3 (iii): a tick that applied nothing stops the repeat.
@@ -597,6 +597,17 @@ internal sealed class ButtonBehavior : IDisposable
         }
 
         repeater.Ticked(tick.Event);
+    }
+
+    // NUM-PTR-02 under ADR 01's consumer-veto row: a press no decision asked about (Server) has started its hold before the
+    // consumer's onpointerdown runs here, so a PreventPartHandler() stops the sequence when it arrives, as a boundary does.
+    private async Task RunLatePointerDownAsync(ButtonHold repeater, PointerEventArgs e)
+    {
+        await repeater.ConsumerPointerDown.InvokeAsync(e).ConfigureAwait(true);
+        if (e.PartHandlerPrevented())
+        {
+            await StopHoldAsync().ConfigureAwait(true);
+        }
     }
 
     // The `hold-start` decision, on WebAssembly only: the consumer's declined onpointerdown runs here, before the press
