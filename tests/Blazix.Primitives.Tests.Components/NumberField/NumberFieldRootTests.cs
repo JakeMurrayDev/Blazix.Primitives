@@ -560,6 +560,41 @@ public sealed class NumberFieldRootTests : IDisposable
         Assert.Equal("""{"value":"1,235.5","revision":3}""", test.NumberFieldOptions[^1]);
     }
 
+    // NUM-PTR-02, ADR 01's C#-origin veto row; design point 1 (a): on WebAssembly a consumer's onpointerdown runs inside the
+    // hold-start decision, where PreventPartHandler() keeps the press from acting, and Blazor's dispatch of the same press does
+    // not run it again; on Server it runs from the part's own handler.
+    [Fact(DisplayName = "port: a consumer onpointerdown that prevents the part's handler at hold-start vetoes the press once")]
+    [Trait("Requirement", "NUM-PTR-02")]
+    [Trait("Requirement", "NUM-API-25")]
+    public async Task A_consumer_onpointerdown_that_prevents_the_parts_handler_at_hold_start_vetoes_the_press_once()
+    {
+        int calls = 0;
+        IRenderedComponent<NumberFieldRoot> cut = test.Context.Render<NumberFieldRoot>(p => p
+            .Add(x => x.Culture, s_enUs)
+            .Add(x => x.DefaultValue, 0)
+            .Add(x => x.ChildContent, (RenderFragment)(b =>
+            {
+                b.OpenComponent<NumberFieldIncrement>(0);
+                b.AddComponentParameter(1, "onpointerdown", EventCallback.Factory.Create<Microsoft.AspNetCore.Components.Web.PointerEventArgs>(this, e =>
+                {
+                    calls++;
+                    e.PreventPartHandler();
+                }));
+                b.CloseComponent();
+            })));
+        Blazix.Primitives.Interop.ButtonTwin twin = test.ButtonTwin(cut.FindComponent<NumberFieldIncrement>().Instance);
+
+        string verdict = await cut.InvokeAsync(() => twin.Decide(Blazix.Primitives.Interop.ButtonTwin.HoldStartPoint, NumberFieldTestContext.EventJson("pointerdown")));
+        await cut.Find("button").TriggerEventAsync("onpointerdown", new Microsoft.AspNetCore.Components.Web.PointerEventArgs { Type = "pointerdown" });
+
+        Assert.Equal("stop", verdict);
+        Assert.Equal(1, calls);
+
+        // A press no decision asked about (Server) still runs the consumer's handler, from the part's own.
+        await cut.Find("button").TriggerEventAsync("onpointerdown", new Microsoft.AspNetCore.Components.Web.PointerEventArgs { Type = "pointerdown" });
+        Assert.Equal(2, calls);
+    }
+
     private static RenderFragment Parts => builder =>
     {
         builder.OpenComponent<NumberFieldGroup>(0);
