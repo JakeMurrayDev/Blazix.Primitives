@@ -54,6 +54,21 @@ The fixture components and the harness services, in a Blazor WebAssembly project
   - `positioning-lifecycle`: `kept-mounted`, `arrow`, `arrow-edge`, `scroll`, `anchor-element` (an anchor and a boundary passed as element references after the first render) and `portaled` (the positioner inside `FixturePortal`);
   - `positioning-prerender` (prerendered).
   The host keeps the browser's 8px body margin, so each anchor is `position: fixed` where Base UI's sits at the viewport origin.
+- `Slider/`: the Slider fixtures (namespace `SliderFixtures`; `tests/browser/slider.root.spec.ts`, `slider.control.spec.ts`, `slider.field.spec.ts`, `slider.relaxations.spec.ts`), M6 track 4 ([issue 275](https://github.com/JakeMurrayDev/Blazix.Primitives/issues/275), 2026-11-19). Every page inherits `SliderFixtureBase`, which renders `data-attached` once the tracked Root's `slider` handle is attached, and also a tracked `SliderLabel`'s and `Form`'s `form` handles where the page has them; it records `OnValueChange`/`OnValuesChange` as `data-changes` (`value:reason:activeThumbIndex`) and `OnValueCommitted`/`OnValuesCommitted` as `data-commits` (`value:reason`), reads the page's query, and counts the sync button. Unless a line says otherwise, the Control is 100 px along the axis with 10 px thumbs, `thumb-0`.. in range mode. The pages:
+  - `slider-basic`: one single-thumb slider, `DefaultValue` 25 (or `?value=`), with a Value part;
+  - `slider-range`: one range slider, `?values=` (default `20,40`), `?collision=`, `?minSteps=` and `?thumbs=`, with an `after` button and an `elsewhere` box;
+  - `slider-thumb-disabled`: a range slider at 20 and 80 whose second thumb is disabled by its own `Disabled`, with `?collision=`;
+  - `slider-vertical`: a vertical slider (`?value=`, default 50) whose Control has unequal padding and a border, so SLD-PTR-04's offsets are not symmetric;
+  - `slider-rtl`: the same asymmetric Control, horizontal, inside `dir="rtl"` and a right-to-left `DirectionProvider` (`?value=`, default 30);
+  - `slider-inset`: an inset slider, `?alignment=` (`edge` or `edge-client-only`), `?orientation=`, `?thumb=` (the thumb's length) and `?values=`; with `?hidden=1` it starts in a `display: none` box that the `show` button reveals;
+  - `slider-disabled`: a single-thumb slider, `?value=` and `?disabled=1`, with a `toggle-disabled` button that flips the Root's `Disabled`;
+  - `slider-controlled`: a controlled range slider, `?values=` (default `10,20,30`), following `OnValuesChange` only with `?follow=1`; the `shrink` and `grow` buttons change the value count mid-drag;
+  - `slider-field`: a slider inside a `FieldRoot` for the SLD-FRM, FOC-04/06/07 and EDGE-10 titles; the query picks the value, the validation mode, a validator that records its calls as `data-validations`, the name, a format, a surrounding `Form`, a `SliderLabel` and extra Control children, and toggles disable or unmount the first thumb;
+  - `slider-label`: a slider outside a Field with a `SliderLabel`, each thumb's consumer `onfocus`/`onblur` recorded as `data-focus-log`, with a `disabled` toggle;
+  - `slider-edit-form`: Blazor's `EditForm` with `DataAnnotationsValidator` over a `FieldRoot` and a `SliderRoot` bound with `@bind-Value` (for `@verifies ADR-05/5`), its submissions counted as `data-valid-submits` and `data-invalid-submits`;
+  - `slider-prerender` (prerendered): a centre-mode single and a range root, each with a `SliderLabel`, a Value and an Indicator, for the "server-side rendering" titles and SLD-ARIA-12;
+  - `slider-relaxations`: ADR 01's Slider rows (ADR 01 Amendments 2026-11-19): a single-thumb slider whose query adds a C# `PreventPartHandler()` on the Control's `onpointerdown` (`data-pointer-vetoes`) or the thumb's `onkeydown` (`data-key-vetoes`), a `Cancel()`, a controlled value or a `FieldRoot`; the buttons change one `update`-carried value each (Min, Max, Step, Disabled, Orientation, the direction, the controlled Value);
+  - `slider-config`: one slider whose Root props all come from the query, for the titles that each render their own props, with `cancelAbove=`, a recorded and optionally preventing consumer `onkeydown` (`data-keys`), and a Control that drops its element (`dropref=1`).
 - `Prerender/`, `Allocation/`, `KeepAlive/`: the fixtures of the M0 verification items (ADR-02/1, ADR-06/1, ADR-05/3, ADR-06/2).
 
 ## Outputs
