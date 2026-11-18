@@ -8,7 +8,7 @@
 | Docs page | `docs/src/app/(docs)/react/components/menu/page.mdx` |
 | Prefix | `MNU` |
 | Status | approved |
-| Revised | 2026-11-12 |
+| Revised | 2026-11-19 |
 | Builds on | none |
 | Derived by | [context-menu](context-menu.md), [menubar](menubar.md) |
 | Depends on | [rendering-and-composition](../architecture/rendering-and-composition.md), [event-details-and-reasons](../architecture/event-details-and-reasons.md), [button-behavior](../architecture/button-behavior.md), [composite-and-list-navigation](../architecture/composite-and-list-navigation.md), [floating-and-positioning](../architecture/floating-and-positioning.md), [popup-store-and-handles](../architecture/popup-store-and-handles.md), [transitions-and-mounting](../architecture/transitions-and-mounting.md), [shared-utilities](../architecture/shared-utilities.md) |
@@ -1643,6 +1643,7 @@ Not applicable — Menu has no form value, renders no hidden input, does not par
 - MNU-KEY-11 — "C#-origin consumer vetoes" row, the list handle's `leave` point (added 2026-11-04, M5 track 6): on Server a canceled Shift+Tab close still moves focus.
 - MNU-PTR-01, MNU-EVT-14 — "C#-origin consumer vetoes" row, the press from the `mousedown` (added 2026-11-04, M5 track 6): the consumer's `onmousedown` runs inside the dispatch on WebAssembly and from the press report on Server.
 - MNU-A11Y-01 — the platform flags row (added 2026-11-04, M5 track 6): until `PlatformFlags` is filled at the first interactive render, the trigger renders as with neither VoiceOver nor macOS.
+- MNU-POS-10 — the Viewport's content morph on a trigger change (added 2026-11-19, M6 track 2, [issue 176](https://github.com/JakeMurrayDev/Blazix.Primitives/issues/176); ADR 04 Amendments 2026-11-19, chosen by the user): the Viewport's `popup` handle attaches from `OnAfterRender`, several one-way legs after the opening render (about 430 ms at 50 ms one-way), and a trigger change whose render and session update land before that attach morphs nothing; a change after the attach morphs on both modes.
 
 ## 10. Positioning
 
@@ -1676,8 +1677,9 @@ Menu delegates to the shared anchored-positioning engine (FLT: `useAnchorPositio
   Source: `menu/positioner/MenuPositioner.tsx:48-51,106-132`; `utils/usePositioner.tsx:24-40`; see FLT-POS-11, FLT-POS-14, FLT-API-09, FLT-DOM-01. Test: [L2] `MenuPositioner.test.tsx` "when keepMounted=true, should keep the content mounted when closed"; positioner conformance suite. (L4 for the anchor-tracking and sticky results)
   Port note (2026-11-05, M5 track 6, [issue 172](https://github.com/JakeMurrayDev/Blazix.Primitives/issues/172); ADR 13 §3; the brief's re-tag rule): "when keepMounted=true, should keep the content mounted when closed" runs at L4: Base UI runs it in a browser only (`skipIf(isJSDOM)`).
   Port note (2026-11-10, M5 track 6, [issue 172](https://github.com/JakeMurrayDev/Blazix.Primitives/issues/172)): green at L4 on both render modes: every [L4] title the row lists, ported by session M2 in `tests/browser/menu*.spec.ts` (its green-row batches of 2026-11-10), passed in this session's run at 63339ea9.
-- **MNU-POS-10** — MUST. When the active trigger changes while open (detached triggers), the popup re-anchors to the new trigger with the trigger-switch transition (`useTriggerSwitchTransition`, PSH-STA-41): the positioner is re-measured, `--anchor-*` variables update, and an inline scale style used for the morph is removed afterwards; the Viewport's `data-activation-direction` reflects the direction from the previous to the new trigger.
+- **MNU-POS-10** — MUST. When the active trigger changes while open (detached triggers), the popup re-anchors to the new trigger with the trigger-switch transition (`useTriggerSwitchTransition`, PSH-STA-41): the positioner is re-measured, `--anchor-*` variables update, and an inline scale style used for the morph is removed afterwards; the Viewport's `data-activation-direction` reflects the direction from the previous to the new trigger. Server: relaxed, see §9.
   Source: `menu/positioner/MenuPositioner.tsx:106-132`; `menu/root/MenuRoot.tsx:285-310`; `menu/viewport/MenuViewport.tsx:17-40`. Test: [L4] detached-triggers suite "reuses the popup DOM nodes when switching triggers", "does not leave an inline scale style on the popup after switching triggers"; viewport conformance suite "sets `data-activation-direction` from the previous to the new trigger", "remounts the `current` container when the active trigger changes".
+  Port note 2026-11-19 (M6 track 2, [issue 176](https://github.com/JakeMurrayDev/Blazix.Primitives/issues/176); ADR 04 Amendments 2026-11-19, chosen by the user; conventions §3.5): the viewport suite switches triggers only after the Viewport handle has attached (`waitForViewportAttached`): on Server a trigger change that completes before the attach morphs nothing, ADR 01's relaxation row of 2026-11-19, which names this row.
 
 ## 11. Cross-cutting dependencies
 
