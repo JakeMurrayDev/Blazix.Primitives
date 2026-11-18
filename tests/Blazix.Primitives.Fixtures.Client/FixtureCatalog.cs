@@ -35,6 +35,7 @@ using Blazix.Primitives.Fixtures.Client.Probe;
 using Blazix.Primitives.Fixtures.Client.ProgressFixtures;
 using Blazix.Primitives.Fixtures.Client.RadioFixtures;
 using Blazix.Primitives.Fixtures.Client.RadioGroupFixtures;
+using Blazix.Primitives.Fixtures.Client.ScrollAreaFixtures;
 using Blazix.Primitives.Fixtures.Client.ScrollLockFixtures;
 using Blazix.Primitives.Fixtures.Client.Separator;
 using Blazix.Primitives.Fixtures.Client.SwitchFixtures;
@@ -355,5 +356,10 @@ public static class FixtureCatalog
         ["autocomplete-root"] = new(typeof(AutocompleteRootL4Fixture)),
         ["autocomplete-prerender"] = new(typeof(AutocompletePrerenderFixture), Prerender: true),
         ["autocomplete-unmount"] = new(typeof(AutocompleteUnmountL4Fixture)),
+        // M6 track 5: ScrollArea (tests/browser/scroll-area*.spec.ts).
+        ["scroll-area-basic"] = new(typeof(ScrollAreaBasicFixture)),
+        ["scroll-area-parts"] = new(typeof(ScrollAreaPartsFixture)),
+        ["scroll-area-relaxations"] = new(typeof(ScrollAreaRelaxationsFixture)),
+        ["scroll-area-prerender"] = new(typeof(ScrollAreaPrerenderFixture), Prerender: true),
     };
 }
