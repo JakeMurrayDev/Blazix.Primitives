@@ -43,9 +43,10 @@ export interface PressAndHoldOptions {
   startDelay?: number | null;
   /** Touch movement in pixels that cancels the hold as a scroll (8 by default). */
   scrollDistance?: number | null;
+  // UBT-PTR-20.
   /**
    * The id of the element a mouse press focuses with the caret at the end before the first tick, as NumberField's steppers
-   * focus their input (UBT-PTR-20); touch and pen presses never focus it.
+   * focus their input; touch and pen presses never focus it.
    */
   focusTarget?: string | null;
   /** A counter C# raises to stop the running repeat after a tick that applied nothing. */
@@ -86,9 +87,10 @@ export const ACTIVATE_POINT = 'activate';
 /** The name of the decision point a click on the bridged hidden input asks C# about. */
 export const TOGGLE_POINT = 'toggle';
 
+// NUM-PTR-02; issue 277 design point 1 (a), the name chosen by the user 2026-11-18.
 /**
- * The name of the decision point a press of a press-and-hold element asks C# about before its first tick (NumberField's
- * steppers, NUM-PTR-02; issue 277 design point 1 (a), the name chosen by the user 2026-11-18). Fallback: run.
+ * The name of the decision point a press of a press-and-hold element asks C# about before its first tick, so a consumer
+ * `onpointerdown` can keep the press from acting (NumberField's steppers). Fallback: run.
  */
 export const HOLD_START_POINT = 'hold-start';
 
