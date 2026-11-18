@@ -1,0 +1,61 @@
+@namespace Blazix.Primitives.Tests.Components
+@using System.Globalization
+@*
+    Test consumers of the Form.test.tsx titles that render NumberField (Form.test.tsx:948, 1044, 1078), opened to M6 by
+    form.md's port notes of 2026-10-23 (FRM-API-03, FRM-API-05, FRM-EVT-03, FRM-EVT-04, FRM-FRM-11).
+*@
+@switch (Scenario)
+{
+    case NumberFieldScenario.Values:
+        <Form OnFormSubmit="FormSubmitted">
+            <FieldRoot Name="username">
+                <FieldControl DefaultValue="alice132" data-testid="username" />
+            </FieldRoot>
+            <FieldRoot Name="quantity">
+                <NumberFieldRoot DefaultValue="5" Culture="s_enUs">
+                    <NumberFieldInput />
+                </NumberFieldRoot>
+            </FieldRoot>
+        </Form>
+        break;
+    case NumberFieldScenario.Validate:
+        <Form @ref="form">
+            <FieldRoot Name="username">
+                <FieldControl DefaultValue="" required data-testid="username" />
+                <FieldError data-testid="error" />
+            </FieldRoot>
+            <FieldRoot Name="quantity" Validate="QuantityValidator">
+                <NumberFieldRoot DefaultValue="5" Culture="s_enUs">
+                    <NumberFieldInput />
+                </NumberFieldRoot>
+                <FieldError data-testid="error" />
+            </FieldRoot>
+        </Form>
+        break;
+}
+
+@code {
+    private static readonly CultureInfo s_enUs = CultureInfo.GetCultureInfo("en-US");
+
+    private Form? form;
+
+    public enum NumberFieldScenario
+    {
+        Values,
+        Validate,
+    }
+
+    [Parameter]
+    public NumberFieldScenario Scenario { get; set; }
+
+    [Parameter]
+    public string QuantityError { get; set; } = "error";
+
+    public List<FormSubmitEventArgs> FormSubmits { get; } = [];
+
+    public Form Form => form!;
+
+    private void FormSubmitted(FormSubmitEventArgs args) => FormSubmits.Add(args);
+
+    private ValueTask<FieldValidationResult?> QuantityValidator(FieldValidationArguments arguments) => new(QuantityError);
+}
