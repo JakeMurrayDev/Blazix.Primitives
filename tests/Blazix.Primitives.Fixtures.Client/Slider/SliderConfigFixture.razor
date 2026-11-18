@@ -1,0 +1,259 @@
+@namespace Blazix.Primitives.Fixtures.Client.SliderFixtures
+@using Blazix.Primitives
+@using Blazix.Primitives.Rendering
+@inherits SliderFixtureBase
+
+@*
+    The `slider-config` fixture (tests/browser/slider.root.spec.ts, slider.control.spec.ts): one slider whose Root props come
+    from the query, for the SliderRoot.test.tsx, SliderThumb.test.tsx, SliderControl.test.tsx and SliderIndicator.test.tsx
+    titles that each render their own props.
+    - The value: `value=` (single DefaultValue, default 50) or `values=` (range DefaultValues, comma-separated); `controlled=1`
+      makes it `Value`/`Values`, following OnValueChange unless `follow=0`; `setA=` and `setB=` are the values the `set-a`
+      and `set-b` buttons give a controlled slider (Base UI's external `setVal`).
+    - The props: `min=`, `max=`, `step=`, `largeStep=`, `minSteps=`, `collision=` (push | swap | none), `orientation=vertical`,
+      `dir=rtl` (a `dir="rtl"` box and a right-to-left DirectionProvider), `alignment=` (center | edge), `name=`,
+      `disabled=1`, `thumbDisabled=` (the indices, comma-separated, of thumbs disabled by their own Disabled).
+    - `cancelAbove=N`: OnValueChange cancels a candidate whose active thumb's value is above N.
+    - `keydown=1`: every thumb's consumer `onkeydown` is recorded as `data-keys` (the keys, space-separated); with
+      `prevent=1` it also calls `PreventPartHandler()`.
+    - `text=1`: a `span` "Track" (`track-text`) inside the Track; `dropref=1`: the Control is a RenderFunction substitute that
+      renders the attributes on a `div` and drops the element (SliderControl.test.tsx's `ref={null}`); `mounted` button:
+      unmounts the Root.
+    The Control is 100 px along the axis and 10 px across (no padding or border), its Track fills it, thumbs are 10 × 10 px
+    `thumb-0`.. with Index (range) and aria-label "Thumb i", the Indicator is `indicator`. The `after` button and the
+    `elsewhere` box follow the slider. Records OnValueChange (`data-changes`) and OnValueCommitted (`data-commits`).
+*@
+<FixtureContainer Name="slider-config" data-attached="@(Attached ? "true" : "false")" data-sync="@Sync"
+                  data-changes="@string.Join(" ", Changes)" data-commits="@string.Join(" ", Commits)"
+                  data-keys="@string.Join(" ", keys)">
+    <button type="button" data-sync-button @onclick="() => Sync++">Sync</button>
+    <div dir="@(rtl ? "rtl" : "ltr")" style="width: 300px; padding: 24px 0">
+        <DirectionProvider Direction="@(rtl ? TextDirection.Rtl : TextDirection.Ltr)">
+            @if (mounted)
+            {
+                @if (defaultValues is null && !controlled)
+                {
+                    <SliderRoot @ref="Root" DefaultValue="@defaultValue" Min="@min" Max="@max" Step="@step" LargeStep="@largeStep"
+                                Orientation="@orientation" ThumbAlignment="@alignment" Name="@name" Disabled="@disabled"
+                                Culture="@Culture" OnValueChange="OnChange" OnValueCommitted="RecordCommit" data-testid="root">
+                        @Parts
+                    </SliderRoot>
+                }
+                else if (defaultValues is null)
+                {
+                    <SliderRoot @ref="Root" Value="@value" Min="@min" Max="@max" Step="@step" LargeStep="@largeStep"
+                                Orientation="@orientation" ThumbAlignment="@alignment" Name="@name" Disabled="@disabled"
+                                Culture="@Culture" OnValueChange="OnChange" OnValueCommitted="RecordCommit" data-testid="root">
+                        @Parts
+                    </SliderRoot>
+                }
+                else if (!controlled)
+                {
+                    <SliderRoot @ref="Root" DefaultValues="@defaultValues" Min="@min" Max="@max" Step="@step" LargeStep="@largeStep"
+                                MinStepsBetweenValues="@minSteps" ThumbCollisionBehavior="@collision" Orientation="@orientation"
+                                ThumbAlignment="@alignment" Name="@name" Disabled="@disabled" Culture="@Culture"
+                                OnValuesChange="OnChanges" OnValuesCommitted="RecordCommits" data-testid="root">
+                        @Parts
+                    </SliderRoot>
+                }
+                else
+                {
+                    <SliderRoot @ref="Root" Values="@values" Min="@min" Max="@max" Step="@step" LargeStep="@largeStep"
+                                MinStepsBetweenValues="@minSteps" ThumbCollisionBehavior="@collision" Orientation="@orientation"
+                                ThumbAlignment="@alignment" Name="@name" Disabled="@disabled" Culture="@Culture"
+                                OnValuesChange="OnChanges" OnValuesCommitted="RecordCommits" data-testid="root">
+                        @Parts
+                    </SliderRoot>
+                }
+            }
+        </DirectionProvider>
+    </div>
+    <button type="button" data-testid="after">After</button>
+    <button type="button" data-testid="set-a" @onclick="() => Set(setA)">set A</button>
+    <button type="button" data-testid="set-b" @onclick="() => Set(setB)">set B</button>
+    <button type="button" data-testid="mounted" @onclick="() => mounted = !mounted">mounted</button>
+    <div data-testid="elsewhere" style="width: 100px; height: 40px; margin-top: 20px; background: #eee"></div>
+</FixtureContainer>
+
+@code {
+    private readonly List<string> keys = [];
+    private double? defaultValue;
+    private double[]? defaultValues;
+    private double value;
+    private IReadOnlyList<double> values = [];
+    private double[] setA = [];
+    private double[] setB = [];
+    private bool controlled;
+    private bool follow;
+    private double min;
+    private double max;
+    private double step;
+    private double largeStep;
+    private double minSteps;
+    private SliderThumbCollisionBehavior collision;
+    private Orientation orientation;
+    private SliderThumbAlignment alignment;
+    private bool rtl;
+    private string? name;
+    private bool disabled;
+    private HashSet<int> thumbDisabled = [];
+    private double? cancelAbove;
+    private bool recordKeys;
+    private bool prevent;
+    private bool text;
+    private bool dropRef;
+    private bool mounted = true;
+
+    private static System.Globalization.CultureInfo Culture => System.Globalization.CultureInfo.GetCultureInfo("en-US");
+
+    private int ThumbCount => defaultValues?.Length ?? 1;
+
+    private bool Vertical => orientation == Orientation.Vertical;
+
+    private string ControlStyle => Vertical
+        ? "box-sizing: content-box; width: 10px; height: 100px; position: relative"
+        : "box-sizing: content-box; width: 100px; height: 10px; position: relative";
+
+    private RenderFragment Parts => __builder =>
+    {
+        if (dropRef)
+        {
+            <SliderControl data-testid="control" style="@ControlStyle">
+                <RenderFunction Context="props">
+                    <div @attributes="props.Attributes">@props.ChildContent</div>
+                </RenderFunction>
+                <ChildContent>@Track</ChildContent>
+            </SliderControl>
+        }
+        else
+        {
+            <SliderControl data-testid="control" style="@ControlStyle">@Track</SliderControl>
+        }
+    };
+
+    private RenderFragment Track => __builder =>
+    {
+        <SliderTrack data-testid="track" style="position: relative; width: 100%; height: 100%">
+            @if (text)
+            {
+                <span data-testid="track-text" style="position: absolute; inset: 0; font-size: 8px; line-height: 10px">Track</span>
+            }
+            <SliderIndicator data-testid="indicator" />
+            @for (int i = 0; i < ThumbCount; i++)
+            {
+                int index = i;
+                if (recordKeys)
+                {
+                    <SliderThumb Index="@(defaultValues is null ? null : index)" Disabled="@thumbDisabled.Contains(index)"
+                                 data-testid="@($"thumb-{index}")" aria-label="@($"Thumb {index}")"
+                                 style="width: 10px; height: 10px; background: red" @onkeydown="OnKeyDown" />
+                }
+                else
+                {
+                    <SliderThumb Index="@(defaultValues is null ? null : index)" Disabled="@thumbDisabled.Contains(index)"
+                                 data-testid="@($"thumb-{index}")" aria-label="@($"Thumb {index}")"
+                                 style="width: 10px; height: 10px; background: red" />
+                }
+            }
+        </SliderTrack>
+    };
+
+    /// <inheritdoc />
+    protected override void OnInitialized()
+    {
+        System.Globalization.CultureInfo invariant = System.Globalization.CultureInfo.InvariantCulture;
+        double[] Numbers(string text) => text.Split(',', StringSplitOptions.RemoveEmptyEntries).Select(t => double.Parse(t, invariant)).ToArray();
+        double Number(string key, double fallback) => Query(key, "") is { Length: > 0 } text ? double.Parse(text, invariant) : fallback;
+
+        string range = Query("values", "");
+        controlled = Query("controlled", "0") == "1";
+        follow = Query("follow", "1") == "1";
+        if (range.Length > 0)
+        {
+            defaultValues = Numbers(range);
+            values = defaultValues;
+        }
+        else
+        {
+            defaultValue = Number("value", 50);
+            value = defaultValue.Value;
+        }
+
+        setA = Numbers(Query("setA", ""));
+        setB = Numbers(Query("setB", ""));
+        min = Number("min", 0);
+        max = Number("max", 100);
+        step = Number("step", 1);
+        largeStep = Number("largeStep", 10);
+        minSteps = Number("minSteps", 0);
+        collision = Query("collision", "push") switch
+        {
+            "swap" => SliderThumbCollisionBehavior.Swap,
+            "none" => SliderThumbCollisionBehavior.None,
+            _ => SliderThumbCollisionBehavior.Push,
+        };
+        orientation = Query("orientation", "horizontal") == "vertical" ? Orientation.Vertical : Orientation.Horizontal;
+        alignment = Query("alignment", "center") == "edge" ? SliderThumbAlignment.Edge : SliderThumbAlignment.Center;
+        rtl = Query("dir", "ltr") == "rtl";
+        name = Query("name", "") is { Length: > 0 } given ? given : null;
+        disabled = Query("disabled", "0") == "1";
+        thumbDisabled = [.. Query("thumbDisabled", "").Split(',', StringSplitOptions.RemoveEmptyEntries).Select(t => int.Parse(t, invariant))];
+        cancelAbove = Query("cancelAbove", "") is { Length: > 0 } limit ? double.Parse(limit, invariant) : null;
+        recordKeys = Query("keydown", "0") == "1";
+        prevent = Query("prevent", "0") == "1";
+        text = Query("text", "0") == "1";
+        dropRef = Query("dropref", "0") == "1";
+    }
+
+    private void OnChange(ValueChangeEventArgs<double> args)
+    {
+        RecordChange(args);
+        if (cancelAbove is { } limit && args.Value > limit)
+        {
+            args.Details.Cancel();
+            return;
+        }
+
+        if (controlled && follow)
+        {
+            value = args.Value;
+        }
+    }
+
+    private void OnChanges(ValueChangeEventArgs<IReadOnlyList<double>> args)
+    {
+        RecordChanges(args);
+        int active = ((SliderChangeEventDetails)args.Details).ActiveThumbIndex;
+        if (cancelAbove is { } limit && active >= 0 && active < args.Value.Count && args.Value[active] > limit)
+        {
+            args.Details.Cancel();
+            return;
+        }
+
+        if (controlled && follow)
+        {
+            values = args.Value;
+        }
+    }
+
+    private void OnKeyDown(Microsoft.AspNetCore.Components.Web.KeyboardEventArgs args)
+    {
+        keys.Add(args.Key);
+        if (prevent)
+        {
+            args.PreventPartHandler();
+        }
+    }
+
+    private void Set(double[] next)
+    {
+        if (defaultValues is null && next.Length > 0)
+        {
+            value = next[0];
+        }
+        else
+        {
+            values = next;
+        }
+    }
+}

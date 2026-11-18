@@ -3,8 +3,11 @@
 // files verbatim (`slider/utils/{roundValueToStep,getSliderValue,getPushedThumbValues,resolveThumbCollision}.test.ts`,
 // 2 + 4 + 6 + 12 titles), then the port titles of SLD-STA-13 and SLD-STA-15, whose Base UI titles drive the algorithms
 // through a rendered slider (`SliderRoot.test.tsx`), and of SLD-STA-17.
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it } from 'vitest';
 import {
+  KEY_POINT,
+  PRESS_POINT,
+  attach,
   getDecimalPrecision,
   getNewValue,
   getPushedThumbValues,
@@ -12,7 +15,10 @@ import {
   resolveThumbCollision,
   roundValueToStep,
   validateMinimumDistance,
+  type SliderOptions,
 } from './slider';
+import type { DecisionPolicy, TwinHandle } from './twin';
+import { createFakeTwin, type FakeTwin } from './test-support/fake-twin';
 
 describe('roundValueToStep', () => {
   it('preserves precision from the step origin', () => {
@@ -280,5 +286,341 @@ describe('resolveThumbCollision', () => {
       thumbIndex: 0,
       didSwap: false,
     });
+  });
+});
+
+// ---------------------------------------------------------------------------------------------------------------
+// The module (port titles): the optimistic move and the revision rule (ADR 04 Amendments 2026-11-18), the bands, the
+// gesture's fixed quirks (SLD §16 Q4, Q6; decision 23), the blur classification (ADR 04 Amendments 2026-10-20), and the
+// two decision points (ADR 04 §3). jsdom has no layout: each element's rect is stubbed.
+// ---------------------------------------------------------------------------------------------------------------
+
+interface Mounted {
+  root: HTMLElement;
+  control: HTMLElement;
+  thumbs: HTMLElement[];
+  inputs: HTMLInputElement[];
+  fake: FakeTwin;
+  handle: TwinHandle;
+  captured: number[];
+  update(overrides: Partial<SliderOptions>): void;
+}
+
+const mountedHandles: TwinHandle[] = [];
+
+afterEach(() => {
+  for (const handle of mountedHandles.splice(0)) {
+    handle.dispose();
+  }
+  document.body.replaceChildren();
+});
+
+function rect(left: number, top: number, width: number, height: number): DOMRect {
+  return { left, top, width, height, right: left + width, bottom: top + height, x: left, y: top, toJSON: () => ({}) } as DOMRect;
+}
+
+function baseOptions(count: number, overrides: Partial<SliderOptions>): SliderOptions {
+  return {
+    values: [25],
+    range: false,
+    min: 0,
+    max: 100,
+    step: 1,
+    largeStep: 10,
+    minStepsBetweenValues: 0,
+    vertical: false,
+    rtl: false,
+    disabled: false,
+    inset: false,
+    collision: 'push',
+    thumbs: Array.from({ length: count }, (_, i) => ({ inputId: `input-${i}`, disabled: false })),
+    controlRef: 0,
+    indicators: [],
+    revision: 0,
+    rollback: false,
+    keyHandlers: false,
+    pressHandler: false,
+    ...overrides,
+  };
+}
+
+// A 100 px control at the origin with 10 px thumbs centred on their values.
+function mount(overrides: Partial<SliderOptions> = {}, twinOptions: { synchronous?: boolean; verdict?: DecisionPolicy } = {}): Mounted {
+  const values = overrides.values ?? [25];
+  const root = document.createElement('div');
+  const control = document.createElement('div');
+  control.getBoundingClientRect = () => rect(0, 0, 100, 10);
+  const captured: number[] = [];
+  (control as unknown as { setPointerCapture(id: number): void }).setPointerCapture = (id: number) => captured.push(id);
+  (control as unknown as { hasPointerCapture(id: number): boolean }).hasPointerCapture = () => false;
+  root.append(control);
+  const thumbs: HTMLElement[] = [];
+  const inputs: HTMLInputElement[] = [];
+  values.forEach((value, i) => {
+    const thumb = document.createElement('div');
+    thumb.getBoundingClientRect = () => rect(value - 5, 0, 10, 10);
+    const input = document.createElement('input');
+    input.type = 'range';
+    input.id = `input-${i}`;
+    input.value = String(value);
+    thumb.append(input);
+    control.append(thumb);
+    thumbs.push(thumb);
+    inputs.push(input);
+  });
+  document.body.append(root);
+  const fake = createFakeTwin(twinOptions);
+  let options = baseOptions(values.length, overrides);
+  const handle = attach(root, JSON.stringify(options), fake.twin, [control]);
+  mountedHandles.push(handle);
+  return {
+    root,
+    control,
+    thumbs,
+    inputs,
+    fake,
+    handle,
+    captured,
+    update(next) {
+      options = { ...options, ...next };
+      handle.update(JSON.stringify(options), [control]);
+    },
+  };
+}
+
+interface Request {
+  reason: string;
+  activeThumbIndex: number;
+  values: number[];
+  revision: number;
+}
+
+function pointer(target: EventTarget, type: string, clientX: number, init: PointerEventInit = {}): PointerEvent {
+  const event = new PointerEvent(type, { bubbles: true, cancelable: true, clientX, clientY: 5, button: 0, buttons: 1, pointerId: 1, pointerType: 'mouse', ...init });
+  target.dispatchEvent(event);
+  return event;
+}
+
+function key(input: HTMLInputElement, keyName: string, init: KeyboardEventInit = {}): KeyboardEvent {
+  const event = new KeyboardEvent('keydown', { key: keyName, bubbles: true, cancelable: true, ...init });
+  input.dispatchEvent(event);
+  return event;
+}
+
+describe('slider module', () => {
+  it('port: a key moves the thumb at once and reports the candidate with a revision', () => {
+    const { thumbs, inputs, fake } = mount();
+
+    const event = key(inputs[0]!, 'ArrowRight');
+
+    expect(event.defaultPrevented).toBe(true);
+    expect(thumbs[0]!.style.getPropertyValue('inset-inline-start')).toBe('26%');
+    expect(inputs[0]!.value).toBe('26');
+    expect(fake.reported<Request>('OnValueRequest')).toMatchObject([{ reason: 'keyboard', activeThumbIndex: 0, values: [26], revision: 1 }]);
+  });
+
+  it('port: an update older than the last act keeps the moved thumb', () => {
+    const { thumbs, inputs, update } = mount();
+    key(inputs[0]!, 'ArrowRight');
+    key(inputs[0]!, 'ArrowRight');
+
+    // C#'s answer to the first act arrives after the second.
+    update({ values: [26], revision: 1 });
+
+    expect(thumbs[0]!.style.getPropertyValue('inset-inline-start')).toBe('27%');
+    expect(inputs[0]!.value).toBe('27');
+
+    update({ values: [27], revision: 2 });
+    expect(thumbs[0]!.style.getPropertyValue('inset-inline-start')).toBe('27%');
+  });
+
+  it('port: a rollback is applied though it is older than the last act', () => {
+    const { thumbs, inputs, update } = mount();
+    key(inputs[0]!, 'ArrowRight');
+    key(inputs[0]!, 'ArrowRight');
+
+    update({ values: [25], revision: 1, rollback: true });
+
+    expect(thumbs[0]!.style.getPropertyValue('inset-inline-start')).toBe('25%');
+    expect(inputs[0]!.value).toBe('25');
+  });
+
+  it('port: writes the thumb position in the component-under band, under the consumer style', () => {
+    const { thumbs, update } = mount();
+
+    update({ thumbs: [{ inputId: 'input-0', disabled: false, style: 'inset-inline-start: 5%; color: red' }] });
+
+    expect(thumbs[0]!.style.getPropertyValue('inset-inline-start')).toBe('5%');
+    expect(thumbs[0]!.style.getPropertyValue('color')).toBe('red');
+    expect(thumbs[0]!.style.getPropertyValue('position')).toBe('absolute');
+    expect(thumbs[0]!.style.getPropertyValue('translate')).toBe('-50% -50%');
+  });
+
+  it('port: a track press applies the value at the press point and reports a gesture', () => {
+    const { control, fake } = mount();
+
+    pointer(control, 'pointerdown', 80);
+
+    expect(fake.reported('OnGesture')).toEqual([{ active: true, dragging: true, commit: false }]);
+    expect(fake.reported<Request>('OnValueRequest')).toMatchObject([{ reason: 'track-press', values: [80] }]);
+  });
+
+  it('port: does not report a move that leaves the candidate unchanged', () => {
+    const { control, fake } = mount();
+    pointer(control, 'pointerdown', 80);
+
+    pointer(document.body, 'pointermove', 80);
+    pointer(document.body, 'pointermove', 90);
+
+    expect(fake.reported<Request>('OnValueRequest').map((r) => r.values[0])).toEqual([80, 90]);
+  });
+
+  // SLD §16 Q4, fixed (decision 23).
+  it('port: captures the pointer whose id is 0', () => {
+    const { control, captured } = mount();
+
+    pointer(control, 'pointerdown', 80, { pointerId: 0 });
+
+    expect(captured).toEqual([0]);
+  });
+
+  // SLD §16 Q6, fixed (decision 23).
+  it('port: a gesture dropped by disabling clears the pressed thumb and its grab offset', () => {
+    const { control, thumbs, fake, update } = mount();
+    pointer(thumbs[0]!, 'pointerdown', 27);
+    expect(fake.reported<Request>('OnValueRequest')).toEqual([]);
+
+    update({ disabled: true });
+    update({ disabled: false });
+    pointer(control, 'pointerdown', 80);
+
+    expect(fake.reported<Request>('OnValueRequest')).toMatchObject([{ reason: 'track-press', values: [80] }]);
+    expect(fake.reported('OnGesture')).toContainEqual({ active: false, dragging: false, commit: false });
+  });
+
+  it('port: a press on a thumb stacked at the maximum drags the lowest thumb of the stack', () => {
+    const { thumbs, fake } = mount({ values: [100, 100], range: true });
+
+    pointer(thumbs[1]!, 'pointerdown', 100);
+    pointer(document.body, 'pointermove', 60);
+
+    expect(fake.reported<Request>('OnValueRequest')).toMatchObject([{ reason: 'drag', activeThumbIndex: 0, values: [60, 100] }]);
+  });
+
+  it('port: a release reports the end of the gesture for C# to commit', () => {
+    const { control, fake } = mount();
+    pointer(control, 'pointerdown', 80);
+
+    pointer(document, 'pointerup', 80);
+
+    expect(fake.reported('OnGesture').at(-1)).toMatchObject({ active: false, dragging: false, commit: true });
+  });
+
+  it('port: a pointer move with no button down ends the gesture', () => {
+    const { control, fake } = mount();
+    pointer(control, 'pointerdown', 80);
+
+    pointer(document.body, 'pointermove', 90, { buttons: 0 });
+
+    expect(fake.reported<Request>('OnValueRequest').map((r) => r.values[0])).toEqual([80]);
+    expect(fake.reported('OnGesture').at(-1)).toMatchObject({ commit: true });
+  });
+
+  it('port: a JavaScript listener that prevents the pointerdown keeps the gesture from starting', () => {
+    const { thumbs, fake } = mount();
+    thumbs[0]!.addEventListener('pointerdown', (event) => event.preventDefault());
+
+    pointer(thumbs[0]!, 'pointerdown', 25);
+
+    expect(fake.reported('OnGesture')).toEqual([]);
+  });
+
+  it('port: the press decision answering stop keeps the gesture from starting', () => {
+    const { control, fake } = mount({ pressHandler: true }, { synchronous: true, verdict: 'stop' });
+
+    pointer(control, 'pointerdown', 80);
+
+    expect(fake.decisions.map((d) => d.point)).toEqual([PRESS_POINT]);
+    expect(fake.reported('OnGesture')).toEqual([]);
+    expect(fake.reported('OnValueRequest')).toEqual([]);
+  });
+
+  it('port: the key decision answering stop leaves the key to the browser', () => {
+    const { inputs, fake } = mount({ keyHandlers: true }, { synchronous: true, verdict: 'stop' });
+
+    const event = key(inputs[0]!, 'ArrowRight');
+
+    expect(fake.decisions.map((d) => d.point)).toEqual([KEY_POINT]);
+    expect(event.defaultPrevented).toBe(false);
+    expect(fake.reported('OnValueRequest')).toEqual([]);
+  });
+
+  it('port: reports each key for the consumer handler where no decision ran inside the dispatch', () => {
+    const { inputs, fake } = mount({ keyHandlers: true });
+
+    key(inputs[0]!, 'Enter');
+    key(inputs[0]!, 'ArrowRight');
+
+    expect(fake.reported<{ index: number }>('OnKeyDown').map((r) => r.index)).toEqual([0, 0]);
+    expect(fake.reported('OnValueRequest')).toHaveLength(1);
+  });
+
+  // SLD-KEY-08: the arrow keys, Home and End stop propagating; Page Up and Page Down do not.
+  it('port: stops the propagation of the arrow, Home and End keys only', () => {
+    const { root, inputs } = mount();
+    const reached: string[] = [];
+    document.body.addEventListener('keydown', (event) => reached.push(event.key));
+
+    key(inputs[0]!, 'ArrowRight');
+    key(inputs[0]!, 'Home');
+    key(inputs[0]!, 'PageUp');
+    key(inputs[0]!, 'Tab');
+
+    expect(reached).toEqual(['PageUp', 'Tab']);
+    expect(root).toBeTruthy();
+  });
+
+  it('port: classifies a thumb blur by its related target', () => {
+    const { inputs, fake } = mount({ values: [20, 50], range: true });
+
+    inputs[0]!.dispatchEvent(new FocusEvent('focusout', { bubbles: true, relatedTarget: inputs[1]! }));
+    inputs[1]!.dispatchEvent(new FocusEvent('focusout', { bubbles: true, relatedTarget: document.body }));
+
+    expect(fake.reported<{ index: number; outside: boolean }>('OnFocusChange').map((r) => [r.index, r.outside])).toEqual([
+      [0, false],
+      [1, true],
+    ]);
+  });
+
+  it('port: Home and End stop at the neighbours of a range thumb', () => {
+    const { inputs, fake } = mount({ values: [20, 50], range: true, minStepsBetweenValues: 5 });
+
+    key(inputs[0]!, 'End');
+    key(inputs[1]!, 'Home');
+
+    expect(fake.reported<Request>('OnValueRequest').map((r) => r.values)).toEqual([
+      [45, 50],
+      [45, 50],
+    ]);
+  });
+
+  // SLD-EVT-04 (design point 6 (a), settled by the orchestrator 2026-11-18): the request's snapshot target is `{ value, name }`.
+  it('port: should pass "name" and "value" as part of the event.target for onValueChange', () => {
+    const { inputs, fake } = mount({ values: [20, 50], range: true });
+    inputs.forEach((input) => (input.name = 'volume'));
+
+    key(inputs[1]!, 'ArrowRight');
+
+    const [request] = fake.reported<{ event: { target: unknown } }>('OnValueRequest');
+    expect(request!.event.target).toEqual({ id: null, tagName: null, value: '[20,51]', name: 'volume' });
+  });
+
+  it('port: a native change of the input is reported as input-change', () => {
+    const { inputs, fake } = mount();
+
+    inputs[0]!.value = '60';
+    inputs[0]!.dispatchEvent(new Event('input', { bubbles: true }));
+
+    expect(fake.reported<Request>('OnValueRequest')).toMatchObject([{ reason: 'input-change', values: [60] }]);
   });
 });

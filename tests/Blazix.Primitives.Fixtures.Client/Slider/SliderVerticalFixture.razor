@@ -1,0 +1,37 @@
+@namespace Blazix.Primitives.Fixtures.Client.SliderFixtures
+@using Blazix.Primitives
+@inherits SliderFixtureBase
+
+@*
+    The `slider-vertical` fixture (tests/browser/slider.control.spec.ts): one vertical single-thumb slider, DefaultValue
+    from `?value=` (default 50). The Control's content box is 10 px wide and 100 px tall, with a 1 px border and unequal
+    padding (3 px at the top, 7 px at the bottom), so SLD-PTR-04's offsets are not symmetric; the Track fills the content
+    box and positions the thumb (10 px wide, 20 px tall), so the thumb's `bottom` percentage is of the 100 px.
+*@
+<FixtureContainer Name="slider-vertical" data-attached="@(Attached ? "true" : "false")" data-sync="@Sync"
+                  data-changes="@string.Join(" ", Changes)" data-commits="@string.Join(" ", Commits)">
+    <button type="button" data-sync-button @onclick="() => Sync++">Sync</button>
+    <div style="padding: 24px 0">
+        <SliderRoot @ref="Root" DefaultValue="@defaultValue" Orientation="Orientation.Vertical"
+                    Culture="@System.Globalization.CultureInfo.GetCultureInfo("en-US")"
+                    OnValueChange="RecordChange" OnValueCommitted="RecordCommit" data-testid="root">
+            <SliderControl data-testid="control"
+                           style="box-sizing: content-box; width: 10px; height: 100px; position: relative; padding: 3px 0 7px; border: 1px solid black">
+                <SliderTrack data-testid="track" style="position: relative; width: 100%; height: 100%">
+                    <SliderIndicator data-testid="indicator" />
+                    <SliderThumb data-testid="thumb" aria-label="Volume" style="width: 10px; height: 20px; background: red" />
+                </SliderTrack>
+            </SliderControl>
+        </SliderRoot>
+    </div>
+</FixtureContainer>
+
+@code {
+    private double? defaultValue;
+
+    /// <inheritdoc />
+    protected override void OnInitialized()
+    {
+        defaultValue = double.Parse(Query("value", "50"), System.Globalization.CultureInfo.InvariantCulture);
+    }
+}
