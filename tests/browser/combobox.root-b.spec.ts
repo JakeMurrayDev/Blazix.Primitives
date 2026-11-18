@@ -1,5 +1,5 @@
 import { type Locator } from '@playwright/test';
-import { delayCircuit, delayCircuitMessages, expect, isScrollLocked, test, type Page, type RenderMode } from './helpers';
+import { delayCircuitMessages, expect, holdCircuit, isScrollLocked, test, type Page, type RenderMode } from './helpers';
 import { center, gotoCombobox, moveTo, recorded, touchTest, type FixtureOptions } from './combobox.helpers';
 import { settle } from './suites/popupFixture';
 
@@ -486,11 +486,11 @@ test.describe('<Combobox.Root />', () => {
     });
 
     test('keeps the popup input focused through keyboard selection and restores the last selection', async ({ page, mode }) => {
-      // Issue 261: on Server under latency, a key typed right after a filter was lost while the list's registry held the
-      // removed items (a filter recreated every item); the delay keeps that window open on every run.
-      if (mode === 'server') {
-        await delayCircuit(page, 30);
-      }
+      // Issue 261: on Server the list's registry update for the filtered items lands a round trip after the batch that
+      // filtered them; an arrow pressed meanwhile highlights the surviving item at its old index, and the update re-indexes
+      // it. The circuit's messages are held from that update (its one filtered item) for 1 s, while the title presses the arrow
+      // and checks it.
+      const hold = await holdCircuit(page, { armOn: (text) => text.includes('OnInputChange') && text.includes('\\"text\\":\\"b\\"'), from: (text) => text.includes('\\u0022items\\u0022:[{') && (text.match(/\\u0022id\\u0022/g) ?? []).length === 1 });
       await gotoRoot(page, mode, { items: 'apple|apricot|banana', multiple: true, trigger: true, triggerValue: true, popupInput: true });
 
       const trigger = page.getByTestId('trigger');
@@ -498,9 +498,12 @@ test.describe('<Combobox.Root />', () => {
 
       const field = input(page);
       await expect(field).toBeVisible();
+      hold.arm();
       await field.pressSequentially('ban');
       await expect(page.getByRole('option')).toHaveCount(1);
       await page.keyboard.press('ArrowDown');
+      await expect(page.getByRole('option', { name: 'banana' })).toHaveAttribute('data-highlighted', '');
+      await hold.released();
       await page.keyboard.press('Enter');
 
       await expect(page.getByRole('dialog')).toBeVisible();

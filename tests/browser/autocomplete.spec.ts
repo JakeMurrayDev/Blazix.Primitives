@@ -1,5 +1,5 @@
 import { type Locator, type Route } from '@playwright/test';
-import { expect, fixtureUrl, gotoFixture, test, type Page, type RenderMode } from './helpers';
+import { expect, fixtureUrl, gotoFixture, holdCircuit, test, type Page, type RenderMode } from './helpers';
 import { center, gotoCombobox, recorded } from './combobox.helpers';
 import { openChangeCompletes, openChanges, pressControl, settle } from './suites/popupFixture';
 
@@ -440,14 +440,21 @@ test.describe('<Autocomplete.Root />', () => {
   });
 
   test('commits a keyboard selection, restores trigger focus, and preserves it on reopen', async ({ page, mode }) => {
+    // Issue 261: on Server the list's registry update for the filtered items lands a round trip after the batch that
+    // filtered them; an arrow pressed meanwhile highlights the surviving item at its old index, and the update re-indexes
+    // it. The circuit's messages are held from that update (its one filtered item) for 1 s, while the title presses the arrow
+    // and checks it.
+    const hold = await holdCircuit(page, { armOn: (text) => text.includes('OnInputChange') && text.includes('\\"text\\":\\"c\\"'), from: (text) => text.includes('\\u0022items\\u0022:[{') && (text.match(/\\u0022id\\u0022/g) ?? []).length === 1 });
     await goto(page, mode, { insidePopup: true });
     const trigger = page.getByTestId('trigger');
     await trigger.click();
     await expect(input(page)).toBeFocused();
+    hold.arm();
     await input(page).pressSequentially('ch');
     await expect(options(page)).toHaveCount(1);
     await input(page).press('ArrowDown');
     await expect(page.getByTestId('item-cherry')).toHaveAttribute('data-highlighted', '');
+    await hold.released();
 
     await input(page).press('Enter');
     await expect(page.getByRole('listbox')).toHaveCount(0);

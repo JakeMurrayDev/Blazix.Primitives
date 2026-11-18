@@ -77,8 +77,9 @@ export async function holdCircuit(
     until?: (text: string) => boolean;
     maxMs?: number;
   },
-): Promise<{ arm: () => void }> {
+): Promise<{ arm: () => void; released: () => Promise<void> }> {
   const maxMs = options.maxMs ?? 1_000;
+  let sent: Promise<void> = Promise.resolve();
   let requested = false;
   let armed = false;
   let release: (() => void) | null = null;
@@ -115,6 +116,7 @@ export async function holdCircuit(
           }
         }
         chain = chain.then(() => wait).then(() => socket.send(message));
+        sent = chain;
       }
     });
   });
@@ -122,6 +124,13 @@ export async function holdCircuit(
     arm: () => {
       requested = true;
       armed = options.armOn === undefined;
+    },
+    // Resolves once the gate has opened and every message held so far has been handed to the page, then lets the page run
+    // the tasks those messages queued (a page task after them).
+    released: async () => {
+      await gate;
+      await sent;
+      await page.evaluate(() => new Promise<void>((resolve) => setTimeout(resolve, 0)));
     },
   };
 }
