@@ -333,6 +333,16 @@ function attachViewport(viewport: HTMLElement, initial: PopupOptions, channel: T
     unsubscribeReference = session?.subscribePositionReference?.(() => onReferenceMove()) ?? null;
   };
   const findTrigger = (): Element | null => session?.domReferenceElement ?? null;
+  // Issue 176: on Server the Viewport's handle can attach after the session's reference has moved to a new trigger whose
+  // content C# has not rendered yet; the trigger the shown content belongs to is the one C# still renders open.
+  const findRenderedTrigger = (): Element | null => {
+    for (const element of session?.triggerElements?.elements() ?? []) {
+      if (element.hasAttribute(POPUP_OPEN)) {
+        return element;
+      }
+    }
+    return findTrigger();
+  };
 
   // usePopupViewport.tsx:122-156: the starting-style choreography, then the previous container leaves once the current
   // container's animations finish. Re-run when the current container remounts mid-transition.
@@ -595,7 +605,7 @@ function attachViewport(viewport: HTMLElement, initial: PopupOptions, channel: T
       const version = options.contentVersion ?? 0;
       if (!attached) {
         attached = true;
-        previousTrigger = options.open ? findTrigger() : null;
+        previousTrigger = options.open ? findRenderedTrigger() : null;
         measure();
         report();
         return;
