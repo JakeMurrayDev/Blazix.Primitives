@@ -14,7 +14,12 @@ internal sealed record ButtonInteraction(string InteractionType, EventSnapshot E
 /// For a tick, the snapshot of the event that started the sequence; for the release, the <c>pointerup</c>; for a
 /// click, the click.
 /// </param>
-internal sealed record ButtonHoldEvent(EventSnapshot Event);
+/// <param name="Start">
+/// For a tick, <see langword="true"/> on the first tick of a sequence (a press or a re-entering mouse); otherwise,
+/// <see langword="false"/>, which the module does not send (NUM-PTR-05; issue 277, decision 16 (a), chosen by the user
+/// 2026-11-18).
+/// </param>
+internal sealed record ButtonHoldEvent(EventSnapshot Event, bool Start = false);
 
 // UBT-EVT-09; SWT-EVT-01/03 (ADR 04 Amendments 2026-10-18 item 1: a module-owned event reaches C# as a report)
 /// <summary>The payload of the hidden-input bridge's toggle report: the input's new value and the click that set it.</summary>

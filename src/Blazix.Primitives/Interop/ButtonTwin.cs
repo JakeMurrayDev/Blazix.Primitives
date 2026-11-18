@@ -26,6 +26,10 @@ internal sealed class ButtonTwin(IJSRuntime jsRuntime)
     /// <summary>Occurs when the module classified a <c>pointerdown</c> or a <c>click</c>, if the options ask for it.</summary>
     public event Action<ButtonInteraction>? InteractionReported;
 
+    // NUM-PTR-05; issue 277, decision 16 (a), chosen by the user 2026-11-18.
+    /// <summary>Occurs when a press-and-hold sequence starts, before its first <see cref="HoldTicked"/>, with the event that started it.</summary>
+    public event Action<EventSnapshot>? HoldStarted;
+
     /// <summary>Occurs on every tick of a press-and-hold sequence, with the event that started it.</summary>
     public event Action<EventSnapshot>? HoldTicked;
 
@@ -77,6 +81,11 @@ internal sealed class ButtonTwin(IJSRuntime jsRuntime)
     public void OnHoldTick(string payloadJson)
     {
         ButtonHoldEvent tick = Deserialize(payloadJson, BlazixJsonContext.Default.ButtonHoldEvent);
+        if (tick.Start)
+        {
+            HoldStarted?.Invoke(tick.Event);
+        }
+
         HoldTicked?.Invoke(tick.Event);
     }
 

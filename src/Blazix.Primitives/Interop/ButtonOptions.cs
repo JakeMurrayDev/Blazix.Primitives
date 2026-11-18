@@ -88,6 +88,18 @@ internal sealed record ButtonOptions : TwinOptions
     /// <value><see langword="true"/> for a part that warns about it; the default <see langword="false"/> is not sent.</value>
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
     public bool DisabledElementCheck { get; init; }
+
+    // UBT-PTR-20, NUM-PTR-02; issue 277 deliverable 3 (ii), decision 16 (a), chosen by the user 2026-11-18.
+    /// <summary>Gets the id of the element a mouse press focuses, with the caret at the end, before the first tick of a hold.</summary>
+    /// <value>The id of NumberField's input, or <see langword="null"/>, the default, which is not sent; touch and pen presses never focus it.</value>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? HoldFocusTarget { get; init; }
+
+    // NUM-PTR-03, UBT-PTR-06/07; issue 277 deliverable 3 (iii), decision 16 (a), chosen by the user 2026-11-18.
+    /// <summary>Gets the counter that stops a running hold sequence when it changes, as a tick that applied nothing does.</summary>
+    /// <value>The number of stops C# requested; the default 0 is not sent. The release is still reported after a stop.</value>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
+    public int HoldStop { get; init; }
 }
 
 // UBT-ALG-07; button-behavior.md §2 (timing constants)
