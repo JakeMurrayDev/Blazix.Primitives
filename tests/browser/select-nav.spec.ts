@@ -503,6 +503,9 @@ test.describe('item-aligned popup interaction', () => {
   // after the aligned placement, as an item-map change, and its height clear undid the placement (Base UI's map changes at
   // mount, before its first pass and the placement). The registration's update is held until the page has placed.
   test('port: keeps the aligned placement when the items register after it, under circuit latency on Server', async ({ page, mode }) => {
+    // Server only: the held message is the circuit's; red-check counts a title's best result across projects, so a
+    // WebAssembly pass would hide the Server red (CI run 44384503026).
+    test.skip(mode !== 'server', 'No circuit message to hold on WebAssembly');
     const hold = await holdCircuit(page, { from: (text) => text.includes('\\u0022itemsRevision\\u0022:1') });
     hold.arm();
     await gotoPopupFixture(page, mode, 'select-nav-aligned', { case: 'edges' });
@@ -511,9 +514,7 @@ test.describe('item-aligned popup interaction', () => {
     await waitForPositioned(positioner);
     const placed = await positioner.evaluate((node) => (node as HTMLElement).style.height);
     expect(placed).not.toBe('');
-    if (mode === 'server') {
-      await hold.release();
-    }
+    await hold.release();
     await expect(option(page, 'Item 15')).toBeFocused();
 
     expect(await positioner.evaluate((node) => (node as HTMLElement).style.height)).toBe(placed);
