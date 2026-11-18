@@ -1424,15 +1424,17 @@ async function recordSwitchTransitions(page: Page): Promise<void> {
 
 const switchTransitions = (page: Page) => page.evaluate(() => (window as unknown as { switchTransitions: Animation[] }).switchTransitions.length);
 
-// Finishes every recorded switch transition still running and waits until each has settled (a replaced one was canceled).
+// Finishes every recorded switch transition still running and waits until each has settled. A canceled one (a second
+// positioning pass replaced it) is skipped: canceling replaces an animation's `finished` promise with a new pending one,
+// which never settles (issue 261).
 const finishSwitchTransitions = (page: Page) => page.evaluate(async () => {
-  const recorded = (window as unknown as { switchTransitions: Animation[] }).switchTransitions;
-  for (const animation of recorded) {
-    if (animation.playState === 'running' || animation.playState === 'paused') {
-      animation.finish();
-    }
+  const running = (window as unknown as { switchTransitions: Animation[] }).switchTransitions.filter(
+    (animation) => animation.playState === 'running' || animation.playState === 'paused',
+  );
+  for (const animation of running) {
+    animation.finish();
   }
-  await Promise.allSettled(recorded.map((animation) => animation.finished));
+  await Promise.allSettled(running.map((animation) => animation.finished));
 });
 
 // PopoverRoot.detached-triggers.test.tsx's multiple detached triggers and multiple triggers within Root, on
