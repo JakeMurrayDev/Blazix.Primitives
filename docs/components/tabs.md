@@ -8,7 +8,7 @@
 | Docs page | `docs/src/app/(docs)/react/components/tabs/page.mdx` |
 | Prefix | `TAB` |
 | Status | implemented |
-| Revised | 2026-10-29 |
+| Revised | 2026-11-18 |
 | Builds on | none |
 | Derived by | none |
 | Depends on | [rendering-and-composition](../architecture/rendering-and-composition.md), [event-details-and-reasons](../architecture/event-details-and-reasons.md), [composite-and-list-navigation](../architecture/composite-and-list-navigation.md), [button-behavior](../architecture/button-behavior.md), [transitions-and-mounting](../architecture/transitions-and-mounting.md), [shared-utilities](../architecture/shared-utilities.md) |
@@ -687,6 +687,7 @@ Roving tabindex is owned by the composite mechanism (CMP-STA-22..30, CMP-DOM-01,
   Source: `internals/composite/root/useCompositeRoot.ts:312-315`. Test: [L4] `TabsRoot.test.tsx` "works inside Popover", "works inside Dialog".
   Port note 2026-10-28 (M4 track 8, [issue 123](https://github.com/JakeMurrayDev/Blazix.Primitives/issues/123)): "works inside Dialog" runs in `tabs.spec.ts` on the `tabs-dialog` fixture, both modes ("works inside Popover" is track 5's, below).
   Port note (2026-10-29, M4 track 5, [issue 125](https://github.com/JakeMurrayDev/Blazix.Primitives/issues/125)): "works inside Popover" runs in `tabs.spec.ts` on the `tabs-popover` fixture, both modes; "works inside Dialog" waits on Dialog (M4 track 8).
+  Correction (2026-11-18, M6 track 0, [issue 261](https://github.com/JakeMurrayDev/Blazix.Primitives/issues/261); the M5 audit): "works inside Dialog" no longer waits: it runs at [L4] in `tests/browser/tabs.spec.ts` on the `tabs-dialog` fixture (`:498` at 124c1dcf).
 - **TAB-FOC-11** — MUST. When a navigation key moves the highlight, the target Tab is scrolled into view inside the List (nearest-edge alignment on the orientation's axis, honoring `scroll-margin`/`scroll-padding`, RTL-aware; CMP-STA-30); focusing by pointer or programmatically does not scroll (the only other scroll is the initial one of TAB-FOC-13).
   Source: `internals/composite/root/useCompositeRoot.ts:101-108,310`; `internals/composite/composite.ts:44-144`; see CMP-ALG-19. Test: none in `tabs/`.
 - **TAB-FOC-12** — MUST. Activation never moves focus by itself: a click focuses the Tab only through the browser's native behavior, a controlled value change does not focus the new Tab, and an automatic fallback does not focus anything.
