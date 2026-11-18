@@ -155,7 +155,8 @@ public sealed class NumberParserTests
         CultureInfo frFr = CultureInfo.GetCultureInfo("fr-FR");
         string fr = NumberFormatter.Get(frFr, null).Format(1234.5);
 
-        Assert.Equal("1 234,5", fr);
+        // The group separator is the host culture's (U+202F in current CLDR, U+00A0 in older versions); Base UI's browser writes U+202F.
+        Assert.Equal($"1{frFr.NumberFormat.NumberGroupSeparator}234,5", fr);
         Assert.Equal(1234.5, NumberParser.Parse(fr, frFr));
         Assert.Equal(-1234.5, NumberParser.Parse(fr + "−", frFr));
     }
@@ -374,7 +375,7 @@ public sealed class NumberParserTests
         string fr = NumberFormatter.Get(frFr, euro).Format(1234.56);
 
         Assert.Equal("€1,234.56", en);
-        Assert.Equal("1 234,56 €", fr);
+        Assert.Equal($"1{frFr.NumberFormat.CurrencyGroupSeparator}234,56\u00A0{frFr.NumberFormat.CurrencySymbol}", fr);
         Assert.Equal(1234.56, NumberParser.Parse(en, s_enUs, euro));
         Assert.Equal(1234.56, NumberParser.Parse(fr, frFr, euro));
     }
