@@ -1,0 +1,54 @@
+@namespace Blazix.Primitives.Tests.Components
+@*
+    The list of Base UI's toast tests (toast/utils/test-utils.tsx `List`, and useToastManager.test.tsx's CustomList): a
+    Provider, a Viewport whose template renders one Root per toast keyed by its id, with Content, Title, Description,
+    Action and Close, and the Provider's parameters a test sets. `RootContent` replaces the Root's children; `Recreate`
+    passes each Root a fresh copy of its toast (ToastRoot.test.tsx's "object identity" block); `Extra` renders beside the
+    Viewport, inside the Provider.
+*@
+
+<ToastProvider TData="NoPayload" Timeout="Timeout" Limit="Limit" Manager="Manager">
+    <ToastViewport data-testid="viewport">
+        <ToastsContent Context="toasts">
+            @foreach (ToastObject<NoPayload> toast in toasts)
+            {
+                <ToastRoot @key="toast.Id" Toast="@(Recreate ? toast with { } : toast)" data-testid="root">
+                    @if (RootContent is not null)
+                    {
+                        @RootContent(toast)
+                    }
+                    else
+                    {
+                        <ToastContent data-testid="content">
+                            <ToastTitle data-testid="title" />
+                            <ToastDescription data-testid="description" />
+                            <ToastAction data-testid="action" />
+                            <ToastClose data-testid="close" aria-label="close-press" />
+                        </ToastContent>
+                    }
+                </ToastRoot>
+            }
+        </ToastsContent>
+    </ToastViewport>
+    @Extra
+</ToastProvider>
+
+@code {
+    [Parameter]
+    public Duration? Timeout { get; set; }
+
+    [Parameter]
+    public int Limit { get; set; } = 3;
+
+    [Parameter]
+    public ToastManager<NoPayload>? Manager { get; set; }
+
+    [Parameter]
+    public bool Recreate { get; set; }
+
+    [Parameter]
+    public RenderFragment<ToastObject<NoPayload>>? RootContent { get; set; }
+
+    [Parameter]
+    public RenderFragment? Extra { get; set; }
+}
