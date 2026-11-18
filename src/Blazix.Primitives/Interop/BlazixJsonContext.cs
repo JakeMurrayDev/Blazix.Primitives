@@ -93,4 +93,9 @@ namespace Blazix.Primitives.Interop;
 [JsonSerializable(typeof(ContextMenuCancelOpen))]
 [JsonSerializable(typeof(ContextMenuPress))]
 [JsonSerializable(typeof(ContextMenuTouch))]
+// M6 track 5: the `scroll-area` twin's options and reports (ADR 04 §1's `scroll-area` row).
+[JsonSerializable(typeof(ScrollAreaOptions))]
+[JsonSerializable(typeof(ScrollAreaOverflowReport))]
+[JsonSerializable(typeof(ScrollAreaScrollingReport))]
+[JsonSerializable(typeof(ScrollAreaHoverReport))]
 internal sealed partial class BlazixJsonContext : JsonSerializerContext;

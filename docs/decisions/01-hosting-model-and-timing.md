@@ -290,3 +290,33 @@ Menu's figures are the list rows' (track 1's test-only hosts run Menu's options)
 - The same row, for the `update`-carried values (Min, Max, Step, Disabled with its blur SLD-FOC-05, Orientation, the direction, a controlled Value): about one round trip, 1–10/105–108/305–320 ms. On WebAssembly 7–20 ms, within the click's task.
 - "EVD-STA-07, CMP-STA-10, FFI registration …", the Field effects (SLD-FRM-02, SLD-FRM-04, SLD-STA-21): `data-dirty` lands at 4/107/311 ms, in the same batch as `aria-valuenow`. On WebAssembly 11 ms.
 - The frame-loop row keeps SLD-PTR-04..11 as met on both modes.
+
+**2026-11-19, ScrollArea's rows (M6 track 5, [issue 276](https://github.com/JakeMurrayDev/Blazix.Primitives/issues/276); decision 8 of the M6 plan; the ScrollArea track's design points 4 (a) and 5 (a), chosen by the user 2026-11-19; measured in `tests/browser/scroll-area.relaxations.spec.ts` at 0, 50 and 150 ms of one-way delay added to the circuit, and on WebAssembly, three runs each; figures in ms after the act).**
+- *The first-measurement chain, a new row* (SCR-ANI-01, ANI-03, ANI-09, STA-19, DOM-15, DOM-19, DOM-23, DOM-26), under the Collapsible precedent.
+  - WebAssembly: met (25–32).
+  - Server, from the first interactive render:
+    - the module's first measurement: 5–7 / 214–217 / 621–629;
+    - C#'s projection of the overflow attributes, `tabindex`, the scrollbars and the Corner: 6–9 / 319–324 / 928–940;
+    - the second pass, after the new parts' import and attach: 7–11 / 534–538 / 1549–1571.
+- *C#-projected values from a measurement* (SCR-DOM-03, DOM-08, DOM-10, DOM-14, DOM-16), under "JS-owned values that originate in C# state".
+  - WebAssembly: in the event's task.
+  - Server: two legs after the scroll or resize that measured, +1 / +105 / +308.
+- *The measured cells* (SCR-DOM-02, DOM-20, DOM-27): met on both modes, written in the resize notification.
+- *A direction change* (SCR-I18N-01, ANI-02).
+  - Server: the update re-measures 4 legs after the change (1–2 / 213–218 / 613–619), and the flipped edges follow 2 legs later (1–3 / 321–326 / 924–927).
+  - WebAssembly: in the change's task.
+- *RND-STA-01 for mirrored fields* gains SCR-STA-01, STA-03 and STA-04.
+  - `data-scrolling` and `data-hovering` are written in the input's task on both modes.
+  - A `ClassValue` mirror follows at 18–19 / 107–108 / 306–307 for scrolling and 1 / 105 / 304–309 for hovering.
+- *The frame-loop row* gains ScrollArea's scroll measurement, the wheel over a scrollbar and the track press, beside SCR-PTR-05: met on both modes, with the viewport moving in the input's task at every delay.
+- *The C#-origin consumer-veto row* gains ScrollArea: no decision point (ADR 04 Amendments 2026-11-18). A C# consumer `onpointerdown`, `onwheel`, `onscroll` or `onkeydown` on a part runs after the module's listener and cannot veto it (SCR-PTR-14..26, SCR-PTR-32, SCR-PTR-33). A consumer JavaScript listener's `preventDefault()` is honored only where Base UI checks it: nowhere in ScrollArea, as the native `wheel` listener is not a merged handler (SCR-PTR-26).
+- *Message figures* (Server, 0 ms; issue 291; design point 15 (a)):
+
+  | Act | Up | Down | Render batches |
+  |---|---|---|---|
+  | A scroll through the middle | nothing | nothing | 0 |
+  | A scroll across the top edge | 2 messages, 202 B | 2 messages, 416 B | 1 |
+  | A scroll that starts and clears 500 ms later, no state function | 154 B | 71 B | 0 |
+  | The same, with a `ClassValue` reading `Scrolling` | 206 B | 504 B | 2 |
+  | A hover enter and leave, no state function | 140 B | 69 B | 0 |
+  | The same, with a `ClassValue` reading `Hovering` | 192 B | 332 B | 2 |
