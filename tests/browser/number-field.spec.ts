@@ -2,6 +2,7 @@ import { type Locator, type Route } from '@playwright/test';
 import { test, expect, type Page, type RenderMode } from './helpers';
 import { Fixture } from './helpers/navigation';
 import { pointOf, testWithTouch, touchDrag } from './helpers/touch';
+import { delayCircuit } from './helpers/circuit';
 
 // The [L4] rows of docs/components/number-field.md that the steppers prove with a real mouse (issue 277, 6a): NUM-PTR-01..06,
 // NUM-FOC-03, NUM-EDGE-13, over the `button` module's press-and-hold repeater (UBT-ALG-07) and the hold surface of decision
@@ -461,3 +462,66 @@ test('port: a C# consumer veto of the stepper pointerdown keeps the press from s
   await expect(fixture).toHaveAttribute('data-changes', mode === 'wasm' ? '' : /^1\/increment-press\/1$/);
   await page.mouse.up();
 });
+
+// The consumer-veto row's figures for NUM-PTR-02 (ADR 01, decision 8 of the M6 plan): from the stepper's `pointerdown` to
+// the C# veto's record (`data-vetoes`) and, on Server, to the step it could not stop (`data-changes`), in the page's clock
+// by a capture listener and a mutation observer. The median of 5 fresh renders per delay; Server under a 0, 50 and 150 ms
+// one-way circuit delay, WebAssembly once (no circuit). Each figure is a test annotation and a `[figure]` log line.
+for (const delay of [0, 50, 150]) {
+  test(`port: the hold-start veto's timings at ${delay} ms one-way (NUM-PTR-02, ADR 01's consumer-veto row)`, async ({ page, mode }) => {
+    test.skip(mode === 'wasm' && delay !== 0, 'No circuit to delay on WebAssembly');
+    if (mode === 'server' && delay > 0) {
+      await delayCircuit(page, delay);
+    }
+
+    const vetoes: number[] = [];
+    const steps: number[] = [];
+    for (let run = 0; run < 5; run += 1) {
+      await page.clock.resume();
+      const fixture = await gotoHold(page, mode, 'veto');
+      const button = fixture.getByTestId('increment');
+      await page.evaluate(() => {
+        const record = { t0: -1, veto: -1, step: -1 };
+        (window as unknown as { vetoFigure: typeof record }).vetoFigure = record;
+        const root = document.querySelector('[data-fixture="number-field-hold"][data-interactive="true"]')!;
+        document.addEventListener('pointerdown', (event) => {
+          if (record.t0 < 0 && (event.target as Element | null)?.closest?.('[data-testid="increment"]')) {
+            record.t0 = performance.now();
+          }
+        }, true);
+        new MutationObserver(() => {
+          if (record.t0 < 0) {
+            return;
+          }
+          if (record.veto < 0 && root.getAttribute('data-vetoes') === '1') {
+            record.veto = performance.now();
+          }
+          if (record.step < 0 && (root.getAttribute('data-changes') ?? '') !== '') {
+            record.step = performance.now();
+          }
+        }).observe(root, { attributes: true });
+      });
+      await hover(page, button);
+      await page.mouse.down();
+      await expect(fixture).toHaveAttribute('data-vetoes', '1');
+      if (mode === 'server') {
+        await expect(fixture).toHaveAttribute('data-changes', /^1\/increment-press\/1$/);
+      }
+      await page.mouse.up();
+      const record = await page.evaluate(() => (window as unknown as { vetoFigure: { t0: number; veto: number; step: number } }).vetoFigure);
+      vetoes.push(record.veto - record.t0);
+      if (mode === 'server') {
+        steps.push(record.step - record.t0);
+      }
+    }
+
+    const describe = (name: string, times: number[]) => {
+      const sorted = [...times].sort((a, b) => a - b);
+      return `${name} median ${sorted[2]!.toFixed(0)} ms (${sorted.map((t) => t.toFixed(0)).join(', ')})`;
+    };
+    const parts = [describe('veto', vetoes), ...(mode === 'server' ? [describe('step', steps)] : [])];
+    const description = `NUM-PTR-02 ${mode} ${delay} ms: ${parts.join('; ')}`;
+    test.info().annotations.push({ type: 'figure', description });
+    console.log(`[figure] ${description}`);
+  });
+}
