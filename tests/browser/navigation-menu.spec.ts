@@ -184,17 +184,19 @@ async function nestedPanelMoved(page: Page, testId: string): Promise<void> {
 }
 
 /**
- * Delays the page's circuit messages that match `pattern` by `extraMs`, sending the rest at once (issue 241). A binary frame
+ * Delays each of the page's circuit messages by the `extraMs` of the first pattern it matches, sending the rest at once
+ * (issue 241). A binary frame
  * is split into its SignalR messages (each with its VarInt length prefix) and each is sent as a frame of its own, so a
  * module report the page flushed in one frame with a matching message still goes first. The matching messages keep their
  * order among themselves, as do the others. On WebAssembly there is no circuit and nothing matches.
  */
-async function delayPageMessagesMatching(page: Page, pattern: RegExp, extraMs: number): Promise<void> {
+async function delayPageMessagesMatching(page: Page, delays: ReadonlyArray<readonly [RegExp, number]>): Promise<void> {
+  const delayOf = (text: string) => delays.find(([pattern]) => pattern.test(text))?.[1] ?? 0;
   await page.routeWebSocket(/_blazor/, (socket) => {
     const server = socket.connectToServer();
     socket.onMessage((frame) => {
       if (typeof frame === 'string') {
-        setTimeout(() => server.send(frame), pattern.test(frame) ? extraMs : 0);
+        setTimeout(() => server.send(frame), delayOf(frame));
         return;
       }
       let offset = 0;
@@ -210,11 +212,71 @@ async function delayPageMessagesMatching(page: Page, pattern: RegExp, extraMs: n
         } while (byte & 0x80 && cursor < frame.length);
         const message = frame.subarray(offset, cursor + length);
         offset = cursor + length;
-        setTimeout(() => server.send(message), pattern.test(message.toString('latin1')) ? extraMs : 0);
+        setTimeout(() => server.send(message), delayOf(message.toString('latin1')));
       }
     });
     server.onMessage((message) => socket.send(message));
   });
+}
+
+/** Gates on the page's circuit messages (`gatePageMessages`). */
+interface PageMessageGates {
+  /** Sends the messages gate `index` holds, in order, and lets its later matches through. */
+  release(index: number): void;
+  /** Releases every gate, in index order. */
+  releaseAll(): void;
+}
+
+/**
+ * Holds the page's circuit messages that match each pattern until the title releases that gate (issue 241), splitting
+ * binary frames into their SignalR messages as `delayPageMessagesMatching` does; a message takes the first gate it matches,
+ * and the rest flow at once. Every gate is released by the title, never on a timer.
+ */
+async function gatePageMessages(page: Page, patterns: readonly RegExp[]): Promise<PageMessageGates> {
+  const held: Array<Array<string | Buffer>> = patterns.map(() => []);
+  const open = patterns.map(() => false);
+  let send: ((message: string | Buffer) => void) | null = null;
+  await page.routeWebSocket(/_blazor/, (socket) => {
+    const server = socket.connectToServer();
+    send = (message) => server.send(message);
+    const route = (message: string | Buffer) => {
+      const text = typeof message === 'string' ? message : message.toString('latin1');
+      const gate = patterns.findIndex((pattern) => pattern.test(text));
+      if (gate >= 0 && !open[gate]) {
+        held[gate]!.push(message);
+      } else {
+        server.send(message);
+      }
+    };
+    socket.onMessage((frame) => {
+      if (typeof frame === 'string') {
+        route(frame);
+        return;
+      }
+      let offset = 0;
+      while (offset < frame.length) {
+        let length = 0;
+        let shift = 0;
+        let cursor = offset;
+        let byte: number;
+        do {
+          byte = frame[cursor++]!;
+          length |= (byte & 0x7f) << shift;
+          shift += 7;
+        } while (byte & 0x80 && cursor < frame.length);
+        route(frame.subarray(offset, cursor + length));
+        offset = cursor + length;
+      }
+    });
+    server.onMessage((message) => socket.send(message));
+  });
+  const release = (index: number) => {
+    open[index] = true;
+    for (const message of held[index]!.splice(0)) {
+      send?.(message);
+    }
+  };
+  return { release, releaseAll: () => patterns.forEach((_, index) => release(index)) };
 }
 
 /** Base UI's `fireEvent.mouseMove(document, { clientX, clientY })`: a move the safe polygon reads, at a point. */
@@ -1717,7 +1779,7 @@ test.describe('<NavigationMenu.Trigger /> keyboard and focus', () => {
   // here until C# has rendered the stale `inert`.
   test('port: tabs into a nested panel after a Shift+Tab whose stale inert render lands after the trigger focus, under circuit latency on Server', async ({ page, mode }) => {
     // The Trigger's C# onfocus and the module's clear both clear the flag; both are held, the Viewport's set is not.
-    await delayPageMessagesMatching(page, /"eventName":"focus"|\\"inert\\":false/, 400);
+    await delayPageMessagesMatching(page, [[/"eventName":"focus"|\\"inert\\":false/, 400]]);
     await gotoMenu(page, mode, { nested: 'tabFlow' });
     await trigger(page, 1).click();
     await expect(content(page, 1)).toBeVisible();
@@ -1738,6 +1800,52 @@ test.describe('<NavigationMenu.Trigger /> keyboard and focus', () => {
     await expect(page.getByTestId('nested-link-get-started')).toBeFocused();
     await page.keyboard.press('Tab');
     await expect(page.getByTestId('nested-link-composition')).toBeFocused();
+  });
+
+  // Issue 241's second order (M6 track 3): the stale set can also render after the next Tab has entered the panel, and the
+  // Tab after it then leaves the inert Viewport and the menu. The set is held until focus is back in the panel, the clears
+  // (the Trigger's C# onfocus and the module's report) until the end, and a recorder counts the `inert` renders on the
+  // nested Viewport (the module may lift one in the same task).
+  test('port: keeps tabbing inside a nested panel when a stale inert render lands after focus entered it, under circuit latency on Server', async ({ page, mode }) => {
+    await page.addInitScript(() => {
+      let renders = 0;
+      new MutationObserver((records) => {
+        for (const record of records) {
+          const element = record.target as Element;
+          if (record.oldValue === null && element.getAttribute('data-testid') === 'nested-viewport') {
+            renders++;
+            document.documentElement.setAttribute('data-inert-renders', String(renders));
+          }
+        }
+      }).observe(document, { subtree: true, attributes: true, attributeFilter: ['inert'], attributeOldValue: true });
+    });
+    const gates = await gatePageMessages(page, [/\\"inert\\":true/, /"eventName":"focus"|\\"inert\\":false/]);
+    try {
+      await gotoMenu(page, mode, { nested: 'tabFlow' });
+      await trigger(page, 1).click();
+      await expect(content(page, 1)).toBeVisible();
+      await nestedPanelMoved(page, 'nested-content-developers');
+      const developers = page.getByTestId('nested-trigger-developers');
+      await developers.focus();
+      await expect(developers).toBeFocused();
+      await page.keyboard.press('Tab');
+      await expect(page.getByTestId('nested-link-get-started')).toBeFocused();
+      await page.keyboard.press('Shift+Tab');
+      await expect(developers).toBeFocused();
+      await page.keyboard.press('Tab');
+      await expect(page.getByTestId('nested-link-get-started')).toBeFocused();
+      gates.release(0);
+      if (mode === 'server') {
+        await expect(page.locator('html')).toHaveAttribute('data-inert-renders', '1');
+      }
+
+      await page.keyboard.press('Tab');
+
+      await expect(page.getByTestId('nested-link-composition')).toBeFocused();
+      await expect(content(page, 1)).toBeVisible();
+    } finally {
+      gates.releaseAll();
+    }
   });
 
   // Gap G2 of the review of PR 168 (PR 184): a Shift+Tab out of an inline nested panel left its Links at tabindex -1.
