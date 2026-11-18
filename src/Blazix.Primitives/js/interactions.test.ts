@@ -13,6 +13,7 @@ import {
   getNodeAncestors,
   getNodeChildren,
   getSession,
+  setOutsidePressGate,
   isTopmostOpenSession,
   nameRelayTrigger,
   releaseSession,
@@ -2862,6 +2863,27 @@ describe('useDismiss', () => {
       pointer(document.body, 'pointerdown', { pointerType: 'mouse' });
 
       expect(popup.open).toBe(false);
+    });
+
+    // DRW-DIS-02 (useDialogRoot.ts:43-45, `outsidePressEnabledRef`): the Drawer SwipeArea closes the gate synchronously
+    // from its gesture start and reopens it from its guard (ADR 04 Amendments 2026-11-18, decision 21 (a)).
+    it('port: a closed outside-press gate stops every outside press from dismissing, and an open one lets the next press dismiss', () => {
+      const popup = harness({ open: true });
+      popup.attachSession({ session: { dismiss: {} } });
+      popup.attachFloating(element('div'));
+      const session = getSession(popup.token)!;
+
+      setOutsidePressGate(session, false);
+      pointer(document.body, 'pointerdown', { pointerType: 'mouse' });
+      mouse(document.body, 'mousedown');
+      userClick(document.body);
+      expect(popup.open).toBe(true);
+      expect(popup.requests).toEqual([]);
+
+      setOutsidePressGate(session, true);
+      pointer(document.body, 'pointerdown', { pointerType: 'mouse' });
+      expect(popup.open).toBe(false);
+      expect(popup.requests.map((request) => request.payload.reason)).toEqual(['outside-press']);
     });
 
     it('port: primaryButtonOnly: a non-primary outside press does not dismiss and a primary one does', () => {
