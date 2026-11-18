@@ -11,6 +11,11 @@ namespace Blazix.Primitives;
 /// text is equivalent to a browser's, not identical to it in every culture.
 /// </para>
 /// <para>Two instances with equal members are equal, so passing an equal record again does not re-format the field.</para>
+/// <para>
+/// A .NET numeric format string converts to the options it means: <c>N2</c>, <c>F1</c>, <c>P0</c>, <c>E3</c>, or a pattern
+/// such as <c>#,##0.00</c> or <c>0.0%</c>. In Razor a parameter of this type takes a C# expression, so write
+/// <c>Format="@("N2")"</c>.
+/// </para>
 /// </remarks>
 public sealed record NumberFormatOptions
 {
@@ -91,4 +96,17 @@ public sealed record NumberFormatOptions
     /// <summary>Gets how the fraction digits and the significant digits are reconciled when both are supplied.</summary>
     /// <value>The rounding priority, or <see langword="null"/> for <see cref="NumberFormatRoundingPriority.Auto"/>. The default is <see langword="null"/>.</value>
     public NumberFormatRoundingPriority? RoundingPriority { get; init; }
+
+    // ADR 08 Amendments 2026-11-18 (decision 10 (a)): the format-string shorthand.
+    /// <summary>Converts a .NET numeric format string to the options it means.</summary>
+    /// <param name="format">
+    /// <c>N</c>, <c>F</c>, <c>P</c> or <c>E</c> with an optional precision (2 by default, 6 for <c>E</c>), or a pattern of
+    /// <c>0</c>, <c>#</c>, <c>,</c>, <c>.</c>, <c>%</c> and an exponent such as <c>E0</c>.
+    /// </param>
+    /// <returns>The options.</returns>
+    /// <exception cref="ArgumentException">
+    /// The string has no equivalent, such as <c>C</c> (pass <see cref="Currency"/> instead), <c>D</c>, <c>G</c>, <c>X</c> or a
+    /// pattern with sections or literal text.
+    /// </exception>
+    public static implicit operator NumberFormatOptions(string format) => Utilities.NumberFormatShorthand.Parse(format);
 }
