@@ -26,11 +26,10 @@ public sealed class SliderAllocationBudgetTests : IDisposable
     // dispatch, so each part's render is its own batch, and bUnit rebuilds the root's markup after each one; as in the
     // Tabs activation, that markup is most of it.
     private const long StepBudgetBytes = 50864;
-    // 5,168 bytes for the re-render (measured around bUnit's render on the test thread): the root and its cascade render
-    // again, and with them the parts whose child content is a fragment. The figure includes an `update` the root sends with options equal to the last ones: SliderOptions compares its
-    // `Thumbs` and `Indicators` lists by reference, and BuildOptions makes new ones each time, so every flush sends. The
-    // title asserts that no update is sent and fails until that is fixed; the budget tightens to the new floor then.
-    private const long RerenderBudgetBytes = 5168;
+    // 4,192 bytes for the re-render (2026-11-19, macOS arm64, Release, least of five, the same in three processes; 5,168 before
+    // SliderOptions compared its lists by element, when every flush sent an update): the root and its cascade render again,
+    // and with them the parts whose child content is a fragment; no update is sent.
+    private const long RerenderBudgetBytes = 4192;
     // 50,864 bytes for a step through a consumer's OnValueChange and OnValueCommitted, the same as without them: the change
     // and commit arguments are made either way, and an EventCallback over a synchronous lambda completes inline.
     private const long CallbackStepBudgetBytes = 50864;

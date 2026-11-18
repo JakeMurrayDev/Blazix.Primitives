@@ -96,6 +96,71 @@ internal sealed record SliderOptions : TwinOptions
     /// <summary>Gets a value indicating whether the control's consumer has a C# <c>onpointerdown</c> handler.</summary>
     /// <value><see langword="true"/> to ask the press decision point before a gesture starts.</value>
     public bool PressHandler { get; init; }
+
+    // ADR 16 rule 6: an unchanged render sends no `update`, so the lists compare by element, not by reference (the
+    // FormSubmitOptions precedent).
+    /// <inheritdoc />
+    public bool Equals(SliderOptions? other)
+    {
+        if (other is null)
+        {
+            return false;
+        }
+
+        if (ReferenceEquals(this, other))
+        {
+            return true;
+        }
+
+        return string.Equals(Style, other.Style, StringComparison.Ordinal)
+            && Range == other.Range
+            && Min.Equals(other.Min)
+            && Max.Equals(other.Max)
+            && Step.Equals(other.Step)
+            && LargeStep.Equals(other.LargeStep)
+            && MinStepsBetweenValues.Equals(other.MinStepsBetweenValues)
+            && Vertical == other.Vertical
+            && Rtl == other.Rtl
+            && Disabled == other.Disabled
+            && Inset == other.Inset
+            && string.Equals(Collision, other.Collision, StringComparison.Ordinal)
+            && ControlRef == other.ControlRef
+            && Revision == other.Revision
+            && Rollback == other.Rollback
+            && RawDiffers == other.RawDiffers
+            && KeyHandlers == other.KeyHandlers
+            && PressHandler == other.PressHandler
+            && SameItems(Values, other.Values)
+            && SameItems(Thumbs, other.Thumbs)
+            && SameItems(Indicators, other.Indicators);
+    }
+
+    /// <inheritdoc />
+    public override int GetHashCode() => HashCode.Combine(Values.Count, Thumbs.Count, Indicators.Count, Revision, Min, Max);
+
+    private static bool SameItems<T>(IReadOnlyList<T> left, IReadOnlyList<T> right)
+    {
+        if (ReferenceEquals(left, right))
+        {
+            return true;
+        }
+
+        if (left.Count != right.Count)
+        {
+            return false;
+        }
+
+        EqualityComparer<T> comparer = EqualityComparer<T>.Default;
+        for (int i = 0; i < left.Count; i++)
+        {
+            if (!comparer.Equals(left[i], right[i]))
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
 }
 
 /// <summary>The options of one thumb of the <c>slider</c> module.</summary>
