@@ -1346,6 +1346,23 @@ Non-normative.
 12. **Pen scrubbing.** `ScrubArea` treats only `pointerType === 'touch'` as touch (`NumberFieldScrubArea.tsx:322`) while the steppers treat `pen` as touch-like (NUM-EDGE-13). A pen scrub therefore requests pointer lock and shows the virtual cursor; no test covers pen on the scrub area.
 13. **`teleportDistance` semantics.** The JSDoc says "distance the cursor may move from the center of the scrub area" but the implementation pads the scrub area's *edges* by `teleportDistance / 2` (`getViewportRect.ts:7-15`, test "pads the element rect by half the teleport distance"). NUM-PTR-16 follows the implementation; negative values are unspecified.
 
+
+**Resolutions (2026-11-19, M6 track 6, [issue 277](https://github.com/JakeMurrayDev/Blazix.Primitives/issues/277), PR 6a).** Each item follows the source, under the quirk rule of the M6 standing rules (the plan's decision 23, chosen by the user 2026-11-18), unless a decision is named:
+- Item 1: the port has none of the hinted features. The input has no `role`, no `aria-value*`, no `pattern` and an `autocomplete` of `off`; PageUp, PageDown and Enter are not handled (6b's input role leaves them to the browser).
+- Item 2: the port follows the source: `NumberFieldIncrement.Disabled` and `NumberFieldDecrement.Disabled` exist (NUM-API-23), and the input's emitted attributes are §3.6's.
+- Item 3: replicated. The stepper renders `disabled` while effectively disabled, beside `aria-disabled` from the mechanism (`NumberFieldStepper`); L2 "does not step when the button is disabled" asserts it.
+- Item 4: replicated. While the text is dirty the sync flag is a C# field of the root (`AllowInputSync`), and an external `value` reaches the text at the next sync point.
+- Item 5: replicated in 6b's input role: the change report is not gated on read-only; the browser stops typing.
+- Item 6: replicated. Enabled native steppers render `aria-disabled="false"` (UBT-ARIA-01); L2 "does not render aria-readonly on stepper buttons" asserts the `"true"` case.
+- Item 7: replicated. `Min` and `Max` are `double?`, and `double.NegativeInfinity` is expressible; the step pipeline computes as the source does (`NumberStepValidation`), so `SnapOnStep` with an infinite minimum gives `NaN`.
+- Item 8: replicated. The last mounted `NumberFieldInput` holds the registration; `NumberFieldRoot` counts the mounted inputs only to know whether one is mounted.
+- Item 9: replicated in 6b (the autofill path keeps NUM-STA-18's firing rule).
+- Item 10: replicated. `StepValue.Any` steps by 1, so a step is cleaned and a typed value keeps every digit.
+- Item 11: `aria-invalid` on both inputs has one source, `NumberFieldField.AriaInvalid` (the field invalid and not disabled); the clipboard warning is 6b's.
+- Item 12: replicated in 6b. Only `touch` suppresses the scrub area's pointer lock.
+- Item 13: replicated in 6b. `TeleportDistance` pads the edges by half, per `getViewportRect.test.ts`.
+- Item 14: closed by the 2026-11-18 correction of `event-details-and-reasons.md:192` (EVD-EVT-23).
+
 ### Related architecture-doc discrepancies
 
 14. **EVD-EVT-23 is narrower than the number field.** `architecture/event-details-and-reasons.md` EVD-EVT-23 says `onValueCommitted` fires "only after a change was *applied* (not canceled, value actually changed)". The number field commits on *every* release of a started button hold even when no tick changed the value (`number-field/root/useNumberFieldStepperButton.ts:111-116`, NUM-PTR-04), on every scrub release (`number-field/scrub-area/NumberFieldScrubArea.tsx:168-171`, NUM-PTR-13), and on blur after manual typing even when the value is unchanged (`number-field/input/NumberFieldInput.tsx:199,221-223`). NUM-EVT-05 follows the source.
