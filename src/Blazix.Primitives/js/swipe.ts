@@ -4,7 +4,7 @@
 // tracker import one copy (toast.md: "Same values").
 // Not built here: the swipe tracker and its options (PSH-PTR-09..28, PSH-ALG-07..12, §6.1), the eight swipe rows ADR
 // 04's `Affects` header added on 2026-11-18 (PSH-DOM-17/18, PSH-EVT-09, PSH-I18N-02, PSH-EDGE-10..13), and any twin or
-// csproj entry (design point 2 (a), pending the user).
+// csproj entry (design point 2 (a), settled by the orchestrator 2026-11-18).
 // Owner: session D (M6 track 8, PR 8b) from the merge of M6 track 1's PR (ADR 12 Amendments 2026-11-18 item 1).
 // Transcribed from Base UI v1.9.0: packages/react/src/utils/useSwipeDismiss.ts:32-54; internals/constants.ts:8-12.
 
