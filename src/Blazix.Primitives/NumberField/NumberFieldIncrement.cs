@@ -92,8 +92,7 @@ public sealed class NumberFieldIncrement : PartBase<NumberFieldIncrementState>
     /// <exception cref="InvalidOperationException">The button is not placed within a <see cref="NumberFieldRoot"/>.</exception>
     protected override void OnInitialized()
     {
-        stepper = new NumberFieldStepper(true, JSRuntime, Logger, DevelopmentLog, IdGenerator, StateHasChanged, DispatchExceptionAsync, onKeyDown, onKeyUp, InvokeAsync);
-        stepper.Behavior.PointerDownHandler = onPointerDown;
+        stepper = new NumberFieldStepper(true, JSRuntime, Logger, DevelopmentLog, IdGenerator, StateHasChanged, DispatchExceptionAsync, onKeyDown, onKeyUp, InvokeAsync, onPointerDown);
         context = stepper.Initialize(RootContext);
         context.AddListener(rootChanged);
         base.OnInitialized();

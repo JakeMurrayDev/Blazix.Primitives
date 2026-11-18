@@ -30,7 +30,8 @@ internal sealed class NumberFieldStepper : IDisposable
     /// <param name="onKeyDown">The part's own <c>onkeydown</c> handler.</param>
     /// <param name="onKeyUp">The part's own <c>onkeyup</c> handler.</param>
     /// <param name="invoke">Runs a function on the renderer's dispatcher.</param>
-    public NumberFieldStepper(bool increment, IJSRuntime jsRuntime, ILogger logger, ButtonDevelopmentLog developmentLog, PartIdGenerator idGenerator, Action stateChanged, Func<Exception, Task> dispatchException, EventCallback onKeyDown, EventCallback onKeyUp, Func<Func<Task>, Task> invoke)
+    /// <param name="onPointerDown">The part's own <c>onpointerdown</c> handler, which runs the consumer's outside the hold-start decision.</param>
+    public NumberFieldStepper(bool increment, IJSRuntime jsRuntime, ILogger logger, ButtonDevelopmentLog developmentLog, PartIdGenerator idGenerator, Action stateChanged, Func<Exception, Task> dispatchException, EventCallback onKeyDown, EventCallback onKeyUp, Func<Func<Task>, Task> invoke, EventCallback onPointerDown)
     {
         this.increment = increment;
         this.invoke = invoke;
@@ -41,12 +42,13 @@ internal sealed class NumberFieldStepper : IDisposable
         behavior = new ButtonBehavior(jsRuntime, logger, developmentLog, idGenerator, stateChanged, dispatchException, onKeyDown, onKeyUp)
         {
             FocusableWhenDisabled = true,
-            PressAndHold = true,
+            Hold = new ButtonHold(
+                snapshot => Run(() => StartAsync(snapshot)),
+                snapshot => Run(() => TickAsync(snapshot)),
+                snapshot => Run(() => ReleaseAsync(snapshot)),
+                snapshot => Run(() => ClickAsync(snapshot)),
+                onPointerDown),
         };
-        behavior.HoldStarted += snapshot => Run(() => StartAsync(snapshot));
-        behavior.HoldTicked += snapshot => Run(() => TickAsync(snapshot));
-        behavior.HoldStopped += snapshot => Run(() => ReleaseAsync(snapshot));
-        behavior.HoldClicked += snapshot => Run(() => ClickAsync(snapshot));
     }
 
     /// <summary>Gets the button mechanism.</summary>
@@ -84,7 +86,7 @@ internal sealed class NumberFieldStepper : IDisposable
         EffectiveDisabled = disabled || state.Disabled || atBoundary;
         behavior.Native = nativeButton;
         behavior.Disabled = EffectiveDisabled || state.ReadOnly;
-        behavior.HoldFocusTarget = root.InputId;
+        behavior.Hold!.FocusTarget = root.InputId;
         behavior.SetConsumerAttributes(additionalAttributes);
     }
 

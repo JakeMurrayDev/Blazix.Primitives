@@ -14,7 +14,7 @@
 // `preventDefault()` (checked wherever Base UI checks `defaultPrevented`); a veto from C# (`PreventPartHandler()`) is
 // the verdict of the `activate` decision point, fallback `run` (ADR 04 §3, ADR 01 relaxation table). A press-and-hold
 // tick is a report: its C# result is state and never crosses back synchronously (ADR 01 decision 1); C# stops the
-// sequence by sending `disabled` (UBT-PTR-16); a part that answers a tick which applied nothing raises `holdStop`
+// sequence by sending `disabled` (UBT-PTR-16); a part that answers a tick which applied nothing raises `pressAndHold.stop`
 // instead, which stops the repeat and keeps the release report (NumberField's steppers, NUM-PTR-03; amended 2026-11-18,
 // issue 277, decision 16 (a), chosen by the user 2026-11-18).
 import { decide } from './decide';
@@ -43,6 +43,13 @@ export interface PressAndHoldOptions {
   startDelay?: number | null;
   /** Touch movement in pixels that cancels the hold as a scroll (8 by default). */
   scrollDistance?: number | null;
+  /**
+   * The id of the element a mouse press focuses with the caret at the end before the first tick, as NumberField's steppers
+   * focus their input (UBT-PTR-20); touch and pen presses never focus it.
+   */
+  focusTarget?: string | null;
+  /** A counter C# raises to stop the running repeat after a tick that applied nothing. */
+  stop?: number | null;
 }
 
 /** The options of a `button` handle; mirrors `ButtonOptions` in C#. */
@@ -71,13 +78,6 @@ export interface ButtonOptions extends TwinOptions {
   suppressEnter?: boolean | null;
   /** Whether the element is a toolbar input: keys never activate it and its Space is typed (Toolbar.Input). */
   inputItem?: boolean | null;
-  /**
-   * With `pressAndHold`, the id of the element a mouse press focuses with the caret at the end before the first tick, as
-   * NumberField's steppers focus their input (UBT-PTR-20); touch and pen presses never focus it.
-   */
-  holdFocusTarget?: string | null;
-  /** With `pressAndHold`, a counter C# raises to stop the running repeat after a tick that applied nothing. */
-  holdStop?: number | null;
 }
 
 /** The name of the decision point a keyboard activation asks C# about. */
@@ -651,7 +651,7 @@ export function attach(
   // UBT-PTR-20 (useNumberFieldStepperButton.ts:153-170, the root's focusInput :348-357): before the first tick, a primary
   // press that is neither touch nor pen focuses the target with the caret stored at the end, which `focus()` restores.
   const focusHoldTarget = (event: PointerEvent, current: ButtonOptions) => {
-    const id = current.holdFocusTarget;
+    const id = current.pressAndHold?.focusTarget;
     if (!id || event.defaultPrevented || event.button !== 0 || isTouchLikePointerType(event.pointerType)) {
       return;
     }
@@ -706,7 +706,7 @@ export function attach(
       options = parseOptions<ButtonOptions>(nextOptionsJson);
       if ((options.disabled && !previous.disabled) || (!options.pressAndHold && previous.pressAndHold)) {
         hold.reset();
-      } else if ((options.holdStop ?? 0) !== (previous.holdStop ?? 0)) {
+      } else if ((options.pressAndHold?.stop ?? 0) !== (previous.pressAndHold?.stop ?? 0)) {
         hold.halt();
       }
       correctDisabled();
