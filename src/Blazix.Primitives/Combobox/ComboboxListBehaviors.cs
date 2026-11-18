@@ -191,8 +191,11 @@ internal sealed class ComboboxListBehavior<TValue> : IAsyncDisposable
         return cascade;
     }
 
-    // The implicit Collection (ComboboxList.tsx:52-61): one template call per filtered item or group, keyed by position. Here
-    // rather than in the part, so Autocomplete's List shell renders the same (review B1 of the final review).
+    // The implicit Collection (ComboboxList.tsx:52-61): one template call per filtered item or group. Here rather than in the
+    // part, so Autocomplete's List shell renders the same (review B1 of the final review). Every call writes into one region,
+    // so the templates' keys are siblings and an item that survives a filter keeps its element and id, as under Base UI's
+    // keyed map; a region per call matched the items by position, so a filter recreated every item and the list's registry
+    // held only removed elements until its next update (M6 track 0, issue 261: a key typed meanwhile was lost on Server).
     /// <summary>Renders the group template once per filtered group, else the item template once per filtered item.</summary>
     /// <param name="builder">The part's render tree builder.</param>
     /// <param name="itemContent">The part's <c>ItemContent</c>.</param>
@@ -202,21 +205,26 @@ internal sealed class ComboboxListBehavior<TValue> : IAsyncDisposable
         ComboboxStore<TValue> root = Store;
         if (groupContent is not null && root.FilteredGroups is { } groups)
         {
+            builder.OpenRegion(0);
             for (int i = 0; i < groups.Count; i++)
             {
-                builder.AddContent(0, groupContent(groups[i]));
+                groupContent(groups[i])(builder);
             }
 
+            builder.CloseRegion();
             return;
         }
 
         if (itemContent is not null)
         {
             IReadOnlyList<TValue> values = root.FilteredValues;
+            builder.OpenRegion(1);
             for (int i = 0; i < values.Count; i++)
             {
-                builder.AddContent(1, itemContent(new ComboboxListItem<TValue>(values[i], i)));
+                itemContent(new ComboboxListItem<TValue>(values[i], i))(builder);
             }
+
+            builder.CloseRegion();
         }
     }
 

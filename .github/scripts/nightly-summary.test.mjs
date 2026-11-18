@@ -2,8 +2,9 @@
 import { describe, expect, it } from 'vitest';
 import { summarizeNightly } from './nightly-summary.mjs';
 
-// ADR 11 sections 1 and 4: the nightly full L4 run (--repeat-each 3, four shards, both render modes) ends with a
-// summary of its failures, its flaky count and its quarantine count, read from the merged Playwright JSON report.
+// ADR 11 sections 1 and 4: the nightly full L4 run (--repeat-each 3, both render modes; four Server shards, eight
+// WebAssembly shards) ends with a summary of its failures, its flaky count and its quarantine count, read from the
+// merged Playwright JSON report.
 const test = (projectName, status, repeatEachIndex = 0) => ({ projectName, status, repeatEachIndex, results: [{ status: status === 'expected' ? 'passed' : 'failed' }] });
 const spec = (title, tests, tags = []) => ({ title, tags, tests });
 const report = (specs, stats = {}) => ({

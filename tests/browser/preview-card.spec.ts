@@ -73,20 +73,48 @@ async function freezeClock(page: Page): Promise<void> {
  * Moves the real pointer away from the cards, to the page's bottom-left corner. The safe polygon decides on the leave only
  * once the session holds the floating element and its placement; on Server they arrive after C#'s render, and until then
  * it waits for a later move. The first positioning pass removes the positioner's `opacity: 0` and publishes the placement
- * in one step (FLT-STA-08, FLT-ANI-02), so no open positioner may still carry it. Under a paused clock the frames run
- * first.
+ * in one step (FLT-STA-08, FLT-ANI-02), so no open positioner may still carry it. Under a paused clock each sample steps
+ * the clock a frame, as `waitForPositioned` does: on WebAssembly the chain from the portal's move to the pass continues on
+ * the page's timers, so a pass that had not landed after one step would otherwise never land (issue 261).
  */
 async function moveAway(page: Page): Promise<void> {
+  const unpositioned = page.locator('[role="presentation"][data-open][style*="opacity: 0"]');
   if (frozenPages.has(page)) {
     await page.clock.runFor(32);
+    await expect
+      .poll(async () => {
+        await page.clock.runFor(16);
+        return unpositioned.count();
+      })
+      .toBe(0);
+  } else {
+    await expect(unpositioned).toHaveCount(0);
   }
 
-  await expect(page.locator('[role="presentation"][data-open][style*="opacity: 0"]')).toHaveCount(0);
   await page.mouse.move(5, 700);
 }
 
-/** Moves the real pointer onto the center of an element, in one step. */
+// The delay of a held library module's import (`delayModule`).
+const MODULE_DELAY = 1000;
+
+/**
+ * Delays the import of a library module (`js/<name>.js`, with or without WebAssembly's fingerprint) for the page, before its
+ * first navigation. Holding `portal` keeps a just-opened card in place, `display: none`, until the portal module moves it,
+ * and the Positioner's first pass waits for that move (issues 180 and 261).
+ */
+async function delayModule(page: Page, name: string): Promise<void> {
+  await page.route(new RegExp(`/js/${name}(\\.[\\w-]+)?\\.js(\\?.*)?$`), async (route) => {
+    await new Promise((resolve) => setTimeout(resolve, MODULE_DELAY));
+    await route.continue();
+  });
+}
+
+/**
+ * Moves the real pointer onto the center of an element, in one step. The element must have a box first: a card's portal
+ * node stays `display: none` in place until the portal module moves it, and `toHaveText` passes before that (issue 180).
+ */
 async function moveOnto(page: Page, target: Locator): Promise<void> {
+  await expect(target).toBeVisible();
   const box = (await target.boundingBox())!;
   await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
 }
@@ -167,6 +195,7 @@ for (const variant of trio) {
 
     test.describe('prop: onOpenChange', () => {
       test('should call onOpenChange when the open state changes', async ({ page, mode }) => {
+        await delayModule(page, 'portal');
         const fixture = await open(page, mode, { open: false });
         await expect(popup(page)).toHaveCount(0);
         await freezeClock(page);
@@ -184,11 +213,10 @@ for (const variant of trio) {
 
       // With two detached triggers and no trigger id the card has no anchor and stays unpositioned (FLT-STA-09), so the
       // pointer crosses the positioner wherever it is; Base UI's title checks only that the content is still rendered.
-      // Quarantined (ADR 11 §4) until 2026-11-18, issue 180: moveOnto occasionally reads a null bounding box on Server.
-      test.fixme('does not close after hovering out of a popup opened externally', {
-        tag: '@quarantine',
-        annotation: { type: 'issue', description: 'https://github.com/JakeMurrayDev/Blazix.Primitives/issues/180' },
-      }, async ({ page, mode }) => {
+      // Issue 180: the held portal import keeps the card unmoved, `display: none`, after its text shows; `moveOnto` waits
+      // for its box.
+      test('does not close after hovering out of a popup opened externally', async ({ page, mode }) => {
+        await delayModule(page, 'portal');
         const fixture = await open(page, mode, { open: false });
         await pressControl(fixture.locator('[data-set-open="true"]'));
         await expect(popup(page)).toHaveText('Content');
@@ -289,6 +317,7 @@ for (const variant of trio) {
 
     test.describe('prop: closeDelay', () => {
       test('should close after delay', async ({ page, mode }) => {
+        await delayModule(page, 'portal');
         const fixture = await open(page, mode, { closeDelay: 100 });
         await freezeClock(page);
         await trigger(page).hover();

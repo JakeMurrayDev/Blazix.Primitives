@@ -15,7 +15,7 @@ The continuous integration of the repository: workflows, the composite actions t
 | Workflow | Trigger | Jobs |
 |---|---|---|
 | `ci.yml` | every pull request (also on `labeled` and `unlabeled`); push to `main` | `changes`, `docs-lint`, `build-and-test`, `browser-server`, `browser-wasm`, `browser-report`, `red-check`, `pack` (push only), `gate` |
-| `nightly.yml` | 02:17 UTC daily on `main`; manual | `browser-server`, `browser-wasm` (full L4, `--repeat-each 3`, 4 shards each, each shard's disk report), `report` (merged report and the summary) |
+| `nightly.yml` | 02:17 UTC daily on `main`; manual | `browser-server` (4 shards), `browser-wasm` (8 shards; ADR 11 Amendments 2026-11-18) (full L4, `--repeat-each 3`, each shard's disk report), `report` (merged report and the summary) |
 | `skip-js-build.yml` | manual (run before every tagged release) | `build-without-node` |
 
 | Job | What it does |

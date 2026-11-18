@@ -193,14 +193,20 @@ for (const { name, triggers } of triggerModes) {
           element.dispatchEvent(new MouseEvent('click', { bubbles: true, composed: true, cancelable: true }));
         }, selector);
 
-      // Quarantined (ADR 11 §4) until 2026-11-18, issue 166 (the closed-shadow-root family): intermittent on Server (nightly
-      // dispatch 41685879786, main's push run 41740993182).
-      test.fixme('closing via intentional outside press with user backdrop (modal=true): works when portaled into a shadow DOM', {
-        tag: '@quarantine',
-        annotation: { type: 'issue', description: 'https://github.com/JakeMurrayDev/Blazix.Primitives/issues/166' },
-      }, async ({ page, mode }) => {
+      // Issue 166: the popup's handles attach after its portal moved it into the shadow root, a round trip or more after it
+      // shows there on Server, and a press before them is lost. The focus manager's initial focus lands a frame after its
+      // own handle attached, beside the others, so the modal titles press once focus is in the popup (a stable end state,
+      // ADR 06 §2), with the circuit delayed 100 ms each way on Server, which loses the press without that wait.
+      const focusInShadow = (page: Page, selector: string) =>
+        page.evaluate((s) => (globalThis as unknown as { blazixFixtureDom: { lastClosedShadowRoot: ShadowRoot | null } }).blazixFixtureDom.lastClosedShadowRoot?.activeElement?.closest(s) != null, selector);
+
+      test('closing via intentional outside press with user backdrop (modal=true): works when portaled into a shadow DOM', async ({ page, mode }) => {
+        if (mode === 'server') {
+          await delayCircuit(page, 100);
+        }
         const fixture = await root(page, mode, { defaultOpen: true, modal: true, backdrop: true, container: 'shadow' });
         await expect.poll(() => inShadow(page, '[role="dialog"]')).toBe(true);
+        await expect.poll(() => focusInShadow(page, '[role="dialog"]')).toBe(true);
 
         await clickInShadow(page, '[data-testid="backdrop"]');
 
@@ -235,14 +241,13 @@ for (const { name, triggers } of triggerModes) {
         expect(await openChanges(fixture)).toEqual(['false:outside-press']);
       });
 
-      // Quarantined (ADR 11 §4) until 2026-11-18, issue 166 (the closed-shadow-root family): intermittent on both modes
-      // (nightly dispatch 41685879786).
-      test.fixme('closing via outside press: works for a modal dialog when clicking outside the shadow root', {
-        tag: '@quarantine',
-        annotation: { type: 'issue', description: 'https://github.com/JakeMurrayDev/Blazix.Primitives/issues/166' },
-      }, async ({ page, mode }) => {
+      test('closing via outside press: works for a modal dialog when clicking outside the shadow root', async ({ page, mode }) => {
+        if (mode === 'server') {
+          await delayCircuit(page, 100);
+        }
         const fixture = await root(page, mode, { defaultOpen: true, modal: true, container: 'shadow' });
         await expect.poll(() => inShadow(page, '[role="dialog"]')).toBe(true);
+        await expect.poll(() => focusInShadow(page, '[role="dialog"]')).toBe(true);
 
         await page.locator('body').dispatchEvent('click');
 
@@ -804,6 +809,20 @@ test.describe('closed shadow root', () => {
       return (root?.querySelector(selector) ?? document.querySelector(selector)) != null;
     }, testId);
 
+  /**
+   * Whether focus is inside the element with the test id, in the shadow root or the document. Issue 166: a popup's handles
+   * attach after its portal moved it, a round trip or more after it shows on Server; before them the outer popup's
+   * session reads a press inside it as outside, and a press closing the nested popup is lost. The focus manager's initial
+   * focus lands a frame after its own handle attached, beside the others, so a title presses once focus is in the popup
+   * (a stable end state, ADR 06 §2). The titles below run with the circuit delayed 100 ms each way on Server, which fails
+   * them without that wait.
+   */
+  const focusIn = (page: Page, testId: string) =>
+    page.evaluate((id) => {
+      const root = (globalThis as unknown as { blazixFixtureDom: { lastClosedShadowRoot: ShadowRoot | null } }).blazixFixtureDom.lastClosedShadowRoot;
+      return (root?.activeElement ?? document.activeElement)?.closest(`[data-testid="${id}"]`) != null;
+    }, testId);
+
   /** Base UI's `click`: the element's own `click()`, wherever it is. */
   const click = (page: Page, testId: string) =>
     page.evaluate((id) => {
@@ -824,18 +843,16 @@ test.describe('closed shadow root', () => {
         // never runs. Where the nested popup sits in the shadow root, the port title closes it through the modules' paths.
         const nestedInShadow = nested === 'shadow root' || (outer === 'shadow root' && nested === undefined);
         if (!nestedInShadow) {
-          // Quarantined (ADR 11 §4) until 2026-11-18, issue 166, where the outer dialog sits in the shadow root: intermittent
-          // on Server (nightly dispatch 41685879786, the alert dialog's variant). The variant in the document stays.
-          const quarantined = outer === 'shadow root';
-          test(`keeps the parent open on close (outer: ${named(outer)}, nested: ${named(nested)})`, quarantined ? {
-            tag: '@quarantine',
-            annotation: { type: 'issue', description: 'https://github.com/JakeMurrayDev/Blazix.Primitives/issues/166' },
-          } : {}, async ({ page, mode }) => {
-            test.fixme(quarantined, 'issue 166');
+          test(`keeps the parent open on close (outer: ${named(outer)}, nested: ${named(nested)})`, async ({ page, mode }) => {
+            if (mode === 'server') {
+              await delayCircuit(page, 100);
+            }
             const fixture = await open(page, mode, { kind, outer: queryValue(outer), nested: queryValue(nested) });
+            await expect.poll(() => focusIn(page, 'outer')).toBe(true);
 
             await click(page, 'open-nested');
             await expect.poll(() => exists(page, 'nested')).toBe(true);
+            await expect.poll(() => focusIn(page, 'nested')).toBe(true);
 
             await click(page, 'close-nested');
 
@@ -873,16 +890,16 @@ test.describe('closed shadow root', () => {
           continue;
         }
 
-        // Quarantined (ADR 11 §4) until 2026-11-18, issue 166: the nested dialog's removal times out intermittently on Server
-        // (main's run 40872081690, nightly dispatches 41681848386 and 41685879786); every variant shares the mechanism.
-        test.fixme(`port: keeps the parent open when the nested dialog inside the shadow root closes on Escape and on an outside press (outer: ${named(outer)}, nested: ${named(nested)})`, {
-          tag: '@quarantine',
-          annotation: { type: 'issue', description: 'https://github.com/JakeMurrayDev/Blazix.Primitives/issues/166' },
-        }, async ({ page, mode }) => {
+        test(`port: keeps the parent open when the nested dialog inside the shadow root closes on Escape and on an outside press (outer: ${named(outer)}, nested: ${named(nested)})`, async ({ page, mode }) => {
+          if (mode === 'server') {
+            await delayCircuit(page, 100);
+          }
           const fixture = await open(page, mode, { kind, outer: queryValue(outer), nested: queryValue(nested) });
+          await expect.poll(() => focusIn(page, 'outer')).toBe(true);
 
           await click(page, 'open-nested');
           await expect.poll(() => exists(page, 'nested')).toBe(true);
+          await expect.poll(() => focusIn(page, 'nested')).toBe(true);
           await page.keyboard.press('Escape');
           await expect.poll(() => exists(page, 'nested')).toBe(false);
           expect(await exists(page, 'outer')).toBe(true);
@@ -891,6 +908,7 @@ test.describe('closed shadow root', () => {
           // portal node (a nested root's Backdrop renders only with ForceRender, DLG-STR-05); a non-modal one on any element.
           await click(page, 'open-nested');
           await expect.poll(() => exists(page, 'nested')).toBe(true);
+          await expect.poll(() => focusIn(page, 'nested')).toBe(true);
           if (kind === 'modal') {
             await page.evaluate(() => {
               const root = (globalThis as unknown as { blazixFixtureDom: { lastClosedShadowRoot: ShadowRoot } }).blazixFixtureDom.lastClosedShadowRoot;

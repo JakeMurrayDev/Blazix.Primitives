@@ -1,6 +1,7 @@
 import { type Locator } from '@playwright/test';
-import { expect, test, type Page, type RenderMode } from './helpers';
+import { expect, test, throttleCpu, type Page, type RenderMode } from './helpers';
 import { center, holdClock, moveTo, parkPointer, recordSelectors, recorded, selectorSeen, waitMs, withClock } from './menu.helpers';
+import { finishSwitchTransitions, recordSwitchTransitions, switchTransitions } from './helpers/switchTransitions';
 import { gotoPopupFixture, openChangeCompletes, openChanges, pressControl, settle, type PopupFixtureOptions } from './suites/popupFixture';
 
 // The L4 titles of MenuRoot.test.tsx's nested popups, MenuPopupEnterTransition.test.tsx, MenuPopupTransitionState.test.tsx,
@@ -625,12 +626,13 @@ test.describe('<Menu.Root /> multiple detached triggers', () => {
       pending.length = 0;
     });
 
-  async function handOff(page: Page, mode: RenderMode, settleTriggerChange: boolean): Promise<void> {
+  async function handOff(page: Page, mode: RenderMode, settleTriggerChange: boolean, beforeSwitch?: () => Promise<void>, durations: { switch?: number; exit?: number } = {}): Promise<void> {
     await parkPointer(page);
-    await gotoPopupFixture(page, mode, 'menu-transition', { case: 'hover-triggers', animations: 1 });
+    await gotoPopupFixture(page, mode, 'menu-transition', { case: 'hover-triggers', animations: 1, ...durations });
     await moveTo(page, page.getByTestId('trigger-1'));
     await expect(page.getByTestId('content')).toHaveText('1');
 
+    await beforeSwitch?.();
     await moveTo(page, page.getByTestId('trigger-2'));
     await expect(page.getByTestId('content')).toHaveText('2');
 
@@ -675,25 +677,41 @@ test.describe('<Menu.Root /> multiple detached triggers', () => {
     expect((await instants(page)).ending).not.toContain('trigger-change');
   });
 
+  // Issue 261 (issue 175's class, DP6; the popover copy's hardening): the switch was a 120 ms transition read by polling the
+  // positioner's live animations, which a slow host (the CPU throttled from the switch on) let end before the first sample.
+  // The switch's transitions are now recorded at their `transitionrun`, and the switch and the exit last long enough that
+  // the close starts mid-switch and the popup is still mid-exit when the title ends the switch itself; the sync barrier
+  // then lets a stale report's render land before the asserts.
   test('does not restore the trigger-change instant after a hover close has started', async ({ page, mode }) => {
-    await handOffRecording(page, mode);
+    await handOffRecording(
+      page,
+      mode,
+      async () => {
+        await recordSwitchTransitions(page);
+        await throttleCpu(page, 20);
+      },
+      { switch: 10_000, exit: 20_000 },
+    );
     const popup = page.getByTestId('popup');
-    const positioner = page.getByTestId('positioner');
-    await expect.poll(() => positioner.evaluate((element) => element.getAnimations().length)).toBeGreaterThan(0);
+    await expect.poll(() => switchTransitions(page)).toBeGreaterThan(0);
+    const popupHandle = await popup.elementHandle();
 
     await parkPointer(page);
     await expect(popup).toHaveAttribute('data-ending-style', '');
-
-    await positioner.evaluate((element) => Promise.all(element.getAnimations().map((animation) => animation.finished)));
+    // End the switch: a callback still waiting on it reports the trigger change now.
+    await finishSwitchTransitions(page);
+    await settle(page.locator('[data-fixture][data-interactive="true"]'));
 
     // Still mid-exit: the stale callback must not have marked it instant and collapsed the transition.
+    expect(await popupHandle!.evaluate((element) => element.isConnected)).toBe(true);
     await expect(popup).toHaveAttribute('data-ending-style', '');
     await expect(popup).not.toHaveAttribute('data-instant', /.*/);
+    expect((await instants(page)).ending).not.toContain('trigger-change');
   });
 
-  async function handOffRecording(page: Page, mode: RenderMode): Promise<void> {
+  async function handOffRecording(page: Page, mode: RenderMode, beforeSwitch?: () => Promise<void>, durations: { switch?: number; exit?: number } = {}): Promise<void> {
     await recordInstants(page);
-    await handOff(page, mode, false);
+    await handOff(page, mode, false, beforeSwitch, durations);
   }
 });
 

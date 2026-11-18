@@ -41,6 +41,9 @@ export function positionerOf(locator: Locator): Locator {
  * popup that is never positioned passes `unanchored`.
  */
 export async function center(locator: Locator, options: { unanchored?: boolean } = {}): Promise<{ x: number; y: number }> {
+  // The element is in the page before its Positioner is looked up: an element the opening render has not created yet has
+  // no Positioner ancestor to count, so the wait was skipped and the box read from the unpositioned layout (issue 261).
+  await locator.waitFor({ state: 'attached' });
   const positioner = positionerOf(locator);
   if (!options.unanchored && (await positioner.count()) > 0) {
     await waitForPositioned(positioner);

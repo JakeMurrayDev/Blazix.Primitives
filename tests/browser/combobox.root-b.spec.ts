@@ -1,5 +1,5 @@
 import { type Locator } from '@playwright/test';
-import { expect, isScrollLocked, test, type Page, type RenderMode } from './helpers';
+import { delayCircuitMessages, expect, holdCircuit, isScrollLocked, test, type Page, type RenderMode } from './helpers';
 import { center, gotoCombobox, moveTo, recorded, touchTest, type FixtureOptions } from './combobox.helpers';
 import { settle } from './suites/popupFixture';
 
@@ -486,6 +486,11 @@ test.describe('<Combobox.Root />', () => {
     });
 
     test('keeps the popup input focused through keyboard selection and restores the last selection', async ({ page, mode }) => {
+      // Issue 261: on Server the list's registry update for the filtered items lands a round trip after the batch that
+      // filtered them; an arrow pressed meanwhile highlights the surviving item at its old index, and the update re-indexes
+      // it. The circuit's messages are held from that update (its one filtered item) until the title has
+      // pressed the arrow and checked it (release).
+      const hold = await holdCircuit(page, { armOn: (text) => text.includes('OnInputChange') && text.includes('\\"text\\":\\"b\\"'), from: (text) => text.includes('\\u0022items\\u0022:[{') && (text.match(/\\u0022id\\u0022/g) ?? []).length === 1 });
       await gotoRoot(page, mode, { items: 'apple|apricot|banana', multiple: true, trigger: true, triggerValue: true, popupInput: true });
 
       const trigger = page.getByTestId('trigger');
@@ -493,9 +498,14 @@ test.describe('<Combobox.Root />', () => {
 
       const field = input(page);
       await expect(field).toBeVisible();
+      hold.arm();
       await field.pressSequentially('ban');
       await expect(page.getByRole('option')).toHaveCount(1);
       await page.keyboard.press('ArrowDown');
+      await expect(page.getByRole('option', { name: 'banana' })).toHaveAttribute('data-highlighted', '');
+      if (mode === 'server') {
+        await hold.release();
+      }
       await page.keyboard.press('Enter');
 
       await expect(page.getByRole('dialog')).toBeVisible();
@@ -799,6 +809,12 @@ test.describe('<Combobox.Root />', () => {
 
   test.describe('prop: autoHighlight', () => {
     test('highlights the first matching item after typing (single mode)', async ({ page, mode }) => {
+      // Issue 261: on Server the open's render can land before the typed query's, and the item it shows is replaced by the
+      // filtered one (a new element with a new id), so its id was read before the query applied (8 of 8 with the input's
+      // report held 600 ms).
+      if (mode === 'server') {
+        await delayCircuitMessages(page, 30, 'OnInputChange', 600);
+      }
       await gotoRoot(page, mode, { items: 'apple|banana|cherry', autoHighlight: true });
 
       const field = page.getByRole('combobox');
@@ -807,6 +823,9 @@ test.describe('<Combobox.Root />', () => {
 
       const cherry = page.getByRole('option', { name: 'cherry' });
       await expect(cherry).toBeVisible();
+      // The query has applied once cherry is the only option: the open's cherry, shown before it, is replaced by the
+      // filtered one.
+      await expect(page.getByRole('option')).toHaveCount(1);
       await expect(field).toHaveAttribute('aria-activedescendant', (await cherry.getAttribute('id'))!);
     });
 
@@ -820,6 +839,9 @@ test.describe('<Combobox.Root />', () => {
       await expect(page.getByRole('listbox')).toBeVisible();
       const cherry = page.getByRole('option', { name: 'cherry' });
       await expect(cherry).toBeVisible();
+      // The query has applied once cherry is the only option: the open's cherry, shown before it, is replaced by the
+      // filtered one.
+      await expect(page.getByRole('option')).toHaveCount(1);
       await expect(field).toHaveAttribute('aria-activedescendant', (await cherry.getAttribute('id'))!);
     });
 

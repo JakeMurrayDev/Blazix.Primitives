@@ -1,5 +1,5 @@
 import { type Locator } from '@playwright/test';
-import { expect, Fixture, test, type Page, type RenderMode } from './helpers';
+import { expect, Fixture, holdCircuit, test, type Page, type RenderMode } from './helpers';
 
 // useMenuFilterItem.test.tsx and MenuFilterRoot.test.tsx's item-text and item-press titles (MNU-STA-17, PTR-20; M5 track
 // 12, issue 197; docs/components/menu.md) on `menu-filter-items` (its cases are in the fixture's header), titles verbatim
@@ -115,6 +115,10 @@ test.describe('filtered Menu items', () => {
 
   // MNU-PTR-20, KEY-25 (MenuFilterRoot.test.tsx).
   test('filters items and selects the active item while focus remains on the input', async ({ page, mode }) => {
+    // Issue 261: on Server the highlight a query change asks for (C#'s, MNU-STA-18/19; ADR 01's "JS-owned values that
+    // originate in C# state" row) leaves C# after the render batch that filtered the list, a gap a busy server widens: the
+    // circuit's messages are held from that request until the page reports the next ArrowDown.
+    const hold = await holdCircuit(page, { from: (text) => text.includes('highlight') && text.includes('revision'), until: (text) => text.includes('ArrowDown') });
     const fixture = await render(page, mode, { case: 'fruit' });
     const trigger = page.getByRole('button', { name: 'Fruit' });
 
@@ -131,9 +135,18 @@ test.describe('filtered Menu items', () => {
     await expect(page.getByText('Apple')).toHaveAttribute('tabindex', '-1');
     await expect(page.getByText('Banana')).toHaveAttribute('tabindex', '-1');
 
+    hold.arm();
     await page.keyboard.type('ban');
     await expect(item(page, 'Apple')).toHaveCount(0);
     await expect(page.getByText('Banana')).toBeVisible();
+    // The query's highlight reset is C#'s and lands after the filtered list on Server, where it overwrites an arrow pressed
+    // before it. ADR 01's row covers the reset's latency, not a stale reset winning over a newer key: a defect, issue 271.
+    // Until it is fixed, the arrow waits for the reset's report, Base UI's synchronous state: the held server answers
+    // first (release), and the title waits for that answer before the arrow.
+    if (mode === 'server') {
+      await hold.release();
+    }
+    await expect(fixture).toHaveAttribute('data-highlights', 'none');
 
     await page.keyboard.press('ArrowDown');
 

@@ -16,6 +16,7 @@ namespace Blazix.Primitives;
 internal abstract class SelectStore : PopupLifecycleStore<SelectStoreState>, IFloatingNodeContext
 {
     private bool alignItemWithTriggerProp = true;
+    private bool firstHighlightPending;
 
     /// <summary>Occurs when a close by a focus-out or an outside press is committed, which marks the field touched.</summary>
     public event Action? Dismissed;
@@ -202,15 +203,23 @@ internal abstract class SelectStore : PopupLifecycleStore<SelectStoreState>, IFl
     }
 
     // SEL-POS-10 (select/popup/SelectPopup.tsx:396-403): after an aligned placement, the first item when nothing is
-    // selected or highlighted and hover highlighting is on; asked of list navigation (ADR 04 Amendments 2026-11-03 (2)).
+    // selected or highlighted and hover highlighting is on; asked of list navigation (ADR 04 Amendments 2026-11-03 (2)). On
+    // Server the placement's report can arrive before the items' order report (issue 261): the highlight then waits for the
+    // order, while the same open lasts.
     /// <summary>Highlights the first item after an aligned placement, when nothing is selected or highlighted.</summary>
     /// <returns>A task that completes when list navigation has the request.</returns>
     public Task HighlightFirstItemAfterPlacementAsync()
     {
         SelectStoreState state = State;
-        if (List is { } list && state.HighlightItemOnHover && state.SelectedIndex is null && list.HighlightedIndex is null && ItemCount > 0)
+        firstHighlightPending = false;
+        if (List is { } list && state.HighlightItemOnHover && state.SelectedIndex is null && list.HighlightedIndex is null)
         {
-            return list.RequestHighlightAsync(0);
+            if (ItemCount > 0)
+            {
+                return list.RequestHighlightAsync(0);
+            }
+
+            firstHighlightPending = state.Lifecycle.Open;
         }
 
         return Task.CompletedTask;
@@ -268,6 +277,7 @@ internal abstract class SelectStore : PopupLifecycleStore<SelectStoreState>, IFl
     /// <inheritdoc />
     protected override void OnUnmount()
     {
+        firstHighlightPending = false;
         if (List is { } list)
         {
             _ = list.RequestHighlightAsync(null);
@@ -276,6 +286,19 @@ internal abstract class SelectStore : PopupLifecycleStore<SelectStoreState>, IFl
 
     /// <summary>Moves the text counter, after a text element that aligned placement measures changed.</summary>
     protected void TouchText() => Write(State with { TextVersion = State.TextVersion + 1 });
+
+    /// <summary>Highlights the first item after an aligned placement that came before any item's order.</summary>
+    /// <returns>A task that completes when list navigation has the request.</returns>
+    protected Task HighlightFirstItemIfPendingAsync()
+    {
+        if (!firstHighlightPending || ItemCount == 0)
+        {
+            return Task.CompletedTask;
+        }
+
+        firstHighlightPending = false;
+        return State.Lifecycle.Open ? HighlightFirstItemAfterPlacementAsync() : Task.CompletedTask;
+    }
 
     // SEL-STA-08 (SelectRoot.tsx:222-223, usePreviousValue): the open method a closing transition and a quick reopen
     // keep. SEL-POS-03/05 (SelectPositioner.tsx:75-82): aligned placement is active while mounted, requested (the latch,
