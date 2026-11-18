@@ -943,14 +943,17 @@ test.describe('<Menu.Root />', () => {
         });
       });
 
-      // MNU-PTR-11, L4 open (settled by the orchestrator 2026-11-04; menu.md's port note): in a real browser the parent item's
+      // MNU-PTR-11, L4 open (settled by the orchestrator 2026-11-04; menu.md's port notes): in a real browser the parent item's
       // hover moves DOM focus and the hover-opened submenu closes with `focus-out` before its close delay. Dispatched as Base
-      // UI does (MenuRoot.test.tsx:2496), which the safe polygon's `pointer-events: none` also asks for.
+      // UI does (MenuRoot.test.tsx:2496), which the safe polygon's `pointer-events: none` also asks for. M6 track 11's
+      // real-browser probe of Base UI (2026-11-19) found Base UI's parent items take no pointer events while the submenu is
+      // hover-open, so it closes after the delay: a port defect, issue 296 (track 10).
       test.describe('prop: closeDelay, a sibling item', () => {
-        const openRow = 'MNU-PTR-11, L4 open: the submenu closes with `focus-out` before its close delay (settled 2026-11-04, a real-browser probe of Base UI pending)';
+        const openRow = 'MNU-PTR-11 (issue 296): the port closes the submenu at once with `focus-out`; Base UI in Chromium blocks the parent\'s pointer events and closes after the delay (probe 2026-11-19)';
 
         test('should close submenu after delay when hovering a sibling item', async ({ page, mode }) => {
-          test.skip(true, openRow);
+          test.info().annotations.push({ type: 'open', description: openRow });
+          test.fixme(true, openRow);
           await render(page, mode, { ...base, openOnHover: true, delay: 0, subDelay: 0, subCloseDelay: 100 });
           await moveTo(page, trigger(page));
           await expect(popup(page)).toBeVisible();
@@ -972,7 +975,8 @@ test.describe('<Menu.Root />', () => {
         });
 
         test('should not restart closeDelay on repeated mousemove over sibling items', async ({ page, mode }) => {
-          test.skip(true, openRow);
+          test.info().annotations.push({ type: 'open', description: openRow });
+          test.fixme(true, openRow);
           await render(page, mode, { ...base, openOnHover: true, delay: 0, subDelay: 0, subCloseDelay: 100 });
           await moveTo(page, trigger(page));
           await expect(popup(page)).toBeVisible();

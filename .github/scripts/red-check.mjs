@@ -135,6 +135,19 @@ export function playwrightOutcomes(text) {
   return outcomes;
 }
 
+// ---- the base's working tree ----------------------------------------------------------------------------------------
+
+/**
+ * The paths the pull request's head puts back after the base's src/ replaces its own: the L3 tests sit beside the
+ * modules under src/, and so do their harnesses under js/test-support/. With the harnesses there, a test file that
+ * still fails to load against the base imports the subject the pull request adds (issue 178: PR 170's
+ * composite-list.test.ts failed to load only for want of its harness, so eight titles that passed counted as red).
+ * @returns {string[]} git pathspecs, relative to the repository root
+ */
+export function headPathspecsOnBase() {
+  return [':(glob)src/Blazix.Primitives/js/**/*.test.ts', ':(glob)src/Blazix.Primitives/js/test-support/**'];
+}
+
 // ---- verdict -----------------------------------------------------------------------------------------------------
 
 /**
@@ -186,7 +199,7 @@ export function summarize(layers) {
       for (const name of unloadable) perFile.set(name.split('::')[0], (perFile.get(name.split('::')[0]) ?? 0) + 1);
       lines.push(
         '',
-        `**${layer}: red: the test file does not load against the base's src/ (it imports a module the pull request adds), so its tests fail there:**`,
+        `**${layer}: red (does not load): with the pull request's test files and harnesses put back, the test file still does not load against the base's src/ (it imports the subject the pull request adds), so its tests fail there:**`,
         [...perFile].map(([file, count]) => `- \`${file}\` (${count} tests)`).join('\n'),
       );
     }
@@ -297,11 +310,13 @@ function main() {
   }
 
   if (results.some((result) => result.added.length > 0)) {
-    // The base branch's src/, the pull request's tests/ and fixtures. The L3 tests sit beside the modules under src/, so
-    // the pull request's *.test.ts files under js/ are put back after the swap.
+    // The base branch's src/, the pull request's tests/ and fixtures. The L3 tests and their harnesses sit beside the
+    // modules under src/, so the pull request's *.test.ts files and js/test-support/ are put back after the swap.
     rmSync('src', { recursive: true, force: true });
     execFileSync('git', ['checkout', baseSha, '--', 'src']);
-    spawnSync('git', ['checkout', 'HEAD', '--', ':(glob)src/Blazix.Primitives/js/**/*.test.ts'], { stdio: 'ignore' });
+    for (const pathspec of headPathspecsOnBase()) {
+      spawnSync('git', ['checkout', 'HEAD', '--', pathspec], { stdio: 'ignore' });
+    }
     for (const result of results) {
       if (result.added.length === 0) continue;
       const { buildFailed, outcomes, failedFiles } = runLayer(result.layer, result.added, join(process.cwd(), 'red-check-results'));
