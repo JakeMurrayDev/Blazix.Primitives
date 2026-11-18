@@ -2,7 +2,7 @@
 // SelectPositioner.test.tsx's kept-mounted title and SelectScrollArrow.test.tsx's L4 title: Server then WebAssembly.
 // Fixtures: tests/Blazix.Primitives.Fixtures.Client/Select/SelectNav*Fixture.razor (and `select-positioner`).
 import { type Locator, type Page } from '@playwright/test';
-import { delayCircuitMessages, expect, test } from './helpers';
+import { delayCircuitMessages, expect, holdCircuit, test } from './helpers';
 import { waitForPositioned } from './helpers/positioner';
 import { gotoPopupFixture, pressControl, settle } from './suites/popupFixture';
 
@@ -498,6 +498,29 @@ test.describe('item-aligned popup interaction', () => {
       return { top: rect.top, height: rect.height, scrollTop: node.scrollTop };
     });
   }
+
+  // Issue 252 (M6 track 3; SEL-POS-13, SEL-POS-11): on Server the items' registration reaches the Positioner a round trip
+  // after the aligned placement, as an item-map change, and its height clear undid the placement (Base UI's map changes at
+  // mount, before its first pass and the placement). The registration's update is held until the page has placed.
+  test('port: keeps the aligned placement when the items register after it, under circuit latency on Server', async ({ page, mode }) => {
+    const hold = await holdCircuit(page, { from: (text) => text.includes('\\u0022itemsRevision\\u0022:1') });
+    hold.arm();
+    await gotoPopupFixture(page, mode, 'select-nav-aligned', { case: 'edges' });
+    await trigger(page).click();
+    const positioner = page.getByTestId('positioner');
+    await waitForPositioned(positioner);
+    const placed = await positioner.evaluate((node) => (node as HTMLElement).style.height);
+    expect(placed).not.toBe('');
+    if (mode === 'server') {
+      await hold.release();
+    }
+    await expect(option(page, 'Item 15')).toBeFocused();
+
+    expect(await positioner.evaluate((node) => (node as HTMLElement).style.height)).toBe(placed);
+    const box = (await positioner.boundingBox())!;
+    expect(box.y).toBeGreaterThanOrEqual(0);
+    expect(box.height).toBe(parseFloat(placed));
+  });
 
   // SEL-POS-11. Playwright's hover would scroll a partly visible item into view where Base UI's does not, so the pointer is
   // moved onto the part of the item that shows.
