@@ -34,6 +34,11 @@ export interface DetachedTriggersConfig {
   viewport?: boolean;
   /** Titles listed open, each with its row and the track or milestone that proves it. */
   open?: Readonly<Record<string, string>>;
+  /**
+   * Titles settled open as a `test.fixme` with an `open` annotation (tests/browser/CONTEXT.md), each with its row and the
+   * issue that proves it, such as the click families' reparent marker title (issue 306).
+   */
+  fixme?: Readonly<Record<string, string>>;
   /** When given, only these titles are declared (a second run of one branch, such as `throwOnMissingTrigger: false`). */
   only?: readonly string[];
 }
@@ -43,7 +48,7 @@ export interface DetachedTriggersConfig {
 const HOVER_LEAVE_LATENCY = 100;
 
 export function detachedTriggersConformanceTests(config: DetachedTriggersConfig): void {
-  const { fixture: fixtureName, openInteractions, ariaExpanded, throwOnMissingTrigger, close, positioner = false, viewport = false, open: listedOpen = {}, only } = config;
+  const { fixture: fixtureName, openInteractions, ariaExpanded, throwOnMissingTrigger, close, positioner = false, viewport = false, open: listedOpen = {}, fixme: listedFixme = {}, only } = config;
   const primaryInteraction = openInteractions[0];
   // Switching the active trigger must keep the popup mounted. Hover-opened popups close on `mouseleave` before the next
   // trigger is entered, so they switch with focus instead.
@@ -149,9 +154,17 @@ export function detachedTriggersConformanceTests(config: DetachedTriggersConfig)
       .toBeLessThanOrEqual(1);
   }
 
-  /** Declares a title; one listed open is skipped with its reason. */
+  /** Declares a title; one listed open is skipped with its reason, and one listed in `fixme` is a `test.fixme`. */
   function it(title: string, body: (args: { page: Page; mode: RenderMode }) => Promise<void>): void {
     if (only && !only.includes(title)) {
+      return;
+    }
+
+    const openRow = listedFixme[title];
+    if (openRow) {
+      test.fixme(title, { annotation: { type: 'open', description: openRow } }, async ({ page, mode }) => {
+        await body({ page, mode });
+      });
       return;
     }
 
@@ -427,7 +440,8 @@ export function detachedTriggersConformanceTests(config: DetachedTriggersConfig)
           it(`keeps a detached trigger working ${name}`, async ({ page, mode }) => {
             const [initialNesting, ...nextNestings] = nestings;
             await delayHoverLeave(page, mode, primaryInteraction);
-            const fixture = await render(page, mode, { mode: 'detached', triggerCount: 1, nesting: initialNesting });
+            // `rearmAttached`: the fixture's readiness marker also waits for the reparented trigger's attach (issue 270).
+            const fixture = await render(page, mode, { mode: 'detached', triggerCount: 1, nesting: initialNesting, rearmAttached: true });
 
             await expectOpensAndCloses(page);
 
@@ -438,10 +452,34 @@ export function detachedTriggersConformanceTests(config: DetachedTriggersConfig)
               }
 
               await settle(fixture);
+              await expect(fixture).toHaveAttribute('data-attached', 'true');
               await expectOpensAndCloses(page);
             }
           });
         }
+
+        // Issue 270 (M6 track 11): a reparent gives the trigger a new instance whose handles attach after the render that
+        // moves it, so the readiness marker the reparent titles wait on drops until they have, rather than keeping the first
+        // render's value. The drop is recorded as it happens (ADR 06 §2). Popup, Popover and Menu keep their trigger
+        // instance and re-attach without a task a fixture can read: open to issue 306 (`fixme` in their specs).
+        it('port: a reparented trigger takes the readiness marker down until its handles attach again', async ({ page, mode }) => {
+          const fixture = await render(page, mode, { mode: 'detached', triggerCount: 1, nesting: 0, rearmAttached: true });
+          await expect(fixture).toHaveAttribute('data-attached', 'true');
+          await fixture.evaluate((element) => {
+            const values: string[] = [];
+            (window as unknown as { attachedValues: string[] }).attachedValues = values;
+            new MutationObserver(() => values.push(element.getAttribute('data-attached') ?? '')).observe(element, {
+              attributes: true,
+              attributeFilter: ['data-attached'],
+            });
+          });
+
+          await pressControl(fixture.locator('[data-set-nesting="2"]'));
+          await settle(fixture);
+
+          await expect(fixture).toHaveAttribute('data-attached', 'true');
+          expect(await page.evaluate(() => (window as unknown as { attachedValues: string[] }).attachedValues)).toEqual(['false', 'true']);
+        });
       });
     });
   });
