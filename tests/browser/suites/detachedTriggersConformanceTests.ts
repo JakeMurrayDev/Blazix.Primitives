@@ -1,5 +1,5 @@
 import { type Locator, type Page } from '@playwright/test';
-import { expect, readDiagnostics, test, type RenderMode } from '../helpers';
+import { delayCircuit, expect, readDiagnostics, test, type RenderMode } from '../helpers';
 import { gotoPopupFixture, openChanges, pressControl, settle, type PopupFixtureOptions } from './popupFixture';
 
 // Base UI's detachedTriggersConformanceTests (packages/react/test/detachedTriggersConformanceTests.tsx at v1.9.0), titles
@@ -38,11 +38,13 @@ export interface DetachedTriggersConfig {
   only?: readonly string[];
 }
 
-// Quarantined (ADR 11 §4) until 2026-11-18, for every family that runs the suite: test.fixme with the @quarantine tag and
-// the issue. Issue 177: intermittent on both modes (a re-attach race or a test-side wait, not yet known).
-const quarantined: Record<string, string> = {
-  'keeps a detached trigger working when reparented during Fast Refresh-like handle recreation': 'https://github.com/JakeMurrayDev/Blazix.Primitives/issues/177',
-};
+// A title quarantined (ADR 11 §4) for every family that runs the suite: the title → the issue's URL (test.fixme with the
+// @quarantine tag and the issue).
+const quarantined: Record<string, string> = {};
+
+// The circuit's one-way delay of the titles that leave a hover-opened popup, on Server (issue 177): the Positioner's first
+// pass lands a round trip after the popup shows, so a leave that does not wait for it meets the unpositioned popup.
+const HOVER_LEAVE_LATENCY = 100;
 
 export function detachedTriggersConformanceTests(config: DetachedTriggersConfig): void {
   const { fixture: fixtureName, openInteractions, ariaExpanded, throwOnMissingTrigger, close, positioner = false, viewport = false, open: listedOpen = {}, only } = config;
@@ -56,6 +58,13 @@ export function detachedTriggersConformanceTests(config: DetachedTriggersConfig)
 
   function render(page: Page, mode: RenderMode, options: PopupFixtureOptions): Promise<Locator> {
     return gotoPopupFixture(page, mode, fixtureName, options);
+  }
+
+  /** Delays the Server circuit before the first navigation of a title that closes a hover-opened popup by leaving it. */
+  async function delayHoverLeave(page: Page, mode: RenderMode, interaction: OpenInteraction): Promise<void> {
+    if (interaction === 'hover' && mode === 'server') {
+      await delayCircuit(page, HOVER_LEAVE_LATENCY);
+    }
   }
 
   async function openWith(interaction: OpenInteraction, trigger: Locator): Promise<void> {
@@ -157,6 +166,7 @@ export function detachedTriggersConformanceTests(config: DetachedTriggersConfig)
         test.describe('multiple triggers', () => {
           for (const interaction of openInteractions) {
             it(`opens with any trigger on ${interaction} and marks only that trigger as active`, async ({ page, mode }) => {
+              await delayHoverLeave(page, mode, interaction);
               await render(page, mode, { mode: triggerMode, triggerCount: 3 });
 
               await expect(getPopup(page)).toHaveCount(0);
@@ -415,6 +425,7 @@ export function detachedTriggersConformanceTests(config: DetachedTriggersConfig)
         for (const { name, nestings, recreateHandle } of cases) {
           it(`keeps a detached trigger working ${name}`, async ({ page, mode }) => {
             const [initialNesting, ...nextNestings] = nestings;
+            await delayHoverLeave(page, mode, primaryInteraction);
             const fixture = await render(page, mode, { mode: 'detached', triggerCount: 1, nesting: initialNesting });
 
             await expectOpensAndCloses(page);
