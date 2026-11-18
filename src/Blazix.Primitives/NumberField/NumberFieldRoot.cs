@@ -141,6 +141,16 @@ public sealed class NumberFieldRoot : PartBase<NumberFieldRootState>
     [Parameter]
     public EventCallback<ValueChangeEventArgs<double?>> OnValueChange { get; set; }
 
+    // NUM-API-04, NUM-EVT-05; ADR 08 Amendments 2026-11-18 (decision 13 (a), the Details type confirmed by track 1).
+    /// <summary>Gets or sets the callback invoked when an interaction that changed the value ends.</summary>
+    /// <value>
+    /// The callback, which receives the committed value and the commit details: the reason and the event that ended the
+    /// interaction. It runs on blur after typing or a change, on each key, button and wheel step that changed the value, and
+    /// on every release of a held stepper or a scrub, even when the value did not change.
+    /// </value>
+    [Parameter]
+    public EventCallback<ValueCommittedEventArgs<double?>> OnValueCommitted { get; set; }
+
     // NUM-API-05
     /// <summary>Gets or sets the minimum value.</summary>
     /// <value>The minimum, or <see langword="null"/>, the default, for none (the smallest safe integer, -(2^53 - 1)).</value>
@@ -542,8 +552,8 @@ public sealed class NumberFieldRoot : PartBase<NumberFieldRootState>
         return SetValueAsync(from + (amount * direction), new NumberFieldChangeEventDetails(reason, direction, snapshot));
     }
 
-    // NUM-API-04, NUM-EVT-05 (onValueCommitted, number-field/root/NumberFieldRoot.tsx:135-140). The consumer callback takes
-    // track 1's ValueCommittedEventArgs<T> (ADR 08 Amendments 2026-11-18, decision 13 (a)) and is added when it lands.
+    // NUM-API-04, NUM-EVT-05 (onValueCommitted, number-field/root/NumberFieldRoot.tsx:135-140), with track 1's
+    // ValueCommittedEventArgs<T> (ADR 08 Amendments 2026-11-18, decision 13 (a)).
     /// <summary>Reports that an interaction ended with a value.</summary>
     /// <param name="committed">The committed value.</param>
     /// <param name="reason">The reason of the interaction.</param>
@@ -551,11 +561,10 @@ public sealed class NumberFieldRoot : PartBase<NumberFieldRootState>
     /// <returns>A task that completes when the consumer's callback has run.</returns>
     internal Task CommitAsync(double? committed, EventReason reason, EventSnapshot? snapshot)
     {
-        _ = committed;
-        _ = reason;
-        _ = snapshot;
         HasPendingCommit = false;
-        return Task.CompletedTask;
+        return OnValueCommitted.HasDelegate
+            ? OnValueCommitted.InvokeAsync(new ValueCommittedEventArgs<double?>(committed, new GenericEventDetails(reason, snapshot)))
+            : Task.CompletedTask;
     }
 
     // NUM-FOC-05 (NumberFieldInput.tsx:131-136): a focus that no consumer vetoed acquires the field's focused flag unless
