@@ -37,7 +37,7 @@ test.describe('<Drawer.Popup />', () => {
     const wrapper = page.getByTestId('wrapper');
     await wrapper.evaluate((element) => {
       (window as unknown as { drawerKeys: string[] }).drawerKeys = [];
-      element.addEventListener('keydown', (event) => (window as unknown as { drawerKeys: string[] }).drawerKeys.push(event.key));
+      element.addEventListener('keydown', (event) => (window as unknown as { drawerKeys: string[] }).drawerKeys.push((event as KeyboardEvent).key));
     });
     const field = page.getByRole('textbox', { name: 'Field' });
 
