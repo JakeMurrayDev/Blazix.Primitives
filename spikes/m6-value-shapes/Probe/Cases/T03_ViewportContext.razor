@@ -1,0 +1,10 @@
+<ToastViewport Toasts="toasts" Context="list">
+    @foreach (var toast in list)
+    {
+        <ToastRoot Toast="toast"><ToastTitle /></ToastRoot>
+    }
+</ToastViewport>
+
+@code {
+    private IReadOnlyList<ToastObject> toasts = [new("a"), new("b")];
+}

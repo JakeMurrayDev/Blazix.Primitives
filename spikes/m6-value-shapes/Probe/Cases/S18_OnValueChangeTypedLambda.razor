@@ -1,0 +1,5 @@
+<SliderRoot DefaultValue="25" OnValueChange="@((ValueChangeEventArgs<SliderValues> e) => last = e.Value)" /> last=@last
+
+@code {
+    private SliderValues? last;
+}

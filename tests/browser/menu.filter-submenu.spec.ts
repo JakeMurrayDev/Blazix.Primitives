@@ -239,7 +239,16 @@ test.describe('closing a filtered submenu from the keyboard', () => {
 
   for (const submenuFilterable of [false, true]) {
     // MNU-KEY-32.
-    test(`does not wrap a filterable parent when closing from its first item (filterable submenu: ${submenuFilterable})`, async ({ page, mode }) => {
+    // Quarantined (ADR 11 §4) on Server, the filterable-submenu variant only, until 2026-12-03, issue 288: its second CI
+    // sighting was PR 284's run 44341044812 (track 0 watched it after the first). WebAssembly and the plain variant run.
+    const quarantine = submenuFilterable
+      ? {
+          tag: '@quarantine',
+          annotation: { type: 'issue', description: 'https://github.com/JakeMurrayDev/Blazix.Primitives/issues/288 (expires 2026-12-03)' },
+        }
+      : {};
+    test(`does not wrap a filterable parent when closing from its first item (filterable submenu: ${submenuFilterable})`, quarantine, async ({ page, mode }) => {
+      test.fixme(submenuFilterable && mode === 'server', 'Quarantined on Server until 2026-12-03 (issue 288)');
       await render(page, mode, {
         child: submenuFilterable ? 'filter' : 'plain',
         closed: true,
