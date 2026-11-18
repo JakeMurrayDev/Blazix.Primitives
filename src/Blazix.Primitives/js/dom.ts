@@ -684,86 +684,14 @@ export function styleWriter(element: HTMLElement): StyleWriter {
   const longhands = (property: string, value: string): Map<string, Declaration> =>
     property.startsWith('--') ? new Map([[property, { value, priority: '' }]]) : parse(`${property}: ${value}`);
 
-  // ADR 04 Amendments 2026-11-18, design point 2 (b) of the Drawer track (settled by the orchestrator 2026-11-18;
-  // granted to session D, M6 track 8b): a write to the `style` attribute the writer did not make (a C# re-render of a
-  // part that renders declarations in its commit path, Drawer's Popup) is absorbed. The attribute's text becomes the
-  // consumer's, the cache is rebuilt from the element and every band's winners are written again. Foreign is judged by
-  // declaration against the cache, not by text. The observer, which runs before paint, absorbs any difference. A
-  // writer call absorbs first only when a declaration it applied was removed or changed. Declarations merely added
-  // inside one task are left to the observer: Select's measurement forces `transform`, `scale` and `translate` around
-  // a read and restores them before the task ends (select.ts `unsetTransformStyles`), and a write inside that window
-  // must not take them, or its own bands, as the consumer's.
-  let written = false;
-  let observer: MutationObserver | null = null;
-
-  const differsFromCache = (additions: boolean) => {
-    const style = element.style;
-    for (const [property, key] of applied) {
-      if (`${style.getPropertyValue(property)}!${style.getPropertyPriority(property)}` !== key) {
-        return true;
-      }
-    }
-    if (additions) {
-      for (let i = 0; i < style.length; i++) {
-        if (!applied.has(style[i]!)) {
-          return true;
-        }
-      }
-    }
-    return false;
-  };
-
-  const absorbForeignWrite = (additions: boolean) => {
-    if (!written || !differsFromCache(additions)) {
-      return;
-    }
-    const current = element.getAttribute('style');
-    consumerText = current || null;
-    sources[consumerRank] = consumerText === null ? new Map() : parse(consumerText);
-    applied.clear();
-    const style = element.style;
-    for (let i = 0; i < style.length; i++) {
-      const name = style[i]!;
-      applied.set(name, `${style.getPropertyValue(name)}!${style.getPropertyPriority(name)}`);
-    }
-    const properties = new Set(applied.keys());
-    for (const source of sources) {
-      for (const property of source.keys()) {
-        properties.add(property);
-      }
-    }
-    apply(properties);
-  };
-
-  // Runs one writer call, absorbing first a foreign write that removed or changed one of the writer's declarations.
-  const write = (change: () => void) => {
-    absorbForeignWrite(false);
-    change();
-    written = true;
-  };
-
-  const observe = () => {
-    if (observer !== null) {
-      return;
-    }
-    const View = ownerWindow(element).MutationObserver;
-    if (typeof View !== 'function') {
-      return;
-    }
-    observer = new View(() => absorbForeignWrite(true));
-    observer.observe(element, { attributes: true, attributeFilter: ['style'] });
-  };
-
   const writer: StyleWriter = {
     setConsumer(cssText) {
-      write(() => {
-        const text = cssText || null;
-        if (text === consumerText) {
-          return;
-        }
-        consumerText = text;
-        replace(consumerRank, text === null ? new Map() : parse(text));
-      });
+      const text = cssText || null;
+      if (text === consumerText) {
+        return;
+      }
+      consumerText = text;
+      replace(consumerRank, text === null ? new Map() : parse(text));
     },
     layer(name) {
       const known = layers.get(name);
@@ -773,28 +701,23 @@ export function styleWriter(element: HTMLElement): StyleWriter {
       const rank = styleLayerRanks.get(name)!;
       const layer: StyleLayer = {
         set(property, value) {
-          observe();
-          write(() => {
-            const declarations = longhands(property, value);
-            const own = sources[rank]!;
-            for (const [longhand, declaration] of declarations) {
-              own.set(longhand, declaration);
-            }
-            apply(declarations.keys());
-          });
+          const declarations = longhands(property, value);
+          const own = sources[rank]!;
+          for (const [longhand, declaration] of declarations) {
+            own.set(longhand, declaration);
+          }
+          apply(declarations.keys());
         },
         remove(property) {
-          write(() => {
-            const removed = [...longhands(property, 'initial').keys(), property];
-            const own = sources[rank]!;
-            for (const longhand of removed) {
-              own.delete(longhand);
-            }
-            apply(removed);
-          });
+          const removed = [...longhands(property, 'initial').keys(), property];
+          const own = sources[rank]!;
+          for (const longhand of removed) {
+            own.delete(longhand);
+          }
+          apply(removed);
         },
         clear() {
-          write(() => replace(rank, new Map()));
+          replace(rank, new Map());
         },
       };
       layers.set(name, layer);
