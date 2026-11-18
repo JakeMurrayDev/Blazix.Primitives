@@ -165,3 +165,10 @@ Facts the port found against context-menu.md, each recorded on its row:
 - EVD §3's `onValueCommitted` summary said "fires only for applied changes", which holds for Slider only; NumberField commits on every press-and-hold and scrub release and on blur after typing, even unchanged (NUM-EVT-05, NUM-PTR-04, NUM-PTR-13, NUM-EVT-08). EVD-EVT-23 already said so; the summary now points to it.
 - DRW §3.10's `--drawer-keyboard-inset` writer cell read C#; ADR 04's ownership row (JS) is kept and the cell corrected (ADR 04 Amendments 2026-11-18).
 - Stale pointers corrected: TLB :534's "(M5)", TST §14's two pointers; dated "open to M6" notes added on INP-STR-03 and eight FLD bullets from PR 92's milestone column.
+
+## 2026-11-19, Toast port, first half (M6 track 9a, [issue 280](https://github.com/JakeMurrayDev/Blazix.Primitives/issues/280))
+
+- `PartBase<TState>` declares `[Parameter] RenderFragment? ChildContent`. A part that redeclares it with `new` as a `RenderFragment<T>` compiles but throws at its first render ("declares more than one parameter matching the name 'childcontent'"). So the Viewport's list template is `ToastsContent` (ADR 08 Amendments 2026-11-18).
+- Blazor renders again every child that takes a delegate or fragment parameter, so a render of the toast Viewport reaches every root and part. The port guarantees one render per part per store write, counted through `ClassValue` (`ToastRenderCountTests`), rather than "only the parts whose expanded flag changed". The root reads the store's current state when it renders, and its root context notifies a part after the batch only when the root's render did not reach it.
+- bUnit's markup upkeep after a render batch grows with the square of the rendered tree: 65 KB at 1 toast and 2.7 MB at 10 toasts for one hover. The Toast L2 budget is therefore measured on a renderer of its own (`tests/Blazix.Primitives.Tests.Components/CONTEXT.md`).
+- In Razor, `<Part>@(null)</Part>` passes a `ChildContent` that renders nothing. The port's form of Base UI's `undefined` children is no `ChildContent`, and the Toast hosts are written so (TST-DOM-16's note).
