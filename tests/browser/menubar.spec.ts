@@ -291,6 +291,8 @@ test.describe('<Menubar />', () => {
       // The close and its reason. What follows differs by mode, an open question (design point 6 of M5 track 8): the focus
       // the close returns to File's trigger reaches it while the flag is still set on Server, and the trigger's focus open
       // reopens the menu (`true:trigger-focus`); on WebAssembly the flag clears inside the keydown and the menu stays closed.
+      // M6 track 11's real-browser probe (2026-11-19): Base UI reopens it (`false:focus-out` then `true:trigger-focus`), as
+      // Server does; WebAssembly's difference is issue 297 (track 10).
       await expect(fixture).toHaveAttribute('data-file-changes', /^true:trigger-press false:focus-out/);
     });
 
@@ -412,7 +414,8 @@ test.describe('<Menubar />', () => {
       // reason differs by mode, open by ID (design point 7 (a) of track 8, settled 2026-11-11): the focus manager's focusout on the trigger
       // closes with `focus-out` in a microtask (FloatingFocusManager.tsx:446-566, :587), before the trigger's 0 ms blur
       // timer's `trigger-focus` (useFocus.ts:185-233), so Base UI likely records `focus-out`, as the port does on Server;
-      // WebAssembly records `trigger-focus`. The title asserts the close.
+      // WebAssembly records `trigger-focus`. The title asserts the close. M6 track 11's real-browser probe (2026-11-19)
+      // confirmed `focus-out` in Base UI; WebAssembly's `trigger-focus` is issue 298 (track 10).
       const fixture = await render(page, mode);
       await userClick(page.getByTestId('file-trigger'));
       await expect(page.getByTestId('file-menu')).toBeVisible();
