@@ -1,5 +1,5 @@
 import { type Locator } from '@playwright/test';
-import { expect, test, type Page, type RenderMode } from './helpers';
+import { expect, test, throttleCpu, type Page, type RenderMode } from './helpers';
 import { center, holdClock, moveTo, parkPointer, recordSelectors, recorded, selectorSeen, waitMs, withClock } from './menu.helpers';
 import { gotoPopupFixture, openChangeCompletes, openChanges, pressControl, settle, type PopupFixtureOptions } from './suites/popupFixture';
 
@@ -625,12 +625,13 @@ test.describe('<Menu.Root /> multiple detached triggers', () => {
       pending.length = 0;
     });
 
-  async function handOff(page: Page, mode: RenderMode, settleTriggerChange: boolean): Promise<void> {
+  async function handOff(page: Page, mode: RenderMode, settleTriggerChange: boolean, beforeSwitch?: () => Promise<void>): Promise<void> {
     await parkPointer(page);
     await gotoPopupFixture(page, mode, 'menu-transition', { case: 'hover-triggers', animations: 1 });
     await moveTo(page, page.getByTestId('trigger-1'));
     await expect(page.getByTestId('content')).toHaveText('1');
 
+    await beforeSwitch?.();
     await moveTo(page, page.getByTestId('trigger-2'));
     await expect(page.getByTestId('content')).toHaveText('2');
 
@@ -675,8 +676,10 @@ test.describe('<Menu.Root /> multiple detached triggers', () => {
     expect((await instants(page)).ending).not.toContain('trigger-change');
   });
 
+  // Issue 261 (issue 175's class, DP6): the CPU throttled from the switch on, so a slow host's switch can end before the poll
+  // samples it.
   test('does not restore the trigger-change instant after a hover close has started', async ({ page, mode }) => {
-    await handOffRecording(page, mode);
+    await handOffRecording(page, mode, () => throttleCpu(page, 20));
     const popup = page.getByTestId('popup');
     const positioner = page.getByTestId('positioner');
     await expect.poll(() => positioner.evaluate((element) => element.getAnimations().length)).toBeGreaterThan(0);
@@ -691,9 +694,9 @@ test.describe('<Menu.Root /> multiple detached triggers', () => {
     await expect(popup).not.toHaveAttribute('data-instant', /.*/);
   });
 
-  async function handOffRecording(page: Page, mode: RenderMode): Promise<void> {
+  async function handOffRecording(page: Page, mode: RenderMode, beforeSwitch?: () => Promise<void>): Promise<void> {
     await recordInstants(page);
-    await handOff(page, mode, false);
+    await handOff(page, mode, false, beforeSwitch);
   }
 });
 
