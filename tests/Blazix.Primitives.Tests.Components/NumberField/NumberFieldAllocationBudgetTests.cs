@@ -20,9 +20,14 @@ public sealed class NumberFieldAllocationBudgetTests : IDisposable
     // report's JSON, the request's async state machines and the three parts' new state records. Re-pinned 2026-11-19, before
     // the budget reached main, when the input attached the `number-field` module (design point 2 (b)): 912 bytes for the
     // re-render (the input's twin comparison and its two declined handlers, +64), and 2,472 and 2,456 bytes for the tick and
-    // the click, the same in five processes. The two steps fell by about 13 KB when the input's text moved to the module's
-    // options; the cause of the size of that drop is not yet analysed (issue 277's hand-over). Re-pinned again the same day,
-    // still before main, with the steppers' hold-start veto (design point 1 (a)): +32 bytes each, 944, 2,504 and 2,488.
+    // the click, the same in five processes. Re-pinned again the same day, still before main, with the steppers' hold-start
+    // veto (design point 1 (a)): +32 bytes each, 944, 2,504 and 2,488, the floor in three processes after main's merge.
+    // The 13 KB drop of the two steps, analysed 2026-11-19: it is bUnit's markup upkeep, not the library's path. Before the
+    // handover the input rendered its `value` from C#, so each step's batch carried an attribute diff and bUnit rebuilt the
+    // markup (GC allocation-tick samples over 3,000 ticks: char[], String and StringBuilder, 339 of about 390). With only that
+    // attribute frozen after the first render at f4be6621, the tick fell from 15,536 to 2,288 bytes and those types vanished.
+    // The step still runs inside the measured region: the tick completes synchronously within InvokeAsync, and the module's
+    // `update` with the new text is recorded before the region ends (scratch probe, not committed).
     private const long RerenderBudgetBytes = 944;
     private const long HoldTickBudgetBytes = 2504;
     private const long ClickStepBudgetBytes = 2488;
