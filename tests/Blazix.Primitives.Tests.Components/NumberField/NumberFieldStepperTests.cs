@@ -228,6 +228,7 @@ public abstract class NumberFieldStepperTests : IDisposable
     }
 
     [Theory(DisplayName = "passes disabled state to className when $scenario")]
+    [Trait("Requirement", "NUM-DOM-03")]
     [InlineData("root is disabled", true, false)]
     [InlineData("button is disabled", false, true)]
     [Trait("Requirement", "NUM-STA-01")]
