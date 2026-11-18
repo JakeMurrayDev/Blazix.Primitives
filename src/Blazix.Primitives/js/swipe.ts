@@ -119,6 +119,15 @@ export interface SwipeReleaseDetails {
   releaseVelocityY: number;
 }
 
+// The port's style sink (M6 track 8b): the Drawer Popup's `style` belongs to dom's style writer.
+/** Where a tracker writes its drag styles instead of the element's inline style: a band of a shared style writer. */
+export interface SwipeStyleSink {
+  /** Sets a declaration. */
+  set(property: string, value: string): void;
+  /** Removes a declaration the tracker set, handing the property back to whatever else declares it. */
+  remove(property: string): void;
+}
+
 // PSH §6.1's swipe tracker rows.
 /** The options of a swipe tracker. */
 export interface SwipeTrackerOptions {
@@ -143,6 +152,12 @@ export interface SwipeTrackerOptions {
   ignoreSelectorWhenTouch?: boolean | undefined;
   /** Whether the tracker writes the drag transform and movement variables to the element; `true` by default. */
   trackDrag?: boolean | undefined;
+  /**
+   * Where the drag styles go; the element's inline style when omitted. A sink receives `transition: none`, the
+   * transform and the movement variables while swiping, and at the release or cancel the removal of the first two
+   * (its counterpart of restoring the inline values) and the final movement.
+   */
+  style?: SwipeStyleSink | undefined;
   onSwipeStart?: ((event: PointerEvent | TouchEvent) => void) | undefined;
   /** Called when the progress or its details change; the details object is reused between calls, so read it at once. */
   onProgress?: ((progress: number, details?: SwipeProgressDetails) => void) | undefined;
@@ -318,6 +333,8 @@ export function createSwipeTracker(initialOptions: SwipeTrackerOptions): SwipeTr
   let velocityY = 0;
   let hasLastDetails = false;
   let dragStyleSnapshot: [string, string] | null = null;
+  // Whether a style sink holds this gesture's `transition` and `transform`.
+  let sinkDragging = false;
 
   // The reused objects: the progress details and the `canStart` arguments.
   const progressDetails: SwipeProgressDetails = { deltaX: 0, deltaY: 0, direction: undefined };
@@ -386,10 +403,29 @@ export function createSwipeTracker(initialOptions: SwipeTrackerOptions): SwipeTr
   // PSH-DOM-17's imperative writer.
   function syncDragStyles(swiping: boolean): void {
     const element = options.element();
-    if (!(options.trackDrag ?? true) || !element) {
+    if (!(options.trackDrag ?? true) || (!element && !options.style)) {
       if (!swiping) {
         dragStyleSnapshot = null;
       }
+      return;
+    }
+
+    const sink = options.style;
+    if (sink) {
+      if (swiping) {
+        sinkDragging = true;
+        sink.set('transition', 'none');
+        sink.set('transform', getDragTransform(dragOffsetX, dragOffsetY, initialScale));
+      } else if (sinkDragging) {
+        sinkDragging = false;
+        sink.remove('transition');
+        sink.remove('transform');
+      }
+      sink.set(options.movementCssVars.x, `${dragOffsetX - initialX}px`);
+      sink.set(options.movementCssVars.y, `${dragOffsetY - initialY}px`);
+      return;
+    }
+    if (!element) {
       return;
     }
 
