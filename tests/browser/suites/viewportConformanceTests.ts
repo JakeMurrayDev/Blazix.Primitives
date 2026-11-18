@@ -118,8 +118,12 @@ const anchoringCases: readonly AnchoringCase[] = [
   { side: 'inline-end', direction: 'rtl', expected: { position: 'absolute', top: '0px', right: '0px' } },
 ];
 
-// Quarantined (ADR 11 §4) until 2026-11-18, for every family that runs the suite: test.fixme with the @quarantine tag and
-// the issue. Issue 176: the lagging-payload title polls a transition that can end first (Server).
+// Quarantined (ADR 11 §4) until 2026-12-02, for every family that runs the suite: test.fixme with the @quarantine tag and
+// the issue. Issue 176, re-justified 2026-11-18 (M6 track 0, issue 261; chosen by the user 2026-11-18): not a poll over a
+// transition that ends first, as first read, but a library defect. On Server under circuit latency the morph never starts
+// (no previous container, no data-transitioning; delayCircuit(20) fails it 16 of 16 across the four families, 0 of 160
+// without), because the js/popup.ts viewport handle decides the morph before the session's active trigger commits and
+// nothing decides it again. The fix is its own pull request.
 const quarantined: Record<string, string> = {
   'cleans up the transition when a lagging payload remounts the current container': 'https://github.com/JakeMurrayDev/Blazix.Primitives/issues/176',
 };
