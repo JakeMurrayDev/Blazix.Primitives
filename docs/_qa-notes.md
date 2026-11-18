@@ -182,3 +182,12 @@ Facts the port found against context-menu.md, each recorded on its row:
 Base UI v1.9.0 run in Chromium through its own vitest browser mode, from a copy of the pinned checkout outside the repository, with real keyboard and pointer input. The copy used the headless shell the repository's Playwright already installed, not a separate download.
 - MBR-EVT-03's statement names `trigger-focus`, `useFocus`'s 0 ms blur timer. In a browser the focus manager's `focusout` close runs first, and Base UI records `focus-out` (5 of 5). The row keeps its text; its note records the observed reason (issue 298 for the port's WebAssembly).
 - MNU-PTR-11's statement describes the `sibling-open` path of an item's mousemove. With a real pointer that path does not run while a hover-opened submenu is open, because the safe polygon blocks the parent's pointer events, and the submenu closes after `closeDelay` with `trigger-hover`. Base UI's titles, which dispatch the mousemove directly, pass in Chromium as in jsdom (issue 296).
+
+## 2026-11-19, ScrollArea port (M6 track 5, [issue 276](https://github.com/JakeMurrayDev/Blazix.Primitives/issues/276))
+
+- SCR §16 Q3–Q9 replicated as the source has them (decision 23 of the M6 plan), each with a dated note on its row; Q1 keeps `data-id` as rendered and unread by the module.
+- One handle per part (design point 6 (a)): a part's handle can attach before the root's, so the root's state is created by the first handle; an L4 title holds the root's `attach` back through a wrapped module, red without the rule.
+- Two convergence fixes the port needs because parts attach one by one: a render while a part's first attach is in flight sends its newer options after it (the WebAssembly Thumb stayed hidden), and a corner-size change measures once more (a Corner sized before the horizontal scrollbar left the vertical thumb 2 px long on Server, 1 run in 8).
+- The §5 Writer cells are restated one attribute per row for the ownership lint; the Viewport gains `scroll-snap-type` (JS, during a drag; design point 2 (a)).
+- SCR-EDGE-02 follows the source's order: a Content outside both a Viewport and a Root throws the Viewport's error.
+- On Server each newly rendered part imports the module through its own twin before attaching, so the second measurement pass is four legs after the parts mount (ADR 01 Amendments 2026-11-19); every report also gets a 34–36 B `EndInvokeDotNet` reply.
