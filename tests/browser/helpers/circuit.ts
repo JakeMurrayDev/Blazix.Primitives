@@ -63,7 +63,8 @@ export interface CircuitHold {
   arm(): void;
   /**
    * Releases the gate now, as a server that answers at this point would, and waits as `released` does. A title that waits
-   * for the server's answer before its next input calls it first.
+   * for the server's answer before its next input calls it first. Before the gate has opened, the server is already
+   * answering: the gate then holds nothing.
    */
   release(): Promise<void>;
   /**
@@ -105,6 +106,7 @@ export async function holdCircuit(
   let armed = false;
   let opened = false;
   let untilBeforeGate = false;
+  let releasedEarly = false;
   let failure: Error | null = null;
   let release: (() => void) | null = null;
   let gate: Promise<void> = Promise.resolve();
@@ -132,7 +134,7 @@ export async function holdCircuit(
           requested = false;
           armed = false;
           opened = true;
-          if (!untilBeforeGate) {
+          if (!untilBeforeGate && !releasedEarly) {
             gate = new Promise<void>((resolve) => {
               const timer = setTimeout(() => {
                 failure = new Error(`holdCircuit: nothing ended the hold (\`until\`, \`release()\`) within ${maxMs} ms of the gate`);
@@ -170,6 +172,10 @@ export async function holdCircuit(
       armed = options.armOn === undefined;
     },
     release: async () => {
+      if (!opened) {
+        releasedEarly = true;
+        return;
+      }
       release?.();
       await released();
     },

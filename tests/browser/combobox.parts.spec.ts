@@ -235,11 +235,14 @@ test.describe('<Combobox.Item />', () => {
     hold.arm();
     await input(page).click();
     await expect(page.getByRole('listbox')).toBeVisible();
-    await page.keyboard.press('ArrowDown');
-    await page.keyboard.press('Enter');
+    // The keys wait for the Positioner's first pass, which lands after the list's handle attached (its attach precedes the
+    // Positioner's), as a user's keys meet Base UI's list mounted in the open's commit; the held server answers first.
     if (mode === 'server') {
       await hold.release();
     }
+    await center(page.getByRole('listbox'));
+    await page.keyboard.press('ArrowDown');
+    await page.keyboard.press('Enter');
 
     await expect(input(page)).toHaveValue('one');
     await expect(page.getByRole('listbox')).toHaveCount(0);
