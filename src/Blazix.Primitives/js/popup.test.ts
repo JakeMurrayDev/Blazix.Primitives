@@ -9,7 +9,18 @@ import { createFakeTwin, type FakeTwin } from './test-support/fake-twin';
 const placementReads = vi.hoisted(() => ({ count: 0 }));
 const named = vi.hoisted(() => ({ calls: [] as { token: string; element: Element }[] }));
 // The interactions session the Viewport reads its active trigger from (design point 13.13): one stub for every token.
-const session = vi.hoisted(() => ({ token: 'session', domReferenceElement: null as Element | null, references: 0 }));
+const session = vi.hoisted(() => ({
+  token: 'session',
+  domReferenceElement: null as Element | null,
+  references: 0,
+  listeners: new Set<() => void>(),
+  subscribePositionReference(listener: () => void) {
+    this.listeners.add(listener);
+    return () => {
+      this.listeners.delete(listener);
+    };
+  },
+}));
 vi.mock('./interactions', () => ({
   getSession: (token: string) => ({ token }),
   acquireSession: () => {
@@ -139,6 +150,11 @@ function current(text: string): HTMLElement {
 /** Opens the popup on a trigger as C# renders it: `aria-expanded` and `aria-controls` on the active trigger only, and the session's reference. */
 function activate(rendered: RenderedViewport, index: number): void {
   session.domReferenceElement = rendered.triggers[index] ?? null;
+  activateAttributes(rendered, index);
+}
+
+/** C#'s batch for a new active trigger, before the session's reference follows (issue 176): the triggers' attributes only. */
+function activateAttributes(rendered: RenderedViewport, index: number): void {
   rendered.triggers.forEach((trigger, i) => {
     if (i === index) {
       trigger.setAttribute('data-popup-open', '');
@@ -150,6 +166,14 @@ function activate(rendered: RenderedViewport, index: number): void {
       trigger.removeAttribute('aria-controls');
     }
   });
+}
+
+/** The session's reference moving on its own update, after C#'s batch (issue 176): it notifies its position listeners. */
+function moveReference(element: Element | null): void {
+  session.domReferenceElement = element;
+  for (const listener of [...session.listeners]) {
+    listener();
+  }
 }
 
 /** C#'s keyed remount of `[data-current]`, applied in one batch with the triggers' attributes. */
@@ -294,6 +318,35 @@ describe.each([false, true])('the viewport (synchronous: %s)', (synchronous) => 
     expect(twin.reported<PopupViewportReport>(VIEWPORT_REPORT).at(-1)).toEqual({ activationDirection: 'right down', transitioning: false });
   });
 
+  // Issue 176: on Server under latency the remount's measurement resolved the inserted previous container only under its
+  // `display: none`, so the ending style the next frame set started no exit transition.
+  it('port: the frame that sets the ending style first resolves the shown previous container without it', async () => {
+    const rendered = renderViewport();
+    activate(rendered, 0);
+    attachTo(rendered.viewport, openViewport, createFakeTwin({ synchronous }));
+
+    activate(rendered, 1);
+    remount(rendered, 'Two');
+    await settle();
+    const previous = rendered.viewport.querySelector<HTMLElement>('[data-previous]')!;
+    const resolved: Array<{ ending: boolean; display: string }> = [];
+    const getComputedStyle = window.getComputedStyle.bind(window);
+    const spy = vi.spyOn(window, 'getComputedStyle').mockImplementation((element, pseudo) => {
+      if (element === previous) {
+        resolved.push({ ending: previous.hasAttribute('data-ending-style'), display: previous.style.display });
+      }
+      return getComputedStyle(element, pseudo);
+    });
+    try {
+      flushFrames();
+    } finally {
+      spy.mockRestore();
+    }
+
+    expect(previous.hasAttribute('data-ending-style')).toBe(true);
+    expect(resolved).toEqual([{ ending: false, display: '' }]);
+  });
+
   // Gap 19's residual (M4 track 6, settled by the orchestrator 2026-10-29, option (i')): on Server a hand-off that flips
   // the side brings the flip a message after the content batch, and on both modes it lands after the morph started. The
   // measurement's overrides (`display: none` on [data-previous], `transition: none` on [data-current]) would cut the morph
@@ -349,6 +402,69 @@ describe.each([false, true])('the viewport (synchronous: %s)', (synchronous) => 
     expect(previous.textContent).toBe('One');
     expect(rendered.viewport.lastElementChild).toBe(late);
     expect(late.hasAttribute('data-starting-style')).toBe(true);
+  });
+
+  // Issue 176 (PSH-STA-30, PSH-ANI-09/10): on Server the remount's batch can land while the session's reference is still
+  // the old trigger, and the reference moves a message later; the morph starts then, once, from the old trigger, with the
+  // content the remount replaced.
+  it('port: a reference that moves after the remount starts the morph once, from the old trigger, with the replaced content', async () => {
+    const rendered = renderViewport();
+    activate(rendered, 0);
+    const twin = createFakeTwin({ synchronous });
+    attachTo(rendered.viewport, openViewport, twin);
+
+    activateAttributes(rendered, 1);
+    const next = remount(rendered, 'Two');
+    await settle();
+    moveReference(rendered.triggers[1]!);
+    await settle();
+
+    const previous = rendered.viewport.firstElementChild as HTMLElement;
+    expect(previous.hasAttribute('data-previous')).toBe(true);
+    expect(previous.textContent).toBe('One');
+    expect(rendered.viewport.lastElementChild).toBe(next);
+    expect(rendered.viewport.getAttribute('data-activation-direction')).toBe('right down');
+    expect(twin.reported<PopupViewportReport>(VIEWPORT_REPORT).at(-1)).toEqual({ activationDirection: 'right down', transitioning: true });
+
+    // One move, one morph: the same reference notified again starts nothing more.
+    const reports = twin.reported<PopupViewportReport>(VIEWPORT_REPORT).length;
+    moveReference(rendered.triggers[1]!);
+    await settle();
+    expect(rendered.viewport.querySelectorAll('[data-previous]')).toHaveLength(1);
+    expect(twin.reported<PopupViewportReport>(VIEWPORT_REPORT)).toHaveLength(reports);
+  });
+
+  it('port: a reference that returns to the old trigger, moves while closed or moves after a same-trigger remount starts no morph, and a later move after a remount still does', async () => {
+    const rendered = renderViewport();
+    activate(rendered, 0);
+    const twin = createFakeTwin({ synchronous });
+    const handle = attachTo(rendered.viewport, openViewport, twin);
+
+    // A payload remount on the same trigger keeps nothing: a hand-off's early reference move after it morphs nothing.
+    remount(rendered, 'One again');
+    await settle();
+    moveReference(rendered.triggers[1]!);
+    moveReference(rendered.triggers[0]!);
+    // A hand-off whose request C# canceled: the reference moves to the new trigger and falls back, with no remount.
+    moveReference(rendered.triggers[1]!);
+    moveReference(rendered.triggers[0]!);
+    await settle();
+    // A move while closed.
+    handle.update(JSON.stringify({ ...openViewport, viewport: { ...openViewport.viewport, open: false } }));
+    moveReference(rendered.triggers[1]!);
+    moveReference(rendered.triggers[0]!);
+    handle.update(JSON.stringify(openViewport));
+    await settle();
+    expect(rendered.viewport.querySelector('[data-previous]')).toBe(null);
+
+    activateAttributes(rendered, 1);
+    remount(rendered, 'Two');
+    await settle();
+    moveReference(rendered.triggers[1]!);
+    await settle();
+
+    expect(rendered.viewport.querySelector('[data-previous]')?.textContent).toBe('One again');
+    expect(rendered.viewport.getAttribute('data-activation-direction')).toBe('right down');
   });
 
   it('port: a reopen on another trigger starts no transition and becomes the trigger the next move starts from', async () => {

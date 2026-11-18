@@ -1152,6 +1152,10 @@ function attachTrigger(element: HTMLElement, initial: NavigationMenuOptions, men
     const fromOutside = reference !== null && isOutsideEvent(event, reference);
     if (target === before) {
       if (fromOutside) {
+        // Issue 241 (NAV-KEY-16, NAV-STA-09): C# can render a viewportInert set after the Trigger's focus cleared it (the
+        // set's report and the clear cross on Server), which Base UI's synchronous onFocus clear never meets; the guard
+        // lifts it before focusing into the Viewport, as the trailing guard below does.
+        clearViewportInert(menu, channel);
         viewport.guards.before?.focus();
       } else {
         getPreviousTabbable(element)?.focus();
@@ -1610,6 +1614,15 @@ function attachViewport(element: HTMLElement, initial: NavigationMenuOptions, me
     menu.invalidate();
   };
   const reference = () => menu.positioner ?? menu.viewport;
+  // Issue 241 (NAV-KEY-16, NAV-STA-09): C# renders `inert` only from this module's set report, so one rendered while no
+  // set is outstanding (the Trigger's focus has cleared it, the report and the clear crossing on Server) is stale, and the
+  // module lifts it at once, the convergent write clearViewportInert makes. Base UI's synchronous clear never renders it.
+  const inertObserver = new MutationObserver(() => {
+    if (!menu.inertReported && element.hasAttribute('inert')) {
+      element.removeAttribute('inert');
+    }
+  });
+  inertObserver.observe(element, { attributes: true, attributeFilter: ['inert'] });
   // NavigationMenuViewport.tsx:21-64.
   const onGuardFocus = (event: FocusEvent) => routeViewportGuard(menu, menu.viewportGuards, reference(), event);
   // NavigationMenuViewport.tsx:104-118: focus leaving the Viewport for neither its inside nor the active trigger.
@@ -1672,6 +1685,7 @@ function attachViewport(element: HTMLElement, initial: NavigationMenuOptions, me
       disposed = true;
       observer.disconnect();
       rootObserver.disconnect();
+      inertObserver.disconnect();
       exitAbort?.abort();
       exitWatcher.cancel();
       scope?.removeEventListener('focusin', onGuardFocus as EventListener);

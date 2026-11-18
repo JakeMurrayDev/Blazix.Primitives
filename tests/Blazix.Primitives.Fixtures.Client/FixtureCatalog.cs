@@ -28,6 +28,7 @@ using Blazix.Primitives.Fixtures.Client.MenubarFixtures;
 using Blazix.Primitives.Fixtures.Client.NavigationMenuFixtures;
 using Blazix.Primitives.Fixtures.Client.PopoverFixtures;
 using Blazix.Primitives.Fixtures.Client.SelectFixtures;
+using Blazix.Primitives.Fixtures.Client.SliderFixtures;
 using Blazix.Primitives.Fixtures.Client.PopupFixtures;
 using Blazix.Primitives.Fixtures.Client.PortalFixtures;
 using Blazix.Primitives.Fixtures.Client.PreviewCardFixtures;
@@ -90,6 +91,20 @@ public static class FixtureCatalog
         ["accordion-reattach"] = new(typeof(AccordionReattachFixture)),
         ["accordion-hidden-until-found"] = new(typeof(AccordionHiddenUntilFoundFixture)),
         ["meter-basic"] = new(typeof(MeterBasicFixture)),
+        ["slider-basic"] = new(typeof(SliderBasicFixture)),
+        ["slider-range"] = new(typeof(SliderRangeFixture)),
+        ["slider-thumb-disabled"] = new(typeof(SliderThumbDisabledFixture)),
+        ["slider-vertical"] = new(typeof(SliderVerticalFixture)),
+        ["slider-rtl"] = new(typeof(SliderRtlFixture)),
+        ["slider-inset"] = new(typeof(SliderInsetFixture)),
+        ["slider-disabled"] = new(typeof(SliderDisabledFixture)),
+        ["slider-controlled"] = new(typeof(SliderControlledFixture)),
+        ["slider-field"] = new(typeof(SliderFieldFixture)),
+        ["slider-label"] = new(typeof(SliderLabelFixture)),
+        ["slider-edit-form"] = new(typeof(SliderEditFormFixture)),
+        ["slider-prerender"] = new(typeof(SliderPrerenderFixture), Prerender: true),
+        ["slider-relaxations"] = new(typeof(SliderRelaxationsFixture)),
+        ["slider-config"] = new(typeof(SliderConfigFixture)),
         ["meter-prerender"] = new(typeof(MeterPrerenderFixture), Prerender: true),
         ["progress-basic"] = new(typeof(ProgressBasicFixture)),
         ["progress-prerender"] = new(typeof(ProgressPrerenderFixture), Prerender: true),

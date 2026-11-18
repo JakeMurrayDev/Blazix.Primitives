@@ -8,7 +8,7 @@
 | Docs page | `docs/src/app/(docs)/react/components/fieldset/page.mdx` |
 | Prefix | `FST` |
 | Status | implemented |
-| Revised | 2026-10-23 |
+| Revised | 2026-11-19 |
 | Builds on | none |
 | Derived by | none |
 | Depends on | [rendering-and-composition](../architecture/rendering-and-composition.md), [event-details-and-reasons](../architecture/event-details-and-reasons.md), [field-and-form-infrastructure](../architecture/field-and-form-infrastructure.md) |
@@ -33,6 +33,7 @@ No component in the library builds on Fieldset, and Fieldset builds on no other 
   Source: `fieldset/root/FieldsetRoot.tsx:34-57`, `fieldset/root/FieldsetRootContext.ts:4-10`. Test: [L2] `FieldsetRoot.test.tsx` "passes disabled to rendered Base UI roots"; `RadioGroup.test.tsx` "labels the radio group from the fieldset legend".
   Port note 2026-10-22 (ADR 13 Amendments 2026-10-22, re-cited): the `FieldsetRoot.test.tsx` title substitutes RadioGroup, CheckboxGroup and Slider, which arrive later. Its port title "passes disabled to a rendered Button root, and the scope reaches the fields inside it" [L2] substitutes `Button`, and a `FieldRoot` inside the substituted root reads the scope. The scope is a fixed cascade around the root's element, so it reaches a substituted component and its descendants (design point DP1 of M2 track 1, settled by the orchestrator 2026-10-22 under ADR 05 §1 and ADR 16 rule 9). The `RadioGroup.test.tsx` clause is open to track 8.
   Port note 2026-10-23 (M2 track 8, issue 84): the `RadioGroup.test.tsx` clause is green: "labels the radio group from the fieldset legend" runs at L2 in `RadioGroupFieldsetTests` (a `Fieldset.Root` substituted by a `RadioGroup`) and at L4 in `radio-group.spec.ts`; the RadioGroup half of the `FieldsetRoot.test.tsx` title runs as "passes disabled to rendered Base UI roots (RadioGroup)" [L2] (FST-DOM-09's note).
+  Port note 2026-11-19 (M6 track 4, issue 275): the Slider substitution clause is green: the Slider half of the `FieldsetRoot.test.tsx` title runs as "passes disabled to rendered Base UI roots (Slider)" [L2] (FST-DOM-09's note), with the Slider parts rendered inside the substituted `SliderRoot`, in the fieldset scope.
 - **FST-STR-02** — MUST. `Fieldset.Legend` MUST be rendered inside the subtree of a `Fieldset.Root` (at any depth); rendering it outside one MUST throw the error in FST-EDGE-01.
   Source: `fieldset/legend/FieldsetLegend.tsx:20`, `fieldset/root/FieldsetRootContext.ts:12-21`. Test: [L2] `FieldsetLegend.test.tsx` "throws a descriptive error when rendered outside <Fieldset.Root>".
 - **FST-STR-03** — MUST. `Fieldset.Root` may be nested inside another `Fieldset.Root`; the inner root's effective disabled state MUST be the logical OR of the nearest enclosing root's effective disabled state and its own `disabled` prop (FST-API-01), so a disabled ancestor disables every nested fieldset regardless of their own props.
@@ -192,7 +193,7 @@ There is no controlled/uncontrolled pair, no value normalization and no mount/un
   Source: `fieldset/root/FieldsetRoot.tsx:34-44,55-57`; see [RND-DOM-38](../architecture/rendering-and-composition.md), [RND-DOM-43](../architecture/rendering-and-composition.md). Test: [L2] `FieldsetRoot.test.tsx` "passes disabled to rendered Base UI roots".
   Port note 2026-10-22 (ADR 13 Amendments 2026-10-22, re-cited): "passes disabled to rendered Base UI roots" renders RadioGroup, CheckboxGroup and Slider. The port title "passes disabled to a rendered Button root, and the scope reaches the fields inside it" [L2] substitutes `Button`: the spread `disabled` binds to `Button.Disabled`, since Blazor matches component parameters by name case-insensitively. The RadioGroup and CheckboxGroup clauses are open to tracks 8 and 6, the Slider clause to M5.
   Port note 2026-10-23 (M2 track 8, issue 84): the RadioGroup half is green as `FieldsetTests` "passes disabled to rendered Base UI roots (RadioGroup)" [L2]: a `Fieldset.Root` substituted by a `RadioGroup` carries `aria-disabled="true"` and its radios are disabled. The Slider half stays open to M5 (incidental, ADR 13 Amendments 2026-10-22).
-  Correction 2026-11-03 (ADR 12's milestone table; ADR 12 Amendments 2026-11-03 item 4): Slider is M6, so the Slider clause and half above are open to M6, not M5.
+  Port note 2026-11-19 (M6 track 4, issue 275; it replaces the correction of 2026-11-03, which moved the Slider clause and half from M5 to M6 under ADR 12 Amendments 2026-11-03 item 4): the Slider half is green as `FieldsetTests` "passes disabled to rendered Base UI roots (Slider)" [L2]. A `Fieldset.Root` substituted by a `SliderRoot` with `DefaultValue` 50 binds the spread `disabled` to `SliderRoot.Disabled`; the root, the Value, the Control (Base UI's assertion), the Track, the Indicator and the Thumb carry `data-disabled`, and the thumb's input is disabled.
 
 ### 5.3 ARIA
 

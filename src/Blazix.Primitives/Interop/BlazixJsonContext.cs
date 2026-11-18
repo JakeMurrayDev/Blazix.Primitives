@@ -57,6 +57,12 @@ namespace Blazix.Primitives.Interop;
 [JsonSerializable(typeof(SelectAlignedChange))]
 [JsonSerializable(typeof(SelectArrowsVisibility))]
 [JsonSerializable(typeof(SelectTriggerBlur))]
+// M6 track 4: the `slider` twin's options and payloads (ADR 04 §1's `slider` row).
+[JsonSerializable(typeof(SliderOptions))]
+[JsonSerializable(typeof(SliderValueRequest))]
+[JsonSerializable(typeof(SliderGestureReport))]
+[JsonSerializable(typeof(SliderFocusReport))]
+[JsonSerializable(typeof(SliderKeyReport))]
 [JsonSerializable(typeof(ScrollLockOptions))]
 [JsonSerializable(typeof(PortalOptions))]
 [JsonSerializable(typeof(TabsIndicatorMeasurement))]

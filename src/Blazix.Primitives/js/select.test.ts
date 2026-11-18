@@ -346,12 +346,20 @@ describe('select module: aligned placement (port titles)', () => {
   // `highlightItemOnHover`, the direction and `isPositioned` (select/popup/SelectPopup.tsx:407-419), not on the items or
   // their texts. Port deviation: a text the placement found missing that registers later re-places once (the port's texts
   // register after its first pass can run).
-  function alignedPlacement() {
+  function option(text: string): HTMLElement {
+    const item = document.createElement('div');
+    item.setAttribute('role', 'option');
+    item.textContent = text;
+    return item;
+  }
+
+  function alignedPlacement(items: string[] = []) {
     Object.defineProperty(document.documentElement, 'clientHeight', { value: 800, configurable: true });
     Object.defineProperty(document.documentElement, 'clientWidth', { value: 1000, configurable: true });
     const trigger = document.createElement('button');
     const positioner = document.createElement('div');
     const popup = document.createElement('div');
+    popup.append(...items.map(option));
     positioner.append(popup);
     document.body.append(trigger, positioner);
     trigger.getBoundingClientRect = () => new DOMRect(100, 200, 160, 40);
@@ -362,7 +370,7 @@ describe('select module: aligned placement (port titles)', () => {
     handles.push(handle);
     const placements = () => fake.reports.filter((report) => report.method === 'OnPlaced').length;
     const update = (next: Record<string, unknown>) => handle.update(JSON.stringify({ ...options, ...next }), [trigger, popup]);
-    return { positioner, placements, update };
+    return { positioner, popup, placements, update };
   }
 
   it('keeps the placement when the item map changes while open, clearing only the heights (SEL-POS-13)', () => {
@@ -371,6 +379,25 @@ describe('select module: aligned placement (port titles)', () => {
     update({ itemsRevision: 1 });
     expect(placements()).toBe(1);
     expect(positioner.style.height).toBe('');
+  });
+
+  // Issue 252 (SEL-POS-13, SEL-POS-11): on Server the items' registration reaches the Positioner a round trip after the
+  // placement, as an item-map change; Base UI's map changes at mount, before its first pass and the placement, so its clear
+  // removes nothing there. A change that reports the items the placement measured keeps the heights; a replacement clears
+  // them.
+  it('port: keeps the heights when the item map change reports the items the placement measured, and clears them for a replacement', () => {
+    const { positioner, popup, placements, update } = alignedPlacement(['Item 0', 'Item 1']);
+    expect(placements()).toBe(1);
+    const placed = positioner.style.height;
+    expect(placed).not.toBe('');
+
+    update({ itemsRevision: 1 });
+    expect(positioner.style.height).toBe(placed);
+
+    popup.replaceChildren(...['Item 2', 'Item 3'].map(option));
+    update({ itemsRevision: 2 });
+    expect(positioner.style.height).toBe('');
+    expect(placements()).toBe(1);
   });
 
   it('places again on a reopen during the exit (SEL-POS-07)', () => {
@@ -386,6 +413,26 @@ describe('select module: aligned placement (port titles)', () => {
     expect(placements()).toBe(1);
     update({ selectedTextId: 'text-b', firstTextId: 'text-first' });
     expect(placements()).toBe(2);
+  });
+
+  // Issue 252 (SEL-POS-09, M6 track 3): with the heights kept through the items' registration (the title above), a
+  // re-placement within the open, here for a first text that registers late, measures from cleared heights, as Base UI's
+  // re-run does after its map change cleared them.
+  it('port: a re-placement within the open measures with the heights already cleared', () => {
+    const { positioner, popup, placements, update } = alignedPlacement(['Item 0', 'Item 1']);
+    expect(placements()).toBe(1);
+    expect(positioner.style.height).not.toBe('');
+    const measured: Array<{ positioner: string; popup: string }> = [];
+    const rect = positioner.getBoundingClientRect;
+    positioner.getBoundingClientRect = () => {
+      measured.push({ positioner: positioner.style.height, popup: popup.style.height });
+      return rect();
+    };
+
+    update({ selectedTextId: 'text-b', firstTextId: 'text-first' });
+
+    expect(placements()).toBe(2);
+    expect(measured[0]).toEqual({ positioner: '', popup: '' });
   });
 
   // Interim review F1 (b) (M5 track 9): the first attempt found no Popup, and the Positioner was already positioned, so

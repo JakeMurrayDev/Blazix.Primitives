@@ -2,7 +2,7 @@
 // SelectPositioner.test.tsx's kept-mounted title and SelectScrollArrow.test.tsx's L4 title: Server then WebAssembly.
 // Fixtures: tests/Blazix.Primitives.Fixtures.Client/Select/SelectNav*Fixture.razor (and `select-positioner`).
 import { type Locator, type Page } from '@playwright/test';
-import { delayCircuitMessages, expect, test } from './helpers';
+import { delayCircuitMessages, expect, holdCircuit, test } from './helpers';
 import { waitForPositioned } from './helpers/positioner';
 import { gotoPopupFixture, pressControl, settle } from './suites/popupFixture';
 
@@ -499,15 +499,34 @@ test.describe('item-aligned popup interaction', () => {
     });
   }
 
+  // Issue 252 (M6 track 3; SEL-POS-13, SEL-POS-11; ADR 04 Amendments 2026-11-19): on Server the items' registration reaches the Positioner a round trip
+  // after the aligned placement, as an item-map change, and its height clear undid the placement (Base UI's map changes at
+  // mount, before its first pass and the placement). The registration's update is held until the page has placed.
+  test('port: keeps the aligned placement when the items register after it, under circuit latency on Server', async ({ page, mode }) => {
+    // Server only: the held message is the circuit's; red-check counts a title's best result across projects, so a
+    // WebAssembly pass would hide the Server red (CI run 44384503026).
+    test.skip(mode !== 'server', 'No circuit message to hold on WebAssembly');
+    const hold = await holdCircuit(page, { from: (text) => text.includes('\\u0022itemsRevision\\u0022:1') });
+    hold.arm();
+    await gotoPopupFixture(page, mode, 'select-nav-aligned', { case: 'edges' });
+    await trigger(page).click();
+    const positioner = page.getByTestId('positioner');
+    await waitForPositioned(positioner);
+    const placed = await positioner.evaluate((node) => (node as HTMLElement).style.height);
+    expect(placed).not.toBe('');
+    await hold.release();
+    await expect(option(page, 'Item 15')).toBeFocused();
+
+    expect(await positioner.evaluate((node) => (node as HTMLElement).style.height)).toBe(placed);
+    const box = (await positioner.boundingBox())!;
+    expect(box.y).toBeGreaterThanOrEqual(0);
+    expect(box.height).toBe(parseFloat(placed));
+  });
+
   // SEL-POS-11. Playwright's hover would scroll a partly visible item into view where Base UI's does not, so the pointer is
-  // moved onto the part of the item that shows.
-  // Quarantined (ADR 11 §4) on Server until 2026-11-26, issue 252: the item-aligned popup can move when an edge item is
-  // hovered (CI runs 43138332633 and 43237078124; 1 of 140 on main locally, 2026-11-12). WebAssembly still runs it.
-  test('does not move the popup or its list when hovering items at its edges', {
-    tag: '@quarantine',
-    annotation: { type: 'issue', description: 'https://github.com/JakeMurrayDev/Blazix.Primitives/issues/252' },
-  }, async ({ page, mode }) => {
-    test.fixme(mode === 'server', 'Quarantined on Server until 2026-11-26 (issue 252)');
+  // moved onto the part of the item that shows. Issue 252 (fixed 2026-11-19, M6 track 3): on Server the items' late
+  // registration cleared the aligned heights, and an edge item could sit outside the viewport; the title above holds it.
+  test('does not move the popup or its list when hovering items at its edges', async ({ page, mode }) => {
     await gotoPopupFixture(page, mode, 'select-nav-aligned', { case: 'edges' });
     await trigger(page).click();
     await expect(option(page, 'Item 15')).toBeFocused();
