@@ -106,7 +106,8 @@ export interface SwipeProgressDetails {
   direction: SwipeDirection | undefined;
 }
 
-/** What a release reports before its decision (PSH-EVT-09). Velocities are in pixels per millisecond. */
+// PSH-EVT-09.
+/** What a release reports before its decision. Velocities are in pixels per millisecond. */
 export interface SwipeReleaseDetails {
   event: PointerEvent | TouchEvent;
   direction: SwipeDirection | undefined;
@@ -118,7 +119,8 @@ export interface SwipeReleaseDetails {
   releaseVelocityY: number;
 }
 
-/** The options of a swipe tracker (PSH §6.1's swipe tracker rows). */
+// PSH §6.1's swipe tracker rows.
+/** The options of a swipe tracker. */
 export interface SwipeTrackerOptions {
   /** Whether the tracker reacts to input; its listener maps are empty when it does not. */
   enabled: boolean;
@@ -153,7 +155,8 @@ export type SwipePointerHandlers = Partial<Record<'pointerdown' | 'pointermove' 
 /** A listener map for touch input, keyed by DOM event type. */
 export type SwipeTouchHandlers = Partial<Record<'touchstart' | 'touchmove' | 'touchend' | 'touchcancel', (event: TouchEvent) => void>>;
 
-/** A swipe tracker (PSH-PTR-28). */
+// PSH-PTR-28.
+/** A swipe tracker. */
 export interface SwipeTracker {
   /** Whether a gesture is active. */
   readonly swiping: boolean;
@@ -169,9 +172,11 @@ export interface SwipeTracker {
   getTouchProps(): SwipeTouchHandlers;
   /** Feeds a native `touchmove` captured elsewhere into the same pipeline, `currentTarget` standing for its listener. */
   moveNative(event: TouchEvent, currentTarget: HTMLElement): void;
-  /** The drag styles a render of the element carries: property name to value (PSH-DOM-17). */
+  // PSH-DOM-17.
+  /** The drag styles a render of the element carries: property name to value. */
   getDragStyles(): Record<string, string>;
-  /** Returns the tracker to its initial state and restores the element's inline styles (PSH-PTR-27). */
+  // PSH-PTR-27.
+  /** Returns the tracker to its initial state and restores the element's inline styles. */
   reset(): void;
 }
 
