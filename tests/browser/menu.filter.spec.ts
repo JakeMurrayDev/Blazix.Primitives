@@ -1,5 +1,5 @@
 import { type Locator } from '@playwright/test';
-import { delayCircuit, expect, Fixture, test, type Page, type RenderMode } from './helpers';
+import { delayCircuit, expect, Fixture, holdCircuit, test, type Page, type RenderMode } from './helpers';
 
 // The titles of MenuFilterRoot.test.tsx and MenuFilterRoot.scoping.test.tsx that need the items' rendered text, which
 // only a browser renders (design point 2 (b′): the menu-filter List handle reports it), and do not depend on virtual
@@ -402,11 +402,16 @@ test.describe('filterable menu initial highlight', () => {
 
   // MNU-STA-21, EVT-18 (MenuFilterRoot.test.tsx): a kept-mounted popup, on the fixture's `plain` list (Rename, Delete).
   test('resets the query and highlight across a close and reopen', async ({ page, mode }) => {
+    // Issue 261: on Server the highlight the query change asks for (C#'s, MNU-STA-18/19; ADR 01's "JS-owned values that
+    // originate in C# state" row) leaves C# after the render batch that filtered the list: the circuit's messages are held
+    // from that request until the page reports the next ArrowDown.
+    const hold = await holdCircuit(page, { from: (text) => text.includes('highlight') && text.includes('revision'), until: (text) => text.includes('ArrowDown') });
     await page.goto(`/${mode}/menu-filter-initial?plain=true&keepMounted=true`, { waitUntil: 'commit' });
     await page.locator(Fixture.started).waitFor({ state: 'attached' });
     await expect(page.locator(Fixture.interactive('menu-filter-initial'))).toHaveAttribute('data-attached', 'true');
     await trigger(page).click();
     await expect(input(page)).toBeFocused();
+    hold.arm();
     await page.keyboard.type('ren');
     await expect(item(page, 'Delete')).toHaveCount(0);
     await page.keyboard.press('ArrowDown');
