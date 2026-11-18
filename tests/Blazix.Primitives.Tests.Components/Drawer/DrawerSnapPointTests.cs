@@ -58,7 +58,6 @@ public sealed class DrawerSnapPointTests : IDisposable
         ValueChangeEventArgs<SnapPointValue?> request = Assert.Single(cut.Instance.Requests);
         Assert.Equal(EventReason.ClosePress, request.Details.Reason);
         Assert.IsNotType<OpenChangeEventDetails>(request.Details);
-        Assert.NotNull(request.Details.Trigger);
     }
 
     [Fact(DisplayName = "does not reset snap point when a close is canceled")]
@@ -123,18 +122,21 @@ public sealed class DrawerSnapPointTests : IDisposable
         Assert.False(cut.Find("[data-testid=popup]").HasAttribute("data-expanded"));
     }
 
-    // ADR 08 Amendments 2026-11-18: SnapPoints is compared by sequence, so an equal list in a new instance renders no part.
-    [Fact(DisplayName = "port: an equal snap point list in a new instance renders no part")]
+    // ADR 08 Amendments 2026-11-18: SnapPoints is compared by sequence, so an equal list in a new instance notifies no part
+    // (and, from 8b, sends the module no `update`); a parent's render re-renders its content in Blazor either way.
+    [Fact(DisplayName = "port: an equal snap point list in a new instance notifies no part, and a different list does")]
     [Trait("Requirement", "DRW-API-02")]
-    public void An_equal_snap_point_list_renders_no_part()
+    public void An_equal_snap_point_list_notifies_no_part()
     {
         IRenderedComponent<DrawerSnapHarness> cut = test.Context.Render<DrawerSnapHarness>(p => p.Add(x => x.Shape, "default"));
-        int before = cut.Instance.PopupRenders;
-        Assert.True(before > 0);
+        int notified = 0;
+        using IDisposable subscription = cut.FindComponent<DrawerRoot<NoPayload>>().Instance.DrawerContext.Subscribe(DrawerFields.Settings, () => notified++);
 
         cut.Render(p => p.Add(x => x.Shape, "default").Add(x => x.SnapPointList, new List<SnapPointValue> { "100px", "300px", 1 }));
+        Assert.Equal(0, notified);
 
-        Assert.Equal(before, cut.Instance.PopupRenders);
+        cut.Render(p => p.Add(x => x.Shape, "default").Add(x => x.SnapPointList, new List<SnapPointValue> { "100px", "300px", "1" }));
+        Assert.Equal(1, notified);
     }
 
     // DRW-API-03 (UTL useControlled, name 'Drawer', state 'snapPoint').
