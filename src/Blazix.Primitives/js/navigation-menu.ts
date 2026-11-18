@@ -1152,6 +1152,10 @@ function attachTrigger(element: HTMLElement, initial: NavigationMenuOptions, men
     const fromOutside = reference !== null && isOutsideEvent(event, reference);
     if (target === before) {
       if (fromOutside) {
+        // Issue 241 (NAV-KEY-16, NAV-STA-09): C# can render a viewportInert set after the Trigger's focus cleared it (the
+        // set's report and the clear cross on Server), which Base UI's synchronous onFocus clear never meets; the guard
+        // lifts it before focusing into the Viewport, as the trailing guard below does.
+        clearViewportInert(menu, channel);
         viewport.guards.before?.focus();
       } else {
         getPreviousTabbable(element)?.focus();
