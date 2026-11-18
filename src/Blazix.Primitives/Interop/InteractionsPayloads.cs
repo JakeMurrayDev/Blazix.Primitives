@@ -67,9 +67,13 @@ internal static class InteractionsLiterals
     }
 }
 
-// ADR 04 Amendments 2026-11-04 (design point 4): the `interactions` module's readPlatformFlags.
+// ADR 04 Amendments 2026-11-04 (design point 4): the `interactions` module's readPlatformFlags. `Ios`: NUM-STA-19, issue 277,
+// granted by the orchestrator 2026-11-18.
 /// <summary>The platform hints the <c>interactions</c> module reports.</summary>
 /// <param name="VoiceOver">Whether VoiceOver may be running.</param>
 /// <param name="Mac">Whether the platform is macOS.</param>
-/// <param name="Ios">Whether the platform is iOS (NumberField's keyboard; issue 277, granted by the orchestrator 2026-11-18).</param>
+/// <param name="Ios">
+/// Whether the platform is iOS, where NumberField's input renders <c>inputmode</c> <c>decimal</c> or <c>text</c> instead of
+/// <c>numeric</c>; <see langword="false"/> when the module does not send it.
+/// </param>
 internal sealed record PlatformFlagsPayload(bool VoiceOver, bool Mac, bool Ios = false);
