@@ -8,7 +8,7 @@
 | Docs page | `docs/src/app/(docs)/react/components/input/page.mdx` |
 | Prefix | `INP` |
 | Status | implemented |
-| Revised | 2026-11-18 |
+| Revised | 2026-11-19 |
 | Builds on | [field](field.md) (`Field.Control`) |
 | Derived by | none |
 | Depends on | [rendering-and-composition](../architecture/rendering-and-composition.md), [event-details-and-reasons](../architecture/event-details-and-reasons.md), [field-and-form-infrastructure](../architecture/field-and-form-infrastructure.md), [shared-utilities](../architecture/shared-utilities.md) |
