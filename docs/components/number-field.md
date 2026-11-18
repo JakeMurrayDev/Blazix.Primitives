@@ -8,7 +8,7 @@
 | Docs page | `docs/src/app/(docs)/react/components/number-field/page.mdx` |
 | Prefix | `NUM` |
 | Status | approved |
-| Revised | 2026-11-18 |
+| Revised | 2026-11-19 |
 | Builds on | none |
 | Derived by | none |
 | Depends on | [rendering-and-composition](../architecture/rendering-and-composition.md), [event-details-and-reasons](../architecture/event-details-and-reasons.md), [button-behavior](../architecture/button-behavior.md), [field-and-form-infrastructure](../architecture/field-and-form-infrastructure.md), [shared-utilities](../architecture/shared-utilities.md) |
@@ -462,7 +462,7 @@ Rendered as the root element's next sibling, always.
 |---|---|---|---|
 | `type` | `text` (consumer may override; unsupported, see NUM-EDGE-14) | NUM-DOM-08 | C# |
 | `id` | the labelable control id (prop `id` or generated) | NUM-DOM-09 | C# |
-| `value` | the display text | NUM-DOM-08 | C# |
+| `value` | the display text | NUM-DOM-08 | C# → JS |
 | `inputmode` | `numeric` / `decimal` / `text` (NUM-STA-19) | NUM-DOM-08 | C# |
 | `autocomplete` | `off` | NUM-DOM-08 | C# |
 | `autocorrect` | `off` | NUM-DOM-08 | C# |
@@ -477,6 +477,7 @@ Rendered as the root element's next sibling, always.
 
 - **NUM-DOM-08** — MUST. The visible input MUST render with `type="text"`, `value` = the display text, `inputmode` per NUM-STA-19, `autocomplete="off"`, `autocorrect="off"`, `spellcheck="false"`, and `required`/`disabled`/`readonly` mirroring the root state. A consumer attribute of the same name MUST override the built-in value (merge order: built-in, then consumer, then the field's validation props).
   Source: `number-field/input/NumberFieldInput.tsx:114-124,458-463`. Test: [L2] `NumberFieldRoot.test.tsx` "should set the inputMode to numeric", "should disable the input", "should mark the input as readOnly", "should mark the input as required"; `NumberFieldInput.test.tsx` "has textbox role", conformance suite.
+  Port note 2026-11-19 (M6 track 6, [issue 277](https://github.com/JakeMurrayDev/Blazix.Primitives/issues/277), PR 6a; ADR 04 Amendments 2026-11-18, NumberField point 7 (a), chosen by the user): the `value` Writer cell reads `C# → JS`, corrected from `C#`. C# renders the display text once; from attach the `number-field` module writes the element's `value` from each `update`, and every input report carries a revision that `update` echoes, so the module ignores an older text (ADR 04 Amendments 2026-11-18, decision 6 (a)).
 - **NUM-DOM-09** — MUST. The visible input's `id` MUST be the labelable control id resolved by FFI-ALG-06/07 from the root's `id` prop (generated when absent); a `Field.Label` in the same field MUST therefore render `for` equal to it (FFI-ARIA-04).
   Source: `number-field/root/NumberFieldRoot.tsx:114`, `number-field/input/NumberFieldInput.tsx:115`. Test: [L2] `NumberFieldRoot.test.tsx` "Field.Label".
 - **NUM-DOM-18** — MUST. The visible input MUST NOT carry a `name` attribute; only the hidden input participates in form submission.

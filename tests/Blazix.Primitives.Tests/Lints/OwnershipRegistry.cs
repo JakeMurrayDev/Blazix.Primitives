@@ -80,6 +80,11 @@ internal static class OwnershipRegistry
         // module owns the element's value and defaultValue from attach. Input adopts the row (INP-STR-04).
         new("field", "Control", "value", Writer.CsharpToJs),
         new("field", "Control", "defaultValue", Writer.CsharpToJs),
+        // NumberField (M6 track 6, issue 277; ADR 04 Amendments 2026-11-18, NumberField points 7 (a) and 8 (a), chosen by the
+        // user): the number-field module writes the visible input's value from attach, C# rendering the display text once
+        // (number-field.md §5.3, corrected 2026-11-19); the scrub role writes the cursor's transform style (NUM-DOM-13).
+        new("number-field", "Input", "value", Writer.CsharpToJs),
+        new("number-field", "ScrubAreaCursor", "style", Writer.CsharpToJs),
         // Switch (M2 track 4; ADR 04 Amendments 2026-10-22): the dom primitive owns the hidden checkbox input's checked
         // property from attach; C# renders the initial value once (the handover).
         new("switch", "Hidden checkbox input", "checked", Writer.CsharpToJs),
