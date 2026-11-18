@@ -1144,6 +1144,70 @@ describe('usePressAndHold', () => {
     expect(fake.reported('OnHoldClick')).toHaveLength(1);
   });
 
+  // UBT-PTR-20, NUM-PTR-02, NUM-FOC-03 (NumberFieldIncrement.test.tsx "places the caret at the end of the input when a
+  // mouse press focuses it"); issue 277 deliverable 3 (ii), chosen by the user 2026-11-18 (decision 16 (a)).
+  it('places the caret at the end of the input when a mouse press focuses it', () => {
+    const input = document.createElement('input');
+    input.id = 'nf-input';
+    input.value = '1234';
+    document.body.appendChild(input);
+    const { element, fake } = stepper({ holdFocusTarget: 'nf-input' });
+
+    pointer(element, 'pointerdown', { pointerType: 'mouse' });
+
+    expect(document.activeElement).toBe(input);
+    expect(input.selectionStart).toBe(4);
+    expect(input.selectionEnd).toBe(4);
+    expect(ticks(fake)).toBe(1);
+
+    // UBT-PTR-20: a stylus or finger press steps without focusing, so it does not raise the software keyboard.
+    input.blur();
+    const pen = stepper({ holdFocusTarget: 'nf-input' });
+    touch(pen.element, 'touchstart');
+    pointer(pen.element, 'pointerdown', { pointerType: 'pen' });
+    vi.advanceTimersByTime(TOUCH_TIMEOUT);
+    expect(ticks(pen.fake)).toBe(1);
+    expect(document.activeElement).not.toBe(input);
+    input.remove();
+  });
+
+  // NUM-PTR-03, UBT-PTR-06/07 (a tick that returns false stops the sequence); issue 277 deliverable 3 (iii): C# answers a
+  // tick that applied nothing by raising `holdStop`, which stops the repeat and keeps the release report.
+  it('port: a raised hold stop stops the repeat and the release still reports', () => {
+    const { element, handle, fake } = stepper();
+
+    pointer(element, 'pointerdown', { pointerType: 'mouse' });
+    expect(ticks(fake)).toBe(1);
+
+    handle.update(optionsJson({ pressAndHold: {}, focusableWhenDisabled: true, holdStop: 1 }));
+    vi.advanceTimersByTime(START_AUTO_CHANGE_DELAY + CHANGE_VALUE_TICK_DELAY * 3);
+    expect(ticks(fake)).toBe(1);
+
+    pointer(element, 'pointerup', { pointerType: 'mouse' });
+    expect(fake.reported('OnHoldStop')).toHaveLength(1);
+
+    pointer(element, 'pointerdown', { pointerType: 'mouse' });
+    vi.advanceTimersByTime(START_AUTO_CHANGE_DELAY + CHANGE_VALUE_TICK_DELAY);
+    expect(ticks(fake)).toBe(3);
+  });
+
+  // NUM-PTR-05 (the dirty text is synced once per press): the first tick of a sequence says so.
+  it('port: the first tick of each sequence is marked as its start', () => {
+    const { element, fake } = stepper();
+
+    pointer(element, 'pointerdown', { pointerType: 'mouse' });
+    vi.advanceTimersByTime(START_AUTO_CHANGE_DELAY + CHANGE_VALUE_TICK_DELAY);
+    mouse(element, 'mouseleave');
+    mouse(element, 'mouseenter', { buttons: 1 });
+
+    const starts = fake.reported<{ start?: boolean; event: EventInfo }>('OnHoldTick').map((tick) => [tick.event.type, tick.start === true]);
+    expect(starts).toEqual([
+      ['pointerdown', true],
+      ['pointerdown', false],
+      ['mouseenter', true],
+    ]);
+  });
+
   it('runs nothing without the press-and-hold options', () => {
     const { element, fake } = mount('button');
 
