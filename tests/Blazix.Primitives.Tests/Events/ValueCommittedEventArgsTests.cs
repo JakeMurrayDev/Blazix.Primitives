@@ -13,7 +13,9 @@ public sealed class ValueCommittedEventArgsTests
     private const int Deliveries = 1000;
     private const long ReceiverlessBudgetBytes = 0;
 
-    // Least of five full runs (ADR 16 rule 7), 2026-11-18, SDK 11.0.100, Release: see the PR body for the figures.
+    // Least of five runs (ADR 16 rule 7), 2026-11-18, SDK 11.0.100, Release: 0 B without a receiver; 65,776 B over 1,000
+    // deliveries through one (all five runs), 32 B the box of the struct (a double and a reference) and the rest Blazor's
+    // dispatch, the same figure ValueChangeEventArgs<bool> measures on this SDK. Its 68 B envelope is kept.
     private const long ComponentReceiverBudgetBytesPerDelivery = 68;
 
     [Fact(DisplayName = "port: ValueCommittedEventArgs carries the value and the details object itself")]

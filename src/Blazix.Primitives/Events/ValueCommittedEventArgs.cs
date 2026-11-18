@@ -1,24 +1,13 @@
 namespace Blazix.Primitives;
 
-// Red stub (M6 track 1): the shape is present, its values are wrong; the next commit replaces it with the record.
-/// <summary>Represents the argument of every <c>On&lt;X&gt;Committed</c> callback.</summary>
+// The M6 plan's decision 13 (a); ADR 08 Amendments 2026-11-18, the commit-callback line, with `Details` confirmed as
+// GenericEventDetails (ADR 05 §3, EVD-API-02; SLD-API-04, NUM-API-04: a notification, not cancelable); the twin of
+// ValueChangeEventArgs<T>.
+/// <summary>
+/// Represents the argument of every <c>On&lt;X&gt;Committed</c> callback: the committed value and the notification's
+/// details.
+/// </summary>
 /// <typeparam name="T">The type of the value.</typeparam>
-public readonly struct ValueCommittedEventArgs<T>
-{
-    /// <summary>Initializes a new instance of the <see cref="ValueCommittedEventArgs{T}"/> struct.</summary>
-    /// <param name="value">The committed value.</param>
-    /// <param name="details">The notification's details.</param>
-    public ValueCommittedEventArgs(T value, GenericEventDetails details)
-    {
-        _ = value;
-        _ = details;
-    }
-
-    /// <summary>Gets the committed value.</summary>
-    /// <value>The committed value.</value>
-    public T Value => default!;
-
-    /// <summary>Gets the notification's details.</summary>
-    /// <value>The notification's details.</value>
-    public GenericEventDetails Details => null!;
-}
+/// <param name="Value">The committed value.</param>
+/// <param name="Details">The notification's details: its reason and the native event that caused it.</param>
+public readonly record struct ValueCommittedEventArgs<T>(T Value, GenericEventDetails Details);
