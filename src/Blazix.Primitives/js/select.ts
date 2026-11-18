@@ -439,6 +439,13 @@ function attachPositioner(element: SelectElement, initial: SelectOptions, twinRe
     if (initialPlaced && key === placementKey) {
       return;
     }
+    // SEL-POS-09: a re-run within the open starts from cleared heights. Issue 252: the item-map change that cleared them
+    // before this re-run (a text that registers late arrives with the items' registration) no longer does when it reports
+    // the measured items.
+    if (initialPlaced) {
+      positionerLayer.remove('height');
+      popupLayer?.remove('height');
+    }
     placementKey = key;
     initialPlaced = true;
     placedItems = items();
