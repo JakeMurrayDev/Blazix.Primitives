@@ -199,10 +199,11 @@ public sealed class DrawerPopup : PartBase<DrawerPopupState>
             DrawerRootContext drawer = Drawer!;
             bool nestedDrawerOpen = root.NestedOpenDrawerCount > 0;
             bool swiping = Viewport?.Swiping ?? false;
-            if (state.Open != root.Open || state.TransitionStatus != root.TransitionStatus || state.Nested != root.Nested
+            bool expanded = drawer.ActiveSnapPoint is { IsFullHeight: true };
+            if (state.Open != root.Open || state.TransitionStatus != root.TransitionStatus || state.Expanded != expanded || state.Nested != root.Nested
                 || state.NestedDrawerOpen != nestedDrawerOpen || state.NestedDrawerSwiping != drawer.NestedSwiping || state.Swiping != swiping)
             {
-                state = new DrawerPopupState(root.Open, root.TransitionStatus, Expanded: false, root.Nested, nestedDrawerOpen, drawer.NestedSwiping, swiping);
+                state = new DrawerPopupState(root.Open, root.TransitionStatus, expanded, root.Nested, nestedDrawerOpen, drawer.NestedSwiping, swiping);
             }
 
             return state;
@@ -281,7 +282,7 @@ public sealed class DrawerPopup : PartBase<DrawerPopupState>
     {
         behavior!.Subscribe(Context!, Portal);
         drawerCount = Context!.Subscribe(DialogFields.NestedOpenDrawerCount, StateHasChanged);
-        drawerStack = Drawer!.Subscribe(DrawerFields.FrontmostHeight | DrawerFields.NestedSwiping, StateHasChanged);
+        drawerStack = Drawer!.Subscribe(DrawerFields.FrontmostHeight | DrawerFields.NestedSwiping | DrawerFields.Settings, StateHasChanged);
         if (Viewport is not null)
         {
             viewportChanged = StateHasChanged;

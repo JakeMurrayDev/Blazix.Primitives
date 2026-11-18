@@ -16,11 +16,15 @@ internal sealed class DrawerRootContext
     // Whether a nested drawer reported a positive frontmost height (isNestedDrawerOpenRef).
     private bool nestedHeightReported;
 
+    private readonly Func<SnapPointValue?, ChangeEventDetails?, Task> requestSnapPoint;
+
     /// <summary>Initializes a new instance of the <see cref="DrawerRootContext"/> class.</summary>
     /// <param name="dialog">The root's dialog store.</param>
-    public DrawerRootContext(IDialogRootContext dialog)
+    /// <param name="requestSnapPoint">Runs a snap point change request on the root (DRW-STA-03).</param>
+    public DrawerRootContext(IDialogRootContext dialog, Func<SnapPointValue?, ChangeEventDetails?, Task> requestSnapPoint)
     {
         Dialog = dialog;
+        this.requestSnapPoint = requestSnapPoint;
     }
 
     /// <summary>Gets the root's dialog store.</summary>
@@ -31,6 +35,15 @@ internal sealed class DrawerRootContext
 
     /// <summary>Gets the provider the root reports its open state to, or <see langword="null"/> without one.</summary>
     public DrawerProviderContext? Provider { get; private set; }
+
+    /// <summary>Gets the active snap point (DRW-STA-02), or <see langword="null"/> for none.</summary>
+    public SnapPointValue? ActiveSnapPoint { get; private set; }
+
+    /// <summary>Gets the snap points, or <see langword="null"/> when none are configured.</summary>
+    public IReadOnlyList<SnapPointValue>? SnapPoints { get; private set; }
+
+    /// <summary>Gets a value indicating whether a release advances at most one snap point (DRW-API-06).</summary>
+    public bool SnapToSequentialPoints { get; private set; }
 
     /// <summary>Gets the height of the root's own popup in pixels, as last reported; 0 while it is not measured.</summary>
     public double PopupHeight { get; private set; }
@@ -52,6 +65,36 @@ internal sealed class DrawerRootContext
         Parent = parent;
         Provider = provider;
     }
+
+    // DRW-STA-02, ADR 08 Amendments 2026-11-18: the snap points are compared by sequence, so an equal list in a new instance
+    // notifies nothing (and, with the `drawer` module, sends no `update`).
+    /// <summary>Records the root's snap settings and notifies the parts when any changed.</summary>
+    /// <param name="active">The active snap point.</param>
+    /// <param name="snapPoints">The snap points.</param>
+    /// <param name="sequential">The root's <c>SnapToSequentialPoints</c>.</param>
+    public void SetSnapSettings(SnapPointValue? active, IReadOnlyList<SnapPointValue>? snapPoints, bool sequential)
+    {
+        bool changed = !Nullable.Equals(ActiveSnapPoint, active) || SnapToSequentialPoints != sequential;
+        if (!SameSequence(SnapPoints, snapPoints))
+        {
+            SnapPoints = snapPoints;
+            changed = true;
+        }
+
+        ActiveSnapPoint = active;
+        SnapToSequentialPoints = sequential;
+        if (changed)
+        {
+            Notify(DrawerFields.Settings);
+        }
+    }
+
+    // DRW-STA-03: the module's snap-point reports and the tests' probe request through here.
+    /// <summary>Requests a snap point change on the root.</summary>
+    /// <param name="snapPoint">The requested snap point, or <see langword="null"/> for none.</param>
+    /// <param name="details">The details, or <see langword="null"/> for the reason <see cref="EventReason.None"/> with no event.</param>
+    /// <returns>A task that completes when the request has run.</returns>
+    public Task RequestSnapPointAsync(SnapPointValue? snapPoint, ChangeEventDetails? details) => requestSnapPoint(snapPoint, details);
 
     // DRW-STA-10/11 (DrawerRoot.tsx:115-121): the own height replaces the frontmost height while no nested drawer reported one.
     /// <summary>Records the root's own popup height.</summary>
@@ -160,6 +203,30 @@ internal sealed class DrawerRootContext
                 listeners[i].Listener();
             }
         }
+    }
+
+    private static bool SameSequence(IReadOnlyList<SnapPointValue>? left, IReadOnlyList<SnapPointValue>? right)
+    {
+        if (ReferenceEquals(left, right))
+        {
+            return true;
+        }
+
+        int leftCount = left?.Count ?? 0;
+        if (leftCount != (right?.Count ?? 0) || left is null || right is null)
+        {
+            return leftCount == 0 && (right?.Count ?? 0) == 0;
+        }
+
+        for (int i = 0; i < leftCount; i++)
+        {
+            if (left[i] != right[i])
+            {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     private void SetFrontmostHeight(double height)

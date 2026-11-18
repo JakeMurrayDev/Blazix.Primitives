@@ -14,6 +14,10 @@ namespace Blazix.Primitives;
 // methods (ADR 08 Amendments 2026-10-22).
 // DRW-STA-14 (DrawerRoot.tsx:218-231, 419-443): the root reports its effective open state to the nearest provider from the
 // store's commit path, and removes itself when it leaves.
+// DRW-STA-02..04, API-02..06 (DrawerRoot.tsx:65-113, 150-169; decision 7 (a) of the M6 plan, chosen by the user 2026-11-18):
+// C# holds only the active snap point and its request sequence; the list's geometry is the `drawer` module's. The open
+// change runs through a wrapper that, after a close that was not canceled, requests the default snap point with the close's
+// reason, event and trigger before the store commits.
 /// <summary>
 /// Groups all parts of a drawer, owns its open state and connects its triggers. It renders no element of its own.
 /// </summary>
@@ -45,6 +49,10 @@ public sealed class DrawerRoot<TPayload> : ComponentBase, IAsyncDisposable
     private DrawerProviderContext? reportedProvider;
     private bool reportedOpen;
     private bool disposed;
+    private Controlled<SnapPointValue?>? snapPointState;
+    private bool snapPointSupplied;
+    private bool defaultSnapPointSupplied;
+    private EventCallback<ValueChangeEventArgs<bool>> openChangeWrapper;
 
     // Created at the first parameter set, once the services are injected.
     private DialogRootBehavior<TPayload> Behavior => behavior ?? throw new InvalidOperationException("Blazix: `DrawerRoot` is used before its first parameter set.");
@@ -136,6 +144,57 @@ public sealed class DrawerRoot<TPayload> : ComponentBase, IAsyncDisposable
     [Parameter]
     public string? DefaultTriggerId { get; set; }
 
+    // DRW-API-01 waits for track 1's SwipeDirection.
+
+    // DRW-API-02
+    /// <summary>Gets or sets the snap points: the heights a vertical drawer rests at.</summary>
+    /// <value>
+    /// <see langword="null"/>, the default, for none. A number from 0 to 1 is a fraction of the viewport's height, a number
+    /// greater than 1 a height in pixels, a string ending in <c>px</c> or <c>rem</c> a height in those units; any other value
+    /// is ignored. Write the list as an expression, such as <c>SnapPoints="@([0.5, "200px", 1])"</c>. A list equal to the
+    /// previous one, element by element, changes nothing.
+    /// </value>
+    [Parameter]
+    public IReadOnlyList<SnapPointValue>? SnapPoints { get; set; }
+
+    // DRW-API-03
+    /// <summary>Gets or sets the active snap point, for <c>@bind-SnapPoint</c>.</summary>
+    /// <value>
+    /// Leave it unset for an uncontrolled snap point; once set at the first render, the drawer follows it, and
+    /// <see langword="null"/> means no snap point. Write a number as a literal, such as <c>SnapPoint="0.5"</c>, and a string as
+    /// an expression, such as <c>SnapPoint="@("200px")"</c>.
+    /// </value>
+    [Parameter]
+    public SnapPointValue? SnapPoint { get; set; }
+
+    /// <summary>Gets or sets the callback <c>@bind-SnapPoint</c> uses.</summary>
+    [Parameter]
+    public EventCallback<SnapPointValue?> SnapPointChanged { get; set; }
+
+    // DRW-API-04
+    /// <summary>Gets or sets the snap point an uncontrolled drawer starts at, and returns to when it closes.</summary>
+    /// <value>
+    /// When it is not set, the first of <see cref="SnapPoints"/>, or none. Once set, <see langword="null"/> means no snap
+    /// point. Write a string as an expression, such as <c>DefaultSnapPoint="@("200px")"</c>.
+    /// </value>
+    [Parameter]
+    public SnapPointValue? DefaultSnapPoint { get; set; }
+
+    // DRW-API-05
+    /// <summary>Gets or sets the callback called before the active snap point changes.</summary>
+    /// <value>
+    /// The arguments' <c>Value</c> is the requested snap point; their <c>Details</c> carry the reason, the event and the
+    /// trigger, and can cancel the change.
+    /// </value>
+    [Parameter]
+    public EventCallback<ValueChangeEventArgs<SnapPointValue?>> OnSnapPointChange { get; set; }
+
+    // DRW-API-06
+    /// <summary>Gets or sets a value indicating whether a release moves at most one snap point, whatever its velocity.</summary>
+    /// <value>The default is <see langword="false"/>.</value>
+    [Parameter]
+    public bool SnapToSequentialPoints { get; set; }
+
     /// <summary>Gets or sets the drawer's parts.</summary>
     [Parameter]
     public RenderFragment? ChildContent { get; set; }
@@ -157,9 +216,15 @@ public sealed class DrawerRoot<TPayload> : ComponentBase, IAsyncDisposable
     {
         behavior ??= new DialogRootBehavior<TPayload>(DialogMode.Drawer, JSRuntime, StateHasChanged, DispatchExceptionAsync);
         behavior.SetParameters(parameters, IdGenerator, Logger);
+
+        // DRW-API-03/04: a supplied null is a value, so supplied-ness is read from the parameter set (the TriggerId precedent).
+        snapPointSupplied = parameters.TryGetValue<SnapPointValue?>(nameof(SnapPoint), out _);
+        defaultSnapPointSupplied = parameters.TryGetValue<SnapPointValue?>(nameof(DefaultSnapPoint), out _);
         if (drawer is null)
         {
-            drawer = new DrawerRootContext(behavior.Store);
+            snapPointState = new Controlled<SnapPointValue?>("Drawer", "snapPoint", Logger);
+            openChangeWrapper = new EventCallback<ValueChangeEventArgs<bool>>(null, (Func<ValueChangeEventArgs<bool>, Task>)OnOpenChangeAsync);
+            drawer = new DrawerRootContext(behavior.Store, RequestSnapPointAsync);
             dialogContent = behavior.BuildRenderTree;
             cascade = drawer.Cascade(dialogContent);
             openSubscription = behavior.Store.Subscribe(DialogFields.Open, ReportToProvider);
@@ -171,8 +236,10 @@ public sealed class DrawerRoot<TPayload> : ComponentBase, IAsyncDisposable
     /// <inheritdoc />
     protected override void OnParametersSet()
     {
+        snapPointState!.Update(snapPointSupplied, SnapPoint, defaultValueSupplied: true, ResolvedDefaultSnapPoint());
+        drawer!.SetSnapSettings(ActiveSnapPoint(), SnapPoints, SnapToSequentialPoints);
         Behavior.ApplyParameters(
-            new PopupRootParameters<TPayload>(DefaultOpen, DefaultTriggerId, Handle, OnOpenChange, OpenChanged, OnOpenChangeComplete, CloseOnActiveTriggerUnmount: false, ChildContent, PayloadContent),
+            new PopupRootParameters<TPayload>(DefaultOpen, DefaultTriggerId, Handle, openChangeWrapper, OpenChanged, OnOpenChangeComplete, CloseOnActiveTriggerUnmount: false, ChildContent, PayloadContent),
             DialogRoot<TPayload>.ToModality(Modal),
             DisablePointerDismissal,
             ParentContext,
@@ -242,6 +309,63 @@ public sealed class DrawerRoot<TPayload> : ComponentBase, IAsyncDisposable
             reportedOpen = open;
             provider.Report(this, open);
         }
+    }
+
+    // DRW-API-04 (DrawerRoot.tsx:65-66): DefaultSnapPoint when supplied (null included), else the first snap point, else none.
+    private SnapPointValue? ResolvedDefaultSnapPoint() =>
+        defaultSnapPointSupplied ? DefaultSnapPoint : SnapPoints is { Count: > 0 } points ? (SnapPointValue?)points[0] : null;
+
+    // DRW-STA-02 (DrawerRoot.tsx:96-113): a controlled value as given; an uncontrolled value outside a non-empty list, or
+    // none, falls back to the default (compared by Object.is on the number).
+    private SnapPointValue? ActiveSnapPoint()
+    {
+        SnapPointValue? value = snapPointState!.Value;
+        if (snapPointState.IsControlled || SnapPoints is not { Count: > 0 } points)
+        {
+            return value;
+        }
+
+        if (value is { } current)
+        {
+            for (int i = 0; i < points.Count; i++)
+            {
+                if (points[i] == current)
+                {
+                    return value;
+                }
+            }
+        }
+
+        return ResolvedDefaultSnapPoint();
+    }
+
+    // DRW-STA-03 (DrawerRoot.tsx:79-94): details, OnSnapPointChange, stop when canceled, write; no equality guard.
+    private async Task RequestSnapPointAsync(SnapPointValue? next, ChangeEventDetails? details)
+    {
+        if (disposed)
+        {
+            return;
+        }
+
+        if (await snapPointState!.RequestAsync(next, details ?? new ChangeEventDetails(EventReason.None), OnSnapPointChange, SnapPointChanged))
+        {
+            drawer!.SetSnapSettings(ActiveSnapPoint(), SnapPoints, SnapToSequentialPoints);
+        }
+    }
+
+    // DRW-STA-04 (DrawerRoot.tsx:150-169): the consumer's OnOpenChange first; after a close that was not canceled, with snap
+    // points, the default snap point with the close's reason, event and trigger, before the store commits the close. The
+    // callback has no receiver, so invoking it renders nothing of the root's.
+    private async Task OnOpenChangeAsync(ValueChangeEventArgs<bool> args)
+    {
+        await OnOpenChange.InvokeAsync(args);
+        if (args.Details.IsCanceled || args.Value || SnapPoints is not { Count: > 0 })
+        {
+            return;
+        }
+
+        ChangeEventDetails details = args.Details;
+        await RequestSnapPointAsync(ResolvedDefaultSnapPoint(), new ChangeEventDetails(details.Reason, details.Event, details.Trigger));
     }
 
     private async Task ObserveAsync(Task task)
