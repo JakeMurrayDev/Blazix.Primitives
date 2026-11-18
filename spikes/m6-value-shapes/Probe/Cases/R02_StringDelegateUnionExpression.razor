@@ -1,0 +1,5 @@
+<LabelPart Label="@("x")" /> <LabelPart Label="@func" />
+
+@code {
+    private Func<int, string> func = index => index.ToString(System.Globalization.CultureInfo.InvariantCulture);
+}

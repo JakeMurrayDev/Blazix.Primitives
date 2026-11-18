@@ -1,0 +1,14 @@
+@foreach (var toast in manager.Toasts)
+{
+    <ToastRoot Toast="toast"><ToastTitle /></ToastRoot>
+}
+
+@code {
+    private readonly ToastManager<MyData> manager = new();
+
+    protected override void OnInitialized()
+    {
+        manager.Changed += StateHasChanged;
+        manager.Add(new ToastObject<MyData>("a") { Data = new MyData(7) });
+    }
+}

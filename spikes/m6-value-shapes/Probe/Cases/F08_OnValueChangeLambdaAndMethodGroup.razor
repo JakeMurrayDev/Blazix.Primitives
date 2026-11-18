@@ -1,0 +1,8 @@
+<SliderTriplesRoot DefaultValue="25" OnValueChange="@(e => last = e.Value)" /> <SliderTriplesRoot DefaultValues="@([25, 45])" OnValuesChange="Changed" /> last=@last range=@Show.List(range)
+
+@code {
+    private double last;
+    private IReadOnlyList<double>? range;
+
+    private void Changed(ValueChangeEventArgs<IReadOnlyList<double>> e) => range = e.Value;
+}
