@@ -86,6 +86,12 @@ export const ACTIVATE_POINT = 'activate';
 /** The name of the decision point a click on the bridged hidden input asks C# about. */
 export const TOGGLE_POINT = 'toggle';
 
+/**
+ * The name of the decision point a press of a press-and-hold element asks C# about before its first tick (NumberField's
+ * steppers, NUM-PTR-02; issue 277 design point 1 (a), the name chosen by the user 2026-11-18). Fallback: run.
+ */
+export const HOLD_START_POINT = 'hold-start';
+
 const DEFAULT_TICK_DELAY = 60;
 const DEFAULT_START_DELAY = 400;
 const DEFAULT_SCROLL_DISTANCE = 8;
@@ -633,6 +639,10 @@ export function attach(
       reportInteraction(lastPointerType, event);
     }
     if (current.pressAndHold) {
+      // A C# consumer's veto of the press (its onpointerdown's PreventPartHandler()), asked only for a press that would act.
+      if (!event.defaultPrevented && event.button === 0 && decide(twin, HOLD_START_POINT, event, 'run') !== 'run') {
+        return;
+      }
       focusHoldTarget(event, current);
       hold.onPointerDown(event);
     }
