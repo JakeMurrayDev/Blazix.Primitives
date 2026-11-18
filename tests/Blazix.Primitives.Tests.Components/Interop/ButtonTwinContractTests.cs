@@ -200,7 +200,7 @@ public sealed class ButtonTwinContractTests
     }
 
     // NUM-PTR-02; issue 277 design point 1 (a), the name chosen by the user 2026-11-18.
-    [Fact(DisplayName = "port: the hold-start point runs its decider with the press")]
+    [Fact(DisplayName = "port: the hold-start point runs the activation decider with the press")]
     [Trait("Requirement", "NUM-PTR-02")]
     public void The_hold_start_point_runs_its_decider_with_the_press()
     {
@@ -208,7 +208,7 @@ public sealed class ButtonTwinContractTests
         List<EventSnapshot> seen = [];
         ButtonTwin twin = new(context.JSInterop.JSRuntime)
         {
-            HoldStartDecider = snapshot =>
+            ActivationDecider = snapshot =>
             {
                 seen.Add(snapshot);
                 return DecisionPolicy.Stop;
