@@ -17,14 +17,24 @@ internal sealed class DrawerRootContext
     private bool nestedHeightReported;
 
     private readonly Func<SnapPointValue?, ChangeEventDetails?, Task> requestSnapPoint;
+    private readonly Action<string, PopupTriggerElement> registerTrigger;
+    private readonly Action<string, PopupTriggerElement, bool> unregisterTrigger;
 
     /// <summary>Initializes a new instance of the <see cref="DrawerRootContext"/> class.</summary>
     /// <param name="dialog">The root's dialog store.</param>
     /// <param name="requestSnapPoint">Runs a snap point change request on the root.</param>
-    public DrawerRootContext(IDialogRootContext dialog, Func<SnapPointValue?, ChangeEventDetails?, Task> requestSnapPoint)
+    /// <param name="registerTrigger">Registers an element in the root's trigger registry.</param>
+    /// <param name="unregisterTrigger">Unregisters an element from the root's trigger registry.</param>
+    public DrawerRootContext(
+        IDialogRootContext dialog,
+        Func<SnapPointValue?, ChangeEventDetails?, Task> requestSnapPoint,
+        Action<string, PopupTriggerElement> registerTrigger,
+        Action<string, PopupTriggerElement, bool> unregisterTrigger)
     {
         Dialog = dialog;
         this.requestSnapPoint = requestSnapPoint;
+        this.registerTrigger = registerTrigger;
+        this.unregisterTrigger = unregisterTrigger;
     }
 
     /// <summary>Gets the root's dialog store.</summary>
@@ -35,6 +45,9 @@ internal sealed class DrawerRootContext
 
     /// <summary>Gets the provider the root reports its open state to, or <see langword="null"/> without one.</summary>
     public DrawerProviderContext? Provider { get; private set; }
+
+    /// <summary>Gets the direction that dismisses the drawer.</summary>
+    public SwipeDirection SwipeDirection { get; private set; } = SwipeDirection.Down;
 
     /// <summary>Gets the active snap point, or <see langword="null"/> for none.</summary>
     public SnapPointValue? ActiveSnapPoint { get; private set; }
@@ -88,6 +101,30 @@ internal sealed class DrawerRootContext
             Notify(DrawerFields.Settings);
         }
     }
+
+    /// <summary>Records the root's swipe direction and notifies the parts when it changed.</summary>
+    /// <param name="direction">The direction that dismisses the drawer.</param>
+    public void SetSwipeDirection(SwipeDirection direction)
+    {
+        if (SwipeDirection != direction)
+        {
+            SwipeDirection = direction;
+            Notify(DrawerFields.Settings);
+        }
+    }
+
+    // DRW-API-10, PSH-STA-26: a swipe area registers in the root's trigger registry, without the trigger data a trigger part
+    // applies (Base UI's useTriggerRegistration alone).
+    /// <summary>Registers an element in the root's trigger registry.</summary>
+    /// <param name="id">The element's id.</param>
+    /// <param name="element">The registration.</param>
+    public void RegisterTrigger(string id, PopupTriggerElement element) => registerTrigger(id, element);
+
+    /// <summary>Unregisters an element from the root's trigger registry, while the registry still maps the id to it.</summary>
+    /// <param name="id">The element's id.</param>
+    /// <param name="element">The registration.</param>
+    /// <param name="disposing">Whether the registering part is being disposed.</param>
+    public void UnregisterTrigger(string id, PopupTriggerElement element, bool disposing) => unregisterTrigger(id, element, disposing);
 
     // DRW-STA-03: the module's snap-point reports and the tests' probe request through here.
     /// <summary>Requests a snap point change on the root.</summary>

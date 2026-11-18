@@ -4,7 +4,7 @@
 <DrawerRoot TPayload="NoPayload" Open="Open" SwipeDirection="RootDirection">
     @if (Show)
     {
-        <DrawerSwipeArea data-testid="swipe-area" id="@Id" SwipeDirection="AreaDirection" Disabled="Disabled" style="@Style" />
+        <DrawerSwipeArea data-testid="swipe-area" SwipeDirection="AreaDirection" Disabled="Disabled" @attributes="Attributes()" />
     }
 </DrawerRoot>
 
@@ -22,4 +22,21 @@
     [Parameter] public string? Style { get; set; }
 
     [Parameter] public bool Show { get; set; } = true;
+
+    // The id and the style only when given, so that an absent one leaves the area's own.
+    private Dictionary<string, object> Attributes()
+    {
+        Dictionary<string, object> attributes = [];
+        if (Id is not null)
+        {
+            attributes["id"] = Id;
+        }
+
+        if (Style is not null)
+        {
+            attributes["style"] = Style;
+        }
+
+        return attributes;
+    }
 }

@@ -9,7 +9,6 @@ namespace Blazix.Primitives;
 
 // DRW §3.11, DRW-STA-01 (drawer/popup/DrawerPopup.tsx:310-319): the popup's state object. TransitionStatus and Swiping are
 // mirrored (ADR 04 §2): the `drawer` and `transitions` modules write data-swiping and the transition attributes (8b).
-// SwipeDirection joins with track 1's enum (ADR 08 Amendments 2026-11-18).
 /// <summary>Represents the state of a drawer's popup, which the part exposes as data attributes and passes to its class and style functions.</summary>
 /// <param name="Open">A value indicating whether the drawer is open; projected as <c>data-open</c> or <c>data-closed</c>.</param>
 /// <param name="TransitionStatus">
@@ -20,6 +19,7 @@ namespace Blazix.Primitives;
 /// <param name="Nested">A value indicating whether the drawer is nested in another dialog; projected as <c>data-nested</c>.</param>
 /// <param name="NestedDrawerOpen">A value indicating whether a drawer nested in this one is open; projected as <c>data-nested-drawer-open</c>.</param>
 /// <param name="NestedDrawerSwiping">A value indicating whether a drawer nested in this one is being swiped; projected as <c>data-nested-drawer-swiping</c>.</param>
+/// <param name="SwipeDirection">The direction that dismisses the drawer; projected as <c>data-swipe-direction</c>.</param>
 /// <param name="Swiping">
 /// A value indicating whether the popup is being swiped; its <c>data-swiping</c> attribute is written by the browser-side
 /// behavior.
@@ -32,6 +32,7 @@ public sealed partial record DrawerPopupState(
     bool Nested,
     bool NestedDrawerOpen,
     bool NestedDrawerSwiping,
+    SwipeDirection SwipeDirection,
     [property: MirroredField] bool Swiping);
 
 // DRW-STR-02 (drawer/popup/DrawerPopupDataAttributes.ts).
@@ -121,13 +122,14 @@ public sealed class DrawerPopup : PartBase<DrawerPopupState>
     private static readonly StateAttributesMapping<DrawerPopupState> s_mapping = PopupStateMapping.CreateOpen<DrawerPopupState>()
         .Map<bool>(nameof(DrawerPopupState.Expanded), static expanded => expanded ? s_expanded : null)
         .Map<bool>(nameof(DrawerPopupState.NestedDrawerOpen), static open => open ? s_nestedDrawerOpen : null)
-        .Map<bool>(nameof(DrawerPopupState.NestedDrawerSwiping), static swiping => swiping ? s_nestedDrawerSwiping : null);
+        .Map<bool>(nameof(DrawerPopupState.NestedDrawerSwiping), static swiping => swiping ? s_nestedDrawerSwiping : null)
+        .Map<SwipeDirection>(nameof(DrawerPopupState.SwipeDirection), DrawerSwipeDirections.Project);
 
     private DialogPopupBehavior? behavior;
     private IDisposable? drawerCount;
     private IDisposable? drawerStack;
     private Action? viewportChanged;
-    private DrawerPopupState state = new(false, null, false, false, false, false, false);
+    private DrawerPopupState state = new(false, null, false, false, false, false, SwipeDirection.Down, false);
     private bool warnedViewport;
 
     [Inject]
@@ -201,9 +203,10 @@ public sealed class DrawerPopup : PartBase<DrawerPopupState>
             bool swiping = Viewport?.Swiping ?? false;
             bool expanded = drawer.ActiveSnapPoint is { IsFullHeight: true };
             if (state.Open != root.Open || state.TransitionStatus != root.TransitionStatus || state.Expanded != expanded || state.Nested != root.Nested
-                || state.NestedDrawerOpen != nestedDrawerOpen || state.NestedDrawerSwiping != drawer.NestedSwiping || state.Swiping != swiping)
+                || state.NestedDrawerOpen != nestedDrawerOpen || state.NestedDrawerSwiping != drawer.NestedSwiping || state.SwipeDirection != drawer.SwipeDirection
+                || state.Swiping != swiping)
             {
-                state = new DrawerPopupState(root.Open, root.TransitionStatus, expanded, root.Nested, nestedDrawerOpen, drawer.NestedSwiping, swiping);
+                state = new DrawerPopupState(root.Open, root.TransitionStatus, expanded, root.Nested, nestedDrawerOpen, drawer.NestedSwiping, drawer.SwipeDirection, swiping);
             }
 
             return state;

@@ -146,11 +146,12 @@ public sealed class DrawerSwipeAreaTests : IDisposable
         Assert.Equal("pointer-events: none; touch-action: pan-x", cut.Find("[data-testid=swipe-area]").GetAttribute("style"));
     }
 
+    // The pipeline joins the part's style and the consumer's with "; " and ends the merged value with ";" (RND).
     [Theory(DisplayName = "port: the swipe area's touch-action pans across its axis, before the consumer's style")]
-    [InlineData(SwipeDirection.Left, "touch-action: pan-y; color: green")]
-    [InlineData(SwipeDirection.Right, "touch-action: pan-y; color: green")]
-    [InlineData(SwipeDirection.Up, "touch-action: pan-x; color: green")]
-    [InlineData(SwipeDirection.Down, "touch-action: pan-x; color: green")]
+    [InlineData(SwipeDirection.Left, "touch-action: pan-y; color: green;")]
+    [InlineData(SwipeDirection.Right, "touch-action: pan-y; color: green;")]
+    [InlineData(SwipeDirection.Up, "touch-action: pan-x; color: green;")]
+    [InlineData(SwipeDirection.Down, "touch-action: pan-x; color: green;")]
     [Trait("Requirement", "DRW-DOM-29")]
     public void The_swipe_areas_touch_action_pans_across_its_axis(SwipeDirection area, string expected)
     {

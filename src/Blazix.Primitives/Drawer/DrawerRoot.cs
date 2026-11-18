@@ -144,7 +144,15 @@ public sealed class DrawerRoot<TPayload> : ComponentBase, IAsyncDisposable
     [Parameter]
     public string? DefaultTriggerId { get; set; }
 
-    // DRW-API-01 waits for track 1's SwipeDirection.
+    // DRW-API-01
+    /// <summary>Gets or sets the direction that dismisses the drawer.</summary>
+    /// <value>
+    /// <see langword="null"/>, the default, for <see cref="Primitives.SwipeDirection.Down"/>. It also sets the axis of the
+    /// gesture and, opposite, the direction a <see cref="DrawerSwipeArea"/> opens the drawer by default.
+    /// </value>
+    [Parameter]
+    public SwipeDirection? SwipeDirection { get; set; }
+
 
     // DRW-API-02
     /// <summary>Gets or sets the snap points: the heights a vertical drawer rests at.</summary>
@@ -208,6 +216,9 @@ public sealed class DrawerRoot<TPayload> : ComponentBase, IAsyncDisposable
     // For the fixtures: completes once the session handle is attached.
     internal Task SessionAttached => behavior?.SessionAttached ?? Task.CompletedTask;
 
+    // For the tests: the root's dialog store.
+    internal DialogStore<TPayload> Store => Behavior.Store;
+
     // For the tests and the parts: the Drawer-only state.
     internal DrawerRootContext DrawerContext => drawer ?? throw new InvalidOperationException("Blazix: `DrawerRoot` is used before its first parameter set.");
 
@@ -224,7 +235,8 @@ public sealed class DrawerRoot<TPayload> : ComponentBase, IAsyncDisposable
         {
             snapPointState = new Controlled<SnapPointValue?>("Drawer", "snapPoint", Logger);
             openChangeWrapper = new EventCallback<ValueChangeEventArgs<bool>>(null, (Func<ValueChangeEventArgs<bool>, Task>)OnOpenChangeAsync);
-            drawer = new DrawerRootContext(behavior.Store, RequestSnapPointAsync);
+            DialogStore<TPayload> store = behavior.Store;
+            drawer = new DrawerRootContext(store, RequestSnapPointAsync, store.RegisterTrigger, store.UnregisterTrigger);
             dialogContent = behavior.BuildRenderTree;
             cascade = drawer.Cascade(dialogContent);
             openSubscription = behavior.Store.Subscribe(DialogFields.Open, ReportToProvider);
@@ -237,7 +249,8 @@ public sealed class DrawerRoot<TPayload> : ComponentBase, IAsyncDisposable
     protected override void OnParametersSet()
     {
         snapPointState!.Update(snapPointSupplied, SnapPoint, defaultValueSupplied: true, ResolvedDefaultSnapPoint());
-        drawer!.SetSnapSettings(ActiveSnapPoint(), SnapPoints, SnapToSequentialPoints);
+        drawer!.SetSwipeDirection(SwipeDirection ?? Primitives.SwipeDirection.Down);
+        drawer.SetSnapSettings(ActiveSnapPoint(), SnapPoints, SnapToSequentialPoints);
         Behavior.ApplyParameters(
             new PopupRootParameters<TPayload>(DefaultOpen, DefaultTriggerId, Handle, openChangeWrapper, OpenChanged, OnOpenChangeComplete, CloseOnActiveTriggerUnmount: false, ChildContent, PayloadContent),
             DialogRoot<TPayload>.ToModality(Modal),
