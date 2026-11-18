@@ -12,13 +12,7 @@ namespace Blazix.Primitives.Tests.Components;
 /// <summary>The number field's input mode on iOS.</summary>
 public sealed class NumberFieldIosTests : IDisposable
 {
-    private readonly NumberFieldTestContext test = new();
-
-    public NumberFieldIosTests()
-    {
-        BunitJSModuleInterop interactions = test.Context.JSInterop.SetupModule("./_content/Blazix.Primitives/js/interactions.js");
-        interactions.Setup<string>("readPlatformFlags").SetResult("""{"voiceOver":false,"mac":false,"ios":true}""");
-    }
+    private readonly NumberFieldTestContext test = new(ios: true);
 
     /// <inheritdoc />
     public void Dispose() => test.Dispose();

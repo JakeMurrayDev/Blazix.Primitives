@@ -20,8 +20,15 @@ public sealed class NumberFieldTestContext : IDisposable
     public const string ButtonModulePath = "./_content/Blazix.Primitives/js/button.js";
     public const string FormModulePath = "./_content/Blazix.Primitives/js/form.js";
 
-    public NumberFieldTestContext()
+    public const string InteractionsModulePath = "./_content/Blazix.Primitives/js/interactions.js";
+
+    /// <summary>Initializes a new instance of the <see cref="NumberFieldTestContext"/> class.</summary>
+    /// <param name="ios">Whether the stubbed <c>readPlatformFlags</c> reports iOS (NUM-STA-19).</param>
+    public NumberFieldTestContext(bool ios = false)
     {
+        Context.JSInterop.SetupModule(InteractionsModulePath)
+            .Setup<string>("readPlatformFlags")
+            .SetResult(ios ? """{"voiceOver":false,"mac":false,"ios":true}""" : """{"voiceOver":false,"mac":false,"ios":false}""");
         Context.Services.AddBlazixPrimitives();
         Context.Services.AddSingleton<ILogger<NumberFieldRoot>>(Logger);
         ButtonModule = Context.JSInterop.SetupModule(ButtonModulePath);
