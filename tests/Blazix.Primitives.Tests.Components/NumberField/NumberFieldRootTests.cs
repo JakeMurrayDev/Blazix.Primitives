@@ -506,6 +506,40 @@ public sealed class NumberFieldRootTests : IDisposable
         Assert.Equal("2.5", cut.FindAll("input[type=number]")[2].GetAttribute("step"));
     }
 
+    // NUM-STA-03 and NUM-EDGE-04 (Test: none in the document): ownership is fixed at the first render, and a later switch
+    // only warns, through Controlled<double?>("NumberField", "value", logger).
+    [Fact(DisplayName = "port: ownership is fixed at the first render and a switch to controlled only warns")]
+    [Trait("Requirement", "NUM-STA-03")]
+    [Trait("Requirement", "NUM-EDGE-04")]
+    public async Task Ownership_is_fixed_at_the_first_render_and_a_switch_to_controlled_only_warns()
+    {
+        IRenderedComponent<NumberFieldRoot> cut = Render(p => p.Add(x => x.DefaultValue, 1));
+
+        cut.Render(p => p.Add(x => x.Value, 7));
+
+        Assert.Equal("1", Input(cut).GetAttribute("value"));
+        Assert.Contains(test.Logger.Entries, e => e.Message.StartsWith("A component is changing the uncontrolled value state of NumberField to be controlled.", StringComparison.Ordinal));
+
+        await test.ClickAsync(cut, cut.FindComponent<NumberFieldIncrement>().Instance);
+        Assert.Equal("2", Input(cut).GetAttribute("value"));
+    }
+
+    // NUM-EVT-03 (Test: none in the document): a step's details carry its direction; the seed of an empty field has none.
+    [Fact(DisplayName = "port: a step carries its direction and the first step of an empty field none")]
+    [Trait("Requirement", "NUM-EVT-03")]
+    public async Task A_step_carries_its_direction_and_the_first_step_of_an_empty_field_none()
+    {
+        List<int?> directions = [];
+        IRenderedComponent<NumberFieldRoot> cut = Render(p => p.Add(x => x.OnValueChange, (ValueChangeEventArgs<double?> e) => directions.Add(((NumberFieldChangeEventDetails)e.Details).Direction)));
+
+        await test.ClickAsync(cut, cut.FindComponent<NumberFieldDecrement>().Instance);
+        await test.ClickAsync(cut, cut.FindComponent<NumberFieldDecrement>().Instance);
+        await test.ClickAsync(cut, cut.FindComponent<NumberFieldIncrement>().Instance);
+
+        Assert.Equal([null, -1, 1], directions);
+        Assert.Equal("0", Input(cut).GetAttribute("value"));
+    }
+
     private static RenderFragment Parts => builder =>
     {
         builder.OpenComponent<NumberFieldGroup>(0);
