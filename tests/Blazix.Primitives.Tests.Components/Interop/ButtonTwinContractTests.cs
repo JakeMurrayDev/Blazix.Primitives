@@ -165,6 +165,39 @@ public sealed class ButtonTwinContractTests
         Assert.Equal(new[] { "tick:pointerdown:True", "tick:pointerdown:True", "stop:pointerup", "click:0" }, log);
     }
 
+    // Issue 277 deliverable 3 (ii) and (iii), decision 16 (a), chosen by the user 2026-11-18: NumberField's steppers send the
+    // input to focus on a mouse press and raise the stop counter after a tick that applied nothing; both are omitted unset.
+    [Fact(DisplayName = "port: the hold focus target and the hold stop are sent only when set")]
+    [Trait("Requirement", "UBT-PTR-20")]
+    [Trait("Requirement", "NUM-PTR-03")]
+    public void The_hold_focus_target_and_the_hold_stop_are_sent_only_when_set()
+    {
+        ButtonOptions options = new() { DevelopmentChecks = false, PressAndHold = new PressAndHoldOptions(), HoldFocusTarget = "base-ui-7", HoldStop = 2 };
+
+        Assert.Equal(
+            """{"disabled":false,"native":true,"composite":false,"pressAndHold":{"tickDelay":60,"startDelay":400,"scrollDistance":8},"reportInteractionType":false,"developmentChecks":false,"holdFocusTarget":"base-ui-7","holdStop":2}""",
+            JsonSerializer.Serialize(options, BlazixJsonContext.Default.ButtonOptions));
+        Assert.DoesNotContain("hold", JsonSerializer.Serialize(new ButtonOptions { DevelopmentChecks = false }, BlazixJsonContext.Default.ButtonOptions), StringComparison.Ordinal);
+    }
+
+    // NUM-PTR-05: the stepper syncs the dirty text once per press, at the first tick of a sequence.
+    [Fact(DisplayName = "port: the first tick of a sequence raises HoldStarted before HoldTicked")]
+    [Trait("Requirement", "UBT-EVT-10")]
+    [Trait("Requirement", "NUM-PTR-05")]
+    public void The_first_tick_of_a_sequence_raises_HoldStarted_before_HoldTicked()
+    {
+        using BunitContext context = new();
+        ButtonTwin twin = new(context.JSInterop.JSRuntime);
+        List<string> log = [];
+        twin.HoldStarted += e => log.Add($"start:{e.Type}");
+        twin.HoldTicked += e => log.Add($"tick:{e.Type}");
+
+        twin.OnHoldTick($$"""{"event":{{PointerdownJson}},"start":true}""");
+        twin.OnHoldTick($$"""{"event":{{PointerdownJson}}}""");
+
+        Assert.Equal(new[] { "start:pointerdown", "tick:pointerdown", "tick:pointerdown" }, log);
+    }
+
     [Fact]
     [Trait("Requirement", "UBT-EDGE-01")]
     [Trait("Requirement", "UBT-EDGE-02")]
