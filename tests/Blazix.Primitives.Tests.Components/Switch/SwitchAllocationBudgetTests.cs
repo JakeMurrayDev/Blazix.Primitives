@@ -22,7 +22,8 @@ public sealed class SwitchAllocationBudgetTests : IDisposable
     // cascading parameters the field behavior reads (Checkbox measures the same 704), and 9,272 bytes for the toggle, the
     // field behavior's value reaction outside a field (the form's error lookup and the edit-context check).
     private const long RerenderBudgetBytes = 704;
-    private const long ToggleBudgetBytes = 9272;
+    // 2026-11-19 (ADR 16 Amendments 2026-11-19, chosen by the user): +8-16 B, `EventTargetInfo`'s `Value` and `Name` (SLD-EVT-04).
+    private const long ToggleBudgetBytes = 9288;
 
     private readonly SwitchTestContext test = new();
 

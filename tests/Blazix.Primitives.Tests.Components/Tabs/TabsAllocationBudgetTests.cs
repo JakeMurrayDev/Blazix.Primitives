@@ -36,7 +36,8 @@ public sealed class TabsAllocationBudgetTests : IDisposable
     // floor the Positioner budget records for the state earlier tests leave in the process. The re-render now takes the
     // least of five (the Switch toggle budget's precedent) and the budget is that full-run envelope, 2728.
     private const long RerenderBudgetBytes = 2728;
-    private const long ActivationBudgetBytes = 48184;
+    // 2026-11-19 (ADR 16 Amendments 2026-11-19, chosen by the user): +8-16 B, `EventTargetInfo`'s `Value` and `Name` (SLD-EVT-04).
+    private const long ActivationBudgetBytes = 48200;
 
     private readonly TabsTestContext test = new();
 
