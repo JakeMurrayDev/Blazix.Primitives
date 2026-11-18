@@ -71,4 +71,5 @@ internal static class InteractionsLiterals
 /// <summary>The platform hints the <c>interactions</c> module reports.</summary>
 /// <param name="VoiceOver">Whether VoiceOver may be running.</param>
 /// <param name="Mac">Whether the platform is macOS.</param>
-internal sealed record PlatformFlagsPayload(bool VoiceOver, bool Mac);
+/// <param name="Ios">Whether the platform is iOS (NumberField's keyboard; issue 277, granted by the orchestrator 2026-11-18).</param>
+internal sealed record PlatformFlagsPayload(bool VoiceOver, bool Mac, bool Ios = false);

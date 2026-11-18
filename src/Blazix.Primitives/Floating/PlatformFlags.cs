@@ -24,6 +24,11 @@ internal sealed class PlatformFlags
     /// <value>The flag once read; <see langword="null"/> before, which reads as not macOS.</value>
     public bool? Mac { get; private set; }
 
+    // NUM-STA-19 (UTL-EDGE-04); issue 277 design point 4 (a), granted by the orchestrator 2026-11-18.
+    /// <summary>Gets a value indicating whether the platform is iOS.</summary>
+    /// <value>The flag once read; <see langword="null"/> before, which reads as not iOS.</value>
+    public bool? Ios { get; private set; }
+
     /// <summary>Reads the flags from the browser the first time it is called; later calls return the same read.</summary>
     /// <param name="jsRuntime">The runtime the module is imported through.</param>
     /// <returns>A task that completes when the flags are read.</returns>
@@ -44,6 +49,7 @@ internal sealed class PlatformFlags
                 PlatformFlagsPayload? flags = JsonSerializer.Deserialize(json, BlazixJsonContext.Default.PlatformFlagsPayload);
                 VoiceOver = flags?.VoiceOver ?? false;
                 Mac = flags?.Mac ?? false;
+                Ios = flags?.Ios ?? false;
             }
         }
         catch (JSDisconnectedException)
