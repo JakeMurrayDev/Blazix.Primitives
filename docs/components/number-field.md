@@ -8,6 +8,7 @@
 | Docs page | `docs/src/app/(docs)/react/components/number-field/page.mdx` |
 | Prefix | `NUM` |
 | Status | approved |
+| Revised | 2026-11-18 |
 | Builds on | none |
 | Derived by | none |
 | Depends on | [rendering-and-composition](../architecture/rendering-and-composition.md), [event-details-and-reasons](../architecture/event-details-and-reasons.md), [button-behavior](../architecture/button-behavior.md), [field-and-form-infrastructure](../architecture/field-and-form-infrastructure.md), [shared-utilities](../architecture/shared-utilities.md) |
@@ -125,6 +126,7 @@ If `Input` is omitted the hidden number input still submits the value and the st
   Source: `number-field/root/NumberFieldRoot.tsx:62,114`, `number-field/input/NumberFieldInput.tsx:115`, `internals/labelable-provider/useLabelableId.ts:10-83`. Test: [L2] `NumberFieldRoot.test.tsx` "Field.Label"; `useNumberFieldStepperButton.test.tsx` "exposes aria-controls on the stepper".
 - **NUM-API-19** — MUST. `inputRef` MUST be attached to the hidden `<input type="number">` (merged with the field's validation input handle), not to the visible input.
   Source: `number-field/root/NumberFieldRoot.tsx:84,112,523`. Test: none.
+  Port: withdrawn (chosen by the user 2026-11-18; ADR 12 Amendments 2026-11-18 item 6; ADR 02 Amendments 2026-10-18, `inputRef`): the port has no handle parameter for a hidden form input; the hidden input stays internal and the field's validation input is composed by `NumberFieldField` (issue 277).
 - **NUM-API-20** — MUST. `className`, `style` and `render` MUST behave per RND using the state object below; `onChange` MUST be excluded from the accepted prop type.
   Source: `number-field/root/NumberFieldRoot.tsx:490-495,545-548`. Test: [L2] `NumberFieldRoot.test.tsx` conformance suite "Base UI component API".
 - **NUM-API-21** — MUST. Every prop not in the consumed list MUST be forwarded to the root element (merged after the state attributes, so a consumer attribute wins).
@@ -1174,7 +1176,7 @@ Non-normative.
 | NUM-API-16 | MUST | effective name = field ?? prop; hidden input only | 3.1 |
 | NUM-API-17 | MUST | `form` on hidden input only | 3.1 |
 | NUM-API-18 | MUST | `id` → visible input via labelable claim | 3.1 |
-| NUM-API-19 | MUST | `inputRef` → hidden input | 3.1 |
+| NUM-API-19 | MUST | `inputRef` → hidden input (Port: withdrawn, 2026-11-18) | 3.1 |
 | NUM-API-20 | MUST | `className`/`style`/`render` per RND; `onChange` excluded | 3.1 |
 | NUM-API-21 | MUST | other Root props forwarded to root element | 3.1 |
 | NUM-API-22 | MUST | Input `aria-roledescription` default `Number field` | 3.6 |
