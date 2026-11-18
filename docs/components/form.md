@@ -8,7 +8,7 @@
 | Docs page | `docs/src/app/(docs)/react/components/form/page.mdx` |
 | Prefix | `FRM` |
 | Status | implemented |
-| Revised | 2026-10-23 |
+| Revised | 2026-11-19 |
 | Builds on | none |
 | Derived by | none |
 | Depends on | [rendering-and-composition](../architecture/rendering-and-composition.md), [event-details-and-reasons](../architecture/event-details-and-reasons.md), [field-and-form-infrastructure](../architecture/field-and-form-infrastructure.md), [shared-utilities](../architecture/shared-utilities.md) |
