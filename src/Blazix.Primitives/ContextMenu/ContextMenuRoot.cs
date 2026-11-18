@@ -3,6 +3,7 @@ using Blazix.Primitives.Rendering;
 using Blazix.Primitives.Store;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Rendering;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.JSInterop;
 
@@ -47,6 +48,9 @@ public sealed class ContextMenuRoot : ComponentBase, IAsyncDisposable
 
     [Inject]
     private ILogger<ContextMenuRoot> Logger { get; set; } = null!;
+
+    [Inject]
+    private IServiceProvider Services { get; set; } = null!;
 
     [Inject]
     private IJSRuntime JSRuntime { get; set; } = null!;
@@ -157,7 +161,8 @@ public sealed class ContextMenuRoot : ComponentBase, IAsyncDisposable
     {
         if (behavior is null)
         {
-            behavior = new MenuRootBehavior<NoPayload>("ContextMenu", isSubmenu: false, JSRuntime, Platform, StateHasChanged, InvokeAsync, DispatchExceptionAsync);
+            // MNU-STA-05: the touch guard runs under the application's TimeProvider (ADR 06 §2 "Clocks").
+            behavior = new MenuRootBehavior<NoPayload>("ContextMenu", isSubmenu: false, JSRuntime, Platform, StateHasChanged, InvokeAsync, DispatchExceptionAsync, Services.GetService<TimeProvider>() ?? TimeProvider.System);
             behavior.SetParameters(parameters, Ids, Logger);
             context = new ContextMenuRootContext(Ids.Next()) { Menu = behavior.Context };
             context.ElementsChanged += OnElementsChanged;

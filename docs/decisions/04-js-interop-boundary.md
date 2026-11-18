@@ -761,3 +761,21 @@ Both fall back to `run`. One keydown reaches two handles, so C# runs the consume
 - *Unchanged.* 13.13 and every family file. The quarantine is lifted once the marker is in place and the titles are green.
 - *The alternatives.* The handle learning the opening trigger at attach, through an `interactions` session export or a C# Viewport option (a partial reversal of 13.13). Re-justifying the quarantine for the lagging title alone.
 
+**2026-11-19, untested Base UI quirks in Toast (the 2026-10-18 note extended; the M6 plan's decision 23 (a), chosen by the user 2026-11-18; M6 track 9a, [issue 280](https://github.com/JakeMurrayDev/Blazix.Primitives/issues/280)).** toast.md §16 Q2 (the Viewport's `--toast-frontmost-height` reads the first toast, ending or not), Q7 (the alert region includes ending toasts) and Q8 (an upsert keeps `limited`) are replicated, one dated note each in §16. Q5 and Q6 (the gesture's `movementX/Y` and the hand-off after a timer close) are replicated by M6 track 9b with the module. Q3 waits for track 11's probe.
+
+**2026-11-19, the ScrollArea track's design points 1–15 (M6 track 5, [issue 276](https://github.com/JakeMurrayDev/Blazix.Primitives/issues/276); chosen by the user 2026-11-19, "Yes, as recommended", each as session S recommended; under the M6 plan's decisions and the amendments of 2026-11-18; written in full by the implementing pull request).**
+- (1) *Bands.* The Root's `--scroll-area-corner-*`, the Scrollbar's `--scroll-area-thumb-*` and the Corner's `width` and `height` go in `'component-under'`. Base UI passes them through the merged `style` prop, so the consumer's `style` wins. The two-band paragraph's examples name only the imperative writes.
+- (2) *The Viewport's `scroll-snap-type`.* A Writer cell `style.scroll-snap-type` `JS` in `'component'`, written during a drag and removed at its end, with an ownership entry. §2's Viewport row gains it.
+- (3) *Reports.* Three reports: `ScrollAreaScrollingReport(bool X, bool Y)`, `ScrollAreaHoverReport(bool Hovering)` on the Root handle, and `ScrollAreaOverflowReport(bool HasOverflowX, bool HasOverflowY, bool XStart, bool XEnd, bool YStart, bool YEnd, bool CornerHidden, bool Measured)`. The sizes stay in JavaScript. The options carry the four normalized thresholds, `rtl`, the part literal and orientation, `keepMounted` and the merged style.
+- (4) *Overflow `data-*` and `tabindex`.* C# projects them from the overflow report.
+- (5) *The first measurement on Server* is accepted and measured as ADR 01 rows. A JS-owned convergent `visibility` follows only if the figures call for it.
+- (6) *One handle per part*, resolved to the Root by id or `closest`. Slider's single Root handle stays as built.
+- (7) *Reading direction.* `rtl` comes in the options, from `DirectionProviderContext` and a listener, and a change re-measures.
+- (8) *The per-scroll measurement* is uncached, as in Base UI, with its figure recorded.
+- (9) *The non-inheriting property registration* is module-local: a per-page flag, skipped on WebKit, with an L4 port title.
+- (10) *The `Test: none` rows.* L2 port titles for the 15 rows C# asserts, and a prerender fixture for SCR-EDGE-13.
+- (11) *UTL-DOM-32/33's ScrollArea clause.* Three L2 port titles on the real `ScrollAreaRoot`.
+- (12) *Probe fixtures inside the M5 popups* come last and block nothing. Findings are filed as issues.
+- (13) *Sample compositions.* Dialog and Autocomplete pages now; Drawer's in track 8.
+- (14) *Input no real device makes.* CDP where it can produce the event, otherwise in-page dispatch, with a dated note for each.
+- (15) *Server render batches* ([issue 291](https://github.com/JakeMurrayDev/Blazix.Primitives/issues/291)). The figures are recorded with no ScrollArea-only mitigation, as for Slider. The candidate fix of rendering on a mirrored-only change only when the part has a state function is added to issue 291. (Corrected 2026-11-19, from session S: that "candidate" is the existing pattern. Slider's and Tabs' parts already select their mirrored fields only when they have a state function, and ScrollArea follows it. A `data-scrolling` flip renders no part unless the consumer supplied `ClassValue`, `StyleValue` or a `Render` function, and the Root renders first on an overflow change so its subtree re-renders in one batch. Point 15 decides nothing new.)

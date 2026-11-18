@@ -139,6 +139,19 @@ public abstract class PartBase<TState> : ComponentBase, IPartHost, IDisposable
     /// <remarks>Parts that emit an <c>id</c> or an IDREF return <see langword="true"/>.</remarks>
     protected virtual bool UsesGeneratedId => false;
 
+    // ADR 02 Amendments 2026-11-18 (Toast DP11, settled by the orchestrator 2026-11-18).
+    /// <summary>Gets a value indicating whether this part renders only when it has content.</summary>
+    /// <value>
+    /// <see langword="true"/> to render nothing while <see cref="ChildContent"/> is <see langword="null"/>, unless the
+    /// substitute element in <see cref="Render"/> brings children of its own; otherwise, <see langword="false"/>. The
+    /// default is <see langword="false"/>.
+    /// </value>
+    /// <remarks>
+    /// A substitute element without children renders the part's content inside it. A substitute callback in
+    /// <see cref="RenderFunction"/> is always rendered.
+    /// </remarks>
+    protected virtual bool RequiresContent => false;
+
     /// <summary>Gets the generated id.</summary>
     /// <value>
     /// The id, in the form <c>base-ui-&lt;n&gt;</c>, drawn once at first render when <see cref="UsesGeneratedId"/> is
@@ -205,6 +218,7 @@ public abstract class PartBase<TState> : ComponentBase, IPartHost, IDisposable
             ChildContent = ChildContent,
             DefaultTagName = DefaultTagName,
             Enabled = Enabled,
+            RequiresContent = RequiresContent,
         });
     }
 
