@@ -8,7 +8,7 @@
 | Docs page | `docs/src/app/(docs)/react/components/toolbar/page.mdx` |
 | Prefix | `TLB` |
 | Status | implemented |
-| Revised | 2026-11-18 |
+| Revised | 2026-11-19 |
 | Builds on | none ([separator](separator.md) is reused by `Toolbar.Separator`) |
 | Derived by | none; hosts [toggle-group](toggle-group.md) / [toggle](toggle.md) and any popup trigger via `Toolbar.Button` substitution |
 | Depends on | [rendering-and-composition](../architecture/rendering-and-composition.md), [event-details-and-reasons](../architecture/event-details-and-reasons.md) (indirectly, through hosted parts), [composite-and-list-navigation](../architecture/composite-and-list-navigation.md), [button-behavior](../architecture/button-behavior.md), [shared-utilities](../architecture/shared-utilities.md) |
