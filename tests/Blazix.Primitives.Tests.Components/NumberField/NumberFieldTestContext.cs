@@ -1,3 +1,4 @@
+using System.Text.Json;
 using Blazix.Primitives.Interop;
 using Bunit;
 using Microsoft.AspNetCore.Components;
@@ -17,6 +18,7 @@ namespace Blazix.Primitives.Tests.Components;
 public sealed class NumberFieldTestContext : IDisposable
 {
     public const string ButtonModulePath = "./_content/Blazix.Primitives/js/button.js";
+    public const string FormModulePath = "./_content/Blazix.Primitives/js/form.js";
 
     public NumberFieldTestContext()
     {
@@ -26,6 +28,10 @@ public sealed class NumberFieldTestContext : IDisposable
         ButtonHandle = ButtonModule.SetupModule("attach", _ => true);
         ButtonHandle.SetupVoid("update", _ => true).SetVoidResult();
         ButtonHandle.SetupVoid("dispose", _ => true).SetVoidResult();
+        FormModule = Context.JSInterop.SetupModule(FormModulePath);
+        FormHandle = FormModule.SetupModule("attach", _ => true);
+        FormHandle.SetupVoid("update", _ => true).SetVoidResult();
+        FormHandle.SetupVoid("dispose", _ => true).SetVoidResult();
     }
 
     public BunitContext Context { get; } = new();
@@ -36,8 +42,19 @@ public sealed class NumberFieldTestContext : IDisposable
 
     public BunitJSModuleInterop ButtonHandle { get; }
 
+    public BunitJSModuleInterop FormModule { get; }
+
+    public BunitJSModuleInterop FormHandle { get; }
+
     /// <summary>The options JSON of every <c>button</c> update, in order.</summary>
     public IReadOnlyList<string> ButtonUpdates => [.. ButtonHandle.Invocations["update"].Select(i => (string)i.Arguments[0]!)];
+
+    /// <summary>The control options of every <c>form</c> attach and update, in order.</summary>
+    internal IReadOnlyList<FormControlOptions> FormOptions =>
+        [
+            .. FormModule.Invocations["attach"].Select(i => JsonSerializer.Deserialize((string)i.Arguments[1]!, BlazixJsonContext.Default.FormOptions)!.Control!),
+            .. FormHandle.Invocations["update"].Select(i => JsonSerializer.Deserialize((string)i.Arguments[0]!, BlazixJsonContext.Default.FormOptions)!.Control!),
+        ];
 
     /// <inheritdoc />
     public void Dispose() => Context.Dispose();
