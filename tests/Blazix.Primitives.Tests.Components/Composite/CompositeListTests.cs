@@ -1,3 +1,4 @@
+using System.Text.Json;
 using Bunit;
 using Microsoft.AspNetCore.Components;
 
@@ -76,6 +77,45 @@ public sealed class CompositeListTests : IDisposable
 
         cut.Render(p => p.AddChildContent(Items("a", "b", "c")));
         Assert.Single(host.UpdateOptions);
+    }
+
+    // M6 track 4 (decision 23 of the M6 plan, chosen by the user 2026-11-18; the Composite/ grant to Slider): an item that
+    // registers with an explicit index sends it, so the module reserves that slot (CMP-ALG-17's explicit slots).
+    [Fact(DisplayName = "port: an item registered with an explicit index sends the index with its id")]
+    [Trait("Requirement", "CMP-STA-01")]
+    [Trait("Requirement", "SLD-EDGE-14")]
+    public void Port_an_item_registered_with_an_explicit_index_sends_the_index_with_its_id()
+    {
+        IRenderedComponent<TestCompositeList> cut = Context.Render<TestCompositeList>(p => p.AddChildContent(builder =>
+        {
+            builder.OpenComponent<TestCompositeListItem>(0);
+            builder.AddComponentParameter(1, nameof(TestCompositeListItem.ExplicitIndex), 1);
+            builder.AddAttribute(2, "data-entry", "second");
+            builder.CloseComponent();
+            builder.OpenComponent<TestCompositeListItem>(3);
+            builder.AddComponentParameter(4, nameof(TestCompositeListItem.ExplicitIndex), 0);
+            builder.AddAttribute(5, "data-entry", "first");
+            builder.CloseComponent();
+        }));
+
+        JsonElement items = CompositeTestContext.Parse((string)Assert.Single(host.Attaches).Arguments[1]!).GetProperty("items");
+        Assert.Equal(1, items[0].GetProperty("index").GetInt32());
+        Assert.Equal(0, items[1].GetProperty("index").GetInt32());
+
+        cut.Render(p => p.AddChildContent(builder =>
+        {
+            builder.OpenComponent<TestCompositeListItem>(0);
+            builder.AddComponentParameter(1, nameof(TestCompositeListItem.ExplicitIndex), 2);
+            builder.AddAttribute(2, "data-entry", "second");
+            builder.CloseComponent();
+            builder.OpenComponent<TestCompositeListItem>(3);
+            builder.AddComponentParameter(4, nameof(TestCompositeListItem.ExplicitIndex), 0);
+            builder.AddAttribute(5, "data-entry", "first");
+            builder.CloseComponent();
+        }));
+
+        JsonElement updated = CompositeTestContext.Parse(Assert.Single(host.UpdateOptions)).GetProperty("items");
+        Assert.Equal(2, updated[0].GetProperty("index").GetInt32());
     }
 
     private static string[] RenderedIds(IRenderedComponent<TestCompositeList> cut) => [.. cut.FindAll("[data-entry]").Select(element => element.Id!)];

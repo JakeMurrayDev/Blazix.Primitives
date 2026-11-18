@@ -61,6 +61,7 @@
     <BlazixJsEntry Include="js/menu-filter.ts" Out="js/menu-filter" />
     <BlazixJsEntry Include="js/select.ts" Out="js/select" />
     <BlazixJsEntry Include="js/scroll-area.ts" Out="js/scroll-area" />
+    <BlazixJsEntry Include="js/slider.ts" Out="js/slider" />
     <BlazixJsOutput Include="@(BlazixJsEntry->'wwwroot/%(Out).js')" />
   </ItemGroup>
 

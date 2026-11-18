@@ -245,6 +245,39 @@ public sealed class FormSubmitTests : IDisposable
         Assert.Equal(1, form.FocusRevision);
     }
 
+    // SliderRoot.test.tsx "submits clamped range slider values to onFormSubmit", FRM-EVT-03's Slider clause (M6 track 4,
+    // issue 275): the Slider's own context stands in for the `slider` and `form` modules (SliderTestContext), and its
+    // submit request reads every thumb input as a valid control. The field's value is the normalized list, clamped to
+    // [20, 40], and the reason is `none`. The Slider family's copy is in SliderFormTests.
+    [Fact(DisplayName = "submits clamped range slider values to onFormSubmit")]
+    [Trait("Requirement", "FRM-EVT-03")]
+    [Trait("Requirement", "FRM-EVT-04")]
+    public async Task Submits_clamped_range_slider_values_to_onFormSubmit()
+    {
+        using SliderTestContext slider = new();
+        List<FormSubmitEventArgs> submits = [];
+        IRenderedComponent<SliderHost> cut = slider.Context.Render<SliderHost>(p => p.AddChildContent(SliderTestContext.Part<Form>(f => f
+            .Add(x => x.OnFormSubmit, EventCallback.Factory.Create<FormSubmitEventArgs>(this, submits.Add))
+            .AddChildContent(SliderTestContext.Part<FieldRoot>(r => r
+                .Add(x => x.Name, "slider")
+                .AddChildContent(SliderTestContext.Part<SliderRoot>(s => s
+                    .Add(x => x.DefaultValues, new double[] { 19, 41 })
+                    .Add(x => x.Min, 20)
+                    .Add(x => x.Max, 40)
+                    .AddChildContent(SliderTestContext.Part<SliderControl>(c => c.AddChildContent(SliderTestContext.Fragments(
+                        SliderTestContext.Thumb(0),
+                        SliderTestContext.Thumb(1))))))))))));
+
+        await slider.SubmitAsync(cut);
+
+        FormSubmitEventArgs submit = Assert.Single(submits);
+        KeyValuePair<string, object?> value = Assert.Single(submit.Values);
+        Assert.Equal("slider", value.Key);
+        Assert.Equal([20, 40], Assert.IsAssignableFrom<IReadOnlyList<double>>(value.Value));
+        Assert.Equal(EventReason.None, submit.Details.Reason);
+        Assert.True(submit.Details.Event.DefaultPrevented);
+    }
+
     private IRenderedComponent<FormSubmitScenarios> Render(Scenario scenario, Action<ComponentParameterCollectionBuilder<FormSubmitScenarios>>? parameters = null) =>
         Context.Render<FormSubmitScenarios>(p =>
         {

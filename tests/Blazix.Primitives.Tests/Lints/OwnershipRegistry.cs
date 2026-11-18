@@ -90,6 +90,29 @@ internal static class OwnershipRegistry
         new("checkbox", "Hidden checkbox input", "indeterminate", Writer.Js),
         new("checkbox", "Indicator", "data-starting-style", Writer.Js, "CheckboxIndicatorState.TransitionStatus"),
         new("checkbox", "Indicator", "data-ending-style", Writer.Js, "CheckboxIndicatorState.TransitionStatus"),
+        // Slider (M6 track 4, issue 275). ADR 04 §2's Slider row (amended 2026-11-18) and Amendments 2026-10-18 (the handover):
+        // C# renders the Thumb's and the Indicator's whole style once, and the `slider` module writes it from the attach, in the
+        // `component-under` band (ADR 04 Amendments 2026-11-18); decision 14 (a) of the M6 plan: the input's value too. No
+        // mirrored field (data-dragging is C#'s, rendered from the gesture report).
+        new("slider", "Indicator", "position", Writer.CsharpToJs),
+        new("slider", "Indicator", "height", Writer.CsharpToJs),
+        new("slider", "Indicator", "width", Writer.CsharpToJs),
+        new("slider", "Indicator", "inset-inline-start", Writer.CsharpToJs),
+        new("slider", "Indicator", "bottom", Writer.CsharpToJs),
+        new("slider", "Indicator", "--start-position", Writer.CsharpToJs),
+        new("slider", "Indicator", "--relative-size", Writer.CsharpToJs),
+        new("slider", "Indicator", "visibility", Writer.CsharpToJs),
+        new("slider", "Thumb", "position", Writer.CsharpToJs),
+        new("slider", "Thumb", "inset-inline-start", Writer.CsharpToJs),
+        new("slider", "Thumb", "bottom", Writer.CsharpToJs),
+        new("slider", "Thumb", "top", Writer.CsharpToJs),
+        new("slider", "Thumb", "left", Writer.CsharpToJs),
+        new("slider", "Thumb", "translate", Writer.CsharpToJs),
+        new("slider", "Thumb", "z-index", Writer.CsharpToJs),
+        new("slider", "Thumb", "--position", Writer.CsharpToJs),
+        new("slider", "Thumb", "visibility", Writer.CsharpToJs),
+        new("slider", "Thumb", "(non-inset, non-finite percent)", Writer.CsharpToJs),
+        new("slider", "input", "value", Writer.CsharpToJs),
         // Tabs (M3 track 5). ADR 04 Amendments 2026-10-22 (the composite row names the items of Tabs): the composite module
         // writes every Tab's roving tabindex from attach; C# renders "-1" (CMP-STA-15) and a consumer tabindex wins.
         new("tabs", "Tab", "tabindex", Writer.CsharpToJs),

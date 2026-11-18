@@ -291,8 +291,14 @@ test.describe('<Menu.Trigger />', () => {
       });
     });
 
-    test('port: a leave between the hover commit and the press commit keeps the menu open', async ({ page, mode }) => {
+    // Quarantined (ADR 11 §4) on Server until 2026-12-03, issue 303: its second CI sighting was PR 289's run at 49c137d8,
+    // after PR 290's.
+    test('port: a leave between the hover commit and the press commit keeps the menu open', {
+      tag: '@quarantine',
+      annotation: { type: 'issue', description: 'https://github.com/JakeMurrayDev/Blazix.Primitives/issues/303 (expires 2026-12-03)' },
+    }, async ({ page, mode }) => {
       test.skip(mode !== 'server', 'Server only: the window between the hover request and its commit');
+      test.fixme(mode === 'server', 'Quarantined on Server until 2026-12-03 (issue 303)');
       await parkPointer(page);
       await delayCircuit(page, 150);
       await withClock(page, async () => {

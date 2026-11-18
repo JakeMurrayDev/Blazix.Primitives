@@ -42,6 +42,7 @@ public static class DemoCatalog
         new("menubar", "Menubar", "A bar of menus: once one is open, hovering or focusing another trigger opens it.", typeof(MenubarDemo)),
         new("select", "Select", "A button that opens a list of options to choose one from, placed over the button with the chosen option aligned.", typeof(SelectDemo)),
         new("scroll-area", "Scroll Area", "A native scroll container with custom scrollbars, here two paragraphs of text.", typeof(ScrollAreaDemo)),
+        new("slider", "Slider", "An input for a value or a range of values, chosen by dragging a thumb along a track or with the arrow keys.", typeof(SliderDemo)),
     ];
 
     public static DemoEntry? Find(string slug) =>
