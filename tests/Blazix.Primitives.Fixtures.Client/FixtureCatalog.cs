@@ -361,5 +361,11 @@ public static class FixtureCatalog
         ["scroll-area-parts"] = new(typeof(ScrollAreaPartsFixture)),
         ["scroll-area-relaxations"] = new(typeof(ScrollAreaRelaxationsFixture)),
         ["scroll-area-prerender"] = new(typeof(ScrollAreaPrerenderFixture), Prerender: true),
+        // Design point 12 (a): ScrollArea inside other families' popups (tests/browser/scroll-area.probes.spec.ts).
+        ["scroll-area-probe-select"] = new(typeof(ScrollAreaProbeSelectFixture)),
+        ["scroll-area-probe-menu"] = new(typeof(ScrollAreaProbeMenuFixture)),
+        ["scroll-area-probe-combobox"] = new(typeof(ScrollAreaProbeComboboxFixture)),
+        ["scroll-area-probe-navigation-menu"] = new(typeof(ScrollAreaProbeNavigationMenuFixture)),
+        ["scroll-area-probe-dialog"] = new(typeof(ScrollAreaProbeDialogFixture)),
     };
 }
