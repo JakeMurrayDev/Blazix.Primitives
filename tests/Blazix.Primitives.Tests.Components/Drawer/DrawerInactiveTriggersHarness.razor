@@ -1,0 +1,23 @@
+@namespace Blazix.Primitives.Tests.Components
+@* DrawerRoot.test.tsx "does not re-render inactive detached triggers when the popup opens and closes": two detached triggers
+   on one handle, then the root, whose popup holds a Close. Trigger 2 is the bystander; a trigger's ClassValue runs once per
+   render of the part, so a counting ClassValue counts its renders (the issue 110 rule). *@
+<div>
+    <DrawerTrigger TPayload="NoPayload" Handle="Handle" id="trigger-1">Trigger 1</DrawerTrigger>
+    <DrawerTrigger TPayload="NoPayload" Handle="Handle" id="trigger-2" ClassValue="BystanderClassValue">Trigger 2</DrawerTrigger>
+    <DrawerRoot TPayload="NoPayload" Handle="Handle">
+        <DrawerPortal>
+            <DrawerViewport>
+                <DrawerPopup data-testid="popup">
+                    <DrawerClose data-testid="close">Close</DrawerClose>
+                </DrawerPopup>
+            </DrawerViewport>
+        </DrawerPortal>
+    </DrawerRoot>
+</div>
+
+@code {
+    public DrawerHandle<NoPayload> Handle { get; } = new();
+
+    [Parameter] public Func<DrawerTriggerState, string?>? BystanderClassValue { get; set; }
+}
