@@ -35,6 +35,8 @@ const defaults: DrawerOptions = {
   nestedOpenDrawerCount: 0,
   swipeDirection: 'down',
   answeredDismiss: 0,
+  popup: 0,
+  backdrop: 1,
 };
 
 interface Mounted {

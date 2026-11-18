@@ -52,6 +52,10 @@ export interface DrawerOptions extends TwinOptions {
   swipeDirection: SwipeDirection;
   /** The number of the last dismiss request C# has answered. */
   answeredDismiss: number;
+  /** The index of the Popup element among the references, or `null` while none is rendered. */
+  popup?: number | null;
+  /** The index of the Backdrop element among the references, or `null` while none is rendered. */
+  backdrop?: number | null;
 }
 
 // DRW-PTR-03, PTR-10 (DrawerViewport.tsx:45-55).
@@ -121,7 +125,7 @@ function resolveSwipeStrength(
  * @param elementOrId The Viewport element, or its id.
  * @param optionsJson The `DrawerOptions` JSON.
  * @param twinReference The twin's object reference.
- * @param references The Popup element, then the Backdrop element (either may be `null`).
+ * @param references The elements the options name by index (`popup`, `backdrop`).
  * @param captures The capture ids C# sends beside the element and the references.
  * @returns The handle.
  */
@@ -146,8 +150,8 @@ export function attach(
   let dismissCount = 0;
 
   const readReferences = (refs: TwinReferences, refCaptures?: TwinCaptures) => {
-    const nextPopup = resolveReference<HTMLElement>(refs, 0, refCaptures);
-    const nextBackdrop = resolveReference<HTMLElement>(refs, 1, refCaptures);
+    const nextPopup = resolveReference<HTMLElement>(refs, options.popup, refCaptures);
+    const nextBackdrop = resolveReference<HTMLElement>(refs, options.backdrop, refCaptures);
     if (nextPopup !== popup) {
       popup = nextPopup;
       popupBand = popup ? styleWriter(popup).layer('component') : null;
