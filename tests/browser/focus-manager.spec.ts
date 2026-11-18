@@ -408,7 +408,10 @@ test.describe('focus manager', () => {
     });
 
     test('port: the marking lands in the batch that opens an attached popup and is released in the batch that closes it', async ({ page, mode }) => {
-      const fixture = await gotoFocusManager(page, mode, 'focus-manager-kept-mounted');
+      // The manager stays enabled while closed (`enabledWhileClosed`), as the parts' `!mounted` keeps a kept-mounted popup's
+      // enabled through a close. The fixture's default disables it with the close, and that option's `update` lands before
+      // the closing batch, sometimes a frame before it, releasing the marking there (issue 281's watched title :410).
+      const fixture = await gotoFocusManager(page, mode, 'focus-manager-kept-mounted', 'enabledWhileClosed=true');
       await recordWrites(page);
 
       await fixture.locator('[data-reference]').click();
