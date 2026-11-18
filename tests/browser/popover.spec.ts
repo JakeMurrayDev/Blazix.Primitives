@@ -1532,6 +1532,9 @@ test.describe('<Popover.Root /> multiple detached triggers', () => {
       },
     });
     await expect.poll(() => switchTransitions(page)).toBeGreaterThan(0);
+    // A second positioning pass mid-switch replaces the switch's transition and cancels the one recorded (nightly 44245814569,
+    // WebAssembly: the new content's size on a slow page; issue 261). The title cancels it itself, on both modes.
+    await page.evaluate(() => (window as unknown as { switchTransitions: Animation[] }).switchTransitions[0]!.cancel());
     const popupHandle = await popup.elementHandle();
 
     await page.mouse.move(390, 190);
