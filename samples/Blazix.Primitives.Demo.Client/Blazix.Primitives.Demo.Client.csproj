@@ -6,6 +6,9 @@
     <NoDefaultLaunchSettingsFile>true</NoDefaultLaunchSettingsFile>
     <StaticWebAssetProjectMode>Default</StaticWebAssetProjectMode>
     <BlazorDisableThrowNavigationException>true</BlazorDisableThrowNavigationException>
+    <!-- Full ICU data on WebAssembly, so NumberField's cultures format and parse as on Server (the M6 plan's decision 11 (a),
+         chosen by the user 2026-11-18; issue 277 design point 5 (a), settled by the orchestrator 2026-11-18). -->
+    <BlazorWebAssemblyLoadAllGlobalizationData>true</BlazorWebAssemblyLoadAllGlobalizationData>
   </PropertyGroup>
 
   <ItemGroup>
