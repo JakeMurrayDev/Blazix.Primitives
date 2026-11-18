@@ -1799,6 +1799,9 @@ test.describe('<NavigationMenu.Trigger /> keyboard and focus', () => {
   // state synchronously in the Trigger's onFocus, so its guard never meets an inert Viewport. The clears (the Trigger's C#
   // onfocus and the module's report) are held until C# has rendered the stale `inert`, which a recorder counts.
   test('port: tabs into a nested panel after a Shift+Tab whose stale inert render lands after the trigger focus, under circuit latency on Server', async ({ page, mode }) => {
+    // Server only: the race is the circuit's message order, which WebAssembly does not have; red-check counts a title's best
+    // result across projects, so a WebAssembly pass would hide the Server red (CI run 44353313805).
+    test.skip(mode !== 'server', 'No circuit messages to gate on WebAssembly');
     // The Trigger's C# onfocus and the module's clear both clear the flag; both are held, the Viewport's set is not.
     await recordNestedInertRenders(page);
     await delayPageMessagesMatching(page, [[/"eventName":"focus"|\\"inert\\":false/, 400]]);
@@ -1814,9 +1817,7 @@ test.describe('<NavigationMenu.Trigger /> keyboard and focus', () => {
 
     await page.keyboard.press('Shift+Tab');
     await expect(developers).toBeFocused();
-    if (mode === 'server') {
-      await expect(page.locator('html')).toHaveAttribute('data-inert-renders', '1');
-    }
+    await expect(page.locator('html')).toHaveAttribute('data-inert-renders', '1');
     await page.keyboard.press('Tab');
 
     await expect(page.getByTestId('nested-link-get-started')).toBeFocused();
@@ -1829,6 +1830,9 @@ test.describe('<NavigationMenu.Trigger /> keyboard and focus', () => {
   // (the Trigger's C# onfocus and the module's report) until the end, and a recorder counts the `inert` renders on the
   // nested Viewport (the module may lift one in the same task).
   test('port: keeps tabbing inside a nested panel when a stale inert render lands after focus entered it, under circuit latency on Server', async ({ page, mode }) => {
+    // Server only: the race is the circuit's message order, which WebAssembly does not have; red-check counts a title's best
+    // result across projects, so a WebAssembly pass would hide the Server red (CI run 44353313805).
+    test.skip(mode !== 'server', 'No circuit messages to gate on WebAssembly');
     await recordNestedInertRenders(page);
     const gates = await gatePageMessages(page, [/\\"inert\\":true/, /"eventName":"focus"|\\"inert\\":false/]);
     try {
@@ -1846,9 +1850,7 @@ test.describe('<NavigationMenu.Trigger /> keyboard and focus', () => {
       await page.keyboard.press('Tab');
       await expect(page.getByTestId('nested-link-get-started')).toBeFocused();
       gates.release(0);
-      if (mode === 'server') {
-        await expect(page.locator('html')).toHaveAttribute('data-inert-renders', '1');
-      }
+      await expect(page.locator('html')).toHaveAttribute('data-inert-renders', '1');
 
       await page.keyboard.press('Tab');
 
