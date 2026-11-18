@@ -20,7 +20,7 @@ internal sealed class DrawerRootContext
 
     /// <summary>Initializes a new instance of the <see cref="DrawerRootContext"/> class.</summary>
     /// <param name="dialog">The root's dialog store.</param>
-    /// <param name="requestSnapPoint">Runs a snap point change request on the root (DRW-STA-03).</param>
+    /// <param name="requestSnapPoint">Runs a snap point change request on the root.</param>
     public DrawerRootContext(IDialogRootContext dialog, Func<SnapPointValue?, ChangeEventDetails?, Task> requestSnapPoint)
     {
         Dialog = dialog;
@@ -36,13 +36,13 @@ internal sealed class DrawerRootContext
     /// <summary>Gets the provider the root reports its open state to, or <see langword="null"/> without one.</summary>
     public DrawerProviderContext? Provider { get; private set; }
 
-    /// <summary>Gets the active snap point (DRW-STA-02), or <see langword="null"/> for none.</summary>
+    /// <summary>Gets the active snap point, or <see langword="null"/> for none.</summary>
     public SnapPointValue? ActiveSnapPoint { get; private set; }
 
     /// <summary>Gets the snap points, or <see langword="null"/> when none are configured.</summary>
     public IReadOnlyList<SnapPointValue>? SnapPoints { get; private set; }
 
-    /// <summary>Gets a value indicating whether a release advances at most one snap point (DRW-API-06).</summary>
+    /// <summary>Gets a value indicating whether a release advances at most one snap point.</summary>
     public bool SnapToSequentialPoints { get; private set; }
 
     /// <summary>Gets the height of the root's own popup in pixels, as last reported; 0 while it is not measured.</summary>
