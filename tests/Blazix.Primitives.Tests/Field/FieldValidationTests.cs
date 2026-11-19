@@ -866,6 +866,6 @@ public sealed class FieldValidationTests
         long allocated = GC.GetAllocatedBytesForCurrentThread() - before;
 
         // The new validity data (one object, its flags inline) and the boxed-free FieldValidationArguments.
-        Assert.True(allocated <= 160, $"A synchronous commit allocated {allocated} bytes.");
+        AllocationSampler.AssertWithinBudget(allocated, 160, "a synchronous commit");
     }
 }

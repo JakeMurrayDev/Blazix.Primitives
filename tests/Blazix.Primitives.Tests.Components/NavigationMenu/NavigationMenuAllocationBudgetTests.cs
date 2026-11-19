@@ -82,7 +82,7 @@ public sealed class NavigationMenuAllocationBudgetTests : IDisposable
         }
 
         Assert.Equal(updates, test.InteractionsHandle.Invocations["update"].Count + test.NavigationMenuHandle.Invocations["update"].Count);
-        Assert.True(allocated <= RerenderBudgetBytes, $"a re-render allocated {allocated} bytes; the budget is {RerenderBudgetBytes}");
+        AllocationSampler.AssertWithinBudget(allocated, RerenderBudgetBytes, "a re-render");
     }
 
     private static NavigationMenuTrigger TriggerOf(IRenderedComponent<NavigationMenuRoot<string>> cut, string testId) =>

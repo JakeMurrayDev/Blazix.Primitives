@@ -10,6 +10,11 @@ internal static class AllocationSampler
     /// <summary>The number of runs a budget takes the least of.</summary>
     public const int Runs = 5;
 
+    // ADR 16 Amendments 2026-11-19 (issue 304; chosen by the user 2026-11-19, "256 B tolerance"): the largest overage the
+    // Linux runners showed over a macOS pin was +208 B; the pin stays the measured figure and only tightens.
+    /// <summary>The bytes a budget's figure may exceed its pin by and still pass.</summary>
+    public const long ToleranceBytes = 256;
+
     /// <summary>Runs <paramref name="operation"/> five times and returns the fewest bytes one run allocated.</summary>
     /// <param name="operation">The operation, which must leave the state as it found it.</param>
     /// <returns>The least of the five measurements.</returns>
@@ -29,5 +34,17 @@ internal static class AllocationSampler
         }
 
         return least;
+    }
+
+    /// <summary>Asserts that a measured figure is within its budget: at most the pin plus <see cref="ToleranceBytes"/>, or exactly 0 for a pin of 0.</summary>
+    /// <param name="figure">The measured bytes, the least of five runs.</param>
+    /// <param name="pin">The budget's pin, the figure measured when it was set.</param>
+    /// <param name="what">What was measured, the start of the failure message, for example "a hold tick".</param>
+    public static void AssertWithinBudget(long figure, long pin, string what)
+    {
+        // Zero pins, chosen by the user 2026-11-19 (issue 304): a title pinned at 0 asserts that a path allocates nothing.
+        long tolerance = pin == 0 ? 0 : ToleranceBytes;
+        long limit = pin + tolerance;
+        Assert.True(figure <= limit, $"{what} allocated {figure} bytes; the pin is {pin} bytes and the tolerance {tolerance} bytes (at most {limit})");
     }
 }

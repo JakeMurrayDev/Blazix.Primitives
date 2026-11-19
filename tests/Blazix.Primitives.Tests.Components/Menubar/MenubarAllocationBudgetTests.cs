@@ -56,6 +56,6 @@ public sealed class MenubarAllocationBudgetTests : IDisposable
 
         long allocated = AllocationSampler.LeastOfFive(Flip);
 
-        Assert.True(allocated <= FlipBudgetBytes, $"a flag flip allocated {allocated} bytes; the budget is {FlipBudgetBytes}");
+        AllocationSampler.AssertWithinBudget(allocated, FlipBudgetBytes, "a flag flip");
     }
 }

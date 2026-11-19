@@ -42,7 +42,7 @@ public sealed class FieldAllocationBudgetTests : IDisposable
         long allocated = 0;
         cut.InvokeAsync(() => allocated = AllocationSampler.LeastOfFive(run => twin.OnControlReport(reports[25 + run])));
 
-        Assert.True(allocated <= KeystrokeBudgetBytes, $"a keystroke allocated {allocated} bytes; the budget is {KeystrokeBudgetBytes}");
+        AllocationSampler.AssertWithinBudget(allocated, KeystrokeBudgetBytes, "a keystroke");
     }
 
     private static string Report(string value) => JsonSerializer.Serialize(

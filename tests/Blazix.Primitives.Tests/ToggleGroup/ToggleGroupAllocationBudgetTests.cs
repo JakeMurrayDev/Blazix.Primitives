@@ -27,7 +27,7 @@ public sealed class ToggleGroupAllocationBudgetTests
         long allocated = GC.GetAllocatedBytesForCurrentThread() - before;
 
         Assert.Equal(6, next.Count);
-        Assert.True(allocated <= MultipleBudgetBytes, $"an activation allocated {allocated} bytes; the budget is {MultipleBudgetBytes}");
+        AllocationSampler.AssertWithinBudget(allocated, MultipleBudgetBytes, "an activation");
     }
 
     [Fact(DisplayName = "a single-select activation's next value stays within its budget")]
@@ -45,6 +45,6 @@ public sealed class ToggleGroupAllocationBudgetTests
         long allocated = GC.GetAllocatedBytesForCurrentThread() - before;
 
         Assert.Single(next);
-        Assert.True(allocated <= SingleBudgetBytes, $"an activation allocated {allocated} bytes; the budget is {SingleBudgetBytes}");
+        AllocationSampler.AssertWithinBudget(allocated, SingleBudgetBytes, "an activation");
     }
 }
