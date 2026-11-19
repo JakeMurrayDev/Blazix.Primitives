@@ -77,6 +77,7 @@ public sealed class DrawerViewport : PartBase<DrawerViewportState>
     private IDisposable? drawerSubscription;
     private readonly TaskCompletionSource gestureAttached = new(TaskCreationOptions.RunContinuationsAsynchronously);
     private int answeredDismiss;
+    private bool deciding;
     private ElementReference? sentPopup;
     private ElementReference? sentBackdrop;
 
@@ -213,7 +214,7 @@ public sealed class DrawerViewport : PartBase<DrawerViewportState>
     // options or of the elements it writes on.
     private async Task SyncTwinAsync()
     {
-        if (!Enabled || Element is not { } element || twin is null)
+        if (deciding || !Enabled || Element is not { } element || twin is null)
         {
             return;
         }
@@ -289,21 +290,37 @@ public sealed class DrawerViewport : PartBase<DrawerViewportState>
 
     // DRW-PTR-14 on WebAssembly: the `dismiss` point, inside the release. Only an accepted request counts, as the module
     // numbers only the dismissals it does not roll back at once.
+    // Nothing reaches the module while the dispatch runs: the close re-renders this part inline, and an update sent then
+    // would arrive before the module numbers the dismissal it is deciding. One sync follows, after the dispatch returns.
     private DecisionPolicy DecideDismiss(EventSnapshot snapshot)
     {
         OpenChangeEventDetails details = new(EventReason.Swipe, snapshot);
-        _ = Context!.RequestOpenAsync(false, details);
+        deciding = true;
+        try
+        {
+            _ = Context!.RequestOpenAsync(false, details);
+        }
+        finally
+        {
+            deciding = false;
+            SyncTwinLater();
+        }
+
         if (details.IsCanceled)
         {
             return DecisionPolicy.Stop;
         }
 
         answeredDismiss += 1;
-        SyncTwinLater();
         return DecisionPolicy.Run;
     }
 
-    private void SyncTwinLater() => _ = InvokeAsync(SyncTwinAsync);
+    // Yields first, so a sync asked for inside the `dismiss` dispatch runs after the dispatch has returned to the module.
+    private void SyncTwinLater() => _ = InvokeAsync(async () =>
+    {
+        await Task.Yield();
+        await SyncTwinAsync();
+    });
 
     private bool SameElements() =>
         string.Equals(sentPopup?.Id, Drawer!.PopupElement?.Id, StringComparison.Ordinal)
