@@ -40,7 +40,7 @@ public sealed class DrawerAllocationBudgetTests : IDisposable
         cut.Render(parameters);
 
         Assert.Equal(sends, Sends());
-        Assert.True(allocated <= RerenderBudgetBytes, $"a re-render allocated {allocated} bytes; the budget is {RerenderBudgetBytes}");
+        AllocationSampler.AssertWithinBudget(allocated, RerenderBudgetBytes, "a re-render");
     }
 
     private int Sends() =>

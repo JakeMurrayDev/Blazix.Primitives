@@ -77,7 +77,7 @@ public sealed class NumberFieldAllocationBudgetTests : IDisposable
 
         Assert.Equal(buttonUpdates, test.ButtonHandle.Invocations["update"].Count);
         Assert.Equal(formUpdates, test.FormHandle.Invocations["update"].Count);
-        Assert.True(allocated <= RerenderBudgetBytes, $"a re-render allocated {allocated} bytes; the budget is {RerenderBudgetBytes}");
+        AllocationSampler.AssertWithinBudget(allocated, RerenderBudgetBytes, "a re-render");
     }
 
     [Fact(DisplayName = "a hold tick's step stays within its budget")]
@@ -103,7 +103,7 @@ public sealed class NumberFieldAllocationBudgetTests : IDisposable
         }
 
         Assert.Equal("25", test.Text);
-        Assert.True(allocated <= HoldTickBudgetBytes, $"a hold tick allocated {allocated} bytes; the budget is {HoldTickBudgetBytes}");
+        AllocationSampler.AssertWithinBudget(allocated, HoldTickBudgetBytes, "a hold tick");
     }
 
     [Fact(DisplayName = "a click step through the formatter stays within its budget")]
@@ -129,7 +129,7 @@ public sealed class NumberFieldAllocationBudgetTests : IDisposable
         }
 
         Assert.Equal("25", test.Text);
-        Assert.True(allocated <= ClickStepBudgetBytes, $"a click step allocated {allocated} bytes; the budget is {ClickStepBudgetBytes}");
+        AllocationSampler.AssertWithinBudget(allocated, ClickStepBudgetBytes, "a click step");
     }
 
     [Fact(DisplayName = "a keystroke through the parser stays within its budget")]

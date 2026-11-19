@@ -45,7 +45,7 @@ public sealed class MenuFilterAllocationBudgetTests : IDisposable
 
         long allocated = AllocationSampler.LeastOfFive(() => cut.Render(parameters));
 
-        Assert.True(allocated <= RerenderBudgetBytes, $"a re-render allocated {allocated} bytes; the budget is {RerenderBudgetBytes}");
+        AllocationSampler.AssertWithinBudget(allocated, RerenderBudgetBytes, "a re-render");
     }
 
     private static void Content(RenderTreeBuilder builder)

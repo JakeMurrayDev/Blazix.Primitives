@@ -47,7 +47,7 @@ public sealed class CheckboxAllocationBudgetTests : IDisposable
 
         long allocated = Measure(cut);
 
-        Assert.True(allocated <= RerenderBudgetBytes, $"a re-render allocated {allocated} bytes; the budget is {RerenderBudgetBytes}");
+        AllocationSampler.AssertWithinBudget(allocated, RerenderBudgetBytes, "a re-render");
     }
 
     [Fact(DisplayName = "a re-render of a checkbox named by its native label stays within its budget")]
@@ -64,7 +64,7 @@ public sealed class CheckboxAllocationBudgetTests : IDisposable
 
         long allocated = Measure(cut);
 
-        Assert.True(allocated <= FallbackRerenderBudgetBytes, $"a re-render allocated {allocated} bytes; the budget is {FallbackRerenderBudgetBytes}");
+        AllocationSampler.AssertWithinBudget(allocated, FallbackRerenderBudgetBytes, "a re-render");
     }
 
     private static long Measure(IRenderedComponent<CheckboxRoot> cut)
@@ -96,6 +96,6 @@ public sealed class CheckboxAllocationBudgetTests : IDisposable
         long allocated = AllocationSampler.LeastOfFive(() => reported = cut.InvokeAsync(() => twin.OnStatusChange(unchanged)));
         await reported;
 
-        Assert.True(allocated <= UnchangedStatusBudgetBytes, $"a status report allocated {allocated} bytes; the budget is {UnchangedStatusBudgetBytes}");
+        AllocationSampler.AssertWithinBudget(allocated, UnchangedStatusBudgetBytes, "a status report");
     }
 }

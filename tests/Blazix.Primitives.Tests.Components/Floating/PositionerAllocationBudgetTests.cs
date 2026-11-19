@@ -60,6 +60,6 @@ public sealed class PositionerAllocationBudgetTests : IDisposable
         }
 
         Assert.Empty(host.UpdateOptions);
-        Assert.True(allocated <= RerenderBudgetBytes, $"a re-render allocated {allocated} bytes; the budget is {RerenderBudgetBytes}");
+        AllocationSampler.AssertWithinBudget(allocated, RerenderBudgetBytes, "a re-render");
     }
 }

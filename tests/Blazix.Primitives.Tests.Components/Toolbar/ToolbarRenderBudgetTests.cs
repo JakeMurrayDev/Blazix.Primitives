@@ -61,6 +61,6 @@ public sealed class ToolbarRenderBudgetTests : IDisposable
 
         Assert.Equal(compositeSends, test.CompositeAttaches.Count + test.CompositeUpdates.Count);
         Assert.Equal(buttonSends, test.ButtonAttaches.Count + test.ButtonUpdates.Count);
-        Assert.True(allocated <= RootRerenderBudgetBytes, $"a re-render allocated {allocated} bytes; the budget is {RootRerenderBudgetBytes}");
+        AllocationSampler.AssertWithinBudget(allocated, RootRerenderBudgetBytes, "a re-render");
     }
 }

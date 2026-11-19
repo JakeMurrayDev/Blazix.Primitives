@@ -26,8 +26,11 @@ public sealed class ToastAllocationBudgetTests
     // the budget first lands on main): 680 bytes at 1 toast and 5288 at 10, linear (about 512 bytes a toast): each root's
     // style string, the viewport template's per-toast fragments, the new state records of the parts whose expanded flag
     // moved, and Blazor's diff.
-    private const long HoverBudget1 = 680;
-    private const long HoverBudget10 = 5288;
+    // Re-pinned 2026-11-19 (M6 track 9b; ADR 16 Amendments 2026-11-19, design point B1 of the Toast track, chosen by the user 2026-11-19):
+    // with the `toast` module the least of five is 1552 and 6160 bytes. The slope stays at 512 bytes a toast (no root or
+    // content allocates on a hover); the fixed 872 bytes more are the viewport's one update per hover, the module's message.
+    private const long HoverBudget1 = 1552;
+    private const long HoverBudget10 = 6160;
     private const int Runs = 5;
 
     [Theory(DisplayName = "port: a hover that renders the viewport and every toast once stays within its budget")]
@@ -72,7 +75,7 @@ public sealed class ToastAllocationBudgetTests
             least = Math.Min(least, GC.GetAllocatedBytesForCurrentThread() - before);
         }
 
-        Assert.True(least <= budgetBytes, $"a hover at {toasts} toasts allocated {least} bytes; the budget is {budgetBytes}");
+        AllocationSampler.AssertWithinBudget(least, budgetBytes, $"a hover at {toasts} toasts");
     }
 
     // The toast list of ToastHost, with a handle on its provider's store.

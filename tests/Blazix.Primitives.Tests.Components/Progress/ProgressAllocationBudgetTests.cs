@@ -52,7 +52,7 @@ public sealed class ProgressAllocationBudgetTests : IDisposable
 
         long allocated = AllocationSampler.LeastOfFive(() => cut.InvokeAsync(refresh));
 
-        Assert.True(allocated <= RenderBudgetBytes, $"a render allocated {allocated} bytes; the budget is {RenderBudgetBytes}");
+        AllocationSampler.AssertWithinBudget(allocated, RenderBudgetBytes, "a render");
     }
 
     [Fact(DisplayName = "passes the same state record to the class function while the status is unchanged")]

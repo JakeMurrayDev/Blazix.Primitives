@@ -39,6 +39,7 @@ using Blazix.Primitives.Fixtures.Client.ProgressFixtures;
 using Blazix.Primitives.Fixtures.Client.RadioFixtures;
 using Blazix.Primitives.Fixtures.Client.RadioGroupFixtures;
 using Blazix.Primitives.Fixtures.Client.ScrollAreaFixtures;
+using Blazix.Primitives.Fixtures.Client.ToastFixtures;
 using Blazix.Primitives.Fixtures.Client.ScrollLockFixtures;
 using Blazix.Primitives.Fixtures.Client.Separator;
 using Blazix.Primitives.Fixtures.Client.SwitchFixtures;
@@ -390,5 +391,10 @@ public static class FixtureCatalog
         ["scroll-area-probe-combobox"] = new(typeof(ScrollAreaProbeComboboxFixture)),
         ["scroll-area-probe-navigation-menu"] = new(typeof(ScrollAreaProbeNavigationMenuFixture)),
         ["scroll-area-probe-dialog"] = new(typeof(ScrollAreaProbeDialogFixture)),
+        // M6 track 9b: Toast (tests/browser/toast*.spec.ts).
+        ["toast-basic"] = new(typeof(ToastBasicFixture)),
+        ["toast-anchored"] = new(typeof(ToastAnchoredFixture)),
+        ["toast-dialog"] = new(typeof(ToastDialogFixture)),
+        ["toast-portal"] = new(typeof(ToastPortalFixture)),
     };
 }
