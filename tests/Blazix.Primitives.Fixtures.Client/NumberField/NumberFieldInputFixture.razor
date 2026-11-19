@@ -13,17 +13,35 @@
     button that sets 10, the "cancel" button reading "armed" once armed), `a-lag` (value 0, never mirrored), `a-lag-inc` (`a-lag` with an Increment), `a-percent` (a percent
     format), `a-pl` (pl-PL), `a-signed` (min -10, max 10, defaultValue -5), `a-hundred` (defaultValue 100 inside a
     FieldRoot, whose data-focused marks the focus report) and `a-twelve` (defaultValue 12).
+    Batch B1's cases (tests/browser/number-field.input-b1.spec.ts) start with `b1-` and render the B1Root fragment instead:
+    `b1-step` (min 0, step 0.1), `b1-step-any` (min 0, step any), `b1-overflow` (max 5, allowOutOfRange) and `b1-clamp`
+    (max 5), each named `quantity` inside a form; `b1-overflow-step` (defaultValue 5, max 5, allowOutOfRange, named, in a
+    form, with the steppers); `b1-decimal` (defaultValue 12.3); `b1-brl` (pt-BR, BRL currency, defaultValue 1234.56);
+    `b1-scientific` (scientific notation); `b1-eur` (de-DE, EUR currency with two fraction digits, defaultValue 12.34);
+    `b1-min0` (min 0, allowOutOfRange); `b1-stepper` (defaultValue 0, with the steppers); `b1-pinned` (value 0, which
+    onValueChange never updates, with the steppers). data-attached then also waits for the steppers' button modules.
 *@
 <FixtureContainer Name="number-field-input" data-attached="@(attached ? "true" : "false")" data-changes="@string.Join(' ', changes)" data-commits="@string.Join(' ', commits)">
     @if (Case?.StartsWith("a-", StringComparison.Ordinal) == true)
     {
         @CaseA
     }
+    else if (!IsB1)
+    {
+        <NumberFieldRoot DefaultValue="DefaultValue" Min="Min" Max="Max" AllowWheelScrub="@(Case == "wheel")" Culture="Culture" OnValueChange="Change" OnValueCommitted="Commit">
+            <NumberFieldInput @ref="input" data-testid="input" />
+        </NumberFieldRoot>
+    }
+    else if (B1InForm)
+    {
+        <form data-testid="form" @onsubmit:preventDefault>
+            @B1Root
+            <button type="submit">Submit</button>
+        </form>
+    }
     else
     {
-    <NumberFieldRoot DefaultValue="DefaultValue" Min="Min" Max="Max" AllowWheelScrub="@(Case == "wheel")" Culture="Culture" OnValueChange="Change" OnValueCommitted="Commit">
-        <NumberFieldInput @ref="input" data-testid="input" />
-    </NumberFieldRoot>
+        @B1Root
     }
 </FixtureContainer>
 
@@ -31,6 +49,8 @@
     private readonly List<string> changes = [];
     private readonly List<string> commits = [];
     private NumberFieldInput? input;
+    private NumberFieldDecrement? decrement;
+    private NumberFieldIncrement? increment;
     private bool attached;
 
     [SupplyParameterFromQuery(Name = "case")]
@@ -47,7 +67,78 @@
 
     private double? Max => Case == "bounds" ? 10 : null;
 
-    private CultureInfo Culture => CultureInfo.GetCultureInfo(Case == "de" ? "de-DE" : "en-US");
+    private CultureInfo Culture => CultureInfo.GetCultureInfo(Case switch
+    {
+        "de" or "b1-eur" => "de-DE",
+        "b1-brl" => "pt-BR",
+        _ => "en-US",
+    });
+
+    private bool IsB1 => Case?.StartsWith("b1-", StringComparison.Ordinal) == true;
+
+    private bool B1InForm => Case is "b1-step" or "b1-step-any" or "b1-overflow" or "b1-overflow-step" or "b1-clamp";
+
+    private bool B1Steppers => Case is "b1-overflow-step" or "b1-stepper" or "b1-pinned";
+
+    private double? B1DefaultValue => Case switch
+    {
+        "b1-overflow-step" => 5,
+        "b1-decimal" => 12.3,
+        "b1-brl" => 1234.56,
+        "b1-eur" => 12.34,
+        "b1-stepper" => 0,
+        _ => null,
+    };
+
+    private double? B1Min => Case is "b1-step" or "b1-step-any" or "b1-min0" ? 0 : null;
+
+    private double? B1Max => Case is "b1-overflow" or "b1-overflow-step" or "b1-clamp" ? 5 : null;
+
+    private StepValue? B1Step => Case switch
+    {
+        "b1-step" => 0.1,
+        "b1-step-any" => StepValue.Any,
+        _ => null,
+    };
+
+    private bool B1AllowOutOfRange => Case is "b1-overflow" or "b1-overflow-step" or "b1-min0";
+
+    private string? B1Name => B1InForm ? "quantity" : null;
+
+    private NumberFormatOptions? B1Format => Case switch
+    {
+        "b1-brl" => new NumberFormatOptions { Style = NumberFormatStyle.Currency, Currency = "BRL" },
+        "b1-scientific" => new NumberFormatOptions { Notation = NumberFormatNotation.Scientific },
+        "b1-eur" => new NumberFormatOptions { Style = NumberFormatStyle.Currency, Currency = "EUR", MinimumFractionDigits = 2, MaximumFractionDigits = 2 },
+        _ => null,
+    };
+
+    private RenderFragment B1Parts => @<text>
+        @if (B1Steppers)
+        {
+            <NumberFieldDecrement @ref="decrement" data-testid="decrement" />
+        }
+        <NumberFieldInput @ref="input" data-testid="input" />
+        @if (B1Steppers)
+        {
+            <NumberFieldIncrement @ref="increment" data-testid="increment" />
+        }
+    </text>;
+
+    private RenderFragment B1Root => @<text>
+        @if (Case == "b1-pinned")
+        {
+            <NumberFieldRoot Value="0" Culture="Culture" OnValueChange="Change" OnValueCommitted="Commit">
+                @B1Parts
+            </NumberFieldRoot>
+        }
+        else
+        {
+            <NumberFieldRoot DefaultValue="B1DefaultValue" Min="B1Min" Max="B1Max" Step="B1Step" AllowOutOfRange="B1AllowOutOfRange" Format="B1Format" Name="@B1Name" Culture="Culture" OnValueChange="Change" OnValueCommitted="Commit">
+                @B1Parts
+            </NumberFieldRoot>
+        }
+    </text>;
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
@@ -57,6 +148,11 @@
         }
 
         await input!.TwinAttached;
+        if (decrement is not null && increment is not null)
+        {
+            await Task.WhenAll(decrement.TwinAttached, increment.TwinAttached);
+        }
+
         attached = true;
         StateHasChanged();
     }
