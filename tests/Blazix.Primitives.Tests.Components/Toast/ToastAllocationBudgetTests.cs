@@ -75,7 +75,7 @@ public sealed class ToastAllocationBudgetTests
             least = Math.Min(least, GC.GetAllocatedBytesForCurrentThread() - before);
         }
 
-        Assert.True(least <= budgetBytes, $"a hover at {toasts} toasts allocated {least} bytes; the budget is {budgetBytes}");
+        AllocationSampler.AssertWithinBudget(least, budgetBytes, $"a hover at {toasts} toasts");
     }
 
     // The toast list of ToastHost, with a handle on its provider's store.

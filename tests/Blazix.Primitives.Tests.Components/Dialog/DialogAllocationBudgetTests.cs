@@ -41,7 +41,7 @@ public sealed class DialogAllocationBudgetTests : IDisposable
         cut.Render(parameters);
 
         Assert.Equal(sends, Sends());
-        Assert.True(allocated <= RerenderBudgetBytes, $"a re-render allocated {allocated} bytes; the budget is {RerenderBudgetBytes}");
+        AllocationSampler.AssertWithinBudget(allocated, RerenderBudgetBytes, "a re-render");
     }
 
     [Fact(DisplayName = "port: a payload write of an int allocates no more than a reference payload's, so the payload does not box")]
@@ -52,7 +52,7 @@ public sealed class DialogAllocationBudgetTests : IDisposable
         long stringBytes = await PayloadWriteBytesAsync("seven", "eight");
 
         Assert.True(intBytes <= stringBytes, $"an int payload's write allocated {intBytes} bytes; a string payload's {stringBytes}");
-        Assert.True(intBytes <= PayloadWriteBudgetBytes, $"a payload write allocated {intBytes} bytes (a string payload's {stringBytes}); the budget is {PayloadWriteBudgetBytes}");
+        AllocationSampler.AssertWithinBudget(intBytes, PayloadWriteBudgetBytes, "a payload write");
     }
 
     [Fact(DisplayName = "port: opening, moving and closing a handle-backed dialog renders neither the root nor an inactive detached trigger")]

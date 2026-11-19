@@ -34,7 +34,7 @@ public sealed class AutocompleteAllocationBudgetTests : IDisposable
         long rerender = AllocationSampler.LeastOfFive(() => cut.Render());
 
         Assert.Equal(updatesBefore, Updates());
-        Assert.True(rerender <= RerenderBudget, $"a re-render allocated {rerender} bytes; the budget is {RerenderBudget}");
+        AllocationSampler.AssertWithinBudget(rerender, RerenderBudget, "a re-render");
     }
 
     private int Updates() =>

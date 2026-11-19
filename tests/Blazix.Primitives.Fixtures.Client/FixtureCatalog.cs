@@ -376,6 +376,7 @@ public static class FixtureCatalog
         ["autocomplete-root"] = new(typeof(AutocompleteRootL4Fixture)),
         ["autocomplete-prerender"] = new(typeof(AutocompletePrerenderFixture), Prerender: true),
         ["autocomplete-unmount"] = new(typeof(AutocompleteUnmountL4Fixture)),
+        ["autocomplete-form"] = new(typeof(AutocompleteFormL4Fixture)),
         // M6 track 5: ScrollArea (tests/browser/scroll-area*.spec.ts).
         ["scroll-area-basic"] = new(typeof(ScrollAreaBasicFixture)),
         ["scroll-area-parts"] = new(typeof(ScrollAreaPartsFixture)),
