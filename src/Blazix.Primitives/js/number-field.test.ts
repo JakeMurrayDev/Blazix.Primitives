@@ -75,6 +75,21 @@ describe('number-field module: the visible input', () => {
     expect(fake.reported('OnInputBlur')).toHaveLength(1);
   });
 
+  // NumberFieldInput.test.tsx "consumer-prevented defaults": the field is marked focused only by the module's focus
+  // report, so a consumer listener that prevents the focus default keeps it unmarked.
+  it('does not mark the field focused when the focus default is prevented', () => {
+    const input = document.createElement('input');
+    input.type = 'text';
+    document.body.appendChild(input);
+    input.addEventListener('focus', (event) => event.preventDefault());
+    const fake = createFakeTwin();
+    handles.push(attach(input, optionsJson({ value: '1,234' }), fake.twin));
+
+    input.dispatchEvent(new FocusEvent('focus', { cancelable: true }));
+
+    expect(fake.reported('OnInputFocus')).toEqual([]);
+  });
+
   it('port: a C# veto at input-focus and input-blur keeps the report back on WebAssembly', () => {
     const { input, fake } = mount({}, { synchronous: true, verdict: 'stop' });
 
