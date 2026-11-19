@@ -19,6 +19,8 @@ async function gotoHold(page: Page, mode: RenderMode): Promise<Locator> {
   await page.goto(`/${mode}/number-field-hold?case=basic`, { waitUntil: 'commit' });
   await page.locator(Fixture.started).waitFor({ state: 'attached' });
   const fixture = page.locator(Fixture.interactive('number-field-hold'));
+  // The circuit may take longer than the expect timeout to become interactive under load (PR 308's run 44452252075).
+  await fixture.waitFor({ state: 'attached' });
   await expect(fixture).toHaveAttribute('data-attached', 'true');
   return fixture;
 }

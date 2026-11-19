@@ -1261,6 +1261,8 @@ test.describe('<Toolbar.Input /> rendering NumberField', () => {
   async function gotoNumberField(page: Page, mode: RenderMode, disabled: boolean) {
     await page.goto(`/${mode}/number-field-toolbar${disabled ? '?case=disabled' : ''}`, { waitUntil: 'commit' });
     const container = page.locator('[data-fixture="number-field-toolbar"][data-interactive="true"]');
+    // The circuit may take longer than the expect timeout to become interactive under load (PR 308's run 44452252075).
+    await container.waitFor({ state: 'attached' });
     await expect(container).toHaveAttribute('data-attached', 'true');
     return { container, input: container.getByRole('textbox') };
   }

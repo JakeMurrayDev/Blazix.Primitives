@@ -29,6 +29,8 @@ async function gotoHold(page: Page, mode: RenderMode, holdCase = 'basic'): Promi
   await page.goto(`/${mode}/number-field-hold?case=${holdCase}`, { waitUntil: 'commit' });
   await page.locator(Fixture.started).waitFor({ state: 'attached' });
   const fixture = page.locator(Fixture.interactive('number-field-hold'));
+  // The circuit may take longer than the expect timeout to become interactive under load (PR 308's run 44452252075).
+  await fixture.waitFor({ state: 'attached' });
   await expect(fixture).toHaveAttribute('data-attached', 'true');
   return fixture;
 }
@@ -533,6 +535,8 @@ test('should not include formatting in the submitted value', async ({ page, mode
   await page.goto(`/${mode}/number-field-form?case=formatting`, { waitUntil: 'commit' });
   await page.locator(Fixture.started).waitFor({ state: 'attached' });
   const fixture = page.locator(Fixture.interactive('number-field-form'));
+  // The circuit may take longer than the expect timeout to become interactive under load (PR 308's run 44452252075).
+  await fixture.waitFor({ state: 'attached' });
   await expect(fixture).toHaveAttribute('data-attached', 'true');
   const input = fixture.getByRole('textbox');
 
@@ -555,6 +559,8 @@ test('focuses the input when the field receives an error from Form', async ({ pa
   await page.goto(`/${mode}/number-field-form?case=server-error`, { waitUntil: 'commit' });
   await page.locator(Fixture.started).waitFor({ state: 'attached' });
   const fixture = page.locator(Fixture.interactive('number-field-form'));
+  // The circuit may take longer than the expect timeout to become interactive under load (PR 308's run 44452252075).
+  await fixture.waitFor({ state: 'attached' });
   await expect(fixture).toHaveAttribute('data-attached', 'true');
   await expect(fixture.getByTestId('error')).toHaveCount(0);
 

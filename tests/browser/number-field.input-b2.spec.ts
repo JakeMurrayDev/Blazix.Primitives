@@ -20,6 +20,8 @@ async function gotoInput(page: Page, mode: RenderMode, inputCase: string, { focu
   await page.goto(`/${mode}/number-field-input?case=${inputCase}`, { waitUntil: 'commit' });
   await page.locator(Fixture.started).waitFor({ state: 'attached' });
   const fixture = page.locator(Fixture.interactive('number-field-input'));
+  // The circuit may take longer than the expect timeout to become interactive under load (PR 308's run 44452252075).
+  await fixture.waitFor({ state: 'attached' });
   await expect(fixture).toHaveAttribute('data-attached', 'true');
   const input = fixture.getByRole('textbox');
   if (focus) {
@@ -227,6 +229,8 @@ test.describe('Form', () => {
     await page.goto(`/${mode}/number-field-form?case=b2-submit`, { waitUntil: 'commit' });
     await page.locator(Fixture.started).waitFor({ state: 'attached' });
     const fixture = page.locator(Fixture.interactive('number-field-form'));
+    // The circuit may take longer than the expect timeout to become interactive under load (PR 308's run 44452252075).
+    await fixture.waitFor({ state: 'attached' });
     await expect(fixture).toHaveAttribute('data-attached', 'true');
     const form = fixture.locator('form');
     await form.evaluate((element) => {
@@ -248,6 +252,8 @@ test.describe('Form', () => {
     await page.goto(`/${mode}/number-field-form?case=b2-step`, { waitUntil: 'commit' });
     await page.locator(Fixture.started).waitFor({ state: 'attached' });
     const fixture = page.locator(Fixture.interactive('number-field-form'));
+    // The circuit may take longer than the expect timeout to become interactive under load (PR 308's run 44452252075).
+    await fixture.waitFor({ state: 'attached' });
     await expect(fixture).toHaveAttribute('data-attached', 'true');
     const input = fixture.getByTestId('input');
     const hidden = fixture.locator('input[type=number]');

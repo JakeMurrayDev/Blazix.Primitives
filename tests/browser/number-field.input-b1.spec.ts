@@ -20,6 +20,8 @@ async function gotoInput(page: Page, mode: RenderMode, inputCase: string) {
   await page.goto(`/${mode}/number-field-input?case=${inputCase}`, { waitUntil: 'commit' });
   await page.locator(Fixture.started).waitFor({ state: 'attached' });
   const fixture = page.locator(Fixture.interactive('number-field-input'));
+  // The circuit may take longer than the expect timeout to become interactive under load (PR 308's run 44452252075).
+  await fixture.waitFor({ state: 'attached' });
   await expect(fixture).toHaveAttribute('data-attached', 'true');
   const input = fixture.getByRole('textbox');
   return { fixture, input, hidden: fixture.locator('input[type="number"][name="quantity"]') };
