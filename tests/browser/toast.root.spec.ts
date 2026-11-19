@@ -321,4 +321,52 @@ test.describe('Toast.Root', () => {
     await expect(page.locator('[data-toast-id]')).toHaveCount(0);
     expect(await recorded(fixture, 'data-removed')).toEqual(['t1']);
   });
+
+  // TST-STR-03, TST-EDGE-10: the close's removal, 9a's open clause; ToastRoot.test.tsx's object-identity titles pass a fresh
+  // copy of each toast on every render.
+  test('works correctly when toast objects are recreated (not referentially equal)', async ({ page, mode }) => {
+    const fixture = await openToast(page, mode, { recreate: '1' });
+    await addToast(page);
+    await addToast(page);
+    await expect.poll(() => page.locator('[data-toast-id="t1"]').evaluate((element) => element.style.getPropertyValue('--toast-index'))).toBe('1');
+
+    await page.locator('[data-toast-id="t2"]').getByLabel('close-press').dispatchEvent('click');
+
+    await expect(page.locator('[data-toast-id]')).toHaveCount(1);
+    expect(await recorded(fixture, 'data-removed')).toEqual(['t2']);
+    await expect.poll(() => page.locator('[data-toast-id="t1"]').evaluate((element) => element.style.getPropertyValue('--toast-index'))).toBe('0');
+  });
+
+  // TST-DOM-05's "gone after close" and TST-A11Y-01: the alert region leaves with the removal (§16 Q7 keeps it through the
+  // exit).
+  test('port: the alert region of a high-priority toast is gone once the toast is removed', async ({ page, mode }) => {
+    await openToast(page, mode, { priority: 'high' });
+    await addToast(page);
+    await expect(page.getByRole('alert')).toHaveCount(1);
+
+    await page.getByTestId('close-newest').click();
+
+    await expect(page.locator('[data-toast-id]')).toHaveCount(0);
+    await expect(page.locator('[role="alert"]')).toHaveCount(0);
+  });
+
+  // TST-EVT-05 (useToastManager.test.tsx "calls onRemove once after replacing an ending toast and later removing the
+  // replacement"): the replaced toast is removed silently, the replacement's removal is its Root's. The exit is finished in
+  // the page (`Animation.finish()`) where Base UI's title advances its fake timers.
+  test('calls onRemove once after replacing an ending toast and later removing the replacement', async ({ page, mode }) => {
+    const fixture = await openToast(page, mode, { id: 'save', animated: '1', animations: '1' });
+    const root = await addToast(page);
+    await page.getByTestId('close-newest').click();
+    await expect(root).toHaveAttribute('data-ending-style', '');
+
+    await page.getByTestId('add').click();
+    await expect(root).not.toHaveAttribute('data-ending-style');
+    await page.getByTestId('close-newest').click();
+    await expect(root).toHaveAttribute('data-ending-style', '');
+    await root.evaluate((element) => element.getAnimations().forEach((animation) => animation.finish()));
+
+    await expect(page.locator('[data-toast-id]')).toHaveCount(0);
+    expect(await recorded(fixture, 'data-closed')).toEqual(['save', 'save']);
+    expect(await recorded(fixture, 'data-removed')).toEqual(['save']);
+  });
 });
