@@ -394,13 +394,18 @@ describe('drawer module: the Viewport touch path', () => {
     touchDrag(y, 120);
     expect(sameAxis.fake.reported('OnDismissRequest')).toEqual([]);
 
-    // `x` on a down drawer is the cross axis: arbitrated, and a vertical drag wins it.
+    // `x` on a down drawer is the cross axis: arbitrated, and a vertical drag wins it. The sub-slop first move is left to
+    // the browser, so the tracker's baseline is the first move past the slop.
     const crossAxis = mount();
     const x = document.createElement('div');
     x.setAttribute('data-base-ui-swipe-ignore', 'x');
     crossAxis.popup.append(x);
     pointTarget = x;
-    touchDrag(x, 120);
+    touch('touchstart', x, [{ clientX: 10, clientY: 10 }]);
+    touch('touchmove', x, [{ clientX: 10, clientY: 10 }]);
+    touch('touchmove', x, [{ clientX: 10, clientY: 20 }]);
+    touch('touchmove', x, [{ clientX: 10, clientY: 140 }]);
+    touch('touchend', x, [{ clientX: 10, clientY: 140 }]);
     expect(crossAxis.fake.reported('OnDismissRequest')).toHaveLength(1);
 
     const legacy = mount();
@@ -464,19 +469,30 @@ describe('drawer module: the Viewport touch path', () => {
   });
 
   it('port: a touch that starts in the popup may start after leaving it, and one that starts outside moves nothing until it enters', () => {
+    // The start waits for the drawer axis over a cross-axis target, and by then the touch has left the popup.
     const inside = mount();
-    touch('touchstart', inside.popup, [{ clientX: 10, clientY: 10 }]);
+    const x = document.createElement('div');
+    x.setAttribute('data-base-ui-swipe-ignore', 'x');
+    inside.popup.append(x);
+    pointTarget = x;
+    touch('touchstart', x, [{ clientX: 10, clientY: 10 }]);
     pointTarget = inside.viewport;
-    touch('touchmove', inside.popup, [{ clientX: 10, clientY: 10 }]);
-    touch('touchmove', inside.popup, [{ clientX: 10, clientY: 130 }]);
-    touch('touchend', inside.popup, [{ clientX: 10, clientY: 130 }]);
+    touch('touchmove', x, [{ clientX: 10, clientY: 20 }]);
+    touch('touchmove', x, [{ clientX: 10, clientY: 140 }]);
+    touch('touchend', x, [{ clientX: 10, clientY: 140 }]);
     expect(inside.fake.reported('OnDismissRequest')).toHaveLength(1);
 
+    // Base UI's "does not jump": the gesture starts where the touch enters the popup, measured from there.
     const outside = mount();
     pointTarget = outside.viewport;
     touch('touchstart', outside.viewport, [{ clientX: 10, clientY: 10 }]);
     touch('touchmove', outside.viewport, [{ clientX: 10, clientY: 40 }]);
-    expect(outside.popup.style.getPropertyValue('--drawer-swipe-movement-y')).toBe('0px');
+    expect(outside.fake.reported('OnSwipingChange')).toEqual([]);
+    pointTarget = outside.popup;
+    touch('touchmove', outside.viewport, [{ clientX: 10, clientY: 60 }]);
+    touch('touchmove', outside.viewport, [{ clientX: 10, clientY: 80 }]);
+    expect(outside.fake.reported('OnSwipingChange')).toEqual([{ swiping: true }]);
+    expect(outside.popup.style.getPropertyValue('--drawer-swipe-movement-y')).toBe('20px');
   });
 
   it('port: a touch with an expanded selection in the popup, or a two-finger move, is left to the browser, and a plain one-finger drag is not', () => {
