@@ -305,6 +305,44 @@ test.describe('Toast.Viewport', () => {
     expect(await recorded(fixture, 'data-reports')).toEqual(expect.arrayContaining(['f6']));
   });
 
+  // TST §16 Q3, answered by track 11's real-browser probe of Base UI (5 of 5): with the previous focus before the viewport,
+  // the outer guard sends a forward Tab from it straight back, so the viewport is reachable only by F6. Replicated under the
+  // M6 plan's decision 23 (a) (chosen by the user 2026-11-18).
+  test('port: a forward Tab from a previous focus before the viewport bounces back to it (TST §16 Q3)', async ({ page, mode }) => {
+    await openToast(page, mode, { before: '1' });
+    const button = page.getByTestId('add');
+    await addToast(page);
+
+    await page.keyboard.press('F6');
+    await expect(page.getByTestId('viewport')).toBeFocused();
+    await page.keyboard.press('Shift+Tab');
+    await expect(button).toBeFocused();
+    await expect(page.locator('[data-base-ui-focus-guard]')).toHaveCount(3);
+
+    await page.keyboard.press('Tab');
+    await expect(button).toBeFocused();
+    await page.keyboard.press('Tab');
+    await expect(button).toBeFocused();
+    await expect(page.getByTestId('root')).not.toBeFocused();
+  });
+
+  // DP4 (a) of the Toast track (chosen by the user 2026-11-19), useToastManager.test.tsx's "high priority toasts in dialogs
+  // have correct accessibility structure" with real focus management: the modal dialog marks the outside, and the viewport
+  // (a polite live region) and the alert region stay reachable (TST-EDGE-12, TST-A11Y-01).
+  test('high priority toasts in dialogs have correct accessibility structure', async ({ page, mode }) => {
+    await openToast(page, mode, {}, 'toast-dialog');
+    await expect(page.getByTestId('dialog')).toBeVisible();
+
+    await page.getByTestId('add').click();
+
+    const toastRoot = page.getByTestId('toast-root');
+    await expect(toastRoot).toHaveAttribute('aria-hidden', 'true');
+    await expect(page.getByRole('alert')).toHaveCount(1);
+    await expect(page.getByRole('alert')).toContainText('High priority toast');
+    await expect(page.getByRole('region', { name: 'Notifications' })).toBeAttached();
+    expect(await page.getByTestId('viewport').evaluate((element) => element.closest('[aria-hidden="true"], [inert]') === null)).toBe(true);
+  });
+
   test.describe('focus management', () => {
     test('skips toasts animating out when tabbing into the viewport', async ({ page, mode }) => {
       await openToast(page, mode, { animated: '1', animations: '1' });
