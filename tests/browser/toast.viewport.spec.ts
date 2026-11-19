@@ -248,14 +248,15 @@ test.describe('Toast.Viewport', () => {
   // DP8 of the Toast track (chosen by the user 2026-11-19), (a) probed first (2026-11-19, both modes): a Viewport moved into
   // a same-origin iframe keeps being rendered by Blazor, but Blazor revives an element reference only against the host
   // document, so every handle inside the iframe fails to attach ("Blazix: no element for the reference"; on Server the
-  // circuit ends). So (b): the iframe clauses of TST-STR-13 and TST-EDGE-08 are open, back to the user (decision 29); the
-  // once-per-cycle binding (TST-FOC-14, TST-EDGE-07) is the port title below, on the host document.
+  // circuit ends). So (b): the iframe clauses of TST-STR-13 and TST-EDGE-08 stay open for track 10, issue 316 (the user's
+  // choice of 2026-11-19); the once-per-cycle binding (TST-FOC-14, TST-EDGE-07) is the port title below, on the host
+  // document.
   test('rebinds owner-document listeners once across empty store cycles', async () => {
     test.info().annotations.push({
       type: 'open',
-      description: 'TST-STR-13, TST-EDGE-08: a Viewport inside an iframe cannot attach its handles (Blazor revives element references only against the host document); DP8 (b) of the Toast track, 2026-11-19, the rows returned to the user.',
+      description: 'TST-STR-13, TST-EDGE-08: a Viewport inside an iframe cannot attach its handles (Blazor revives element references only against the host document); open for track 10, issue 316 (DP8 (b), chosen by the user 2026-11-19, "Keep open for track 10").',
     });
-    test.fixme(true, 'Open: a Viewport in an iframe cannot attach (DP8 (b), Toast track, 2026-11-19).');
+    test.fixme(true, 'Open: a Viewport in an iframe cannot attach; issue 316, track 10.');
   });
 
   test('port: binds the window and document listeners while toasts exist, once per cycle', async ({ page, mode }) => {
