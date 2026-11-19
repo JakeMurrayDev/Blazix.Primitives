@@ -183,7 +183,7 @@ public sealed class NavigationMenuViewport : PartBase<EmptyState>
     {
         if (HasPositioner)
         {
-            RenderGuard(builder);
+            FocusGuard.Render(builder);
         }
     }
 
@@ -192,20 +192,8 @@ public sealed class NavigationMenuViewport : PartBase<EmptyState>
     {
         if (HasPositioner)
         {
-            RenderGuard(builder);
+            FocusGuard.Render(builder);
         }
-    }
-
-    private static void RenderGuard(RenderTreeBuilder builder)
-    {
-        builder.OpenRegion(0);
-        builder.OpenElement(0, "span");
-        builder.AddAttribute(1, "tabindex", "0");
-        builder.AddAttribute(2, PopupMarkerAttributes.FocusGuard, string.Empty);
-        builder.AddAttribute(3, "aria-hidden", "true");
-        builder.AddAttribute(4, "style", VisuallyHidden.Style);
-        builder.CloseElement();
-        builder.CloseRegion();
     }
 
     // NAV-DOM-34: without a Positioner, a guard, the target and a guard inside the Viewport; the guards only while a trigger
@@ -215,7 +203,7 @@ public sealed class NavigationMenuViewport : PartBase<EmptyState>
         bool guarded = activeTriggerId!.Value is not null;
         if (guarded)
         {
-            RenderGuard(builder);
+            FocusGuard.Render(builder);
         }
 
         builder.OpenElement(10, "div");
@@ -224,7 +212,7 @@ public sealed class NavigationMenuViewport : PartBase<EmptyState>
         builder.CloseElement();
         if (guarded)
         {
-            RenderGuard(builder);
+            FocusGuard.Render(builder);
         }
     }
 
