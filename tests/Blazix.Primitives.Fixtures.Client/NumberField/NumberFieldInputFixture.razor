@@ -11,7 +11,7 @@
     `b2-wheel-readonly` (defaultValue 5, allowWheelScrub, disabled or readOnly), `b2-wheel-off` (defaultValue 5, allowWheelScrub
     false) and `b2-readonly` (defaultValue 1, readOnly), each with a `b2-unlock` button that lifts its lock (enabled, editable,
     allowWheelScrub). Every OnValueChange is recorded as
-    `value/reason` in the container's data-changes, and every OnValueCommitted in data-commits; data-attached is rendered once the number-field module is attached.
+    `value/reason` in the container's data-changes, and every OnValueCommitted in data-commits; data-attached is rendered once the number-field module is attached. `veto` (defaultValue 5): the input's onkeydown and onblur call PreventPartHandler(), counted in data-vetoes.
     The `a-` cases (tests/browser/number-field.input-a.spec.ts, NumberFieldInput.test.tsx) render the root below instead:
     `a-alt` (defaultValue 0.15, smallStep 0.1, snapOnStep), `a-precise` (defaultValue 1.23456), `a-mirror` (value null,
     mirrored from OnValueChange), `a-cancel` (value 0, mirrored unless the "cancel" button armed a cancel, an "external"
@@ -26,8 +26,15 @@
     `b1-min0` (min 0, allowOutOfRange); `b1-stepper` (defaultValue 0, with the steppers); `b1-pinned` (value 0, which
     onValueChange never updates, with the steppers). data-attached then also waits for the steppers' button modules.
 *@
-<FixtureContainer Name="number-field-input" data-attached="@(attached ? "true" : "false")" data-changes="@string.Join(' ', changes)" data-commits="@string.Join(' ', commits)">
-    @if (Case?.StartsWith("a-", StringComparison.Ordinal) == true)
+<FixtureContainer Name="number-field-input" data-attached="@(attached ? "true" : "false")" data-changes="@string.Join(' ', changes)" data-commits="@string.Join(' ', commits)" data-vetoes="@vetoes">
+    @if (Case == "veto")
+    {
+        @* The consumer-veto row (ADR 01): onkeydown and onblur call PreventPartHandler() and count in data-vetoes. *@
+        <NumberFieldRoot DefaultValue="5" Culture="Culture" OnValueChange="Change" OnValueCommitted="Commit">
+            <NumberFieldInput @ref="input" data-testid="input" @onkeydown="e => Veto(e)" @onblur="e => Veto(e)" />
+        </NumberFieldRoot>
+    }
+    else if (Case?.StartsWith("a-", StringComparison.Ordinal) == true)
     {
         @CaseA
     }
@@ -62,6 +69,13 @@
     private NumberFieldIncrement? increment;
     private bool attached;
     private bool unlocked;
+    private int vetoes;
+
+    private void Veto(EventArgs e)
+    {
+        vetoes++;
+        e.PreventPartHandler();
+    }
 
     [SupplyParameterFromQuery(Name = "case")]
     public string? Case { get; set; }
