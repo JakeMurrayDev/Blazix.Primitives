@@ -1,0 +1,73 @@
+@using System.Globalization
+
+<DemoFrame Slug="number-field" Note="A number field with a scrub area on its label, a formatted currency field that the mouse wheel steps, a field with bounds whose steppers disable at the ends, and a value bound from outside.">
+    <Hero>
+        <NumberFieldRoot Id="@HeroId" DefaultValue="100" class="flex flex-col items-start gap-1">
+            <NumberFieldScrubArea class="cursor-ew-resize font-bold select-none">
+                <label for="@HeroId" class="cursor-ew-resize text-sm font-bold text-neutral-950 dark:text-white">
+                    Amount
+                </label>
+                <NumberFieldScrubAreaCursor class="drop-shadow-[0_1px_1px_#0008] filter">
+                    <CursorGrowIcon />
+                </NumberFieldScrubAreaCursor>
+            </NumberFieldScrubArea>
+
+            <NumberFieldGroup class="flex h-8">
+                <NumberFieldDecrement class="@($"{StepperClass} border-r-0")">
+                    <MinusIcon />
+                </NumberFieldDecrement>
+                <NumberFieldInput class="@InputClass" />
+                <NumberFieldIncrement class="@($"{StepperClass} border-l-0")">
+                    <PlusIcon />
+                </NumberFieldIncrement>
+            </NumberFieldGroup>
+        </NumberFieldRoot>
+    </Hero>
+    <Variants>
+        <div class="Variant">
+            <NumberFieldRoot Id="price" DefaultValue="1234.5" Format="s_currency" Culture="s_enUs" AllowWheelScrub="true" class="flex flex-col items-start gap-1">
+                <label for="price" class="text-sm font-bold text-neutral-950 dark:text-white">Price</label>
+                <NumberFieldGroup class="flex h-8">
+                    <NumberFieldDecrement class="@($"{StepperClass} border-r-0")"><MinusIcon /></NumberFieldDecrement>
+                    <NumberFieldInput class="@WideInputClass" />
+                    <NumberFieldIncrement class="@($"{StepperClass} border-l-0")"><PlusIcon /></NumberFieldIncrement>
+                </NumberFieldGroup>
+            </NumberFieldRoot>
+            <span class="VariantName">US dollars; focus the input and use the mouse wheel</span>
+        </div>
+        <div class="Variant">
+            <NumberFieldRoot Id="quantity" DefaultValue="9" Min="0" Max="10" class="flex flex-col items-start gap-1">
+                <label for="quantity" class="text-sm font-bold text-neutral-950 dark:text-white">Quantity</label>
+                <NumberFieldGroup class="flex h-8">
+                    <NumberFieldDecrement class="@($"{StepperClass} border-r-0")"><MinusIcon /></NumberFieldDecrement>
+                    <NumberFieldInput class="@InputClass" />
+                    <NumberFieldIncrement class="@($"{StepperClass} border-l-0")"><PlusIcon /></NumberFieldIncrement>
+                </NumberFieldGroup>
+            </NumberFieldRoot>
+            <span class="VariantName">Min 0, max 10: a stepper disables at its bound; Home and End jump to them</span>
+        </div>
+        <div class="Variant">
+            <NumberFieldRoot Id="controlled" @bind-Value="controlledValue" Step="5" class="flex flex-col items-start gap-1">
+                <label for="controlled" class="text-sm font-bold text-neutral-950 dark:text-white">Controlled, step 5</label>
+                <NumberFieldGroup class="flex h-8">
+                    <NumberFieldDecrement class="@($"{StepperClass} border-r-0")"><MinusIcon /></NumberFieldDecrement>
+                    <NumberFieldInput class="@InputClass" />
+                    <NumberFieldIncrement class="@($"{StepperClass} border-l-0")"><PlusIcon /></NumberFieldIncrement>
+                </NumberFieldGroup>
+            </NumberFieldRoot>
+            <span class="VariantName">Value: @(controlledValue?.ToString(CultureInfo.InvariantCulture) ?? "empty")</span>
+        </div>
+    </Variants>
+</DemoFrame>
+
+@code {
+    private const string HeroId = "amount";
+    private const string StepperClass = "flex h-full w-8 items-center justify-center border border-neutral-950 bg-white bg-clip-padding text-neutral-950 outline-0 select-none dark:border-white dark:bg-neutral-950 dark:text-white hover:not-data-disabled:bg-neutral-100 dark:hover:not-data-disabled:bg-neutral-800 active:not-data-disabled:bg-neutral-200 dark:active:not-data-disabled:bg-neutral-700 data-disabled:border-neutral-500 data-disabled:text-neutral-500 dark:data-disabled:border-neutral-400 dark:data-disabled:text-neutral-400";
+    private const string InputClass = "h-full w-[7ch] border border-neutral-950 bg-white px-2 text-left text-sm font-normal text-neutral-950 tabular-nums any-pointer-coarse:text-base dark:border-white dark:bg-neutral-950 dark:text-white focus:z-1 focus:outline-2 focus:-outline-offset-1 focus:outline-neutral-950 dark:focus:outline-white";
+    private const string WideInputClass = "h-full w-[12ch] border border-neutral-950 bg-white px-2 text-left text-sm font-normal text-neutral-950 tabular-nums any-pointer-coarse:text-base dark:border-white dark:bg-neutral-950 dark:text-white focus:z-1 focus:outline-2 focus:-outline-offset-1 focus:outline-neutral-950 dark:focus:outline-white";
+
+    private static readonly CultureInfo s_enUs = CultureInfo.GetCultureInfo("en-US");
+    private static readonly NumberFormatOptions s_currency = new() { Style = NumberFormatStyle.Currency, Currency = "USD" };
+
+    private double? controlledValue = 20;
+}
