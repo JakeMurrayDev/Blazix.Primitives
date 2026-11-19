@@ -679,6 +679,23 @@ Transition attributes and completion are specified in §9.
 
 ### 5.7 Positioner and Arrow elements
 
+| Attribute | Value / present when | Req | Writer |
+|---|---|---|---|
+| `role` | `"presentation"` | TST-ARIA-09 | C# |
+| `style` | FLT positioning styles and CSS variables + `transition: none` while `'starting'` + `--toast-index` + consumer style | TST-DOM-21 | C# → JS |
+| `data-side`, `data-align` | resolved placement | TST-DOM-21 | C# → JS |
+| `data-anchor-hidden` | `""` iff the anchor is hidden | TST-DOM-21 | JS |
+
+Arrow:
+
+| Attribute | Value / present when | Req | Writer |
+|---|---|---|---|
+| `aria-hidden` | `"true"` | TST-ARIA-08 | C# |
+| `style` | FLT arrow styles + consumer style | TST-DOM-22 | C# → JS |
+| `data-side`, `data-align`, `data-uncentered` | the Positioner's resolved placement | TST-DOM-22 | C# → JS |
+
+Writer note (2026-11-19, M6 track 9b, [issue 280](https://github.com/JakeMurrayDev/Blazix.Primitives/issues/280); ADR 04 §2's "every `*.Positioner`/`*.Arrow`" rows, the Tooltip precedent; DP4 (a) of the Toast track, chosen by the user 2026-11-19): the Positioner and Arrow run over the shared `PositionerBehavior` and `PositionerArrowBehavior`, so the `positioning` module owns their style and placement from the attach; C# renders the initial values and `--toast-index` ahead of the consumer's style.
+
 - **TST-DOM-21** — MUST. The Positioner renders `role="presentation"`, `data-side="<side>"` and `data-align="<align>"` (resolved values, PSH-DOM-06 value sets), `data-anchor-hidden=""` iff the anchor is hidden (PSH-DOM-04), the shared positioning inline styles and CSS variables (`--anchor-width`, `--anchor-height`, `--available-width`, `--available-height`, `--transform-origin`; FLT), `--toast-index` per TST-DOM-10 for its toast, and `transition: none` inline while the toast's `transitionStatus` is `'starting'` (TRN-DOM-05, merged before consumer props).
   Source: `toast/positioner/ToastPositioner.tsx:60-61,92-107`; `utils/usePositioner.tsx:21-42`; `internals/getDisabledMountTransitionStyles.ts:5-9`; `toast/positioner/ToastPositionerCssVars.ts:5-25`; `toast/positioner/ToastPositionerDataAttributes.ts:6-16`. Test: [L4] `ToastPositioner.test.tsx` "falls back to the viewport when no anchor is provided" (`data-side="top"`, `data-align="center"`), "positions an anchored toast against its anchor element" (`data-side="bottom"`), "keeps the DOM index while a toast animates out".
 - **TST-DOM-22** — MUST. The Arrow renders the shared arrow inline styles (FLT `arrowStyles`), `data-side` and `data-align` mirroring the Positioner's resolved placement, and `data-uncentered=""` when the arrow cannot be centered on the anchor.
