@@ -824,7 +824,7 @@ Writer note (2026-11-19, M6 track 9b, [issue 280](https://github.com/JakeMurrayD
   Port note (2026-11-19, M6 track 9b, [issue 280](https://github.com/JakeMurrayDev/Blazix.Primitives/issues/280)): [L4] `toast.viewport.spec.ts` "stays expanded on a touch inside the viewport", a real tap.
 - **TST-PTR-25** — MUST. A `click` on the Viewport runs the Viewport focus logic of TST-FOC-05 (it sets `focused` only when the active element matches `:focus-visible`, so a mouse click inside a toast does not keep the stack expanded).
   Source: `toast/viewport/ToastViewport.tsx:181-198,224`. Test: none.
-  Port note (2026-11-19, M6 track 9b, [issue 280](https://github.com/JakeMurrayDev/Blazix.Primitives/issues/280)): no title can tell the click's path from the focus's at L4 (a click inside the viewport also focuses); the module runs the same handler for both, as Base UI does.
+  Port note (2026-11-19, M6 track 9b, [issue 280](https://github.com/JakeMurrayDev/Blazix.Primitives/issues/280)): a port title that can fail, [L3] `js/toast.test.ts` "port: a viewport click runs the focus handler, so a focus-visible element inside marks it focused (TST-PTR-25)".
 - **TST-PTR-26** — MUST. A click on an enabled Close closes its toast (TST-STA-11). The handler is merged before the consumer's props and the button mechanism, so a consumer `onClick` runs first and a disabled Close does not close (UBT-PTR-01).
   Source: `toast/close/ToastClose.tsx:45-60`. Test: [L2] `ToastClose.test.tsx` "closes the toast when clicked"; `useToastManager.test.tsx` "unmarks toasts as limited when the limit is not exceeded".
 - **TST-PTR-27** — MUST. A click on an enabled Action invokes `toast.actionProps.onClick` (and a consumer `onClick`, chained); the Action does not close the toast by itself.
@@ -1035,8 +1035,10 @@ Vocabulary per conventions §4: **post-commit, pre-paint**, **after paint**, **n
   Port note (2026-11-19, M6 track 9b, [issue 280](https://github.com/JakeMurrayDev/Blazix.Primitives/issues/280)): [L4] `toast.root.spec.ts`, both swipe-reset titles.
 - **TST-ANI-12** — MUST. The Root never receives the shared `transition: none` mount style (TRN-DOM-05) — only the Positioner does (TST-DOM-21). The Root's only inline `transition` is the swipe freeze of TST-DOM-14.
   Source: `toast/root/ToastRoot.tsx:445-459,463-483` (no `getDisabledMountTransitionStyles`). Test: none.
+  Port note (2026-11-19, M6 track 9b, [issue 280](https://github.com/JakeMurrayDev/Blazix.Primitives/issues/280)): no title can fail on the absence alone; the Root's `transitions` options leave `DisableTransitionWhileStarting` unset, and the Root's only inline `transition` is the swipe's (TST-DOM-14's titles), while the Positioner's comes from `PositionerBehavior` (TST-DOM-21).
 - **TST-ANI-13** — MUST. There is no `keepMounted`, `actionsRef`, `onOpenChangeComplete` or `hidden="until-found"` behavior on any Toast part; a toast is in the DOM exactly while it is in the list and rendered by the consumer.
   Source: `toast/root/ToastRoot.tsx:545-556` (props). Test: none (absence).
+  Port note (2026-11-19, M6 track 9b, [issue 280](https://github.com/JakeMurrayDev/Blazix.Primitives/issues/280)): an absence: no Toast part has `KeepMounted`, an actions handle or an open-change callback in the port either, so no title can fail.
 
 **Server relaxations** (decisions/01-hosting-model-and-timing.md, relaxation table):
 
@@ -1066,6 +1068,7 @@ Only `Toast.Positioner`/`Toast.Arrow` position anything; a Root placed directly 
   Source: `toast/positioner/ToastPositioner.tsx:65-90,109-111`; `toast/arrow/ToastArrow.tsx:20-32`. Test: [L4] `ToastArrow.test.tsx` "mirrors the resolved side of its positioner".
 - **TST-POS-05** — MUST. Anchored toasts are meant to live in a separate Provider from stacked ones (so stack variables and the frontmost-height clamp do not apply to them); the library does not enforce this, and an anchored toast in a shared Provider still gets `--toast-index`/`--toast-offset-y` and counts toward `limit`.
   Source: `toast/positioner/ToastPositioner.tsx:60-61,98-103`. Test: none. Docs: `components/toast/page.mdx` §Anchored toasts ("Anchored toasts should be rendered in a separate `<Toast.Provider>`").
+  Port note (2026-11-19, M6 track 9b, [issue 280](https://github.com/JakeMurrayDev/Blazix.Primitives/issues/280)): a documentation row; the port enforces nothing, and an anchored toast in a shared provider gets `--toast-index` and counts toward the limit, as the L2 positioner title shows for the index.
 
 ## 11. Cross-cutting dependencies
 
@@ -1131,6 +1134,7 @@ All three errors below are thrown unconditionally (not development-only) when a 
   Port note (2026-11-19, M6 track 9b, [issue 280](https://github.com/JakeMurrayDev/Blazix.Primitives/issues/280); DP4 (a)): [L4] `toast.viewport.spec.ts` "high priority toasts in dialogs have correct accessibility structure", a modal `DialogRoot`: the viewport is under no `aria-hidden` or `inert`, and the alert is in the accessibility tree.
 - **TST-I18N-01** — MUST. Swipe directions are physical (`left`/`right` refer to screen x), not mirrored for right-to-left text direction; the Positioner's logical sides (`inline-start`/`inline-end`) are resolved by the shared positioning mechanism (FLT).
   Source: `toast/root/ToastRoot.tsx:62-67,180-197` (no direction lookup). Test: none.
+  Port note (2026-11-19, M6 track 9b, [issue 280](https://github.com/JakeMurrayDev/Blazix.Primitives/issues/280)): a port title that can fail, [L3] `js/toast.test.ts` "port: the directions are physical in a right-to-left document (TST-I18N-01)"; the module reads no direction.
 - **TST-A11Y-01** — MUST. High-priority toasts are announced assertively through the hidden alert region of TST-DOM-05 — one `role="alert" aria-atomic="true"` element per such toast, containing the toast's `title` and `description` only (not the rendered Root content) — while the Viewport is not keyboard-focused; this, together with `aria-hidden` on the Root (TST-ARIA-06), prevents a double announcement. Low-priority toasts rely on the Viewport's polite live region (TST-ARIA-01).
   Source: `toast/viewport/ToastViewport.tsx:43,263-272`; `toast/root/ToastRoot.tsx:469`. Test: [L2] `useToastManager.test.tsx` "applies correct ARIA attributes for high priority toasts". Docs: `components/toast/page.mdx` §`add` method ("For high priority toasts, the `title` and `description` strings are what are used to announce the toast to screen readers").
   Port note (2026-11-19, M6 track 9b, [issue 280](https://github.com/JakeMurrayDev/Blazix.Primitives/issues/280)): as TST-EDGE-12's note, per mode.
