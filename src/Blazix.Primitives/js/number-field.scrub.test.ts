@@ -166,12 +166,15 @@ describe('getViewportRect', () => {
     expect(getViewportRect(undefined, element)).toEqual({ left: 7, top: 11, right: 307, bottom: 411 });
   });
 
-  it('falls back to the document element when visualViewport is unavailable', () => {
-    setVisualViewport(() => null);
-    vi.spyOn(document.documentElement, 'clientWidth', 'get').mockReturnValue(640);
-    vi.spyOn(document.documentElement, 'clientHeight', 'get').mockReturnValue(480);
+  it('falls back to the document element without a visual viewport', () => {
+    expect(window.visualViewport).toBe(undefined);
 
-    expect(getViewportRect(undefined, element)).toEqual({ left: 0, top: 0, right: 640, bottom: 480 });
+    expect(getViewportRect(undefined, element)).toEqual({
+      left: 0,
+      top: 0,
+      right: document.documentElement.clientWidth,
+      bottom: document.documentElement.clientHeight,
+    });
   });
 });
 
