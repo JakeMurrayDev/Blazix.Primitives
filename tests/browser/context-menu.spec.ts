@@ -837,3 +837,77 @@ test.describe('ContextMenu port titles: placement', () => {
     await expect(page.getByTestId('submenu-positioner')).toHaveAttribute('data-align', 'start');
   });
 });
+
+// CTX-POS-03 and CTX-POS-06 under a pinch zoom (M6 track 11, issue 259): the page scale set through CDP
+// (`Emulation.setPageScaleFactor`, 3, the most Chromium allows the fixture page) and the visual viewport scrolled 20 px
+// right and down by a CDP scroll gesture, so the visual viewport is a 427 x 240 window at (20, 20) of the 1280 x 720 layout
+// viewport. Floating UI's `layoutViewport` boundary (the root, MenuPositioner.tsx:123-128) is the layout viewport, and its
+// default `viewport` boundary (a submenu) the visual one (`getViewportRect`). The gestures' points are read from the page's
+// `contextmenu` event, in client (layout) coordinates.
+test.describe('ContextMenu port titles: under a pinch zoom', () => {
+  async function pinch(page: Page): Promise<{ left: number; top: number; width: number; height: number }> {
+    const cdp = await page.context().newCDPSession(page);
+    await cdp.send('Emulation.setPageScaleFactor', { pageScaleFactor: 3 });
+    await expect.poll(() => page.evaluate(() => window.visualViewport!.scale)).toBe(3);
+    await cdp.send('Input.synthesizeScrollGesture', { x: 100, y: 100, xDistance: -20, yDistance: -20, gestureSourceType: 'mouse' });
+    await expect.poll(() => page.evaluate(() => [window.visualViewport!.offsetLeft, window.visualViewport!.offsetTop])).toEqual([20, 20]);
+    await cdp.detach();
+    await page.evaluate(() => {
+      (window as unknown as { gestures: number[][] }).gestures = [];
+      document.addEventListener('contextmenu', (event) => (window as unknown as { gestures: number[][] }).gestures.push([event.clientX, event.clientY]), true);
+    });
+    return page.evaluate(() => {
+      const viewport = window.visualViewport!;
+      return { left: viewport.offsetLeft, top: viewport.offsetTop, width: viewport.width, height: viewport.height };
+    });
+  }
+
+  /** A right click at a client point: Playwright's mouse here takes points relative to the visual viewport's offset. */
+  async function rightClickAt(page: Page, visual: { left: number; top: number }, client: { x: number; y: number }): Promise<{ x: number; y: number }> {
+    await page.mouse.move(client.x - visual.left, client.y - visual.top);
+    await page.mouse.down({ button: 'right' });
+    await page.mouse.up({ button: 'right' });
+    const [x, y] = (await page.evaluate(() => (window as unknown as { gestures: number[][] }).gestures))[0]!;
+    return { x: x!, y: y! };
+  }
+
+  async function boxOf(target: Locator): Promise<{ x: number; y: number; width: number; height: number }> {
+    // In client (layout) coordinates: Playwright's boxes are relative to the visual viewport under the zoom.
+    await positioned(target);
+    return target.evaluate((element) => {
+      const rect = element.getBoundingClientRect();
+      return { x: rect.x, y: rect.y, width: rect.width, height: rect.height };
+    });
+  }
+
+  // CTX-POS-03: a right click 45 px above the visual viewport's bottom edge. The 54 px popup would cross that edge; the root
+  // shifts only within the layout viewport, so it stays at the pointer (2 px right, 5 px above) and crosses it.
+  test('port: under a pinch zoom the root popup is anchored at the pointer and shifted only within the layout viewport', async ({ page, mode }) => {
+    await render(page, mode);
+    const visual = await pinch(page);
+    const point = await rightClickAt(page, visual, { x: 200, y: Math.round(visual.top + visual.height - 45) });
+
+    const box = await boxOf(page.getByTestId('popup'));
+    expect(Math.round(box.x)).toBe(point.x + 2);
+    expect(Math.round(box.y)).toBe(point.y - 5);
+    expect(box.y + box.height).toBeGreaterThan(visual.top + visual.height);
+    await expect(page.getByTestId('positioner')).toHaveAttribute('data-side', 'bottom');
+  });
+
+  // CTX-POS-06: a right click at x 340, 8 px inside the trigger's right edge and about 107 px left of the visual viewport's,
+  // opens the root and its open submenu; the submenu would cross the visual viewport's edge on its trigger's inline-end side, so it flips to the inline-start side, within the visual
+  // viewport, where the layout viewport has room for it on the inline-end side.
+  test('port: under a pinch zoom a submenu that would leave the visual viewport flips to the inline-start side', async ({ page, mode }) => {
+    await render(page, mode, { submenu: 'open' });
+    const visual = await pinch(page);
+    await rightClickAt(page, visual, { x: 340, y: 80 });
+    await expect(page.getByTestId('submenu-popup')).toBeVisible();
+
+    const trigger = await boxOf(page.getByTestId('submenu-trigger'));
+    const submenu = await boxOf(page.getByTestId('submenu-popup'));
+    await expect(page.getByTestId('submenu-positioner')).toHaveAttribute('data-side', 'inline-start');
+    expect(Math.round(submenu.x + submenu.width)).toBe(Math.round(trigger.x));
+    expect(trigger.x + trigger.width + submenu.width).toBeGreaterThan(visual.left + visual.width);
+    expect(trigger.x + trigger.width + submenu.width).toBeLessThan(1280);
+  });
+});
