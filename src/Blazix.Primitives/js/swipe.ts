@@ -153,11 +153,11 @@ export interface SwipeTrackerOptions {
   /** Whether the tracker writes the drag transform and movement variables to the element; `true` by default. */
   trackDrag?: boolean | undefined;
   /**
-   * Where the drag styles go; the element's inline style when omitted. A sink receives `transition: none`, the
-   * transform and the movement variables while swiping, and at the release or cancel the removal of the first two
-   * (its counterpart of restoring the inline values) and the final movement.
+   * Where the drag styles go: a band of the shared style writer of the tracked element, which the owning module passes.
+   * It receives `transition: none`, the transform and the movement variables while swiping, and at the release or cancel
+   * the removal of the first two (its counterpart of restoring the inline values) and the final movement.
    */
-  style?: SwipeStyleSink | undefined;
+  style: SwipeStyleSink;
   onSwipeStart?: ((event: PointerEvent | TouchEvent) => void) | undefined;
   /** Called when the progress or its details change; the details object is reused between calls, so read it at once. */
   onProgress?: ((progress: number, details?: SwipeProgressDetails) => void) | undefined;
@@ -262,6 +262,11 @@ export function bindSwipeHandlers(target: EventTarget, handlers: SwipePointerHan
  * @returns The tracker.
  */
 export function createSwipeTracker(initialOptions: SwipeTrackerOptions): SwipeTracker {
+  // The port (the orchestrator's review of 2026-11-19): every module writes `style` through dom's writer, so the drag
+  // styles go only through the sink the module passes.
+  if (!initialOptions.style) {
+    throw new Error('createSwipeTracker: a style sink is required.');
+  }
   let options = initialOptions;
 
   // The values Base UI derives at each render (useSwipeDismiss.ts:107-123), derived again at each `setOptions`.
@@ -332,8 +337,7 @@ export function createSwipeTracker(initialOptions: SwipeTrackerOptions): SwipeTr
   let velocityX = 0;
   let velocityY = 0;
   let hasLastDetails = false;
-  let dragStyleSnapshot: [string, string] | null = null;
-  // Whether a style sink holds this gesture's `transition` and `transform`.
+  // Whether the sink holds this gesture's `transition` and `transform`.
   let sinkDragging = false;
 
   // The reused objects: the progress details and the `canStart` arguments.
@@ -402,50 +406,22 @@ export function createSwipeTracker(initialOptions: SwipeTrackerOptions): SwipeTr
 
   // PSH-DOM-17's imperative writer.
   function syncDragStyles(swiping: boolean): void {
-    const element = options.element();
-    if (!(options.trackDrag ?? true) || (!element && !options.style)) {
-      if (!swiping) {
-        dragStyleSnapshot = null;
-      }
+    if (!(options.trackDrag ?? true)) {
       return;
     }
 
     const sink = options.style;
-    if (sink) {
-      if (swiping) {
-        sinkDragging = true;
-        sink.set('transition', 'none');
-        sink.set('transform', getDragTransform(dragOffsetX, dragOffsetY, initialScale));
-      } else if (sinkDragging) {
-        sinkDragging = false;
-        sink.remove('transition');
-        sink.remove('transform');
-      }
-      sink.set(options.movementCssVars.x, `${dragOffsetX - initialX}px`);
-      sink.set(options.movementCssVars.y, `${dragOffsetY - initialY}px`);
-      return;
-    }
-    if (!element) {
-      return;
-    }
-
-    const style = element.style;
     if (swiping) {
-      if (!dragStyleSnapshot) {
-        dragStyleSnapshot = [style.transition, style.transform];
-      }
-      style.transition = 'none';
-    } else if (dragStyleSnapshot) {
-      [style.transition, style.transform] = dragStyleSnapshot;
-      dragStyleSnapshot = null;
+      sinkDragging = true;
+      sink.set('transition', 'none');
+      sink.set('transform', getDragTransform(dragOffsetX, dragOffsetY, initialScale));
+    } else if (sinkDragging) {
+      sinkDragging = false;
+      sink.remove('transition');
+      sink.remove('transform');
     }
-
-    if (swiping) {
-      style.transform = getDragTransform(dragOffsetX, dragOffsetY, initialScale);
-    }
-
-    style.setProperty(options.movementCssVars.x, `${dragOffsetX - initialX}px`);
-    style.setProperty(options.movementCssVars.y, `${dragOffsetY - initialY}px`);
+    sink.set(options.movementCssVars.x, `${dragOffsetX - initialX}px`);
+    sink.set(options.movementCssVars.y, `${dragOffsetY - initialY}px`);
   }
 
   // PSH-ALG-10's sampling.

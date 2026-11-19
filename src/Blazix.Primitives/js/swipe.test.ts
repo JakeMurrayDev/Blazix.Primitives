@@ -418,7 +418,7 @@ describe('createSwipeTracker', () => {
     pointerDown(element, { clientX: 0, clientY: 0 });
     pointerMove(element, { clientX: 0, clientY: 0 });
 
-    tracker.setOptions({ enabled: true, element: () => element, movementCssVars: { x: '--x', y: '--y' }, ...init, swipeThreshold: 10 });
+    tracker.setOptions({ enabled: true, element: () => element, movementCssVars: { x: '--x', y: '--y' }, style: styleWriter(element).layer('component'), ...init, swipeThreshold: 10 });
 
     pointerMove(element, { clientX: 0, clientY: 20 });
     pointerUp(element, { clientX: 0, clientY: 20 });
@@ -774,7 +774,7 @@ describe('createSwipeTracker', () => {
     const element = document.createElement('div');
 
     expect(() =>
-      createSwipeTracker({ enabled: true, element: () => element, movementCssVars: { x: '--x', y: '--y' }, directions: ['down'] } as SwipeTrackerOptions),
+      createSwipeTracker({ enabled: true, element: () => element, movementCssVars: { x: '--x', y: '--y' }, directions: ['down'] } as unknown as SwipeTrackerOptions),
     ).toThrow(/style sink/);
   });
 
