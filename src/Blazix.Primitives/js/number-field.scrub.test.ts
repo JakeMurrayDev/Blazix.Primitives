@@ -298,6 +298,23 @@ describe('the scrub role', () => {
     expect(steps()).toEqual([1, 5, -1]);
   });
 
+  it('port: a right-to-left document scrubs in the pointer\'s direction, not the reading direction (NUM-PTR-20, NUM-EDGE-18)', () => {
+    stubLock();
+    document.documentElement.dir = 'rtl';
+    try {
+      const { area, steps } = mountScrub();
+      area.dir = 'rtl';
+
+      pointerDown(area);
+      pointerMove(area, { movementX: 4 });
+      pointerMove(area, { movementX: -6 });
+
+      expect(steps()).toEqual([4, -6]);
+    } finally {
+      document.documentElement.removeAttribute('dir');
+    }
+  });
+
   it('port: vertical scrubs step on movementY, upward increasing, and ignore the other axis (NUM-PTR-11)', () => {
     stubLock();
     const { area, steps } = mountScrub({ vertical: true });
