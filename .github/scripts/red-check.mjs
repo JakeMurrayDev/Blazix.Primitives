@@ -8,7 +8,7 @@
 // A layer whose test sources did not change is not even listed; a pull request that adds no test passes at once.
 //
 // A coverage title (ADR 11 Amendments 2026-11-19), one that ports behaviour the base already has, carries `@coverage`
-// (Playwright) or `[Trait("Coverage", "issue-N")]` (C#). It runs against the base with the others but must pass there,
+// (Playwright), `[Trait("Coverage", "issue-N")]` (C#) or the vitest tag `coverage`. It runs against the base with the others but must pass there,
 // and it is listed apart; its red is the planted fault the pull request quotes. An unmarked title is judged as before.
 //
 // The first half of the file is pure and unit-tested (red-check.test.mjs); the second half drives the tools.
@@ -131,6 +131,21 @@ export function vitestOutcomes(text, root) {
     }
   }
   return outcomes;
+}
+
+/**
+ * The vitest tests marked as coverage ports (ADR 11 Amendments 2026-11-19), by vitest's own test tag
+ * (`it(title, { tags: ['coverage'] }, ...)`, defined in vitest.config.ts), named as `vitestOutcomes` names them.
+ * @param {string} text vitest's JSON reporter output @param {string} root the repository root
+ */
+export function vitestCoverage(text, root) {
+  const keys = [];
+  for (const file of JSON.parse(text).testResults ?? []) {
+    for (const test of file.assertionResults ?? []) {
+      if ((test.tags ?? []).includes(COVERAGE_TAG.slice(1))) keys.push(`${relative(root, file.name)}::${[...test.ancestorTitles, test.title].join(' > ')}`);
+    }
+  }
+  return keys;
 }
 
 /**
@@ -326,7 +341,7 @@ function listLayer(layer, cwd) {
   return parsePlaywrightList(run('npx', ['playwright', 'test', '--list', '--reporter=json'], { cwd }).stdout);
 }
 
-/** The head's coverage titles of a layer (ADR 11 Amendments 2026-11-19); L3 has no marker. */
+/** The head's coverage titles of a layer (ADR 11 Amendments 2026-11-19). */
 function listCoverage(layer, cwd) {
   const config = layers[layer];
   if (config.kind === 'dotnet') {
@@ -334,7 +349,13 @@ function listCoverage(layer, cwd) {
     const result = run('dotnet', ['test', '--project', config.project, '-c', 'Release', '--no-build', '--list-tests', 'json', '--filter-trait', COVERAGE_TRAIT_FILTER], { cwd, allowFailure: true });
     return result.stdout.includes('{') ? parseDotnetList(result.stdout) : [];
   }
-  if (config.kind === 'vitest') return [];
+  if (config.kind === 'vitest') {
+    const report = join(cwd, 'red-check-coverage.json');
+    run('npx', ['vitest', 'run', 'src/Blazix.Primitives/js', '--reporter=json', `--outputFile=${report}`], { cwd, allowFailure: true });
+    const keys = existsSync(report) ? vitestCoverage(readFileSync(report, 'utf8'), cwd) : [];
+    rmSync(report, { force: true });
+    return keys;
+  }
   return parsePlaywrightCoverage(run('npx', ['playwright', 'test', '--list', '--reporter=json'], { cwd }).stdout);
 }
 
