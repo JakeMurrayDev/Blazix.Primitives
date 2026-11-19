@@ -145,7 +145,8 @@ jobs:
     needs: changes
     if: needs.changes.outputs.run-l4 == 'true'
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    # 45, not 30 (ADR 11 Amendments 2026-11-19, chosen by the user): the shards take 20-30 min and six were cut off at 30.
+    timeout-minutes: 45
     strategy:
       fail-fast: false
       matrix:
