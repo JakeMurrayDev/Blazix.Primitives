@@ -201,3 +201,11 @@ Base UI v1.9.0 run in Chromium through its own vitest browser mode, from a copy 
 - The §5 Writer cells are restated one attribute per row for the ownership lint; the Viewport gains `scroll-snap-type` (JS, during a drag; design point 2 (a)).
 - SCR-EDGE-02 follows the source's order: a Content outside both a Viewport and a Root throws the Viewport's error.
 - On Server each newly rendered part imports the module through its own twin before attaching, so the second measurement pass is four legs after the parts mount (ADR 01 Amendments 2026-11-19); every report also gets a 34–36 B `EndInvokeDotNet` reply.
+
+## 2026-11-19, NumberField's PR 6a (M6 track 6, [issue 277](https://github.com/JakeMurrayDev/Blazix.Primitives/issues/277), [PR 292](https://github.com/JakeMurrayDev/Blazix.Primitives/pull/292))
+
+- NUM §5.3: the visible input's `value` Writer read C#; it is C# → JS (ADR 04 Amendments 2026-11-18, NumberField point 7 (a)). The ownership lint found it once the NumberField folder existed (NUM-DOM-13's ScrubAreaCursor `style` also needed its registry row).
+- NUM-DOM-06: the hidden `<input type="number">` renders no id, and the form module matches a submission's controls by element id. As for a named Select, the field validates from the last validity report of its refresh; the Form titles that render NumberField (`FormNumberFieldTests`) read the typed value from the registry.
+- NUM-PTR-02, "treats pen pointer as touch-like": Base UI's jsdom press focuses nothing (`document.body`); a real pen press focuses the button natively, so the L4 title asserts that the input is not focused.
+- NUM-PTR-01, "always steps on quick touch ($order, …)": a real CDP tap has the browser's one order of `touchend` and the compatibility `click`, so the `it.each` title runs once per stepper as a port title.
+- NUM §16 items 1–14 are resolved by the dated notes of 2026-11-19 in §16 (replicated, or as built).

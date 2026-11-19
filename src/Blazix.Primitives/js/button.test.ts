@@ -894,8 +894,8 @@ describe('usePressAndHold', () => {
     vi.useFakeTimers();
   });
 
-  function stepper(options: Partial<ButtonOptions> = {}, parent?: HTMLElement) {
-    return mount('button', { pressAndHold: {}, focusableWhenDisabled: true, ...options }, parent ? { parent } : {});
+  function stepper(options: Partial<ButtonOptions> = {}, parent?: HTMLElement, twin?: FakeTwinOptions) {
+    return mount('button', { pressAndHold: {}, focusableWhenDisabled: true, ...options }, { ...(parent ? { parent } : {}), ...(twin ? { twin } : {}) });
   }
 
   const ticks = (fake: FakeTwin) => fake.reported('OnHoldTick').length;
@@ -1142,6 +1142,91 @@ describe('usePressAndHold', () => {
     document.body.addEventListener('click', (event) => event.preventDefault(), { capture: true, once: true });
     click(element, { detail: 0 });
     expect(fake.reported('OnHoldClick')).toHaveLength(1);
+  });
+
+  // UBT-PTR-20, NUM-PTR-02, NUM-FOC-03 (NumberFieldIncrement.test.tsx "places the caret at the end of the input when a
+  // mouse press focuses it"); issue 277 deliverable 3 (ii), chosen by the user 2026-11-18 (decision 16 (a)).
+  it('places the caret at the end of the input when a mouse press focuses it', () => {
+    const input = document.createElement('input');
+    input.id = 'nf-input';
+    input.value = '1234';
+    document.body.appendChild(input);
+    const { element, fake } = stepper({ pressAndHold: { focusTarget: 'nf-input' } });
+
+    pointer(element, 'pointerdown', { pointerType: 'mouse' });
+
+    expect(document.activeElement).toBe(input);
+    expect(input.selectionStart).toBe(4);
+    expect(input.selectionEnd).toBe(4);
+    expect(ticks(fake)).toBe(1);
+
+    // UBT-PTR-20: a stylus or finger press steps without focusing, so it does not raise the software keyboard.
+    input.blur();
+    const pen = stepper({ pressAndHold: { focusTarget: 'nf-input' } });
+    touch(pen.element, 'touchstart');
+    pointer(pen.element, 'pointerdown', { pointerType: 'pen' });
+    vi.advanceTimersByTime(TOUCH_TIMEOUT);
+    expect(ticks(pen.fake)).toBe(1);
+    expect(document.activeElement).not.toBe(input);
+    input.remove();
+  });
+
+  // NUM-PTR-03, UBT-PTR-06/07 (a tick that returns false stops the sequence); issue 277 deliverable 3 (iii): C# answers a
+  // tick that applied nothing by raising `pressAndHold.stop`, which stops the repeat and keeps the release report.
+  it('port: a raised hold stop stops the repeat and the release still reports', () => {
+    const { element, handle, fake } = stepper();
+
+    pointer(element, 'pointerdown', { pointerType: 'mouse' });
+    expect(ticks(fake)).toBe(1);
+
+    handle.update(optionsJson({ pressAndHold: { stop: 1 }, focusableWhenDisabled: true }));
+    vi.advanceTimersByTime(START_AUTO_CHANGE_DELAY + CHANGE_VALUE_TICK_DELAY * 3);
+    expect(ticks(fake)).toBe(1);
+
+    pointer(element, 'pointerup', { pointerType: 'mouse' });
+    expect(fake.reported('OnHoldStop')).toHaveLength(1);
+
+    pointer(element, 'pointerdown', { pointerType: 'mouse' });
+    vi.advanceTimersByTime(START_AUTO_CHANGE_DELAY + CHANGE_VALUE_TICK_DELAY);
+    expect(ticks(fake)).toBe(3);
+  });
+
+  // NUM-PTR-05 (the dirty text is synced once per press): the first tick of a sequence says so.
+  it('port: the first tick of each sequence is marked as its start', () => {
+    const { element, fake } = stepper();
+
+    pointer(element, 'pointerdown', { pointerType: 'mouse' });
+    vi.advanceTimersByTime(START_AUTO_CHANGE_DELAY + CHANGE_VALUE_TICK_DELAY);
+    mouse(element, 'mouseleave');
+    mouse(element, 'mouseenter', { buttons: 1 });
+
+    const starts = fake.reported<{ start?: boolean; event: EventInfo }>('OnHoldTick').map((tick) => [tick.event.type, tick.start === true]);
+    expect(starts).toEqual([
+      ['pointerdown', true],
+      ['pointerdown', false],
+      ['mouseenter', true],
+    ]);
+  });
+
+  // NUM-PTR-02, ADR 01's C#-origin veto row; issue 277 design point 1 (a), the name chosen by the user 2026-11-18: a C#
+  // consumer's veto of a stepper's pointerdown is the `hold-start` decision (fallback run), asked before the input focus and
+  // the first tick.
+  it('port: a hold-start veto keeps a press from focusing and ticking on WebAssembly; Server runs it', () => {
+    const input = document.createElement('input');
+    input.id = 'nf-veto-input';
+    document.body.appendChild(input);
+    const vetoed = stepper({ pressAndHold: { focusTarget: 'nf-veto-input' } }, undefined, { synchronous: true, verdict: 'stop' });
+
+    pointer(vetoed.element, 'pointerdown', { pointerType: 'mouse' });
+
+    expect(vetoed.fake.decisions.map((d) => d.point)).toEqual(['hold-start']);
+    expect(ticks(vetoed.fake)).toBe(0);
+    expect(document.activeElement).not.toBe(input);
+
+    const server = stepper();
+    pointer(server.element, 'pointerdown', { pointerType: 'mouse' });
+    expect(ticks(server.fake)).toBe(1);
+    input.remove();
   });
 
   it('runs nothing without the press-and-hold options', () => {

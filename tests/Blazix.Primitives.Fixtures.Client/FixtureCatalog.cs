@@ -26,6 +26,7 @@ using Blazix.Primitives.Fixtures.Client.MeterFixtures;
 using Blazix.Primitives.Fixtures.Client.MenuFixtures;
 using Blazix.Primitives.Fixtures.Client.MenubarFixtures;
 using Blazix.Primitives.Fixtures.Client.NavigationMenuFixtures;
+using Blazix.Primitives.Fixtures.Client.NumberFieldFixtures;
 using Blazix.Primitives.Fixtures.Client.PopoverFixtures;
 using Blazix.Primitives.Fixtures.Client.SelectFixtures;
 using Blazix.Primitives.Fixtures.Client.SliderFixtures;
@@ -107,6 +108,7 @@ public static class FixtureCatalog
         ["slider-relaxations"] = new(typeof(SliderRelaxationsFixture)),
         ["slider-config"] = new(typeof(SliderConfigFixture)),
         ["meter-prerender"] = new(typeof(MeterPrerenderFixture), Prerender: true),
+        ["number-field-hold"] = new(typeof(NumberFieldHoldFixture)),
         ["progress-basic"] = new(typeof(ProgressBasicFixture)),
         ["progress-prerender"] = new(typeof(ProgressPrerenderFixture), Prerender: true),
         ["composite-list"] = new(typeof(CompositeListFixture)),

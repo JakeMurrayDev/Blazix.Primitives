@@ -19,6 +19,10 @@ internal sealed class ButtonTwin(IJSRuntime jsRuntime)
     /// <summary>Represents the name of the decision point the module asks about when the bridged hidden input is clicked.</summary>
     public const string TogglePoint = "toggle";
 
+    // NUM-PTR-02; issue 277 design point 1 (a), the name chosen by the user 2026-11-18; fallback run.
+    /// <summary>Represents the name of the decision point the module asks about before a press-and-hold press acts.</summary>
+    public const string HoldStartPoint = "hold-start";
+
     /// <summary>Occurs when the bridged hidden input was toggled and the toggle was not decided synchronously.</summary>
     /// <remarks>The argument carries the input's new <c>checked</c> property and the click it received.</remarks>
     public event Action<ButtonToggle>? Toggled;
@@ -26,8 +30,9 @@ internal sealed class ButtonTwin(IJSRuntime jsRuntime)
     /// <summary>Occurs when the module classified a <c>pointerdown</c> or a <c>click</c>, if the options ask for it.</summary>
     public event Action<ButtonInteraction>? InteractionReported;
 
-    /// <summary>Occurs on every tick of a press-and-hold sequence, with the event that started it.</summary>
-    public event Action<EventSnapshot>? HoldTicked;
+    // NUM-PTR-05; issue 277, decision 16 (a), chosen by the user 2026-11-18: the payload's Start marks a sequence's first tick.
+    /// <summary>Occurs on every tick of a press-and-hold sequence, with the event that started it and whether the tick starts it.</summary>
+    public event Action<ButtonHoldEvent>? HoldTicked;
 
     /// <summary>Occurs once when a started press-and-hold sequence is released, with the <c>pointerup</c>.</summary>
     public event Action<EventSnapshot>? HoldStopped;
@@ -44,7 +49,8 @@ internal sealed class ButtonTwin(IJSRuntime jsRuntime)
 
     /// <summary>Gets or sets the C# handler chain of the activation decision point.</summary>
     /// <value>
-    /// A function that receives the <c>keydown</c> or <c>keyup</c> about to activate the element and returns
+    /// A function that receives the <c>keydown</c> or <c>keyup</c> about to activate the element, or the <c>pointerdown</c> of a
+    /// press-and-hold press (the <c>hold-start</c> point), and returns
     /// <see cref="DecisionPolicy.Run"/> to let it, or <see cref="DecisionPolicy.Stop"/> when a consumer called
     /// <c>PreventPartHandler()</c>; <see langword="null"/> always lets it. It runs only on WebAssembly, synchronously
     /// inside the dispatch, and must not await.
@@ -59,6 +65,7 @@ internal sealed class ButtonTwin(IJSRuntime jsRuntime)
     /// arrives through <see cref="Toggled"/>.
     /// </value>
     public Func<EventSnapshot, DecisionPolicy>? ToggleDecider { get; set; }
+
 
     /// <summary>Receives the module's classification of a press.</summary>
     /// <param name="payloadJson">The JSON of a <see cref="ButtonInteraction"/>.</param>
@@ -77,7 +84,7 @@ internal sealed class ButtonTwin(IJSRuntime jsRuntime)
     public void OnHoldTick(string payloadJson)
     {
         ButtonHoldEvent tick = Deserialize(payloadJson, BlazixJsonContext.Default.ButtonHoldEvent);
-        HoldTicked?.Invoke(tick.Event);
+        HoldTicked?.Invoke(tick);
     }
 
     /// <summary>Receives the release of a press-and-hold sequence.</summary>
@@ -136,6 +143,9 @@ internal sealed class ButtonTwin(IJSRuntime jsRuntime)
         {
             ActivatePoint => ActivationDecider,
             TogglePoint => ToggleDecider,
+            // The press of a press-and-hold element shares the activation chain, which tells it by its `pointerdown`: a
+            // decider of its own would be a field and a delegate on every twin (Combobox's keystroke budget, ADR 16 rule 7).
+            HoldStartPoint => ActivationDecider,
             _ => null,
         };
         return decider is null ? DecisionPolicy.Run : decider(snapshot);

@@ -5151,13 +5151,15 @@ export function clearSessionOpenEvent(token: string): void {
 
 // The platform flags (ADR 04 Amendments 2026-11-04, design point 4, settled by the orchestrator 2026-11-04; MNU-A11Y-01),
 // M5 track 2: C#'s PlatformFlags service reads them once per circuit or runtime, for the attributes C# renders that depend
-// on them (the VoiceOver `aria-expanded` omission, ContextMenu's macOS branch).
+// on them (the VoiceOver `aria-expanded` omission, ContextMenu's macOS branch). `ios`: NUM-STA-19, issue 277, granted by the
+// orchestrator 2026-11-18.
 /**
- * Returns the platform flags C# renders with: whether VoiceOver may be running, and whether the platform is macOS.
- * @returns The JSON of `{ voiceOver, mac }`.
+ * Returns the platform flags C# renders with: whether VoiceOver may be running, whether the platform is macOS, and
+ * whether it is iOS, where NumberField's input picks its `inputmode` from the minimum.
+ * @returns The JSON of `{ voiceOver, mac, ios }`.
  */
 export function readPlatformFlags(): string {
-  return JSON.stringify({ voiceOver: platform.screenReader.voiceOver, mac: platform.os.mac });
+  return JSON.stringify({ voiceOver: platform.screenReader.voiceOver, mac: platform.os.mac, ios: platform.os.ios });
 }
 
 // The tree's release slot (design point 2 (a) of M5 track 6, settled by the orchestrator 2026-11-04; ADR 04 Amendments 2026-11-03 (4)): Menu's

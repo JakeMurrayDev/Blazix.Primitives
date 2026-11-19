@@ -153,7 +153,7 @@ public sealed class ButtonTwinContractTests
         using BunitContext context = new();
         ButtonTwin twin = new(context.JSInterop.JSRuntime);
         List<string> log = [];
-        twin.HoldTicked += e => log.Add($"tick:{e.Type}:{e.ShiftKey}");
+        twin.HoldTicked += e => log.Add($"tick:{e.Event.Type}:{e.Event.ShiftKey}");
         twin.HoldStopped += e => log.Add($"stop:{e.Type}");
         twin.HoldClicked += e => log.Add($"click:{e.Detail}");
 
@@ -163,6 +163,62 @@ public sealed class ButtonTwinContractTests
         twin.OnHoldClick("""{"event":{"kind":"PointerEvent","type":"click","detail":0}}""");
 
         Assert.Equal(new[] { "tick:pointerdown:True", "tick:pointerdown:True", "stop:pointerup", "click:0" }, log);
+    }
+
+    // Issue 277 deliverable 3 (ii) and (iii), decision 16 (a), chosen by the user 2026-11-18: NumberField's steppers send the
+    // input to focus on a mouse press and raise the stop counter after a tick that applied nothing; both are omitted unset.
+    [Fact(DisplayName = "port: the hold focus target and the hold stop are sent only when set")]
+    [Trait("Requirement", "UBT-PTR-20")]
+    [Trait("Requirement", "NUM-PTR-03")]
+    public void The_hold_focus_target_and_the_hold_stop_are_sent_only_when_set()
+    {
+        ButtonOptions options = new() { DevelopmentChecks = false, PressAndHold = new PressAndHoldOptions { FocusTarget = "base-ui-7", Stop = 2 } };
+
+        Assert.Equal(
+            """{"disabled":false,"native":true,"composite":false,"pressAndHold":{"tickDelay":60,"startDelay":400,"scrollDistance":8,"focusTarget":"base-ui-7","stop":2},"reportInteractionType":false,"developmentChecks":false}""",
+            JsonSerializer.Serialize(options, BlazixJsonContext.Default.ButtonOptions));
+        Assert.Equal(
+            """{"tickDelay":60,"startDelay":400,"scrollDistance":8}""",
+            JsonSerializer.Serialize(new PressAndHoldOptions(), BlazixJsonContext.Default.PressAndHoldOptions));
+    }
+
+    // NUM-PTR-05: the stepper syncs the dirty text once per press, at the first tick of a sequence.
+    [Fact(DisplayName = "port: the first tick of a sequence is reported as its start")]
+    [Trait("Requirement", "UBT-EVT-10")]
+    [Trait("Requirement", "NUM-PTR-05")]
+    public void The_first_tick_of_a_sequence_is_reported_as_its_start()
+    {
+        using BunitContext context = new();
+        ButtonTwin twin = new(context.JSInterop.JSRuntime);
+        List<string> log = [];
+        twin.HoldTicked += e => log.Add($"{e.Event.Type}:{e.Start}");
+
+        twin.OnHoldTick($$"""{"event":{{PointerdownJson}},"start":true}""");
+        twin.OnHoldTick($$"""{"event":{{PointerdownJson}}}""");
+
+        Assert.Equal(["pointerdown:True", "pointerdown:False"], log);
+    }
+
+    // NUM-PTR-02; issue 277 design point 1 (a), the name chosen by the user 2026-11-18.
+    [Fact(DisplayName = "port: the hold-start point runs the activation decider with the press")]
+    [Trait("Requirement", "NUM-PTR-02")]
+    public void The_hold_start_point_runs_its_decider_with_the_press()
+    {
+        using BunitContext context = new();
+        List<EventSnapshot> seen = [];
+        ButtonTwin twin = new(context.JSInterop.JSRuntime)
+        {
+            ActivationDecider = snapshot =>
+            {
+                seen.Add(snapshot);
+                return DecisionPolicy.Stop;
+            },
+        };
+
+        Assert.Equal("hold-start", ButtonTwin.HoldStartPoint);
+        Assert.Equal("stop", twin.Decide(ButtonTwin.HoldStartPoint, PointerdownJson));
+        Assert.Equal("pointerdown", Assert.Single(seen).Type);
+        Assert.Equal("run", new ButtonTwin(context.JSInterop.JSRuntime).Decide(ButtonTwin.HoldStartPoint, PointerdownJson));
     }
 
     [Fact]

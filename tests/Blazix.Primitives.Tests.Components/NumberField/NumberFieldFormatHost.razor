@@ -1,0 +1,16 @@
+@namespace Blazix.Primitives.Tests.Components
+@using System.Globalization
+@*
+    The consumer form of NumberFieldRoot.Format's string shorthand (issue 277, design point 3): a Razor attribute on a
+    parameter that is not a string is a C# expression, so the shorthand is written as an explicit expression. The bare
+    form Format="#,##0.00" does not compile (CS1525), which is why it is not here.
+*@
+<NumberFieldRoot DefaultValue="1234.5" Culture="@CultureInfo.GetCultureInfo("en-US")" Format="@("#,##0.00")">
+    <NumberFieldInput />
+</NumberFieldRoot>
+<NumberFieldRoot DefaultValue="0.256" Culture="@CultureInfo.GetCultureInfo("en-US")" Format="@("P1")">
+    <NumberFieldInput />
+</NumberFieldRoot>
+<NumberFieldRoot DefaultValue="5" Culture="@CultureInfo.GetCultureInfo("en-US")" Step="2.5">
+    <NumberFieldInput />
+</NumberFieldRoot>
