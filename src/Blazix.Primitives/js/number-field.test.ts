@@ -3,7 +3,7 @@
 // and the focus and blur reports with their `defaultPrevented` checks and the `input-focus` / `input-blur` decision points
 // (fallback run). 6b adds the gate, paste, wheel and scrub.
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { attach, type NumberFieldOptions } from './number-field';
+import { attach, type NumberFieldInputOptions, type NumberFieldOptions } from './number-field';
 import type { TwinHandle } from './twin';
 import { createFakeTwin, type FakeTwin, type FakeTwinOptions } from './test-support/fake-twin';
 
@@ -35,8 +35,14 @@ function mount(options: Partial<NumberFieldOptions> = {}, twin: FakeTwinOptions 
   return { input, hidden, handle, fake };
 }
 
-// en-US with no format: the allowed set C# computes (NUM-KEY-07) and the locale's symbols (NUM-KEY-09).
-const EN_US: Partial<NumberFieldOptions> = { allowed: '.,．，٫٬-+', decimal: '.', currency: '', percent: '' };
+// en-US with no format: the allowed set C# computes (NUM-KEY-07) and the locale's symbols (NUM-KEY-09), in the options'
+// `input` part, which C# sends at attach and again only when it changes.
+const GATE: NumberFieldInputOptions = { allowed: '.,．，٫٬-+', decimal: '.', currency: '', percent: '' };
+const EN_US: Partial<NumberFieldOptions> = { input: GATE };
+
+function gate(overrides: Partial<NumberFieldInputOptions>): Partial<NumberFieldOptions> {
+  return { input: { ...GATE, ...overrides } };
+}
 
 function key(input: HTMLInputElement, init: KeyboardEventInit & { which?: number }): KeyboardEvent {
   const event = new KeyboardEvent('keydown', { bubbles: true, cancelable: true, ...init });
@@ -229,20 +235,20 @@ describe('number-field module: the input role', () => {
     });
 
     it('port: Home and End are steps only while the bound is defined (NUM-KEY-02)', () => {
-      const { input, handle, fake } = mount({ ...EN_US, min: false, max: false });
+      const { input, handle, fake } = mount(gate({ min: false, max: false }));
 
       expect(key(input, { key: 'Home' }).defaultPrevented).toBe(false);
       expect(key(input, { key: 'End' }).defaultPrevented).toBe(false);
 
-      handle.update(optionsJson({ ...EN_US, min: true, max: true }));
+      handle.update(optionsJson(gate({ min: true, max: true })));
       expect(key(input, { key: 'Home' }).defaultPrevented).toBe(true);
       expect(key(input, { key: 'End' }).defaultPrevented).toBe(true);
       expect(fake.reported<{ key: string }>('OnKeyStep').map((r) => r.key)).toEqual(['Home', 'End']);
     });
 
     it('port: does nothing while disabled or read-only, or when a listener prevented the keydown (NUM-KEY-11, NUM-EVT-14)', () => {
-      const disabled = mount({ ...EN_US, disabled: true });
-      const readOnly = mount({ ...EN_US, readOnly: true });
+      const disabled = mount(gate({ disabled: true }));
+      const readOnly = mount(gate({ readOnly: true }));
       const prevented = mount(EN_US);
       prevented.input.addEventListener('keydown', (event) => event.preventDefault(), { capture: true });
 
@@ -264,6 +270,16 @@ describe('number-field module: the input role', () => {
       expect(event.defaultPrevented).toBe(false);
       expect(fake.reports).toEqual([]);
     });
+  });
+
+  it('port: an update without the input part keeps the last gate (the text updates of a step stay small, ADR 16 rule 7)', () => {
+    const { input, handle } = mount(EN_US, {}, '12');
+
+    handle.update(optionsJson({ value: '13', revision: 0 }));
+
+    expect(input.value).toBe('13');
+    expect(key(input, { key: 'a' }).defaultPrevented).toBe(true);
+    expect(key(input, { key: ',' }).defaultPrevented).toBe(false);
   });
 
   describe('the change', () => {
@@ -313,7 +329,7 @@ describe('number-field module: the input role', () => {
     it('port: a clipboard that throws warns once, with the development checks on, and lets the browser paste (NUM-EDGE-03)', () => {
       const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
       try {
-        const { input, fake } = mount({ ...EN_US, developmentChecks: true }, {}, '1');
+        const { input, fake } = mount(gate({ developmentChecks: true }), {}, '1');
         const throwing = () => {
           throw new DOMException('denied', 'SecurityError');
         };
@@ -331,7 +347,7 @@ describe('number-field module: the input role', () => {
     });
 
     it('port: does nothing while disabled or read-only', () => {
-      const { input, fake } = mount({ ...EN_US, readOnly: true }, {}, '1');
+      const { input, fake } = mount(gate({ readOnly: true }), {}, '1');
 
       expect(paste(input, '2').defaultPrevented).toBe(false);
       expect(fake.reports).toEqual([]);
@@ -340,7 +356,7 @@ describe('number-field module: the input role', () => {
 
   describe('the wheel', () => {
     it('port: steps the focused input against the vertical delta and prevents the scroll (NUM-PTR-07)', () => {
-      const { input, fake } = mount({ ...EN_US, wheel: true });
+      const { input, fake } = mount(gate({ wheel: true }));
       input.focus();
 
       const down = wheel(input, { deltaY: 10 });
@@ -352,7 +368,7 @@ describe('number-field module: the input role', () => {
     });
 
     it('port: ignores the wheel with Ctrl, while unfocused, without a delta, or horizontal without Shift; Shift takes the larger horizontal delta (NUM-PTR-07, NUM-PTR-08)', () => {
-      const { input, fake } = mount({ ...EN_US, wheel: true });
+      const { input, fake } = mount(gate({ wheel: true }));
 
       expect(wheel(input, { deltaY: 10 }).defaultPrevented).toBe(false);
       input.focus();
@@ -368,9 +384,9 @@ describe('number-field module: the input role', () => {
       input.focus();
 
       expect(wheel(input, { deltaY: 10 }).defaultPrevented).toBe(false);
-      handle.update(optionsJson({ ...EN_US, wheel: true }));
+      handle.update(optionsJson(gate({ wheel: true })));
       expect(wheel(input, { deltaY: 10 }).defaultPrevented).toBe(true);
-      handle.update(optionsJson({ ...EN_US, wheel: false }));
+      handle.update(optionsJson(gate({ wheel: false })));
       expect(wheel(input, { deltaY: 10 }).defaultPrevented).toBe(false);
       expect(fake.reported('OnWheelStep')).toHaveLength(1);
     });

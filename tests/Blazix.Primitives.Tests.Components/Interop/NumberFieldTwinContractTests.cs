@@ -79,7 +79,7 @@ public sealed class NumberFieldTwinContractTests
 
     // 6b's input role (issue 277; design points 1 (a), 6 and 7 (a)): the gate's allowed set and symbols, the bounds, the
     // wheel and the inactive states travel with the text; each is omitted while unset, so 6a's options read as before.
-    [Fact(DisplayName = "port: the input role's options are sent with the text, each only when set")]
+    [Fact(DisplayName = "port: the input role's options travel in the input part, sent with the text when they change")]
     [Trait("Requirement", "NUM-KEY-07")]
     [Trait("Requirement", "NUM-KEY-09")]
     [Trait("Requirement", "NUM-PTR-09")]
@@ -95,20 +95,23 @@ public sealed class NumberFieldTwinContractTests
         await twin.AttachAsync("base-ui-2", new NumberFieldOptions
         {
             Value = "1.5",
-            Allowed = ".,-",
-            Decimal = ".",
-            Currency = "$",
-            Percent = "%",
-            Min = true,
-            Max = false,
-            Wheel = true,
-            Disabled = false,
-            ReadOnly = true,
-            DevelopmentChecks = true,
+            Input = new NumberFieldInputOptions
+            {
+                Allowed = ".,-",
+                Decimal = ".",
+                Currency = "$",
+                Percent = "%",
+                Min = true,
+                Max = false,
+                Wheel = true,
+                Disabled = false,
+                ReadOnly = true,
+                DevelopmentChecks = true,
+            },
         });
 
         Assert.Equal(
-            """{"value":"1.5","revision":0,"allowed":".,-","decimal":".","currency":"$","percent":"%","min":true,"max":false,"wheel":true,"disabled":false,"readOnly":true,"developmentChecks":true}""",
+            """{"value":"1.5","revision":0,"input":{"allowed":".,-","decimal":".","currency":"$","percent":"%","min":true,"max":false,"wheel":true,"disabled":false,"readOnly":true,"developmentChecks":true}}""",
             Assert.Single(module.Invocations["attach"]).Arguments[1]);
     }
 
