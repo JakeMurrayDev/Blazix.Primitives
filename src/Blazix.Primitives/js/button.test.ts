@@ -1118,7 +1118,8 @@ describe('usePressAndHold', () => {
   // useNumberFieldStepperButton.test.tsx:650 (issue 277, 6b; granted by the orchestrator 2026-11-19). Base UI checks the
   // removal's `{ once: true }`; removeEventListener matches on `capture` only, so the port's removal without options removes
   // the same listener, and the title asserts that listener.
-  it('removes the global release listener when unmounted during a hold', () => {
+  // 6a shipped the removal, so the title is a coverage port (ADR 11 Amendments 2026-11-19).
+  it('removes the global release listener when unmounted during a hold', { tags: ['coverage'] }, () => {
     const add = vi.spyOn(window, 'addEventListener');
     const remove = vi.spyOn(window, 'removeEventListener');
     try {

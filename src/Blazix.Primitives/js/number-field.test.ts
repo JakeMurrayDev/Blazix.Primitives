@@ -119,7 +119,8 @@ describe('number-field module: the visible input', () => {
 
   // NumberFieldInput.test.tsx "consumer-prevented defaults": the field is marked focused only by the module's focus
   // report, so a consumer listener that prevents the focus default keeps it unmarked.
-  it('does not mark the field focused when the focus default is prevented', () => {
+  // 6a shipped the check, so the title is a coverage port (ADR 11 Amendments 2026-11-19).
+  it('does not mark the field focused when the focus default is prevented', { tags: ['coverage'] }, () => {
     const input = document.createElement('input');
     input.type = 'text';
     document.body.appendChild(input);
