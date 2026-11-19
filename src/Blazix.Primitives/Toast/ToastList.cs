@@ -26,6 +26,10 @@ internal sealed class ToastList<TData> : IReadOnlyList<ToastObject<TData>>
             {
                 visibleIndex++;
             }
+            else
+            {
+                HasEnding = true;
+            }
         }
     }
 
@@ -36,6 +40,9 @@ internal sealed class ToastList<TData> : IReadOnlyList<ToastObject<TData>>
 
     /// <inheritdoc />
     public ToastObject<TData> this[int index] => items[index];
+
+    // TST-PTR-03: some toast is ending.
+    public bool HasEnding { get; }
 
     // The backing array, for the store's own list writes; never handed to a consumer.
     internal ToastObject<TData>[] Items => items;
