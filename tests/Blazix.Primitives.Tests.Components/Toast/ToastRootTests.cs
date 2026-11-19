@@ -49,11 +49,12 @@ public sealed class ToastRootTests : IDisposable
             test.Manager.Add(new ToastObject { Title = "Toast 3" });
         });
 
-        IReadOnlyList<IElement> roots = ToastTestContext.Roots(cut);
+        IReadOnlyList<string?> styles = ToastTestContext.RootStyles(cut);
         Assert.Equal(["Toast 3", "Toast 2", "Toast 1"], cut.FindAll("[data-testid=title]").Select(title => title.TextContent));
-        for (int i = 0; i < roots.Count; i++)
+        Assert.Equal(3, styles.Count);
+        for (int i = 0; i < styles.Count; i++)
         {
-            Assert.Contains($"--toast-index: {i};", roots[i].GetAttribute("style"), StringComparison.Ordinal);
+            Assert.Contains($"--toast-index: {i};", styles[i], StringComparison.Ordinal);
         }
     }
 
@@ -72,10 +73,11 @@ public sealed class ToastRootTests : IDisposable
         test.Run(cut, () => test.Manager.Close("a"));
 
         // List order a, b, c: the closing a keeps DOM index 0; b and c are the visible 0 and 1.
-        IReadOnlyList<IElement> roots = ToastTestContext.Roots(cut);
-        Assert.Contains("--toast-index: 0;", roots[0].GetAttribute("style"), StringComparison.Ordinal);
-        Assert.Contains("--toast-index: 0;", roots[1].GetAttribute("style"), StringComparison.Ordinal);
-        Assert.Contains("--toast-index: 1;", roots[2].GetAttribute("style"), StringComparison.Ordinal);
+        // M6 track 9b: after the attach the module writes the style the root sends (the handover).
+        IReadOnlyList<string?> styles = ToastTestContext.RootStyles(cut);
+        Assert.Contains("--toast-index: 0;", styles[0], StringComparison.Ordinal);
+        Assert.Contains("--toast-index: 0;", styles[1], StringComparison.Ordinal);
+        Assert.Contains("--toast-index: 1;", styles[2], StringComparison.Ordinal);
     }
 
     [Fact(DisplayName = "renders the type")]
