@@ -415,3 +415,21 @@ describe('number-field module: the input role', () => {
   });
 });
 
+
+// The toolbar's disabled input item (TLB-KEY-13) and any listener attached after the module prevent a keydown on the input
+// itself; Base UI's handler runs at React's root, after them (NumberFieldInput.tsx:272-275), so the step key is not acted
+// on whatever the attach order (the standing rules' attach order rule; toolbar.spec.ts pins it at L4).
+describe('the keydown after the input\'s own listeners', () => {
+  it('port: a listener attached after the module that prevents the keydown keeps it from stepping', () => {
+    const { input, fake } = mount(EN_US, {}, '5');
+    input.addEventListener('keydown', (event) => event.preventDefault());
+
+    key(input, { key: 'ArrowUp' });
+
+    expect(fake.reports.filter((r) => r.method === 'OnKeyStep')).toEqual([]);
+    // Without the listener's veto the key steps (the red check's positive half).
+    const other = mount(EN_US, {}, '5');
+    key(other.input, { key: 'ArrowUp' });
+    expect(other.fake.reports.filter((r) => r.method === 'OnKeyStep')).toHaveLength(1);
+  });
+});
