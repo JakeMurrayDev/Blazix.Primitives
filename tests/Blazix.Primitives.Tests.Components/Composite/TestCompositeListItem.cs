@@ -22,6 +22,10 @@ internal sealed class TestCompositeListItem : PartBase<EmptyState>
     [Parameter]
     public int? ExplicitIndex { get; set; }
 
+    /// <summary>Gets or sets a value indicating whether the item guesses its index from render order; read once.</summary>
+    [Parameter]
+    public bool Guess { get; set; }
+
     public int Renders { get; private set; }
 
     /// <inheritdoc />
@@ -37,7 +41,7 @@ internal sealed class TestCompositeListItem : PartBase<EmptyState>
     protected override void OnInitialized()
     {
         base.OnInitialized();
-        behavior = new CompositeListItemBehavior(ListContext, StateHasChanged);
+        behavior = new CompositeListItemBehavior(ListContext, StateHasChanged, Guess);
     }
 
     /// <inheritdoc />

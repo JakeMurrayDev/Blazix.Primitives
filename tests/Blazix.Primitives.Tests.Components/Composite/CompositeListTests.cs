@@ -118,17 +118,82 @@ public sealed class CompositeListTests : IDisposable
         Assert.Equal(2, updated[0].GetProperty("index").GetInt32());
     }
 
+    // M6 track 7 (Q-OTP-2 (b) of the M6 plan, chosen by the user 2026-11-18; the Composite/ grant to OtpField, settled by the
+    // orchestrator 2026-11-19): an item that opts into a guess takes the next index of the list's render-order counter on its
+    // first render, so prerender and the first interactive render carry it (OTP-EDGE-10); the first report corrects it.
+    [Fact(DisplayName = "port: items that guess carry their render-order index from the first render, and the report keeps it without a render (CMP-STA-16)")]
+    [Trait("Requirement", "CMP-STA-16")]
+    [Trait("Requirement", "OTP-STR-03")]
+    public void Port_items_that_guess_carry_their_render_order_index_from_the_first_render()
+    {
+        IRenderedComponent<TestCompositeList> cut = Context.Render<TestCompositeList>(p => p.AddChildContent(Items(true, "a", "b", "c")));
+        Assert.Equal(["0", "1", "2"], Indexes(cut));
+        IReadOnlyList<IRenderedComponent<TestCompositeListItem>> items = cut.FindComponents<TestCompositeListItem>();
+        int[] before = [.. items.Select(item => item.Instance.Renders)];
+
+        string[] ids = RenderedIds(cut);
+        cut.InvokeAsync(() => host.Twin.OnItemsChange($$"""{"ids":["{{ids[0]}}","{{ids[1]}}","{{ids[2]}}"]}"""));
+
+        Assert.Equal(["0", "1", "2"], Indexes(cut));
+        Assert.Equal(before, items.Select(item => item.Instance.Renders));
+    }
+
+    [Fact(DisplayName = "port: an explicitly indexed item consumes no guess (CMP-STA-16)")]
+    [Trait("Requirement", "CMP-STA-16")]
+    public void Port_an_explicitly_indexed_item_consumes_no_guess()
+    {
+        IRenderedComponent<TestCompositeList> cut = Context.Render<TestCompositeList>(p => p.AddChildContent(builder =>
+        {
+            builder.OpenComponent<TestCompositeListItem>(0);
+            builder.AddComponentParameter(1, nameof(TestCompositeListItem.Guess), true);
+            builder.AddAttribute(2, "data-entry", "first");
+            builder.CloseComponent();
+            builder.OpenComponent<TestCompositeListItem>(3);
+            builder.AddComponentParameter(4, nameof(TestCompositeListItem.Guess), true);
+            builder.AddComponentParameter(5, nameof(TestCompositeListItem.ExplicitIndex), 7);
+            builder.AddAttribute(6, "data-entry", "explicit");
+            builder.CloseComponent();
+            builder.OpenComponent<TestCompositeListItem>(7);
+            builder.AddComponentParameter(8, nameof(TestCompositeListItem.Guess), true);
+            builder.AddAttribute(9, "data-entry", "second");
+            builder.CloseComponent();
+        }));
+
+        Assert.Equal(["0", "-1", "1"], Indexes(cut));
+    }
+
+    [Fact(DisplayName = "port: an item a later render inserts guesses the index after the registered items, and the report corrects it (CMP-STA-16, CMP-STA-18)")]
+    [Trait("Requirement", "CMP-STA-16")]
+    [Trait("Requirement", "CMP-STA-18")]
+    [Trait("Requirement", "OTP-EDGE-11")]
+    public void Port_an_item_a_later_render_inserts_guesses_the_index_after_the_registered_items()
+    {
+        IRenderedComponent<TestCompositeList> cut = Context.Render<TestCompositeList>(p => p.AddChildContent(Items(true, "a", "b")));
+        string[] first = RenderedIds(cut);
+        cut.InvokeAsync(() => host.Twin.OnItemsChange($$"""{"ids":["{{first[0]}}","{{first[1]}}"]}"""));
+
+        cut.Render(p => p.AddChildContent(Items(true, "x", "a", "b")));
+        Assert.Equal(["2", "0", "1"], Indexes(cut));
+
+        string[] ids = RenderedIds(cut);
+        cut.InvokeAsync(() => host.Twin.OnItemsChange($$"""{"ids":["{{ids[0]}}","{{ids[1]}}","{{ids[2]}}"]}"""));
+        Assert.Equal(["0", "1", "2"], Indexes(cut));
+    }
+
     private static string[] RenderedIds(IRenderedComponent<TestCompositeList> cut) => [.. cut.FindAll("[data-entry]").Select(element => element.Id!)];
 
     private static string[] Indexes(IRenderedComponent<TestCompositeList> cut) => [.. cut.FindAll("[data-entry]").Select(element => element.GetAttribute("data-index")!)];
 
-    private static RenderFragment Items(params string[] labels) => builder =>
+    private static RenderFragment Items(params string[] labels) => Items(false, labels);
+
+    private static RenderFragment Items(bool guess, params string[] labels) => builder =>
     {
         foreach (string label in labels)
         {
             builder.OpenComponent<TestCompositeListItem>(0);
             builder.SetKey(label);
-            builder.AddAttribute(1, "data-entry", label);
+            builder.AddComponentParameter(1, nameof(TestCompositeListItem.Guess), guess);
+            builder.AddAttribute(2, "data-entry", label);
             builder.CloseComponent();
         }
     };
