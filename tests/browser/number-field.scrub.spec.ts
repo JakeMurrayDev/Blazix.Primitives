@@ -489,3 +489,80 @@ for (const delay of [0, 50, 150]) {
     console.log(`[figure] ${description}`);
   });
 }
+
+// NUM-FOC-04 (and NUM-PTR-10) under ADR 01's row "C#-origin consumer vetoes" (ADR 04 Amendments 2026-11-18, NumberField
+// point 1 (a), the `scrub-start` point, fallback start): a consumer onpointerdown that calls PreventPartHandler() runs
+// inside the decision on WebAssembly, so the press neither focuses the input nor scrubs; on Server the decision falls back
+// to start, so the press focuses and scrubs, and the veto lands a round trip late.
+test('port: a C# consumer veto of the scrub area pointerdown keeps the press from scrubbing on WebAssembly and is late on Server (NUM-FOC-04)', async ({ page, mode }) => {
+  const { fixture, area, root, input } = await gotoScrub(page, mode, 'veto');
+
+  await press(page, area);
+
+  await expect(fixture).toHaveAttribute('data-vetoes', '1');
+  if (mode === 'wasm') {
+    await expect(input).not.toBeFocused();
+    await expect(root).not.toHaveAttribute('data-scrubbing');
+  } else {
+    await expect(input).toBeFocused();
+    await expect(root).toHaveAttribute('data-scrubbing', '');
+  }
+  await page.mouse.up();
+});
+
+for (const delay of [0, 50, 150]) {
+  test(`port: the scrub-start veto's timings at ${delay} ms one-way (NUM-FOC-04, ADR 01's consumer-veto row)`, async ({ page, mode }) => {
+    test.skip(mode === 'wasm' && delay !== 0, 'No circuit to delay on WebAssembly');
+    if (mode === 'server' && delay > 0) {
+      await delayCircuit(page, delay);
+    }
+
+    const vetoes: number[] = [];
+    const scrubs: number[] = [];
+    for (let run = 0; run < 5; run += 1) {
+      const { fixture, area, root } = await gotoScrub(page, mode, 'veto');
+      await page.evaluate(() => {
+        const record = { t0: -1, veto: -1, scrub: -1 };
+        (window as unknown as { vetoFigure: typeof record }).vetoFigure = record;
+        const container = document.querySelector('[data-fixture="number-field-scrub"][data-interactive="true"]')!;
+        const rootElement = container.querySelector('[data-testid="root"]')!;
+        document.addEventListener('pointerdown', () => {
+          if (record.t0 < 0) {
+            record.t0 = performance.now();
+          }
+        }, true);
+        new MutationObserver(() => {
+          if (record.t0 < 0) {
+            return;
+          }
+          if (record.veto < 0 && container.getAttribute('data-vetoes') === '1') {
+            record.veto = performance.now();
+          }
+          if (record.scrub < 0 && rootElement.hasAttribute('data-scrubbing')) {
+            record.scrub = performance.now();
+          }
+        }).observe(container, { attributes: true, subtree: true });
+      });
+      await press(page, area);
+      await expect(fixture).toHaveAttribute('data-vetoes', '1');
+      if (mode === 'server') {
+        await expect(root).toHaveAttribute('data-scrubbing', '');
+      }
+      await page.mouse.up();
+      const record = await page.evaluate(() => (window as unknown as { vetoFigure: { t0: number; veto: number; scrub: number } }).vetoFigure);
+      vetoes.push(record.veto - record.t0);
+      if (mode === 'server') {
+        scrubs.push(record.scrub - record.t0);
+      }
+    }
+
+    const describe = (name: string, times: number[]) => {
+      const sorted = [...times].sort((a, b) => a - b);
+      return `${name} median ${sorted[2]!.toFixed(0)} ms (${sorted.map((t) => t.toFixed(0)).join(', ')})`;
+    };
+    const parts = [describe('veto', vetoes), ...(mode === 'server' ? [describe('scrubbing', scrubs)] : [])];
+    const description = `NUM-FOC-04 ${mode} ${delay} ms: ${parts.join('; ')}`;
+    test.info().annotations.push({ type: 'figure', description });
+    console.log(`[figure] ${description}`);
+  });
+}
