@@ -49,6 +49,6 @@ public sealed class FormAllocationBudgetTests : IDisposable
             Assert.True(answer!.IsCompletedSuccessfully);
         });
 
-        Assert.True(allocated <= PassedSubmitBudgetBytes, $"a passed submission allocated {allocated} bytes; the budget is {PassedSubmitBudgetBytes}");
+        AllocationSampler.AssertWithinBudget(allocated, PassedSubmitBudgetBytes, "a passed submission");
     }
 }

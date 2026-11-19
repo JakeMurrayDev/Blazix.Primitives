@@ -55,6 +55,6 @@ public sealed class InteractionsAllocationBudgetTests : IDisposable
         long allocated = AllocationSampler.LeastOfFive(() => cut.Render(parameters));
 
         Assert.Empty(host.UpdateOptions);
-        Assert.True(allocated <= RerenderBudgetBytes, $"a re-render allocated {allocated} bytes; the budget is {RerenderBudgetBytes}");
+        AllocationSampler.AssertWithinBudget(allocated, RerenderBudgetBytes, "a re-render");
     }
 }

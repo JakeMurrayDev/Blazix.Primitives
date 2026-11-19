@@ -48,7 +48,7 @@ public sealed class ValueCommittedEventArgsTests
         long allocated = GC.GetAllocatedBytesForCurrentThread() - before;
 
         Assert.Equal(Deliveries + 1, received);
-        Assert.True(allocated <= ReceiverlessBudgetBytes, $"{allocated} bytes over {Deliveries} deliveries; budget {ReceiverlessBudgetBytes}.");
+        AllocationSampler.AssertWithinBudget(allocated, ReceiverlessBudgetBytes, $"{Deliveries} deliveries");
     }
 
     [Fact(DisplayName = "a delivery through a component receiver costs one box plus Blazor's dispatch")]
@@ -71,7 +71,7 @@ public sealed class ValueCommittedEventArgsTests
         long budget = ComponentReceiverBudgetBytesPerDelivery * Deliveries;
 
         Assert.Equal(Deliveries + 1, receiver.Received);
-        Assert.True(allocated <= budget, $"{allocated} bytes over {Deliveries} deliveries; budget {budget}.");
+        AllocationSampler.AssertWithinBudget(allocated, budget, $"{Deliveries} deliveries");
     }
 
     /// <summary>A component's event handling without a renderer: run the work item, no re-render.</summary>
