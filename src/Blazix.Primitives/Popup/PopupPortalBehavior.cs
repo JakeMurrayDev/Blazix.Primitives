@@ -163,7 +163,7 @@ internal sealed class PopupPortalBehavior : IAsyncDisposable
             return;
         }
 
-        RenderGuard(builder);
+        FocusGuard.Render(builder, "outside");
         builder.OpenElement(10, "span");
         if (OwnerRole is not null)
         {
@@ -182,22 +182,8 @@ internal sealed class PopupPortalBehavior : IAsyncDisposable
         ArgumentNullException.ThrowIfNull(builder);
         if (RendersGuards)
         {
-            RenderGuard(builder);
+            FocusGuard.Render(builder, "outside");
         }
-    }
-
-    // FLT-DOM-13: the guard renders in a region of its own, so both guards share its sequence numbers.
-    private static void RenderGuard(RenderTreeBuilder builder)
-    {
-        builder.OpenRegion(0);
-        builder.OpenElement(0, "span");
-        builder.AddAttribute(1, "tabindex", "0");
-        builder.AddAttribute(2, PopupMarkerAttributes.FocusGuard, string.Empty);
-        builder.AddAttribute(3, "data-type", "outside");
-        builder.AddAttribute(4, "aria-hidden", "true");
-        builder.AddAttribute(5, "style", VisuallyHidden.Style);
-        builder.CloseElement();
-        builder.CloseRegion();
     }
 
     private static bool SameElement(ElementReference left, ElementReference right) =>

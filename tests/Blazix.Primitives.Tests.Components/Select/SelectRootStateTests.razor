@@ -31,7 +31,7 @@
         </SelectRoot>);
         await OpenAsync(cut);
 
-        string[] sent = [.. Composite.Invocations["attach"].Concat(CompositeHandle.Invocations["update"]).Select(invocation => invocation.Arguments[1] as string ?? invocation.Arguments[0] as string ?? string.Empty)];
+        string[] sent = OnRenderer<string[]>(() => [.. Composite.Invocations["attach"].Concat(CompositeHandle.Invocations["update"]).Select(invocation => invocation.Arguments[1] as string ?? invocation.Arguments[0] as string ?? string.Empty)]);
         Assert.Contains(sent, json => json.Contains("\"retainHighlightWhileClosing\":true", StringComparison.Ordinal));
     }
 
@@ -429,33 +429,41 @@
         Assert.Equal(0, popoverOpenChanges);
     }
 
+    // Issue 256: bUnit appends a module call's record on the renderer's dispatcher, which may still be dispatching while a title
+    // reads, so every read of the invocation lists runs on that dispatcher (PR 157's rule; CI run 43256707586's "Collection
+    // was modified").
+    private T OnRenderer<T>(Func<T> read) => Renderer.Dispatcher.InvokeAsync(read).GetAwaiter().GetResult();
+
     // The latest options of the trigger's `interactions` handle: its attach's, or its latest update's.
     private string TriggerInteractionOptions(IRenderedComponent<SelectHost> cut)
     {
         string triggerId = Trigger(cut).Id!;
         string marker = "\"triggerId\":\"" + triggerId + "\"";
-        string options = (string)Interactions.Invocations["attach"].Last(i => i.Arguments[1] is string json && json.Contains(marker, StringComparison.Ordinal)).Arguments[1]!;
-        foreach (JSRuntimeInvocation update in InteractionsHandle.Invocations["update"])
+        return OnRenderer(() =>
         {
-            if (update.Arguments[0] is string json && json.Contains(marker, StringComparison.Ordinal))
+            string options = (string)Interactions.Invocations["attach"].Last(i => i.Arguments[1] is string json && json.Contains(marker, StringComparison.Ordinal)).Arguments[1]!;
+            foreach (JSRuntimeInvocation update in InteractionsHandle.Invocations["update"])
             {
-                options = json;
+                if (update.Arguments[0] is string json && json.Contains(marker, StringComparison.Ordinal))
+                {
+                    options = json;
+                }
             }
-        }
 
-        return options;
+            return options;
+        });
     }
 
     // The options of the `interactions` session attach of the root whose popup id is `floatingId`.
-    private string SessionOptions(string floatingId) =>
-        (string)Interactions.Invocations["attach"].Last(i => i.Arguments[1] is string json && json.Contains("\"floatingId\":\"" + floatingId + "\"", StringComparison.Ordinal)).Arguments[1]!;
+    private string SessionOptions(string floatingId) => OnRenderer(() =>
+        (string)Interactions.Invocations["attach"].Last(i => i.Arguments[1] is string json && json.Contains("\"floatingId\":\"" + floatingId + "\"", StringComparison.Ordinal)).Arguments[1]!);
 
     // The latest options of the composite handle on the trigger (its reference role) or on the popup (its floating role).
     private string? ReferenceListOptions() => LastCompositeOptions("\"reference\":");
 
     private string? PopupListOptions() => LastCompositeOptions("\"floating\":");
 
-    private string? LastCompositeOptions(string marker)
+    private string? LastCompositeOptions(string marker) => OnRenderer(() =>
     {
         string? options = Composite.Invocations["attach"].Select(i => i.Arguments[1] as string).LastOrDefault(json => json is not null && json.Contains(marker, StringComparison.Ordinal));
         foreach (JSRuntimeInvocation update in CompositeHandle.Invocations["update"])
@@ -467,7 +475,7 @@
         }
 
         return options;
-    }
+    });
 
     private const string HighlightedClass = "mirrors-highlight";
 

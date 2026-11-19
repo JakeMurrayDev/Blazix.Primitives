@@ -24,6 +24,9 @@ internal sealed class ToastRootContext
         this.close = close;
     }
 
+    // The Root's element, which the Content's handle measures (TST-ANI-03).
+    public Func<ElementReference?>? RootElement { get; init; }
+
     public LabelIdSlot TitleId { get; } = new();
 
     public LabelIdSlot DescriptionId { get; } = new();
