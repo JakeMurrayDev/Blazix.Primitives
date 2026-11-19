@@ -129,3 +129,7 @@ The gate runs with `retries: 0`; `--fail-on-flaky-tests` is set so that enabling
 - *The rule.* The scoring is unchanged. A title whose behaviour exists on one render mode only (a circuit-latency title, a Server-only ordering) skips the other mode with a reason in the title's own `test.skip` condition, as PR 289 did; it is then judged on the mode where it runs.
 - *The cost, accepted.* Each such title carries an explicit skip, and a wrong skip hides a WebAssembly case; the reviewer checks each skip's reason against the title.
 - *Rejected.* Judging per project (red on any non-skipped project) would let a title red on one mode pass without saying that the other mode proves nothing.
+
+**2026-11-19, the WebAssembly L4 shards' timeout raised to 45 minutes (chosen by the user 2026-11-19, "Timeout to 45 min").** The `browser-wasm` job's shards took 20–30 minutes on 2026-11-19, and six were cancelled at exactly the job's 30-minute `timeout-minutes`, failing the gate on code that had not failed. Runs 44455497022 (`main`), 44452173294, 44456500806 and 44452252075 (PR 313's own `browser-wasm` shard 3, twice, among them).
+- *The rule.* `browser-wasm` takes `timeout-minutes: 45` in `.github/workflows/ci.yml`; `browser-server` keeps 30 (its shards are shorter). The nightly (`nightly.yml`, 60 minutes per shard) is unchanged.
+- *The cost, accepted.* A hung WebAssembly shard holds its runner 15 minutes longer before it is cancelled.
