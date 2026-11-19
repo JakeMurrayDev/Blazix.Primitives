@@ -671,6 +671,26 @@ test.describe('<Autocomplete.Root /> manual unmount lifecycle', () => {
   });
 });
 
+// AutocompleteItem.test.tsx at L4 (M6 track 11, issue 248; AUT-KEY-04), on the `autocomplete-root` fixture: the Items' consumer
+// onclick is recorded as `item-clicks`.
+test.describe('<Autocomplete.Item />', () => {
+  test('calls onClick when selected with Enter key (via root interaction)', async ({ page, mode }) => {
+    const fixture = await goto(page, mode, { openOnInputClick: true });
+    await input(page).click();
+    await expect(page.getByRole('listbox')).toBeVisible();
+    await center(page.getByRole('listbox'));
+
+    await input(page).press('ArrowDown');
+    await input(page).press('ArrowDown');
+    await expect(page.getByTestId('item-banana')).toHaveAttribute('data-highlighted', '');
+    await input(page).press('Enter');
+
+    await expect.poll(() => recorded(fixture, 'data-item-clicks')).toEqual(['banana']);
+    await settle(fixture);
+    expect(await recorded(fixture, 'data-item-clicks')).toEqual(['banana']);
+  });
+});
+
 // AUT-FRM-02, EDGE-03: Base UI's `renderToString` titles on the prerendered `autocomplete-prerender`, its static markup read
 // with the scripts removed (the NavigationMenu precedent).
 test.describe('<Autocomplete.Root /> prerendered', () => {
@@ -713,6 +733,21 @@ test.describe('<Autocomplete.Root /> prerendered', () => {
 
     expect(await named(page, '')).toBe(1);
     await expect(page.getByTestId('input')).toHaveAttribute('name', 'search');
+  });
+
+  // store.test.tsx (M6 track 11, issue 248; AUT-EDGE-03). Deviation: Base UI names the Root; the fixture names the Field,
+  // whose name the Root takes (AUT-FRM-01). The server markup is read with its scripts removed, then the page hydrates.
+  test('keeps form value ownership across hydration', async ({ page, mode }) => {
+    const namedControls = (): Promise<string[]> =>
+      page.evaluate(() => [...document.querySelectorAll('[name="search"]')].map((element) => element.getAttribute('data-testid') ?? element.tagName));
+
+    await staticMarkup(page, mode, 'outside');
+    await expect(page.getByTestId('input')).toHaveAttribute('role', 'combobox');
+    expect(await namedControls()).toEqual(['input']);
+
+    await gotoCombobox(page, mode, 'autocomplete-prerender', { layout: 'outside' });
+    await expect(page.getByTestId('input')).toHaveAttribute('role', 'combobox');
+    expect(await namedControls()).toEqual(['input']);
   });
 
   test('server-renders the default popup input value without a form name before hydration', async ({ page, mode }) => {
