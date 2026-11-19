@@ -14,7 +14,9 @@
 // `preventDefault()` (checked wherever Base UI checks `defaultPrevented`); a veto from C# (`PreventPartHandler()`) is
 // the verdict of the `activate` decision point, fallback `run` (ADR 04 §3, ADR 01 relaxation table). A press-and-hold
 // tick is a report: its C# result is state and never crosses back synchronously (ADR 01 decision 1); C# stops the
-// sequence by sending `disabled` (UBT-PTR-16).
+// sequence by sending `disabled` (UBT-PTR-16); a part that answers a tick which applied nothing raises `pressAndHold.stop`
+// instead, which stops the repeat and keeps the release report (NumberField's steppers, NUM-PTR-03; amended 2026-11-18,
+// issue 277, decision 16 (a), chosen by the user 2026-11-18).
 import { decide } from './decide';
 import { isHTMLElement, ownerWindow } from './dom';
 import { eventInfo, type EventInfo } from './event-info';
@@ -41,6 +43,14 @@ export interface PressAndHoldOptions {
   startDelay?: number | null;
   /** Touch movement in pixels that cancels the hold as a scroll (8 by default). */
   scrollDistance?: number | null;
+  // UBT-PTR-20.
+  /**
+   * The id of the element a mouse press focuses with the caret at the end before the first tick, as NumberField's steppers
+   * focus their input; touch and pen presses never focus it.
+   */
+  focusTarget?: string | null;
+  /** A counter C# raises to stop the running repeat after a tick that applied nothing. */
+  stop?: number | null;
 }
 
 /** The options of a `button` handle; mirrors `ButtonOptions` in C#. */
@@ -76,6 +86,13 @@ export const ACTIVATE_POINT = 'activate';
 
 /** The name of the decision point a click on the bridged hidden input asks C# about. */
 export const TOGGLE_POINT = 'toggle';
+
+// NUM-PTR-02; issue 277 design point 1 (a), the name chosen by the user 2026-11-18.
+/**
+ * The name of the decision point a press of a press-and-hold element asks C# about before its first tick, so a consumer
+ * `onpointerdown` can keep the press from acting (NumberField's steppers). Fallback: run.
+ */
+export const HOLD_START_POINT = 'hold-start';
 
 const DEFAULT_TICK_DELAY = 60;
 const DEFAULT_START_DELAY = 400;
@@ -221,6 +238,8 @@ interface PressAndHold {
   shouldSkipClick(event: MouseEvent): boolean;
   /** Stops the sequence and forgets the press, as when the element becomes disabled. */
   reset(): void;
+  /** Stops the running repeat and keeps the press and its release report, as a tick that applied nothing does. */
+  halt(): void;
   dispose(): void;
 }
 
@@ -257,7 +276,7 @@ function createPressAndHold(element: HTMLElement, twin: TwinChannel, current: ()
     movesAfterTouch = 0;
   };
 
-  const tick = (trigger: EventInfo) => twin.report('OnHoldTick', { event: trigger });
+  const tick = (trigger: EventInfo, start: boolean) => twin.report('OnHoldTick', start ? { event: trigger, start } : { event: trigger });
 
   const begin = (trigger: Event) => {
     stop();
@@ -281,10 +300,10 @@ function createPressAndHold(element: HTMLElement, twin: TwinChannel, current: ()
 
     const snapshot = eventInfo(trigger);
     const { startDelay, tickDelay } = timing();
-    tick(snapshot);
+    tick(snapshot, true);
     startTimer = setTimeout(() => {
       startTimer = undefined;
-      repeatTimer = setInterval(() => tick(snapshot), tickDelay);
+      repeatTimer = setInterval(() => tick(snapshot, false), tickDelay);
     }, startDelay);
   };
 
@@ -370,6 +389,9 @@ function createPressAndHold(element: HTMLElement, twin: TwinChannel, current: ()
       }
       // A mouse press already acted on pointerdown; a keyboard click (detail 0) acts now.
       return event.detail !== 0;
+    },
+    halt() {
+      stop();
     },
     reset() {
       pressed = false;
@@ -619,8 +641,32 @@ export function attach(
       reportInteraction(lastPointerType, event);
     }
     if (current.pressAndHold) {
+      // A C# consumer's veto of the press (its onpointerdown's PreventPartHandler()), asked only for a press that would act.
+      if (!event.defaultPrevented && event.button === 0 && decide(twin, HOLD_START_POINT, event, 'run') !== 'run') {
+        return;
+      }
+      focusHoldTarget(event, current);
       hold.onPointerDown(event);
     }
+  };
+
+  // UBT-PTR-20 (useNumberFieldStepperButton.ts:153-170, the root's focusInput :348-357): before the first tick, a primary
+  // press that is neither touch nor pen focuses the target with the caret stored at the end, which `focus()` restores.
+  const focusHoldTarget = (event: PointerEvent, current: ButtonOptions) => {
+    const id = current.pressAndHold?.focusTarget;
+    if (!id || event.defaultPrevented || event.button !== 0 || isTouchLikePointerType(event.pointerType)) {
+      return;
+    }
+    const root = element.getRootNode() as Document | ShadowRoot;
+    const target = root.getElementById?.(id) ?? element.ownerDocument.getElementById(id);
+    if (!isHTMLElement(target)) {
+      return;
+    }
+    if (target instanceof HTMLInputElement) {
+      const length = target.value.length;
+      target.setSelectionRange(length, length);
+    }
+    target.focus();
   };
 
   const whenHolding =
@@ -662,6 +708,8 @@ export function attach(
       options = parseOptions<ButtonOptions>(nextOptionsJson);
       if ((options.disabled && !previous.disabled) || (!options.pressAndHold && previous.pressAndHold)) {
         hold.reset();
+      } else if ((options.pressAndHold?.stop ?? 0) !== (previous.pressAndHold?.stop ?? 0)) {
+        hold.halt();
       }
       correctDisabled();
       checkNative();

@@ -5634,7 +5634,16 @@ describe('readPlatformFlags', () => {
     const { readPlatformFlags } = (await import('./interactions')) as unknown as { readPlatformFlags(): string };
     const { platform } = await import('./dom');
 
-    expect(JSON.parse(readPlatformFlags())).toEqual({ voiceOver: platform.screenReader.voiceOver, mac: platform.os.mac });
+    expect(JSON.parse(readPlatformFlags())).toMatchObject({ voiceOver: platform.screenReader.voiceOver, mac: platform.os.mac });
+  });
+
+  // NUM-STA-19 (UTL-EDGE-04); issue 277 design point 4 (a), granted by the orchestrator 2026-11-18: NumberField's input picks
+  // its iOS keyboard from the flag.
+  it('port: the flags carry the platform module\'s iOS flag', async () => {
+    const { readPlatformFlags } = (await import('./interactions')) as unknown as { readPlatformFlags(): string };
+    const { platform } = await import('./dom');
+
+    expect(JSON.parse(readPlatformFlags())).toEqual({ voiceOver: platform.screenReader.voiceOver, mac: platform.os.mac, ios: platform.os.ios });
   });
 });
 

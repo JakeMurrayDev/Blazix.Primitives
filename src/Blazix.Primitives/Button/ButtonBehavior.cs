@@ -38,6 +38,8 @@ namespace Blazix.Primitives;
 /// <summary>The button mechanism of one button-like part: its consumer handler gate, its attributes and its <see cref="ButtonTwin"/>.</summary>
 internal sealed class ButtonBehavior : IDisposable
 {
+    private static readonly PressAndHoldOptions s_pressAndHold = new();
+
     private readonly IJSRuntime jsRuntime;
     private readonly ILogger logger;
     private readonly ButtonDevelopmentLog developmentLog;
@@ -58,6 +60,11 @@ internal sealed class ButtonBehavior : IDisposable
     private TwinHandle<ButtonOptions>? handle;
     private ButtonOptions? sentOptions;
     private string? lateId;
+
+    // Issue 277 (Combobox's keystroke budget, ADR 16 rule 7): the members only some parts set, the hidden-input bridge's
+    // request and restore (Switch, Checkbox, Radio) and the press-and-hold repeater (NumberField's steppers), live in one
+    // object made on first set, so a behavior without them is no larger than before the repeater was added.
+    private Extensions? extras;
 
     /// <summary>Initializes a new instance of the <see cref="ButtonBehavior"/> class.</summary>
     /// <param name="jsRuntime">The runtime the twin imports its module through.</param>
@@ -93,6 +100,8 @@ internal sealed class ButtonBehavior : IDisposable
         this.onKeyUp = onKeyUp;
         this.onClick = onClick;
     }
+
+    private Extensions Extras => extras ??= new Extensions();
 
     /// <summary>Gets or sets a value indicating whether the element ignores user interaction.</summary>
     /// <value>The part's effective disabled state.</value>
@@ -139,11 +148,28 @@ internal sealed class ButtonBehavior : IDisposable
     /// inside the click and the part infers it, and the click's snapshot; its task's result is <see langword="true"/> when
     /// the part's value afterwards equals the input's new value. <see langword="null"/> ignores toggles.
     /// </value>
-    public Func<bool?, EventSnapshot, Task<bool>>? ToggleRequest { get; set; }
+    public Func<bool?, EventSnapshot, Task<bool>>? ToggleRequest
+    {
+        get => extras?.ToggleRequest;
+        set => Extras.ToggleRequest = value;
+    }
 
     /// <summary>Gets or sets the action that restores the hidden input after a toggle the part refused once the browser had applied it.</summary>
     /// <value>The part's restore, which raises the <c>dom</c> primitive's restore count; or <see langword="null"/>.</value>
-    public Action? RestoreRequested { get; set; }
+    public Action? RestoreRequested
+    {
+        get => extras?.RestoreRequested;
+        set => Extras.RestoreRequested = value;
+    }
+
+    // UBT-ALG-07; issue 277 deliverable 3, decision 16 (a), chosen by the user 2026-11-18.
+    /// <summary>Gets or sets the press-and-hold repeater, which turns it on.</summary>
+    /// <value>NumberField's steppers' repeater; <see langword="null"/>, the default, for none. Set it before the first attach.</value>
+    public ButtonHold? Hold
+    {
+        get => extras?.Hold;
+        set => Extras.Hold = value;
+    }
 
     /// <summary>Gets the id the behavior drew for an element that a component root rendered.</summary>
     /// <value>The late id, or <see langword="null"/> while none was needed.</value>
@@ -153,6 +179,7 @@ internal sealed class ButtonBehavior : IDisposable
     /// <value>A task that completes after the first interactive render has attached the behavior.</value>
     public Task TwinAttached => attachedSource.Task;
 
+
     /// <inheritdoc />
     public void Dispose()
     {
@@ -161,6 +188,12 @@ internal sealed class ButtonBehavior : IDisposable
             twin.NativeButtonMismatched -= ReportNativeButtonMismatch;
             twin.DisabledElementDetected -= ReportDisabledElement;
             twin.Toggled -= OnToggled;
+            if (Hold is { } repeater)
+            {
+                twin.HoldTicked -= OnHoldTicked;
+                twin.HoldStopped -= repeater.Stopped;
+                twin.HoldClicked -= repeater.Clicked;
+            }
             twin.ActivationDecider = null;
             twin.ToggleDecider = null;
             _ = twin.DisposeAsync().AsTask();
@@ -176,6 +209,11 @@ internal sealed class ButtonBehavior : IDisposable
         consumerKeyDown = default;
         consumerKeyUp = default;
         consumerClick = default;
+        if (Hold is { } resetHold)
+        {
+            resetHold.ConsumerPointerDown = default;
+        }
+
         if (additionalAttributes is null)
         {
             return;
@@ -185,7 +223,8 @@ internal sealed class ButtonBehavior : IDisposable
         {
             bool keyDown = IsKeyDown(pair.Key);
             bool click = IsClick(pair.Key);
-            if (!keyDown && !click && !IsKeyUp(pair.Key))
+            bool pointerDown = Hold is not null && IsPointerDown(pair.Key);
+            if (!keyDown && !click && !pointerDown && !IsKeyUp(pair.Key))
             {
                 continue;
             }
@@ -196,7 +235,11 @@ internal sealed class ButtonBehavior : IDisposable
                 continue;
             }
 
-            if (click)
+            if (pointerDown)
+            {
+                Hold!.ConsumerPointerDown = value;
+            }
+            else if (click)
             {
                 consumerClick = value;
             }
@@ -226,7 +269,7 @@ internal sealed class ButtonBehavior : IDisposable
             return true;
         }
 
-        return !(IsKeyDown(eventName) || IsKeyUp(eventName) || (HiddenInput && IsClick(eventName)) || (Disabled && IsGated(eventName)));
+        return !(IsKeyDown(eventName) || IsKeyUp(eventName) || (HiddenInput && IsClick(eventName)) || (Hold is not null && IsPointerDown(eventName)) || (Disabled && IsGated(eventName)));
     }
 
     /// <summary>Adds the button attributes and the part's key handlers to a render.</summary>
@@ -257,6 +300,11 @@ internal sealed class ButtonBehavior : IDisposable
             if (HiddenInput && consumerClick.IsHandler)
             {
                 attributes.Set("onclick", onClick);
+            }
+
+            if (Hold is { ConsumerPointerDown.IsHandler: true, PointerDownHandler.HasDelegate: true } repeater)
+            {
+                attributes.Set("onpointerdown", repeater.PointerDownHandler);
             }
         }
     }
@@ -341,12 +389,50 @@ internal sealed class ButtonBehavior : IDisposable
     /// <returns>The consumer handler's task.</returns>
     public Task HandleKeyUpAsync(KeyboardEventArgs e) => RunConsumerKeyHandlerAsync(e, consumerKeyUp, ref decidedKeyUp);
 
+    /// <summary>Runs the consumer's <c>onpointerdown</c> handler from the part's own, unless the hold-start decision already ran it.</summary>
+    /// <param name="e">The event arguments.</param>
+    /// <returns>The consumer handler's task.</returns>
+    public Task HandlePointerDownAsync(PointerEventArgs e)
+    {
+        if (Hold is not { } repeater)
+        {
+            return Task.CompletedTask;
+        }
+
+        bool pending = repeater.DecidedPointerDown;
+        repeater.DecidedPointerDown = false;
+        return !repeater.ConsumerPointerDown.IsHandler || Disabled || pending ? Task.CompletedTask : RunLatePointerDownAsync(repeater, e);
+    }
+
+    // NUM-PTR-03, UBT-PTR-06/07; issue 277 deliverable 3 (iii): a tick that applied nothing stops the repeat.
+    /// <summary>Stops the running press-and-hold sequence at once; the release is still reported.</summary>
+    /// <returns>A task that completes when the module has the update, or at once while the behavior is not attached.</returns>
+    public Task StopHoldAsync()
+    {
+        if (Hold is not { } repeater)
+        {
+            return Task.CompletedTask;
+        }
+
+        repeater.Stop++;
+        if (handle is null || handle.IsDisposed || sentOptions is null)
+        {
+            return Task.CompletedTask;
+        }
+
+        ButtonOptions options = sentOptions with { PressAndHold = (sentOptions.PressAndHold ?? s_pressAndHold) with { Stop = repeater.Stop } };
+        sentOptions = options;
+        return handle.UpdateAsync(options).AsTask();
+    }
+
     private static bool IsGated(string name)
     {
         return string.Equals(name, "onclick", StringComparison.OrdinalIgnoreCase)
             || string.Equals(name, "onmousedown", StringComparison.OrdinalIgnoreCase)
             || string.Equals(name, "onpointerdown", StringComparison.OrdinalIgnoreCase);
     }
+
+    private static bool IsPointerDown(string name) => string.Equals(name, "onpointerdown", StringComparison.OrdinalIgnoreCase);
 
     private static bool IsClick(string name) => string.Equals(name, "onclick", StringComparison.OrdinalIgnoreCase);
 
@@ -360,6 +446,12 @@ internal sealed class ButtonBehavior : IDisposable
         created.NativeButtonMismatched += ReportNativeButtonMismatch;
         created.DisabledElementDetected += ReportDisabledElement;
         created.Toggled += OnToggled;
+        if (Hold is { } repeater)
+        {
+            created.HoldTicked += OnHoldTicked;
+            created.HoldStopped += repeater.Stopped;
+            created.HoldClicked += repeater.Clicked;
+        }
         return created;
     }
 
@@ -376,6 +468,7 @@ internal sealed class ButtonBehavior : IDisposable
             SuppressEnter = SuppressEnter,
             InputItem = InputItem,
             DisabledElementCheck = DisabledElementPart is not null,
+            PressAndHold = Hold is not { } repeater ? null : repeater.FocusTarget is null && repeater.Stop == 0 ? s_pressAndHold : new PressAndHoldOptions { FocusTarget = repeater.FocusTarget, Stop = repeater.Stop },
         };
     }
 
@@ -384,7 +477,9 @@ internal sealed class ButtonBehavior : IDisposable
     {
         if (sentOptions is { } sent && sent.Disabled == Disabled && sent.FocusableWhenDisabled == FocusableWhenDisabled && sent.Native == Native && sent.Composite == composite
             && sent.HiddenInput == HiddenInput && sent.ReadOnly == ReadOnly && sent.SuppressEnter == SuppressEnter && sent.InputItem == InputItem
-            && sent.DisabledElementCheck == (DisabledElementPart is not null))
+            && sent.DisabledElementCheck == (DisabledElementPart is not null)
+            && (sent.PressAndHold is not null) == (Hold is not null)
+            && (sent.PressAndHold is not { } hold || (string.Equals(hold.FocusTarget, Hold!.FocusTarget, StringComparison.Ordinal) && hold.Stop == Hold.Stop)))
         {
             return null;
         }
@@ -409,6 +504,12 @@ internal sealed class ButtonBehavior : IDisposable
         if (string.Equals(snapshot.Type, "click", StringComparison.Ordinal))
         {
             return DecideClick(snapshot);
+        }
+
+        // The `hold-start` point (NUM-PTR-02) asks with the press of a press-and-hold element.
+        if (string.Equals(snapshot.Type, "pointerdown", StringComparison.Ordinal))
+        {
+            return DecideHoldStart(snapshot);
         }
 
         bool keyUp = string.Equals(snapshot.Type, "keyup", StringComparison.Ordinal);
@@ -473,6 +574,66 @@ internal sealed class ButtonBehavior : IDisposable
         try
         {
             RunSynchronousPart(consumerClick.InvokeAsync(args));
+        }
+        catch (Exception exception)
+        {
+            _ = dispatchException(exception);
+        }
+
+        return args.PartHandlerPrevented() ? DecisionPolicy.Stop : DecisionPolicy.Run;
+    }
+
+    // A sequence's first tick also starts it (NUM-PTR-05): the start runs first.
+    private void OnHoldTicked(ButtonHoldEvent tick)
+    {
+        if (Hold is not { } repeater)
+        {
+            return;
+        }
+
+        if (tick.Start)
+        {
+            repeater.Started(tick.Event);
+        }
+
+        repeater.Ticked(tick.Event);
+    }
+
+    // NUM-PTR-02 under ADR 01's consumer-veto row: a press no decision asked about (Server) has started its hold before the
+    // consumer's onpointerdown runs here, so a PreventPartHandler() stops the sequence when it arrives, as a boundary does.
+    private async Task RunLatePointerDownAsync(ButtonHold repeater, PointerEventArgs e)
+    {
+        await repeater.ConsumerPointerDown.InvokeAsync(e).ConfigureAwait(true);
+        if (e.PartHandlerPrevented())
+        {
+            await StopHoldAsync().ConfigureAwait(true);
+        }
+    }
+
+    // The `hold-start` decision, on WebAssembly only: the consumer's declined onpointerdown runs here, before the press
+    // focuses the input and ticks, and a PreventPartHandler() there stops the press (NUM-PTR-02).
+    private DecisionPolicy DecideHoldStart(EventSnapshot snapshot)
+    {
+        if (Hold is not { ConsumerPointerDown.IsHandler: true } repeater || Disabled)
+        {
+            return DecisionPolicy.Run;
+        }
+
+        PointerEventArgs args = new()
+        {
+            Type = snapshot.Type,
+            PointerType = snapshot.PointerType ?? string.Empty,
+            Detail = snapshot.Detail,
+            Buttons = snapshot.Buttons,
+            AltKey = snapshot.AltKey,
+            CtrlKey = snapshot.CtrlKey,
+            MetaKey = snapshot.MetaKey,
+            ShiftKey = snapshot.ShiftKey,
+        };
+        repeater.DecidedPointerDown = true;
+        try
+        {
+            RunSynchronousPart(repeater.ConsumerPointerDown.InvokeAsync(args));
         }
         catch (Exception exception)
         {
@@ -591,5 +752,15 @@ internal sealed class ButtonBehavior : IDisposable
     private readonly record struct DecidedKey(string Key, string Code, bool AltKey, bool CtrlKey, bool MetaKey, bool ShiftKey)
     {
         public static DecidedKey From(KeyboardEventArgs e) => new(e.Key, e.Code, e.AltKey, e.CtrlKey, e.MetaKey, e.ShiftKey);
+    }
+
+    /// <summary>The members only some parts set, made on first set.</summary>
+    private sealed class Extensions
+    {
+        public Func<bool?, EventSnapshot, Task<bool>>? ToggleRequest { get; set; }
+
+        public Action? RestoreRequested { get; set; }
+
+        public ButtonHold? Hold { get; set; }
     }
 }

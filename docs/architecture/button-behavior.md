@@ -7,7 +7,7 @@
 | Tests | `internals/use-button/useButton.test.tsx`, `button/Button.test.tsx`, `toolbar/button/ToolbarButton.test.tsx`, `number-field/increment/NumberFieldIncrement.test.tsx`, plus the `nativeButton` / `focusableWhenDisabled` cases in component test files cited inline |
 | Prefix | `UBT` |
 | Status | approved |
-| Revised | 2026-11-10 |
+| Revised | 2026-11-19 |
 | Used by | `components/button.md`, `components/checkbox.md`, `components/switch.md`, `components/radio.md`, `components/toggle.md`, `components/toggle-group.md`, `components/tabs.md`, `components/accordion.md`, `components/collapsible.md`, `components/dialog.md`, `components/alert-dialog.md`, `components/drawer.md`, `components/popover.md`, `components/menu.md`, `components/menubar.md`, `components/context-menu.md`, `components/select.md`, `components/combobox.md`, `components/autocomplete.md`, `components/navigation-menu.md`, `components/toast.md`, `components/toolbar.md`, `components/number-field.md`, `components/slider.md` (touch-like pointer predicate only); `architecture/popup-store-and-handles.md` (interaction-type detection) |
 
 ## 1. Purpose
@@ -269,6 +269,7 @@ Press-and-hold repeater (`usePressAndHold`; used by `NumberField.Increment` / `N
   Source: `internals/usePressAndHold.ts:182-187,251,260-261,269-270`. Test: [L3] `NumberFieldIncrement.test.tsx` touch cases (fire `touchStart` before `pointerDown`).
 - **UBT-PTR-20** — MUST. The stepper button's own `pointerdown` handler (which runs before the repeater's) focuses the number field input only for non-touch-like pointers, so a stylus/finger tap does not raise the software keyboard.
   Source: `number-field/root/useNumberFieldStepperButton.ts:153-170`, `internals/usePressAndHold.ts:16-21`. Test: [L4] `NumberFieldIncrement.test.tsx` "places the caret at the end of the input when a mouse press focuses it".
+  Note 2026-11-19 (M6 track 6, issue 277, PR 6a; decision 16 (a), chosen by the user 2026-11-18): green on both modes in `tests/browser/number-field.spec.ts` on the `number-field-hold` fixture. The port's channel is the `button` module's additive `holdFocusTarget` option (the input's id, sent by the stepper), which focuses the target with the caret at the end before the first tick for a pointer other than touch or pen; L3 `js/button.test.ts` "places the caret at the end of the input when a mouse press focuses it" covers the pen case.
 
 ### FOC — Focus
 

@@ -42,4 +42,20 @@ public sealed class PlatformFlagsTests : IDisposable
         Assert.Single(module.Invocations["readPlatformFlags"]);
         Assert.Same(flags, context.Services.GetRequiredService<PlatformFlags>());
     }
+
+    // NUM-STA-19; issue 277 design point 4 (a), granted by the orchestrator 2026-11-18.
+    [Fact(DisplayName = "port: the iOS flag reads null until filled, then the module's value")]
+    [Trait("Requirement", "NUM-STA-19")]
+    public async Task The_iOS_flag_reads_null_until_filled_then_the_modules_value()
+    {
+        BunitJSModuleInterop module = context.JSInterop.SetupModule(InteractionsTestContext.ModulePath);
+        module.Setup<string>("readPlatformFlags").SetResult("""{"voiceOver":false,"mac":false,"ios":true}""");
+        PlatformFlags flags = context.Services.GetRequiredService<PlatformFlags>();
+
+        Assert.Null(flags.Ios);
+
+        await flags.EnsureAsync(context.Services.GetRequiredService<IJSRuntime>());
+
+        Assert.True(flags.Ios);
+    }
 }

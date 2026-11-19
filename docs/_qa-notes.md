@@ -192,3 +192,20 @@ Base UI v1.9.0 run in Chromium through its own vitest browser mode, from a copy 
 - SLD-DOM-16's Writer cell was C#; it is `C# → JS` (decision 14 (a); ADR 04 Amendments 2026-11-18): C# renders the input's `value` first and the module writes it after every change it applies and every `update`, so a refused change and a native form reset are repaired.
 - The value shape (ADR 08 Amendments 2026-11-18, the probe's outcome): two typed triples, `Value : double?` and `Values : IReadOnlyList<double>?`, each with its `Changed`, default, expression and callbacks, in place of ADR 05 §4's `SliderValue` union. The triple supplied first is the mode; supplying both throws (SLD-API-01's note).
 - SLD-PTR-04..11: the bullets marked "Server: relaxed, see §9" read "met on both modes" (decision 8 of the M6 plan, 2026-11-18). ADR 01's frame-loop row lists them as met, because constraint C1 puts the drag loop in JavaScript.
+
+## 2026-11-19, ScrollArea port (M6 track 5, [issue 276](https://github.com/JakeMurrayDev/Blazix.Primitives/issues/276))
+
+- SCR §16 Q3–Q9 replicated as the source has them (decision 23 of the M6 plan), each with a dated note on its row; Q1 keeps `data-id` as rendered and unread by the module.
+- One handle per part (design point 6 (a)): a part's handle can attach before the root's, so the root's state is created by the first handle; an L4 title holds the root's `attach` back through a wrapped module, red without the rule.
+- Two convergence fixes the port needs because parts attach one by one: a render while a part's first attach is in flight sends its newer options after it (the WebAssembly Thumb stayed hidden), and a corner-size change measures once more (a Corner sized before the horizontal scrollbar left the vertical thumb 2 px long on Server, 1 run in 8).
+- The §5 Writer cells are restated one attribute per row for the ownership lint; the Viewport gains `scroll-snap-type` (JS, during a drag; design point 2 (a)).
+- SCR-EDGE-02 follows the source's order: a Content outside both a Viewport and a Root throws the Viewport's error.
+- On Server each newly rendered part imports the module through its own twin before attaching, so the second measurement pass is four legs after the parts mount (ADR 01 Amendments 2026-11-19); every report also gets a 34–36 B `EndInvokeDotNet` reply.
+
+## 2026-11-19, NumberField's PR 6a (M6 track 6, [issue 277](https://github.com/JakeMurrayDev/Blazix.Primitives/issues/277), [PR 292](https://github.com/JakeMurrayDev/Blazix.Primitives/pull/292))
+
+- NUM §5.3: the visible input's `value` Writer read C#; it is C# → JS (ADR 04 Amendments 2026-11-18, NumberField point 7 (a)). The ownership lint found it once the NumberField folder existed (NUM-DOM-13's ScrubAreaCursor `style` also needed its registry row).
+- NUM-DOM-06: the hidden `<input type="number">` renders no id, and the form module matches a submission's controls by element id. As for a named Select, the field validates from the last validity report of its refresh; the Form titles that render NumberField (`FormNumberFieldTests`) read the typed value from the registry.
+- NUM-PTR-02, "treats pen pointer as touch-like": Base UI's jsdom press focuses nothing (`document.body`); a real pen press focuses the button natively, so the L4 title asserts that the input is not focused.
+- NUM-PTR-01, "always steps on quick touch ($order, …)": a real CDP tap has the browser's one order of `touchend` and the compatibility `click`, so the `it.each` title runs once per stepper as a port title.
+- NUM §16 items 1–14 are resolved by the dated notes of 2026-11-19 in §16 (replicated, or as built).

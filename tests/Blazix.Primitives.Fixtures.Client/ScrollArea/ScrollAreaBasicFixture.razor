@@ -1,0 +1,34 @@
+@namespace Blazix.Primitives.Fixtures.Client.ScrollAreaFixtures
+@using Blazix.Primitives
+@inherits ScrollAreaFixtureBase
+
+@*
+    The `scroll-area-basic` fixture (tests/browser/scroll-area*.spec.ts): the hero's parts in a fixed 200 × 200 px root over
+    1,000 px of content (`?height=`, `?width=` change the content's size), one vertical 10 px scrollbar with its thumb.
+*@
+<FixtureContainer Name="scroll-area-basic" data-attached="@(Attached ? "true" : "false")" data-measured="@(Measured ? "true" : "false")"
+                  data-reports="@Reports" data-sync="@Sync">
+    <button type="button" data-sync-button @onclick="() => Sync++">Sync</button>
+    <ScrollAreaRoot @ref="Root" data-testid="root" style="width: 200px; height: 200px">
+        <ScrollAreaViewport @ref="Viewport" data-testid="viewport" style="width: 100%; height: 100%">
+            <ScrollAreaContent @ref="Content" data-testid="content">
+                <div style="width: @(contentWidth)px; height: @(contentHeight)px"></div>
+            </ScrollAreaContent>
+        </ScrollAreaViewport>
+        <ScrollAreaScrollbar data-testid="scrollbar" style="width: 10px">
+            <ScrollAreaThumb data-testid="thumb" style="width: 100%; background: gray" />
+        </ScrollAreaScrollbar>
+    </ScrollAreaRoot>
+</FixtureContainer>
+
+@code {
+    private int contentHeight;
+    private int contentWidth;
+
+    /// <inheritdoc />
+    protected override void OnInitialized()
+    {
+        contentHeight = int.Parse(Query("height", "1000"), System.Globalization.CultureInfo.InvariantCulture);
+        contentWidth = int.Parse(Query("width", "100"), System.Globalization.CultureInfo.InvariantCulture);
+    }
+}

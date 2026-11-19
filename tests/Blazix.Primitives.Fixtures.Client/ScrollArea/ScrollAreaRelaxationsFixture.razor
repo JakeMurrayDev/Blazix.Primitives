@@ -1,0 +1,97 @@
+@namespace Blazix.Primitives.Fixtures.Client.ScrollAreaFixtures
+@using System.Globalization
+@using Blazix.Primitives
+@inherits ScrollAreaFixtureBase
+
+@*
+    The `scroll-area-relaxations` fixture (tests/browser/scroll-area.relaxations.spec.ts): a 200 × 200 px root whose timing
+    and circuit traffic the spec measures, so nothing on the page renders from the root's reports but the parts themselves.
+    The root is not tracked through the base's `Root` (whose listener re-renders the fixture on every report): the page
+    waits for its handle itself, so `data-attached` covers the root, the viewport and the content, and no `data-measured`
+    or `data-reports` is rendered. The sync barrier is its own component (`ScrollAreaSyncBarrier`), so a barrier re-renders
+    nothing of the scroll area.
+    - Content: the inner element is `width` × `height` (1,000 × 1,000) px.
+    - Scrollbars: `bars` (`both`, `vertical`, `horizontal`), `keepMounted`; 10 px each, thumbs filling them.
+    - Corner: `corner` (true).
+    - Direction: `dir` (`ltr` | `rtl`), flipped by `toggle-dir` (a DirectionProvider and `direction` on the root's style).
+    - `mirror`: the root's ClassValue renders `mirror-scrolling` while its mirrored Scrolling is true, and the vertical
+      scrollbar's renders `mirror-hovering` while its mirrored Hovering is true (RND-STA-01's C# side).
+    Test ids: root, viewport, content, inner, scrollbar-vertical, scrollbar-horizontal, thumb-vertical, thumb-horizontal,
+    corner, toggle-dir.
+*@
+<FixtureContainer Name="scroll-area-relaxations" data-attached="@(Attached && rootAttached ? "true" : "false")">
+    <div>
+        <ScrollAreaSyncBarrier />
+        <button type="button" data-testid="toggle-dir" @onclick="() => rtl = !rtl">Toggle direction</button>
+    </div>
+    <DirectionProvider Direction="@(rtl ? TextDirection.Rtl : TextDirection.Ltr)">
+        <ScrollAreaRoot @ref="root" data-testid="root" style="@RootStyle" ClassValue="@(mirror ? RootClass : null)">
+            <ScrollAreaViewport @ref="Viewport" data-testid="viewport" style="width: 100%; height: 100%">
+                <ScrollAreaContent @ref="Content" data-testid="content">
+                    <div data-testid="inner" style="@InnerStyle"></div>
+                </ScrollAreaContent>
+            </ScrollAreaViewport>
+            @if (bars is "both" or "vertical")
+            {
+                <ScrollAreaScrollbar Orientation="Orientation.Vertical" KeepMounted="keepMounted" data-testid="scrollbar-vertical"
+                                     style="width: 10px" ClassValue="@(mirror ? BarClass : null)">
+                    <ScrollAreaThumb data-testid="thumb-vertical" style="width: 100%" />
+                </ScrollAreaScrollbar>
+            }
+            @if (bars is "both" or "horizontal")
+            {
+                <ScrollAreaScrollbar Orientation="Orientation.Horizontal" KeepMounted="keepMounted" data-testid="scrollbar-horizontal"
+                                     style="height: 10px">
+                    <ScrollAreaThumb data-testid="thumb-horizontal" style="height: 100%" />
+                </ScrollAreaScrollbar>
+            }
+            @if (corner)
+            {
+                <ScrollAreaCorner data-testid="corner" />
+            }
+        </ScrollAreaRoot>
+    </DirectionProvider>
+</FixtureContainer>
+
+@code {
+    private static readonly Func<ScrollAreaRootState, string?> RootClass = state => state.Scrolling ? "mirror-scrolling" : null;
+    private static readonly Func<ScrollAreaScrollbarState, string?> BarClass = state => state.Hovering ? "mirror-hovering" : null;
+
+    private ScrollAreaRoot? root;
+    private bool rootAttached;
+    private bool rtl;
+    private int innerWidth;
+    private int innerHeight;
+    private string bars = "both";
+    private bool keepMounted;
+    private bool corner;
+    private bool mirror;
+
+    private string RootStyle => string.Create(CultureInfo.InvariantCulture, $"width: 200px; height: 200px; direction: {(rtl ? "rtl" : "ltr")}");
+
+    private string InnerStyle => string.Create(CultureInfo.InvariantCulture, $"width: {innerWidth}px; height: {innerHeight}px");
+
+    /// <inheritdoc />
+    protected override void OnInitialized()
+    {
+        rtl = Query("dir", "ltr") == "rtl";
+        innerWidth = int.Parse(Query("width", "1000"), CultureInfo.InvariantCulture);
+        innerHeight = int.Parse(Query("height", "1000"), CultureInfo.InvariantCulture);
+        bars = Query("bars", "both");
+        keepMounted = Query("keepMounted", "false") == "true";
+        corner = Query("corner", "true") == "true";
+        mirror = Query("mirror", "false") == "true";
+    }
+
+    /// <inheritdoc />
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        await base.OnAfterRenderAsync(firstRender);
+        if (firstRender && RendererInfo.IsInteractive && root is not null)
+        {
+            await root.TwinAttached;
+            rootAttached = true;
+            StateHasChanged();
+        }
+    }
+}

@@ -80,6 +80,11 @@ internal static class OwnershipRegistry
         // module owns the element's value and defaultValue from attach. Input adopts the row (INP-STR-04).
         new("field", "Control", "value", Writer.CsharpToJs),
         new("field", "Control", "defaultValue", Writer.CsharpToJs),
+        // NumberField (M6 track 6, issue 277; ADR 04 Amendments 2026-11-18, NumberField points 7 (a) and 8 (a), chosen by the
+        // user): the number-field module writes the visible input's value from attach, C# rendering the display text once
+        // (number-field.md §5.3, corrected 2026-11-19); the scrub role writes the cursor's transform style (NUM-DOM-13).
+        new("number-field", "Input", "value", Writer.CsharpToJs),
+        new("number-field", "ScrubAreaCursor", "style", Writer.CsharpToJs),
         // Switch (M2 track 4; ADR 04 Amendments 2026-10-22): the dom primitive owns the hidden checkbox input's checked
         // property from attach; C# renders the initial value once (the handover).
         new("switch", "Hidden checkbox input", "checked", Writer.CsharpToJs),
@@ -134,6 +139,31 @@ internal static class OwnershipRegistry
         // TabsPanelState.TransitionStatus; C# renders data-starting-style once, on an element it creates open.
         new("tabs", "Panel", "data-starting-style", Writer.Js, "TabsPanelState.TransitionStatus"),
         new("tabs", "Panel", "data-ending-style", Writer.Js, "TabsPanelState.TransitionStatus"),
+        // ScrollArea (M6 track 5; ADR 04 §2's ScrollArea rows as corrected 2026-11-18 and Amendments 2026-11-18): the
+        // `scroll-area` module writes data-scrolling on five parts and data-hovering on the Scrollbar, mirrored in the six
+        // [MirroredField] flags; the Viewport's overflow variables and, during a drag, scroll-snap-type, and the Thumb's
+        // transform and overscroll variables (the 'component' band); the corner and thumb-size variables and the Corner's size
+        // that C# renders at 0px before the module owns them (C# → JS). The overflow data-* stay C#-projected.
+        new("scroll-area", "Root", "data-scrolling", Writer.Js, "ScrollAreaRootState.Scrolling"),
+        new("scroll-area", "Root", "--scroll-area-corner-height", Writer.CsharpToJs),
+        new("scroll-area", "Root", "--scroll-area-corner-width", Writer.CsharpToJs),
+        new("scroll-area", "Viewport", "data-scrolling", Writer.Js, "ScrollAreaViewportState.Scrolling"),
+        new("scroll-area", "Viewport", "--scroll-area-overflow-x-start", Writer.Js),
+        new("scroll-area", "Viewport", "--scroll-area-overflow-x-end", Writer.Js),
+        new("scroll-area", "Viewport", "--scroll-area-overflow-y-start", Writer.Js),
+        new("scroll-area", "Viewport", "--scroll-area-overflow-y-end", Writer.Js),
+        new("scroll-area", "Viewport", "scroll-snap-type", Writer.Js),
+        new("scroll-area", "Content", "data-scrolling", Writer.Js, "ScrollAreaContentState.Scrolling"),
+        new("scroll-area", "Scrollbar", "data-scrolling", Writer.Js, "ScrollAreaScrollbarState.Scrolling"),
+        new("scroll-area", "Scrollbar", "data-hovering", Writer.Js, "ScrollAreaScrollbarState.Hovering"),
+        new("scroll-area", "Scrollbar", "--scroll-area-thumb-height", Writer.CsharpToJs),
+        new("scroll-area", "Scrollbar", "--scroll-area-thumb-width", Writer.CsharpToJs),
+        new("scroll-area", "Thumb", "data-scrolling", Writer.Js, "ScrollAreaThumbState.Scrolling"),
+        new("scroll-area", "Thumb", "transform", Writer.Js),
+        new("scroll-area", "Thumb", "--scroll-area-thumb-height", Writer.Js),
+        new("scroll-area", "Thumb", "--scroll-area-thumb-width", Writer.Js),
+        new("scroll-area", "Corner", "width", Writer.CsharpToJs),
+        new("scroll-area", "Corner", "height", Writer.CsharpToJs),
         // AlertDialog (M4 track 9, issue 124; design point 2, settled by the orchestrator 2026-10-29, ADR 04 Amendments
         // 2026-10-29): Dialog's transition rows under alert-dialog.md §5.1's own Writer tables, mirrored in each AlertDialog
         // state's TransitionStatus; §5.2's outside aria-hidden is the focus manager's outside marking.
