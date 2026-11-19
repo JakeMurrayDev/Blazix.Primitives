@@ -69,7 +69,8 @@ export function parsePlaywrightCoverage(text) {
   const keys = new Set();
   for (const fileSuite of report.suites ?? []) {
     for (const { spec, titles } of playwrightSpecs(fileSuite, [])) {
-      if ((spec.tags ?? []).includes(COVERAGE_TAG)) keys.add(`tests/browser/${fileSuite.file}::${titles.join(' > ')}`);
+      // The JSON listing gives a tag without its `@`.
+      if ((spec.tags ?? []).some((tag) => tag.replace(/^@/, '') === COVERAGE_TAG.slice(1))) keys.add(`tests/browser/${fileSuite.file}::${titles.join(' > ')}`);
     }
   }
   return [...keys];
