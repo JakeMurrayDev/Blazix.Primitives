@@ -53,12 +53,12 @@ public sealed class NumberFieldScrubTwinContractTests
     {
         using BunitContext context = new();
         BunitJSModuleInterop module = context.JSInterop.SetupModule("./_content/Blazix.Primitives/js/number-field.js");
-        module.SetupModule("attach", _ => true);
+        module.SetupModule("attach", _ => true).SetupVoid("dispose", _ => true).SetVoidResult();
         await using NumberFieldScrubTwin twin = new(context.JSInterop.JSRuntime);
 
         await twin.AttachAsync("cursor", new NumberFieldScrubOptions { Part = NumberFieldScrubTwin.CursorPart, Style = "position: fixed" });
 
-        Assert.Equal("""{"style":"position: fixed","part":"cursor"}""", Assert.Single(module.Invocations["attach"]).Arguments[1]);
+        Assert.Equal("""{"part":"cursor","style":"position: fixed"}""", Assert.Single(module.Invocations["attach"]).Arguments[1]);
     }
 
     [Fact(DisplayName = "port: the scrub reports raise their events with the cursor flag, the denial, the delta and the revision")]

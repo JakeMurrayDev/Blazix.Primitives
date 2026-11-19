@@ -46,3 +46,26 @@ internal sealed record NumberFieldWheelReport(int Direction, EventSnapshot Event
 /// <param name="Event">The snapshot of the hidden input's <c>change</c> event.</param>
 internal sealed record NumberFieldAutofillReport(double? Value, EventSnapshot Event);
 
+
+// NUM-PTR-10, NUM-STR-06 (NumberFieldScrubArea.tsx:304-349)
+/// <summary>The payload of the <c>number-field</c> module's scrub start report.</summary>
+/// <param name="Cursor">A value indicating whether the pointer can have a virtual cursor: neither touch nor WebKit.</param>
+/// <param name="Event">The snapshot of the <c>pointerdown</c>.</param>
+internal sealed record NumberFieldScrubStartReport(bool Cursor, EventSnapshot Event);
+
+// NUM-PTR-10, NUM-EDGE-09
+/// <summary>The payload of the <c>number-field</c> module's pointer-lock report, sent when the outcome differs from the last one.</summary>
+/// <param name="Denied">A value indicating whether the pointer-lock request was denied.</param>
+internal sealed record NumberFieldScrubLockReport(bool Denied);
+
+// NUM-PTR-11 (NumberFieldScrubArea.tsx:226-260)
+/// <summary>The payload of the <c>number-field</c> module's scrub step report.</summary>
+/// <param name="Delta">The crossing move's delta on the scrub axis: <c>movementX</c>, or <c>-movementY</c> when vertical.</param>
+/// <param name="Revision">The revision of this report, which C# echoes in the input's next options.</param>
+/// <param name="Event">The snapshot of the <c>pointermove</c>, whose modifiers pick the amount.</param>
+internal sealed record NumberFieldScrubStepReport(double Delta, int Revision, EventSnapshot Event);
+
+// NUM-PTR-13 (NumberFieldScrubArea.tsx:165-224)
+/// <summary>The payload of the <c>number-field</c> module's scrub end report.</summary>
+/// <param name="Event">The snapshot of the <c>pointerup</c>.</param>
+internal sealed record NumberFieldScrubEndReport(EventSnapshot Event);
