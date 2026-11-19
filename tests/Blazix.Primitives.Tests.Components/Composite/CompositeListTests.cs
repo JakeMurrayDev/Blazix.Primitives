@@ -180,6 +180,28 @@ public sealed class CompositeListTests : IDisposable
         Assert.Equal(["0", "1", "2"], Indexes(cut));
     }
 
+    [Fact(DisplayName = "port: an item can take its guess before it registers, and registering takes no second guess (CMP-STA-16)")]
+    [Trait("Requirement", "CMP-STA-16")]
+    [Trait("Requirement", "OTP-DOM-07")]
+    public void Port_an_item_can_take_its_guess_before_it_registers()
+    {
+        IRenderedComponent<TestCompositeList> cut = Context.Render<TestCompositeList>(p => p.AddChildContent(builder =>
+        {
+            for (int i = 0; i < 3; i++)
+            {
+                builder.OpenComponent<TestCompositeListItem>(0);
+                builder.SetKey(i);
+                builder.AddComponentParameter(1, nameof(TestCompositeListItem.Guess), true);
+                builder.AddComponentParameter(2, nameof(TestCompositeListItem.GuessBeforeRegistering), true);
+                builder.AddAttribute(3, "data-entry", i);
+                builder.CloseComponent();
+            }
+        }));
+
+        Assert.Equal([0, 1, 2], cut.FindComponents<TestCompositeListItem>().Select(item => item.Instance.GuessedBeforeRegistering));
+        Assert.Equal(["0", "1", "2"], Indexes(cut));
+    }
+
     private static string[] RenderedIds(IRenderedComponent<TestCompositeList> cut) => [.. cut.FindAll("[data-entry]").Select(element => element.Id!)];
 
     private static string[] Indexes(IRenderedComponent<TestCompositeList> cut) => [.. cut.FindAll("[data-entry]").Select(element => element.GetAttribute("data-index")!)];
