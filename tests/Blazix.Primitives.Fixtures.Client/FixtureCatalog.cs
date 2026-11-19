@@ -109,6 +109,7 @@ public static class FixtureCatalog
         ["slider-config"] = new(typeof(SliderConfigFixture)),
         ["meter-prerender"] = new(typeof(MeterPrerenderFixture), Prerender: true),
         ["number-field-hold"] = new(typeof(NumberFieldHoldFixture)),
+        ["number-field-form"] = new(typeof(NumberFieldFormFixture)),
         ["progress-basic"] = new(typeof(ProgressBasicFixture)),
         ["progress-prerender"] = new(typeof(ProgressPrerenderFixture), Prerender: true),
         ["composite-list"] = new(typeof(CompositeListFixture)),
