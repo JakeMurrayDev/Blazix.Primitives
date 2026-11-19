@@ -409,6 +409,36 @@ describe('swipe behavior', () => {
     expect(anchored.element.hasAttribute('data-swiping')).toBe(false);
   });
 
+  it('port: the directions are physical in a right-to-left document (TST-I18N-01)', () => {
+    document.documentElement.dir = 'rtl';
+    try {
+      const root = attachRoot({ directions: ['right'] });
+      root.element.dir = 'rtl';
+
+      simulateSwipe(root.element, 100, 100, 160, 100);
+
+      expect(releases(root)).toEqual([expect.objectContaining({ direction: 'right', dismiss: true })]);
+    } finally {
+      document.documentElement.removeAttribute('dir');
+    }
+  });
+
+  it('port: a viewport click runs the focus handler, so a focus-visible element inside marks it focused (TST-PTR-25)', () => {
+    const viewport = document.createElement('div');
+    document.body.append(viewport);
+    const fake = createFakeTwin();
+    handles.push(attach(viewport, options({ part: 'viewport', empty: false, focused: false }), fake.twin));
+    const inside = document.createElement('button');
+    viewport.append(inside);
+    inside.focus();
+    const before = fake.reported<ToastReport>('OnReport').length;
+    handles.at(-1)!.update(options({ part: 'viewport', empty: false, focused: false, revision: before }));
+
+    inside.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+
+    expect(fake.reported<ToastReport>('OnReport').map((report) => report.kind)).toEqual(['focus', 'focus']);
+  });
+
   it('port: moves of another pointer are ignored and not prevented (TST-PTR-23)', () => {
     const root = attachRoot({ directions: ['up'] });
 
