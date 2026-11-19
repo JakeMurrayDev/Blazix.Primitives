@@ -560,13 +560,30 @@ function attachScrubArea(area: ScrubElement, initial: NumberFieldScrubOptions, t
     }
   };
 
-  // NumberFieldScrubArea.tsx:126-145: the cursor starts centred on the press.
+  // NumberFieldScrubArea.tsx:126-145: the cursor starts centred on the press. On Server the cursor's handle attaches while
+  // the portal is still moving it, hidden and unmeasured: it is placed at once, and centred again by its size once laid out.
+  let layoutObserver: ResizeObserver | null = null;
   const placeCursor = () => {
     if (cursor === null) {
       return;
     }
-    coords = { x: press.clientX - cursor.offsetWidth / 2, y: press.clientY - cursor.offsetHeight / 2 };
-    writeCursor(cursor, coords.x, coords.y);
+    const placed = cursor;
+    coords = { x: press.clientX - placed.offsetWidth / 2, y: press.clientY - placed.offsetHeight / 2 };
+    writeCursor(placed, coords.x, coords.y);
+    layoutObserver?.disconnect();
+    layoutObserver = null;
+    if (placed.getClientRects().length === 0 && typeof ResizeObserver === 'function') {
+      layoutObserver = new ResizeObserver(() => {
+        if (cursor !== placed || placed.getClientRects().length === 0) {
+          return;
+        }
+        layoutObserver?.disconnect();
+        layoutObserver = null;
+        coords = { x: coords.x - placed.offsetWidth / 2, y: coords.y - placed.offsetHeight / 2 };
+        writeCursor(placed, coords.x, coords.y);
+      });
+      layoutObserver.observe(placed);
+    }
   };
 
   // NumberFieldScrubArea.tsx:83-123 (NUM-PTR-16): the virtual cursor follows the movement and wraps at the bounds.
@@ -594,6 +611,10 @@ function attachScrubArea(area: ScrubElement, initial: NumberFieldScrubOptions, t
   const state: ScrubState = {
     setCursor(next) {
       cursor = next;
+      if (next === null) {
+        layoutObserver?.disconnect();
+        layoutObserver = null;
+      }
       if (next !== null && pointerDown) {
         placeCursor();
       }

@@ -32,10 +32,8 @@ public sealed class NumberFieldScrubAreaCursor : PartBase<NumberFieldScrubAreaCu
 
     private readonly Action stateChanged;
     private readonly RenderFragment renderElement;
-    private readonly Action<object> capturePortal;
     private NumberFieldRootContext? context;
     private NumberFieldScrubAreaContext? scrubContext;
-    private NumberFieldCursorPortal? portal;
     private NumberFieldScrubTwin? twin;
     private TwinHandle<NumberFieldScrubOptions>? handle;
     private Task? attaching;
@@ -53,7 +51,6 @@ public sealed class NumberFieldScrubAreaCursor : PartBase<NumberFieldScrubAreaCu
     {
         stateChanged = StateHasChanged;
         renderElement = base.BuildRenderTree;
-        capturePortal = component => portal = (NumberFieldCursorPortal)component;
     }
 
     [Inject]
@@ -113,7 +110,6 @@ public sealed class NumberFieldScrubAreaCursor : PartBase<NumberFieldScrubAreaCu
 
         builder.OpenComponent<NumberFieldCursorPortal>(0);
         builder.AddComponentParameter(1, nameof(ChildContent), renderElement);
-        builder.AddComponentReferenceCapture(2, capturePortal);
         builder.CloseComponent();
     }
 
@@ -192,12 +188,7 @@ public sealed class NumberFieldScrubAreaCursor : PartBase<NumberFieldScrubAreaCu
 
     private async Task AttachAsync(ElementReference element)
     {
-        // The node is hidden until the portal moves it, and the module measures the cursor when it places it.
-        if (portal is not null)
-        {
-            await portal.Moved;
-        }
-
+        // Attached beside the portal's move, not after it: the module centres the cursor again once it is laid out.
         if (!rendering || scrubContext!.Element is not { } area)
         {
             attaching = null;

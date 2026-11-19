@@ -33,9 +33,6 @@ internal sealed class NumberFieldCursorPortal : PartBase<EmptyState>
     /// <inheritdoc />
     protected override string? HostWrapperTagName => "div";
 
-    /// <summary>Gets a task that completes once the <c>portal</c> module moved the node into the body.</summary>
-    internal Task Moved => portal?.Context.Moved ?? Task.CompletedTask;
-
     /// <inheritdoc />
     protected override void OnInitialized()
     {
