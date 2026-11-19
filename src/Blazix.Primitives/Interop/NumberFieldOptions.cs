@@ -16,7 +16,18 @@ internal sealed record NumberFieldOptions : TwinOptions
     /// <value>The revision; 0 before any report.</value>
     public int Revision { get; init; }
 
-    // NUM-KEY-07 (decision 7 (a)): the keydown gate tests membership in this set; C# re-validates every text.
+    // ADR 16 rule 7: the input role's configuration travels apart, at attach and when it changes, so a step's update carries
+    // only the text and the revision.
+    /// <summary>Gets the input role's configuration, or <see langword="null"/> to keep the last one the module received.</summary>
+    /// <value>The configuration, sent when it changes.</value>
+    public NumberFieldInputOptions? Input { get; init; }
+}
+
+// NUM-KEY-02, NUM-KEY-07, NUM-KEY-09, NUM-KEY-11, NUM-PTR-07, NUM-PTR-09, NUM-EDGE-03 (decision 7 (a); issue 277, 6b).
+/// <summary>The input role's configuration of the <c>number-field</c> module: the keydown gate, the bounds and the wheel.</summary>
+internal sealed record NumberFieldInputOptions
+{
+    // NUM-KEY-07: the keydown gate tests membership in this set; C# re-validates every text.
     /// <summary>Gets the characters other than numerals that the input accepts for the locale and format.</summary>
     /// <value>The allowed characters, or <see langword="null"/> before the input role is configured.</value>
     public string? Allowed { get; init; }
