@@ -1,4 +1,5 @@
-import { test, expect, type Locator, type Page, type RenderMode } from './helpers';
+import type { Locator } from '@playwright/test';
+import { test, expect, type Page, type RenderMode } from './helpers';
 import { Fixture } from './helpers/navigation';
 import { delayCircuit, holdCircuit } from './helpers/circuit';
 
@@ -49,7 +50,7 @@ async function dispatchMove(area: Locator, movementX: number, movementY = 0) {
 }
 
 // NumberFieldScrubArea.test.tsx:14-23: Base UI's synthetic pointerdown (no pointerType), as its exact-movement titles use.
-async function dispatchDown(area: Locator, init: PointerEventInit = {}) {
+async function dispatchDown(area: Locator, init: { button?: number; pointerType?: string } = {}) {
   await area.evaluate((element, extra) => {
     const box = element.getBoundingClientRect();
     element.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, cancelable: true, clientX: box.left + box.width / 2, clientY: box.top + box.height / 2, ...extra }));
