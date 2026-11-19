@@ -651,6 +651,19 @@ public sealed class OtpFieldRenderTests : IDisposable
         Assert.Contains($"Blazix: `<OtpFieldRoot>` `Length` must be a positive integer. Received `Length={length}`.", Assert.Single(host.RootLogger.Entries).Message, StringComparison.Ordinal);
     }
 
+    // UTL-EDGE-11/12: Base UI's `warn` writes each text once per page; the port's set is the scoped OtpFieldDevelopmentLog
+    // (granted by the orchestrator 2026-11-19), one per circuit or application.
+    [Fact(DisplayName = "port: a warning text is written once per session, across two fields (OTP-EDGE-02, OTP-EDGE-03)")]
+    [Trait("Requirement", "OTP-EDGE-02")]
+    [Trait("Requirement", "OTP-EDGE-03")]
+    public void Port_a_warning_text_is_written_once_per_session()
+    {
+        Context.Render<OtpFieldRoot>(p => p.Add(r => r.Length, 0));
+        Context.Render<OtpFieldRoot>(p => p.Add(r => r.Length, 0));
+
+        Assert.Single(host.RootLogger.Entries);
+    }
+
     private static IReadOnlyList<IElement> Slots<TComponent>(IRenderedComponent<TComponent> cut)
         where TComponent : IComponent
         => cut.FindAll("input:not([aria-hidden])");
