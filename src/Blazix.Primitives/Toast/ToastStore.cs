@@ -2,6 +2,12 @@ using Blazix.Primitives.Store;
 
 namespace Blazix.Primitives;
 
+// DP3 (i) of the Toast track (chosen by the user 2026-11-19): a close's focus hand-off.
+/// <summary>The focus hand-off a close computed.</summary>
+/// <param name="Revision">The close's number, increasing with each close.</param>
+/// <param name="TargetId">The id of the toast to focus; <see langword="null"/> to return focus to the element focused before F6.</param>
+internal sealed record ToastHandOff(int Revision, string? TargetId);
+
 // TST §4.1 (toast/store.ts:25-35); M6 track 9a design point 2 (a), pending the user: one ComponentStore per Provider, the
 // timers, the paused flag and (from 9b) the element handles and the previous focus in non-notifying fields.
 /// <summary>Holds the state of one toast provider.</summary>
@@ -12,6 +18,7 @@ namespace Blazix.Primitives;
 /// <param name="IsWindowFocused">Whether the browser window has focus.</param>
 /// <param name="Timeout">The provider's auto-dismiss delay in milliseconds.</param>
 /// <param name="Limit">The provider's limit of toasts shown at once.</param>
+/// <param name="HasPreviousFocus">Whether F6 has recorded the element focused before it, which the focus guards return to.</param>
 [StoreState]
 internal sealed partial record ToastStoreState<TData>(
     ToastList<TData> Toasts,
@@ -19,7 +26,8 @@ internal sealed partial record ToastStoreState<TData>(
     bool Focused,
     bool IsWindowFocused,
     double Timeout,
-    int Limit)
+    int Limit,
+    bool HasPreviousFocus = false)
     : IStoreState<ToastStoreState<TData>>;
 
 // TST §4.1, the selectors of store.ts:86-97. Named selectors are static readonly fields (UTL-STA-17).
@@ -38,6 +46,12 @@ internal static class ToastSelectors<TData>
     public static readonly Func<ToastStoreState<TData>, string, int> ToastVisibleIndex = static (state, id) => state.Toasts.VisibleIndex(id);
 
     public static readonly Func<ToastStoreState<TData>, bool> Focused = static state => state.Focused;
+
+    // TST-DOM-04, TST-FOC-13: the guards exist while the list is non-empty and F6 has recorded the previous focus.
+    public static readonly Func<ToastStoreState<TData>, bool> Guarded = static state => state.Toasts.Count > 0 && state.HasPreviousFocus;
+
+    // TST-PTR-03: a toast is ending, which defers the collapse of a pointer leaving.
+    public static readonly Func<ToastStoreState<TData>, bool> HasEnding = static state => state.Toasts.HasEnding;
 
     // TST-STA-14
     public static readonly Func<ToastStoreState<TData>, bool> Expanded = static state => state.Hovering || state.Focused;
@@ -58,8 +72,19 @@ internal sealed class ToastStore<TData> : ComponentStore<ToastStoreState<TData>>
     private readonly TimeProvider time;
     private readonly Func<Action, Task> dispatch;
     private readonly Dictionary<string, ToastTimer> timers = new(StringComparer.Ordinal);
+    // DP3 (i) of the Toast track (chosen by the user 2026-11-19): the element-handle cell (store.ts's `ref` field), each
+    // Root's element by its toast's id, the latest registration winning (TST-ANI-08, TST-ANI-09); non-notifying.
+    private readonly Dictionary<string, ToastElementRegistration> elements = new(StringComparer.Ordinal);
     private bool areTimersPaused;
+    private int handOffRevision;
     private bool disposed;
+
+    // For the fixtures: raised after a part applied one of the `toast` module's reports, with its kind (the readiness marker).
+    public event Action<string>? ReportApplied;
+
+    // DP3 (i): raised at each close, so the Viewport sends the hand-off before the render that starts the exit; on
+    // WebAssembly an exit with no animation removes the toast, and its focus, within that render's after-render work.
+    public event Action? HandOffRequested;
 
     public ToastStore(double timeout, int limit, TimeProvider? time = null, Func<Action, Task>? dispatch = null, IEnumerable<ToastObject<TData>>? toasts = null)
         : base(new ToastStoreState<TData>(Seed(toasts), false, false, true, timeout, limit))
@@ -67,6 +92,9 @@ internal sealed class ToastStore<TData> : ComponentStore<ToastStoreState<TData>>
         this.time = time ?? TimeProvider.System;
         this.dispatch = dispatch ?? RunInline;
     }
+
+    // DP3 (i): the focus hand-off of the latest close, which the Viewport sends to the `toast` module; non-notifying.
+    public ToastHandOff? HandOff { get; private set; }
 
     // For the tests: whether the timers are paused.
     internal bool AreTimersPaused => areTimersPaused;
@@ -250,6 +278,14 @@ internal sealed class ToastStore<TData> : ComponentStore<ToastStoreState<TData>>
             anyActive |= limited[i].TransitionStatus != TransitionStatus.Ending;
         }
 
+        // TST-FOC-07..09 (handleFocusManagement, store.ts:480-515), DP3 (i) of the Toast track (chosen by the user
+        // 2026-11-19): C# names the target over the list as closed, the next non-ending toast after the closed one, else the
+        // nearest before it, else the element focused before F6; the `toast` module focuses it only while focus-visible focus
+        // is inside the viewport. It is sent before the state write: a write can render at once (WebAssembly), and an exit
+        // with no animation then removes the closed toast, with the focus it holds, before any later message.
+        HandOff = new ToastHandOff(++handOffRevision, closeAll ? null : HandOffTarget(limited, id!));
+        HandOffRequested?.Invoke();
+
         SetToasts(limited, clearInteraction: !anyActive);
 
         foreach (ToastObject<TData> toast in toClose)
@@ -259,8 +295,105 @@ internal sealed class ToastStore<TData> : ComponentStore<ToastStoreState<TData>>
                 toast.OnClose?.Invoke();
             }
         }
+    }
 
-        // The focus hand-off (TST-FOC-07..09) comes with the module (M6 track 9b).
+    // For the fixtures: announces a report a part applied.
+    public void OnReportApplied(string kind) => ReportApplied?.Invoke(kind);
+
+    // TST-ANI-02, TST-ANI-08, TST-ANI-09: a Root registers its element under its toast's id; the latest registration wins.
+    public void RegisterElement(string id, object owner, Func<Microsoft.AspNetCore.Components.ElementReference?> element) =>
+        elements[id] = new ToastElementRegistration(owner, element);
+
+    // A Root that leaves, or moves to another id, withdraws only its own registration.
+    public void UnregisterElement(string id, object owner)
+    {
+        if (elements.TryGetValue(id, out ToastElementRegistration? registration) && ReferenceEquals(registration.Owner, owner))
+        {
+            elements.Remove(id);
+        }
+    }
+
+    // The element a Root registered for the toast, if it has one.
+    public Microsoft.AspNetCore.Components.ElementReference? ElementOf(string? id) =>
+        id is not null && elements.TryGetValue(id, out ToastElementRegistration? registration) ? registration.Element() : null;
+
+    // TST-FOC-02, TST-FOC-10 (handleFocusGuard, ToastViewport.tsx:108-112): the first toast that is neither ending nor limited.
+    public string? FirstFocusableToast()
+    {
+        ToastObject<TData>[] items = State.Toasts.Items;
+        for (int i = 0; i < items.Length; i++)
+        {
+            if (items[i].TransitionStatus != TransitionStatus.Ending && !items[i].Limited)
+            {
+                return items[i].Id;
+            }
+        }
+
+        return null;
+    }
+
+    // The reports of the Viewport's role in the `toast` module (ADR 04 Amendments 2026-11-18, the `toast` scope; M6 track
+    // 9b), applied as Base UI's handlers write the store (ToastViewport.tsx:57-209; store.ts:402-416).
+    public void ApplyViewportReport(string kind, bool resume)
+    {
+        switch (kind)
+        {
+            // TST-PTR-01.
+            case "enter":
+                PauseTimers();
+                SetHovering(true);
+                break;
+
+            // TST-PTR-02..04 (flushMouseLeave).
+            case "leave":
+                SetHovering(false);
+                ResumeUnlessExpandedOrOutOfFocus();
+                break;
+
+            // TST-FOC-05, TST-PTR-25.
+            case "focus":
+                SetFocused(true);
+                PauseTimers();
+                break;
+
+            // TST-FOC-06.
+            case "blur":
+                SetFocused(false);
+                ResumeUnlessExpandedOrOutOfFocus();
+                break;
+
+            // TST-KEY-01, TST-FOC-01, TST-FOC-13.
+            case "f6":
+                Update(static (state, _) => state with { HasPreviousFocus = true }, true);
+                PauseTimers();
+                SetFocused(true);
+                break;
+
+            // TST-FOC-11.
+            case "window-blur":
+                SetWindowFocused(false);
+                PauseTimers();
+                break;
+
+            // TST-FOC-12.
+            case "window-focus":
+                if (resume)
+                {
+                    ResumeTimers();
+                }
+
+                break;
+
+            case "window-focused":
+                SetWindowFocused(true);
+                break;
+
+            // TST-PTR-05.
+            case "touch-outside":
+                ResumeTimers();
+                Update(static (state, _) => state with { Hovering = false, Focused = false }, true);
+                break;
+        }
     }
 
     // TST-STA-16, TST-STA-17, TST-EVT-07, TST-EVT-08, TST-API-12 (promiseToast, store.ts:322-362). The settlement is brought
@@ -335,6 +468,37 @@ internal sealed class ToastStore<TData> : ComponentStore<ToastStoreState<TData>>
 
     // For the tests: whether a timer record exists for the toast.
     internal bool HasTimer(string id) => timers.ContainsKey(id);
+
+    private void ResumeUnlessExpandedOrOutOfFocus()
+    {
+        if (!ToastSelectors<TData>.ExpandedOrOutOfFocus(State))
+        {
+            ResumeTimers();
+        }
+    }
+
+    // TST-FOC-07, TST-FOC-08: the nearest non-ending toast after the closed one, else before it; null for the previous focus.
+    private static string? HandOffTarget(ToastObject<TData>[] items, string id)
+    {
+        int index = Array.FindIndex(items, toast => toast.Id == id);
+        for (int i = index + 1; i < items.Length; i++)
+        {
+            if (items[i].TransitionStatus != TransitionStatus.Ending)
+            {
+                return items[i].Id;
+            }
+        }
+
+        for (int i = index - 1; i >= 0; i--)
+        {
+            if (items[i].TransitionStatus != TransitionStatus.Ending)
+            {
+                return items[i].Id;
+            }
+        }
+
+        return null;
+    }
 
     private static Task RunInline(Action action)
     {
@@ -546,6 +710,8 @@ internal sealed class ToastStore<TData> : ComponentStore<ToastStoreState<TData>>
         ToastObject<TData> updates = options with { Type = type, Timeout = options.Timeout };
         UpdateToast(id, _ => updates);
     }
+
+    private sealed record ToastElementRegistration(object Owner, Func<Microsoft.AspNetCore.Components.ElementReference?> Element);
 
     private sealed class PromiseSettlement<TValue>(ToastStore<TData> store, string id, ToastPromiseOptions<TValue, TData> options, TaskCompletionSource<TValue> completion)
     {

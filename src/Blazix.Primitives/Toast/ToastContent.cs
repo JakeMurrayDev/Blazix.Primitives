@@ -1,6 +1,8 @@
+using Blazix.Primitives.Interop;
 using Blazix.Primitives.Rendering;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Rendering;
+using Microsoft.JSInterop;
 
 namespace Blazix.Primitives;
 
@@ -23,13 +25,22 @@ public static class ToastContentDataAttributes
 }
 
 // Base UI's Toast.Content (toast/content/ToastContent.tsx); TST-STR-04, TST-DOM-15. Its re-measurement on every size change
-// and DOM mutation of its subtree (TST-ANI-03) is the `toast` module's content role (M6 track 9b).
+// and DOM mutation of its subtree (TST-ANI-03) is the `toast` module's content role (M6 track 9b): its handle observes the
+// element and asks its Root's handle, named by the Root's element, to measure again; the Root reports the height.
 /// <summary>Represents the container of a toast's contents. Base UI's <c>Toast.Content</c>; it renders a <c>div</c>.</summary>
 public sealed class ToastContent : PartBase<ToastContentState>
 {
     private ToastRootContext? root;
     private ToastRootSubscription? subscription;
+    private ToastPartHandle? handle;
+    private ToastOptions? options;
+    private ElementReference? sentRoot;
+    private ElementReference[] references = [];
+    private bool disposed;
     private ToastContentState state = new(false, false);
+
+    [Inject]
+    private IJSRuntime JSRuntime { get; set; } = null!;
 
     [CascadingParameter]
     private ToastRootContext? RootContext { get; set; }
@@ -56,6 +67,7 @@ public sealed class ToastContent : PartBase<ToastContentState>
     {
         root = ToastRootContext.Require(RootContext);
         subscription = root.Subscribe(ToastRootAspects.Expanded | ToastRootAspects.Behind, StateHasChanged);
+        handle = new ToastPartHandle(JSRuntime, handsOverStyle: false);
         base.OnInitialized();
     }
 
@@ -67,12 +79,34 @@ public sealed class ToastContent : PartBase<ToastContentState>
     }
 
     /// <inheritdoc />
+    protected override Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (disposed)
+        {
+            return Task.CompletedTask;
+        }
+
+        // The options name the Root's element; they are built again only when it changed.
+        ElementReference? rootElement = root!.RootElement?.Invoke();
+        if (options is null || !ToastPartHandle.SameElement(rootElement, sentRoot))
+        {
+            sentRoot = rootElement;
+            references = rootElement is { } element ? [element] : [];
+            options = new ToastOptions { Part = ToastTwin.ContentPart, RootRef = rootElement is null ? null : 0 };
+        }
+
+        return handle!.SyncAsync(Element, options, references);
+    }
+
+    /// <inheritdoc />
     protected override void Dispose(bool disposing)
     {
-        if (disposing)
+        if (disposing && !disposed)
         {
+            disposed = true;
             subscription?.Dispose();
             subscription = null;
+            handle?.Dispose();
         }
 
         base.Dispose(disposing);

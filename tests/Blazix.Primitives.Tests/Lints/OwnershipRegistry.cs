@@ -524,5 +524,15 @@ internal static class OwnershipRegistry
         new("toast", "Root", "--toast-swipe-movement-x", Writer.Js),
         new("toast", "Root", "transition", Writer.Js),
         new("toast", "Root", "transform", Writer.Js),
+        // The Positioner and Arrow (M6 track 9b; toast.md §5.7, the Tooltip precedent; DP4 (a) of the Toast track, chosen
+        // by the user 2026-11-19): the `positioning` module owns their style and placement from the attach.
+        new("toast", "Positioner", "style", Writer.CsharpToJs),
+        new("toast", "Positioner", "data-side", Writer.CsharpToJs, "ToastPositionerState.Side"),
+        new("toast", "Positioner", "data-align", Writer.CsharpToJs, "ToastPositionerState.Align"),
+        new("toast", "Positioner", "data-anchor-hidden", Writer.Js, "ToastPositionerState.AnchorHidden"),
+        new("toast", "Arrow", "style", Writer.CsharpToJs),
+        new("toast", "Arrow", "data-side", Writer.CsharpToJs, "ToastArrowState.Side"),
+        new("toast", "Arrow", "data-align", Writer.CsharpToJs, "ToastArrowState.Align"),
+        new("toast", "Arrow", "data-uncentered", Writer.CsharpToJs, "ToastArrowState.Uncentered"),
     ];
 }

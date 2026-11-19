@@ -101,4 +101,7 @@ namespace Blazix.Primitives.Interop;
 [JsonSerializable(typeof(ScrollAreaOverflowReport))]
 [JsonSerializable(typeof(ScrollAreaScrollingReport))]
 [JsonSerializable(typeof(ScrollAreaHoverReport))]
+// M6 track 9b: the `toast` twin's options and report (ADR 04 §1's `toast` row; ADR 16 rule 4).
+[JsonSerializable(typeof(ToastOptions))]
+[JsonSerializable(typeof(ToastReport))]
 internal sealed partial class BlazixJsonContext : JsonSerializerContext;
