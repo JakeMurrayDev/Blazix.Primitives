@@ -327,3 +327,9 @@ Menu's figures are the list rows' (track 1's test-only hosts run Menu's options)
   - *How measured.* `number-field.spec.ts` › "port: the hold-start veto's timings at {0, 50, 150} ms one-way": from the stepper's `pointerdown` to the C# veto's record and to the step's record, in the page's clock, by a capture listener and a mutation observer. Each figure is the median of 5 fresh renders (local, 2026-11-19), with the range in brackets.
   - Server, veto: 8 ms (7–16) at 0 ms, 108 (107–110) at 50, 314 (312–315) at 150. Server, step: 8 (7–13), 108 (106–109), 313 (311–313). WebAssembly, veto: 12 (12–14); no step.
   - NUM-KEY-11, NUM-EVT-14 and NUM-FOC-04 are PR 6b's (the input role).
+
+**2026-11-19, NumberField's input role on the "committed synchronously" row (M6 track 6, [issue 277](https://github.com/JakeMurrayDev/Blazix.Primitives/issues/277), PR 6b; decision 8 of the M6 plan; the row's substitute unchanged).** number-field.md §9 names both IDs.
+- NUM-KEY-01 (a step key) and NUM-PTR-07 (a wheel step) commit inside the event in Base UI. Here the `number-field` module prevents the default in the dispatch, so the browser never moves the caret or scrolls the page, and C# steps and commits one leg later.
+- *How measured.* `number-field.input.spec.ts` › "port: the {ArrowUp, wheel} step's commit timing at {0, 50, 150} ms one-way": from the keydown or wheel, by a capture listener, to the commit's record (`data-commits`), by a mutation observer, in the page's clock. Medians of 5 fresh renders (local, 2026-11-19), with the range in brackets.
+- NUM-KEY-01 on Server: 15 ms (14–16) at 0 ms, 107 (106–107) at 50, 309 (308–311) at 150. On WebAssembly: 8 (7–9).
+- NUM-PTR-07 on Server: 1 ms (0–3) at 0 ms, 108 (105–112) at 50, 310 (307–314) at 150. On WebAssembly: 7 (7–8).
