@@ -111,8 +111,8 @@ const dispatchPointer = (page: Page, testId: string, type: string, init: Pointer
     { type, init },
   );
 
-/** The centre of the popup's free area under its Content (the popup is 300 px tall from top 100). */
-const popupPoint = { x: 100, y: 370 };
+/** A point in the popup's free area under its regions (the popup is 300 px tall from top 100). */
+const popupPoint = { x: 100, y: 390 };
 
 test.describe('<Drawer.Viewport /> swipe', () => {
   // DRW-PTR-01 (DrawerViewport.test.tsx:3534-3590).
@@ -409,5 +409,69 @@ test.describe('<Drawer.Viewport /> touch swipe', () => {
     const prevented = await page.evaluate(() => (window as unknown as { drawerMoves: TouchEvent[] }).drawerMoves.map((event) => event.defaultPrevented));
     expect(prevented.length).toBeGreaterThan(0);
     expect(prevented.every(Boolean)).toBe(true);
+  });
+});
+
+// Slice 2's scroll-edge titles (DRW-PTR-21 (f), ALG-03's edges), real CDP touch on the fixture's 60 px scroll container.
+// The first move stays inside the container (25 px; Chromium swallowed every move up to 12 px): the tracker starts a swipe
+// from a scroll edge only when the move's point is still over the scroller, as Base UI's jsdom titles pin the hit test to
+// it.
+// Base UI reads `fireEvent`'s result and an `onTouchMove` on the container; here a window capture listener reads each
+// move's defaultPrevented and a listener on the container counts the moves that reach it.
+const recordScrollMoves = (page: Page) =>
+  page.evaluate(() => {
+    const record = { prevented: [] as boolean[], reached: 0 };
+    (window as unknown as { scrollMoves: typeof record }).scrollMoves = record;
+    const moves: TouchEvent[] = [];
+    window.addEventListener('touchmove', (event) => moves.push(event), { capture: true, passive: true });
+    document.querySelector('[data-testid="scroll"]')!.addEventListener('touchmove', () => (record.reached += 1), { passive: true });
+    // The page reads defaultPrevented after every listener ran.
+    window.addEventListener('touchend', () => (record.prevented = moves.map((event) => event.defaultPrevented)), { capture: true });
+  });
+const scrollMoves = (page: Page) => page.evaluate(() => (window as unknown as { scrollMoves: { prevented: boolean[]; reached: number } }).scrollMoves);
+
+test.describe('<Drawer.Viewport /> touch swipe over a scroll container', () => {
+  // DRW-PTR-21 (DrawerViewport.test.tsx:1604-1650): at the top, a drag toward the dismiss direction is the drawer's.
+  testWithTouch('prevents touchmove at scroll top when swiping down on scrollable content', async ({ touchPage: page, mode }) => {
+    await downCase(page, mode);
+    await recordScrollMoves(page);
+    const start = await pointOf(page.getByTestId('scroll'));
+
+    await touchDrag(page, [[start, { x: start.x, y: start.y + 25 }, { x: start.x, y: start.y + 60 }]], { steps: 1 });
+
+    const { prevented, reached } = await scrollMoves(page);
+    expect(prevented.length).toBeGreaterThan(0);
+    expect(prevented.every(Boolean)).toBe(true);
+    expect(reached).toBe(0);
+  });
+
+  // DRW-PTR-21 (DrawerViewport.test.tsx:2214-2260): at the top, a drag the other way scrolls the content.
+  testWithTouch('allows touchmove when scrolling down from scroll top', async ({ touchPage: page, mode }) => {
+    const fixture = await downCase(page, mode);
+    await recordScrollMoves(page);
+    const scroll = page.getByTestId('scroll');
+    const start = await pointOf(scroll);
+
+    await touchDrag(page, [[start, { x: start.x, y: start.y - 60 }]], { steps: 4 });
+
+    const { prevented, reached } = await scrollMoves(page);
+    expect(prevented.some(Boolean)).toBe(false);
+    expect(reached).toBeGreaterThan(0);
+    await expect.poll(() => scroll.evaluate((element) => element.scrollTop)).toBeGreaterThan(0);
+    await settle(fixture);
+    await expect(fixture).toHaveAttribute('data-open-changes', '');
+  });
+
+  // DRW-PTR-21, PTR-10 (DrawerViewport.test.tsx:2513-2582).
+  testWithTouch('dismisses from a top-edge scroll container with a touch swipe down', async ({ touchPage: page, mode }) => {
+    const fixture = await downCase(page, mode);
+    const start = await pointOf(page.getByTestId('scroll'));
+
+    await touchDrag(page, [[start, { x: start.x, y: start.y + 25 }, { x: start.x, y: start.y + 250 }]], {
+      steps: 1,
+      beforeRelease: () => expect(page.getByTestId('backdrop')).toHaveAttribute('data-swiping', ''),
+    });
+
+    await expect(fixture).toHaveAttribute('data-open-changes', 'false:swipe');
   });
 });
