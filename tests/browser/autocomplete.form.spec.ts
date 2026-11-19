@@ -127,7 +127,7 @@ test.describe('<Autocomplete.Root />', () => {
     // AUT-FRM-01. Base UI's `user.clear` is `fill('')`. Red on WebAssembly (2026-11-19, 3 of 3): the Field validates the typed
     // values out of order there ("o one on"), so "on"'s result lands last; open by ID, a library defect for track 10.
     test('prop: validationMode=onSubmit', async ({ page, mode }) => {
-      const openRow = 'AUT-FRM-01 (issue TBD): on WebAssembly the Field validates typed values out of order, so a stale value\'s result lands last';
+      const openRow = 'AUT-FRM-01 (issue 309): on WebAssembly the Field validates typed values out of order, so a stale value\'s result lands last';
       if (mode === 'wasm') test.info().annotations.push({ type: 'open', description: openRow });
       test.fixme(mode === 'wasm', openRow);
       await goto(page, mode, 'on-submit');
