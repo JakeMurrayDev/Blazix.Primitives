@@ -85,6 +85,10 @@ internal static class OwnershipRegistry
         // (number-field.md §5.3, corrected 2026-11-19); the scrub role writes the cursor's transform style (NUM-DOM-13).
         new("number-field", "Input", "value", Writer.CsharpToJs),
         new("number-field", "ScrubAreaCursor", "style", Writer.CsharpToJs),
+
+        // M6 track 7 (issue 278; ADR 04 Amendments 2026-10-18, the otp-field ownership row): the otp-field module writes each
+        // slot's value from attach, C# rendering it at first and sending it on update (otp-field.md §5.2, OTP-DOM-08).
+        new("otp-field", "Input", "value", Writer.CsharpToJs),
         // Switch (M2 track 4; ADR 04 Amendments 2026-10-22): the dom primitive owns the hidden checkbox input's checked
         // property from attach; C# renders the initial value once (the handover).
         new("switch", "Hidden checkbox input", "checked", Writer.CsharpToJs),
