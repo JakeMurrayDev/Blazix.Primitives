@@ -6,16 +6,17 @@
     The `number-field-input` fixture (tests/browser/number-field.input.spec.ts): a root with only its input, the input
     role's test consumer. `?case=` picks the root's props: `basic` (defaultValue 0), `bounds` (min -10, max 10), `empty`
     (no defaultValue), `de` (de-DE), `wheel` (defaultValue 5, allowWheelScrub). Every OnValueChange is recorded as
-    `value/reason` in the container's data-changes; data-attached is rendered once the number-field module is attached.
+    `value/reason` in the container's data-changes, and every OnValueCommitted in data-commits; data-attached is rendered once the number-field module is attached.
 *@
-<FixtureContainer Name="number-field-input" data-attached="@(attached ? "true" : "false")" data-changes="@string.Join(' ', changes)">
-    <NumberFieldRoot DefaultValue="DefaultValue" Min="Min" Max="Max" AllowWheelScrub="@(Case == "wheel")" Culture="Culture" OnValueChange="Change">
+<FixtureContainer Name="number-field-input" data-attached="@(attached ? "true" : "false")" data-changes="@string.Join(' ', changes)" data-commits="@string.Join(' ', commits)">
+    <NumberFieldRoot DefaultValue="DefaultValue" Min="Min" Max="Max" AllowWheelScrub="@(Case == "wheel")" Culture="Culture" OnValueChange="Change" OnValueCommitted="Commit">
         <NumberFieldInput @ref="input" data-testid="input" />
     </NumberFieldRoot>
 </FixtureContainer>
 
 @code {
     private readonly List<string> changes = [];
+    private readonly List<string> commits = [];
     private NumberFieldInput? input;
     private bool attached;
 
@@ -51,5 +52,11 @@
     {
         string value = e.Value is double number ? number.ToString(CultureInfo.InvariantCulture) : "null";
         changes.Add($"{value}/{e.Details.Reason.ToLiteral()}");
+    }
+
+    private void Commit(ValueCommittedEventArgs<double?> e)
+    {
+        string value = e.Value is double number ? number.ToString(CultureInfo.InvariantCulture) : "null";
+        commits.Add($"{value}/{e.Details.Reason.ToLiteral()}");
     }
 }
