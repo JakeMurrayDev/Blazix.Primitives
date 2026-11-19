@@ -391,5 +391,6 @@ public static class FixtureCatalog
         ["toast-basic"] = new(typeof(ToastBasicFixture)),
         ["toast-anchored"] = new(typeof(ToastAnchoredFixture)),
         ["toast-dialog"] = new(typeof(ToastDialogFixture)),
+        ["toast-portal"] = new(typeof(ToastPortalFixture)),
     };
 }
