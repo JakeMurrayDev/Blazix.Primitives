@@ -6,7 +6,9 @@ import {
   headPathspecsOnBase,
   isExempt,
   judge,
+  judgeCoverage,
   parseDotnetList,
+  parsePlaywrightCoverage,
   parsePlaywrightList,
   parseVitestList,
   playwrightOutcomes,
@@ -335,5 +337,79 @@ describe('summary', () => {
     expect(markdown).toContain('| l1 | 2 | 1 | 1 |');
     expect(markdown).toContain('passes against the base branch');
     expect(markdown).toContain('`b`');
+  });
+});
+
+// ADR 11 Amendments 2026-11-19 (M6 track 11, design point U3-1 (a), chosen by the user 2026-11-19): a title that ports
+// coverage of behaviour already on the base carries a marker, `@coverage` in Playwright or `[Trait("Coverage", "issue-N")]`
+// in C#. Such a title still runs against the base, where it must pass; it is listed apart and not judged as red.
+describe('coverage titles', () => {
+  const list = JSON.stringify({
+    suites: [
+      {
+        file: 'popover.spec.ts',
+        specs: [
+          { title: 'ported', tags: ['@coverage'], tests: [{ projectName: 'server', results: [] }] },
+          { title: 'new behaviour', tags: [], tests: [{ projectName: 'server', results: [] }] },
+        ],
+        suites: [{ title: 'nested', specs: [{ title: 'also ported', tags: ['slow', 'coverage'], tests: [] }] }],
+      },
+    ],
+  });
+
+  // Playwright's JSON listing gives a tag without its `@` (`{ tag: '@coverage' }` lists as `coverage`); both forms count.
+  it('are the Playwright specs tagged @coverage, named as the listing names them', () => {
+    expect(parsePlaywrightCoverage(list)).toEqual(['tests/browser/popover.spec.ts::ported', 'tests/browser/popover.spec.ts::nested > also ported']);
+    expect(parsePlaywrightList(list)).toContain('tests/browser/popover.spec.ts::new behaviour');
+  });
+
+  it('pass when each passes against the base branch, the behaviour they cover being already there', () => {
+    const verdict = judgeCoverage(['a', 'b'], new Map([['a', 'passed'], ['b', 'skipped']]));
+    expect(verdict).toMatchObject({ passed: ['a'], skipped: ['b'], red: [], notRun: [], ok: true });
+  });
+
+  it('fail when one is red against the base, so the marker cannot hide a change the pull request makes', () => {
+    const verdict = judgeCoverage(['a', 'b'], new Map([['a', 'passed'], ['b', 'failed']]));
+    expect(verdict.red).toEqual(['b']);
+    expect(verdict.ok).toBe(false);
+  });
+
+  it('fail when the layer does not build against the base, or when one never ran', () => {
+    expect(judgeCoverage(['a'], new Map(), { buildFailed: true })).toMatchObject({ red: ['a'], ok: false });
+    expect(judgeCoverage(['a'], new Map())).toMatchObject({ notRun: ['a'], ok: false });
+  });
+
+  it('leave an unmarked title that passes against the base failing the check', () => {
+    const { ok, markdown } = summarize([
+      {
+        layer: 'l4',
+        added: ['vacuous'],
+        coverage: ['ported'],
+        exempt: [],
+        verdict: judge(['vacuous'], new Map([['vacuous', 'passed']])),
+        coverageVerdict: judgeCoverage(['ported'], new Map([['ported', 'passed']])),
+      },
+    ]);
+    expect(ok).toBe(false);
+    expect(markdown).toContain('`vacuous`');
+  });
+
+  it('are listed in their own section with their outcome against the base', () => {
+    const { ok, markdown } = summarize([
+      { layer: 'l2', added: [], coverage: ['ported', 'parked'], exempt: [], coverageVerdict: judgeCoverage(['ported', 'parked'], new Map([['ported', 'passed'], ['parked', 'skipped']])) },
+    ]);
+    expect(ok).toBe(true);
+    expect(markdown).toContain('Coverage titles');
+    expect(markdown).toContain('| l2 | 2 | 1 | 0 | 1 |');
+    expect(markdown).not.toContain('No test was added');
+  });
+
+  it('name a marked title that is red against the base and fail the summary', () => {
+    const { ok, markdown } = summarize([
+      { layer: 'l4', added: [], coverage: ['changed'], exempt: [], coverageVerdict: judgeCoverage(['changed'], new Map([['changed', 'failed']])) },
+    ]);
+    expect(ok).toBe(false);
+    expect(markdown).toContain('drop the marker');
+    expect(markdown).toContain('`changed`');
   });
 });
