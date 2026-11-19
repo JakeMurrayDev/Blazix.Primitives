@@ -42,6 +42,11 @@ public sealed class NumberFieldAllocationBudgetTests : IDisposable
     private const long HoldTickBudgetBytes = 2552;
     private const long ClickStepBudgetBytes = 2512;
 
+    // 6b (issue 277, decision 26 (a)): a keystroke's report through the parse and the change request, the input's text
+    // answered with the echoed revision. First measurement 2026-11-19 (arm64, .NET 11, Release, dynamic PGO off), the least
+    // of five, the same in three processes: 2,824 bytes. CI's Linux figure re-pins it (issue 304).
+    private const long KeystrokeBudgetBytes = 2824;
+
     private static readonly CultureInfo s_enUs = CultureInfo.GetCultureInfo("en-US");
 
     private readonly NumberFieldTestContext test = new();
@@ -125,6 +130,33 @@ public sealed class NumberFieldAllocationBudgetTests : IDisposable
 
         Assert.Equal("25", test.Text);
         Assert.True(allocated <= ClickStepBudgetBytes, $"a click step allocated {allocated} bytes; the budget is {ClickStepBudgetBytes}");
+    }
+
+    [Fact(DisplayName = "a keystroke through the parser stays within its budget")]
+    [Trait("Requirement", "ADR16-7")]
+    [Trait("Requirement", "NUM-EVT-15")]
+    public async Task A_keystroke_through_the_parser_stays_within_its_budget()
+    {
+        IRenderedComponent<NumberFieldRoot> cut = Render();
+        NumberFieldTwin twin = test.NumberFieldTwin();
+        string[] texts = [.. Enumerable.Range(0, 25).Select(i => $$$"""{"text":"1,2{{{i % 10}}}{{{i / 10}}}","revision":{{{i + 1}}},"event":{"kind":"InputEvent","type":"input"}}""")];
+        for (int i = 0; i < 20; i++)
+        {
+            await cut.InvokeAsync(() => twin.OnInputChange(texts[i]));
+        }
+
+        long allocated = long.MaxValue;
+        for (int i = 20; i < 25; i++)
+        {
+            string report = texts[i];
+            long before = GC.GetAllocatedBytesForCurrentThread();
+            Task changed = cut.InvokeAsync(() => twin.OnInputChange(report));
+            allocated = Math.Min(allocated, GC.GetAllocatedBytesForCurrentThread() - before);
+            await changed;
+        }
+
+        Assert.Equal(1242, cut.Instance.CurrentValue);
+        Assert.True(allocated <= KeystrokeBudgetBytes, $"a keystroke allocated {allocated} bytes; the budget is {KeystrokeBudgetBytes}");
     }
 
     private IRenderedComponent<NumberFieldRoot> Render()
