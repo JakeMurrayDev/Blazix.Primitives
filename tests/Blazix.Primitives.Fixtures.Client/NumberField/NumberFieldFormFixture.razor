@@ -1,0 +1,54 @@
+@namespace Blazix.Primitives.Fixtures.Client.NumberFieldFixtures
+@using System.Globalization
+@using Blazix.Primitives
+
+@*
+    The `number-field-form` fixture (tests/browser/number-field.spec.ts): NumberFieldRoot.test.tsx's form titles. `?case=`
+    picks one: `formatting` ("should not include formatting in the submitted value"), a field named `test` holding a de-DE
+    root at 54.5 formatted as EUR with two fraction digits, inside a Form whose OnSubmit prevents the native submission
+    (Base UI's event.preventDefault()). data-attached is rendered once the form module is attached to the form.
+*@
+<FixtureContainer Name="number-field-form" data-attached="@(attached ? "true" : "false")">
+    @if (Case == "formatting")
+    {
+        <Form @ref="form" OnSubmit="Prevent">
+            <FieldRoot Name="test">
+                <NumberFieldRoot DefaultValue="54.5" Format="s_euro" Culture="s_deDe">
+                    <NumberFieldInput />
+                </NumberFieldRoot>
+                <button type="submit">Submit</button>
+            </FieldRoot>
+        </Form>
+    }
+</FixtureContainer>
+
+@code {
+    private static readonly CultureInfo s_deDe = CultureInfo.GetCultureInfo("de-DE");
+    private static readonly NumberFormatOptions s_euro = new()
+    {
+        Style = NumberFormatStyle.Currency,
+        Currency = "EUR",
+        MinimumFractionDigits = 2,
+        MaximumFractionDigits = 2,
+    };
+
+    private Form? form;
+    private bool attached;
+
+    [SupplyParameterFromQuery(Name = "case")]
+    public string? Case { get; set; }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender || !RendererInfo.IsInteractive || form is null)
+        {
+            return;
+        }
+
+        await form.TwinAttached;
+        attached = true;
+        StateHasChanged();
+    }
+
+    private static void Prevent(FormSubmitEventArgs args) => args.PreventNativeSubmit();
+}
