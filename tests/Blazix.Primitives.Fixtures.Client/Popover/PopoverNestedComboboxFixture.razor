@@ -1,0 +1,125 @@
+@namespace Blazix.Primitives.Fixtures.Client.PopoverFixtures
+@using Blazix.Primitives
+@using Blazix.Primitives.Fixtures.Client.PopupFixtures
+@inherits PopupSuiteFixtureBase
+
+@*
+    The `popover-nested-combobox` fixture (tests/browser/popover.spec.ts, M6 track 11, issue 264): PopoverRoot.test.tsx's
+    TestPopover, open by default, whose popup `popover-popup` holds a Combobox, once per `variant` as popover-root's
+    (`contained`, `detached`, `multiple`). The trigger `trigger` reads "Toggle". The query's `case`:
+    - `tab` (default): the portal kept mounted; a Combobox over a and b with the Input `combobox-input`; `afterTrigger=true`
+      adds an input `focus-target` after the trigger;
+    - `scroll`: a Combobox over 0 to 49, open by default, its Input's placeholder "Choose a fruit", its popup
+      `combobox-popup` 200 px high and scrolling, each item 100 px high.
+    The Combobox renders once the popover's popup does, after the page's readiness: an OpenOnMount beside its Input waits
+    for the Input's handle and the Combobox session, and the container then renders `data-child-attached="true"`.
+*@
+<FixtureContainer Name="popover-nested-combobox" data-attached="@(Attached ? "true" : "false")" data-sync="@Sync"
+                  data-child-attached="@(childAttached ? "true" : "false")" data-open-changes="@OpenChanges">
+    <div>
+        @if (variant == "contained")
+        {
+            <PopoverRoot TPayload="NoPayload" @ref="root" DefaultOpen="true" OnOpenChange="RecordOpenChange">
+                @Trigger(null)
+                @AfterTrigger
+                @Portal
+            </PopoverRoot>
+        }
+        else
+        {
+            @Trigger(handle)
+            @AfterTrigger
+            @if (variant == "multiple")
+            {
+                <PopoverTrigger TPayload="NoPayload" @ref="second" Handle="@handle" data-testid="trigger-2">Toggle another</PopoverTrigger>
+            }
+            <PopoverRoot TPayload="NoPayload" @ref="root" Handle="@handle" DefaultOpen="true" OnOpenChange="RecordOpenChange">
+                @Portal
+            </PopoverRoot>
+        }
+    </div>
+    <button type="button" tabindex="-1" data-sync-button data-key-control @onclick="() => Sync++" @onkeydown="OnShift(() => Sync++)">Sync</button>
+</FixtureContainer>
+
+@code {
+    private static readonly string[] s_letters = ["a", "b"];
+    private static readonly int[] s_numbers = [.. Enumerable.Range(0, 50)];
+    private readonly PopoverHandle<NoPayload> handle = new();
+    private PopoverRoot<NoPayload>? root;
+    private PopoverTrigger<NoPayload>? trigger;
+    private PopoverTrigger<NoPayload>? second;
+    private ComboboxRoot<string>? letters;
+    private ComboboxRoot<int>? numbers;
+    private ComboboxInput? input;
+    private bool childAttached;
+    private bool afterTrigger;
+    private string variant = "contained";
+
+    protected override IEnumerable<Task> Attachments =>
+    [
+        trigger?.TwinsAttached ?? Task.CompletedTask,
+        second?.TwinsAttached ?? Task.CompletedTask,
+        root?.SessionAttached ?? Task.CompletedTask,
+    ];
+
+    private RenderFragment? AfterTrigger => afterTrigger ? @<input data-testid="focus-target" /> : null;
+
+    private RenderFragment Portal => @<PopoverPortal KeepMounted="@(Case != "scroll")">
+        <PopoverPositioner data-testid="positioner">
+            <PopoverPopup data-testid="popover-popup">
+                @if (Case == "scroll")
+                {
+                    <ComboboxRoot TValue="int" @ref="numbers" Items="s_numbers" DefaultOpen="true">
+                        <ComboboxInput @ref="input" placeholder="Choose a fruit" />
+                        <OpenOnMount Run="ChildMountedAsync" />
+                        <ComboboxPortal>
+                            <ComboboxPositioner>
+                                <ComboboxPopup data-testid="combobox-popup" style="max-height: 200px; overflow: auto">
+                                    <ComboboxList TValue="int">
+                                        <ItemContent>
+                                            <ComboboxItem TValue="int" Value="@context.Value" @key="context.Value" style="height: 100px">@context.Value</ComboboxItem>
+                                        </ItemContent>
+                                    </ComboboxList>
+                                </ComboboxPopup>
+                            </ComboboxPositioner>
+                        </ComboboxPortal>
+                    </ComboboxRoot>
+                }
+                else
+                {
+                    <ComboboxRoot TValue="string" @ref="letters" Items="s_letters">
+                        <ComboboxInput @ref="input" data-testid="combobox-input" />
+                        <OpenOnMount Run="ChildMountedAsync" />
+                        <ComboboxPortal>
+                            <ComboboxPositioner>
+                                <ComboboxPopup>
+                                    <ComboboxList TValue="string">
+                                        <ComboboxItem TValue="string" Value="@("a")">a</ComboboxItem>
+                                        <ComboboxItem TValue="string" Value="@("b")">b</ComboboxItem>
+                                    </ComboboxList>
+                                </ComboboxPopup>
+                            </ComboboxPositioner>
+                        </ComboboxPortal>
+                    </ComboboxRoot>
+                }
+            </PopoverPopup>
+        </PopoverPositioner>
+    </PopoverPortal>;
+
+    protected override void OnInitialized()
+    {
+        variant = Query("variant") ?? "contained";
+        afterTrigger = QueryFlag("afterTrigger") == true;
+    }
+
+    private RenderFragment Trigger(PopoverHandle<NoPayload>? triggerHandle) =>
+        @<PopoverTrigger TPayload="NoPayload" @ref="trigger" Handle="@triggerHandle" data-testid="trigger">Toggle</PopoverTrigger>;
+
+    private async Task ChildMountedAsync()
+    {
+        await (input?.TwinAttached ?? Task.CompletedTask);
+        await (letters?.SessionAttached ?? numbers?.SessionAttached ?? Task.CompletedTask);
+        childAttached = true;
+        StateHasChanged();
+    }
+}

@@ -218,6 +218,9 @@ public static class FixtureCatalog
         ["popover-triggers"] = new(typeof(PopoverTriggersFixture)),
         ["popover-tooltip-close"] = new(typeof(PopoverTooltipCloseFixture)),
         ["popover-viewport"] = new(typeof(PopoverViewportFixture)),
+        // M6 track 11 (issues 263, 264): Popover with a nested Menu in a shared container, and with a nested Combobox.
+        ["popover-nested-menu"] = new(typeof(PopoverNestedMenuFixture)),
+        ["popover-nested-combobox"] = new(typeof(PopoverNestedComboboxFixture)),
 
         // M5 track 6 (issue 172): Menu's fixtures.
         ["menu-conformance"] = new(typeof(MenuConformanceFixture)),
@@ -348,6 +351,8 @@ public static class FixtureCatalog
         ["select-toolbar"] = new(typeof(SelectToolbarFixture)),
         ["select-dialog"] = new(typeof(SelectDialogFixture)),
         ["select-use-label"] = new(typeof(SelectUseLabelFixture)),
+        // M6 track 11 (issue 265): useLabel.test.tsx's Combobox.Label case.
+        ["combobox-use-label"] = new(typeof(ComboboxUseLabelL4Fixture)),
         ["field-select-prerender"] = new(typeof(FieldSelectPrerenderFixture), Prerender: true),
         // select-others fixtures above this line (M5 track 9, final review B2)
         // M5 track 10 (issue 174): Combobox.

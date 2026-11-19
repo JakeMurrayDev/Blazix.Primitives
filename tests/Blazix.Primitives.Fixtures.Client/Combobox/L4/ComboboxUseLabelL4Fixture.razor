@@ -1,0 +1,42 @@
+@namespace Blazix.Primitives.Fixtures.Client.ComboboxFixtures
+@using Blazix.Primitives
+@using Blazix.Primitives.Fixtures.Client.PopupFixtures
+@inherits PopupSuiteFixtureBase
+
+@*
+    The `combobox-use-label` fixture (tests/browser/field.spec.ts's useLabel block; M6 track 11, issue 265): useLabel.test.tsx's
+    TestControl for its `Combobox.Label` case, a Field named `country` holding a Combobox with a ComboboxLabel "Country", a
+    Trigger with the id `country` and the text "Choose a country", and a popup holding an Input labelled "Search countries"
+    and one item France. The container records the root's open changes.
+*@
+<FixtureContainer Name="combobox-use-label" data-attached="@(Attached ? "true" : "false")" data-sync="@Sync"
+                  data-open-changes="@OpenChanges">
+    <FieldRoot Name="country">
+        <ComboboxRoot TValue="string" @ref="root" OnOpenChange="RecordOpenChange">
+            <ComboboxLabel>Country</ComboboxLabel>
+            <ComboboxTrigger @ref="trigger" id="country">Choose a country</ComboboxTrigger>
+            <ComboboxPortal>
+                <ComboboxPositioner>
+                    <ComboboxPopup>
+                        <ComboboxInput aria-label="Search countries" />
+                        <ComboboxList TValue="string">
+                            <ComboboxItem TValue="string" Value="@("fr")">France</ComboboxItem>
+                        </ComboboxList>
+                    </ComboboxPopup>
+                </ComboboxPositioner>
+            </ComboboxPortal>
+        </ComboboxRoot>
+    </FieldRoot>
+    <button type="button" tabindex="-1" data-sync-button data-key-control @onclick="() => Sync++" @onkeydown="OnShift(() => Sync++)">Sync</button>
+</FixtureContainer>
+
+@code {
+    private ComboboxRoot<string>? root;
+    private ComboboxTrigger? trigger;
+
+    protected override IEnumerable<Task> Attachments =>
+    [
+        trigger?.TwinAttached ?? Task.CompletedTask,
+        root?.SessionAttached ?? Task.CompletedTask,
+    ];
+}
