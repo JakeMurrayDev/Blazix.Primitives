@@ -50,9 +50,9 @@
         };
 
         (long rerenderBudget, long highlightBudget, long valueChangeBudget) = Budgets(kind);
-        Assert.True(rerender <= rerenderBudget, $"{kind}: a re-render allocated {rerender} bytes; the budget is {rerenderBudget}");
-        Assert.True(highlight <= highlightBudget, $"{kind}: a highlight move allocated {highlight} bytes; the budget is {highlightBudget}");
-        Assert.True(valueChange <= valueChangeBudget, $"{kind}: a value change allocated {valueChange} bytes; the budget is {valueChangeBudget}");
+        AllocationSampler.AssertWithinBudget(rerender, rerenderBudget, $"{kind}: a re-render");
+        AllocationSampler.AssertWithinBudget(highlight, highlightBudget, $"{kind}: a highlight move");
+        AllocationSampler.AssertWithinBudget(valueChange, valueChangeBudget, $"{kind}: a value change");
     }
 
     private async Task<(long Rerender, long Highlight, long ValueChange)> MeasureAsync<T>(T[] values)

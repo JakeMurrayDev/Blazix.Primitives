@@ -19,7 +19,7 @@ public sealed class AccordionAllocationBudgetTests
 
         long allocated = Measure(() => root.ApplyParameters(multiple: false, disabled: false, Orientation.Vertical, keepMounted: false, hiddenUntilFound: false));
 
-        Assert.True(allocated <= UnchangedParametersBudgetBytes, $"an unchanged parameter set allocated {allocated} bytes; the budget is {UnchangedParametersBudgetBytes}");
+        AllocationSampler.AssertWithinBudget(allocated, UnchangedParametersBudgetBytes, "an unchanged parameter set");
     }
 
     // First measurement 2026-10-26 (arm64, .NET 11 RC2, Release): 352 bytes at 3 items, 1712 at 20. The value list, every item's
@@ -41,7 +41,7 @@ public sealed class AccordionAllocationBudgetTests
             item.Collapsible.RequestOpenAsync(!item.Collapsible.State.Open, details).GetAwaiter().GetResult();
         });
 
-        Assert.True(allocated <= budgetBytes, $"a committed toggle at {items} items allocated {allocated} bytes; the budget is {budgetBytes}");
+        AllocationSampler.AssertWithinBudget(allocated, budgetBytes, $"a committed toggle at {items} items");
     }
 
     private static (AccordionRootContext<string> Root, AccordionItemContext<string>[] Items) Build(int count)

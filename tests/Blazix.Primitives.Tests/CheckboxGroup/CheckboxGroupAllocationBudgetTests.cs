@@ -26,6 +26,6 @@ public sealed class CheckboxGroupAllocationBudgetTests
         long allocated = GC.GetAllocatedBytesForCurrentThread() - before;
 
         Assert.Equal(6, next.Count);
-        Assert.True(allocated <= MemberToggleBudgetBytes, $"a member toggle allocated {allocated} bytes; the budget is {MemberToggleBudgetBytes}");
+        AllocationSampler.AssertWithinBudget(allocated, MemberToggleBudgetBytes, "a member toggle");
     }
 }
