@@ -548,3 +548,20 @@ test('should not include formatting in the submitted value', async ({ page, mode
 
   await expect(fixture.locator('form')).toHaveAttribute('data-submitted', '54.5');
 });
+
+// NUM-FRM-12's focus-first-invalid clause (L4; its L2 half asserts the form module's focus request): Form's errors set
+// by the consumer's onSubmit mark the field invalid and the form module focuses the visible input.
+test('focuses the input when the field receives an error from Form', async ({ page, mode }) => {
+  await page.goto(`/${mode}/number-field-form?case=server-error`, { waitUntil: 'commit' });
+  await page.locator(Fixture.started).waitFor({ state: 'attached' });
+  const fixture = page.locator(Fixture.interactive('number-field-form'));
+  await expect(fixture).toHaveAttribute('data-attached', 'true');
+  await expect(fixture.getByTestId('error')).toHaveCount(0);
+
+  await fixture.getByText('Submit').click();
+
+  const input = fixture.getByRole('textbox');
+  await expect(input).toBeFocused();
+  await expect(input).toHaveAttribute('aria-invalid', 'true');
+  await expect(fixture.getByTestId('error')).toHaveText('server error');
+});
