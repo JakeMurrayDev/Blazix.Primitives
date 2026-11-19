@@ -352,11 +352,12 @@ describe('coverage titles', () => {
           { title: 'ported', tags: ['@coverage'], tests: [{ projectName: 'server', results: [] }] },
           { title: 'new behaviour', tags: [], tests: [{ projectName: 'server', results: [] }] },
         ],
-        suites: [{ title: 'nested', specs: [{ title: 'also ported', tags: ['@slow', '@coverage'], tests: [] }] }],
+        suites: [{ title: 'nested', specs: [{ title: 'also ported', tags: ['slow', 'coverage'], tests: [] }] }],
       },
     ],
   });
 
+  // Playwright's JSON listing gives a tag without its `@` (`{ tag: '@coverage' }` lists as `coverage`); both forms count.
   it('are the Playwright specs tagged @coverage, named as the listing names them', () => {
     expect(parsePlaywrightCoverage(list)).toEqual(['tests/browser/popover.spec.ts::ported', 'tests/browser/popover.spec.ts::nested > also ported']);
     expect(parsePlaywrightList(list)).toContain('tests/browser/popover.spec.ts::new behaviour');
