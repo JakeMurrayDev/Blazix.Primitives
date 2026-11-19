@@ -20,11 +20,35 @@ internal sealed class NumberFieldTwin(IJSRuntime jsRuntime)
     /// <summary>Represents the name of the decision point the module asks about before it reports a blur.</summary>
     public const string InputBlurPoint = "input-blur";
 
+    /// <summary>Represents the name of the decision point the module asks about before a keydown steps or is blocked.</summary>
+    public const string InputKeyPoint = "input-key";
+
+    /// <summary>Represents the name of the decision point the module asks about before it prevents a paste.</summary>
+    public const string InputPastePoint = "input-paste";
+
+    /// <summary>Represents the name of the decision point the module asks about before it reports an edit.</summary>
+    public const string InputChangePoint = "input-change";
+
     /// <summary>Occurs when the visible input gains focus and neither a listener nor a decision vetoed it.</summary>
     public event Action<EventSnapshot>? InputFocused;
 
     /// <summary>Occurs when the visible input loses focus and neither a listener nor a decision vetoed it.</summary>
     public event Action<NumberFieldBlurReport>? InputBlurred;
+
+    /// <summary>Occurs when a step key (ArrowUp, ArrowDown, or Home or End with its bound) was pressed in the input.</summary>
+    public event Action<NumberFieldKeyStepReport>? KeyStepped;
+
+    /// <summary>Occurs when an edit left the input with a text whose characters are all allowed.</summary>
+    public event Action<NumberFieldChangeReport>? InputChanged;
+
+    /// <summary>Occurs when a paste was prevented and its text spliced into the display text.</summary>
+    public event Action<NumberFieldPasteReport>? InputPasted;
+
+    /// <summary>Occurs when the wheel stepped the focused input.</summary>
+    public event Action<NumberFieldWheelReport>? WheelStepped;
+
+    /// <summary>Occurs when the browser autofilled the hidden input.</summary>
+    public event Action<NumberFieldAutofillReport>? Autofilled;
 
     /// <summary>Gets or sets the C# handler chain of the <c>input-focus</c> point.</summary>
     /// <value>A function that returns <see cref="DecisionPolicy.Stop"/> when a consumer vetoed the focus; <see langword="null"/> runs.</value>
@@ -33,6 +57,18 @@ internal sealed class NumberFieldTwin(IJSRuntime jsRuntime)
     /// <summary>Gets or sets the C# handler chain of the <c>input-blur</c> point.</summary>
     /// <value>A function that returns <see cref="DecisionPolicy.Stop"/> when a consumer vetoed the blur; <see langword="null"/> runs.</value>
     public Func<EventSnapshot, DecisionPolicy>? BlurDecider { get; set; }
+
+    /// <summary>Gets or sets the C# handler chain of the <c>input-key</c> point.</summary>
+    /// <value>A function that returns <see cref="DecisionPolicy.Stop"/> when a consumer vetoed the keydown; <see langword="null"/> runs.</value>
+    public Func<EventSnapshot, DecisionPolicy>? KeyDecider { get; set; }
+
+    /// <summary>Gets or sets the C# handler chain of the <c>input-paste</c> point.</summary>
+    /// <value>A function that returns <see cref="DecisionPolicy.Stop"/> when a consumer vetoed the paste; <see langword="null"/> runs.</value>
+    public Func<EventSnapshot, DecisionPolicy>? PasteDecider { get; set; }
+
+    /// <summary>Gets or sets the C# handler chain of the <c>input-change</c> point.</summary>
+    /// <value>A function that returns <see cref="DecisionPolicy.Stop"/> when a consumer vetoed the edit; <see langword="null"/> runs.</value>
+    public Func<EventSnapshot, DecisionPolicy>? ChangeDecider { get; set; }
 
     /// <summary>Receives a focus of the visible input.</summary>
     /// <param name="payloadJson">The JSON of a <see cref="NumberFieldFocusReport"/>.</param>
@@ -54,6 +90,36 @@ internal sealed class NumberFieldTwin(IJSRuntime jsRuntime)
         InputBlurred?.Invoke(report);
     }
 
+    /// <summary>Receives a step key pressed in the visible input.</summary>
+    /// <param name="payloadJson">The JSON of a <see cref="NumberFieldKeyStepReport"/>.</param>
+    /// <exception cref="System.Text.Json.JsonException">The payload is not valid.</exception>
+    [JSInvokable]
+    public void OnKeyStep(string payloadJson) => KeyStepped?.Invoke(Deserialize(payloadJson, BlazixJsonContext.Default.NumberFieldKeyStepReport));
+
+    /// <summary>Receives an allowed edit of the visible input.</summary>
+    /// <param name="payloadJson">The JSON of a <see cref="NumberFieldChangeReport"/>.</param>
+    /// <exception cref="System.Text.Json.JsonException">The payload is not valid.</exception>
+    [JSInvokable]
+    public void OnInputChange(string payloadJson) => InputChanged?.Invoke(Deserialize(payloadJson, BlazixJsonContext.Default.NumberFieldChangeReport));
+
+    /// <summary>Receives a paste into the visible input.</summary>
+    /// <param name="payloadJson">The JSON of a <see cref="NumberFieldPasteReport"/>.</param>
+    /// <exception cref="System.Text.Json.JsonException">The payload is not valid.</exception>
+    [JSInvokable]
+    public void OnInputPaste(string payloadJson) => InputPasted?.Invoke(Deserialize(payloadJson, BlazixJsonContext.Default.NumberFieldPasteReport));
+
+    /// <summary>Receives a wheel step of the focused input.</summary>
+    /// <param name="payloadJson">The JSON of a <see cref="NumberFieldWheelReport"/>.</param>
+    /// <exception cref="System.Text.Json.JsonException">The payload is not valid.</exception>
+    [JSInvokable]
+    public void OnWheelStep(string payloadJson) => WheelStepped?.Invoke(Deserialize(payloadJson, BlazixJsonContext.Default.NumberFieldWheelReport));
+
+    /// <summary>Receives a browser autofill of the hidden input.</summary>
+    /// <param name="payloadJson">The JSON of a <see cref="NumberFieldAutofillReport"/>.</param>
+    /// <exception cref="System.Text.Json.JsonException">The payload is not valid.</exception>
+    [JSInvokable]
+    public void OnAutofill(string payloadJson) => Autofilled?.Invoke(Deserialize(payloadJson, BlazixJsonContext.Default.NumberFieldAutofillReport));
+
     /// <inheritdoc />
     protected override DecisionPolicy OnDecide(string point, EventSnapshot snapshot)
     {
@@ -61,6 +127,9 @@ internal sealed class NumberFieldTwin(IJSRuntime jsRuntime)
         {
             InputFocusPoint => FocusDecider,
             InputBlurPoint => BlurDecider,
+            InputKeyPoint => KeyDecider,
+            InputPastePoint => PasteDecider,
+            InputChangePoint => ChangeDecider,
             _ => null,
         };
         return decider is null ? DecisionPolicy.Run : decider(snapshot);
