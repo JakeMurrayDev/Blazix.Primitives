@@ -298,4 +298,27 @@ test.describe('Toast.Root', () => {
     await expect.poll(() => two.evaluate((element) => element.style.getPropertyValue('--toast-index'))).toBe('1');
     await expect(page.getByTestId('content-two')).toHaveAttribute('data-behind', '');
   });
+
+  // The standing rule on two handles on one element: the Root's `toast` and `transitions` handles attach independently.
+  // With `transitions.js` held, the `toast` handle still measures and swipes, and the close's exit (and so the removal) waits
+  // for the `transitions` handle; released, the removal follows.
+  test('port: a stalled transitions module holds the removal, never the measurement or the swipe', async ({ page, mode }) => {
+    let release!: () => void;
+    const held = new Promise<void>((resolve) => (release = resolve));
+    await page.route(/\/_content\/Blazix\.Primitives\/js\/transitions(\.[a-z0-9]+)?\.js$/, async (route) => {
+      await held;
+      await route.continue();
+    });
+    const fixture = await openToast(page, mode, { directions: 'right' });
+    const root = await addToast(page);
+
+    await mouseSwipe(page, await centreOf(root), { x: 60, y: 0 });
+    await expect.poll(async () => recorded(fixture, 'data-closed')).toEqual(['t1']);
+    await expect(root).toBeAttached();
+    expect(await recorded(fixture, 'data-removed')).toEqual([]);
+
+    release();
+    await expect(page.locator('[data-toast-id]')).toHaveCount(0);
+    expect(await recorded(fixture, 'data-removed')).toEqual(['t1']);
+  });
 });
