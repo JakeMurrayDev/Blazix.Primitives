@@ -40,6 +40,11 @@ internal sealed class ToastTestContext : IDisposable
     public void Advance<TComponent>(IRenderedComponent<TComponent> cut, int milliseconds)
         where TComponent : IComponent => cut.InvokeAsync(() => Clock.Advance(TimeSpan.FromMilliseconds(milliseconds))).GetAwaiter().GetResult();
 
+    // The styles the roots send to the `toast` module, in document order: after the attach the module writes the element's
+    // style from them, and the rendered style stays the one of the attach (the handover).
+    public static IReadOnlyList<string?> RootStyles(IRenderedComponent<ToastHost> cut) =>
+        [.. cut.FindComponents<ToastRoot<NoPayload>>().Select(root => root.Instance.SentStyle)];
+
     public static IReadOnlyList<IElement> Roots<TComponent>(IRenderedComponent<TComponent> cut)
         where TComponent : IComponent => cut.FindAll("[data-testid=root]");
 }
