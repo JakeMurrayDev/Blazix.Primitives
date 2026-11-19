@@ -7,6 +7,10 @@
 // (the tests/ and fixtures stay the pull request's), runs the added tests at their layer, and fails when one passes.
 // A layer whose test sources did not change is not even listed; a pull request that adds no test passes at once.
 //
+// A coverage title (ADR 11 Amendments 2026-11-19), one that ports behaviour the base already has, carries `@coverage`
+// (Playwright) or `[Trait("Coverage", "issue-N")]` (C#). It runs against the base with the others but must pass there,
+// and it is listed apart; its red is the planted fault the pull request quotes. An unmarked title is judged as before.
+//
 // The first half of the file is pure and unit-tested (red-check.test.mjs); the second half drives the tools.
 import { execFileSync, spawnSync } from 'node:child_process';
 import { appendFileSync, existsSync, mkdirSync, readFileSync, rmSync } from 'node:fs';
@@ -54,6 +58,28 @@ export function parsePlaywrightList(text) {
   }
   return [...keys];
 }
+
+/**
+ * The Playwright specs marked as coverage ports, tagged `@coverage` (ADR 11 Amendments 2026-11-19), named as
+ * `parsePlaywrightList` names them.
+ * @param {string} text the output of `playwright test --list --reporter=json`
+ */
+export function parsePlaywrightCoverage(text) {
+  const report = JSON.parse(text);
+  const keys = new Set();
+  for (const fileSuite of report.suites ?? []) {
+    for (const { spec, titles } of playwrightSpecs(fileSuite, [])) {
+      if ((spec.tags ?? []).includes(COVERAGE_TAG)) keys.add(`tests/browser/${fileSuite.file}::${titles.join(' > ')}`);
+    }
+  }
+  return [...keys];
+}
+
+/** The Playwright tag of a coverage port. */
+export const COVERAGE_TAG = '@coverage';
+
+/** The xUnit trait of a coverage port, `[Trait("Coverage", "issue-N")]`, as a filter that lists every marked test. */
+export const COVERAGE_TRAIT_FILTER = 'Coverage=*';
 
 /** The names `head` has more of than `base`: a multiset difference that keeps the head's order. */
 export function addedNames(base, head) {
@@ -172,18 +198,42 @@ export function judge(added, outcomes, { buildFailed = false, failedFiles = [] }
   return verdict;
 }
 
+/**
+ * Coverage ports (ADR 11 Amendments 2026-11-19): titles for behaviour the base branch already has. They run against the
+ * base like any added test, but they must pass there: one that is red there proves a change the pull request makes, so
+ * its marker would hide that change, and the check fails. Their red is shown in the pull request with a planted fault.
+ * @param {string[]} coverage the added coverage titles of one layer
+ * @param {Map<string, string>} outcomes what running them against the base branch's src/ produced
+ * @param {{ buildFailed?: boolean }} [options]
+ */
+export function judgeCoverage(coverage, outcomes, { buildFailed = false } = {}) {
+  const verdict = { passed: [], red: [], skipped: [], notRun: [], ok: true };
+  for (const name of coverage) {
+    const outcome = buildFailed ? 'failed' : outcomes.get(name);
+    if (outcome === 'passed') verdict.passed.push(name);
+    else if (outcome === 'failed') verdict.red.push(name);
+    else if (outcome === 'skipped') verdict.skipped.push(name);
+    else verdict.notRun.push(name);
+  }
+  verdict.ok = verdict.red.length === 0 && verdict.notRun.length === 0;
+  return verdict;
+}
+
 const names = (list) => list.map((name) => `- \`${name}\``).join('\n');
 
-/** @param {{ layer: string, added: string[], exempt: string[], verdict?: ReturnType<typeof judge> }[]} layers */
+/**
+ * @param {{ layer: string, added: string[], exempt: string[], coverage?: string[], verdict?: ReturnType<typeof judge>,
+ *   coverageVerdict?: ReturnType<typeof judgeCoverage> }[]} layers
+ */
 export function summarize(layers) {
   const lines = ['### Red check', ''];
-  if (layers.every((layer) => layer.added.length === 0)) {
+  if (layers.every((layer) => layer.added.length === 0 && (layer.coverage ?? []).length === 0)) {
     const exempt = layers.reduce((total, layer) => total + layer.exempt.length, 0);
     lines.push(`No test was added, so there is nothing to run against the base branch.${exempt > 0 ? ` (${exempt} lint test(s) are exempt.)` : ''}`);
     return { markdown: lines.join('\n') + '\n', ok: true };
   }
-  lines.push('| layer | added | red | passes |', '|---|---|---|---|');
   let ok = true;
+  if (layers.some((layer) => layer.added.length > 0)) lines.push('| layer | added | red | passes |', '|---|---|---|---|');
   for (const { layer, added, verdict } of layers) {
     if (added.length === 0 || !verdict) continue;
     lines.push(`| ${layer} | ${added.length} | ${verdict.red.length} | ${verdict.passed.length} |`);
@@ -208,7 +258,31 @@ export function summarize(layers) {
     }
     if (exempt.length > 0) lines.push('', `${layer}: ${exempt.length} lint test(s) exempt (they verify the repository, not the base branch's src/).`);
   }
-  lines.push('', ok ? 'Every added test fails against the base branch.' : 'Show each test failing with its fix reverted before it counts (ADR 06 section 1, ADR 11 section 3).');
+  const covered = layers.filter((layer) => (layer.coverage ?? []).length > 0 && layer.coverageVerdict);
+  if (covered.length > 0) {
+    lines.push(
+      '',
+      `#### Coverage titles (\`${COVERAGE_TAG}\`, or the \`Coverage\` trait)`,
+      '',
+      'Ports of behaviour the base branch already has: each runs against the base and must pass there. The pull request quotes each one failing under a planted fault (ADR 11 Amendments 2026-11-19).',
+      '',
+      '| layer | coverage | passes | red | skipped |',
+      '|---|---|---|---|---|',
+    );
+    for (const { layer, coverage, coverageVerdict } of covered) {
+      lines.push(`| ${layer} | ${coverage.length} | ${coverageVerdict.passed.length} | ${coverageVerdict.red.length} | ${coverageVerdict.skipped.length} |`);
+    }
+    for (const { layer, coverageVerdict } of covered) {
+      ok &&= coverageVerdict.ok;
+      if (coverageVerdict.red.length > 0) {
+        lines.push('', `**${layer}: these are marked as coverage but fail against the base branch's src/, so they prove a change: drop the marker and let them count as red:**`, names(coverageVerdict.red));
+      }
+      if (coverageVerdict.notRun.length > 0) {
+        lines.push('', `**${layer}: these coverage titles did not run against the base branch's src/:**`, names(coverageVerdict.notRun));
+      }
+    }
+  }
+  lines.push('', ok ? 'Every added test fails against the base branch, and every coverage title passes there.' : 'Show each test failing with its fix reverted before it counts (ADR 06 section 1, ADR 11 section 3).');
   return { markdown: lines.join('\n') + '\n', ok };
 }
 
@@ -249,6 +323,18 @@ function listLayer(layer, cwd) {
     return names;
   }
   return parsePlaywrightList(run('npx', ['playwright', 'test', '--list', '--reporter=json'], { cwd }).stdout);
+}
+
+/** The head's coverage titles of a layer (ADR 11 Amendments 2026-11-19); L3 has no marker. */
+function listCoverage(layer, cwd) {
+  const config = layers[layer];
+  if (config.kind === 'dotnet') {
+    // listLayer has built the project at `cwd`.
+    const result = run('dotnet', ['test', '--project', config.project, '-c', 'Release', '--no-build', '--list-tests', 'json', '--filter-trait', COVERAGE_TRAIT_FILTER], { cwd, allowFailure: true });
+    return result.stdout.includes('{') ? parseDotnetList(result.stdout) : [];
+  }
+  if (config.kind === 'vitest') return [];
+  return parsePlaywrightCoverage(run('npx', ['playwright', 'test', '--list', '--reporter=json'], { cwd }).stdout);
 }
 
 function runLayer(layer, added, resultsDir) {
@@ -302,14 +388,20 @@ function main() {
     const config = layers[layer];
     const touched = changed.some((path) => config.changedUnder.some((prefix) => path.startsWith(prefix)) && (!config.changedSuffix || path.endsWith(config.changedSuffix)));
     if (!touched) {
-      results.push({ layer, added: [], exempt: [] });
+      results.push({ layer, added: [], coverage: [], exempt: [] });
       continue;
     }
     const all = addedNames(listLayer(layer, baseDir), listLayer(layer, process.cwd()));
-    results.push({ layer, added: all.filter((name) => !isExempt(layer, name)), exempt: all.filter((name) => isExempt(layer, name)) });
+    const marked = new Set(listCoverage(layer, process.cwd()));
+    results.push({
+      layer,
+      added: all.filter((name) => !isExempt(layer, name) && !marked.has(name)),
+      coverage: all.filter((name) => !isExempt(layer, name) && marked.has(name)),
+      exempt: all.filter((name) => isExempt(layer, name)),
+    });
   }
 
-  if (results.some((result) => result.added.length > 0)) {
+  if (results.some((result) => result.added.length > 0 || result.coverage.length > 0)) {
     // The base branch's src/, the pull request's tests/ and fixtures. The L3 tests and their harnesses sit beside the
     // modules under src/, so the pull request's *.test.ts files and js/test-support/ are put back after the swap.
     rmSync('src', { recursive: true, force: true });
@@ -318,9 +410,12 @@ function main() {
       spawnSync('git', ['checkout', 'HEAD', '--', pathspec], { stdio: 'ignore' });
     }
     for (const result of results) {
-      if (result.added.length === 0) continue;
-      const { buildFailed, outcomes, failedFiles } = runLayer(result.layer, result.added, join(process.cwd(), 'red-check-results'));
-      result.verdict = judge(result.added, outcomes, { buildFailed, failedFiles });
+      const coverage = result.coverage ?? [];
+      if (result.added.length === 0 && coverage.length === 0) continue;
+      // Every added title runs against the base, marked or not; only the verdict differs.
+      const { buildFailed, outcomes, failedFiles } = runLayer(result.layer, [...result.added, ...coverage], join(process.cwd(), 'red-check-results'));
+      if (result.added.length > 0) result.verdict = judge(result.added, outcomes, { buildFailed, failedFiles });
+      if (coverage.length > 0) result.coverageVerdict = judgeCoverage(coverage, outcomes, { buildFailed });
     }
   }
 
