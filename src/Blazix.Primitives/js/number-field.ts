@@ -442,7 +442,9 @@ export function attach(
   input.addEventListener('keydown', onKeyDown);
   input.addEventListener('input', onInput);
   input.addEventListener('paste', onPaste);
-  hidden?.addEventListener('focus', onHiddenFocus);
+  // A capture listener runs before the `form` module's own redirect on the same input (FFI-FOC-05), which would focus the
+  // visible input without the caret; that one then finds the focus already moved (NumberFieldRoot.tsx:347-359, 501-504).
+  hidden?.addEventListener('focus', onHiddenFocus, true);
   hidden?.addEventListener('change', onHiddenChange);
 
   return {
@@ -469,7 +471,7 @@ export function attach(
       input.removeEventListener('input', onInput);
       input.removeEventListener('paste', onPaste);
       input.removeEventListener('wheel', onWheel);
-      hidden?.removeEventListener('focus', onHiddenFocus);
+      hidden?.removeEventListener('focus', onHiddenFocus, true);
       hidden?.removeEventListener('change', onHiddenChange);
     },
   };
