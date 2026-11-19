@@ -154,7 +154,12 @@ export function attach(
     const nextBackdrop = resolveReference<HTMLElement>(refs, options.backdrop, refCaptures);
     if (nextPopup !== popup) {
       popup = nextPopup;
-      popupBand = popup ? styleWriter(popup).layer('component') : null;
+      // ADR 04 Amendments 2026-11-18, design point 2 as revised 2026-11-19 (the opt-in absorber, chosen by the user
+      // 2026-11-19): C# renders the Popup's `--nested-drawers` and `--drawer-frontmost-height` in the commit path, so
+      // its writer takes a re-rendered `style` as the consumer's and writes the bands again over it.
+      const writer = popup ? styleWriter(popup) : null;
+      writer?.absorbForeignWrites();
+      popupBand = writer ? writer.layer('component') : null;
     }
     if (nextBackdrop !== backdrop) {
       backdrop = nextBackdrop;
