@@ -343,7 +343,9 @@ export function attach(
 
   // NumberFieldInput.tsx:225-262 (NUM-EVT-15, NUM-EDGE-06): an allowed edit is reported; any other is reverted.
   const onInput = (event: Event) => {
+    // NumberFieldInput.tsx:233-236: a prevented change is ignored, and Base UI's controlled input keeps the text it rendered.
     if (event.defaultPrevented) {
+      writeTextValue(input, text);
       return;
     }
     const next = input.value;
