@@ -343,6 +343,22 @@ test.describe('Toast.Viewport', () => {
     expect(await page.getByTestId('viewport').evaluate((element) => element.closest('[aria-hidden="true"], [inert]') === null)).toBe(true);
   });
 
+  // TST-STR-09, TST-DOM-20, TST-API-17 (the L4 clause, the container append): the lite portal's node is appended to the
+  // body, carries a generated id and `data-base-ui-portal`, and the viewport and its module work inside it.
+  test('port: the portal appends its node to the body, and the viewport works inside it', async ({ page, mode }) => {
+    await openToast(page, mode, {}, 'toast-portal');
+    const portal = page.getByTestId('portal');
+
+    expect(await portal.evaluate((element) => element.parentElement === document.body)).toBe(true);
+    await expect(portal).toHaveAttribute('data-base-ui-portal', '');
+    await expect(portal).toHaveAttribute('id', /.+/);
+    await expect(portal).toHaveClass('toast-portal');
+    await addToast(page);
+    await expect(portal.locator('[data-toast-id="t1"]')).toBeAttached();
+    await page.keyboard.press('F6');
+    await expect(page.getByTestId('viewport')).toBeFocused();
+  });
+
   test.describe('focus management', () => {
     test('skips toasts animating out when tabbing into the viewport', async ({ page, mode }) => {
       await openToast(page, mode, { animated: '1', animations: '1' });
