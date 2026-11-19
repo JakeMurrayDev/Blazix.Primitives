@@ -44,7 +44,7 @@ const combobox = (page: Page): Locator => page.getByRole('combobox');
 test.describe('<Autocomplete.Root />', () => {
   test.describe('prop: autoHighlight', () => {
     // AUT-STA-11. Base UI's `fireEvent.pointerDown(outside)` + `blur` + `focus` is a real click on the outside button here.
-    test('keeps the latest pointer highlight on outside blur when behavior is "always"', async ({ page, mode }) => {
+    test('keeps the latest pointer highlight on outside blur when behavior is "always"', { tag: '@coverage' }, async ({ page, mode }) => {
       const fixture = await goto(page, mode, 'inline-always');
       const input = page.getByTestId('input');
       const banana = page.getByRole('option', { name: 'banana' });
@@ -67,7 +67,7 @@ test.describe('<Autocomplete.Root />', () => {
 
   test.describe('prop: submitOnItemClick', () => {
     // AUT-PTR-03
-    test('uses the combobox input form when another unscoped control owns the validation ref', async ({ page, mode }) => {
+    test('uses the combobox input form when another unscoped control owns the validation ref', { tag: '@coverage' }, async ({ page, mode }) => {
       await goto(page, mode, 'validation-ref');
       await watchSubmits(page);
 
@@ -79,7 +79,7 @@ test.describe('<Autocomplete.Root />', () => {
     });
 
     // AUT-KEY-04. Base UI's `listbox.focus()` runs in the page; the List is not focusable, so focus stays on the Input.
-    test('focusing the listbox should keep the input focused and maintain functionality', async ({ page, mode }) => {
+    test('focusing the listbox should keep the input focused and maintain functionality', { tag: '@coverage' }, async ({ page, mode }) => {
       await goto(page, mode, 'field-submit');
       await watchSubmits(page);
 
@@ -103,7 +103,7 @@ test.describe('<Autocomplete.Root />', () => {
 
   test.describe('Form', () => {
     // AUT-KEY-04, AUT-PTR-03. Base UI's `<Form onSubmit>` spy is the page's listener on the Form's element.
-    test('pressing Enter in the List when it has focus submits the owning form', async ({ page, mode }) => {
+    test('pressing Enter in the List when it has focus submits the owning form', { tag: '@coverage' }, async ({ page, mode }) => {
       await goto(page, mode, 'field-submit', { form: 'base' });
       await watchSubmits(page);
 
@@ -126,7 +126,7 @@ test.describe('<Autocomplete.Root />', () => {
   test.describe('Field', () => {
     // AUT-FRM-01. Base UI's `user.clear` is `fill('')`. Red on WebAssembly (2026-11-19, 3 of 3): the Field validates the typed
     // values out of order there ("o one on"), so "on"'s result lands last; open by ID, a library defect for track 10.
-    test('prop: validationMode=onSubmit', async ({ page, mode }) => {
+    test('prop: validationMode=onSubmit', { tag: '@coverage' }, async ({ page, mode }) => {
       const openRow = 'AUT-FRM-01 (issue 309): on WebAssembly the Field validates typed values out of order, so a stale value\'s result lands last';
       if (mode === 'wasm') test.info().annotations.push({ type: 'open', description: openRow });
       test.fixme(mode === 'wasm', openRow);
@@ -154,7 +154,7 @@ test.describe('<Autocomplete.Root />', () => {
 
 test.describe('<Combobox.Root />', () => {
   // AUT-PTR-03, AUT-PTR-02. Base UI's `fireEvent.click` on the option is a real click.
-  test('does not request form submission when no form owns the autocomplete', async ({ page, mode }) => {
+  test('does not request form submission when no form owns the autocomplete', { tag: '@coverage' }, async ({ page, mode }) => {
     const errors = watchErrors(page);
     const fixture = await goto(page, mode, 'no-form');
 
@@ -165,7 +165,7 @@ test.describe('<Combobox.Root />', () => {
   });
 
   // AUT-PTR-03, AUT-PTR-02
-  test('does not request form submission when requestSubmit is unavailable', async ({ page, mode }) => {
+  test('does not request form submission when requestSubmit is unavailable', { tag: '@coverage' }, async ({ page, mode }) => {
     const errors = watchErrors(page);
     const fixture = await goto(page, mode, 'no-request-submit');
     await watchSubmits(page);
@@ -181,7 +181,7 @@ test.describe('<Combobox.Root />', () => {
   });
 
   // AUT-FRM-05, AUT-DIS-01. Base UI's `user.click(document.body)` is a real click on the page's empty corner.
-  test('validates the autocomplete input when focus leaves its popup', async ({ page, mode }) => {
+  test('validates the autocomplete input when focus leaves its popup', { tag: '@coverage' }, async ({ page, mode }) => {
     const fixture = await goto(page, mode, 'popup-validate');
     await expect(page.getByTestId('input')).toBeVisible();
     await center(page.getByTestId('popup'));
@@ -195,7 +195,7 @@ test.describe('<Combobox.Root />', () => {
 
 test.describe('<Combobox.Trigger />', () => {
   // AUT-FRM-01, AUT-FRM-05: the `no selection` row (an Autocomplete.Root) of Base UI's it.each.
-  test('validates the no selection value when blurred', async ({ page, mode }) => {
+  test('validates the no selection value when blurred', { tag: '@coverage' }, async ({ page, mode }) => {
     const fixture = await goto(page, mode, 'trigger-validate');
     const trigger = page.getByTestId('trigger');
     await trigger.focus();
@@ -208,7 +208,7 @@ test.describe('<Combobox.Trigger />', () => {
 
 test.describe('<Combobox.Clear />', () => {
   // CMB-DOM-07, AUT-PTR-06 (issue 257 (3)): the Autocomplete row of ComboboxClear.test.tsx, at L4 as the row's tag says.
-  test('renders and clears the typed value in no-selection mode', async ({ page, mode }) => {
+  test('renders and clears the typed value in no-selection mode', { tag: '@coverage' }, async ({ page, mode }) => {
     await goto(page, mode, 'clear');
     const input = combobox(page);
     await expect(input).toHaveValue('apple');

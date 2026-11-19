@@ -674,7 +674,7 @@ test.describe('<Autocomplete.Root /> manual unmount lifecycle', () => {
 // AutocompleteItem.test.tsx at L4 (M6 track 11, issue 248; AUT-KEY-04), on the `autocomplete-root` fixture: the Items' consumer
 // onclick is recorded as `item-clicks`.
 test.describe('<Autocomplete.Item />', () => {
-  test('calls onClick when selected with Enter key (via root interaction)', async ({ page, mode }) => {
+  test('calls onClick when selected with Enter key (via root interaction)', { tag: '@coverage' }, async ({ page, mode }) => {
     const fixture = await goto(page, mode, { openOnInputClick: true });
     await input(page).click();
     await expect(page.getByRole('listbox')).toBeVisible();
@@ -737,7 +737,7 @@ test.describe('<Autocomplete.Root /> prerendered', () => {
 
   // store.test.tsx (M6 track 11, issue 248; AUT-EDGE-03). Deviation: Base UI names the Root; the fixture names the Field,
   // whose name the Root takes (AUT-FRM-01). The server markup is read with its scripts removed, then the page hydrates.
-  test('keeps form value ownership across hydration', async ({ page, mode }) => {
+  test('keeps form value ownership across hydration', { tag: '@coverage' }, async ({ page, mode }) => {
     const namedControls = (): Promise<string[]> =>
       page.evaluate(() => [...document.querySelectorAll('[name="search"]')].map((element) => element.getAttribute('data-testid') ?? element.tagName));
 

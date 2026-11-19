@@ -18,6 +18,7 @@ public sealed class AutocompleteStoreTests : IDisposable
     [Fact(DisplayName = "port: a descendant's first initialization reaches the store's real open command")]
     [Trait("Requirement", "CMB-STA-34")]
     [Trait("Requirement", "CMB-STR-01")]
+    [Trait("Coverage", "issue-257")]
     public void A_descendants_first_initialization_reaches_the_stores_real_open_command()
     {
         List<bool> opens = [];
@@ -38,6 +39,7 @@ public sealed class AutocompleteStoreTests : IDisposable
     [Fact(DisplayName = "port: an inline transition publishes the input's form ownership in a single store write")]
     [Trait("Requirement", "CMB-STA-34")]
     [Trait("Requirement", "CMB-API-23")]
+    [Trait("Coverage", "issue-257")]
     public void An_inline_transition_publishes_the_inputs_form_ownership_in_a_single_store_write()
     {
         IRenderedComponent<AutocompleteStoreHost> cut = test.Context.Render<AutocompleteStoreHost>();
