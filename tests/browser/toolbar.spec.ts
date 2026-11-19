@@ -1251,3 +1251,75 @@ test.describe('<Toolbar.Button />', () => {
     });
   });
 });
+
+// ToolbarInput.test.tsx's "rendering NumberField" keyboard titles (TLB-KEY-03, TLB-KEY-13; M6 track 6b, issue 277): the
+// toolbar input substituted by NumberFieldInput, so the `button` module's input item and the `number-field` module's input
+// role are two handles on one element. Their attach order is pinned by the port title below (the standing rules' attach
+// order rule): the `button` module's load is held until the `number-field` module has loaded, so the number-field handle
+// attaches first.
+test.describe('<Toolbar.Input /> rendering NumberField', () => {
+  async function gotoNumberField(page: Page, mode: RenderMode, disabled: boolean) {
+    await page.goto(`/${mode}/number-field-toolbar${disabled ? '?case=disabled' : ''}`, { waitUntil: 'commit' });
+    const container = page.locator('[data-fixture="number-field-toolbar"][data-interactive="true"]');
+    await expect(container).toHaveAttribute('data-attached', 'true');
+    return { container, input: container.getByRole('textbox') };
+  }
+
+  test('handles interactions', async ({ page, mode }) => {
+    const { container, input } = await gotoNumberField(page, mode, false);
+
+    await page.keyboard.press('Tab');
+    await expect(input).toHaveAttribute('tabindex', '0');
+    await expect(input).toBeFocused();
+
+    await page.keyboard.press('ArrowUp');
+    await expect(container).toHaveAttribute('data-changes', '6/keyboard');
+    await page.keyboard.press('ArrowDown');
+    await expect(container).toHaveAttribute('data-changes', '6/keyboard 5/keyboard');
+    await expect(input).toBeFocused();
+  });
+
+  for (const order of ['in load order', 'with the number-field handle attached first'] as const) {
+    test(order === 'in load order' ? 'disabled state' : `port: disabled state ${order}`, async ({ page, mode }) => {
+      if (order !== 'in load order') {
+        let numberFieldLoaded!: () => void;
+        const loaded = new Promise<void>((resolve) => {
+          numberFieldLoaded = resolve;
+        });
+        page.on('requestfinished', (request) => {
+          if (/\/js\/number-field(\.[\w-]+)?\.js(\?.*)?$/.test(request.url())) {
+            numberFieldLoaded();
+          }
+        });
+        await page.route(/\/js\/button(\.[\w-]+)?\.js(\?.*)?$/, async (route) => {
+          await loaded;
+          await route.continue();
+        });
+      }
+      const { container, input } = await gotoNumberField(page, mode, true);
+
+      await expect(input).not.toHaveAttribute('disabled');
+      await expect(input).toHaveAttribute('data-disabled', '');
+      await expect(input).toHaveAttribute('aria-disabled', 'true');
+
+      await page.keyboard.press('Tab');
+      await expect(input).toHaveAttribute('tabindex', '0');
+      await expect(input).toBeFocused();
+
+      const prevented = await input.evaluate((element) => {
+        const event = new KeyboardEvent('keydown', { key: 'ArrowUp', bubbles: true, cancelable: true });
+        element.dispatchEvent(event);
+        return event.defaultPrevented;
+      });
+      await page.keyboard.press('ArrowUp');
+      await page.keyboard.press('ArrowDown');
+      // The input item prevents every key but Tab (the positive half); a step would record a change a leg later, so the
+      // Tab back and its focus are the barrier.
+      expect(prevented).toBe(true);
+      await page.keyboard.press('Shift+Tab');
+      await expect(input).not.toBeFocused();
+      await expect(container).toHaveAttribute('data-changes', '');
+      await expect(input).toHaveValue('5');
+    });
+  }
+});
