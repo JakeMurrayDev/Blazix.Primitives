@@ -1,5 +1,5 @@
 import { expect, swipeOnTimeline, test, type Page, type RenderMode } from './helpers';
-import { gotoPopupFixture } from './suites/popupFixture';
+import { gotoPopupFixture, settle } from './suites/popupFixture';
 
 // The [L4] rows of docs/components/drawer.md (DRW), both render modes, Server first (ADR 04 §6). Titles are Base UI's
 // (drawer/**/*.test.tsx at v1.9.0) unless marked "port:". M6 track 8a (issue 279): the rows that need only the C# parts and
@@ -176,13 +176,24 @@ test.describe('<Drawer.Viewport /> swipe', () => {
     await expect(page.getByTestId('backdrop')).not.toHaveAttribute('data-swiping');
     await page.mouse.up();
 
+    // The barrier: on Server a close the release requested would have reached C# by now.
+    await settle(fixture);
     await expect(fixture).toHaveAttribute('data-open-changes', '');
   });
 
-  // DRW-PTR-04, PTR-09 (DrawerViewport.test.tsx:4807-4866).
+  // DRW-PTR-04, PTR-09 (DrawerViewport.test.tsx:4807-4866). Folded with its positive half (the review of 2026-11-19):
+  // the same press first starts a swipe on the open drawer, so the absence after the close shows the open gate. A planted
+  // fault that drops the gate alone leaves the absence standing, because the closed popup is hidden from the hit test.
   test('does not start pointer swipes while a closed drawer remains mounted', async ({ page, mode }) => {
     const fixture = await downCase(page, mode, { retainEveryClose: 'true' });
     const popup = page.getByTestId('popup');
+    const backdrop = page.getByTestId('backdrop');
+
+    await dispatchPointer(page, 'viewport', 'pointerdown', { x: popupPoint.x, y: popupPoint.y });
+    await dispatchPointer(page, 'viewport', 'pointermove', { x: popupPoint.x, y: popupPoint.y + 20 });
+    await expect(backdrop).toHaveAttribute('data-swiping', '');
+    await dispatchPointer(page, 'viewport', 'pointerup', { x: popupPoint.x, y: popupPoint.y + 20 });
+    await expect(backdrop).not.toHaveAttribute('data-swiping');
 
     await page.getByRole('button', { name: 'Close' }).click();
     await expect(popup).toHaveAttribute('data-closed', '');
@@ -190,7 +201,9 @@ test.describe('<Drawer.Viewport /> swipe', () => {
 
     await dispatchPointer(page, 'viewport', 'pointerdown', { x: popupPoint.x, y: popupPoint.y });
     await dispatchPointer(page, 'viewport', 'pointermove', { x: popupPoint.x, y: popupPoint.y + 100 });
-    await expect(page.getByTestId('backdrop')).not.toHaveAttribute('data-swiping');
+    await expect(backdrop).not.toHaveAttribute('data-swiping');
+    await dispatchPointer(page, 'viewport', 'pointerup', { x: popupPoint.x, y: popupPoint.y + 100 });
+    await settle(fixture);
     await expect(fixture).toHaveAttribute('data-open-changes', 'false:close-press');
   });
 
@@ -203,6 +216,8 @@ test.describe('<Drawer.Viewport /> swipe', () => {
     await page.mouse.move(10, 110, { steps: 4 });
     await page.mouse.up();
 
+    // The barrier: on Server a close the release requested would have reached C# by now.
+    await settle(fixture);
     await expect(fixture).toHaveAttribute('data-open-changes', '');
   });
 
