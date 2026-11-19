@@ -8,8 +8,9 @@ namespace Blazix.Primitives.Fixtures.Client.PopupFixtures;
 /// The base of every fixture the shared popup suites run on (tests/browser/suites/; ADR 06 Amendments 2026-10-27, design
 /// point 7 of M4 track 1, settled by the orchestrator 2026-10-27), inherited by the popup families' fixtures. It reads the
 /// case and its options from the query (<c>?case=controlled&amp;open=true</c>), records the root's callbacks for the
-/// container's data attributes, renders <c>data-attached</c> once every listed handle has attached, and counts the sync
-/// button the specs click as a barrier.
+/// container's data attributes, renders <c>data-attached</c> once every listed handle has attached (with
+/// <c>?rearmAttached=true</c>, again after a later render lists a handle still attaching), and counts the sync button the
+/// specs click as a barrier.
 /// </summary>
 /// <remarks>
 /// The container renders <c>data-open-changes</c> (space-separated <c>open:reason</c> entries, such as
@@ -25,7 +26,14 @@ public abstract class PopupSuiteFixtureBase : ComponentBase
     [Inject]
     private NavigationManager Navigation { get; set; } = null!;
 
-    protected bool Attached { get; private set; }
+    private bool attachedOnce;
+    private bool rearmAttached;
+    private bool rearming;
+
+    // Issue 270 (M6 track 11, granted by the orchestrator 2026-11-19): with `?rearmAttached=true` the marker also tracks the
+    // attach tasks of later renders, such as a reparented trigger's new instance, so a title never proceeds on the first
+    // render's attach. Without it the marker is set once, after the first interactive render.
+    protected bool Attached => attachedOnce && !rearming;
 
     protected int Sync { get; set; }
 
@@ -123,14 +131,44 @@ public abstract class PopupSuiteFixtureBase : ComponentBase
     /// <inheritdoc />
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
-        if (!firstRender || !RendererInfo.IsInteractive)
+        if (!RendererInfo.IsInteractive)
         {
             return;
         }
 
-        await Task.WhenAll(Attachments);
-        Attached = true;
+        if (firstRender)
+        {
+            rearmAttached = QueryFlag("rearmAttached") == true;
+            await Task.WhenAll(Attachments);
+            attachedOnce = true;
+            StateHasChanged();
+            return;
+        }
+
+        if (!rearmAttached || !attachedOnce || rearming)
+        {
+            return;
+        }
+
+        // One snapshot per render: a fixture's attach tasks may be built anew at each read (Task.WhenAll, an async helper).
+        Task attaching = Task.WhenAll(Attachments);
+        if (attaching.IsCompleted)
+        {
+            return;
+        }
+
+        // The marker reads false from the next render until this render's attaches complete; one re-arm at a time.
+        rearming = true;
         StateHasChanged();
+        try
+        {
+            await attaching;
+        }
+        finally
+        {
+            rearming = false;
+            StateHasChanged();
+        }
     }
 
     private static Dictionary<string, string> ParseQuery(string search)

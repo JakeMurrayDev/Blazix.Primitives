@@ -28,6 +28,10 @@ detachedTriggersConformanceTests({
     'allows controlling the open state and active trigger programmatically':
       'PSH-FOC (focus returns to the opener after the close): open to M4 track 4, the focus manager',
   },
+  fixme: {
+    'port: a reparented trigger takes the readiness marker down until its handles attach again':
+      'Issue 270: the trigger keeps its instance across the reparent and re-attaches without a task the fixture can await; open to issue 306 (M6 track 10, the attach-task seam)',
+  },
 });
 
 // The other branch of the handle's missing-trigger behaviour (Dialog's), on the same fixture with `throws=false`.
