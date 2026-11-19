@@ -390,5 +390,6 @@ public static class FixtureCatalog
         // M6 track 9b: Toast (tests/browser/toast*.spec.ts).
         ["toast-basic"] = new(typeof(ToastBasicFixture)),
         ["toast-anchored"] = new(typeof(ToastAnchoredFixture)),
+        ["toast-dialog"] = new(typeof(ToastDialogFixture)),
     };
 }
