@@ -194,6 +194,9 @@ public sealed class ToastRoot<TData> : PartBase<ToastRootState>
     // For the fixtures: completes when the root's `toast` handle has attached.
     internal Task TwinAttached => handle!.Attached;
 
+    // For the tests: the part's twin, whose reports the tests send.
+    internal ToastTwin? Twin => handle?.Twin;
+
     // For the tests: the merged style the root sends as the writer's consumer band (the stack variables, then the consumer's).
     internal string? SentStyle => sentStyle;
 

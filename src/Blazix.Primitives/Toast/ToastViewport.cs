@@ -112,6 +112,9 @@ public sealed class ToastViewport<TData> : PartBase<ToastViewportState>
         }
     }
 
+    // For the tests: the part's twin, whose reports the tests send.
+    internal ToastTwin? Twin => handle?.Twin;
+
     // For the fixtures: completes when the viewport's handle has attached.
     internal Task TwinAttached => handle!.Attached;
 
