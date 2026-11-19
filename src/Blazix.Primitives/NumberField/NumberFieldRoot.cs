@@ -818,8 +818,12 @@ public sealed class NumberFieldRoot : PartBase<NumberFieldRootState>
 
         echoedRevision = Math.Max(echoedRevision, revision);
         AllowInputSync = false;
-        await SetValueAsync(parsed, new NumberFieldChangeEventDetails(EventReason.InputPaste, null, snapshot)).ConfigureAwait(true);
+
+        // NumberFieldInput.tsx:450-451 sets the value and the text in one React batch; here the change's own render (on
+        // WebAssembly, inside the request) must already carry the spliced text, or the module sees the old text answer its
+        // paste and drops the caret it was to restore.
         SetInputValue(text);
+        await SetValueAsync(parsed, new NumberFieldChangeEventDetails(EventReason.InputPaste, null, snapshot)).ConfigureAwait(true);
         Refresh();
     }
 
