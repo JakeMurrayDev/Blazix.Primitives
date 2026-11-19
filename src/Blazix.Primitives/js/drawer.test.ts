@@ -235,6 +235,23 @@ describe('drawer module: the Viewport dismiss gesture (mouse and pen)', () => {
     expect(touch.fake.reports).toEqual([]);
   });
 
+  // ADR 04 Amendments 2026-11-18, design point 2 as revised 2026-11-19 (the opt-in absorber, chosen by the user
+  // 2026-11-19): C# renders the popup's `--nested-drawers` in the commit path, so a re-render rewrites the `style`
+  // attribute; the module opts the popup's writer in, and the drag's declarations survive the rewrite.
+  it('port: a C# re-render of the popup style during a drag keeps the drag declarations and takes the rendered ones', async () => {
+    const { popup } = mount();
+
+    pointer('pointerdown', popup, { clientX: 10, clientY: 10 });
+    pointer('pointermove', popup, { clientX: 10, clientY: 10 });
+    pointer('pointermove', popup, { clientX: 10, clientY: 50 });
+    popup.setAttribute('style', '--nested-drawers: 1');
+    await new Promise<void>((resolve) => setTimeout(resolve, 0));
+
+    expect(popup.style.getPropertyValue('--nested-drawers')).toBe('1');
+    expect(popup.style.getPropertyValue('--drawer-swipe-movement-y')).toBe('40px');
+    expect(popup.style.getPropertyValue('transition')).toBe('none');
+  });
+
   it('port: a mouse swipe start clears a selection inside the popup and keeps one outside it', () => {
     const inside = mount();
     const text = document.createTextNode('selectable');
