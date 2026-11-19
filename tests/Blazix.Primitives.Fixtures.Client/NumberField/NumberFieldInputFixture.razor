@@ -1,0 +1,55 @@
+@namespace Blazix.Primitives.Fixtures.Client.NumberFieldFixtures
+@using System.Globalization
+@using Blazix.Primitives
+
+@*
+    The `number-field-input` fixture (tests/browser/number-field.input.spec.ts): a root with only its input, the input
+    role's test consumer. `?case=` picks the root's props: `basic` (defaultValue 0), `bounds` (min -10, max 10), `empty`
+    (no defaultValue), `de` (de-DE), `wheel` (defaultValue 5, allowWheelScrub). Every OnValueChange is recorded as
+    `value/reason` in the container's data-changes; data-attached is rendered once the number-field module is attached.
+*@
+<FixtureContainer Name="number-field-input" data-attached="@(attached ? "true" : "false")" data-changes="@string.Join(' ', changes)">
+    <NumberFieldRoot DefaultValue="DefaultValue" Min="Min" Max="Max" AllowWheelScrub="@(Case == "wheel")" Culture="Culture" OnValueChange="Change">
+        <NumberFieldInput @ref="input" data-testid="input" />
+    </NumberFieldRoot>
+</FixtureContainer>
+
+@code {
+    private readonly List<string> changes = [];
+    private NumberFieldInput? input;
+    private bool attached;
+
+    [SupplyParameterFromQuery(Name = "case")]
+    public string? Case { get; set; }
+
+    private double? DefaultValue => Case switch
+    {
+        "basic" => 0,
+        "wheel" => 5,
+        _ => null,
+    };
+
+    private double? Min => Case == "bounds" ? -10 : null;
+
+    private double? Max => Case == "bounds" ? 10 : null;
+
+    private CultureInfo Culture => CultureInfo.GetCultureInfo(Case == "de" ? "de-DE" : "en-US");
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender || !RendererInfo.IsInteractive)
+        {
+            return;
+        }
+
+        await input!.TwinAttached;
+        attached = true;
+        StateHasChanged();
+    }
+
+    private void Change(ValueChangeEventArgs<double?> e)
+    {
+        string value = e.Value is double number ? number.ToString(CultureInfo.InvariantCulture) : "null";
+        changes.Add($"{value}/{e.Details.Reason.ToLiteral()}");
+    }
+}
