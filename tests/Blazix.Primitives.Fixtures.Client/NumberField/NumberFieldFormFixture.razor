@@ -7,9 +7,13 @@
     picks one: `formatting` ("should not include formatting in the submitted value"), a field named `test` holding a de-DE
     root at 54.5 formatted as EUR with two fraction digits, inside a Form whose OnSubmit prevents the native submission
     (Base UI's event.preventDefault()); `server-error` ("focuses the input when the field receives an error from Form"), a field
-    named `quantity` at 1 whose Form's OnSubmit prevents the submission and sets the server's error. data-attached is rendered once the form module is attached to the form.
+    named `quantity` at 1 whose Form's OnSubmit prevents the submission and sets the server's error; `b2-submit` ("should
+    include the input value in the form submission"), a field named `test` holding an empty en-US root, inside a Form whose
+    OnSubmit prevents the native submission; `b2-step` ("prevents Form/Field submission when the value does not match the
+    step"), a field named `quantity` holding a root at 0 with min 0 and step 0.1 and a stepMismatch FieldError, inside a Form
+    whose OnFormSubmit records each submission's `quantity` in data-form-submits. data-attached is rendered once the form module is attached to the form.
 *@
-<FixtureContainer Name="number-field-form" data-attached="@(attached ? "true" : "false")">
+<FixtureContainer Name="number-field-form" data-attached="@(attached ? "true" : "false")" data-form-submits="@string.Join(' ', formSubmits)">
     @if (Case == "formatting")
     {
         <Form @ref="form" OnSubmit="Prevent">
@@ -37,6 +41,29 @@
             <button type="submit">Submit</button>
         </Form>
     }
+    else if (Case == "b2-submit")
+    {
+        <Form @ref="form" OnSubmit="Prevent">
+            <FieldRoot Name="test">
+                <NumberFieldRoot Culture="s_enUs">
+                    <NumberFieldInput />
+                </NumberFieldRoot>
+                <button type="submit">Submit</button>
+            </FieldRoot>
+        </Form>
+    }
+    else if (Case == "b2-step")
+    {
+        <Form @ref="form" OnFormSubmit="FormSubmit">
+            <FieldRoot Name="quantity">
+                <NumberFieldRoot DefaultValue="0" Min="0" Step="0.1" Culture="s_enUs">
+                    <NumberFieldInput data-testid="input" />
+                </NumberFieldRoot>
+                <FieldError Match="ValidityFlag.StepMismatch" data-testid="error">step mismatch</FieldError>
+            </FieldRoot>
+            <button type="submit">submit</button>
+        </Form>
+    }
 </FixtureContainer>
 
 @code {
@@ -53,6 +80,7 @@
     private Form? form;
     private FormErrors errors = new();
     private bool attached;
+    private readonly List<string> formSubmits = [];
 
     [SupplyParameterFromQuery(Name = "case")]
     public string? Case { get; set; }
@@ -70,6 +98,12 @@
     }
 
     private static void Prevent(FormSubmitEventArgs args) => args.PreventNativeSubmit();
+
+    private void FormSubmit(FormSubmitEventArgs args)
+    {
+        object? quantity = args.Values.TryGetValue("quantity", out object? value) ? value : null;
+        formSubmits.Add(quantity is double number ? number.ToString(CultureInfo.InvariantCulture) : "null");
+    }
 
     private void ServerError(FormSubmitEventArgs args)
     {
