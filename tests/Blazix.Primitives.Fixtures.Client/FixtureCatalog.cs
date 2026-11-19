@@ -110,6 +110,7 @@ public static class FixtureCatalog
         ["meter-prerender"] = new(typeof(MeterPrerenderFixture), Prerender: true),
         ["number-field-hold"] = new(typeof(NumberFieldHoldFixture)),
         ["number-field-form"] = new(typeof(NumberFieldFormFixture)),
+        ["number-field-input"] = new(typeof(NumberFieldInputFixture)),
         ["progress-basic"] = new(typeof(ProgressBasicFixture)),
         ["progress-prerender"] = new(typeof(ProgressPrerenderFixture), Prerender: true),
         ["composite-list"] = new(typeof(CompositeListFixture)),
