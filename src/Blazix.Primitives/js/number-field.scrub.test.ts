@@ -530,6 +530,33 @@ describe('the virtual cursor', () => {
     expect(cursor.style.transform).toContain('translate3d(170px,');
   });
 
+  it('port: a cursor attached before it is laid out is centred again by its size once it is (NUM-PTR-16, design point 8 (a))', () => {
+    stubLock();
+    const observers: Array<() => void> = [];
+    vi.stubGlobal('ResizeObserver', class {
+      constructor(private readonly callback: () => void) {}
+      observe() {
+        observers.push(this.callback);
+      }
+      disconnect() {}
+    });
+    const { area } = mountScrub();
+    vi.spyOn(area, 'getBoundingClientRect').mockReturnValue(new DOMRect(100, 100, 20, 20));
+
+    pointerDown(area);
+    const { cursor } = mountCursor(area);
+    expect(cursor.style.transform).toBe('translate3d(110px,110px,0) scale(1)');
+
+    // The portal moved it: laid out at 10 by 6.
+    vi.spyOn(cursor, 'getClientRects').mockReturnValue([new DOMRect(0, 0, 10, 6)] as unknown as DOMRectList);
+    vi.spyOn(cursor, 'offsetWidth', 'get').mockReturnValue(10);
+    vi.spyOn(cursor, 'offsetHeight', 'get').mockReturnValue(6);
+    observers.forEach((callback) => callback());
+
+    expect(cursor.style.transform).toBe('translate3d(105px,107px,0) scale(1)');
+    vi.unstubAllGlobals();
+  });
+
   it('port: the transform inverts the visual viewport scale (NUM-DOM-13)', () => {
     stubLock();
     let scale = 2;
