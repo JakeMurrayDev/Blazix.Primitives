@@ -177,6 +177,8 @@ describe('number-field module: the input role', () => {
       for (const ch of ['7', '٧', '۷', '７', '七', '〇', ',', '．', '٫']) {
         expect(key(input, { key: ch }).defaultPrevented).toBe(false);
       }
+      // A character outside them is blocked (the red check's positive half).
+      expect(key(input, { key: 'a' }).defaultPrevented).toBe(true);
     });
 
     it('port: does not intercept navigation keys, unknown multi-character keys, modifier shortcuts or IME composition (NUM-KEY-03..05)', () => {
@@ -190,6 +192,9 @@ describe('number-field module: the input role', () => {
       expect(key(input, { key: 'a', altKey: true }).defaultPrevented).toBe(false);
       expect(key(input, { key: 'a', which: 229 }).defaultPrevented).toBe(false);
       expect(fake.reports).toEqual([]);
+      // A step key is intercepted and reported (the red check's positive half).
+      expect(key(input, { key: 'ArrowUp' }).defaultPrevented).toBe(true);
+      expect(fake.reports.map((r) => r.method)).toEqual(['OnKeyStep']);
     });
 
     it('port: lets a sign through only when the text has none, all of it is selected, or the selection covers the sign (NUM-KEY-08)', () => {
@@ -259,6 +264,10 @@ describe('number-field module: the input role', () => {
       }
       key(prevented.input, { key: 'ArrowUp' });
       expect(prevented.fake.reports).toEqual([]);
+      // An enabled, editable field with no listener steps (the red check's positive half).
+      const active = mount(EN_US);
+      key(active.input, { key: 'ArrowUp' });
+      expect(active.fake.reports.map((r) => r.method)).toEqual(['OnKeyStep']);
     });
 
     it('port: a C# veto at input-key keeps the key from acting on WebAssembly (design point 1 (a))', () => {
@@ -307,6 +316,10 @@ describe('number-field module: the input role', () => {
       type(input, '5');
 
       expect(fake.reports).toEqual([]);
+      // Without the listener the same edit is reported (the red check's positive half).
+      const other = mount(EN_US);
+      type(other.input, '5');
+      expect(other.fake.reports.map((r) => r.method)).toEqual(['OnInputChange']);
     });
   });
 
@@ -351,6 +364,10 @@ describe('number-field module: the input role', () => {
 
       expect(paste(input, '2').defaultPrevented).toBe(false);
       expect(fake.reports).toEqual([]);
+      // An editable field takes the same paste (the red check's positive half).
+      const editable = mount(EN_US, {}, '1');
+      expect(paste(editable.input, '2').defaultPrevented).toBe(true);
+      expect(editable.fake.reports.map((r) => r.method)).toEqual(['OnInputPaste']);
     });
   });
 
