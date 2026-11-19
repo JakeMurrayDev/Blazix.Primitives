@@ -602,6 +602,13 @@ export interface StyleWriter {
   setConsumer(cssText: string | null | undefined): void;
   /** Returns the named layer. */
   layer(name: StyleLayerName): StyleLayer;
+  /**
+   * Makes the writer take a write to the `style` attribute it did not make, such as a re-render that renders
+   * declarations of its own, as the consumer's style, writing every layer's declarations again over it. Only an element
+   * whose `style` another renderer rewrites asks for this: modules that override a declaration directly for a
+   * measurement and restore it later would otherwise have their overrides taken as the consumer's.
+   */
+  absorbForeignWrites(): void;
 }
 
 interface Declaration {
@@ -684,14 +691,88 @@ export function styleWriter(element: HTMLElement): StyleWriter {
   const longhands = (property: string, value: string): Map<string, Declaration> =>
     property.startsWith('--') ? new Map([[property, { value, priority: '' }]]) : parse(`${property}: ${value}`);
 
-  const writer: StyleWriter = {
-    setConsumer(cssText) {
-      const text = cssText || null;
-      if (text === consumerText) {
-        return;
+  // ADR 04 Amendments 2026-11-18, design point 2 of the Drawer track, as revised 2026-11-19 (the opt-in form, chosen by
+  // the user 2026-11-19; granted to session D, M6 track 8b): on a writer that opts in (`absorbForeignWrites`, the Drawer
+  // Popup, whose C# re-render renders declarations in its commit path), a write to the `style` attribute the writer did
+  // not make is absorbed. The attribute's text becomes the consumer's, the cache is rebuilt from the element and every
+  // band's winners are written again. Foreign is judged by declaration against the cache, not by text. The observer,
+  // which runs before paint, absorbs any difference. A writer call absorbs first only when a declaration it applied was
+  // removed or changed. Declarations merely added inside one task are left to the observer, as Select's measurement
+  // does (select.ts `unsetTransformStyles`). Opt-in, not installed at the first layer write as first settled: popup.ts
+  // `override` writes a measurement declaration directly and restores it in a later task, and an observer on every
+  // writer took it, and the bands present with it, as the consumer's (6 L4 titles failed in the sample of 2026-11-19).
+  let written = false;
+  let observer: MutationObserver | null = null;
+
+  const differsFromCache = (additions: boolean) => {
+    const style = element.style;
+    for (const [property, key] of applied) {
+      if (`${style.getPropertyValue(property)}!${style.getPropertyPriority(property)}` !== key) {
+        return true;
       }
-      consumerText = text;
-      replace(consumerRank, text === null ? new Map() : parse(text));
+    }
+    if (additions) {
+      for (let i = 0; i < style.length; i++) {
+        if (!applied.has(style[i]!)) {
+          return true;
+        }
+      }
+    }
+    return false;
+  };
+
+  const absorbForeignWrite = (additions: boolean) => {
+    if (observer === null || !written || !differsFromCache(additions)) {
+      return;
+    }
+    const current = element.getAttribute('style');
+    consumerText = current || null;
+    sources[consumerRank] = consumerText === null ? new Map() : parse(consumerText);
+    applied.clear();
+    const style = element.style;
+    for (let i = 0; i < style.length; i++) {
+      const name = style[i]!;
+      applied.set(name, `${style.getPropertyValue(name)}!${style.getPropertyPriority(name)}`);
+    }
+    const properties = new Set(applied.keys());
+    for (const source of sources) {
+      for (const property of source.keys()) {
+        properties.add(property);
+      }
+    }
+    apply(properties);
+  };
+
+  // Runs one writer call, absorbing first a foreign write that removed or changed one of the writer's declarations.
+  const write = (change: () => void) => {
+    absorbForeignWrite(false);
+    change();
+    written = true;
+  };
+
+  const observe = () => {
+    if (observer !== null) {
+      return;
+    }
+    const View = ownerWindow(element).MutationObserver;
+    if (typeof View !== 'function') {
+      return;
+    }
+    observer = new View(() => absorbForeignWrite(true));
+    observer.observe(element, { attributes: true, attributeFilter: ['style'] });
+  };
+
+  const writer: StyleWriter = {
+    absorbForeignWrites: observe,
+    setConsumer(cssText) {
+      write(() => {
+        const text = cssText || null;
+        if (text === consumerText) {
+          return;
+        }
+        consumerText = text;
+        replace(consumerRank, text === null ? new Map() : parse(text));
+      });
     },
     layer(name) {
       const known = layers.get(name);
@@ -701,23 +782,27 @@ export function styleWriter(element: HTMLElement): StyleWriter {
       const rank = styleLayerRanks.get(name)!;
       const layer: StyleLayer = {
         set(property, value) {
-          const declarations = longhands(property, value);
-          const own = sources[rank]!;
-          for (const [longhand, declaration] of declarations) {
-            own.set(longhand, declaration);
-          }
-          apply(declarations.keys());
+          write(() => {
+            const declarations = longhands(property, value);
+            const own = sources[rank]!;
+            for (const [longhand, declaration] of declarations) {
+              own.set(longhand, declaration);
+            }
+            apply(declarations.keys());
+          });
         },
         remove(property) {
-          const removed = [...longhands(property, 'initial').keys(), property];
-          const own = sources[rank]!;
-          for (const longhand of removed) {
-            own.delete(longhand);
-          }
-          apply(removed);
+          write(() => {
+            const removed = [...longhands(property, 'initial').keys(), property];
+            const own = sources[rank]!;
+            for (const longhand of removed) {
+              own.delete(longhand);
+            }
+            apply(removed);
+          });
         },
         clear() {
-          replace(rank, new Map());
+          write(() => replace(rank, new Map()));
         },
       };
       layers.set(name, layer);
