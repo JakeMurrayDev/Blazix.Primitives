@@ -412,6 +412,25 @@ describe('number-field module: the input role', () => {
   describe('the hidden input', () => {
     // Design point 12 (a), chosen by the user 2026-11-19: the hidden input's `value` attribute follows its value, as React
     // keeps it (react issue 12334; NumberFieldRoot.tsx:530-532), so a field without `min` measures its step from the value.
+    it('port: two handles on one hidden input keep the mirror until the last is disposed (NUM-DOM-06)', () => {
+      const first = document.createElement('input');
+      const second = document.createElement('input');
+      const hidden = document.createElement('input');
+      hidden.type = 'number';
+      document.body.append(first, second, hidden);
+      const one = attach(first, optionsJson({ value: '1' }), createFakeTwin().twin, [hidden]);
+      const two = attach(second, optionsJson({ value: '1' }), createFakeTwin().twin, [hidden]);
+      handles.push(two);
+
+      one.dispose();
+      hidden.value = '3';
+      expect(hidden.getAttribute('value')).toBe('3');
+
+      two.dispose();
+      hidden.value = '4';
+      expect(hidden.getAttribute('value')).toBe('3');
+    });
+
     it('port: the hidden input\'s value attribute follows every write of its value and an autofill (NUM-DOM-06)', () => {
       const { hidden, handle } = mount(EN_US, {}, '1');
       hidden.step = '1';
@@ -423,9 +442,14 @@ describe('number-field module: the input role', () => {
       hidden.value = '';
       expect(hidden.getAttribute('value')).toBe('');
 
+      // An autofill writes the value without the property setter; the change listener mirrors it.
+      Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')!.set!.call(hidden, '9');
+      hidden.dispatchEvent(new Event('change', { bubbles: true }));
+      expect(hidden.getAttribute('value')).toBe('9');
+
       handle.dispose();
       hidden.value = '7';
-      expect(hidden.getAttribute('value')).toBe('');
+      expect(hidden.getAttribute('value')).toBe('9');
     });
 
     it('port: focusing it moves the focus to the visible input with the caret at the end (NUM-FOC-01, NUM-FOC-02)', () => {
