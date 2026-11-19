@@ -68,6 +68,9 @@ public sealed class NumberFieldRoot : PartBase<NumberFieldRootState>
     private string? inputId;
     private string inputValue = string.Empty;
     private NumberFormatter? formatter;
+    private NumberFormatter? allowedFor;
+    private bool allowedMinus;
+    private string? allowedCharacters;
     private double? formattedValue;
     private NumberFormatter? formattedWith;
     private string formattedText = string.Empty;
@@ -346,6 +349,9 @@ public sealed class NumberFieldRoot : PartBase<NumberFieldRootState>
     // Design point 7 (a): the revision of the last input report applied, echoed to the module with the text.
     /// <summary>Gets the revision of the last input report the root applied.</summary>
     internal int EchoedRevision => echoedRevision;
+
+    /// <summary>Gets the hidden input, once rendered.</summary>
+    internal ElementReference? HiddenInput => hiddenInput;
 
     /// <inheritdoc />
     public override Task SetParametersAsync(ParameterView parameters)
@@ -678,6 +684,173 @@ public sealed class NumberFieldRoot : PartBase<NumberFieldRootState>
         // Normalize only the displayed text.
         SetInputValue(FormatText(committedValue));
         Refresh();
+    }
+
+    // NUM-KEY-07 (decision 7 (a)): the keydown gate's set, recomputed only when the formatter or the minus rule changes.
+    /// <summary>Gets the characters other than numerals the visible input accepts.</summary>
+    /// <returns>The allowed characters for the current culture, format and bounds.</returns>
+    internal string AllowedCharacters()
+    {
+        NumberFormatter current = Formatter;
+        bool allowMinus = MinWithDefault < 0 || AllowOutOfRange;
+        if (!ReferenceEquals(current, allowedFor) || allowMinus != allowedMinus || allowedCharacters is null)
+        {
+            allowedCharacters = NumberInputCharacters.Allowed(Culture, Format, allowMinus);
+            allowedFor = current;
+            allowedMinus = allowMinus;
+        }
+
+        return allowedCharacters;
+    }
+
+    // NUM-KEY-01, NUM-KEY-02, NUM-KEY-12 (NumberFieldInput.tsx:351-404): the module prevented the key; C# steps.
+    /// <summary>Applies a step key pressed in the visible input.</summary>
+    /// <param name="key">The key: <c>ArrowUp</c>, <c>ArrowDown</c>, <c>Home</c> or <c>End</c>.</param>
+    /// <param name="text">The text the input showed.</param>
+    /// <param name="revision">The revision of the module's report, echoed in the next options.</param>
+    /// <param name="snapshot">The keydown.</param>
+    /// <returns>A task that completes when the step and its commit have run.</returns>
+    internal async Task HandleKeyStepAsync(string key, string text, int revision, EventSnapshot snapshot)
+    {
+        echoedRevision = Math.Max(echoedRevision, revision);
+        if (EffectiveDisabled || ReadOnly)
+        {
+            Refresh();
+            return;
+        }
+
+        bool hadManualInput = !AllowInputSync;
+        bool isStepKey = key is "ArrowUp" or "ArrowDown";
+        double? bound = key switch
+        {
+            "Home" => Min,
+            "End" => Max,
+            _ => null,
+        };
+        if (!isStepKey && bound is null)
+        {
+            Refresh();
+            return;
+        }
+
+        double? currentValue = hadManualInput ? NumberParser.Parse(text, Culture, Format) : null;
+        AllowInputSync = true;
+        bool changed;
+        if (isStepKey)
+        {
+            if (!hadManualInput)
+            {
+                LastChangedValue = ValueRef;
+            }
+
+            changed = await IncrementValueAsync(GetStepAmount(snapshot), key == "ArrowUp" ? 1 : -1, currentValue, snapshot, EventReason.Keyboard).ConfigureAwait(true);
+        }
+        else
+        {
+            changed = await SetValueAsync(bound, new NumberFieldChangeEventDetails(EventReason.Keyboard, null, snapshot)).ConfigureAwait(true);
+        }
+
+        if (changed)
+        {
+            await CommitAsync(LastChangedValue, EventReason.Keyboard, snapshot).ConfigureAwait(true);
+        }
+
+        Refresh();
+    }
+
+    // NUM-EVT-13, NUM-EVT-15, NUM-EDGE-06 (NumberFieldInput.tsx:225-262): the text is shown as typed; a parse requests it.
+    /// <summary>Applies an edit of the visible input.</summary>
+    /// <param name="text">The text the input shows.</param>
+    /// <param name="revision">The revision of the module's report, echoed in the next options.</param>
+    /// <param name="snapshot">The input event.</param>
+    /// <returns>A task that completes when the request has run.</returns>
+    internal async Task HandleInputChangeAsync(string text, int revision, EventSnapshot snapshot)
+    {
+        echoedRevision = Math.Max(echoedRevision, revision);
+        if (EffectiveDisabled || ReadOnly)
+        {
+            Refresh();
+            return;
+        }
+
+        AllowInputSync = false;
+        if (NumberParser.IsBlank(text))
+        {
+            SetInputValue(text);
+            await SetValueAsync(null, new NumberFieldChangeEventDetails(EventReason.InputClear, null, snapshot)).ConfigureAwait(true);
+            Refresh();
+            return;
+        }
+
+        // C# runs the module's character test again: a text it would not accept goes back to the last accepted one.
+        if (!NumberInputCharacters.IsAllowedText(text, AllowedCharacters()))
+        {
+            Refresh();
+            return;
+        }
+
+        SetInputValue(text);
+        if (NumberParser.Parse(text, Culture, Format) is double parsed)
+        {
+            await SetValueAsync(parsed, new NumberFieldChangeEventDetails(EventReason.InputChange, null, snapshot)).ConfigureAwait(true);
+        }
+
+        Refresh();
+    }
+
+    // NUM-EVT-13, NUM-EVT-16 (NumberFieldInput.tsx:406-445): a spliced paste that parses is requested and shown.
+    /// <summary>Applies a paste into the visible input.</summary>
+    /// <param name="text">The display text with the pasted text spliced in.</param>
+    /// <param name="revision">The revision of the module's report, echoed in the next options.</param>
+    /// <param name="snapshot">The paste event.</param>
+    /// <returns>A task that completes when the request has run.</returns>
+    internal async Task HandleInputPasteAsync(string text, int revision, EventSnapshot snapshot)
+    {
+        if (EffectiveDisabled || ReadOnly || NumberParser.Parse(text, Culture, Format) is not double parsed)
+        {
+            return;
+        }
+
+        echoedRevision = Math.Max(echoedRevision, revision);
+        AllowInputSync = false;
+        await SetValueAsync(parsed, new NumberFieldChangeEventDetails(EventReason.InputPaste, null, snapshot)).ConfigureAwait(true);
+        SetInputValue(text);
+        Refresh();
+    }
+
+    // NUM-PTR-07 (NumberFieldRoot.tsx's wheel listener): the module prevented the scroll; C# steps and commits.
+    /// <summary>Applies a wheel step of the focused input.</summary>
+    /// <param name="direction"><c>1</c> to step up, <c>-1</c> to step down.</param>
+    /// <param name="snapshot">The wheel event.</param>
+    /// <returns>A task that completes when the step and its commit have run.</returns>
+    internal async Task HandleWheelStepAsync(int direction, EventSnapshot snapshot)
+    {
+        if (EffectiveDisabled || ReadOnly || !AllowWheelScrub)
+        {
+            return;
+        }
+
+        AllowInputSync = true;
+        if (await IncrementValueAsync(GetStepAmount(snapshot), direction, null, snapshot, EventReason.Wheel).ConfigureAwait(true))
+        {
+            await CommitAsync(LastChangedValue, EventReason.Wheel, snapshot).ConfigureAwait(true);
+        }
+    }
+
+    // NUM-FRM-05 (NumberFieldRoot.tsx:510-530): the browser autofilled the hidden input.
+    /// <summary>Applies an autofill of the hidden input.</summary>
+    /// <param name="value">The hidden input's number, or <see langword="null"/>.</param>
+    /// <param name="snapshot">The hidden input's change event.</param>
+    /// <returns>A task that completes when the request has run.</returns>
+    internal async Task HandleAutofillAsync(double? value, EventSnapshot snapshot)
+    {
+        if (EffectiveDisabled || ReadOnly)
+        {
+            return;
+        }
+
+        await SetValueAsync(value, new NumberFieldChangeEventDetails(EventReason.None, null, snapshot)).ConfigureAwait(true);
+        fieldHalf!.ClearErrors();
     }
 
     /// <summary>Sets the text the visible input shows.</summary>

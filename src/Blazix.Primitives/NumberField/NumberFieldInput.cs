@@ -1,5 +1,6 @@
 using Blazix.Primitives.Interop;
 using Blazix.Primitives.Rendering;
+using Blazix.Primitives.Utilities;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Web;
 using Microsoft.JSInterop;
@@ -16,6 +17,10 @@ namespace Blazix.Primitives;
 //   are declined and run by the part: on WebAssembly inside the `input-focus` / `input-blur` decision, where
 //   PreventPartHandler() stops the report; on Server from the part's own handler, a round trip after the module reported
 //   (ADR 01's C#-origin veto row).
+// - 6b's input role: the module's keydown gate runs over the allowed set and locale symbols this part sends (decision 7 (a),
+//   NUM-KEY-07/09); its key steps, edits, pastes, wheel steps and the hidden input's autofill reach the root as reports
+//   (NUM-KEY-01/02, NUM-EVT-15/16, NUM-PTR-07, NUM-FRM-05). The consumer's `onkeydown`, `onpaste` and `oninput` are declined
+//   and run as `onfocus` is, through the `input-key`, `input-paste` and `input-change` points (design point 1 (a)).
 /// <summary>
 /// Represents the text input of a number field: Base UI's <c>NumberField.Input</c>, rendered as an <c>input type="text"</c>
 /// that shows the formatted value. It must be placed within a <see cref="NumberFieldRoot"/>.
@@ -32,15 +37,32 @@ public sealed class NumberFieldInput : PartBase<NumberFieldInputState>
     private readonly EventCallback onBlur;
     private readonly Action<EventSnapshot> focused;
     private readonly Action<NumberFieldBlurReport> blurred;
+    private readonly Action<NumberFieldKeyStepReport> keyStepped;
+    private readonly Action<NumberFieldChangeReport> changed;
+    private readonly Action<NumberFieldPasteReport> pasted;
+    private readonly Action<NumberFieldWheelReport> wheelStepped;
+    private readonly Action<NumberFieldAutofillReport> autofilled;
     private NumberFieldRootContext? context;
     private NumberFieldTwin? twin;
     private TwinHandle<NumberFieldOptions>? handle;
     private NumberFieldOptions? sentOptions;
+    private NumberFieldInputOptions? sentInput;
     private string? renderedValue;
     private AttributeValue consumerFocus;
     private AttributeValue consumerBlur;
+    private AttributeValue consumerKeyDown;
+    private AttributeValue consumerPaste;
+    private AttributeValue consumerInput;
     private bool focusDecided;
     private bool blurDecided;
+    private bool keyDecided;
+    private bool pasteDecided;
+    private bool inputDecided;
+
+    // Created the first time a consumer passes the handler: each handler slot costs every render (ADR 16 rule 7).
+    private EventCallback onKeyDown;
+    private EventCallback onPaste;
+    private EventCallback onInput;
     private NumberFieldInputState? state;
     private int stateVersion = -1;
 
@@ -52,6 +74,11 @@ public sealed class NumberFieldInput : PartBase<NumberFieldInputState>
         onBlur = CreateHandler<FocusEventArgs>("onblur", e => RunConsumerAsync(e, consumerBlur, ref blurDecided));
         focused = snapshot => _ = InvokeAsync(() => context!.Root.HandleInputFocus());
         blurred = report => _ = InvokeAsync(() => context!.Root.HandleInputBlurAsync(report.Text, report.Revision, report.Event));
+        keyStepped = report => _ = InvokeAsync(() => context!.Root.HandleKeyStepAsync(report.Key, report.Text, report.Revision, report.Event));
+        changed = report => _ = InvokeAsync(() => context!.Root.HandleInputChangeAsync(report.Text, report.Revision, report.Event));
+        pasted = report => _ = InvokeAsync(() => context!.Root.HandleInputPasteAsync(report.Text, report.Revision, report.Event));
+        wheelStepped = report => _ = InvokeAsync(() => context!.Root.HandleWheelStepAsync(report.Direction, report.Event));
+        autofilled = report => _ = InvokeAsync(() => context!.Root.HandleAutofillAsync(report.Value, report.Event));
     }
 
     [Inject]
@@ -98,6 +125,9 @@ public sealed class NumberFieldInput : PartBase<NumberFieldInputState>
     {
         consumerFocus = default;
         consumerBlur = default;
+        consumerKeyDown = default;
+        consumerPaste = default;
+        consumerInput = default;
         if (AdditionalAttributes is null)
         {
             return;
@@ -105,8 +135,7 @@ public sealed class NumberFieldInput : PartBase<NumberFieldInputState>
 
         foreach (KeyValuePair<string, object> pair in AdditionalAttributes)
         {
-            bool focus = string.Equals(pair.Key, "onfocus", StringComparison.OrdinalIgnoreCase);
-            if (!focus && !string.Equals(pair.Key, "onblur", StringComparison.OrdinalIgnoreCase))
+            if (!IsDeclined(pair.Key))
             {
                 continue;
             }
@@ -117,13 +146,38 @@ public sealed class NumberFieldInput : PartBase<NumberFieldInputState>
                 continue;
             }
 
-            if (focus)
+            switch (pair.Key.ToLowerInvariant())
             {
-                consumerFocus = value;
-            }
-            else
-            {
-                consumerBlur = value;
+                case "onfocus":
+                    consumerFocus = value;
+                    break;
+                case "onblur":
+                    consumerBlur = value;
+                    break;
+                case "onkeydown":
+                    consumerKeyDown = value;
+                    if (!onKeyDown.HasDelegate)
+                    {
+                        onKeyDown = CreateHandler<KeyboardEventArgs>("onkeydown", e => RunConsumerAsync(e, consumerKeyDown, ref keyDecided));
+                    }
+
+                    break;
+                case "onpaste":
+                    consumerPaste = value;
+                    if (!onPaste.HasDelegate)
+                    {
+                        onPaste = CreateHandler<ClipboardEventArgs>("onpaste", e => RunConsumerAsync(e, consumerPaste, ref pasteDecided));
+                    }
+
+                    break;
+                default:
+                    consumerInput = value;
+                    if (!onInput.HasDelegate)
+                    {
+                        onInput = CreateHandler<ChangeEventArgs>("oninput", e => RunConsumerAsync(e, consumerInput, ref inputDecided));
+                    }
+
+                    break;
             }
         }
     }
@@ -139,21 +193,50 @@ public sealed class NumberFieldInput : PartBase<NumberFieldInputState>
         NumberFieldRoot root = context!.Root;
         string text = root.InputValue;
         int revision = root.EchoedRevision;
+        string allowed = root.AllowedCharacters();
+        bool disabled = root.EffectiveDisabled;
+        bool readOnly = root.ReadOnly;
+        bool wheel = root.AllowWheelScrub && !disabled && !readOnly;
+        bool hasMin = root.Min.HasValue;
+        bool hasMax = root.Max.HasValue;
+        bool gateChanged = sentInput is not { } gate
+            || !ReferenceEquals(gate.Allowed, allowed)
+            || gate.Min != hasMin
+            || gate.Max != hasMax
+            || gate.Wheel != wheel
+            || gate.Disabled != disabled
+            || gate.ReadOnly != readOnly;
         if (handle is null)
         {
             twin ??= CreateTwin();
-            sentOptions = new NumberFieldOptions { Value = text, Revision = revision };
-            handle = await twin.AttachAsync(element, sentOptions);
+            sentInput = InputOptions(root, allowed, hasMin, hasMax, wheel, disabled, readOnly);
+            sentOptions = new NumberFieldOptions { Value = text, Revision = revision, Input = sentInput };
+            TwinReferences? references = null;
+            if (root.HiddenInput is { } hidden)
+            {
+                references = new TwinReferences();
+                references.Add(hidden);
+            }
+
+            handle = await twin.AttachAsync(element, sentOptions, references);
             return;
         }
 
         // Compared before constructing, so an unchanged render allocates no options record.
-        if (sentOptions is { } sent && string.Equals(sent.Value, text, StringComparison.Ordinal) && sent.Revision == revision)
+        if (!gateChanged && sentOptions is { } sent && string.Equals(sent.Value, text, StringComparison.Ordinal) && sent.Revision == revision)
         {
             return;
         }
 
-        sentOptions = new NumberFieldOptions { Value = text, Revision = revision };
+        // ADR 16 rule 7: the input part goes only with an update that changes it; the module keeps the last one.
+        NumberFieldInputOptions? input = null;
+        if (gateChanged)
+        {
+            sentInput = InputOptions(root, allowed, hasMin, hasMax, wheel, disabled, readOnly);
+            input = sentInput;
+        }
+
+        sentOptions = new NumberFieldOptions { Value = text, Revision = revision, Input = input };
         await handle.UpdateAsync(sentOptions);
     }
 
@@ -168,8 +251,16 @@ public sealed class NumberFieldInput : PartBase<NumberFieldInputState>
             {
                 twin.InputFocused -= focused;
                 twin.InputBlurred -= blurred;
+                twin.KeyStepped -= keyStepped;
+                twin.InputChanged -= changed;
+                twin.InputPasted -= pasted;
+                twin.WheelStepped -= wheelStepped;
+                twin.Autofilled -= autofilled;
                 twin.FocusDecider = null;
                 twin.BlurDecider = null;
+                twin.KeyDecider = null;
+                twin.PasteDecider = null;
+                twin.ChangeDecider = null;
                 _ = twin.DisposeAsync().AsTask();
                 twin = null;
                 handle = null;
@@ -182,7 +273,7 @@ public sealed class NumberFieldInput : PartBase<NumberFieldInputState>
     /// <inheritdoc />
     protected override bool ForwardsConsumerHandler(string eventName)
     {
-        return !string.Equals(eventName, "onfocus", StringComparison.OrdinalIgnoreCase) && !string.Equals(eventName, "onblur", StringComparison.OrdinalIgnoreCase);
+        return !IsDeclined(eventName);
     }
 
     /// <inheritdoc />
@@ -210,6 +301,21 @@ public sealed class NumberFieldInput : PartBase<NumberFieldInputState>
         if (consumerBlur.IsHandler)
         {
             attributes.Set("onblur", onBlur);
+        }
+
+        if (consumerKeyDown.IsHandler)
+        {
+            attributes.Set("onkeydown", onKeyDown);
+        }
+
+        if (consumerPaste.IsHandler)
+        {
+            attributes.Set("onpaste", onPaste);
+        }
+
+        if (consumerInput.IsHandler)
+        {
+            attributes.Set("oninput", onInput);
         }
         attributes.Set("type", "text");
         attributes.Set("autocomplete", "off");
@@ -261,9 +367,17 @@ public sealed class NumberFieldInput : PartBase<NumberFieldInputState>
         {
             FocusDecider = snapshot => Decide(snapshot, consumerFocus, ref focusDecided),
             BlurDecider = snapshot => Decide(snapshot, consumerBlur, ref blurDecided),
+            KeyDecider = snapshot => Decide(snapshot, consumerKeyDown, ref keyDecided),
+            PasteDecider = snapshot => Decide(snapshot, consumerPaste, ref pasteDecided),
+            ChangeDecider = snapshot => Decide(snapshot, consumerInput, ref inputDecided),
         };
         created.InputFocused += focused;
         created.InputBlurred += blurred;
+        created.KeyStepped += keyStepped;
+        created.InputChanged += changed;
+        created.InputPasted += pasted;
+        created.WheelStepped += wheelStepped;
+        created.Autofilled += autofilled;
         return created;
     }
 
@@ -276,7 +390,22 @@ public sealed class NumberFieldInput : PartBase<NumberFieldInputState>
             return DecisionPolicy.Run;
         }
 
-        FocusEventArgs args = new() { Type = snapshot.Type };
+        EventArgs args = snapshot.Type switch
+        {
+            "keydown" => new KeyboardEventArgs
+            {
+                Type = snapshot.Type,
+                Key = snapshot.Key ?? string.Empty,
+                Code = snapshot.Code ?? string.Empty,
+                AltKey = snapshot.AltKey,
+                CtrlKey = snapshot.CtrlKey,
+                MetaKey = snapshot.MetaKey,
+                ShiftKey = snapshot.ShiftKey,
+            },
+            "paste" => new ClipboardEventArgs { Type = snapshot.Type },
+            "input" => new ChangeEventArgs(),
+            _ => new FocusEventArgs { Type = snapshot.Type },
+        };
         decided = true;
         try
         {
@@ -294,7 +423,33 @@ public sealed class NumberFieldInput : PartBase<NumberFieldInputState>
         return args.PartHandlerPrevented() ? DecisionPolicy.Stop : DecisionPolicy.Run;
     }
 
-    private Task RunConsumerAsync(FocusEventArgs e, AttributeValue consumer, ref bool decided)
+    // NUM-API-25 and design point 1 (a): the consumer handlers the part runs itself.
+    private static bool IsDeclined(string eventName) =>
+        eventName.Equals("onfocus", StringComparison.OrdinalIgnoreCase)
+        || eventName.Equals("onblur", StringComparison.OrdinalIgnoreCase)
+        || eventName.Equals("onkeydown", StringComparison.OrdinalIgnoreCase)
+        || eventName.Equals("onpaste", StringComparison.OrdinalIgnoreCase)
+        || eventName.Equals("oninput", StringComparison.OrdinalIgnoreCase);
+
+    private static NumberFieldInputOptions InputOptions(NumberFieldRoot root, string allowed, bool hasMin, bool hasMax, bool wheel, bool disabled, bool readOnly)
+    {
+        NumberLocaleDetails details = root.Formatter.LocaleDetails();
+        return new NumberFieldInputOptions
+        {
+            Allowed = allowed,
+            Decimal = details.Decimal,
+            Currency = details.Currency,
+            Percent = details.PercentSign,
+            Min = hasMin,
+            Max = hasMax,
+            Wheel = wheel,
+            Disabled = disabled,
+            ReadOnly = readOnly,
+            DevelopmentChecks = DevelopmentWarnings.IsEnabled ? true : null,
+        };
+    }
+
+    private Task RunConsumerAsync(EventArgs e, AttributeValue consumer, ref bool decided)
     {
         bool pending = decided;
         decided = false;
