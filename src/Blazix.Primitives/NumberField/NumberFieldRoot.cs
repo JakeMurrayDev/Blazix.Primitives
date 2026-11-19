@@ -382,9 +382,16 @@ public sealed class NumberFieldRoot : PartBase<NumberFieldRootState>
     {
         formatter = NumberFormatter.Get(Culture, Format);
         fieldHalf!.SetParameters(Name, Disabled, FormScope, CascadedEditContext, ValueExpression);
+
+        // Design point 11 (b), chosen by the user 2026-11-19 (NUM-STA-06): a parameter set re-derives the text only when what
+        // the text derives from changed (the value, or the formatter of Format and Culture), so a parent's re-render after
+        // an EventCallback leaves it alone, as a React parent whose state did not change does. The field's own requests
+        // sync through UpdateState as before.
+        bool resync = !ReferenceEquals(formatter, formattedWith) || !Equality.Is(formattedValue, CurrentValue);
+
         // A changed state notifies the parts; otherwise they are notified for the parameters they read beside the state
         // (the bounds of the steppers, the input's id and mode).
-        if (!UpdateState())
+        if (!UpdateState(resync))
         {
             context.Notify();
         }
@@ -970,7 +977,7 @@ public sealed class NumberFieldRoot : PartBase<NumberFieldRootState>
 
     // Returns whether the state changed; a new record is made only then (ADR 16 rule 7), and the parts are told first, so
     // they render in the same batch as the root.
-    private bool UpdateState()
+    private bool UpdateState(bool syncText = true)
     {
         double? current = CurrentValue;
 
@@ -990,8 +997,8 @@ public sealed class NumberFieldRoot : PartBase<NumberFieldRootState>
 #pragma warning restore BLZX2005
         }
 
-        // NUM-STA-06: while sync is allowed the text is the formatted value after every update.
-        if (AllowInputSync)
+        // NUM-STA-06: while sync is allowed the text is the formatted value after every update of the field's own.
+        if (AllowInputSync && syncText)
         {
             SetInputValue(FormatText(current));
         }
