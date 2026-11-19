@@ -9,13 +9,15 @@ internal static class AllocationSampler
     /// <summary>The bytes a budget's figure may exceed its pin by and still pass.</summary>
     public const long ToleranceBytes = 256;
 
-    /// <summary>Asserts that a measured figure is within its budget: at most the pin plus <see cref="ToleranceBytes"/>.</summary>
+    /// <summary>Asserts that a measured figure is within its budget: at most the pin plus <see cref="ToleranceBytes"/>, or exactly 0 for a pin of 0.</summary>
     /// <param name="figure">The measured bytes.</param>
     /// <param name="pin">The budget's pin, the figure measured when it was set.</param>
     /// <param name="what">What was measured, the start of the failure message, for example "a store notification".</param>
     public static void AssertWithinBudget(long figure, long pin, string what)
     {
-        long limit = pin + ToleranceBytes;
-        Assert.True(figure <= limit, $"{what} allocated {figure} bytes; the pin is {pin} bytes and the tolerance {ToleranceBytes} bytes (at most {limit})");
+        // Zero pins, chosen by the user 2026-11-19 (issue 304): a title pinned at 0 asserts that a path allocates nothing.
+        long tolerance = pin == 0 ? 0 : ToleranceBytes;
+        long limit = pin + tolerance;
+        Assert.True(figure <= limit, $"{what} allocated {figure} bytes; the pin is {pin} bytes and the tolerance {tolerance} bytes (at most {limit})");
     }
 }
