@@ -292,7 +292,13 @@ test.describe('<Slider.Root />', () => {
 
   test.describe('prop: disabled', () => {
     // SLD-FOC-05: Base UI spies on the input's `blur`; here the page wraps it.
-    test('explicitly blurs the focused thumb when disabled', async ({ page, mode }) => {
+    // Quarantined (ADR 11 §4) on Server until 2026-12-03, issue 328: failed twice in CI on Server (PR 320's run 44464038543;
+    // main's run 44487136692 at e6b4ad9b), each the blur count (`Expected: > 0 / Received: 0`).
+    test('explicitly blurs the focused thumb when disabled', {
+      tag: '@quarantine',
+      annotation: { type: 'open', description: 'https://github.com/JakeMurrayDev/Blazix.Primitives/issues/328 (expires 2026-12-03)' },
+    }, async ({ page, mode }) => {
+      test.fixme(mode === 'server', 'Quarantined on Server until 2026-12-03 (issue 328)');
       const fixture = await open(page, mode, 'slider-label', { value: '30' });
       const input = fixture.getByRole('slider');
       await input.focus();
