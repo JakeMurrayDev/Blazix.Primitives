@@ -108,7 +108,20 @@
             cut.InvokeAsync(() => store.RequestValueAsync(values[1 + (i % 2)], details)).GetAwaiter().GetResult();
         }
 
-        long valueChange = AllocationSampler.LeastOfFive(run => cut.InvokeAsync(() => store.RequestValueAsync(values[1 + (run % 2)], details)).GetAwaiter().GetResult());
+        // Issue 254 (M6 track 11): the two directions of the alternation cost differently (a change to the third value about
+        // 3.6 KB less than one to the second, 2026-11-19), so alternating left the least of five over two cheaper samples, which
+        // an in-process event (a list's growth, a background allocation) could each inflate by 0.3 to 3.6 KB: CI saw +632 and
+        // +2,040 bytes on the same code. Each of the five runs now times the same direction, a change to the third value after
+        // an untimed change back to the second, so the least is taken over five like samples (ADR 16 rule 7).
+        long valueChange = long.MaxValue;
+        for (int run = 0; run < AllocationSampler.Runs; run++)
+        {
+            cut.InvokeAsync(() => store.RequestValueAsync(values[1], details)).GetAwaiter().GetResult();
+            long before = GC.GetAllocatedBytesForCurrentThread();
+            cut.InvokeAsync(() => store.RequestValueAsync(values[2], details)).GetAwaiter().GetResult();
+            valueChange = Math.Min(valueChange, GC.GetAllocatedBytesForCurrentThread() - before);
+        }
+
         return (rerender, highlight, valueChange);
     }
 
