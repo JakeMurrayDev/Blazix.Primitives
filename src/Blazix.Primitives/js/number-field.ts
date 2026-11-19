@@ -31,6 +31,12 @@ export interface NumberFieldOptions extends TwinOptions {
   value: string;
   /** The revision of the last input report C# applied, which the module compares with its own. */
   revision: number;
+  /** The input role's configuration; an update without it keeps the last one, so a step's text update stays small. */
+  input?: NumberFieldInputOptions | null;
+}
+
+/** The input role's configuration, which C# sends at attach and again only when it changes. */
+export interface NumberFieldInputOptions {
   /** The allowed non-numeric characters, C#'s NUM-KEY-07 set for the locale and format. */
   allowed?: string | null;
   /** The locale's decimal separator, currency symbol and percent sign, each typed at most once (NUM-KEY-09). */
@@ -151,6 +157,7 @@ export function attach(
   const input = resolveElement(elementOrId, captures?.[0]) as HTMLInputElement;
   const twin = createTwinChannel(twinReference);
   let options = parseOptions<NumberFieldOptions>(optionsJson);
+  let gate: NumberFieldInputOptions = options.input ?? {};
   let revision = 0;
   let disposed = false;
   let text = input.value;
@@ -175,8 +182,8 @@ export function attach(
   };
   write(options);
 
-  const inactive = () => options.disabled === true || options.readOnly === true;
-  const allowedSet = () => options.allowed ?? '';
+  const inactive = () => gate.disabled === true || gate.readOnly === true;
+  const allowedSet = () => gate.allowed ?? '';
 
   // NumberFieldInput.tsx:131-136: a focus whose default a consumer prevented is not the field's.
   const onFocus = (event: FocusEvent) => {
@@ -218,7 +225,7 @@ export function attach(
     }
 
     // NUM-KEY-09: one of each symbol; group separators are not limited.
-    for (const symbol of [options.decimal, options.currency, options.percent]) {
+    for (const symbol of [gate.decimal, gate.currency, gate.percent]) {
       if (symbol && event.key === symbol) {
         const index = current.indexOf(symbol);
         isAllowed = index === -1 || allSelected || covers(index);
@@ -238,7 +245,7 @@ export function attach(
       return;
     }
 
-    const isBound = (event.key === 'Home' && options.min === true) || (event.key === 'End' && options.max === true);
+    const isBound = (event.key === 'Home' && gate.min === true) || (event.key === 'End' && gate.max === true);
     if (event.key.length > 1 && !isStepKey && !isBound) {
       return;
     }
@@ -293,7 +300,7 @@ export function attach(
     try {
       pasted = event.clipboardData?.getData('text/plain') ?? '';
     } catch {
-      if (options.developmentChecks === true) {
+      if (gate.developmentChecks === true) {
         warnOnce('Blazix: <NumberFieldInput> could not read clipboard text during paste handling. ');
       }
       return;
@@ -329,7 +336,7 @@ export function attach(
   };
   let wheelAttached = false;
   const syncWheel = () => {
-    const want = options.wheel === true && !inactive();
+    const want = gate.wheel === true && !inactive();
     if (want && !wheelAttached) {
       input.addEventListener('wheel', onWheel, { passive: false });
     } else if (!want && wheelAttached) {
@@ -368,6 +375,7 @@ export function attach(
         return;
       }
       options = parseOptions<NumberFieldOptions>(nextOptionsJson);
+      gate = options.input ?? gate;
       write(options);
       syncWheel();
     },
