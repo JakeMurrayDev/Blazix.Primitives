@@ -158,7 +158,7 @@ test.describe('dynamic items', () => {
   // orchestrator 2026-11-10 to stay open; five attempts at the selected text's re-measure were measured and none merged
   // (PR 205's body has the table). Red on both modes until SEL-POS-07 is fixed.
   test.fixme('resets aligned positioning when value reset, option replacement, and controlled open happen together', {
-    annotation: { type: 'open', description: 'SEL-POS-07: the aligned placement keeps the previous selected text when the value reset, option replacement and controlled open land together; settled 2026-11-10 to stay open, five attempts measured (PR 205)' },
+    annotation: { type: 'open', description: 'SEL-POS-07 (issue 311): the aligned placement keeps the previous selected text when the value reset, option replacement and controlled open land together; a library defect for track 10, five attempts measured (PR 205)' },
   }, async ({ page, mode }) => {
     await resetsAlignedPositioning(page, mode, 'replace-open', 'replace-options-and-open', true);
   });
