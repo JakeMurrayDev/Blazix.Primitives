@@ -884,13 +884,25 @@ test.describe('Field', () => {
 });
 
 // useLabel.test.tsx's cases that render a Select (M5 track 9, final review B2), on the `select-use-label` fixture: the
-// Select.Label and the non-native Field.Label of a Field holding a Select. Combobox.Label's case is track 10's.
+// Select.Label and the non-native Field.Label of a Field holding a Select; and its Combobox.Label case (M6 track 11, issue
+// 265), on the `combobox-use-label` fixture.
 test.describe('useLabel', () => {
-  for (const [labelType, label] of [['Select.Label', 'select'], ['Field.Label', 'field']] as const) {
+  for (const [labelType, fixtureName, label] of [
+    ['Select.Label', 'select-use-label', 'select'],
+    ['Combobox.Label', 'combobox-use-label', undefined],
+    ['Field.Label', 'select-use-label', 'field'],
+  ] as const) {
     test.describe(labelType, () => {
       // FFI-PTR-01
       test('focuses the trigger without opening the popup in the document', async ({ page, mode }) => {
-        const fixture = await gotoPopupFixture(page, mode, 'select-use-label', { label });
+        // Red on both modes (2026-11-19, 2 of 2 each, and with 1.5 s before the click): a click on Combobox.Label leaves the
+        // focus on the body. Open by ID, a library defect for track 10.
+        if (labelType === 'Combobox.Label') {
+          const openRow = 'FFI-PTR-01 (issue TBD): a click on Combobox.Label in a Field does not focus the trigger';
+          test.info().annotations.push({ type: 'open', description: openRow });
+          test.fixme(true, openRow);
+        }
+        const fixture = await gotoPopupFixture(page, mode, fixtureName, label ? { label } : {});
         const trigger = page.getByRole('combobox', { name: 'Country' });
 
         await page.getByText('Country', { exact: true }).click();

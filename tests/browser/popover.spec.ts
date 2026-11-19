@@ -1,5 +1,5 @@
 import { type Locator, type Route } from '@playwright/test';
-import { delayCircuit, expect, Fixture, fixtureUrl, isScrollLocked, test, throttleCpu, type Page, type RenderMode } from './helpers';
+import { delayCircuit, expect, Fixture, fixtureUrl, isScrollLocked, pointOf, test, testWithTouch, throttleCpu, touchDrag, type Page, type RenderMode } from './helpers';
 import { finishSwitchTransitions, recordSwitchTransitions, switchTransitions } from './helpers/switchTransitions';
 import { detachedTriggersConformanceTests } from './suites/detachedTriggersConformanceTests';
 import { popupConformanceTests } from './suites/popupConformanceTests';
@@ -2071,3 +2071,109 @@ test.describe('a dialog nested in a popover', () => {
     await expect(fixture).toHaveAttribute('data-dialog-changes', '');
   });
 });
+
+// PopoverRoot.test.tsx's nested Menu and Combobox titles (M6 track 11): "nested menu interactions" on `popover-nested-menu`
+// (issue 263; a TestPopover in an open `<dialog>` that both portals share as their container), and the nested-combobox
+// titles of "with the popup following immediately the only trigger" and "nested popup interactions" on
+// `popover-nested-combobox` (issue 264), once per trigger layout as Base UI's describe.for runs them. A nested part
+// renders once the popover's popup does: the titles wait for the fixture's `data-child-attached` before pressing it.
+for (const [variant, name] of [['contained', 'contained triggers'], ['detached', 'detached triggers'], ['multiple', 'multiple detached triggers']] as const) {
+  test.describe(`<Popover.Root /> when using ${name}`, () => {
+    test.describe('nested menu interactions', () => {
+      // POP-API-20, POP-KEY-01, POP-EDGE-11
+      test('keeps the popover open when a nested menu opens via Enter using a shared container', async ({ page, mode }) => {
+        const fixture = await gotoPopupFixture(page, mode, 'popover-nested-menu', { variant });
+        const popoverTrigger = page.getByRole('button', { name: 'Toggle', exact: true });
+
+        await popoverTrigger.focus();
+        await page.keyboard.press('Enter');
+        await expect(page.getByTestId('popover-popup')).toBeVisible();
+        await expect(fixture).toHaveAttribute('data-child-attached', 'true');
+
+        const nestedTrigger = page.getByRole('button', { name: 'Open nested' });
+        await nestedTrigger.focus();
+        await page.keyboard.press('Enter');
+        await expect(page.getByTestId('menu-popup')).toBeVisible();
+
+        await settle(fixture);
+        await expect(page.getByTestId('popover-popup')).toBeVisible();
+        expect(await openChanges(fixture)).toEqual(['true:trigger-press']);
+      });
+
+      // POP-API-20, POP-DIS-04, POP-EDGE-11
+      test('keeps the popover open when a nested menu opens via pointer using a shared container', async ({ page, mode }) => {
+        const fixture = await gotoPopupFixture(page, mode, 'popover-nested-menu', { variant, item: true });
+
+        await page.getByRole('button', { name: 'Toggle', exact: true }).click();
+        await expect(page.getByTestId('popover-popup')).toBeVisible();
+        await expect(fixture).toHaveAttribute('data-child-attached', 'true');
+
+        await page.getByRole('button', { name: 'Open nested' }).click();
+        await expect(page.getByTestId('menu-popup')).toBeVisible();
+
+        await page.getByText('Item', { exact: true }).click();
+
+        await settle(fixture);
+        await expect(page.getByTestId('popover-popup')).toBeVisible();
+        expect(await openChanges(fixture)).toEqual(['true:trigger-press']);
+      });
+    });
+
+    test.describe('with the popup following immediately the only trigger', () => {
+      // POP-DOM-25, POP-KEY-07, POP-FOC-13
+      test('closes a nested combobox popup when tabbing out of the popover', async ({ page, mode }) => {
+        const fixture = await gotoPopupFixture(page, mode, 'popover-nested-combobox', { variant, afterTrigger: true });
+        await expect(fixture).toHaveAttribute('data-child-attached', 'true');
+        const comboboxInput = page.getByTestId('combobox-input');
+        await expect(comboboxInput).toBeFocused();
+
+        await comboboxInput.click();
+        await expect(page.getByRole('listbox')).toBeVisible();
+
+        await page.keyboard.press('Tab');
+
+        await expect(page.getByTestId('focus-target')).toBeFocused();
+        await expect(page.getByTestId('popover-popup')).toHaveAttribute('data-closed', '');
+        await expect(page.getByRole('listbox')).toHaveCount(0);
+      });
+
+      // POP-ARIA-09, POP-KEY-06, POP-FOC-13
+      test('closes a nested combobox popup when tabbing backward to the trigger', async ({ page, mode }) => {
+        const fixture = await gotoPopupFixture(page, mode, 'popover-nested-combobox', { variant });
+        await expect(fixture).toHaveAttribute('data-child-attached', 'true');
+        const comboboxInput = page.getByTestId('combobox-input');
+        await expect(comboboxInput).toBeFocused();
+
+        await comboboxInput.click();
+        await expect(page.getByRole('listbox')).toBeVisible();
+
+        const trigger = page.getByTestId('trigger');
+        await expect(trigger).not.toHaveAttribute('aria-hidden', 'true');
+
+        await page.keyboard.press('Shift+Tab');
+
+        await expect(trigger).toBeFocused();
+        await expect(page.getByRole('listbox')).toHaveCount(0);
+      });
+    });
+  });
+
+  test.describe(`<Popover.Root /> when using ${name}, on touch`, () => {
+    // POP-DIS-04. Base UI's synthetic touchstart, touchmove and touchend on the combobox popup are a real CDP touch drag.
+    testWithTouch('should not close popover when scrolling nested popup on touch', async ({ touchPage: page, mode }) => {
+      const fixture = await gotoPopupFixture(page, mode, 'popover-nested-combobox', { variant, case: 'scroll' });
+      await expect(fixture).toHaveAttribute('data-child-attached', 'true');
+      await expect(page.getByTestId('popover-popup')).toBeVisible();
+      const comboboxPopup = page.getByTestId('combobox-popup');
+      await expect(comboboxPopup).toBeVisible();
+      const start = await pointOf(comboboxPopup);
+
+      await touchDrag(page, [[start, { x: start.x, y: start.y - 50 }]], { steps: 5 });
+
+      await settle(fixture);
+      await expect(page.getByTestId('popover-popup')).toBeVisible();
+      await expect(comboboxPopup).toBeVisible();
+      expect(await openChanges(fixture)).toEqual([]);
+    });
+  });
+}
