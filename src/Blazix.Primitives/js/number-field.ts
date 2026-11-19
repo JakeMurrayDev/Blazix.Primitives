@@ -9,11 +9,21 @@
 // NumberFieldRoot.tsx) over a C#-computed allowed set and locale symbols (decision 7 (a); C# re-validates and parses every
 // text), the hidden input's focus redirect and autofill (design point 6), the `input-key`, `input-paste` and `input-change`
 // decision points (fallback run), and then the scrub role.
-// Requirements: docs/components/number-field.md (NUM-STA-05/06, NUM-EVT-06..08, NUM-EVT-13..16, NUM-FOC-01/02/05,
-// NUM-KEY-01..12, NUM-PTR-07..09, NUM-FRM-05/07, NUM-EDGE-03/06).
+// The scrub role (6b): one handle per ScrubArea (NUM-STR-05) and one per ScrubAreaCursor, told apart by the options' `part`
+// (the ScrollArea precedent); the input role's options have none. The scrub area's pointerdown, pointer lock on the owning
+// body, the window move accumulator, the release with its synthetic click and Gecko's 20 ms delay, and the touch scroll
+// suppression port number-field/scrub-area/NumberFieldScrubArea.tsx:127-356; C# steps and commits from the reports. The
+// cursor's `transform` is written in the style writer's `'component'` band (ADR 04 Amendments 2026-11-18, decision 5 as
+// revised: Base UI writes it imperatively, NumberFieldScrubArea.tsx:76-81); its base declarations are C#'s, merged under
+// the consumer's style and sent as the consumer string. A scrub step takes the input handle's next revision, so a text
+// answer older than the step is not applied (decision 6 (a)). The consumer's `onpointerdown` veto is the `scrub-start`
+// point, fallback start (design point 1 (a)).
+// Requirements: docs/components/number-field.md (NUM-STA-05/06, NUM-EVT-06..08, NUM-EVT-13..16, NUM-FOC-01/02/04/05,
+// NUM-KEY-01..12, NUM-PTR-07..19, NUM-FRM-05/07, NUM-EDGE-03/06/09/10/15, NUM-STR-05/06, NUM-DOM-13/14).
 import { decide } from './decide';
-import { activeElement, ownerDocument, setCaret, writeTextValue } from './dom';
+import { activeElement, ownerDocument, ownerWindow, setCaret, styleWriter, writeTextValue } from './dom';
 import { eventInfo, type EventInfo } from './event-info';
+import { platform } from './platform';
 import {
   createTwinChannel,
   parseOptions,
@@ -102,6 +112,55 @@ export interface NumberFieldBlurReport {
   event: EventInfo;
 }
 
+/** The options of a ScrubArea's or a ScrubAreaCursor's handle. */
+export interface NumberFieldScrubOptions extends TwinOptions {
+  /** Which part the handle belongs to. */
+  part: 'scrub' | 'cursor';
+  /** Whether the scrub area steps on vertical movement (upward increases); horizontal when absent. */
+  vertical?: boolean | null;
+  /** The pixels the pointer must move before the value steps; `2` when absent. */
+  pixelSensitivity?: number | null;
+  /** The distance from the scrub area's edges at which the virtual cursor wraps; the visual viewport when absent. */
+  teleportDistance?: number | null;
+  /** Whether the root is disabled or read-only, when the scrub area does nothing. */
+  disabled?: boolean | null;
+  readOnly?: boolean | null;
+}
+
+/** The payload of `OnScrubStart`: whether the pointer can have a virtual cursor (not touch, not WebKit). */
+export interface NumberFieldScrubStartReport {
+  cursor: boolean;
+  event: EventInfo;
+}
+
+/** The payload of `OnScrubLock`: the pointer-lock request's outcome, reported when it differs from the last one. */
+export interface NumberFieldScrubLockReport {
+  denied: boolean;
+}
+
+/** The payload of `OnScrubStep`: the move's delta on the scrub axis (upward positive when vertical), and a revision. */
+export interface NumberFieldScrubStepReport {
+  delta: number;
+  revision: number;
+  event: EventInfo;
+}
+
+/** The payload of `OnScrubEnd`: the release. */
+export interface NumberFieldScrubEndReport {
+  event: EventInfo;
+}
+
+/** The bounds the virtual cursor wraps within, as edge coordinates. */
+export interface ViewportRect {
+  left: number;
+  top: number;
+  right: number;
+  bottom: number;
+}
+
+/** The decision point a scrub area's pointerdown asks C# about before a scrub starts. */
+export const SCRUB_START_POINT = 'scrub-start';
+
 /** The decision point a focus of the visible input asks C# about. */
 export const INPUT_FOCUS_POINT = 'input-focus';
 
@@ -137,8 +196,13 @@ function warnOnce(message: string): void {
   console.warn(message);
 }
 
+// The input handle's revision counter, on the input element, so a scrub step takes the next revision of the same line.
+const inputRevision = Symbol('blazix.numberField.inputRevision');
+type RevisionedInput = HTMLInputElement & { [inputRevision]?: () => number };
+
 /**
- * Attaches the input role to the visible input of a number field.
+ * Attaches the input role to the visible input of a number field, or the scrub role to a ScrubArea or ScrubAreaCursor
+ * when the options name its `part`.
  * @param elementOrId The input, or its id when the part has no element reference.
  * @param optionsJson The `NumberFieldOptions` JSON.
  * @param twinReference The twin's object reference.
@@ -154,15 +218,25 @@ export function attach(
   references?: TwinReferences,
   captures?: TwinCaptures,
 ): TwinHandle {
-  const input = resolveElement(elementOrId, captures?.[0]) as HTMLInputElement;
+  const parsed = parseOptions<NumberFieldOptions | NumberFieldScrubOptions>(optionsJson);
+  if ('part' in parsed && parsed.part === 'scrub') {
+    return attachScrubArea(resolveElement(elementOrId, captures?.[0]) as HTMLElement, parsed, twinReference, references);
+  }
+  if ('part' in parsed && parsed.part === 'cursor') {
+    return attachCursor(resolveElement(elementOrId, captures?.[0]) as HTMLElement, parsed, references);
+  }
+
+  const input = resolveElement(elementOrId, captures?.[0]) as RevisionedInput;
   const twin = createTwinChannel(twinReference);
-  let options = parseOptions<NumberFieldOptions>(optionsJson);
+  let options = parsed as NumberFieldOptions;
   let gate: NumberFieldInputOptions = options.input ?? {};
   let revision = 0;
   let disposed = false;
   let text = input.value;
   let pendingCaret: { revision: number; text: string; caret: number } | null = null;
   const hidden = references?.[0] instanceof HTMLInputElement ? references[0] : null;
+  const nextRevision = () => ++revision;
+  input[inputRevision] = nextRevision;
 
   // The handover at attach (ADR 04 Amendments 2026-10-18): C# rendered the first text; from now on the module writes it.
   // An answer older than the module's last report is not applied (design point 7 (a)).
@@ -384,6 +458,9 @@ export function attach(
         return;
       }
       disposed = true;
+      if (input[inputRevision] === nextRevision) {
+        delete input[inputRevision];
+      }
       input.removeEventListener('focus', onFocus);
       input.removeEventListener('blur', onBlur);
       input.removeEventListener('keydown', onKeyDown);
@@ -392,6 +469,356 @@ export function attach(
       input.removeEventListener('wheel', onWheel);
       hidden?.removeEventListener('focus', onHiddenFocus);
       hidden?.removeEventListener('change', onHiddenChange);
+    },
+  };
+}
+
+// number-field/utils/getViewportRect.ts (NUM-PTR-16, §16 item 13): the scrub area padded by half the teleport distance on
+// every side, else the visual viewport, else the document element's client box.
+/**
+ * Calculates the bounds the virtual cursor wraps within.
+ * @param teleportDistance The scrub area's teleport distance, or `undefined` for the viewport.
+ * @param scrubArea The scrub area.
+ * @returns The bounds as edge coordinates.
+ */
+export function getViewportRect(teleportDistance: number | undefined, scrubArea: HTMLElement): ViewportRect {
+  const win = ownerWindow(scrubArea);
+
+  if (teleportDistance != null) {
+    const rect = scrubArea.getBoundingClientRect();
+    return {
+      left: rect.left - teleportDistance / 2,
+      top: rect.top - teleportDistance / 2,
+      right: rect.right + teleportDistance / 2,
+      bottom: rect.bottom + teleportDistance / 2,
+    };
+  }
+
+  const viewport = win.visualViewport;
+  if (viewport) {
+    return {
+      left: viewport.offsetLeft,
+      top: viewport.offsetTop,
+      right: viewport.offsetLeft + viewport.width,
+      bottom: viewport.offsetTop + viewport.height,
+    };
+  }
+
+  return {
+    left: 0,
+    top: 0,
+    right: win.document.documentElement.clientWidth,
+    bottom: win.document.documentElement.clientHeight,
+  };
+}
+
+/** What a scrub area shares with its cursor's handle, kept on the scrub area element. */
+interface ScrubState {
+  setCursor(cursor: HTMLElement | null): void;
+}
+
+const scrubState = Symbol('blazix.numberField.scrub');
+const pendingCursor = Symbol('blazix.numberField.pendingCursor');
+type ScrubElement = HTMLElement & { [scrubState]?: ScrubState; [pendingCursor]?: HTMLElement | null };
+
+// NumberFieldScrubArea.tsx:76-81 (NUM-DOM-13): the cursor keeps the OS cursor's size under pinch-zoom.
+function writeCursor(cursor: HTMLElement, x: number, y: number): void {
+  const scale = ownerWindow(cursor).visualViewport?.scale ?? 1;
+  styleWriter(cursor).layer('component').set('transform', `translate3d(${x}px,${y}px,0) scale(${1 / scale})`);
+}
+
+function attachScrubArea(area: ScrubElement, initial: NumberFieldScrubOptions, twinReference: DotNetTwin, references?: TwinReferences): TwinHandle {
+  const twin = createTwinChannel(twinReference);
+  const input = references?.[0] instanceof HTMLInputElement ? (references[0] as RevisionedInput) : null;
+  let options = initial;
+  let disposed = false;
+  // NumberFieldScrubArea.tsx:59-64: the scrub's refs.
+  let pointerDown = false;
+  let didMove = false;
+  let pointerDownTarget: EventTarget | null = null;
+  let nativeClickReceived = false;
+  let lockDenied = false;
+  let cumulativeDelta = 0;
+  let coords = { x: 0, y: 0 };
+  let press = { clientX: 0, clientY: 0 };
+  let cursor: HTMLElement | null = null;
+  let listening = false;
+  let releaseTimer: ReturnType<typeof setTimeout> | undefined;
+  let clickTimer: ReturnType<typeof setTimeout> | undefined;
+
+  const inactive = () => options.disabled === true || options.readOnly === true;
+  const win = () => ownerWindow(input ?? area);
+  const exitLock = () => {
+    try {
+      ownerDocument(area).exitPointerLock();
+    } catch {
+      // Ignore errors.
+    }
+  };
+
+  // NumberFieldScrubArea.tsx:126-145: the cursor starts centred on the press.
+  const placeCursor = () => {
+    if (cursor === null) {
+      return;
+    }
+    coords = { x: press.clientX - cursor.offsetWidth / 2, y: press.clientY - cursor.offsetHeight / 2 };
+    writeCursor(cursor, coords.x, coords.y);
+  };
+
+  // NumberFieldScrubArea.tsx:83-123 (NUM-PTR-16): the virtual cursor follows the movement and wraps at the bounds.
+  const moveCursor = (event: PointerEvent) => {
+    if (cursor === null) {
+      return;
+    }
+    const rect = getViewportRect(options.teleportDistance ?? undefined, area);
+    const wrap = (coord: number, halfSize: number, low: number, high: number) => {
+      if (coord + halfSize < low) {
+        return high - halfSize;
+      }
+      if (coord + halfSize > high) {
+        return low - halfSize;
+      }
+      return coord;
+    };
+    coords = {
+      x: wrap(Math.round(coords.x + event.movementX), cursor.offsetWidth / 2, rect.left, rect.right),
+      y: wrap(Math.round(coords.y + event.movementY), cursor.offsetHeight / 2, rect.top, rect.bottom),
+    };
+    writeCursor(cursor, coords.x, coords.y);
+  };
+
+  const state: ScrubState = {
+    setCursor(next) {
+      cursor = next;
+      if (next !== null && pointerDown) {
+        placeCursor();
+      }
+    },
+  };
+  area[scrubState] = state;
+  if (area[pendingCursor]) {
+    state.setCursor(area[pendingCursor]!);
+    area[pendingCursor] = null;
+  }
+
+  // NumberFieldScrubArea.tsx:226-260 (NUM-PTR-11, NUM-PTR-12).
+  const onMove = (event: PointerEvent) => {
+    // The flag, not the listeners' presence, says whether a pointer is down (NUM-EDGE-15).
+    if (!pointerDown) {
+      return;
+    }
+    // Prevent text selection.
+    event.preventDefault();
+    moveCursor(event);
+    const vertical = options.vertical === true;
+    cumulativeDelta += vertical ? event.movementY : event.movementX;
+    if (Math.abs(cumulativeDelta) >= (options.pixelSensitivity ?? 2)) {
+      cumulativeDelta = 0;
+      didMove = true;
+      const delta = vertical ? -event.movementY : event.movementX;
+      if (delta !== 0) {
+        const revision = input?.[inputRevision]?.() ?? 0;
+        twin.report('OnScrubStep', { delta, revision, event: eventInfo(event) } satisfies NumberFieldScrubStepReport);
+      }
+    }
+  };
+
+  // NumberFieldScrubArea.tsx:165-224 (NUM-PTR-13, NUM-PTR-14).
+  const onUp = (event: PointerEvent) => {
+    const handler = () => {
+      releaseTimer = undefined;
+      exitLock();
+      pointerDown = false;
+      stopListening();
+      twin.report('OnScrubEnd', { event: eventInfo(event) } satisfies NumberFieldScrubEndReport);
+
+      // While the pointer is locked the browser targets its click at the lock element; without a lock the native click
+      // arrives after pointerup in the same task, so wait one task and click only if it did not reach the scrub area.
+      const target = pointerDownTarget;
+      if (!didMove && target !== null && input !== null) {
+        const MouseEventConstructor = ownerWindow(input).MouseEvent;
+        clearTimeout(clickTimer);
+        clickTimer = setTimeout(() => {
+          clickTimer = undefined;
+          if (nativeClickReceived) {
+            return;
+          }
+          target.dispatchEvent(new MouseEventConstructor('click', { bubbles: true, cancelable: true }));
+        }, 0);
+      }
+      didMove = false;
+      pointerDownTarget = null;
+    };
+
+    if (releaseTimer !== undefined) {
+      return;
+    }
+    if (platform.engine.gecko) {
+      // Firefox needs a small delay here when soft-clicking, as the pointer lock will not release otherwise.
+      releaseTimer = setTimeout(handler, 20);
+    } else {
+      handler();
+    }
+  };
+
+  // NUM-PTR-18: the window listeners exist only while a scrub runs, in the capture phase.
+  const startListening = () => {
+    if (listening || inactive()) {
+      return;
+    }
+    listening = true;
+    cumulativeDelta = 0;
+    win().addEventListener('pointerup', onUp, true);
+    win().addEventListener('pointermove', onMove, true);
+  };
+  const stopListening = () => {
+    if (!listening) {
+      return;
+    }
+    listening = false;
+    clearTimeout(releaseTimer);
+    releaseTimer = undefined;
+    win().removeEventListener('pointerup', onUp, true);
+    win().removeEventListener('pointermove', onMove, true);
+  };
+
+  const onClickCapture = () => {
+    nativeClickReceived = true;
+  };
+
+  // NumberFieldScrubArea.tsx:304-349 (NUM-PTR-10, NUM-PTR-19, NUM-FOC-04).
+  const onPointerDown = (event: PointerEvent) => {
+    if (event.defaultPrevented || inactive() || event.button) {
+      return;
+    }
+    const verdict = decide(twin, SCRUB_START_POINT, event, 'start');
+    if (verdict === 'stop' || verdict === 'prevent-and-stop') {
+      return;
+    }
+
+    const isTouch = event.pointerType === 'touch';
+    if (event.pointerType === 'mouse') {
+      event.preventDefault();
+      // NumberFieldRoot.tsx:351-359 (focusInput).
+      if (input !== null) {
+        setCaret(input, input.value.length);
+        input.focus();
+      }
+    }
+
+    pointerDown = true;
+    didMove = false;
+    nativeClickReceived = false;
+    clearTimeout(clickTimer);
+    clickTimer = undefined;
+    pointerDownTarget = event.target;
+    press = { clientX: event.clientX, clientY: event.clientY };
+    startListening();
+    placeCursor();
+    const lockable = !isTouch && !platform.engine.webkit;
+    twin.report('OnScrubStart', { cursor: lockable, event: eventInfo(event) } satisfies NumberFieldScrubStartReport);
+
+    // WebKit causes significant layout shift with the native message, so it never locks.
+    if (lockable) {
+      const settle = (denied: boolean) => {
+        if (disposed || denied === lockDenied) {
+          return;
+        }
+        lockDenied = denied;
+        twin.report('OnScrubLock', { denied } satisfies NumberFieldScrubLockReport);
+      };
+      try {
+        Promise.resolve(ownerDocument(area).body.requestPointerLock()).then(
+          () => settle(false),
+          () => settle(true),
+        );
+      } catch {
+        settle(true);
+      }
+    }
+  };
+
+  // NumberFieldScrubArea.tsx:279-298 (NUM-PTR-15): one finger scrubs; pinch-zoom stays the browser's.
+  const onTouchStart = (event: TouchEvent) => {
+    if (!inactive() && event.touches.length === 1) {
+      event.preventDefault();
+    }
+  };
+
+  area.addEventListener('pointerdown', onPointerDown);
+  area.addEventListener('click', onClickCapture, true);
+  area.addEventListener('touchstart', onTouchStart, { passive: false });
+
+  return {
+    update(nextOptionsJson: string) {
+      if (disposed) {
+        return;
+      }
+      options = parseOptions<NumberFieldScrubOptions>(nextOptionsJson);
+      // NumberFieldScrubArea.tsx:262-276: becoming disabled or read-only mid-scrub tears the listeners down.
+      if (inactive()) {
+        stopListening();
+      }
+    },
+    dispose() {
+      if (disposed) {
+        return;
+      }
+      disposed = true;
+      // NumberFieldScrubArea.tsx:262-276 (NUM-PTR-17): an unmount mid-scrub releases the lock; C# clears the state.
+      if (pointerDown) {
+        pointerDown = false;
+        exitLock();
+      }
+      stopListening();
+      clearTimeout(clickTimer);
+      if (area[scrubState] === state) {
+        delete area[scrubState];
+      }
+      area.removeEventListener('pointerdown', onPointerDown);
+      area.removeEventListener('click', onClickCapture, true);
+      area.removeEventListener('touchstart', onTouchStart);
+    },
+  };
+}
+
+// The cursor's handle (NUM-STR-06, NUM-DOM-13/14): C# renders it while the scrub area's conditions hold and the portal
+// moves it to the body; this handle takes its style over and hands the element to its scrub area, which writes the
+// transform. A cursor whose scrub area has not attached yet waits on the scrub area element.
+function attachCursor(cursor: HTMLElement, initial: NumberFieldScrubOptions, references?: TwinReferences): TwinHandle {
+  const area = references?.[0] instanceof HTMLElement ? (references[0] as ScrubElement) : null;
+  let disposed = false;
+  const writer = styleWriter(cursor);
+  // The handover (ADR 04 Amendments 2026-10-18): from attach the element's whole style is the writer's.
+  cursor.style.cssText = '';
+  writer.setConsumer(initial.style ?? null);
+
+  if (area !== null) {
+    if (area[scrubState]) {
+      area[scrubState]!.setCursor(cursor);
+    } else {
+      area[pendingCursor] = cursor;
+    }
+  }
+
+  return {
+    update(nextOptionsJson: string) {
+      if (!disposed) {
+        writer.setConsumer(parseOptions<NumberFieldScrubOptions>(nextOptionsJson).style ?? null);
+      }
+    },
+    dispose() {
+      if (disposed) {
+        return;
+      }
+      disposed = true;
+      writer.layer('component').clear();
+      if (area !== null) {
+        if (area[pendingCursor] === cursor) {
+          area[pendingCursor] = null;
+        }
+        area[scrubState]?.setCursor(null);
+      }
     },
   };
 }
