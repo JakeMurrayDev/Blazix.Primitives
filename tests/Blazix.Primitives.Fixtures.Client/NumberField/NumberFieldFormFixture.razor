@@ -12,6 +12,12 @@
     OnSubmit prevents the native submission; `b2-step` ("prevents Form/Field submission when the value does not match the
     step"), a field named `quantity` holding a root at 0 with min 0 and step 0.1 and a stepMismatch FieldError, inside a Form
     whose OnFormSubmit records each submission's `quantity` in data-form-submits. data-attached is rendered once the form module is attached to the form.
+    Batch C's cases (tests/browser/number-field.form-c.spec.ts): `c-external` ("submits to an external form when `form` is
+    provided"), a native form `external-form` whose submission is prevented, followed by a root named `test` at 54.5 whose
+    Form is `external-form` (data-attached waits for the input's module there, as no Form part renders); `c-required`
+    ("triggers native HTML validation on submit"), a required root inside a field named `test` with a valueMissing
+    FieldError; `c-on-submit` ("onSubmit"), a required root (data-testid root) inside a field whose Validate returns
+    "custom error" for 1, with a valueMissing FieldError and a customError FieldError.
 *@
 <FixtureContainer Name="number-field-form" data-attached="@(attached ? "true" : "false")" data-form-submits="@string.Join(' ', formSubmits)">
     @if (Case == "formatting")
@@ -64,6 +70,44 @@
             <button type="submit">submit</button>
         </Form>
     }
+    else if (Case == "c-external")
+    {
+        <form id="external-form" @onsubmit:preventDefault>
+            <button type="submit">Submit</button>
+        </form>
+        <NumberFieldRoot Name="test" Form="external-form" DefaultValue="54.5" Culture="s_enUs">
+            <NumberFieldInput @ref="input" />
+        </NumberFieldRoot>
+    }
+    else if (Case == "c-required")
+    {
+        <Form @ref="form">
+            <FieldRoot Name="test" data-testid="field">
+                <NumberFieldRoot Required Culture="s_enUs">
+                    <NumberFieldGroup>
+                        <NumberFieldInput />
+                        <NumberFieldIncrement />
+                        <NumberFieldDecrement />
+                    </NumberFieldGroup>
+                </NumberFieldRoot>
+                <FieldError Match="ValidityFlag.ValueMissing" data-testid="error">required</FieldError>
+            </FieldRoot>
+            <button type="submit">Submit</button>
+        </Form>
+    }
+    else if (Case == "c-on-submit")
+    {
+        <Form @ref="form">
+            <FieldRoot Validate="CustomErrorAtOne">
+                <NumberFieldRoot Required data-testid="root" Culture="s_enUs">
+                    <NumberFieldInput data-testid="input" />
+                </NumberFieldRoot>
+                <FieldError data-testid="error" Match="ValidityFlag.ValueMissing">valueMissing error</FieldError>
+                <FieldError data-testid="error" Match="ValidityFlag.CustomError" />
+            </FieldRoot>
+            <button type="submit">submit</button>
+        </Form>
+    }
 </FixtureContainer>
 
 @code {
@@ -78,6 +122,7 @@
     };
 
     private Form? form;
+    private NumberFieldInput? input;
     private FormErrors errors = new();
     private bool attached;
     private readonly List<string> formSubmits = [];
@@ -87,12 +132,12 @@
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
-        if (!firstRender || !RendererInfo.IsInteractive || form is null)
+        if (!firstRender || !RendererInfo.IsInteractive || (form is null && input is null))
         {
             return;
         }
 
-        await form.TwinAttached;
+        await (form is not null ? form.TwinAttached : input!.TwinAttached);
         attached = true;
         StateHasChanged();
     }
@@ -110,4 +155,7 @@
         args.PreventNativeSubmit();
         errors = new FormErrors { ["quantity"] = "server error" };
     }
+
+    private static ValueTask<FieldValidationResult?> CustomErrorAtOne(FieldValidationArguments arguments) =>
+        ValueTask.FromResult<FieldValidationResult?>(arguments.Value is 1d ? "custom error" : null);
 }

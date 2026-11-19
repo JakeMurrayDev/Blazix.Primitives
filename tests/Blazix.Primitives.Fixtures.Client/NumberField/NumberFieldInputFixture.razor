@@ -25,6 +25,9 @@
     `b1-scientific` (scientific notation); `b1-eur` (de-DE, EUR currency with two fraction digits, defaultValue 12.34);
     `b1-min0` (min 0, allowOutOfRange); `b1-stepper` (defaultValue 0, with the steppers); `b1-pinned` (value 0, which
     onValueChange never updates, with the steppers). data-attached then also waits for the steppers' button modules.
+    Batch C's cases (tests/browser/number-field.form-c.spec.ts) start with `c-` and render the CaseC fragment instead, each a
+    root named `quantity` inside a native form whose submission is prevented: `c-step-default` (min 0, the default step)
+    and `c-step-submit` (defaultValue 0, min 0, step 0.1).
 *@
 <FixtureContainer Name="number-field-input" data-attached="@(attached ? "true" : "false")" data-changes="@string.Join(' ', changes)" data-commits="@string.Join(' ', commits)" data-vetoes="@vetoes">
     @if (Case == "veto")
@@ -37,6 +40,10 @@
     else if (Case?.StartsWith("a-", StringComparison.Ordinal) == true)
     {
         @CaseA
+    }
+    else if (Case?.StartsWith("c-", StringComparison.Ordinal) == true)
+    {
+        @CaseC
     }
     else if (!IsB1)
     {
@@ -297,4 +304,26 @@
         aValue = value;
         aValueSet = true;
     }
+}
+
+@code {
+    // The `c-` cases: NumberFieldRoot.test.tsx's native step-mismatch roots (number-field.form-c.spec.ts).
+    private RenderFragment CaseC => @<form data-testid="form" @onsubmit:preventDefault>
+        @if (Case == "c-step-submit")
+        {
+            <NumberFieldRoot Name="quantity" DefaultValue="0" Min="0" Step="0.1" Culture="s_aEnUs" OnValueChange="Change" OnValueCommitted="Commit">
+                <NumberFieldInput @ref="input" data-testid="input" />
+            </NumberFieldRoot>
+            <button type="submit">submit</button>
+        }
+        else
+        {
+            <NumberFieldRoot Name="quantity" Min="0" Culture="s_aEnUs" OnValueChange="Change" OnValueCommitted="Commit">
+                <NumberFieldGroup>
+                    <NumberFieldInput @ref="input" data-testid="input" />
+                </NumberFieldGroup>
+            </NumberFieldRoot>
+            <button type="submit">Submit</button>
+        }
+    </form>;
 }
