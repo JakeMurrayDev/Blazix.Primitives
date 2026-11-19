@@ -193,6 +193,20 @@ internal sealed class NumberFieldField : IDisposable
     /// <returns>A task that completes when the commit has run.</returns>
     public Task CommitAsync(object? value) => fieldScope is null ? Task.CompletedTask : CommitAfterRefreshAsync(value);
 
+    // NUM-FRM-05 (NumberFieldRoot.tsx:518-519): the autofill path's own change validation, which runs whether or not the
+    // value changed (a canceled change still validates the autofilled number).
+    /// <summary>Runs the field's change validation with a value, after the hidden input reported its native state again.</summary>
+    /// <param name="value">The value to validate, boxed.</param>
+    public void ValidateChange(object? value)
+    {
+        if (fieldScope is null)
+        {
+            return;
+        }
+
+        fieldScope.Observe(ValidateChangeAfterRefreshAsync(value));
+    }
+
     // NUM-FRM-08: a blur that changed the value already validated; the next value reaction skips its revalidation unless
     // the field validates on change. Reset when the blur's request normalized back to the current value.
     /// <summary>Sets whether the next value reaction skips its revalidation.</summary>
@@ -485,6 +499,15 @@ internal sealed class NumberFieldField : IDisposable
     {
         await RefreshAsync().ConfigureAwait(true);
         if (fieldScope is not null && !disposed && observedVersion == valueVersion)
+        {
+            fieldScope.Validation.Change(value);
+        }
+    }
+
+    private async Task ValidateChangeAfterRefreshAsync(object? value)
+    {
+        await RefreshAsync().ConfigureAwait(true);
+        if (fieldScope is not null && !disposed)
         {
             fieldScope.Validation.Change(value);
         }

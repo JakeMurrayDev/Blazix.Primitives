@@ -1,5 +1,8 @@
+using AngleSharp.Dom;
 using Blazix.Primitives.Interop;
 using Bunit;
+using Microsoft.JSInterop;
+using Microsoft.AspNetCore.Components;
 using Scenario = Blazix.Primitives.Tests.Components.FormNumberFieldScenarios.NumberFieldScenario;
 
 namespace Blazix.Primitives.Tests.Components;
@@ -11,14 +14,23 @@ namespace Blazix.Primitives.Tests.Components;
 public sealed class FormNumberFieldTests : IDisposable
 {
     private const string InteractionsModulePath = "./_content/Blazix.Primitives/js/interactions.js";
+    private const string ButtonModulePath = "./_content/Blazix.Primitives/js/button.js";
 
     private readonly FieldTestContext host = new();
 
     /// <summary>Initializes a new instance of the <see cref="FormNumberFieldTests"/> class.</summary>
-    public FormNumberFieldTests() =>
+    public FormNumberFieldTests()
+    {
         Context.JSInterop.SetupModule(InteractionsModulePath)
             .Setup<string>("readPlatformFlags")
             .SetResult("""{"voiceOver":false,"mac":false,"ios":false}""");
+        ButtonModule = Context.JSInterop.SetupModule(ButtonModulePath);
+        BunitJSModuleInterop handle = ButtonModule.SetupModule("attach", _ => true);
+        handle.SetupVoid("update", _ => true).SetVoidResult();
+        handle.SetupVoid("dispose", _ => true).SetVoidResult();
+    }
+
+    private BunitJSModuleInterop ButtonModule { get; }
 
     private BunitContext Context => host.Context;
 
@@ -76,9 +88,66 @@ public sealed class FormNumberFieldTests : IDisposable
         Assert.Equal("number field error", Assert.Single(cut.FindAll("[data-testid=error]")).TextContent);
     }
 
+    // FRM-FOC-01 at L2: C# answers `blocked` with the number field's control id, and the form module focuses it (the focus
+    // itself, NUM-FRM-12's "(L4 for the focus-first-invalid clause)").
+    [Fact(DisplayName = "focuses the input when the field receives an error from Form")]
+    [Trait("Requirement", "NUM-FRM-12")]
+    [Trait("Requirement", "NUM-ARIA-02")]
+    public void Focuses_the_input_when_the_field_receives_an_error_from_Form()
+    {
+        IRenderedComponent<FormNumberFieldScenarios> cut = Render(Scenario.ServerError);
+        Assert.Empty(cut.FindAll("[data-testid=error]"));
+
+        host.Module.FormElement.SubmitAll(cut);
+
+        IElement input = cut.Find("input[type=text]");
+        Assert.Equal("true", input.GetAttribute("aria-invalid"));
+        Assert.Equal("server error", cut.Find("[data-testid=error]").TextContent);
+        Assert.Contains(input.GetAttribute("id"), host.Module.FormElement.SubmitUpdates()[^1].Focus ?? []);
+    }
+
+    [Fact(DisplayName = "revalidates immediately after form submission errors using increment button")]
+    [Trait("Requirement", "NUM-FRM-08")]
+    [Trait("Requirement", "NUM-ARIA-02")]
+    public async Task Revalidates_immediately_after_form_submission_errors_using_increment_button()
+    {
+        IRenderedComponent<FormNumberFieldScenarios> cut = Render(Scenario.Required);
+
+        // The hidden <input type="number" required> is the field's validation input. It renders no id, so the module reports
+        // its native state with each refresh, not in the submission (NUM-DOM-06): empty, it is valueMissing.
+        FormModuleStandIn.Attached hidden = Assert.Single(host.Module.Controls);
+        hidden.Native = Native.ValueMissing;
+        host.Module.Settle(cut);
+        host.Module.FormElement.SubmitAll(cut);
+
+        Assert.Equal("required", cut.Find("[data-testid=error]").TextContent);
+        IElement input = cut.Find("input[type=text]");
+        Assert.Equal("true", input.GetAttribute("aria-invalid"));
+
+        hidden.Native = Native.Valid;
+        await ClickIncrementAsync(cut);
+        host.Module.Settle(cut);
+
+        // The value reaction revalidates after the hidden input's refresh answer, a continuation that runs after the answer;
+        // aria-invalid clears then, and the error leaves after its exit transition, which the stand-in ends.
+        cut.WaitForAssertion(() => Assert.False(cut.Find("input[type=text]").HasAttribute("aria-invalid")));
+        host.CompleteExits(cut);
+        Assert.Empty(cut.FindAll("[data-testid=error]"));
+    }
+
     // The required username is empty: the module reports its native state with the blur, which in the default onSubmit mode
     // shows nothing (Base UI reads the DOM's validity at validate time). The username control is the one whose kept value is empty; the number field's hidden input keeps "5".
     private FormModuleStandIn.Attached Username() => host.Module.Controls.Single(control => control.DomValue.Length == 0);
+
+    // A single-action click on the increment, as the button module reports a keyboard click or a tap.
+    private Task ClickIncrementAsync(IRenderedComponent<FormNumberFieldScenarios> cut)
+    {
+        ElementReference? element = cut.FindComponent<NumberFieldIncrement>().Instance.Element;
+        JSRuntimeInvocation attach = ButtonModule.Invocations["attach"].Last(i => Equals(i.Arguments[0], element));
+        ButtonTwin twin = ((DotNetObjectReference<ButtonTwin>)attach.Arguments[2]!).Value;
+        string json = $$"""{"event":{{NumberFieldTestContext.EventJson("click", "", 0)}}}""";
+        return cut.InvokeAsync(() => twin.OnHoldClick(json));
+    }
 
     private IRenderedComponent<FormNumberFieldScenarios> Render(Scenario scenario, string quantityError = "error") =>
         Context.Render<FormNumberFieldScenarios>(p => p.Add(x => x.Scenario, scenario).Add(x => x.QuantityError, quantityError));

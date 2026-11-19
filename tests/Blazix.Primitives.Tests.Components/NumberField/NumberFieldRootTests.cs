@@ -550,7 +550,8 @@ public sealed class NumberFieldRootTests : IDisposable
     {
         IRenderedComponent<NumberFieldRoot> cut = Render(p => p.Add(x => x.DefaultValue, 1234.5));
         Assert.Equal("1,234.5", Input(cut).GetAttribute("value"));
-        Assert.Equal("""{"value":"1,234.5","revision":0}""", Assert.Single(test.NumberFieldOptions));
+        // The attach also carries the input role's part (6b); the text updates after it carry only the text and the revision.
+        Assert.StartsWith("""{"value":"1,234.5","revision":0,"input":{""", Assert.Single(test.NumberFieldOptions), StringComparison.Ordinal);
 
         await test.ClickAsync(cut, cut.FindComponent<NumberFieldIncrement>().Instance);
         Assert.Equal("""{"value":"1,235.5","revision":0}""", test.NumberFieldOptions[^1]);

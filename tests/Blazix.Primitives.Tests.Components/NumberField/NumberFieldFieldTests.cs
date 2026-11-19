@@ -129,6 +129,22 @@ public sealed class NumberFieldFieldTests : IDisposable
         Assert.True(Input(cut).HasAttribute("data-touched"));
     }
 
+    // Base UI's title says [data-filled] and asserts [data-focused] (NumberFieldRoot.test.tsx:2026); kept verbatim.
+    [Fact(DisplayName = "[data-filled]")]
+    [Trait("Requirement", "NUM-FOC-05")]
+    [Trait("Requirement", "NUM-DOM-04")]
+    public async Task Data_filled()
+    {
+        IRenderedComponent<FieldRoot> cut = Render();
+        Assert.False(Input(cut).HasAttribute("data-focused"));
+
+        await test.FocusAsync(cut);
+        Assert.Equal(string.Empty, Input(cut).GetAttribute("data-focused"));
+
+        await test.BlurAsync(cut, string.Empty);
+        Assert.False(Input(cut).HasAttribute("data-focused"));
+    }
+
     [Fact(DisplayName = "adds [data-focused] attribute on every focus")]
     [Trait("Requirement", "NUM-FOC-05")]
     [Trait("Requirement", "NUM-DOM-04")]

@@ -69,6 +69,19 @@ Specs: `smoke.spec.ts` (the probe twin, the harness canary, and the button twin)
   - on Server, the open is awaited in real time, since the delayed circuit does not run on the page's clock;
   - on WebAssembly, the clock is stepped and the time it ran is subtracted.
 
+`number-field*.spec.ts` (M6 track 6, [issue 277](https://github.com/JakeMurrayDev/Blazix.Primitives/issues/277), PR 6b), dated note 2026-11-19 on the real-input rule above. Base UI fires synthetic events and reads `fireEvent`'s return value; some titles dispatch in the page instead, as Base UI does:
+- a wheel is an in-page `WheelEvent` (bubbling, cancelable) on the focused input, whose `dispatchEvent` return is Base UI's signal (NUM-PTR-07..09);
+- a key whose default the title checks is an in-page `KeyboardEvent`, as `fireEvent.keyDown` (the gate's verdict, NUM-KEY-04..10);
+- the empty-clipboard paste title dispatches an in-page `paste` event whose `clipboardData` is null, and the paste timing titles of `number-field.veto.spec.ts` an in-page `ClipboardEvent` carrying `text/plain`;
+- the scrub titles that need exact `movementX`/`movementY` values dispatch in-page `PointerEvent`s, as `NumberFieldScrubArea.test.tsx:14-36` does; they reach the module's window capture listeners the same way. Titles that need only some movement use the real mouse.
+
+Where a page-built event cannot carry what the title needs, the input is trusted:
+- the IME title sends its composition keydown (`keyCode` 229) through CDP `Input.dispatchKeyEvent`, read by a listener the page adds after the module's;
+- the Persian-digit title types its digits through CDP `Input.dispatchKeyEvent`;
+- the other paste titles write the clipboard with `navigator.clipboard.writeText` after `grantPermissions(['clipboard-read', 'clipboard-write'])` and paste with a real <kbd>ControlOrMeta+V</kbd> (the `combobox.root-b.spec.ts` precedent).
+
+`number-field.scrub.spec.ts` runs on new headless Chromium (a top-level `test.use({ channel: 'chromium' })`), the one exception to the headless shell: only new headless grants `requestPointerLock()` (the probe of 2026-11-19; design point 10 (a), chosen by the user 2026-11-19). Every other spec stays on the headless shell. The Gecko 20 ms release and the WebKit no-lock branch run at L3 over a stubbed `platform` (`js/number-field.scrub.test.ts`). Its real-mouse titles rely on that pointer lock and on absolute CDP positions; "tracks visual viewport scale …" sets the page scale through CDP `Emulation.setPageScaleFactor`.
+
 `list-values.spec.ts` (M5 track 4, issue 162) holds the shared list value layer's L4 titles on its test-only `list-values-*` fixtures:
 - the item indicator's DOM-52 and ANI-03 titles (the exit's `animationstart` recorded);
 - the form-participation input (a page-set value and a dispatched `change` stand in for the browser's autofill), including the per-mode timing of ADR 01's autofill relaxation row under `delayCircuit`;

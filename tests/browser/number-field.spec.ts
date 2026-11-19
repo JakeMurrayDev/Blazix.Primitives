@@ -29,6 +29,8 @@ async function gotoHold(page: Page, mode: RenderMode, holdCase = 'basic'): Promi
   await page.goto(`/${mode}/number-field-hold?case=${holdCase}`, { waitUntil: 'commit' });
   await page.locator(Fixture.started).waitFor({ state: 'attached' });
   const fixture = page.locator(Fixture.interactive('number-field-hold'));
+  // The circuit may take longer than the expect timeout to become interactive under load (PR 308's run 44452252075).
+  await fixture.waitFor({ state: 'attached' });
   await expect(fixture).toHaveAttribute('data-attached', 'true');
   return fixture;
 }
@@ -525,3 +527,47 @@ for (const delay of [0, 50, 150]) {
     console.log(`[figure] ${description}`);
   });
 }
+
+// NUM-FRM-02 (Base UI skips it under jsdom, which has no FormData): the hidden input submits the raw number while the
+// visible input shows the de-DE currency text. The `number-field-form` fixture's Form prevents the native submission
+// (Base UI's event.preventDefault()); a capture listener reads the form's FormData at the submit event.
+test('should not include formatting in the submitted value', async ({ page, mode }) => {
+  await page.goto(`/${mode}/number-field-form?case=formatting`, { waitUntil: 'commit' });
+  await page.locator(Fixture.started).waitFor({ state: 'attached' });
+  const fixture = page.locator(Fixture.interactive('number-field-form'));
+  // The circuit may take longer than the expect timeout to become interactive under load (PR 308's run 44452252075).
+  await fixture.waitFor({ state: 'attached' });
+  await expect(fixture).toHaveAttribute('data-attached', 'true');
+  const input = fixture.getByRole('textbox');
+
+  const expected = await page.evaluate(() =>
+    new Intl.NumberFormat('de-DE', { style: 'currency', currency: 'EUR', minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(54.5),
+  );
+  await expect(input).toHaveValue(expected);
+
+  await fixture.locator('form').evaluate((form) => {
+    form.addEventListener('submit', () => form.setAttribute('data-submitted', String(new FormData(form as HTMLFormElement).get('test'))), { capture: true });
+  });
+  await fixture.getByText('Submit').click();
+
+  await expect(fixture.locator('form')).toHaveAttribute('data-submitted', '54.5');
+});
+
+// NUM-FRM-12's focus-first-invalid clause (L4; its L2 half asserts the form module's focus request): Form's errors set
+// by the consumer's onSubmit mark the field invalid and the form module focuses the visible input.
+test('focuses the input when the field receives an error from Form', async ({ page, mode }) => {
+  await page.goto(`/${mode}/number-field-form?case=server-error`, { waitUntil: 'commit' });
+  await page.locator(Fixture.started).waitFor({ state: 'attached' });
+  const fixture = page.locator(Fixture.interactive('number-field-form'));
+  // The circuit may take longer than the expect timeout to become interactive under load (PR 308's run 44452252075).
+  await fixture.waitFor({ state: 'attached' });
+  await expect(fixture).toHaveAttribute('data-attached', 'true');
+  await expect(fixture.getByTestId('error')).toHaveCount(0);
+
+  await fixture.getByText('Submit').click();
+
+  const input = fixture.getByRole('textbox');
+  await expect(input).toBeFocused();
+  await expect(input).toHaveAttribute('aria-invalid', 'true');
+  await expect(fixture.getByTestId('error')).toHaveText('server error');
+});

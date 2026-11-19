@@ -34,9 +34,18 @@ public sealed class NumberFieldAllocationBudgetTests : IDisposable
     // reference fields, 16 bytes more per snapshot target, which both steps deserialize: on macOS the click went from 2,488
     // to 2,504 and the tick from 2,504 to 2,520 (the floor in three processes, 2026-11-19); the re-render is unchanged.
     // The tick's 2,552 is CI's 2,536 plus that measured 16, not yet measured on Linux.
+    // Raised 2026-11-19 in 6b (ADR 16 Amendments 2026-11-19, chosen by the user 2026-11-19): the click step from 2,504 to
+    // 2,512 bytes. The input role's gate travels as the nested `input` part of `NumberFieldOptions`, one reference more on
+    // the record (40 to 48 bytes), which every step's `update` allocates; 2,512 in three processes on macOS arm64. The tick
+    // (2,528) stays within its pin and the re-render is unchanged. CI's Linux figure is the one that counts (issue 304).
     private const long RerenderBudgetBytes = 944;
     private const long HoldTickBudgetBytes = 2552;
-    private const long ClickStepBudgetBytes = 2504;
+    private const long ClickStepBudgetBytes = 2512;
+
+    // 6b (issue 277, decision 26 (a)): a keystroke's report through the parse and the change request, the input's text
+    // answered with the echoed revision. First measurement 2026-11-19 (arm64, .NET 11, Release, dynamic PGO off), the least
+    // of five, the same in three processes: 2,824 bytes. CI's Linux figure re-pins it (issue 304).
+    private const long KeystrokeBudgetBytes = 2824;
 
     private static readonly CultureInfo s_enUs = CultureInfo.GetCultureInfo("en-US");
 
@@ -121,6 +130,33 @@ public sealed class NumberFieldAllocationBudgetTests : IDisposable
 
         Assert.Equal("25", test.Text);
         AllocationSampler.AssertWithinBudget(allocated, ClickStepBudgetBytes, "a click step");
+    }
+
+    [Fact(DisplayName = "a keystroke through the parser stays within its budget")]
+    [Trait("Requirement", "ADR16-7")]
+    [Trait("Requirement", "NUM-EVT-15")]
+    public async Task A_keystroke_through_the_parser_stays_within_its_budget()
+    {
+        IRenderedComponent<NumberFieldRoot> cut = Render();
+        NumberFieldTwin twin = test.NumberFieldTwin();
+        string[] texts = [.. Enumerable.Range(0, 25).Select(i => $$$"""{"text":"1,2{{{i % 10}}}{{{i / 10}}}","revision":{{{i + 1}}},"event":{"kind":"InputEvent","type":"input"}}""")];
+        for (int i = 0; i < 20; i++)
+        {
+            await cut.InvokeAsync(() => twin.OnInputChange(texts[i]));
+        }
+
+        long allocated = long.MaxValue;
+        for (int i = 20; i < 25; i++)
+        {
+            string report = texts[i];
+            long before = GC.GetAllocatedBytesForCurrentThread();
+            Task changed = cut.InvokeAsync(() => twin.OnInputChange(report));
+            allocated = Math.Min(allocated, GC.GetAllocatedBytesForCurrentThread() - before);
+            await changed;
+        }
+
+        Assert.Equal(1242, cut.Instance.CurrentValue);
+        AllocationSampler.AssertWithinBudget(allocated, KeystrokeBudgetBytes, "a keystroke");
     }
 
     private IRenderedComponent<NumberFieldRoot> Render()
