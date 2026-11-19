@@ -537,23 +537,43 @@ function syncValueAttribute(element: HTMLInputElement): void {
   }
 }
 
-function mirrorValueAttribute(element: HTMLInputElement): () => void {
-  if (Object.getOwnPropertyDescriptor(element, 'value')) {
-    return () => {};
+// Several handles may hold one hidden input (an input part replaced while the old one disposes): the accessor is installed
+// by the first and removed by the last, counted on the element.
+const mirrorCount = Symbol('blazix.numberField.valueMirror');
+type MirroredInput = HTMLInputElement & { [mirrorCount]?: number };
+
+function mirrorValueAttribute(element: MirroredInput): () => void {
+  const installed = element[mirrorCount] ?? 0;
+  if (installed === 0) {
+    if (Object.getOwnPropertyDescriptor(element, 'value')) {
+      return () => {};
+    }
+    Object.defineProperty(element, 'value', {
+      configurable: true,
+      enumerable: valueProperty.enumerable === true,
+      get() {
+        return valueProperty.get!.call(this);
+      },
+      set(next: string) {
+        valueProperty.set!.call(this, next);
+        syncValueAttribute(this as HTMLInputElement);
+      },
+    });
   }
-  Object.defineProperty(element, 'value', {
-    configurable: true,
-    enumerable: valueProperty.enumerable === true,
-    get() {
-      return valueProperty.get!.call(this);
-    },
-    set(next: string) {
-      valueProperty.set!.call(this, next);
-      syncValueAttribute(this as HTMLInputElement);
-    },
-  });
+  element[mirrorCount] = installed + 1;
   syncValueAttribute(element);
+  let released = false;
   return () => {
+    if (released) {
+      return;
+    }
+    released = true;
+    const remaining = (element[mirrorCount] ?? 1) - 1;
+    if (remaining > 0) {
+      element[mirrorCount] = remaining;
+      return;
+    }
+    delete element[mirrorCount];
     delete (element as unknown as { value?: string }).value;
   };
 }
