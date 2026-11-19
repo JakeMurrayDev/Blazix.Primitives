@@ -26,4 +26,16 @@ public sealed class AllocationBudgetToleranceTests
 
         Assert.StartsWith("a hold tick allocated 2809 bytes; the pin is 2552 bytes and the tolerance 256 bytes (at most 2808)", error.Message, StringComparison.Ordinal);
     }
+
+    // Zero pins, chosen by the user 2026-11-19 (issue 304): a title pinned at 0 asserts that a path allocates nothing.
+    [Fact(DisplayName = "a pin of 0 B stays exact: 0 bytes pass and 1 byte fails")]
+    [Trait("Requirement", "ADR16-7")]
+    public void A_zero_pin_stays_exact()
+    {
+        AllocationSampler.AssertWithinBudget(0, 0, "a notification");
+
+        TrueException error = Assert.Throws<TrueException>(() => AllocationSampler.AssertWithinBudget(1, 0, "a notification"));
+
+        Assert.StartsWith("a notification allocated 1 bytes; the pin is 0 bytes and the tolerance 0 bytes (at most 0)", error.Message, StringComparison.Ordinal);
+    }
 }
