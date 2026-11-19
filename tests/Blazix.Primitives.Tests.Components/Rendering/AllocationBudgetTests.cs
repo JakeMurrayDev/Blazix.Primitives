@@ -40,7 +40,7 @@ public sealed class AllocationBudgetTests : IDisposable
 
         long allocated = Measure(cut);
 
-        Assert.True(allocated <= DefaultElementRenderBudgetBytes, $"a render allocated {allocated} bytes; the budget is {DefaultElementRenderBudgetBytes}");
+        AllocationSampler.AssertWithinBudget(allocated, DefaultElementRenderBudgetBytes, "a render");
     }
 
     [Fact(DisplayName = "a steady-state render of a substitute element stays within its budget")]
@@ -62,7 +62,7 @@ public sealed class AllocationBudgetTests : IDisposable
 
         long allocated = Measure(cut);
 
-        Assert.True(allocated <= SubstituteElementRenderBudgetBytes, $"a render allocated {allocated} bytes; the budget is {SubstituteElementRenderBudgetBytes}");
+        AllocationSampler.AssertWithinBudget(allocated, SubstituteElementRenderBudgetBytes, "a render");
     }
 
     private static long Measure(IRenderedComponent<SampleRoot> cut)

@@ -42,7 +42,7 @@ public sealed class PopupLifecycleAllocationBudgetTests : IDisposable
         long allocated = AllocationSampler.LeastOfFive(() => cut.Render(parameters));
 
         Assert.Equal(updates, test.InteractionsHandle.Invocations["update"].Count);
-        Assert.True(allocated <= RerenderBudgetBytes, $"a re-render allocated {allocated} bytes; the budget is {RerenderBudgetBytes}");
+        AllocationSampler.AssertWithinBudget(allocated, RerenderBudgetBytes, "a re-render");
     }
 
     [Fact(DisplayName = "port: a committed open renders the popup once, and a canceled close or an unchanged status report renders neither the root nor the popup")]

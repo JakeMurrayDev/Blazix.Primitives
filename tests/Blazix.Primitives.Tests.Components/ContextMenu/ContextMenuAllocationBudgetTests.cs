@@ -51,7 +51,7 @@ public sealed class ContextMenuAllocationBudgetTests : IDisposable
 
         long allocated = AllocationSampler.LeastOfFive(() => cut.Render(parameters));
 
-        Assert.True(allocated <= RootRerenderBudgetBytes, $"a re-render allocated {allocated} bytes; the budget is {RootRerenderBudgetBytes}");
+        AllocationSampler.AssertWithinBudget(allocated, RootRerenderBudgetBytes, "a re-render");
     }
 
     [Fact(DisplayName = "port: a re-render of a context menu trigger with unchanged parameters sends nothing and stays within its budget")]
@@ -71,7 +71,7 @@ public sealed class ContextMenuAllocationBudgetTests : IDisposable
         long allocated = AllocationSampler.LeastOfFive(() => trigger.Render(unchanged));
 
         Assert.Equal(updates, context.JSInterop.Invocations.Count(invocation => invocation.Identifier == "update"));
-        Assert.True(allocated <= TriggerRerenderBudgetBytes, $"a re-render allocated {allocated} bytes; the budget is {TriggerRerenderBudgetBytes}");
+        AllocationSampler.AssertWithinBudget(allocated, TriggerRerenderBudgetBytes, "a re-render");
     }
 
     private static void Content(RenderTreeBuilder builder)

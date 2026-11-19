@@ -62,7 +62,7 @@ public sealed class ToastAllocationBudgetTests
             harness.Store.RemoveToast(input.Id, skipOnRemove: true);
         }
 
-        Assert.True(least <= budgetBytes, $"an add at {toasts} toasts allocated {least} bytes; the budget is {budgetBytes}");
+        AllocationSampler.AssertWithinBudget(least, budgetBytes, $"an add at {toasts} toasts");
     }
 
     [Theory(DisplayName = "port: a hover notification seen by every root's selectors allocates only the new record")]
@@ -90,7 +90,7 @@ public sealed class ToastAllocationBudgetTests
 
         // Every root re-renders for the expanded flag, once per write.
         Assert.All(renders, count => Assert.Equal(4 + Runs, count));
-        Assert.True(least <= budgetBytes, $"a hover at {toasts} toasts allocated {least} bytes; the budget is {budgetBytes}");
+        AllocationSampler.AssertWithinBudget(least, budgetBytes, $"a hover at {toasts} toasts");
         GC.KeepAlive(roots);
     }
 
@@ -126,7 +126,7 @@ public sealed class ToastAllocationBudgetTests
         // Only the updated toast's root saw a selection change.
         Assert.Equal(4 + Runs, renders[0]);
         Assert.All(renders[1..], count => Assert.Equal(0, count));
-        Assert.True(least <= budgetBytes, $"an update at {toasts} toasts allocated {least} bytes; the budget is {budgetBytes}");
+        AllocationSampler.AssertWithinBudget(least, budgetBytes, $"an update at {toasts} toasts");
         GC.KeepAlive(roots);
     }
 

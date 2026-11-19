@@ -51,6 +51,6 @@ public sealed class SeparatorAllocationBudgetTests : IDisposable
 
         long allocated = AllocationSampler.LeastOfFive(() => cut.InvokeAsync(refresh));
 
-        Assert.True(allocated <= RenderBudgetBytes, $"a render allocated {allocated} bytes; the budget is {RenderBudgetBytes}");
+        AllocationSampler.AssertWithinBudget(allocated, RenderBudgetBytes, "a render");
     }
 }

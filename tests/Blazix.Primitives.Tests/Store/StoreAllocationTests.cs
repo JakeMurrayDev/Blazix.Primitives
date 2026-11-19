@@ -44,7 +44,7 @@ public sealed class StoreAllocationTests
         long allocated = GC.GetAllocatedBytesForCurrentThread() - before;
 
         Assert.Equal(0, renders);
-        Assert.True(allocated <= NotificationBudgetBytes, $"{allocated} bytes allocated over {records.Length - 1} notifications to {Subscribers} subscribers; budget {NotificationBudgetBytes}.");
+        AllocationSampler.AssertWithinBudget(allocated, NotificationBudgetBytes, $"{records.Length - 1} notifications to {Subscribers} subscribers");
         GC.KeepAlive(subscriptions);
     }
 
