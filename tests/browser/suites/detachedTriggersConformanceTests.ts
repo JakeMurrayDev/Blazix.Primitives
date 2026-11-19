@@ -154,21 +154,24 @@ export function detachedTriggersConformanceTests(config: DetachedTriggersConfig)
       .toBeLessThanOrEqual(1);
   }
 
-  /** Declares a title; one listed open is skipped with its reason, and one listed in `fixme` is a `test.fixme`. */
-  function it(title: string, body: (args: { page: Page; mode: RenderMode }) => Promise<void>): void {
+  /**
+   * Declares a title; one listed open is skipped with its reason, and one listed in `fixme` is a `test.fixme`. `tag` is
+   * Playwright's (`@coverage` marks a coverage title for the red check, ADR 11 Amendments 2026-11-19).
+   */
+  function it(title: string, body: (args: { page: Page; mode: RenderMode }) => Promise<void>, { tag }: { tag?: string } = {}): void {
     if (only && !only.includes(title)) {
       return;
     }
 
     const openRow = listedFixme[title];
     if (openRow) {
-      test.fixme(title, { annotation: { type: 'open', description: openRow } }, async ({ page, mode }) => {
+      test.fixme(title, { ...(tag ? { tag } : {}), annotation: { type: 'open', description: openRow } }, async ({ page, mode }) => {
         await body({ page, mode });
       });
       return;
     }
 
-    test(title, async ({ page, mode }) => {
+    test(title, tag ? { tag } : {}, async ({ page, mode }) => {
       test.skip(title in listedOpen, listedOpen[title]);
       await body({ page, mode });
     });
@@ -479,7 +482,9 @@ export function detachedTriggersConformanceTests(config: DetachedTriggersConfig)
 
           await expect(fixture).toHaveAttribute('data-attached', 'true');
           expect(await page.evaluate(() => (window as unknown as { attachedValues: string[] }).attachedValues)).toEqual(['false', 'true']);
-        });
+          // A coverage title (ADR 11 Amendments 2026-11-19, fixture-side fixes): the fix is in PopupSuiteFixtureBase.cs, so the
+          // title passes against the base's src/; its red is its run against the old fixture base (PR 307).
+        }, { tag: '@coverage' });
       });
     });
   });
