@@ -32,6 +32,7 @@ public sealed class NumberFieldInput : PartBase<NumberFieldInputState>
 
     private static readonly StateAttributesMapping<NumberFieldInputState> s_mapping = FieldValidityMapping.Create<NumberFieldInputState>();
 
+    private readonly TaskCompletionSource attached = new(TaskCreationOptions.RunContinuationsAsynchronously);
     private readonly Action stateChanged;
     private readonly EventCallback onFocus;
     private readonly EventCallback onBlur;
@@ -109,6 +110,9 @@ public sealed class NumberFieldInput : PartBase<NumberFieldInputState>
 
     /// <inheritdoc />
     protected override StateAttributesMapping<NumberFieldInputState>? StateAttributesMapping => s_mapping;
+
+    /// <summary>Gets a task that completes once the <c>number-field</c> module is attached (the browser fixtures' marker).</summary>
+    internal Task TwinAttached => attached.Task;
 
     /// <inheritdoc />
     /// <exception cref="InvalidOperationException">The input is not placed within a <see cref="NumberFieldRoot"/>.</exception>
@@ -219,6 +223,7 @@ public sealed class NumberFieldInput : PartBase<NumberFieldInputState>
             }
 
             handle = await twin.AttachAsync(element, sentOptions, references);
+            attached.TrySetResult();
             return;
         }
 
