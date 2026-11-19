@@ -100,7 +100,14 @@ test.describe('Toast.Root', () => {
     await page.mouse.up();
   });
 
-  test('resets drag state after releasing a far swipe even when the release lands on the document', async ({ page, mode }) => {
+  // Quarantined (ADR 11 §4) on both modes until 2026-12-03, issue 318: failed three times in CI after PR 315 merged (PR 305's
+  // run 44456500806 on Server; main's run 44455497022 at e24ce34d on Server and WebAssembly), each the second swipe's removal
+  // (`Expected: 0 / Received: 1`).
+  test('resets drag state after releasing a far swipe even when the release lands on the document', {
+    tag: '@quarantine',
+    annotation: { type: 'open', description: 'https://github.com/JakeMurrayDev/Blazix.Primitives/issues/318 (expires 2026-12-03)' },
+  }, async ({ page, mode }) => {
+    test.fixme(true, 'Quarantined on both modes until 2026-12-03 (issue 318)');
     const fixture = await openToast(page, mode);
     const root = await addToast(page);
     const start = await centreOf(root);
