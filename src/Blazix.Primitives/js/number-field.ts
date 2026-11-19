@@ -237,6 +237,7 @@ export function attach(
   const hidden = references?.[0] instanceof HTMLInputElement ? references[0] : null;
   const nextRevision = () => ++revision;
   input[inputRevision] = nextRevision;
+  const releaseMirror = hidden !== null ? mirrorValueAttribute(hidden) : null;
 
   // The handover at attach (ADR 04 Amendments 2026-10-18): C# rendered the first text; from now on the module writes it.
   // An answer older than the module's last report is not applied (design point 7 (a)).
@@ -435,6 +436,8 @@ export function attach(
     if (event.defaultPrevented || hidden === null) {
       return;
     }
+    // An autofill writes the value without the property setter: the attribute follows here.
+    syncValueAttribute(hidden);
     const value = hidden.valueAsNumber;
     twin.report('OnAutofill', { value: Number.isNaN(value) ? null : value, event: eventInfo(event) } satisfies NumberFieldAutofillReport);
   };
@@ -468,6 +471,7 @@ export function attach(
       if (input[inputRevision] === nextRevision) {
         delete input[inputRevision];
       }
+      releaseMirror?.();
       input.removeEventListener('focus', onFocus);
       input.removeEventListener('blur', onBlur);
       keyRoot.removeEventListener('keydown', onKeyDown as EventListener);
@@ -516,6 +520,41 @@ export function getViewportRect(teleportDistance: number | undefined, scrubArea:
     top: 0,
     right: win.document.documentElement.clientWidth,
     bottom: win.document.documentElement.clientHeight,
+  };
+}
+
+// Design point 12 (a), chosen by the user 2026-11-19 (NUM-DOM-06): React keeps an input's `value` content attribute equal
+// to its value (react issue 12334; Base UI relies on it, NumberFieldRoot.tsx:530-532), so a hidden number input without
+// `min` measures its step from the value. Blazor and the `form` module write only the `value` property; an own accessor on
+// the hidden input, as React's inputValueTracking installs one, mirrors every write into the attribute synchronously,
+// before the `form` module reads the native validity.
+const valueProperty = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')!;
+
+function syncValueAttribute(element: HTMLInputElement): void {
+  const value = valueProperty.get!.call(element) as string;
+  if (element.getAttribute('value') !== value) {
+    element.setAttribute('value', value);
+  }
+}
+
+function mirrorValueAttribute(element: HTMLInputElement): () => void {
+  if (Object.getOwnPropertyDescriptor(element, 'value')) {
+    return () => {};
+  }
+  Object.defineProperty(element, 'value', {
+    configurable: true,
+    enumerable: valueProperty.enumerable === true,
+    get() {
+      return valueProperty.get!.call(this);
+    },
+    set(next: string) {
+      valueProperty.set!.call(this, next);
+      syncValueAttribute(this as HTMLInputElement);
+    },
+  });
+  syncValueAttribute(element);
+  return () => {
+    delete (element as unknown as { value?: string }).value;
   };
 }
 
