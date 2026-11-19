@@ -898,7 +898,7 @@ test.describe('useLabel', () => {
         // Red on both modes (2026-11-19, 2 of 2 each, and with 1.5 s before the click): a click on Combobox.Label leaves the
         // focus on the body. Open by ID, a library defect for track 10.
         if (labelType === 'Combobox.Label') {
-          const openRow = 'FFI-PTR-01 (issue TBD): a click on Combobox.Label in a Field does not focus the trigger';
+          const openRow = 'FFI-PTR-01 (issue 310): a click on Combobox.Label in a Field does not focus the trigger';
           test.info().annotations.push({ type: 'open', description: openRow });
           test.fixme(true, openRow);
         }
