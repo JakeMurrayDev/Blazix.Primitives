@@ -4,6 +4,10 @@
 // cover the rows Base UI leaves untested (shared-utilities.md §4.10, §4.11, §4.16 and UTL-ALG-11).
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
+  selectAll,
+  setCaret,
+  trackComposition,
+  writeTextValue,
   INITIAL_LIVE_REGION_TEXT_MUTATION_RESET_DELAY,
   activeElement,
   attach,
@@ -1626,3 +1630,70 @@ describe('floating-ui-react/utils/composite (visibility, in dom)', () => {
     expect(isElementVisible(contentHidden)).toBe(true);
   });
 });
+
+// The text-control helpers (M6 track 6, issue 277, 6b; design point 9 of the NumberField track, granted by the orchestrator
+// 2026-11-19): what NumberField's input role (and OtpField's slots) need of a text input.
+describe('text-control helpers', () => {
+  function textInput(value: string): HTMLInputElement {
+    const input = document.createElement('input');
+    input.type = 'text';
+    input.value = value;
+    document.body.appendChild(input);
+    return input;
+  }
+
+  it('port: setCaret collapses the selection at a position, clamped to the text', () => {
+    const input = textInput('1234');
+
+    setCaret(input, 2);
+    expect([input.selectionStart, input.selectionEnd]).toEqual([2, 2]);
+
+    setCaret(input, 99);
+    expect([input.selectionStart, input.selectionEnd]).toEqual([4, 4]);
+  });
+
+  it('port: setCaret and selectAll ignore an input type without a selection', () => {
+    const input = document.createElement('input');
+    input.type = 'number';
+    document.body.appendChild(input);
+
+    expect(() => setCaret(input, 0)).not.toThrow();
+    expect(() => selectAll(input)).not.toThrow();
+  });
+
+  it('port: selectAll selects the whole text', () => {
+    const input = textInput('1,234');
+
+    selectAll(input);
+
+    expect([input.selectionStart, input.selectionEnd]).toEqual([0, 5]);
+  });
+
+  it('port: writeTextValue writes only a different text and reports whether it wrote', () => {
+    const input = textInput('12');
+    input.setSelectionRange(1, 1);
+
+    expect(writeTextValue(input, '12')).toBe(false);
+    expect([input.selectionStart, input.selectionEnd]).toEqual([1, 1]);
+
+    expect(writeTextValue(input, '123')).toBe(true);
+    expect(input.value).toBe('123');
+  });
+
+  it('port: trackComposition reports a composition between compositionstart and compositionend, and dispose stops it', () => {
+    const input = textInput('');
+    const tracker = trackComposition(input);
+    expect(tracker.composing()).toBe(false);
+
+    input.dispatchEvent(new CompositionEvent('compositionstart'));
+    expect(tracker.composing()).toBe(true);
+
+    input.dispatchEvent(new CompositionEvent('compositionend'));
+    expect(tracker.composing()).toBe(false);
+
+    tracker.dispose();
+    input.dispatchEvent(new CompositionEvent('compositionstart'));
+    expect(tracker.composing()).toBe(false);
+  });
+});
+
