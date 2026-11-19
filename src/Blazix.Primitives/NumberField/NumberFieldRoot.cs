@@ -639,7 +639,7 @@ public sealed class NumberFieldRoot : PartBase<NumberFieldRootState>
             return;
         }
 
-        // NumberFieldInput.tsx:180-183 returns without a render, so the text stays as typed until a later render re-derives
+        // NumberFieldInput.tsx:175-178 returns without a render, so the text stays as typed until a later render re-derives
         // it (inside a field, the touched and focused flags render at once, as Base UI's field context does).
         if (NumberParser.Parse(text, Culture, Format) is not double parsed)
         {
