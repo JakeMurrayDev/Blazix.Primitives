@@ -45,7 +45,7 @@ public sealed class ComboboxAllocationBudgetTests : IDisposable
         long rerender = AllocationSampler.LeastOfFive(() => cut.Render());
 
         Assert.Equal(updatesBefore, Updates());
-        Assert.True(rerender <= RerenderBudget, $"a re-render allocated {rerender} bytes; the budget is {RerenderBudget}");
+        AllocationSampler.AssertWithinBudget(rerender, RerenderBudget, "a re-render");
     }
 
     [Fact(DisplayName = "port: a keystroke over 1,000 virtualized items with a window of 20 stays within its budget")]
@@ -69,7 +69,7 @@ public sealed class ComboboxAllocationBudgetTests : IDisposable
         long keystroke = AllocationSampler.LeastOfFive(run => cut.InvokeAsync(() => twin.OnInputChange(reports[run % 2])).GetAwaiter().GetResult());
 
         Assert.Equal(20, cut.FindAll("[role=option]").Count);
-        Assert.True(keystroke <= KeystrokeBudget, $"a keystroke allocated {keystroke} bytes; the budget is {KeystrokeBudget}");
+        AllocationSampler.AssertWithinBudget(keystroke, KeystrokeBudget, "a keystroke");
     }
 
     private int Updates() =>

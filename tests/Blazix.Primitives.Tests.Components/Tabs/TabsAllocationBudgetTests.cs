@@ -71,7 +71,7 @@ public sealed class TabsAllocationBudgetTests : IDisposable
             allocated = Math.Min(allocated, GC.GetAllocatedBytesForCurrentThread() - before);
         }
 
-        Assert.True(allocated <= RerenderBudgetBytes, $"a re-render allocated {allocated} bytes; the budget is {RerenderBudgetBytes}");
+        AllocationSampler.AssertWithinBudget(allocated, RerenderBudgetBytes, "a re-render");
     }
 
     [Fact(DisplayName = "a committed activation without receivers stays within its budget")]
@@ -96,6 +96,6 @@ public sealed class TabsAllocationBudgetTests : IDisposable
         await reported;
 
         Assert.Equal("true", Tabs(cut)[1].GetAttribute("aria-selected"));
-        Assert.True(allocated <= ActivationBudgetBytes, $"an activation allocated {allocated} bytes; the budget is {ActivationBudgetBytes}");
+        AllocationSampler.AssertWithinBudget(allocated, ActivationBudgetBytes, "an activation");
     }
 }

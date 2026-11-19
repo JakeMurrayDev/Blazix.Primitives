@@ -51,7 +51,7 @@ public sealed class SwitchAllocationBudgetTests : IDisposable
         cut.Render();
         long allocated = GC.GetAllocatedBytesForCurrentThread() - before;
 
-        Assert.True(allocated <= RerenderBudgetBytes, $"a re-render allocated {allocated} bytes; the budget is {RerenderBudgetBytes}");
+        AllocationSampler.AssertWithinBudget(allocated, RerenderBudgetBytes, "a re-render");
     }
 
     [Fact(DisplayName = "a toggle committed without a consumer callback stays within its budget")]
@@ -82,6 +82,6 @@ public sealed class SwitchAllocationBudgetTests : IDisposable
         }
 
         Assert.Equal("true", cut.Find("[role=switch]").GetAttribute("aria-checked"));
-        Assert.True(allocated <= ToggleBudgetBytes, $"a toggle allocated {allocated} bytes; the budget is {ToggleBudgetBytes}");
+        AllocationSampler.AssertWithinBudget(allocated, ToggleBudgetBytes, "a toggle");
     }
 }

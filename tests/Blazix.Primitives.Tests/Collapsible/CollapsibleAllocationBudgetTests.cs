@@ -28,7 +28,7 @@ public sealed class CollapsibleAllocationBudgetTests
 
         long allocated = Measure(() => root.MirrorStatus(TransitionStatus.Idle));
 
-        Assert.True(allocated <= UnchangedStatusBudgetBytes, $"an unchanged status report allocated {allocated} bytes; the budget is {UnchangedStatusBudgetBytes}");
+        AllocationSampler.AssertWithinBudget(allocated, UnchangedStatusBudgetBytes, "an unchanged status report");
     }
 
     [Fact(DisplayName = "a committed trigger press with no receivers allocates only the new shared state")]
@@ -42,7 +42,7 @@ public sealed class CollapsibleAllocationBudgetTests
 
         long allocated = Measure(() => root.RequestOpenAsync(!root.State.Open, details).GetAwaiter().GetResult());
 
-        Assert.True(allocated <= CommittedPressBudgetBytes, $"a committed press allocated {allocated} bytes; the budget is {CommittedPressBudgetBytes}");
+        AllocationSampler.AssertWithinBudget(allocated, CommittedPressBudgetBytes, "a committed press");
     }
 
     private static CollapsibleRootContext Opened()

@@ -40,7 +40,7 @@ public sealed class ScrollAreaAllocationBudgetTests : IDisposable
 
         long allocated = await MeasureAsync(cut, "OnOverflow", i => JsonSerializer.Serialize(new { hasOverflowX = false, hasOverflowY = true, xStart = false, xEnd = false, yStart = i % 2 == 1, yEnd = true, measured = true }));
 
-        Assert.True(allocated <= OverflowReportBudgetBytes, $"an overflow report allocated {allocated} bytes; the budget is {OverflowReportBudgetBytes}");
+        AllocationSampler.AssertWithinBudget(allocated, OverflowReportBudgetBytes, "an overflow report");
     }
 
     [Fact(DisplayName = "a scrolling flip without state functions stays within its budget")]
@@ -51,7 +51,7 @@ public sealed class ScrollAreaAllocationBudgetTests : IDisposable
 
         long allocated = await MeasureAsync(cut, "OnScrolling", i => JsonSerializer.Serialize(new { x = false, y = i % 2 == 1 }));
 
-        Assert.True(allocated <= ScrollingReportBudgetBytes, $"a scrolling report allocated {allocated} bytes; the budget is {ScrollingReportBudgetBytes}");
+        AllocationSampler.AssertWithinBudget(allocated, ScrollingReportBudgetBytes, "a scrolling report");
     }
 
     [Fact(DisplayName = "a re-render of a scroll area with unchanged parameters stays within its budget and sends no update")]
@@ -67,7 +67,7 @@ public sealed class ScrollAreaAllocationBudgetTests : IDisposable
         int updates = test.Updates.Count;
         long allocated = AllocationSampler.LeastOfFive(() => cut.Render(p => p.Add(x => x.KeepMounted, true)));
 
-        Assert.True(allocated <= RerenderBudgetBytes, $"a re-render allocated {allocated} bytes; the budget is {RerenderBudgetBytes}");
+        AllocationSampler.AssertWithinBudget(allocated, RerenderBudgetBytes, "a re-render");
         Assert.Equal(updates, test.Updates.Count);
     }
 
