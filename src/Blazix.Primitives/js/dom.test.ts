@@ -1671,23 +1671,32 @@ describe('styleWriter', () => {
     });
 
     // popup.ts `override` (usePopupAutoResize.ts:175-182) writes a declaration directly for a measurement and restores
-    // it in a later task; a writer that has not opted in never takes it, or its own bands, as the consumer's.
-    it('port: a writer that has not opted in leaves a direct override and its restore alone across tasks', async () => {
-      const element = document.createElement('div');
-      document.body.appendChild(element);
-      const writer = styleWriter(element);
-      writer.layer('positioning').set('transform', 'translate(10px, 20px)');
+    // it in a later task. A writer that has opted in takes the override, and the bands present with it, as the
+    // consumer's; a writer that has not opted in never does.
+    it('port: only an opted-in writer takes a direct override restored in a later task as the consumer style', async () => {
+      const overrideAcrossTasks = async (optIn: boolean) => {
+        const element = document.createElement('div');
+        document.body.appendChild(element);
+        const writer = styleWriter(element);
+        if (optIn) {
+          writer.absorbForeignWrites();
+        }
+        writer.layer('positioning').set('transform', 'translate(10px, 20px)');
 
-      element.style.setProperty('width', 'max-content');
-      await flushObservers();
-      writer.layer('positioning').set('top', '20px');
-      element.style.removeProperty('width');
-      await flushObservers();
+        element.style.setProperty('width', 'max-content');
+        await flushObservers();
+        writer.layer('positioning').set('top', '20px');
+        element.style.removeProperty('width');
+        await flushObservers();
 
-      writer.layer('positioning').clear();
-      expect(element.style.getPropertyValue('transform')).toBe('');
-      expect(element.style.getPropertyValue('top')).toBe('');
-      element.remove();
+        writer.layer('positioning').clear();
+        const left = element.style.getPropertyValue('transform');
+        element.remove();
+        return left;
+      };
+
+      expect(await overrideAcrossTasks(true)).toBe('translate(10px, 20px)');
+      expect(await overrideAcrossTasks(false)).toBe('');
     });
 
     it('port: a foreign write is absorbed before the writer next writes, even before its observer runs', () => {
