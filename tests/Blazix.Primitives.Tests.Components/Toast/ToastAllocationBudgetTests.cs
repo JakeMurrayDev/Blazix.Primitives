@@ -26,7 +26,7 @@ public sealed class ToastAllocationBudgetTests
     // the budget first lands on main): 680 bytes at 1 toast and 5288 at 10, linear (about 512 bytes a toast): each root's
     // style string, the viewport template's per-toast fragments, the new state records of the parts whose expanded flag
     // moved, and Blazor's diff.
-    // Re-pinned 2026-11-19 (M6 track 9b; ADR 16 Amendments 2026-11-19, pending the user, design point B1 of the Toast track):
+    // Re-pinned 2026-11-19 (M6 track 9b; ADR 16 Amendments 2026-11-19, design point B1 of the Toast track, chosen by the user 2026-11-19):
     // with the `toast` module the least of five is 1552 and 6160 bytes. The slope stays at 512 bytes a toast (no root or
     // content allocates on a hover); the fixed 872 bytes more are the viewport's one update per hover, the module's message.
     private const long HoverBudget1 = 1552;
