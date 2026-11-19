@@ -209,7 +209,85 @@ public sealed class NumberFieldTypingTests : IDisposable
         Assert.Equal(7, changes[^1].Value);
     }
 
-    private void Render(double? value, double? min = null, double? max = null, CultureInfo? culture = null, bool wheel = false)
+    [Fact(DisplayName = "should not allow non-numeric characters on change")]
+    [Trait("Requirement", "NUM-EVT-15")]
+    [Trait("Requirement", "NUM-EDGE-06")]
+    public async Task Should_not_allow_non_numeric_characters_on_change()
+    {
+        Render(null);
+
+        await test.ChangeAsync(root!, "abc");
+
+        Assert.Equal(string.Empty, test.Text);
+        Assert.Empty(changes);
+    }
+
+    [Fact(DisplayName = "should allow numeric characters on change")]
+    [Trait("Requirement", "NUM-EVT-15")]
+    public async Task Should_allow_numeric_characters_on_change()
+    {
+        Render(null);
+
+        await test.ChangeAsync(root!, "123");
+
+        Assert.Equal("123", test.Text);
+    }
+
+    [Fact(DisplayName = "increments with keyboard from numeric state, not rounded display text")]
+    [Trait("Requirement", "NUM-KEY-12")]
+    public async Task Increments_with_keyboard_from_numeric_state_not_rounded_display_text()
+    {
+        Render(1.23456);
+        Assert.Equal("1.235", test.Text);
+
+        await test.KeyAsync(root!, "ArrowUp");
+
+        Assert.Equal(2.23456, changes[^1].Value);
+    }
+
+    [Fact(DisplayName = "steps keyboard from dirty input text when the controlled value lags onValueChange")]
+    [Trait("Requirement", "NUM-KEY-12")]
+    public async Task Steps_keyboard_from_dirty_input_text_when_the_controlled_value_lags()
+    {
+        Render(0, controlled: true);
+
+        await test.ChangeAsync(root!, "1.5");
+        Assert.Equal(1.5, changes[^1].Value);
+
+        // ArrowUp steps from the dirty text (1.5 -> 2.5), not the stale numeric state (0 -> 1).
+        await test.KeyAsync(root!, "ArrowUp");
+        Assert.Equal(2.5, changes[^1].Value);
+    }
+
+    [Fact(DisplayName = "commits formatted value only on blur")]
+    [Trait("Requirement", "NUM-EVT-06")]
+    [Trait("Requirement", "NUM-STA-05")]
+    public async Task Commits_formatted_value_only_on_blur()
+    {
+        Render(null);
+
+        await test.ChangeAsync(root!, "1234");
+        Assert.Equal("1234", test.Text);
+
+        await test.BlurAsync(root!, "1234", revision: 1);
+        Assert.Equal("1,234", test.Text);
+    }
+
+    [Fact(DisplayName = "should commit validated number on blur (min)")]
+    [Trait("Requirement", "NUM-EVT-06")]
+    [Trait("Requirement", "NUM-STA-07")]
+    public async Task Should_commit_validated_number_on_blur_min()
+    {
+        Render(null, min: 0);
+
+        await test.ChangeAsync(root!, "-1");
+        Assert.Equal("-1", test.Text);
+
+        await test.BlurAsync(root!, "-1", revision: 1);
+        Assert.Equal("0", test.Text);
+    }
+
+    private void Render(double? value, double? min = null, double? max = null, CultureInfo? culture = null, bool wheel = false, bool controlled = false)
     {
         RenderFragment parts = b =>
         {
@@ -226,15 +304,25 @@ public sealed class NumberFieldTypingTests : IDisposable
             b.CloseComponent();
         };
 
-        root = test.Context.Render<NumberFieldRoot>(p => p
-            .Add(x => x.Culture, culture ?? s_enUs)
-            .Add(x => x.DefaultValue, value)
-            .Add(x => x.Min, min)
-            .Add(x => x.Max, max)
-            .Add(x => x.AllowWheelScrub, wheel)
-            .Add(x => x.OnValueChange, (ValueChangeEventArgs<double?> e) => changes.Add(e))
-            .Add(x => x.OnValueCommitted, (ValueCommittedEventArgs<double?> e) => commits.Add(e))
-            .Add(x => x.ChildContent, parts));
+        root = test.Context.Render<NumberFieldRoot>(p =>
+        {
+            p.Add(x => x.Culture, culture ?? s_enUs);
+            if (controlled)
+            {
+                p.Add(x => x.Value, value);
+            }
+            else
+            {
+                p.Add(x => x.DefaultValue, value);
+            }
+
+            p.Add(x => x.Min, min)
+                .Add(x => x.Max, max)
+                .Add(x => x.AllowWheelScrub, wheel)
+                .Add(x => x.OnValueChange, (ValueChangeEventArgs<double?> e) => changes.Add(e))
+                .Add(x => x.OnValueCommitted, (ValueCommittedEventArgs<double?> e) => commits.Add(e))
+                .Add(x => x.ChildContent, parts);
+        });
     }
 
     private IRenderedComponent<NumberFieldStepperHost> Host(double? value) =>
