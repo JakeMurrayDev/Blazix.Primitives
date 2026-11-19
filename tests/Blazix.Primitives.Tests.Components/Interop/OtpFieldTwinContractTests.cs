@@ -49,7 +49,7 @@ public sealed class OtpFieldTwinContractTests
     {
         using BunitContext context = new();
         BunitJSModuleInterop module = context.JSInterop.SetupModule(ModulePath);
-        module.SetupModule("attach", _ => true);
+        module.SetupModule("attach", _ => true).SetupVoid("dispose", _ => true).SetVoidResult();
         await using OtpFieldTwin twin = new(context.JSInterop.JSRuntime);
 
         await twin.AttachAsync("root", new OtpFieldOptions
