@@ -105,6 +105,27 @@ public sealed class DrawerViewportGestureTests : IDisposable
         cut.WaitForAssertion(() => Assert.Contains("\"answeredDismiss\":1", LastOptions(), StringComparison.Ordinal));
     }
 
+    // Found by the L4 title "does not dismiss a controlled drawer via swipe when open is always true" on WebAssembly
+    // (2026-11-19): an answer sent inside the dispatch reaches the module before it numbers the dismissal, so the module
+    // ignores it, and a controlled drawer that stays open sends no later update to roll the dismissal back.
+    [Fact(DisplayName = "port: the dismiss point's answer reaches the module only after the dispatch returns")]
+    [Trait("Requirement", "DRW-PTR-15")]
+    public async Task The_dismiss_point_answer_follows_the_dispatch()
+    {
+        IRenderedComponent<IComponent> cut = test.Context.Render(Drawer());
+        cut.WaitForAssertion(() => Assert.Single(drawerModule.Invocations["attach"]));
+        int before = drawerHandle.Invocations["update"].Count;
+
+        int during = await cut.InvokeAsync(() =>
+        {
+            Assert.Equal("run", Twin().Decide(DrawerTwin.DismissPoint, ReleaseJson));
+            return drawerHandle.Invocations["update"].Count;
+        });
+
+        Assert.Equal(before, during);
+        cut.WaitForAssertion(() => Assert.Contains("\"answeredDismiss\":1", LastOptions(), StringComparison.Ordinal));
+    }
+
     // The Backdrop's data-swiping is the module's write alone: Base UI's Backdrop state has no swiping field.
     [Fact(DisplayName = "port: a swiping report marks the popup's state as swiping")]
     [Trait("Requirement", "DRW-DOM-07")]
