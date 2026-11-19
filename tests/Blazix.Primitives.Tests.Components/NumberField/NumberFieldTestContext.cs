@@ -166,5 +166,52 @@ public sealed class NumberFieldTestContext : IDisposable
         return cut.InvokeAsync(() => twin.OnInputBlur(json));
     }
 
+    private int inputRevision;
+
+    /// <summary>Reports an allowed edit of the visible input, as the module does, with the next revision.</summary>
+    internal Task ChangeAsync<TComponent>(IRenderedComponent<TComponent> cut, string text)
+        where TComponent : IComponent
+    {
+        NumberFieldTwin twin = NumberFieldTwin();
+        string json = JsonSerializer.Serialize(new { text, revision = ++inputRevision, @event = new { kind = "InputEvent", type = "input" } });
+        return cut.InvokeAsync(() => twin.OnInputChange(json));
+    }
+
+    /// <summary>Reports a step key the module prevented, with the text the input showed and the next revision.</summary>
+    internal Task KeyAsync<TComponent>(IRenderedComponent<TComponent> cut, string key, bool altKey = false, bool shiftKey = false, string? text = null)
+        where TComponent : IComponent
+    {
+        NumberFieldTwin twin = NumberFieldTwin();
+        string json = JsonSerializer.Serialize(new { key, text = text ?? Text, revision = ++inputRevision, @event = new { kind = "KeyboardEvent", type = "keydown", key, altKey, shiftKey } });
+        return cut.InvokeAsync(() => twin.OnKeyStep(json));
+    }
+
+    /// <summary>Reports a paste the module prevented, with the spliced text and the next revision.</summary>
+    internal Task PasteAsync<TComponent>(IRenderedComponent<TComponent> cut, string splicedText)
+        where TComponent : IComponent
+    {
+        NumberFieldTwin twin = NumberFieldTwin();
+        string json = JsonSerializer.Serialize(new { text = splicedText, revision = ++inputRevision, @event = new { kind = "ClipboardEvent", type = "paste" } });
+        return cut.InvokeAsync(() => twin.OnInputPaste(json));
+    }
+
+    /// <summary>Reports a wheel step of the focused input.</summary>
+    internal Task WheelAsync<TComponent>(IRenderedComponent<TComponent> cut, int direction, bool shiftKey = false, bool altKey = false)
+        where TComponent : IComponent
+    {
+        NumberFieldTwin twin = NumberFieldTwin();
+        string json = JsonSerializer.Serialize(new { direction, @event = new { kind = "WheelEvent", type = "wheel", shiftKey, altKey } });
+        return cut.InvokeAsync(() => twin.OnWheelStep(json));
+    }
+
+    /// <summary>Reports a browser autofill of the hidden input.</summary>
+    internal Task AutofillAsync<TComponent>(IRenderedComponent<TComponent> cut, double? value)
+        where TComponent : IComponent
+    {
+        NumberFieldTwin twin = NumberFieldTwin();
+        string json = JsonSerializer.Serialize(new { value, @event = new { kind = "Event", type = "change" } });
+        return cut.InvokeAsync(() => twin.OnAutofill(json));
+    }
+
     private static string Bool(bool value) => value ? "true" : "false";
 }
