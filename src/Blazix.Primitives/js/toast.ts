@@ -48,10 +48,12 @@ import {
 // Constants (toast/root/ToastRoot.tsx:35-39)
 // ---------------------------------------------------------------------------------------------------------------
 
-/** The damping exponent of a drag component in a direction that does not dismiss (TST-PTR-16). */
+// TST-PTR-16.
+/** The damping exponent of a drag component in a direction that does not dismiss. */
 export const OPPOSITE_DIRECTION_DAMPING_FACTOR = 0.5;
 
-/** The drag, in pixels, after which a press becomes a swipe (TST-PTR-13). */
+// TST-PTR-13.
+/** The drag, in pixels, after which a press becomes a swipe. */
 export const MIN_DRAG_THRESHOLD = 1;
 
 // TST-PTR-08: Toast's interactive list joined with both ignore selectors (UTL-EDGE-19; DRW-PTR-24 keeps the legacy one for
@@ -83,7 +85,8 @@ const NOOP = () => {};
 /** The part a handle serves; mirrors the part literals of `ToastTwin` in C#. */
 export type ToastPart = 'viewport' | 'root' | 'content';
 
-/** A focus hand-off C# computed at a close (TST-FOC-07, TST-FOC-08). */
+// TST-FOC-07, TST-FOC-08.
+/** A focus hand-off C# computed at a close. */
 export interface ToastHandOff {
   /** Increases with each close; the module acts on a revision once. */
   revision: number;
@@ -98,21 +101,26 @@ export interface ToastOptions extends TwinOptions {
   part: ToastPart;
   /** Viewport and Root: the revision of the last report C# applied. */
   revision?: number;
-  /** Viewport: whether the list is empty, so the window and document listeners are unbound (TST-FOC-14). */
+  // TST-FOC-14.
+  /** Viewport: whether the list is empty, so the window and document listeners are unbound. */
   empty?: boolean;
   /** Viewport: the store's `hovering`. */
   hovering?: boolean;
   /** Viewport: the store's `focused`. */
   focused?: boolean;
-  /** Viewport: whether some toast is ending, which defers a `mouseleave` (TST-PTR-03). */
+  // TST-PTR-03.
+  /** Viewport: whether some toast is ending, which defers a `mouseleave`. */
   hasEnding?: boolean;
-  /** Viewport: the index, among the references, of the first toast that is neither ending nor limited (TST-FOC-02). */
+  // TST-FOC-02.
+  /** Viewport: the index, among the references, of the first toast that is neither ending nor limited. */
   focusTargetRef?: number | null;
   /** Viewport: the hand-off of the latest close. */
   handOff?: ToastHandOff | null;
-  /** Root: the dismiss directions, in the order a release tries them; empty for an anchored toast (TST-PTR-22). */
+  // TST-PTR-22.
+  /** Root: the dismiss directions, in the order a release tries them; empty for an anchored toast. */
   directions?: SwipeDirection[];
-  /** Root: increases when the Root starts a new lifecycle (a new toast id, or a re-add): the rollback (TST-ANI-08/11). */
+  // TST-ANI-08/11.
+  /** Root: increases when the Root starts a new lifecycle (a new toast id, or a re-add): the rollback. */
   lifecycle?: number;
   /** Content: the index, among the references, of its Root's element. */
   rootRef?: number | null;
@@ -145,7 +153,8 @@ export interface ToastReport {
   direction?: SwipeDirection | null;
   /** `release`: whether the release dismisses the toast. */
   dismiss?: boolean;
-  /** `window-focus`: whether the timers resume at once (TST-FOC-12). */
+  // TST-FOC-12.
+  /** `window-focus`: whether the timers resume at once. */
   resume?: boolean;
 }
 
@@ -155,11 +164,13 @@ const REPORT_METHOD = 'OnReport';
 // The gesture's arithmetic (TST-PTR-12..17; ToastRoot.tsx:180-197,294-407), pure so L3 can drive it
 // ---------------------------------------------------------------------------------------------------------------
 
-/** The axis a two-axis gesture is locked to once it becomes a swipe (TST-PTR-13). */
+// TST-PTR-13.
+/** The axis a two-axis gesture is locked to once it becomes a swipe. */
 export type SwipeAxisLock = 'horizontal' | 'vertical' | null;
 
+// TST-PTR-16.
 /**
- * Damps a drag component that points in a direction that does not dismiss (TST-PTR-16).
+ * Damps a drag component that points in a direction that does not dismiss.
  * @param directions The dismiss directions.
  * @param deltaX The horizontal drag.
  * @param deltaY The vertical drag.
@@ -173,8 +184,9 @@ export function applyDirectionalDamping(directions: readonly SwipeDirection[], d
   return { x: dampX ? damp(deltaX) : deltaX, y: dampY ? damp(deltaY) : deltaY };
 }
 
+// TST-PTR-14.
 /**
- * The direction a move would arm while none is armed (TST-PTR-14).
+ * The direction a move would arm while none is armed.
  * @param lock The axis lock.
  * @param deltaX The horizontal drag.
  * @param deltaY The vertical drag.
@@ -193,8 +205,9 @@ export function armingCandidate(lock: SwipeAxisLock, deltaX: number, deltaY: num
   return deltaY > 0 ? 'down' : 'up';
 }
 
+// TST-PTR-17.
 /**
- * The direction a release dismisses in (TST-PTR-17).
+ * The direction a release dismisses in.
  * @param directions The dismiss directions, in order.
  * @param deltaX The drag from the initial transform.
  * @param deltaY The drag from the initial transform.
