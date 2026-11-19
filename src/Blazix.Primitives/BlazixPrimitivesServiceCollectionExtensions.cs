@@ -18,9 +18,10 @@ public static class BlazixPrimitivesServiceCollectionExtensions
     /// <returns>The same service collection, so that calls can be chained.</returns>
     /// <exception cref="ArgumentNullException"><paramref name="services"/> is <see langword="null"/>.</exception>
     /// <remarks>
-    /// Registers seven scoped services: the id generator, <see cref="PartIdGenerator"/>; the platform hints; the sets of the
+    /// Registers eight scoped services: the id generator, <see cref="PartIdGenerator"/>; the platform hints; the sets of the
     /// button, collapsible and toggle development messages already written in the session; the form scope of the fields
-    /// outside a form; and the <see cref="ToastManager"/> that toast providers without a manager of their own use.
+    /// outside a form; the <see cref="ToastManager"/> that toast providers without a manager of their own use; and the set
+    /// of the one-time code fields' development messages already written in the session.
     /// </remarks>
     public static IServiceCollection AddBlazixPrimitives(this IServiceCollection services)
     {
@@ -35,6 +36,9 @@ public static class BlazixPrimitivesServiceCollectionExtensions
         services.AddScoped<ToggleDevelopmentLog>();
         services.AddScoped<DefaultFormScope>();
         services.AddScoped<ToastManager>();
+
+        // M6 track 7 (issue 278; granted by the orchestrator 2026-11-19): the one-time code fields' warnings, once per session.
+        services.AddScoped<OtpFieldDevelopmentLog>();
         return services;
     }
 }

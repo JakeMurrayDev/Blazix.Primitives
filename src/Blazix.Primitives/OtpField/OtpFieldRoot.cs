@@ -72,7 +72,6 @@ public sealed class OtpFieldRoot : PartBase<OtpFieldRootState>
     private OtpFieldRootState? state;
     private RenderFragment? cascade;
     private RenderFragment? cascadedContent;
-    private HashSet<string>? writtenWarnings;
 
     /// <summary>Initializes a new instance of the <see cref="OtpFieldRoot"/> class.</summary>
     public OtpFieldRoot()
@@ -93,6 +92,9 @@ public sealed class OtpFieldRoot : PartBase<OtpFieldRootState>
 
     [Inject]
     private DefaultFormScope Formless { get; set; } = null!;
+
+    [Inject]
+    private OtpFieldDevelopmentLog DevelopmentLog { get; set; } = null!;
 
     // OTP-ARIA-03, OTP-ARIA-04 (useAriaLabelledBy): the field label's id, else the native label of slot 0.
     private string? ResolvedLabel => fieldHalf!.FieldLabelId ?? labelFallbackId;
@@ -651,16 +653,9 @@ public sealed class OtpFieldRoot : PartBase<OtpFieldRootState>
             $"Blazix: `<OtpFieldRoot>` `Length` must match the number of rendered `<OtpFieldInput />` parts. Received `Length={Length.ToString(CultureInfo.InvariantCulture)}` but rendered {count} input{(mountedSlots == 1 ? string.Empty : "s")}.");
     }
 
-    // OTP-EDGE-02..05: once per message text (UTL-EDGE-11/12). Pending the orchestrator's answer on the scoped log (asked
-    // 2026-11-19), the set is the root's own.
-    private void Warn(string message)
-    {
-        writtenWarnings ??= new HashSet<string>(StringComparer.Ordinal);
-        if (writtenWarnings.Add(message))
-        {
-            DevelopmentWarnings.Write(Logger, message);
-        }
-    }
+    // OTP-EDGE-02, OTP-EDGE-03: once per message text per session (UTL-EDGE-11/12; the scoped log, granted by the
+    // orchestrator 2026-11-19).
+    private void Warn(string message) => DevelopmentLog.Report(Logger, message);
 
     // Returns whether the state changed; a new record is made only then (ADR 16 rule 7), and the slots are told first, so they
     // render in the same batch as the root.

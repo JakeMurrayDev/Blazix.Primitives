@@ -39,7 +39,6 @@ public sealed class OtpFieldInput : PartBase<OtpFieldInputState>
     private FormTwin? labelTwin;
     private TwinHandle<FormOptions>? labelHandle;
     private bool sentLabelFallback;
-    private bool labelWarned;
     private OtpFieldInputState? state;
     private int stateVersion = -1;
     private int stateIndex = -1;
@@ -57,6 +56,9 @@ public sealed class OtpFieldInput : PartBase<OtpFieldInputState>
 
     [Inject]
     private ILogger<OtpFieldInput> Logger { get; set; } = null!;
+
+    [Inject]
+    private OtpFieldDevelopmentLog DevelopmentLog { get; set; } = null!;
 
     [CascadingParameter]
     private OtpFieldRootContext? RootContext { get; set; }
@@ -266,10 +268,9 @@ public sealed class OtpFieldInput : PartBase<OtpFieldInputState>
 
         // OTP-EDGE-04 (OTPFieldInput.tsx:85-99): slot 0 ignores the consumer's aria-label; without an associated label the
         // field has no name, which the development warning says once.
-        if (report.Value is null && !labelWarned && Index == 0 && ConsumerAttribute(AriaLabel) is not null && DevelopmentWarnings.IsEnabled)
+        if (report.Value is null && Index == 0 && ConsumerAttribute(AriaLabel) is not null)
         {
-            labelWarned = true;
-            DevelopmentWarnings.Write(Logger, "Blazix: `<OtpFieldInput>` ignores `aria-label` on the first input. Use a `<label>` or `<FieldLabel>` to label the one-time code field.");
+            DevelopmentLog.Report(Logger, "Blazix: `<OtpFieldInput>` ignores `aria-label` on the first input. Use a `<label>` or `<FieldLabel>` to label the one-time code field.");
         }
     }
 }
