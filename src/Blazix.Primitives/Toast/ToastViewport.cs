@@ -1,9 +1,11 @@
 using System.Globalization;
+using Blazix.Primitives.Interop;
 using Blazix.Primitives.Rendering;
 using Blazix.Primitives.Store;
 using Blazix.Primitives.Utilities;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Rendering;
+using Microsoft.JSInterop;
 
 namespace Blazix.Primitives;
 
@@ -33,9 +35,12 @@ public static class ToastViewportCssVars
 // TST-ARIA-01, TST-A11Y-01, TST-A11Y-03. C# renders the host's role, live-region and label attributes, `data-expanded`
 // (the M6 plan's decision 19 (a) keeps its C# writer) and `--toast-frontmost-height` (TST §16 Q2 replicated: the first
 // toast's height, ending or not); the part carries no JS-owned style. The alert region for high-priority toasts follows
-// the host (BuildAfterElement, ADR 02 Amendments 2026-10-22), ending toasts included (§16 Q7 replicated). The focus guards
-// and the Viewport's listeners are the `toast` module's (ADR 04 Amendments 2026-11-18; M6 track 9b): no C# mouse, focus
-// or key handler here (ADR 16 rule 6).
+// the host (BuildAfterElement, ADR 02 Amendments 2026-10-22), ending toasts included (§16 Q7 replicated). The Viewport's
+// listeners are the `toast` module's (ADR 04 Amendments 2026-11-18; M6 track 9b): no C# mouse, focus or key handler here
+// (ADR 16 rule 6). Its handle reports hover, focus, F6, the window's focus and touches outside, which the store applies;
+// it is sent the store's flags, the first focusable toast's element and each close's focus hand-off (DP3 (i), chosen by
+// the user 2026-11-19). C# renders the three focus guards (TST-DOM-04, the shared renderer of DP3 (a)) while the list is
+// non-empty and F6 has recorded the previous focus; the module routes their focus.
 // The toast list is a template parameter beside the base's ChildContent: PartBase already declares
 // `ChildContent : RenderFragment?`, so a `RenderFragment<…>` of that name throws at the first render (M6 track 9a, the DP5
 // fact, pending the user).
@@ -50,7 +55,15 @@ public static class ToastViewportCssVars
 /// </remarks>
 public sealed class ToastViewport<TData> : PartBase<ToastViewportState>
 {
+    private readonly RenderFragment guardedContent;
+    private readonly Action<ToastReport> onReport;
+    private readonly Action onHandOff;
     private ToastProviderContext<TData>? provider;
+    private ToastPartHandle? handle;
+    private StoreSelection<ToastStoreState<TData>, bool>? guarded;
+    private RenderFragment? innerContent;
+    private int appliedRevision;
+    private bool disposed;
     private StoreSelection<ToastStoreState<TData>, IReadOnlyList<ToastObject<TData>>>? toasts;
     private StoreSelection<ToastStoreState<TData>, bool>? expanded;
     private StoreSelection<ToastStoreState<TData>, bool>? focused;
@@ -59,6 +72,17 @@ public sealed class ToastViewport<TData> : PartBase<ToastViewportState>
     private IReadOnlyList<ToastObject<TData>>? listFor;
     private RenderFragment<IReadOnlyList<ToastObject<TData>>>? listTemplate;
     private ToastViewportState state = new(false);
+
+    /// <summary>Initializes a new instance of the <see cref="ToastViewport{TData}"/> class.</summary>
+    public ToastViewport()
+    {
+        guardedContent = RenderGuardedContent;
+        onReport = report => _ = InvokeAsync(() => ApplyReport(report));
+        onHandOff = () => _ = disposed ? Task.CompletedTask : SyncAsync();
+    }
+
+    [Inject]
+    private IJSRuntime JSRuntime { get; set; } = null!;
 
     [CascadingParameter]
     private ToastProviderContext<TData>? ProviderContext { get; set; }
@@ -88,18 +112,27 @@ public sealed class ToastViewport<TData> : PartBase<ToastViewportState>
         }
     }
 
+    // For the tests: the part's twin, whose reports the tests send.
+    internal ToastTwin? Twin => handle?.Twin;
+
+    // For the fixtures: completes when the viewport's handle has attached.
+    internal Task TwinAttached => handle!.Attached;
+
     /// <inheritdoc />
     protected override void OnInitialized()
     {
         provider = ToastProviderContext<TData>.Require(ProviderContext);
+        handle = new ToastPartHandle(JSRuntime, handsOverStyle: false);
+        handle.Twin.Reported += onReport;
+        provider.Store.HandOffRequested += onHandOff;
         base.OnInitialized();
     }
 
     /// <inheritdoc />
     protected override void OnParametersSet()
     {
-        // A parameter set that does not supply ChildContent leaves this part's list content in it.
-        supplied = listContent is not null && ReferenceEquals(ChildContent, listContent) ? supplied : ChildContent;
+        // A parameter set that does not supply ChildContent leaves this part's own content in it.
+        supplied = ReferenceEquals(ChildContent, guardedContent) || (listContent is not null && ReferenceEquals(ChildContent, listContent)) ? supplied : ChildContent;
     }
 
     /// <inheritdoc />
@@ -115,14 +148,40 @@ public sealed class ToastViewport<TData> : PartBase<ToastViewportState>
                 listContent = template(list);
             }
 
-            ChildContent = listContent;
+            innerContent = listContent;
         }
         else
         {
-            ChildContent = supplied;
+            innerContent = supplied;
         }
 
+        // TST-DOM-04, TST-DOM-23: the inner guards wrap the consumer's content last, so it cannot replace them.
+        ChildContent = guardedContent;
         base.BuildRenderTree(builder);
+    }
+
+    /// <inheritdoc />
+    protected override Task OnAfterRenderAsync(bool firstRender) => disposed ? Task.CompletedTask : SyncAsync();
+
+    /// <inheritdoc />
+    protected override void Dispose(bool disposing)
+    {
+        if (disposing && !disposed)
+        {
+            disposed = true;
+            if (handle is not null)
+            {
+                handle.Twin.Reported -= onReport;
+                handle.Dispose();
+            }
+
+            if (provider is not null)
+            {
+                provider.Store.HandOffRequested -= onHandOff;
+            }
+        }
+
+        base.Dispose(disposing);
     }
 
     /// <inheritdoc />
@@ -132,6 +191,7 @@ public sealed class ToastViewport<TData> : PartBase<ToastViewportState>
         toasts = subscription.Select(ToastSelectors<TData>.Toasts);
         expanded = subscription.Select(ToastSelectors<TData>.Expanded);
         focused = subscription.Select(ToastSelectors<TData>.Focused);
+        guarded = subscription.Select(ToastSelectors<TData>.Guarded);
     }
 
     /// <inheritdoc />
@@ -150,6 +210,16 @@ public sealed class ToastViewport<TData> : PartBase<ToastViewportState>
         if (list.Count > 0 && list[0].Height is > 0 and double height)
         {
             attributes.Set("style", string.Create(CultureInfo.InvariantCulture, $"{ToastViewportCssVars.FrontmostHeight}: {height}px"));
+        }
+    }
+
+    // TST-DOM-04: the guard before the host element.
+    /// <inheritdoc />
+    protected override void BuildBeforeElement(RenderTreeBuilder builder)
+    {
+        if (guarded!.Value)
+        {
+            FocusGuard.Render(builder);
         }
     }
 
@@ -203,5 +273,58 @@ public sealed class ToastViewport<TData> : PartBase<ToastViewportState>
         }
 
         builder.CloseElement();
+    }
+
+    // TST-DOM-04: the guards as the host's first and last children, the consumer's content between them.
+    private void RenderGuardedContent(RenderTreeBuilder builder)
+    {
+        bool withGuards = guarded!.Value;
+        if (withGuards)
+        {
+            FocusGuard.Render(builder);
+        }
+
+        builder.AddContent(1, innerContent);
+        if (withGuards)
+        {
+            FocusGuard.Render(builder);
+        }
+    }
+
+    // A report of the viewport's role, applied to the store; the revision it carries is sent back with the next options.
+    private Task ApplyReport(ToastReport report)
+    {
+        if (disposed)
+        {
+            return Task.CompletedTask;
+        }
+
+        provider!.Store.ApplyViewportReport(report.Kind, report.Resume == true);
+        appliedRevision = Math.Max(appliedRevision, report.Revision);
+        provider.Store.OnReportApplied(report.Kind);
+        return SyncAsync();
+    }
+
+    private Task SyncAsync()
+    {
+        ToastStore<TData> store = provider!.Store;
+        ToastStoreState<TData> current = store.State;
+        List<ElementReference> references = [];
+        int? focusTarget = ToastPartHandle.Reference(references, store.ElementOf(store.FirstFocusableToast()));
+        ToastHandOffOptions? handOff = store.HandOff is { } request
+            ? new ToastHandOffOptions(request.Revision, request.TargetId is null, ToastPartHandle.Reference(references, store.ElementOf(request.TargetId)))
+            : null;
+        ToastOptions options = new()
+        {
+            Part = ToastTwin.ViewportPart,
+            Revision = appliedRevision,
+            Empty = current.Toasts.Count == 0,
+            Hovering = current.Hovering,
+            Focused = current.Focused,
+            HasEnding = current.Toasts.HasEnding,
+            FocusTargetRef = focusTarget,
+            HandOff = handOff,
+        };
+        return handle!.SyncAsync(Element, options, [.. references]);
     }
 }
