@@ -156,7 +156,7 @@ public sealed class NumberFieldAllocationBudgetTests : IDisposable
         }
 
         Assert.Equal(1242, cut.Instance.CurrentValue);
-        Assert.True(allocated <= KeystrokeBudgetBytes, $"a keystroke allocated {allocated} bytes; the budget is {KeystrokeBudgetBytes}");
+        AllocationSampler.AssertWithinBudget(allocated, KeystrokeBudgetBytes, "a keystroke");
     }
 
     private IRenderedComponent<NumberFieldRoot> Render()
