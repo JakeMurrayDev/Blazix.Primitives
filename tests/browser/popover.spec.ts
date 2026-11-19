@@ -2081,7 +2081,7 @@ for (const [variant, name] of [['contained', 'contained triggers'], ['detached',
   test.describe(`<Popover.Root /> when using ${name}`, () => {
     test.describe('nested menu interactions', () => {
       // POP-API-20, POP-KEY-01, POP-EDGE-11
-      test('keeps the popover open when a nested menu opens via Enter using a shared container', async ({ page, mode }) => {
+      test('keeps the popover open when a nested menu opens via Enter using a shared container', { tag: '@coverage' }, async ({ page, mode }) => {
         const fixture = await gotoPopupFixture(page, mode, 'popover-nested-menu', { variant });
         const popoverTrigger = page.getByRole('button', { name: 'Toggle', exact: true });
 
@@ -2101,7 +2101,7 @@ for (const [variant, name] of [['contained', 'contained triggers'], ['detached',
       });
 
       // POP-API-20, POP-DIS-04, POP-EDGE-11
-      test('keeps the popover open when a nested menu opens via pointer using a shared container', async ({ page, mode }) => {
+      test('keeps the popover open when a nested menu opens via pointer using a shared container', { tag: '@coverage' }, async ({ page, mode }) => {
         const fixture = await gotoPopupFixture(page, mode, 'popover-nested-menu', { variant, item: true });
 
         await page.getByRole('button', { name: 'Toggle', exact: true }).click();
@@ -2121,7 +2121,7 @@ for (const [variant, name] of [['contained', 'contained triggers'], ['detached',
 
     test.describe('with the popup following immediately the only trigger', () => {
       // POP-DOM-25, POP-KEY-07, POP-FOC-13
-      test('closes a nested combobox popup when tabbing out of the popover', async ({ page, mode }) => {
+      test('closes a nested combobox popup when tabbing out of the popover', { tag: '@coverage' }, async ({ page, mode }) => {
         const fixture = await gotoPopupFixture(page, mode, 'popover-nested-combobox', { variant, afterTrigger: true });
         await expect(fixture).toHaveAttribute('data-child-attached', 'true');
         const comboboxInput = page.getByTestId('combobox-input');
@@ -2138,7 +2138,7 @@ for (const [variant, name] of [['contained', 'contained triggers'], ['detached',
       });
 
       // POP-ARIA-09, POP-KEY-06, POP-FOC-13
-      test('closes a nested combobox popup when tabbing backward to the trigger', async ({ page, mode }) => {
+      test('closes a nested combobox popup when tabbing backward to the trigger', { tag: '@coverage' }, async ({ page, mode }) => {
         const fixture = await gotoPopupFixture(page, mode, 'popover-nested-combobox', { variant });
         await expect(fixture).toHaveAttribute('data-child-attached', 'true');
         const comboboxInput = page.getByTestId('combobox-input');
@@ -2160,7 +2160,7 @@ for (const [variant, name] of [['contained', 'contained triggers'], ['detached',
 
   test.describe(`<Popover.Root /> when using ${name}, on touch`, () => {
     // POP-DIS-04. Base UI's synthetic touchstart, touchmove and touchend on the combobox popup are a real CDP touch drag.
-    testWithTouch('should not close popover when scrolling nested popup on touch', async ({ touchPage: page, mode }) => {
+    testWithTouch('should not close popover when scrolling nested popup on touch', { tag: '@coverage' }, async ({ touchPage: page, mode }) => {
       const fixture = await gotoPopupFixture(page, mode, 'popover-nested-combobox', { variant, case: 'scroll' });
       await expect(fixture).toHaveAttribute('data-child-attached', 'true');
       await expect(page.getByTestId('popover-popup')).toBeVisible();
