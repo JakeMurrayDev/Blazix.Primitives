@@ -5,6 +5,7 @@
 // transcribed for a listener-bound tracker (PSH-PTR-09..28, PSH-ALG-07..12, PSH-DOM-17, PSH-EVT-09, PSH-EDGE-10..13).
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { firePointer } from './test-support/pointer';
+import { styleWriter } from './dom';
 import {
   BASE_UI_SWIPE_IGNORE_ATTRIBUTE,
   BASE_UI_SWIPE_IGNORE_SELECTOR,
@@ -129,18 +130,21 @@ function mountTracker(init: TrackerInit, options: { html?: string; input?: 'poin
   document.body.append(element);
   mounted.push(element);
 
+  // The port's harness (the review of 2026-11-19): the element's `style` belongs to dom's writer, as on a part. The
+  // rendered style (the tracker's drag styles, then the test's own) is the consumer's, and the drag styles go to the
+  // `component` band, as a module's sink sends them.
+  const writer = styleWriter(element);
   const tracker = createSwipeTracker({
     enabled: true,
     element: () => element,
     movementCssVars: { x: '--x', y: '--y' },
+    style: writer.layer('component'),
     ...init,
   });
 
   const styles = tracker.getDragStyles();
-  for (const property of Object.keys(styles)) {
-    element.style.setProperty(property, styles[property]!);
-  }
-  element.style.cssText += options.style ?? '';
+  const rendered = Object.keys(styles).map((property) => `${property}: ${styles[property]!};`);
+  writer.setConsumer([...rendered, options.style ?? ''].join(' ').trim());
 
   bindSwipeHandlers(element, options.input === 'touch' ? tracker.getTouchProps() : tracker.getPointerProps());
   return { element, tracker };
@@ -762,6 +766,16 @@ describe('createSwipeTracker', () => {
     pointerUp(element, { clientX: 0, clientY: 40 });
     expect(writes).toEqual(['remove transition', 'remove transform', 'set --x 0px', 'set --y 0px']);
     expect(element.style.cssText).toBe(inline);
+  });
+
+  // The port (the review of 2026-11-19): every module writes `style` through dom's writer, so a tracker writes its drag
+  // styles only through the sink its module passes, and one created without a sink is refused.
+  it('port: a tracker created without a style sink is refused', () => {
+    const element = document.createElement('div');
+
+    expect(() =>
+      createSwipeTracker({ enabled: true, element: () => element, movementCssVars: { x: '--x', y: '--y' }, directions: ['down'] } as SwipeTrackerOptions),
+    ).toThrow(/style sink/);
   });
 
   it('ignores pointer interactions that were default prevented', () => {
