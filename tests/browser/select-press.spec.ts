@@ -738,7 +738,7 @@ test.describe('<Select.ItemIndicator />', () => {
   // CMP-STA-40 (issue 266; M6 track 11): Base UI's useListNavigation.test.tsx "selectedIndex changing does not steal focus" on
   // a Select. The root is open with `a` selected, so the list's focus starts on item a; the page then changes the controlled
   // value to `b` (the selected index 0 to 1) without moving the focus, and the focus stays on item a.
-  test('port: a selected-index change while the list is open leaves the focus where it is', async ({ page, mode }) => {
+  test('port: a selected-index change while the list is open leaves the focus where it is', { tag: '@coverage' }, async ({ page, mode }) => {
     const fixture = await gotoPopupFixture(page, mode, 'select-press-indicator', { value: 'a' });
     await expect(page.getByTestId('item-a')).toBeFocused();
 
