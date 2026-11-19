@@ -9,8 +9,9 @@
       left, 200 px wide and 300 px tall, so the dismiss threshold is 100 px ("uses a size-based swipe threshold"); the
       viewport covers the page, as a Drawer viewport does, so a point past the popup still lands in it.
     - `case=down` (added 2026-11-19): DrawerViewport.test.tsx's drawers, the default direction. The popup is fixed at
-      left 0 and top 100, 200 px wide and 300 px tall, and holds a Close button and a Drawer.Content region with
-      selectable text and a target. Selectable text outside the drawer precedes the root.
+      left 0 and top 100, 200 px wide and 300 px tall, and holds a Close button, a Drawer.Content region with
+      selectable text and a target, and two 40 px regions, one with `data-base-ui-swipe-ignore` and one with the legacy
+      `data-swipe-ignore`. Selectable text outside the drawer precedes the root.
     - `noPopup=true`: the Viewport renders no Popup ("ignores swipe input until a popup is mounted").
     - `alwaysOpen=true`: the root is controlled with `Open="true"` and never follows a change.
     The open changes are recorded as `open:reason` in `data-open-changes`; `cancelClose=true` cancels a close and
@@ -59,6 +60,8 @@
                         <span data-testid="text">Selectable</span>
                         <div data-testid="content-target" style="height: 100px;">Action</div>
                     </DrawerContent>
+                    <div data-testid="ignored" data-base-ui-swipe-ignore style="height: 40px;">Ignored</div>
+                    <div data-testid="legacy" data-swipe-ignore style="height: 40px;">Legacy</div>
                 }
                 else
                 {

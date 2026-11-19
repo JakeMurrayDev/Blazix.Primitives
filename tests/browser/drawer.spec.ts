@@ -1,4 +1,4 @@
-import { expect, swipeOnTimeline, test, type Page, type RenderMode } from './helpers';
+import { expect, pointOf, swipeOnTimeline, test, testWithTouch, touchDrag, type Page, type RenderMode } from './helpers';
 import { gotoPopupFixture, settle } from './suites/popupFixture';
 
 // The [L4] rows of docs/components/drawer.md (DRW), both render modes, Server first (ADR 04 §6). Titles are Base UI's
@@ -310,5 +310,104 @@ test.describe('<Drawer.Root /> swipe close', () => {
     await expect(backdrop).not.toHaveAttribute('data-swipe-dismiss');
     await expect(popup).not.toHaveAttribute('data-ending-style');
     await expect(popup).toHaveAttribute('data-open', '');
+  });
+});
+
+// Slice 2 (M6 track 8b, issue 279, added 2026-11-19): the Viewport's touch path, with real CDP touch (`touchDrag`) on a
+// page whose context has touch. Chromium sends no touchmove for a first move under its 10 px slop, so every drag moves in
+// steps of more than that.
+test.describe('<Drawer.Viewport /> touch swipe', () => {
+  // DRW-PTR-20 (DrawerViewport.test.tsx:55-99). Base UI spies on the document's listeners; here an init script records
+  // the non-passive touchmove registrations the page makes.
+  testWithTouch('registers the non-passive document touchmove listener only while open', async ({ touchPage: page, mode }) => {
+    await page.addInitScript(() => {
+      const log: string[] = [];
+      (window as unknown as { touchMoveLog: string[] }).touchMoveLog = log;
+      const add = Document.prototype.addEventListener;
+      const remove = Document.prototype.removeEventListener;
+      // Only non-passive registrations: other modules add passive touchmove listeners of their own.
+      const nonPassive = new Set<EventListenerOrEventListenerObject>();
+      Document.prototype.addEventListener = function (type: string, listener: EventListenerOrEventListenerObject, options?: boolean | AddEventListenerOptions) {
+        if (type === 'touchmove' && typeof options === 'object' && options.passive === false) {
+          nonPassive.add(listener);
+          log.push(`add passive=${String(options.passive)} capture=${String(options.capture)}`);
+        }
+        add.call(this, type, listener, options);
+      };
+      Document.prototype.removeEventListener = function (type: string, listener: EventListenerOrEventListenerObject, options?: boolean | EventListenerOptions) {
+        if (type === 'touchmove' && nonPassive.delete(listener)) {
+          log.push('remove');
+        }
+        remove.call(this, type, listener, options);
+      };
+    });
+    await downCase(page, mode);
+    const log = () => page.evaluate(() => (window as unknown as { touchMoveLog: string[] }).touchMoveLog);
+    await expect.poll(log).toEqual(['add passive=false capture=true']);
+
+    await page.getByRole('button', { name: 'Close' }).click();
+    await expect(page.getByTestId('popup')).toHaveCount(0);
+    await expect.poll(log).toEqual(['add passive=false capture=true', 'remove']);
+  });
+
+  // DRW-PTR-07 (DrawerViewport.test.tsx:257-295): the ignore selector does not apply to touch.
+  testWithTouch('starts touch swipes from interactive elements', async ({ touchPage: page, mode }) => {
+    const fixture = await downCase(page, mode);
+    const start = await pointOf(page.getByRole('button', { name: 'Close' }));
+
+    await touchDrag(page, [[start, { x: start.x, y: start.y + 250 }]], { steps: 10 });
+
+    await expect(fixture).toHaveAttribute('data-open-changes', 'false:swipe');
+  });
+
+  // DRW-PTR-19 (DrawerViewport.test.tsx:745-799). Folded with its positive half: the same drag from the popup's free area
+  // dismisses.
+  testWithTouch('does not start touch swipes from elements with data-base-ui-swipe-ignore', async ({ touchPage: page, mode }) => {
+    const fixture = await downCase(page, mode);
+    const ignored = await pointOf(page.getByTestId('ignored'));
+
+    await touchDrag(page, [[ignored, { x: ignored.x, y: ignored.y + 250 }]], { steps: 10 });
+    await settle(fixture);
+    await expect(page.getByTestId('backdrop')).not.toHaveAttribute('data-swiping');
+    await expect(fixture).toHaveAttribute('data-open-changes', '');
+
+    await touchDrag(page, [[popupPoint, { x: popupPoint.x, y: popupPoint.y + 250 }]], { steps: 10 });
+    await expect(fixture).toHaveAttribute('data-open-changes', 'false:swipe');
+  });
+
+  // DRW-PTR-24 (DrawerViewport.test.tsx:1154-1214).
+  testWithTouch('still allows touch swipes from elements with legacy data-swipe-ignore', async ({ touchPage: page, mode }) => {
+    const fixture = await downCase(page, mode);
+    const legacy = await pointOf(page.getByTestId('legacy'));
+
+    await touchDrag(page, [[legacy, { x: legacy.x, y: legacy.y + 250 }]], { steps: 10 });
+
+    await expect(fixture).toHaveAttribute('data-open-changes', 'false:swipe');
+  });
+
+  // DRW-PTR-06 (DrawerViewport.test.tsx:1306-1375): the touch starts on the viewport above the popup.
+  testWithTouch('dismisses when touch starts outside the popup, then continues swiping down inside it', async ({ touchPage: page, mode }) => {
+    const fixture = await downCase(page, mode);
+
+    await touchDrag(page, [[{ x: 100, y: 50 }, { x: 100, y: 500 }]], { steps: 15 });
+
+    await expect(fixture).toHaveAttribute('data-open-changes', 'false:swipe');
+  });
+
+  // DRW-PTR-21 (d) (DrawerViewport.test.tsx:1839-1884): a window capture listener sees each move first and reads its
+  // defaultPrevented after the module's document listener ran.
+  testWithTouch('prevents touchmove when there is no scroll container', async ({ touchPage: page, mode }) => {
+    await downCase(page, mode);
+    await page.evaluate(() => {
+      const moves: TouchEvent[] = [];
+      (window as unknown as { drawerMoves: TouchEvent[] }).drawerMoves = moves;
+      window.addEventListener('touchmove', (event) => moves.push(event), { capture: true, passive: true });
+    });
+
+    await touchDrag(page, [[popupPoint, { x: popupPoint.x, y: popupPoint.y + 60 }]], { steps: 4 });
+
+    const prevented = await page.evaluate(() => (window as unknown as { drawerMoves: TouchEvent[] }).drawerMoves.map((event) => event.defaultPrevented));
+    expect(prevented.length).toBeGreaterThan(0);
+    expect(prevented.every(Boolean)).toBe(true);
   });
 });
