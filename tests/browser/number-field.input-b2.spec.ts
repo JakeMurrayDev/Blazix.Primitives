@@ -361,7 +361,13 @@ test.describe('integration: exotic inputs and IME', () => {
     await input.evaluate((element) => {
       const records: { keyCode: number; prevented: boolean }[] = [];
       (window as unknown as { keyRecords: typeof records }).keyRecords = records;
-      element.addEventListener('keydown', (event) => records.push({ keyCode: (event as KeyboardEvent).keyCode, prevented: event.defaultPrevented }));
+      // Read at the window, after the whole dispatch, as fireEvent's return value reports it: the module decides at the
+      // input's root node, after the input's own listeners.
+      window.addEventListener('keydown', (event) => {
+        if (event.target === element) {
+          records.push({ keyCode: (event as KeyboardEvent).keyCode, prevented: event.defaultPrevented });
+        }
+      });
     });
 
     // keyCode 229 marks a composition keydown. A single-character key that would otherwise be blocked, so only the

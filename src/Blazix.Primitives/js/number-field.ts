@@ -276,9 +276,11 @@ export function attach(
     twin.report('OnInputBlur', { text: input.value, revision, event: eventInfo(event) } satisfies NumberFieldBlurReport);
   };
 
-  // NumberFieldInput.tsx:280-405 (NUM-KEY-01..11): the gate decides in the dispatch; C# steps.
+  // NumberFieldInput.tsx:280-405 (NUM-KEY-01..11): the gate decides in the dispatch; C# steps. Listened for on the input's
+  // root node in the bubble phase, where React's delegated handler runs: every listener on the input itself (the toolbar's
+  // disabled input item, TLB-KEY-13; a consumer's script) has had its say on `defaultPrevented`, whatever the attach order.
   const onKeyDown = (event: KeyboardEvent) => {
-    if (event.defaultPrevented || inactive()) {
+    if (event.target !== input || event.defaultPrevented || inactive()) {
       return;
     }
 
@@ -439,7 +441,8 @@ export function attach(
 
   input.addEventListener('focus', onFocus);
   input.addEventListener('blur', onBlur);
-  input.addEventListener('keydown', onKeyDown);
+  const keyRoot = input.getRootNode() as Document | ShadowRoot;
+  keyRoot.addEventListener('keydown', onKeyDown as EventListener);
   input.addEventListener('input', onInput);
   input.addEventListener('paste', onPaste);
   // A capture listener runs before the `form` module's own redirect on the same input (FFI-FOC-05), which would focus the
@@ -467,7 +470,7 @@ export function attach(
       }
       input.removeEventListener('focus', onFocus);
       input.removeEventListener('blur', onBlur);
-      input.removeEventListener('keydown', onKeyDown);
+      keyRoot.removeEventListener('keydown', onKeyDown as EventListener);
       input.removeEventListener('input', onInput);
       input.removeEventListener('paste', onPaste);
       input.removeEventListener('wheel', onWheel);
