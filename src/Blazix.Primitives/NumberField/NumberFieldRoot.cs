@@ -353,6 +353,10 @@ public sealed class NumberFieldRoot : PartBase<NumberFieldRootState>
     /// <summary>Gets the hidden input, once rendered.</summary>
     internal ElementReference? HiddenInput => hiddenInput;
 
+    // The scrub role focuses the visible input on a mouse press (NUM-FOC-04): the input part publishes its element here.
+    /// <summary>Gets or sets the visible input's element, once a <see cref="NumberFieldInput"/> rendered one.</summary>
+    internal ElementReference? InputElement { get; set; }
+
     /// <inheritdoc />
     public override Task SetParametersAsync(ParameterView parameters)
     {
@@ -835,6 +839,38 @@ public sealed class NumberFieldRoot : PartBase<NumberFieldRootState>
         {
             await CommitAsync(LastChangedValue, EventReason.Wheel, snapshot).ConfigureAwait(true);
         }
+    }
+
+    // NUM-PTR-11 (NumberFieldScrubArea.tsx:238-258): the pointer crossed a scrub area's sensitivity; the module reports the
+    // crossing move's delta on the scrub axis, and C# steps by it times the move's modifier amount (NUM-STA-16).
+    /// <summary>Applies a scrub step.</summary>
+    /// <param name="delta">The move's delta on the scrub axis, upward positive when vertical.</param>
+    /// <param name="revision">The revision of the module's report, echoed in the input's next options.</param>
+    /// <param name="snapshot">The pointermove.</param>
+    /// <returns>A task that completes when the step has run.</returns>
+    internal async Task HandleScrubStepAsync(double delta, int revision, EventSnapshot snapshot)
+    {
+        echoedRevision = Math.Max(echoedRevision, revision);
+        double raw = delta * GetStepAmount(snapshot);
+        if (EffectiveDisabled || ReadOnly || raw == 0)
+        {
+            Refresh();
+            return;
+        }
+
+        AllowInputSync = true;
+        await IncrementValueAsync(Math.Abs(raw), raw >= 0 ? 1 : -1, null, snapshot, EventReason.Scrub).ConfigureAwait(true);
+        Refresh();
+    }
+
+    // NUM-PTR-13, NUM-EVT-05 (NumberFieldScrubArea.tsx:170-182): every release commits, even when nothing changed.
+    /// <summary>Applies the end of a scrub.</summary>
+    /// <param name="snapshot">The pointerup.</param>
+    /// <returns>A task that completes when the commit has run.</returns>
+    internal async Task HandleScrubEndAsync(EventSnapshot snapshot)
+    {
+        SetScrubbing(false);
+        await CommitAsync(LastChangedValue ?? ValueRef, EventReason.Scrub, snapshot).ConfigureAwait(true);
     }
 
     // NUM-FRM-05 (NumberFieldRoot.tsx:510-530): the browser autofilled the hidden input.

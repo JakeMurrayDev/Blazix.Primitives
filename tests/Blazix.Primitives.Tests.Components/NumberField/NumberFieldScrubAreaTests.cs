@@ -48,7 +48,7 @@ public sealed class NumberFieldScrubAreaTests : IDisposable
         });
 
         Assert.Equal(
-            "touch-action: pan-y; -webkit-user-select: none; user-select: none; cursor: ew-resize",
+            "touch-action: pan-y; -webkit-user-select: none; user-select: none; cursor: ew-resize;",
             cut.Find("span[role=presentation]").GetAttribute("style"));
     }
 
@@ -85,7 +85,8 @@ public sealed class NumberFieldScrubAreaTests : IDisposable
         IRenderedComponent<NumberFieldRoot> cut = RenderScrub(0);
 
         await test.ScrubStartAsync(cut);
-        Assert.Equal(3, cut.FindAll("[data-scrubbing]").Count);
+        // The root, the input, the scrub area and the cursor.
+        Assert.Equal(4, cut.FindAll("[data-scrubbing]").Count);
 
         await test.ScrubStepAsync(cut, -10);
         await test.ScrubStepAsync(cut, 5);
