@@ -62,11 +62,18 @@ public sealed class NumberFieldTestContext : IDisposable
 
     public BunitJSModuleInterop NumberFieldHandle { get; }
 
-    /// <summary>The options JSON of every <c>number-field</c> attach and update, in order.</summary>
+    /// <summary>The options JSON of every <c>number-field</c> attach and update of the visible input, in order.</summary>
     public IReadOnlyList<string> NumberFieldOptions =>
         [
-            .. NumberFieldModule.Invocations["attach"].Select(i => (string)i.Arguments[1]!),
-            .. NumberFieldHandle.Invocations["update"].Select(i => (string)i.Arguments[0]!),
+            .. NumberFieldModule.Invocations["attach"].Select(i => (string)i.Arguments[1]!).Where(IsInputOptions),
+            .. NumberFieldHandle.Invocations["update"].Select(i => (string)i.Arguments[0]!).Where(IsInputOptions),
+        ];
+
+    /// <summary>The options JSON of every <c>number-field</c> attach and update of a scrub area or a cursor, in order.</summary>
+    public IReadOnlyList<string> ScrubOptions =>
+        [
+            .. NumberFieldModule.Invocations["attach"].Select(i => (string)i.Arguments[1]!).Where(o => !IsInputOptions(o)),
+            .. NumberFieldHandle.Invocations["update"].Select(i => (string)i.Arguments[0]!).Where(o => !IsInputOptions(o)),
         ];
 
     /// <summary>The options JSON of every <c>button</c> update, in order.</summary>
@@ -147,7 +154,54 @@ public sealed class NumberFieldTestContext : IDisposable
 
     /// <summary>The <see cref="NumberFieldTwin"/> attached last.</summary>
     internal NumberFieldTwin NumberFieldTwin() =>
-        ((DotNetObjectReference<NumberFieldTwin>)NumberFieldModule.Invocations["attach"][^1].Arguments[2]!).Value;
+        NumberFieldModule.Invocations["attach"].Select(i => i.Arguments[2]).OfType<DotNetObjectReference<NumberFieldTwin>>().Last().Value;
+
+    /// <summary>The <see cref="NumberFieldScrubTwin"/> of the scrub area attached <paramref name="index"/>-th (0 for the first).</summary>
+    internal NumberFieldScrubTwin ScrubTwin(int index = 0) =>
+        NumberFieldModule.Invocations["attach"]
+            .Where(i => ((string)i.Arguments[1]!).Contains(ScrubPart, StringComparison.Ordinal))
+            .Select(i => ((DotNetObjectReference<NumberFieldScrubTwin>)i.Arguments[2]!).Value)
+            .ElementAt(index);
+
+    /// <summary>Reports the start of a scrub, as the module does after a primary pointerdown.</summary>
+    internal Task ScrubStartAsync<TComponent>(IRenderedComponent<TComponent> cut, bool cursor = true, int area = 0)
+        where TComponent : IComponent
+    {
+        NumberFieldScrubTwin twin = ScrubTwin(area);
+        string json = JsonSerializer.Serialize(new { cursor, @event = new { kind = "PointerEvent", type = "pointerdown", pointerType = "mouse" } });
+        return cut.InvokeAsync(() => twin.OnScrubStart(json));
+    }
+
+    /// <summary>Reports the outcome of the pointer-lock request.</summary>
+    internal Task ScrubLockAsync<TComponent>(IRenderedComponent<TComponent> cut, bool denied, int area = 0)
+        where TComponent : IComponent
+    {
+        NumberFieldScrubTwin twin = ScrubTwin(area);
+        string json = JsonSerializer.Serialize(new { denied });
+        return cut.InvokeAsync(() => twin.OnScrubLock(json));
+    }
+
+    /// <summary>Reports a scrub step with the move's delta on the scrub axis and the input's next revision.</summary>
+    internal Task ScrubStepAsync<TComponent>(IRenderedComponent<TComponent> cut, double delta, bool shiftKey = false, bool altKey = false, int area = 0)
+        where TComponent : IComponent
+    {
+        NumberFieldScrubTwin twin = ScrubTwin(area);
+        string json = JsonSerializer.Serialize(new { delta, revision = ++inputRevision, @event = new { kind = "PointerEvent", type = "pointermove", pointerType = "mouse", shiftKey, altKey } });
+        return cut.InvokeAsync(() => twin.OnScrubStep(json));
+    }
+
+    /// <summary>Reports the release that ends a scrub.</summary>
+    internal Task ScrubEndAsync<TComponent>(IRenderedComponent<TComponent> cut, int area = 0)
+        where TComponent : IComponent
+    {
+        NumberFieldScrubTwin twin = ScrubTwin(area);
+        string json = JsonSerializer.Serialize(new { @event = new { kind = "PointerEvent", type = "pointerup" } });
+        return cut.InvokeAsync(() => twin.OnScrubEnd(json));
+    }
+
+    private const string ScrubPart = "\"part\":\"scrub\"";
+
+    private static bool IsInputOptions(string json) => !json.Contains("\"part\":", StringComparison.Ordinal);
 
     /// <summary>Reports a focus of the visible input, as the module does.</summary>
     internal Task FocusAsync<TComponent>(IRenderedComponent<TComponent> cut)
