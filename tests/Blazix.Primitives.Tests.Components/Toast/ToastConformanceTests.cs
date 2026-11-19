@@ -261,3 +261,62 @@ public sealed class ToastPortalConformanceTests : PartConformanceTests<ToastPort
         p.Add(x => x.ClassValue, (Func<EmptyState, string?>)(_ => classValue()));
     }
 }
+
+// ToastPositioner.test.tsx: describeConformance(<Toast.Positioner toast={toast} />, () => ({ refInstanceof: HTMLDivElement, render inside <Toast.Provider> })). TST-STR-10, TST-STA-26.
+/// <summary>The conformance suite on <see cref="ToastPositioner{TData}"/>.</summary>
+public sealed class ToastPositionerConformanceTests : PartConformanceTests<ToastPositioner<NoPayload>>
+{
+    public ToastPositionerConformanceTests()
+    {
+        ToastConformance.Prepare(Context);
+        Context.RenderTree.Add<ToastProvider<NoPayload>>();
+    }
+
+    /// <inheritdoc />
+    protected override ConformanceOptions<ToastPositioner<NoPayload>> Options { get; } = new("div") { Required = p => p.Add(x => x.Toast, ToastConformance.Toast) };
+
+    /// <inheritdoc />
+    protected override ElementReference? ElementOf(ToastPositioner<NoPayload> part) => part.Element;
+
+    /// <inheritdoc />
+    protected override void SetRenderFunction(ComponentParameterCollectionBuilder<ToastPositioner<NoPayload>> p, Func<IReadOnlyDictionary<string, object>, RenderFragment> render)
+    {
+        p.Add(x => x.RenderFunction, (RenderFragment<RenderProps<ToastPositionerState>>)(props => render(props.Attributes)));
+    }
+
+    /// <inheritdoc />
+    protected override void SetClassValue(ComponentParameterCollectionBuilder<ToastPositioner<NoPayload>> p, Func<string?> classValue)
+    {
+        p.Add(x => x.ClassValue, (Func<ToastPositionerState, string?>)(_ => classValue()));
+    }
+}
+
+// ToastArrow.test.tsx: describeConformance(<Toast.Arrow />, () => ({ refInstanceof: Element, render inside a positioner })). TST-STR-11, TST-STA-26.
+/// <summary>The conformance suite on <see cref="ToastArrow"/>.</summary>
+public sealed class ToastArrowConformanceTests : PartConformanceTests<ToastArrow>
+{
+    public ToastArrowConformanceTests()
+    {
+        ToastConformance.Prepare(Context);
+        Context.RenderTree.Add<ToastProvider<NoPayload>>();
+        Context.RenderTree.Add<ToastPositioner<NoPayload>>(p => p.Add(x => x.Toast, ToastConformance.Toast));
+    }
+
+    /// <inheritdoc />
+    protected override ConformanceOptions<ToastArrow> Options { get; } = new("div");
+
+    /// <inheritdoc />
+    protected override ElementReference? ElementOf(ToastArrow part) => part.Element;
+
+    /// <inheritdoc />
+    protected override void SetRenderFunction(ComponentParameterCollectionBuilder<ToastArrow> p, Func<IReadOnlyDictionary<string, object>, RenderFragment> render)
+    {
+        p.Add(x => x.RenderFunction, (RenderFragment<RenderProps<ToastArrowState>>)(props => render(props.Attributes)));
+    }
+
+    /// <inheritdoc />
+    protected override void SetClassValue(ComponentParameterCollectionBuilder<ToastArrow> p, Func<string?> classValue)
+    {
+        p.Add(x => x.ClassValue, (Func<ToastArrowState, string?>)(_ => classValue()));
+    }
+}
