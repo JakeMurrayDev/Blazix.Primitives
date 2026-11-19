@@ -13,6 +13,7 @@ import {
   parseVitestList,
   playwrightOutcomes,
   summarize,
+  vitestCoverage,
   vitestFailedFiles,
   vitestOutcomes,
 } from './red-check.mjs';
@@ -411,5 +412,28 @@ describe('coverage titles', () => {
     expect(ok).toBe(false);
     expect(markdown).toContain('drop the marker');
     expect(markdown).toContain('`changed`');
+  });
+});
+
+// ADR 11 Amendments 2026-11-19 (L3): vitest's own test tags, `it(title, { tags: ['coverage'] }, ...)`, which its JSON
+// reporter gives per test; the tag is defined in vitest.config.ts.
+describe('L3 coverage titles', () => {
+  const report = JSON.stringify({
+    testResults: [
+      {
+        name: `${root}/src/Blazix.Primitives/js/button.test.ts`,
+        status: 'passed',
+        assertionResults: [
+          { ancestorTitles: ['button'], title: 'ported', status: 'passed', tags: ['coverage'] },
+          { ancestorTitles: ['button'], title: 'new behaviour', status: 'passed', tags: [] },
+          { ancestorTitles: [], title: 'untagged, older reporter', status: 'passed' },
+        ],
+      },
+    ],
+  });
+
+  it('are the vitest tests tagged coverage, named as the listing names them', () => {
+    expect(vitestCoverage(report, root)).toEqual(['src/Blazix.Primitives/js/button.test.ts::button > ported']);
+    expect(parseVitestList(report, root)).toContain('src/Blazix.Primitives/js/button.test.ts::button > new behaviour');
   });
 });
