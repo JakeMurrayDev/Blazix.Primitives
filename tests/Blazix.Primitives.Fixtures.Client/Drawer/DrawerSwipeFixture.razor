@@ -8,23 +8,65 @@
     - `case=right`: DrawerRoot.test.tsx's TestCase, an open drawer swiped to the right; its popup is fixed at the top
       left, 200 px wide and 300 px tall, so the dismiss threshold is 100 px ("uses a size-based swipe threshold"); the
       viewport covers the page, as a Drawer viewport does, so a point past the popup still lands in it.
-    The open changes are recorded as `open:reason` in `data-open-changes`; `cancelClose=true` cancels a close.
+    - `case=down` (added 2026-11-19): DrawerViewport.test.tsx's drawers, the default direction. The popup is fixed at
+      left 0 and top 100, 200 px wide and 300 px tall, and holds a Close button and a Drawer.Content region with
+      selectable text and a target. Selectable text outside the drawer precedes the root.
+    - `noPopup=true`: the Viewport renders no Popup ("ignores swipe input until a popup is mounted").
+    - `alwaysOpen=true`: the root is controlled with `Open="true"` and never follows a change.
+    The open changes are recorded as `open:reason` in `data-open-changes`; `cancelClose=true` cancels a close and
+    `retainEveryClose=true` keeps a close mounted (PopupSuiteFixtureBase).
 *@
 <FixtureContainer Name="drawer-swipe" data-attached="@(Attached ? "true" : "false")" data-case="@Case"
                   data-open-changes="@OpenChanges" data-open-change-completes="@OpenChangeCompletes">
-    <DrawerRoot TPayload="NoPayload" @ref="root" DefaultOpen="true" SwipeDirection="SwipeDirection.Right" OnOpenChange="RecordOpenChange">
-        <DrawerPortal>
-            <DrawerBackdrop data-testid="backdrop" />
-            <DrawerViewport @ref="viewport" data-testid="viewport" style="position: fixed; inset: 0;">
-                <DrawerPopup data-testid="popup" style="position: fixed; left: 0; top: 0; width: 200px; height: 300px;">Drawer</DrawerPopup>
-            </DrawerViewport>
-        </DrawerPortal>
-    </DrawerRoot>
+    <span data-testid="outside-text">Outside selection</span>
+    @if (QueryFlag("alwaysOpen") == true)
+    {
+        <DrawerRoot TPayload="NoPayload" @ref="root" Open="true" SwipeDirection="@Direction" OnOpenChange="RecordOpenChange">
+            @Parts
+        </DrawerRoot>
+    }
+    else
+    {
+        <DrawerRoot TPayload="NoPayload" @ref="root" DefaultOpen="true" SwipeDirection="@Direction" OnOpenChange="RecordOpenChange">
+            @Parts
+        </DrawerRoot>
+    }
 </FixtureContainer>
 
 @code {
     private DrawerRoot<NoPayload>? root;
     private DrawerViewport? viewport;
+
+    private bool Down => Case == "down";
+
+    private SwipeDirection Direction => Down ? SwipeDirection.Down : SwipeDirection.Right;
+
+    private string PopupStyle => Down
+        ? "position: fixed; left: 0; top: 100px; width: 200px; height: 300px;"
+        : "position: fixed; left: 0; top: 0; width: 200px; height: 300px;";
+
+    private RenderFragment Parts => @<DrawerPortal>
+        <DrawerBackdrop data-testid="backdrop" />
+        <DrawerViewport @ref="viewport" data-testid="viewport" style="position: fixed; inset: 0;">
+            @if (QueryFlag("noPopup") != true)
+            {
+            <DrawerPopup data-testid="popup" style="@PopupStyle">
+                @if (Down)
+                {
+                    <DrawerClose>Close</DrawerClose>
+                    <DrawerContent>
+                        <span data-testid="text">Selectable</span>
+                        <div data-testid="content-target" style="height: 100px;">Action</div>
+                    </DrawerContent>
+                }
+                else
+                {
+                    @("Drawer")
+                }
+            </DrawerPopup>
+            }
+        </DrawerViewport>
+    </DrawerPortal>;
 
     protected override IEnumerable<Task> Attachments =>
         [root?.SessionAttached ?? Task.CompletedTask, viewport?.GestureAttached ?? Task.CompletedTask];
