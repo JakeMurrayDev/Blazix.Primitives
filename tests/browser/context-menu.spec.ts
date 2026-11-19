@@ -882,7 +882,7 @@ test.describe('ContextMenu port titles: under a pinch zoom', () => {
 
   // CTX-POS-03: a right click 45 px above the visual viewport's bottom edge. The 54 px popup would cross that edge; the root
   // shifts only within the layout viewport, so it stays at the pointer (2 px right, 5 px above) and crosses it.
-  test('port: under a pinch zoom the root popup is anchored at the pointer and shifted only within the layout viewport', async ({ page, mode }) => {
+  test('port: under a pinch zoom the root popup is anchored at the pointer and shifted only within the layout viewport', { tag: '@coverage' }, async ({ page, mode }) => {
     await render(page, mode);
     const visual = await pinch(page);
     const point = await rightClickAt(page, visual, { x: 200, y: Math.round(visual.top + visual.height - 45) });
@@ -897,7 +897,7 @@ test.describe('ContextMenu port titles: under a pinch zoom', () => {
   // CTX-POS-06: a right click at x 340, 8 px inside the trigger's right edge and about 107 px left of the visual viewport's,
   // opens the root and its open submenu; the submenu would cross the visual viewport's edge on its trigger's inline-end side, so it flips to the inline-start side, within the visual
   // viewport, where the layout viewport has room for it on the inline-end side.
-  test('port: under a pinch zoom a submenu that would leave the visual viewport flips to the inline-start side', async ({ page, mode }) => {
+  test('port: under a pinch zoom a submenu that would leave the visual viewport flips to the inline-start side', { tag: '@coverage' }, async ({ page, mode }) => {
     await render(page, mode, { submenu: 'open' });
     const visual = await pinch(page);
     await rightClickAt(page, visual, { x: 340, y: 80 });

@@ -23,7 +23,7 @@ type Marks = Record<string, number>;
 /** One title per delay; a WebAssembly project runs the 0 ms title only. */
 function perDelay(title: string, body: (args: { page: Page; mode: RenderMode; delay: number }) => Promise<void>): void {
   for (const delay of SERVER_DELAYS) {
-    test(`${title} (${delay} ms added on Server)`, async ({ page, mode }) => {
+    test(`${title} (${delay} ms added on Server)`, { tag: '@coverage' }, async ({ page, mode }) => {
       test.skip(mode === 'wasm' && delay > 0, 'WebAssembly has no circuit to delay; its title runs once.');
       if (mode === 'server' && delay > 0) {
         await delayCircuit(page, delay);
