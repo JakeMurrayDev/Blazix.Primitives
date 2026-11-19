@@ -54,11 +54,12 @@ public sealed class NumberFieldInput : PartBase<NumberFieldInputState>
     private AttributeValue consumerKeyDown;
     private AttributeValue consumerPaste;
     private AttributeValue consumerInput;
-    private bool focusDecided;
-    private bool blurDecided;
-    private bool keyDecided;
-    private bool pasteDecided;
-    private bool inputDecided;
+    // One marker per declined handler: whichever of the decision and Blazor's own dispatch comes first runs the consumer.
+    private readonly ConsumerMarker focusMarker = new(blazorFirst: true);
+    private readonly ConsumerMarker blurMarker = new(blazorFirst: true);
+    private readonly ConsumerMarker keyMarker = new(blazorFirst: true);
+    private readonly ConsumerMarker pasteMarker = new(blazorFirst: false);
+    private readonly ConsumerMarker inputMarker = new(blazorFirst: false);
 
     // Created the first time a consumer passes the handler: each handler slot costs every render (ADR 16 rule 7).
     private EventCallback onKeyDown;
@@ -71,8 +72,8 @@ public sealed class NumberFieldInput : PartBase<NumberFieldInputState>
     public NumberFieldInput()
     {
         stateChanged = StateHasChanged;
-        onFocus = CreateHandler<FocusEventArgs>("onfocus", e => RunConsumerAsync(e, consumerFocus, ref focusDecided));
-        onBlur = CreateHandler<FocusEventArgs>("onblur", e => RunConsumerAsync(e, consumerBlur, ref blurDecided));
+        onFocus = CreateHandler<FocusEventArgs>("onfocus", e => RunConsumerAsync(e, consumerFocus, focusMarker));
+        onBlur = CreateHandler<FocusEventArgs>("onblur", e => RunConsumerAsync(e, consumerBlur, blurMarker));
         focused = snapshot => _ = InvokeAsync(() => context!.Root.HandleInputFocus());
         blurred = report => _ = InvokeAsync(() => context!.Root.HandleInputBlurAsync(report.Text, report.Revision, report.Event));
         keyStepped = report => _ = InvokeAsync(() => context!.Root.HandleKeyStepAsync(report.Key, report.Text, report.Revision, report.Event));
@@ -162,7 +163,7 @@ public sealed class NumberFieldInput : PartBase<NumberFieldInputState>
                     consumerKeyDown = value;
                     if (!onKeyDown.HasDelegate)
                     {
-                        onKeyDown = CreateHandler<KeyboardEventArgs>("onkeydown", e => RunConsumerAsync(e, consumerKeyDown, ref keyDecided));
+                        onKeyDown = CreateHandler<KeyboardEventArgs>("onkeydown", e => RunConsumerAsync(e, consumerKeyDown, keyMarker));
                     }
 
                     break;
@@ -170,7 +171,7 @@ public sealed class NumberFieldInput : PartBase<NumberFieldInputState>
                     consumerPaste = value;
                     if (!onPaste.HasDelegate)
                     {
-                        onPaste = CreateHandler<ClipboardEventArgs>("onpaste", e => RunConsumerAsync(e, consumerPaste, ref pasteDecided));
+                        onPaste = CreateHandler<ClipboardEventArgs>("onpaste", e => RunConsumerAsync(e, consumerPaste, pasteMarker));
                     }
 
                     break;
@@ -178,7 +179,7 @@ public sealed class NumberFieldInput : PartBase<NumberFieldInputState>
                     consumerInput = value;
                     if (!onInput.HasDelegate)
                     {
-                        onInput = CreateHandler<ChangeEventArgs>("oninput", e => RunConsumerAsync(e, consumerInput, ref inputDecided));
+                        onInput = CreateHandler<ChangeEventArgs>("oninput", e => RunConsumerAsync(e, consumerInput, inputMarker));
                     }
 
                     break;
@@ -376,11 +377,11 @@ public sealed class NumberFieldInput : PartBase<NumberFieldInputState>
     {
         NumberFieldTwin created = new(JSRuntime)
         {
-            FocusDecider = snapshot => Decide(snapshot, consumerFocus, ref focusDecided),
-            BlurDecider = snapshot => Decide(snapshot, consumerBlur, ref blurDecided),
-            KeyDecider = snapshot => Decide(snapshot, consumerKeyDown, ref keyDecided),
-            PasteDecider = snapshot => Decide(snapshot, consumerPaste, ref pasteDecided),
-            ChangeDecider = snapshot => Decide(snapshot, consumerInput, ref inputDecided),
+            FocusDecider = snapshot => Decide(snapshot, consumerFocus, focusMarker),
+            BlurDecider = snapshot => Decide(snapshot, consumerBlur, blurMarker),
+            KeyDecider = snapshot => Decide(snapshot, consumerKeyDown, keyMarker),
+            PasteDecider = snapshot => Decide(snapshot, consumerPaste, pasteMarker),
+            ChangeDecider = snapshot => Decide(snapshot, consumerInput, inputMarker),
         };
         created.InputFocused += focused;
         created.InputBlurred += blurred;
@@ -393,12 +394,21 @@ public sealed class NumberFieldInput : PartBase<NumberFieldInputState>
     }
 
     // The decision, on WebAssembly only: the consumer's handler runs inside the dispatch, so its PreventPartHandler() keeps
-    // the report back; the marker keeps Blazor's own dispatch of the same event from running it twice.
-    private DecisionPolicy Decide(EventSnapshot snapshot, AttributeValue consumer, ref bool decided)
+    // the report back; the marker keeps Blazor's own dispatch of the same event from running it twice. Blazor dispatches
+    // onkeydown (document, bubble) and onfocus and onblur (document, capture) before the module decides (the keydown at the
+    // input's root node, focus and blur in the target phase): its run left the verdict, which the decision takes. On
+    // WebAssembly both happen inside the one browser dispatch, and Blazor's run of the next such event replaces the verdict.
+    private DecisionPolicy Decide(EventSnapshot snapshot, AttributeValue consumer, ConsumerMarker marker)
     {
         if (!consumer.IsHandler)
         {
             return DecisionPolicy.Run;
+        }
+
+        if (marker.Ran)
+        {
+            marker.Ran = false;
+            return marker.RanPrevented ? DecisionPolicy.Stop : DecisionPolicy.Run;
         }
 
         EventArgs args = snapshot.Type switch
@@ -417,7 +427,7 @@ public sealed class NumberFieldInput : PartBase<NumberFieldInputState>
             "input" => new ChangeEventArgs(),
             _ => new FocusEventArgs { Type = snapshot.Type },
         };
-        decided = true;
+        marker.Decided = true;
         try
         {
             Task task = consumer.InvokeAsync(args);
@@ -460,10 +470,34 @@ public sealed class NumberFieldInput : PartBase<NumberFieldInputState>
         };
     }
 
-    private Task RunConsumerAsync(EventArgs e, AttributeValue consumer, ref bool decided)
+    private Task RunConsumerAsync(EventArgs e, AttributeValue consumer, ConsumerMarker marker)
     {
-        bool pending = decided;
-        decided = false;
-        return !consumer.IsHandler || pending ? Task.CompletedTask : consumer.InvokeAsync(e);
+        bool pending = marker.Decided;
+        marker.Decided = false;
+        if (!consumer.IsHandler || pending)
+        {
+            return Task.CompletedTask;
+        }
+
+        Task task = consumer.InvokeAsync(e);
+        if (marker.BlazorFirst)
+        {
+            marker.Ran = true;
+            marker.RanPrevented = e.PartHandlerPrevented();
+        }
+
+        return task;
+    }
+
+    // Whether the decision or Blazor's dispatch ran a declined consumer handler for the event in flight.
+    private sealed class ConsumerMarker(bool blazorFirst)
+    {
+        public bool BlazorFirst { get; } = blazorFirst;
+
+        public bool Decided { get; set; }
+
+        public bool Ran { get; set; }
+
+        public bool RanPrevented { get; set; }
     }
 }
