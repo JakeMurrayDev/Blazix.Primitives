@@ -410,6 +410,24 @@ describe('number-field module: the input role', () => {
   });
 
   describe('the hidden input', () => {
+    // Design point 12 (a), chosen by the user 2026-11-19: the hidden input's `value` attribute follows its value, as React
+    // keeps it (react issue 12334; NumberFieldRoot.tsx:530-532), so a field without `min` measures its step from the value.
+    it('port: the hidden input\'s value attribute follows every write of its value and an autofill (NUM-DOM-06)', () => {
+      const { hidden, handle } = mount(EN_US, {}, '1');
+      hidden.step = '1';
+
+      hidden.value = '54.5';
+      expect(hidden.getAttribute('value')).toBe('54.5');
+      expect(hidden.validity.stepMismatch).toBe(false);
+
+      hidden.value = '';
+      expect(hidden.getAttribute('value')).toBe('');
+
+      handle.dispose();
+      hidden.value = '7';
+      expect(hidden.getAttribute('value')).toBe('');
+    });
+
     it('port: focusing it moves the focus to the visible input with the caret at the end (NUM-FOC-01, NUM-FOC-02)', () => {
       const { input, hidden } = mount(EN_US, {}, '1,234');
 

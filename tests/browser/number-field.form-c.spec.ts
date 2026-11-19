@@ -79,15 +79,11 @@ test('prevents form submission when the value does not match the step', async ({
 });
 
 test.describe('Form', () => {
-  // Open (design point, batch C of 6b): the hidden input of a root with no `min` is stepMismatch at 54.5 in the port, so the
-  // browser blocks the submission. Base UI's React input syncs the `value` content attribute, which anchors the step grid
-  // at the value when there is no `min` (react issue 12334, NumberFieldRoot.tsx:530-532); Blazor sets only the `value`
-  // property, so the grid is anchored at 0 and the default step of 1 rejects 54.5.
-  const externalFormOpen = 'NUM-API-17, NUM-FRM-02, NUM-FRM-03: without `min`, the hidden input\'s step grid is anchored at 0, not at the value as React\'s synced `value` attribute anchors it, so 54.5 is a step mismatch';
-
+  // Design point 12 (a), chosen by the user 2026-11-19: the hidden input of a root with no `min` measured its step grid from
+  // 0, since Blazor sets only the `value` property; React syncs the `value` content attribute (react issue 12334,
+  // NumberFieldRoot.tsx:530-532), which anchors the grid at the value. The `number-field` module now keeps the attribute
+  // equal to the value, so 54.5 with the default step of 1 submits (NUM-API-17, NUM-FRM-02, NUM-DOM-06).
   test('submits to an external form when `form` is provided', async ({ page, mode }) => {
-    test.info().annotations.push({ type: 'open', description: externalFormOpen });
-    test.fixme(true, externalFormOpen);
     const fixture = await gotoForm(page, mode, 'c-external');
     const form = fixture.locator('#external-form');
     await recordSubmits(form, 'test');
