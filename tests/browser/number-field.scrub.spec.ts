@@ -566,3 +566,48 @@ for (const delay of [0, 50, 150]) {
     console.log(`[figure] ${description}`);
   });
 }
+
+// Decision 26 (a) of the M6 plan: nothing coalesced by default, the cost quoted per 100-step scrub. One crossing move per
+// step (100 in-page moves of 2 px at the default sensitivity), counted on the circuit's WebSocket from the press to the
+// release's commit: frames and bytes each way. Server only (no circuit on WebAssembly).
+test('port: a 100-step scrub costs one report per step and one answer per step on Server (decision 26)', async ({ page, mode }) => {
+  test.skip(mode !== 'server', 'the messages exist on Server only');
+  const counts = { counting: false, up: 0, upBytes: 0, down: 0, downBytes: 0, steps: 0 };
+  await page.routeWebSocket(/_blazor/, (socket) => {
+    const server = socket.connectToServer();
+    socket.onMessage((message) => {
+      if (counts.counting) {
+        const text = typeof message === 'string' ? message : message.toString('utf8');
+        counts.up += 1;
+        counts.upBytes += typeof message === 'string' ? Buffer.byteLength(message) : message.length;
+        counts.steps += (text.match(/OnScrubStep/g) ?? []).length;
+      }
+      server.send(message);
+    });
+    server.onMessage((message) => {
+      if (counts.counting) {
+        counts.down += 1;
+        counts.downBytes += typeof message === 'string' ? Buffer.byteLength(message) : message.length;
+      }
+      socket.send(message);
+    });
+  });
+  const { fixture, area, input } = await gotoScrub(page, mode);
+
+  counts.counting = true;
+  await dispatchDown(area);
+  await area.evaluate((element) => {
+    for (let i = 0; i < 100; i += 1) {
+      element.dispatchEvent(new PointerEvent('pointermove', { bubbles: true, cancelable: true, movementX: 2 }));
+    }
+  });
+  await expect(input).toHaveValue('200');
+  await dispatchUp(page);
+  await expect(fixture).toHaveAttribute('data-commits', '200/scrub');
+  counts.counting = false;
+
+  const description = `100-step scrub on Server: ${counts.steps} OnScrubStep reports; to the server ${counts.up} frames, ${counts.upBytes} B; to the page ${counts.down} frames, ${counts.downBytes} B`;
+  test.info().annotations.push({ type: 'figure', description });
+  console.log(`[figure] ${description}`);
+  expect(counts.steps).toBe(100);
+});
