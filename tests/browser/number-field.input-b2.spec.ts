@@ -361,9 +361,9 @@ test.describe('integration: exotic inputs and IME', () => {
     await input.evaluate((element) => {
       const records: { keyCode: number; prevented: boolean }[] = [];
       (window as unknown as { keyRecords: typeof records }).keyRecords = records;
-      // Read at the window, after the whole dispatch, as fireEvent's return value reports it: the module decides at the
-      // input's root node, after the input's own listeners.
-      window.addEventListener('keydown', (event) => {
+      // Read on the document after the module's listener there (registered later on the same node, so its
+      // stopPropagation does not hide the event, NumberFieldInput.tsx:378-379), as fireEvent's return value reports it.
+      element.ownerDocument.addEventListener('keydown', (event) => {
         if (event.target === element) {
           records.push({ keyCode: (event as KeyboardEvent).keyCode, prevented: event.defaultPrevented });
         }
