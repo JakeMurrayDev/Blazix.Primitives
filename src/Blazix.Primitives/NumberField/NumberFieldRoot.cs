@@ -888,6 +888,13 @@ public sealed class NumberFieldRoot : PartBase<NumberFieldRootState>
 
         await SetValueAsync(value, new NumberFieldChangeEventDetails(EventReason.None, null, snapshot)).ConfigureAwait(true);
         fieldHalf!.ClearErrors();
+
+        // NumberFieldRoot.tsx:519: validate the stored (clamped) value, or the autofilled one when nothing was stored.
+        double? validated = LastChangedValue ?? value;
+        // BLZX2005: the validation takes the value in an object slot, once per autofill (the RadioGroup precedent).
+#pragma warning disable BLZX2005
+        fieldHalf.ValidateChange(validated is double number ? number : null);
+#pragma warning restore BLZX2005
     }
 
     /// <summary>Sets the text the visible input shows.</summary>
