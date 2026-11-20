@@ -1,0 +1,156 @@
+@namespace Blazix.Primitives.Tests.Components
+@using System.Globalization
+@*
+    Test consumers of NumberFieldRoot.test.tsx's Field and Form titles and of its root-level parsing and stepping titles (issue
+    277, 6b, batch C): each scenario is one Base UI test's tree. Base UI's NumberField helper (Root > Group > Input, Increment,
+    Decrement, ScrubArea) is the `Composite` fragment without the scrub area, which none of these titles touches. A Base UI
+    useState is a field of this component; every OnValueChange value and every validate call is recorded.
+*@
+@switch (Scenario)
+{
+    case IntegrationScenario.Controlled:
+        <NumberFieldRoot Value="value" OnValueChange="ChangeAndSet" Step="Step" Culture="s_enUs">
+            @Composite
+        </NumberFieldRoot>
+        break;
+    case IntegrationScenario.ExternalErrors:
+        <Form Errors="errors">
+            <FieldRoot Name="test" data-testid="field">
+                <NumberFieldRoot DefaultValue="1" Culture="s_enUs">
+                    @Composite
+                </NumberFieldRoot>
+                <FieldError data-testid="error" />
+            </FieldRoot>
+        </Form>
+        break;
+    case IntegrationScenario.Autofill:
+        <FieldRoot Name="quantity">
+            <NumberFieldRoot OnValueChange="Change" Culture="s_enUs">
+                <NumberFieldInput />
+            </NumberFieldRoot>
+        </FieldRoot>
+        break;
+    case IntegrationScenario.Plain:
+        <FieldRoot>
+            <NumberFieldRoot Culture="s_enUs">
+                <NumberFieldInput data-testid="input" />
+            </NumberFieldRoot>
+        </FieldRoot>
+        break;
+    case IntegrationScenario.Unmount:
+        <FieldRoot data-testid="root">
+            @if (FirstMounted)
+            {
+                <NumberFieldRoot Culture="s_enUs">
+                    <NumberFieldInput data-testid="first" />
+                </NumberFieldRoot>
+            }
+        </FieldRoot>
+        break;
+    case IntegrationScenario.PropValidate:
+        <FieldRoot ValidationMode="ValidationMode.OnBlur" Validate="AlwaysError">
+            <NumberFieldRoot Culture="s_enUs">
+                <NumberFieldInput />
+            </NumberFieldRoot>
+            <FieldError data-testid="error" />
+        </FieldRoot>
+        break;
+    case IntegrationScenario.OnChange:
+        <FieldRoot ValidationMode="ValidationMode.OnChange" Validate="ErrorAtOne">
+            <NumberFieldRoot Culture="s_enUs">
+                <NumberFieldInput data-testid="input" />
+            </NumberFieldRoot>
+        </FieldRoot>
+        break;
+    case IntegrationScenario.ExternalControlled:
+        <FieldRoot ValidationMode="ValidationMode.OnChange" Validate="SpyErrorAtFive" Name="quantity">
+            <NumberFieldRoot Value="value" OnValueChange="SetValue" Culture="s_enUs">
+                <NumberFieldInput data-testid="input" />
+            </NumberFieldRoot>
+        </FieldRoot>
+        <button type="button" @onclick="() => value = 5">Set externally</button>
+        break;
+    case IntegrationScenario.OnBlur:
+        <FieldRoot ValidationMode="ValidationMode.OnBlur" Validate="ErrorAtOne">
+            <NumberFieldRoot Required Culture="s_enUs">
+                <NumberFieldInput data-testid="input" />
+            </NumberFieldRoot>
+            <FieldError data-testid="error" />
+        </FieldRoot>
+        break;
+}
+
+@code {
+    private static readonly CultureInfo s_enUs = CultureInfo.GetCultureInfo("en-US");
+
+    private readonly FormErrors errors = new() { ["test"] = "test" };
+    private double? value;
+    private bool initialized;
+
+    public enum IntegrationScenario
+    {
+        Controlled,
+        ExternalErrors,
+        Autofill,
+        Plain,
+        Unmount,
+        PropValidate,
+        OnChange,
+        ExternalControlled,
+        OnBlur,
+    }
+
+    [Parameter]
+    public IntegrationScenario Scenario { get; set; }
+
+    /// <summary>Gets or sets the controlled value's initial state (Base UI's useState argument).</summary>
+    [Parameter]
+    public double? InitialValue { get; set; }
+
+    [Parameter]
+    public StepValue? Step { get; set; }
+
+    [Parameter]
+    public bool FirstMounted { get; set; } = true;
+
+    public List<double?> Changes { get; } = [];
+
+    public List<FieldValidationArguments> Validations { get; } = [];
+
+    protected override void OnParametersSet()
+    {
+        if (!initialized)
+        {
+            initialized = true;
+            value = InitialValue;
+        }
+    }
+
+    private RenderFragment Composite => @<NumberFieldGroup>
+        <NumberFieldInput />
+        <NumberFieldIncrement />
+        <NumberFieldDecrement />
+    </NumberFieldGroup>;
+
+    private void Change(ValueChangeEventArgs<double?> e) => Changes.Add(e.Value);
+
+    private void ChangeAndSet(ValueChangeEventArgs<double?> e)
+    {
+        Changes.Add(e.Value);
+        value = e.Value;
+    }
+
+    private void SetValue(ValueChangeEventArgs<double?> e) => value = e.Value;
+
+    private static ValueTask<FieldValidationResult?> AlwaysError(FieldValidationArguments arguments) =>
+        ValueTask.FromResult<FieldValidationResult?>("error");
+
+    private static ValueTask<FieldValidationResult?> ErrorAtOne(FieldValidationArguments arguments) =>
+        ValueTask.FromResult<FieldValidationResult?>(arguments.Value is 1d ? "error" : null);
+
+    private ValueTask<FieldValidationResult?> SpyErrorAtFive(FieldValidationArguments arguments)
+    {
+        Validations.Add(arguments);
+        return ValueTask.FromResult<FieldValidationResult?>(arguments.Value is 5d ? "error" : null);
+    }
+}

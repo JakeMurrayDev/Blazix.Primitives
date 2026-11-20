@@ -32,6 +32,34 @@
             </FieldRoot>
         </Form>
         break;
+    case NumberFieldScenario.ServerError:
+        <Form Errors="errors" OnSubmit="ServerSubmitted">
+            <FieldRoot Name="quantity" data-testid="field">
+                <NumberFieldRoot DefaultValue="1" Culture="s_enUs">
+                    <NumberFieldGroup>
+                        <NumberFieldInput />
+                        <NumberFieldIncrement />
+                        <NumberFieldDecrement />
+                    </NumberFieldGroup>
+                </NumberFieldRoot>
+                <FieldError data-testid="error" />
+            </FieldRoot>
+        </Form>
+        break;
+    case NumberFieldScenario.Required:
+        <Form>
+            <FieldRoot Name="quantity">
+                <NumberFieldRoot Required Culture="s_enUs">
+                    <NumberFieldGroup>
+                        <NumberFieldInput />
+                        <NumberFieldIncrement />
+                        <NumberFieldDecrement />
+                    </NumberFieldGroup>
+                </NumberFieldRoot>
+                <FieldError Match="ValidityFlag.ValueMissing" data-testid="error">required</FieldError>
+            </FieldRoot>
+        </Form>
+        break;
 }
 
 @code {
@@ -43,7 +71,11 @@
     {
         Values,
         Validate,
+        ServerError,
+        Required,
     }
+
+    private FormErrors? errors = new();
 
     [Parameter]
     public NumberFieldScenario Scenario { get; set; }
@@ -56,6 +88,13 @@
     public Form Form => form!;
 
     private void FormSubmitted(FormSubmitEventArgs args) => FormSubmits.Add(args);
+
+    // Base UI's onSubmit sets the server's errors after preventing the submission.
+    private void ServerSubmitted(FormSubmitEventArgs args)
+    {
+        args.PreventNativeSubmit();
+        errors = new FormErrors { ["quantity"] = "server error" };
+    }
 
     private ValueTask<FieldValidationResult?> QuantityValidator(FieldValidationArguments arguments) => new(QuantityError);
 }

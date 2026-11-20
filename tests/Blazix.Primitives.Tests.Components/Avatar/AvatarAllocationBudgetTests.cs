@@ -41,7 +41,7 @@ public sealed class AvatarAllocationBudgetTests : IDisposable
         long allocated = AllocationSampler.LeastOfFive(() => twin.OnImageStatus(Payload));
         long payload = PayloadBytes();
 
-        Assert.True(allocated <= ReportBudgetBytes, $"a status message allocated {allocated} bytes; the budget is {ReportBudgetBytes}");
+        AllocationSampler.AssertWithinBudget(allocated, ReportBudgetBytes, "a status message");
         Assert.True(allocated <= payload, $"a status message allocated {allocated} bytes; its payload alone allocates {payload}");
         Assert.Equal(renders, image.RenderCount);
     }

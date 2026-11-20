@@ -43,7 +43,7 @@ public sealed class PopoverAllocationBudgetTests : IDisposable
         long allocated = AllocationSampler.LeastOfFive(() => cut.Render(parameters));
 
         Assert.Equal(updates, test.InteractionsHandle.Invocations["update"].Count);
-        Assert.True(allocated <= RerenderBudgetBytes, $"a re-render allocated {allocated} bytes; the budget is {RerenderBudgetBytes}");
+        AllocationSampler.AssertWithinBudget(allocated, RerenderBudgetBytes, "a re-render");
     }
 
     private static void Content(RenderTreeBuilder builder)

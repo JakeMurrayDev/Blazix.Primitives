@@ -51,7 +51,7 @@ public sealed class SliderAllocationBudgetTests : IDisposable
         long allocated = await MeasureStepsAsync(cut);
 
         Assert.Equal("51", Inputs(cut)[0].GetAttribute("aria-valuenow"));
-        Assert.True(allocated <= StepBudgetBytes, $"a value step allocated {allocated} bytes; the budget is {StepBudgetBytes}");
+        AllocationSampler.AssertWithinBudget(allocated, StepBudgetBytes, "a value step");
     }
 
     [Fact(DisplayName = "a re-render of a slider with unchanged parameters stays within its budget and sends no update")]
@@ -73,7 +73,7 @@ public sealed class SliderAllocationBudgetTests : IDisposable
         long allocated = AllocationSampler.LeastOfFive(() =>
             cut.Render(p => p.Add(x => x.DefaultValue, 50).AddUnmatched("class", "consumer").AddChildContent(content)));
 
-        Assert.True(allocated <= RerenderBudgetBytes, $"a re-render allocated {allocated} bytes; the budget is {RerenderBudgetBytes}");
+        AllocationSampler.AssertWithinBudget(allocated, RerenderBudgetBytes, "a re-render");
         Assert.Equal(updates, test.SliderUpdates.Count);
     }
 
@@ -94,7 +94,7 @@ public sealed class SliderAllocationBudgetTests : IDisposable
         Assert.Equal("51", Inputs(cut)[0].GetAttribute("aria-valuenow"));
         Assert.Equal(25, changes);
         Assert.Equal(25, commits);
-        Assert.True(allocated <= CallbackStepBudgetBytes, $"a value step allocated {allocated} bytes; the budget is {CallbackStepBudgetBytes}");
+        AllocationSampler.AssertWithinBudget(allocated, CallbackStepBudgetBytes, "a value step");
     }
 
     // Twenty key presses alternate the value between 51 and 50, then five more are measured, each a change; the last

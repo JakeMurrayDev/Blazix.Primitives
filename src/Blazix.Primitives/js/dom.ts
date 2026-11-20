@@ -814,6 +814,86 @@ export function styleWriter(element: HTMLElement): StyleWriter {
 }
 
 // ---------------------------------------------------------------------------------------------------------------
+// Text-control helpers (M6 track 6, issue 277, 6b; design point 9, granted by the orchestrator 2026-11-19)
+// ---------------------------------------------------------------------------------------------------------------
+
+/**
+ * Collapses a text control's selection at a position, clamped to its text. An input type without a selection API (such
+ * as `number`) is left as it is.
+ * @param input The text input or textarea.
+ * @param position The caret's index.
+ */
+export function setCaret(input: HTMLInputElement | HTMLTextAreaElement, position: number): void {
+  const index = Math.max(0, Math.min(position, input.value.length));
+  try {
+    input.setSelectionRange(index, index);
+  } catch {
+    // The input type has no selection.
+  }
+}
+
+/**
+ * Selects a text control's whole text. An input type without a selection API is left as it is.
+ * @param input The text input or textarea.
+ */
+export function selectAll(input: HTMLInputElement | HTMLTextAreaElement): void {
+  try {
+    input.setSelectionRange(0, input.value.length);
+  } catch {
+    // The input type has no selection.
+  }
+}
+
+/**
+ * Writes a text control's `value` property only when the text differs, so an unchanged answer leaves the caret and the
+ * selection where the user put them. C# renders the `value` attribute once (the handover at attach) and never diffs it
+ * afterwards, so the property is the module's alone.
+ * @param input The text input or textarea.
+ * @param value The text.
+ * @returns Whether the text was written.
+ */
+export function writeTextValue(input: HTMLInputElement | HTMLTextAreaElement, value: string): boolean {
+  if (input.value === value) {
+    return false;
+  }
+  input.value = value;
+  return true;
+}
+
+/** Whether an IME composition is in progress in a text control, from its composition events. */
+export interface CompositionTracker {
+  /** Returns whether a composition has started and not yet ended. */
+  composing(): boolean;
+  /** Removes the listeners. */
+  dispose(): void;
+}
+
+/**
+ * Tracks `compositionstart` and `compositionend` on a text control.
+ * @param input The text input or textarea.
+ * @returns The tracker.
+ */
+export function trackComposition(input: HTMLInputElement | HTMLTextAreaElement): CompositionTracker {
+  let active = false;
+  const onStart = () => {
+    active = true;
+  };
+  const onEnd = () => {
+    active = false;
+  };
+  input.addEventListener('compositionstart', onStart);
+  input.addEventListener('compositionend', onEnd);
+  return {
+    composing: () => active,
+    dispose() {
+      active = false;
+      input.removeEventListener('compositionstart', onStart);
+      input.removeEventListener('compositionend', onEnd);
+    },
+  };
+}
+
+// ---------------------------------------------------------------------------------------------------------------
 // Live-region marker (UTL-A11Y-01..04)
 // ---------------------------------------------------------------------------------------------------------------
 

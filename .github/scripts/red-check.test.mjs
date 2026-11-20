@@ -13,6 +13,7 @@ import {
   parseVitestList,
   playwrightOutcomes,
   summarize,
+  vitestCoverage,
   vitestFailedFiles,
   vitestOutcomes,
 } from './red-check.mjs';
@@ -411,5 +412,66 @@ describe('coverage titles', () => {
     expect(ok).toBe(false);
     expect(markdown).toContain('drop the marker');
     expect(markdown).toContain('`changed`');
+  });
+});
+
+// ADR 11 Amendments 2026-11-19 (L3): vitest's own test tags, `it(title, { tags: ['coverage'] }, ...)`, which its JSON
+// reporter gives per test; the tag is defined in vitest.config.ts.
+describe('L3 coverage titles', () => {
+  const report = JSON.stringify({
+    testResults: [
+      {
+        name: `${root}/src/Blazix.Primitives/js/button.test.ts`,
+        status: 'passed',
+        assertionResults: [
+          { ancestorTitles: ['button'], title: 'ported', status: 'passed', tags: ['coverage'] },
+          { ancestorTitles: ['button'], title: 'new behaviour', status: 'passed', tags: [] },
+          { ancestorTitles: [], title: 'untagged, older reporter', status: 'passed' },
+        ],
+      },
+    ],
+  });
+
+  it('are the vitest tests tagged coverage, named as the listing names them', () => {
+    expect(vitestCoverage(report, root)).toEqual(['src/Blazix.Primitives/js/button.test.ts::button > ported']);
+    expect(parseVitestList(report, root)).toContain('src/Blazix.Primitives/js/button.test.ts::button > new behaviour');
+  });
+});
+
+// Review of PR 321 (2026-11-19): only the exact tag marks a coverage title; a near miss is an ordinary title, judged red.
+describe('coverage tags that are near misses', () => {
+  it('do not mark a vitest test (coverage-x, xcoverage, Coverage)', () => {
+    const report = JSON.stringify({
+      testResults: [
+        {
+          name: `${root}/src/Blazix.Primitives/js/button.test.ts`,
+          status: 'passed',
+          assertionResults: [
+            { ancestorTitles: [], title: 'suffixed', status: 'passed', tags: ['coverage-x'] },
+            { ancestorTitles: [], title: 'prefixed', status: 'passed', tags: ['xcoverage'] },
+            { ancestorTitles: [], title: 'capitalised', status: 'passed', tags: ['Coverage'] },
+            { ancestorTitles: [], title: 'marked', status: 'passed', tags: ['coverage'] },
+          ],
+        },
+      ],
+    });
+    expect(vitestCoverage(report, root)).toEqual(['src/Blazix.Primitives/js/button.test.ts::marked']);
+  });
+
+  it('do not mark a Playwright spec (@coverage-x, coverage-x, @xcoverage)', () => {
+    const list = JSON.stringify({
+      suites: [
+        {
+          file: 'menu.spec.ts',
+          specs: [
+            { title: 'suffixed', tags: ['@coverage-x'], tests: [] },
+            { title: 'bare suffixed', tags: ['coverage-x'], tests: [] },
+            { title: 'prefixed', tags: ['@xcoverage'], tests: [] },
+            { title: 'marked', tags: ['coverage'], tests: [] },
+          ],
+        },
+      ],
+    });
+    expect(parsePlaywrightCoverage(list)).toEqual(['tests/browser/menu.spec.ts::marked']);
   });
 });

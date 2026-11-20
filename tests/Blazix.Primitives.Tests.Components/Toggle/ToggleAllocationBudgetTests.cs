@@ -49,7 +49,7 @@ public sealed class ToggleAllocationBudgetTests : IDisposable
         cut.Render();
         long allocated = GC.GetAllocatedBytesForCurrentThread() - before;
 
-        Assert.True(allocated <= RerenderBudgetBytes, $"a re-render allocated {allocated} bytes; the budget is {RerenderBudgetBytes}");
+        AllocationSampler.AssertWithinBudget(allocated, RerenderBudgetBytes, "a re-render");
     }
 
     [Fact(DisplayName = "the click of a component-owned toggle with no receiver stays within its budget")]
@@ -72,6 +72,6 @@ public sealed class ToggleAllocationBudgetTests : IDisposable
             least = Math.Min(least, GC.GetAllocatedBytesForCurrentThread() - before);
         }
 
-        Assert.True(least <= ClickBudgetBytes, $"a click allocated {least} bytes; the budget is {ClickBudgetBytes}");
+        AllocationSampler.AssertWithinBudget(least, ClickBudgetBytes, "a click");
     }
 }

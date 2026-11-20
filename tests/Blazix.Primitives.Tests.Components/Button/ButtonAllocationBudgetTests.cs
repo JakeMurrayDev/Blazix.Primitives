@@ -39,7 +39,7 @@ public sealed class ButtonAllocationBudgetTests : IDisposable
     {
         long allocated = Measure(disabled: false);
 
-        Assert.True(allocated <= EnabledRerenderBudgetBytes, $"a re-render allocated {allocated} bytes; the budget is {EnabledRerenderBudgetBytes}");
+        AllocationSampler.AssertWithinBudget(allocated, EnabledRerenderBudgetBytes, "a re-render");
     }
 
     [Fact(DisplayName = "a re-render of a disabled button that withholds the consumer's handlers stays within its budget")]
@@ -48,7 +48,7 @@ public sealed class ButtonAllocationBudgetTests : IDisposable
     {
         long allocated = Measure(disabled: true);
 
-        Assert.True(allocated <= DisabledRerenderBudgetBytes, $"a re-render allocated {allocated} bytes; the budget is {DisabledRerenderBudgetBytes}");
+        AllocationSampler.AssertWithinBudget(allocated, DisabledRerenderBudgetBytes, "a re-render");
     }
 
     private long Measure(bool disabled)

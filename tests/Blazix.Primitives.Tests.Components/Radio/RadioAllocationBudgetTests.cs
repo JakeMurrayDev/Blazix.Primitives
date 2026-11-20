@@ -46,7 +46,7 @@ public sealed class RadioAllocationBudgetTests : IDisposable
 
         long allocated = Measure(cut);
 
-        Assert.True(allocated <= RadioRerenderBudgetBytes, $"a re-render allocated {allocated} bytes; the budget is {RadioRerenderBudgetBytes}");
+        AllocationSampler.AssertWithinBudget(allocated, RadioRerenderBudgetBytes, "a re-render");
     }
 
     [Fact(DisplayName = "a re-render of a group of three radios with unchanged parameters stays within its budget")]
@@ -62,7 +62,7 @@ public sealed class RadioAllocationBudgetTests : IDisposable
 
         long allocated = Measure(cut);
 
-        Assert.True(allocated <= GroupRerenderBudgetBytes, $"a re-render allocated {allocated} bytes; the budget is {GroupRerenderBudgetBytes}");
+        AllocationSampler.AssertWithinBudget(allocated, GroupRerenderBudgetBytes, "a re-render");
     }
 
     [Fact(DisplayName = "an indicator status report that changes nothing stays within its budget")]
@@ -84,7 +84,7 @@ public sealed class RadioAllocationBudgetTests : IDisposable
         long allocated = AllocationSampler.LeastOfFive(() => reported = cut.InvokeAsync(() => twin.OnStatusChange(unchanged)));
         await reported;
 
-        Assert.True(allocated <= UnchangedStatusBudgetBytes, $"a status report allocated {allocated} bytes; the budget is {UnchangedStatusBudgetBytes}");
+        AllocationSampler.AssertWithinBudget(allocated, UnchangedStatusBudgetBytes, "a status report");
     }
 
     private static long Measure<TComponent>(IRenderedComponent<TComponent> cut)

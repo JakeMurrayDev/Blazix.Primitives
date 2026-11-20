@@ -33,7 +33,7 @@ public sealed class AllocationBudgetTests
 
         long allocated = Measure(() => MergeProps.Merge(ours, theirs));
 
-        Assert.True(allocated <= MergeBudgetBytes, $"a merge allocated {allocated} bytes; the budget is {MergeBudgetBytes}");
+        AllocationSampler.AssertWithinBudget(allocated, MergeBudgetBytes, "a merge");
     }
 
     private static long Measure(Action action)

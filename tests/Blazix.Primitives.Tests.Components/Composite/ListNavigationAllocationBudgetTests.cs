@@ -48,7 +48,7 @@ public sealed class ListNavigationAllocationBudgetTests : IDisposable
         long allocated = AllocationSampler.LeastOfFive(() => cut.Render(parameters));
 
         Assert.Empty(host.UpdateOptions);
-        Assert.True(allocated <= RerenderBudgetBytes, $"a re-render allocated {allocated} bytes; the budget is {RerenderBudgetBytes}");
+        AllocationSampler.AssertWithinBudget(allocated, RerenderBudgetBytes, "a re-render");
     }
 
     // The labels are the consumer's data, made once; each item's child content is new on every render of the content.
