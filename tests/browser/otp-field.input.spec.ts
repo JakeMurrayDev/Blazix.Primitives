@@ -1,6 +1,6 @@
 import type { Locator } from '@playwright/test';
 import { test, expect, readDiagnostics, type Page } from './helpers';
-import { gotoOtp, paste, slotValues } from './otp-field.helpers';
+import { change, gotoOtp, paste, slotValues } from './otp-field.helpers';
 
 // OTP (docs/components/otp-field.md) at L4 for Base UI's `OTPFieldInput.test.tsx` (issue 278, M6 track 7), per render
 // mode. Base UI fires synthetic events; here keys are real (`page.keyboard`), typing a slot's whole text is `fill()` (one
@@ -151,6 +151,24 @@ test.describe('OtpFieldInput', () => {
     await expect.poll(() => slotValues(field)).toBe('12____');
     await expect(field.fixture).toHaveAttribute('data-changes', '');
   });
+
+  // Base UI's `setProps` is a fixture button pressed with a DOM click, so focus and the composition stay in the slot; the
+  // composition's events are dispatched as Base UI fires them.
+  for (const prop of ['disabled', 'readonly'] as const) {
+    test(`does not commit a composition that ends after the field becomes ${prop === 'disabled' ? 'disabled' : 'readOnly'}`, async ({ page, mode }) => {
+      const field = await gotoOtp(page, mode, 'type=alphanumeric');
+      await field.slot(0).focus();
+      await field.slot(0).dispatchEvent('compositionstart');
+      await change(field.slot(0), 'abc');
+
+      await field.fixture.getByTestId(`make-${prop}`).evaluate((button) => (button as HTMLButtonElement).click());
+      await expect(field.root).toHaveAttribute(`data-${prop}`, '');
+      await field.slot(0).dispatchEvent('compositionend');
+
+      await expect.poll(() => slotValues(field)).toBe('______');
+      await expect(field.fixture).toHaveAttribute('data-changes', '');
+    });
+  }
 
   test('selects the slot value on mousedown', async ({ page, mode }) => {
     const field = await gotoOtp(page, mode, 'value=1');

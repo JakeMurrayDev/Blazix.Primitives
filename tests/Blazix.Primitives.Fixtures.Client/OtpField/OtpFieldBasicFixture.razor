@@ -10,7 +10,8 @@
     button in a `<form data-testid="form">` whose submit is prevented; `?cancel=` cancels every OnValueChange whose reason is that literal, or `all`. `?veto=` gives every
     slot onkeydown, oninput, onpaste, onmousedown, onfocus and onblur handlers; those of the listed types (comma-separated:
     keydown, input, paste, mousedown, focus, blur; `?veto` alone lists all) call PreventPartHandler() and are recorded in
-    data-vetoes (`keydown:{key}` for a key). The recorders are data-changes, data-invalids and data-completes; data-attached marks the module's attach.
+    data-vetoes (`keydown:{key}` for a key). The `make-disabled` and `make-readonly` buttons
+    set those props (Base UI's `setProps`). The recorders are data-changes, data-invalids and data-completes; data-attached marks the module's attach.
 *@
 <FixtureContainer Name="otp-field-basic" data-attached="@(Attached ? "true" : "false")" data-changes="@string.Join(" ", Changes)"
                   data-invalids="@string.Join(" ", Invalids)" data-completes="@string.Join(" ", Completes)" data-vetoes="@string.Join(" ", vetoes)">
@@ -28,6 +29,8 @@
         @Field
     }
     <button type="button" data-testid="outside">Outside</button>
+    <button type="button" data-testid="make-disabled" @onclick="() => disabled = true">Disable</button>
+    <button type="button" data-testid="make-readonly" @onclick="() => readOnly = true">Make read-only</button>
 </FixtureContainer>
 
 @code {

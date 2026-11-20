@@ -15,6 +15,14 @@ test.describe('OtpFieldRoot value handling', () => {
     await expect.poll(() => slotValues(field)).toBe('abC___');
   });
 
+  test('supports alphanumeric values when set to `alphanumeric`', async ({ page, mode }) => {
+    const field = await gotoOtp(page, mode, 'type=alphanumeric');
+
+    await change(field.slot(0), 'A1-B2c3');
+
+    await expect.poll(() => slotValues(field)).toBe('A1B2c3');
+  });
+
   test('supports custom normalization when `validationType` is `none`', async ({ page, mode }) => {
     const field = await gotoOtp(page, mode, 'fn=strip-upper&type=none', 'otp-field-normalize');
 
