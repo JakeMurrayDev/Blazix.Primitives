@@ -595,6 +595,9 @@ function attachSwipeArea(
   let openRequests = 0;
   let releaseGuard: (() => void) | null = null;
   let popupWatch: MutationObserver | null = null;
+  // DRW-PTR-30 on Blazor Server: a release that did not commit while the gesture's open was unanswered closes the drawer
+  // once the answer says it opened.
+  let deferredClose: { request: number; event: PointerEvent | TouchEvent } | null = null;
 
   const openDirection = (): SwipeDirection => options.swipeDirection;
   const dismissDirection = (): SwipeDirection => OPPOSITE_DIRECTION[openDirection()];
@@ -842,6 +845,8 @@ function attachSwipeArea(
         }
       } else if (openedBySwipe && isOpen()) {
         requestOpen(false, details.event);
+      } else if (openPending) {
+        deferredClose = { request: openRequests, event: details.event };
       }
       finish();
       return false;
@@ -912,6 +917,13 @@ function attachSwipeArea(
         providerToken = options.provider;
       }
       tracker.setOptions(trackerOptions());
+      if (deferredClose && (options.answeredOpen ?? 0) >= deferredClose.request) {
+        const { event } = deferredClose;
+        deferredClose = null;
+        if (options.open) {
+          requestOpen(false, event);
+        }
+      }
       // DrawerSwipeArea.tsx:411-428: an area that is no longer enabled ends its gesture before paint.
       if (!enabled()) {
         if (swipeActive) {
