@@ -5,7 +5,8 @@
 @*
     The `otp-field-controlled` fixture (tests/browser/otp-field.root.spec.ts; OTP-FOC-10, OTP-EVT-10, OTP-EVT-15): six slots
     `slot-{i}` in a root whose Value the fixture owns, starting at `?value=` (""). `?mode=ignore` (default): OnValueChange
-    changes nothing; `?mode=defer`: OnValueChange keeps the value until the `accept` button applies it. The `apply` button
+    changes nothing; `?mode=defer`: OnValueChange keeps the value until the `accept` button applies it; `?mode=mirror`: OnValueChange applies
+    the value at once. The `apply` button
     sets the Value to `?apply=` (654321). Recorders as the basic fixture.
 *@
 <FixtureContainer Name="otp-field-controlled" data-attached="@(Attached ? "true" : "false")" data-changes="@string.Join(" ", Changes)"
@@ -25,12 +26,14 @@
     private string value = string.Empty;
     private string? pending;
     private bool defer;
+    private bool mirror;
 
     /// <inheritdoc />
     protected override void OnInitialized()
     {
         value = Query("value", string.Empty);
         defer = Query("mode", "ignore") == "defer";
+        mirror = Query("mode", "ignore") == "mirror";
     }
 
     private void Change(ValueChangeEventArgs<string> args)
@@ -39,6 +42,10 @@
         if (defer)
         {
             pending = args.Value;
+        }
+        else if (mirror)
+        {
+            value = args.Value;
         }
     }
 

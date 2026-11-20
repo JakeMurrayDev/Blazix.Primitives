@@ -6,8 +6,8 @@
     The `otp-field-basic` fixture (tests/browser/otp-field*.spec.ts): a `before` button, a `<label for="otp">`, one root with
     id `otp` and `?length=` slots (6), each `slot-{i}` with `aria-label="Character {i+1} of {length}"` from slot 1 on, then an
     `outside` button. `?value=` the default value, `?type=` numeric (default), alpha, alphanumeric or none, `?readonly`,
-    `?disabled`, `?mask`, `?name=` (the root's Name), `?required`; `?form` puts the label, the root and a submit button in a
-    `<form data-testid="form">` whose submit is prevented; `?cancel=` cancels every OnValueChange whose reason is that literal, or `all`. `?veto=` gives every
+    `?disabled`, `?mask`, `?name=` (the root's Name), `?required`; `?form` puts the label, the root and a submit and a `reset`
+    button in a `<form data-testid="form">` whose submit is prevented; `?cancel=` cancels every OnValueChange whose reason is that literal, or `all`. `?veto=` gives every
     slot onkeydown, oninput, onpaste, onmousedown, onfocus and onblur handlers; those of the listed types (comma-separated:
     keydown, input, paste, mousedown, focus, blur; `?veto` alone lists all) call PreventPartHandler() and are recorded in
     data-vetoes (`keydown:{key}` for a key). The recorders are data-changes, data-invalids and data-completes; data-attached marks the module's attach.
@@ -20,6 +20,7 @@
         <form data-testid="form" onsubmit="event.preventDefault()">
             @Field
             <button type="submit">Submit</button>
+            <button type="reset" data-testid="reset">Reset</button>
         </form>
     }
     else

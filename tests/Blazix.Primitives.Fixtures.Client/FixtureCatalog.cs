@@ -122,6 +122,8 @@ public static class FixtureCatalog
         ["otp-field-controlled"] = new(typeof(OtpFieldControlledFixture)),
         ["otp-field-autosubmit"] = new(typeof(OtpFieldAutoSubmitFixture)),
         ["otp-field-field"] = new(typeof(OtpFieldFieldFixture)),
+        ["otp-field-editcontext"] = new(typeof(OtpFieldEditContextFixture)),
+        ["otp-field-prerender"] = new(typeof(OtpFieldPrerenderFixture), Prerender: true),
         ["progress-basic"] = new(typeof(ProgressBasicFixture)),
         ["progress-prerender"] = new(typeof(ProgressPrerenderFixture), Prerender: true),
         ["composite-list"] = new(typeof(CompositeListFixture)),
