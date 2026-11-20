@@ -19,6 +19,10 @@
       The popup is fixed at left 0 and top 100, 200 px wide and 300 px tall, and holds, in order, a text input, a
       textarea, a contenteditable region and a text span, each reading "Selectable text"; a native range input 150 px
       wide; and a Slider (100 px control, 10 px thumb, value 50). They fill its top 164 px; the rest is free.
+    - `case=axis` (added 2026-11-20): DrawerViewport.test.tsx's `data-base-ui-swipe-ignore` axis values. The popup is fixed
+      at left 0 and top 100, 200 px wide and 300 px tall, and holds 40 px rows marked `y` and `x`, then a valueless
+      ancestor around a row marked `x`; they fill its top 120 px. `direction` (`down`, the default, or `right`) is the
+      swipe direction.
     - `noPopup=true`: the Viewport renders no Popup ("ignores swipe input until a popup is mounted").
     - `alwaysOpen=true`: the root is controlled with `Open="true"` and never follows a change.
     The open changes are recorded as `open:reason` in `data-open-changes`; `cancelClose=true` cancels a close and
@@ -52,13 +56,15 @@
 
     private bool Controls => Case == "controls";
 
-    private SwipeDirection Direction => Scroll
+    private bool Axis => Case == "axis";
+
+    private SwipeDirection Direction => Scroll || Axis
         ? Query("direction") switch { "up" => SwipeDirection.Up, "left" => SwipeDirection.Left, "right" => SwipeDirection.Right, _ => SwipeDirection.Down }
         : Down ? SwipeDirection.Down : SwipeDirection.Right;
 
     private string PopupStyle => Scroll
         ? "position: fixed; left: 300px; top: 300px; width: 200px; height: 300px;"
-        : Down || Controls
+        : Down || Controls || Axis
             ? "position: fixed; left: 0; top: 100px; width: 200px; height: 300px;"
             : "position: fixed; left: 0; top: 0; width: 200px; height: 300px;";
 
@@ -72,6 +78,14 @@
                 {
                     <div data-testid="scroll" style="overflow-y: auto; max-height: 60px;"><div style="height: 120px;">Scrollable content</div></div>
                     <div data-testid="hscroll" style="overflow-x: auto; max-width: 120px;"><div style="width: 360px; height: 40px;">Scrollable content</div></div>
+                }
+                else if (Axis)
+                {
+                    <div data-testid="axis-y" data-base-ui-swipe-ignore="y" style="height: 40px;">Carousel y</div>
+                    <div data-testid="axis-x" data-base-ui-swipe-ignore="x" style="height: 40px;">Carousel x</div>
+                    <div data-base-ui-swipe-ignore>
+                        <div data-testid="nested-x" data-base-ui-swipe-ignore="x" style="height: 40px;">Nested x</div>
+                    </div>
                 }
                 else if (Controls)
                 {

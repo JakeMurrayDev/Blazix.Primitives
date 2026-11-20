@@ -810,3 +810,121 @@ test.describe('<Drawer.Viewport /> touch swipe over selections and range inputs'
     await expect(backdrop).toHaveAttribute('data-swiping', '');
   });
 });
+
+// Slice 2's `data-base-ui-swipe-ignore` axis values (DRW-PTR-19 (7), PTR-22; added 2026-11-20), on the fixture's
+// `case=axis`: rows marked `y` (y 100-140) and `x` (y 140-180), then a valueless ancestor around a row marked `x` (y
+// 180-220); the rest of the popup is free. Base UI's first move of each cross-axis drag is under the slop, which Chromium
+// does not dispatch; here the first move is past it, and the L3 port title holds the sub-slop move.
+const axisCase = (page: Page, mode: RenderMode, direction: 'down' | 'right') => gotoPopupFixture(page, mode, 'drawer-swipe', { case: 'axis', direction });
+type Point = { x: number; y: number };
+// Records whether each move was prevented, and how many moves reached a test id's element.
+const recordAxisMoves = (page: Page, testId: string) =>
+  page.evaluate((testId) => {
+    const record = { prevented: [] as boolean[], reached: 0 };
+    (window as unknown as { axisMoves: typeof record }).axisMoves = record;
+    const moves: TouchEvent[] = [];
+    window.addEventListener('touchmove', (event) => moves.push(event), { capture: true, passive: true });
+    document.querySelector(`[data-testid="${testId}"]`)!.addEventListener('touchmove', () => (record.reached += 1), { passive: true });
+    window.addEventListener('touchend', () => (record.prevented = moves.map((event) => event.defaultPrevented)), { capture: true });
+  }, testId);
+const axisMoves = (page: Page) => page.evaluate(() => (window as unknown as { axisMoves: { prevented: boolean[]; reached: number } }).axisMoves);
+const along = (direction: 'down' | 'right', from: Point, distance: number): Point =>
+  direction === 'down' ? { x: from.x, y: from.y + distance } : { x: from.x + distance, y: from.y };
+const across = (direction: 'down' | 'right', from: Point, distance: number): Point =>
+  direction === 'down' ? { x: from.x + distance, y: from.y + 1 } : { x: from.x + 1, y: from.y + distance };
+
+test.describe('<Drawer.Viewport /> touch swipe over swipe-ignore axis values', () => {
+  // DRW-PTR-19 (7) (DrawerViewport.test.tsx:836-859). Folded with its positive half: the same drag from the free area
+  // dismisses.
+  for (const [direction, axis] of [['down', 'y'], ['right', 'x']] as const) {
+    testWithTouch(`ignores ${direction} touch swipes from elements with the drawer axis value "${axis}"`, async ({ touchPage: page, mode }) => {
+      const fixture = await axisCase(page, mode, direction);
+      const start = await pointOf(page.getByTestId(`axis-${axis}`));
+      await recordAxisMoves(page, `axis-${axis}`);
+
+      await touchDrag(page, [[start, along(direction, start, 25), along(direction, start, 250)]], {
+        steps: 1,
+        beforeRelease: async () => {
+          await settle(fixture);
+          await expect(page.getByTestId('backdrop')).not.toHaveAttribute('data-swiping');
+        },
+      });
+      const { prevented } = await axisMoves(page);
+      expect(prevented.length).toBeGreaterThan(0);
+      expect(prevented.some(Boolean)).toBe(false);
+      await settle(fixture);
+      await expect(fixture).toHaveAttribute('data-open-changes', '');
+
+      const free = { x: 100, y: 350 };
+      await touchDrag(page, [[free, along(direction, free, 25), along(direction, free, 250)]], { steps: 1 });
+      await expect(fixture).toHaveAttribute('data-open-changes', 'false:swipe');
+    });
+  }
+
+  // DRW-PTR-22 (DrawerViewport.test.tsx:860-889): the target gets the cross-axis drag and the popup does not move.
+  for (const [direction, axis] of [['down', 'x'], ['right', 'y']] as const) {
+    testWithTouch(`hands cross-axis drags in ${direction} drawers to elements with the value "${axis}"`, async ({ touchPage: page, mode }) => {
+      const fixture = await axisCase(page, mode, direction);
+      const popup = page.getByTestId('popup');
+      const start = await pointOf(page.getByTestId(`axis-${axis}`));
+      await recordAxisMoves(page, `axis-${axis}`);
+
+      await touchDrag(page, [[start, across(direction, start, 14), across(direction, start, 18)]], {
+        steps: 1,
+        beforeRelease: async () => {
+          await settle(fixture);
+          await expect(page.getByTestId('backdrop')).not.toHaveAttribute('data-swiping');
+          const movement = await popup.evaluate((element) => [
+            (element as HTMLElement).style.getPropertyValue('--drawer-swipe-movement-x'),
+            (element as HTMLElement).style.getPropertyValue('--drawer-swipe-movement-y'),
+          ]);
+          expect(movement.map((value) => Number.parseFloat(value || '0'))).toEqual([0, 0]);
+        },
+      });
+
+      const { prevented, reached } = await axisMoves(page);
+      expect(reached).toBe(prevented.length);
+      expect(reached).toBeGreaterThan(0);
+      expect(prevented.some(Boolean)).toBe(false);
+      await settle(fixture);
+      await expect(fixture).toHaveAttribute('data-open-changes', '');
+    });
+  }
+
+  // DRW-PTR-19 (7), PTR-22 (DrawerViewport.test.tsx:927-981).
+  for (const [direction, axis] of [['down', 'x'], ['right', 'y']] as const) {
+    testWithTouch(`still swipes ${direction} drawers from elements with the cross-axis value "${axis}"`, async ({ touchPage: page, mode }) => {
+      const fixture = await axisCase(page, mode, direction);
+      const start = await pointOf(page.getByTestId(`axis-${axis}`));
+      await recordAxisMoves(page, `axis-${axis}`);
+
+      await touchDrag(page, [[start, along(direction, start, 25), along(direction, start, 250)]], { steps: 1 });
+
+      await expect(fixture).toHaveAttribute('data-open-changes', 'false:swipe');
+      const { prevented } = await axisMoves(page);
+      expect(prevented.length).toBeGreaterThan(0);
+      expect(prevented.every(Boolean)).toBe(true);
+    });
+  }
+
+  // DRW-PTR-19 (7) (DrawerViewport.test.tsx:982-1003). Folded with its positive half: the same drag from the free area
+  // dismisses.
+  testWithTouch('keeps an ancestor that ignores all directions in effect over a nested axis value', async ({ touchPage: page, mode }) => {
+    const fixture = await axisCase(page, mode, 'down');
+    const start = await pointOf(page.getByTestId('nested-x'));
+
+    await touchDrag(page, [[start, along('down', start, 25), along('down', start, 250)]], {
+      steps: 1,
+      beforeRelease: async () => {
+        await settle(fixture);
+        await expect(page.getByTestId('backdrop')).not.toHaveAttribute('data-swiping');
+      },
+    });
+    await settle(fixture);
+    await expect(fixture).toHaveAttribute('data-open-changes', '');
+
+    const free = { x: 100, y: 350 };
+    await touchDrag(page, [[free, along('down', free, 25), along('down', free, 250)]], { steps: 1 });
+    await expect(fixture).toHaveAttribute('data-open-changes', 'false:swipe');
+  });
+});
