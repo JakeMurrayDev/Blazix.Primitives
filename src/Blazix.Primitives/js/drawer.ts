@@ -29,6 +29,7 @@ import {
   getElementAtPoint,
   getTarget,
   isElement,
+  observeResize,
   ownerDocument,
   ownerWindow,
   styleWriter,
@@ -43,6 +44,7 @@ import {
   createSwipeTracker,
   getDisplacement,
   type SwipeDirection,
+  type SwipeProgressDetails,
   type SwipeTracker,
 } from './swipe';
 import { forceEnding } from './transitions';
@@ -60,8 +62,8 @@ import {
 
 /** The options of a drawer handle; mirrors `DrawerOptions` in C#. */
 export interface DrawerOptions extends TwinOptions {
-  /** The part the handle serves. */
-  role: 'viewport';
+  /** The part the handle serves: the Viewport's gesture, the Popup's measurement, or an Indent's visual state. */
+  role: 'viewport' | 'popup' | 'indent';
   /** Whether the drawer is open. */
   open: boolean;
   /** Whether the drawer's popup is mounted. */
@@ -84,6 +86,18 @@ export interface DrawerOptions extends TwinOptions {
   answeredSnap?: number;
   /** The number of the last request for no snap point that C# canceled; its dismissal is dropped. */
   canceledSnap?: number;
+  /** The token of the Provider the drawer or the Indent is under, or `null` without one. */
+  provider?: string | null;
+  /** The Root's frontmost height in pixels (DRW-STA-11), or 0 before any measurement. */
+  frontmostHeight?: number;
+  /** Whether the drawer is nested in another drawer, whose popup follows its drag (DRW-PTR-16, PTR-17). */
+  hasParent?: boolean;
+  /** The indexes among the references of the enclosing drawers' popups, the nearest first. */
+  ancestorPopups?: number[] | null;
+  /** The popup role: whether a nested drawer is present, open or animating out (DRW-STA-12). */
+  hasNestedDrawer?: boolean;
+  /** The popup role: whether the popup is animating out. */
+  ending?: boolean;
   /** The index of the Popup element among the references, or `null` while none is rendered. */
   popup?: number | null;
   /** The index of the Backdrop element among the references, or `null` while none is rendered. */
@@ -383,12 +397,312 @@ function canSwipeFromScrollEdgeOnMove(target: HTMLElement, axis: ScrollAxis, dir
   return towardDismiss && isAtSwipeStartEdge(target, axis, direction);
 }
 
+// Slice 3 (M6 track 8b, issue 279, added 2026-11-21): the stores Base UI keeps outside React's render. The Provider's visual
+// state (DRW-STA-15, DrawerProvider.tsx:71-116) is keyed by the Provider's token: the Viewports under it write it and its
+// Indents read it, and it lives while a handle uses it. A Root's nested swipe progress (DRW-STA-13, DrawerRoot.tsx:389-417)
+// is keyed by the Root's popup element: a nested drawer's Viewport writes it on every enclosing drawer's popup, which is
+// Base UI's forwarding to the grandparent, and the popup's own handle writes it on the element (DRW-DOM-14).
+
+/** The Provider's visual state: the swipe progress and the frontmost height the Indents show. */
+export interface DrawerVisualState {
+  swipeProgress: number;
+  frontmostHeight: number;
+}
+
+/** A store of the Provider's visual state; listeners run only when a field changes. */
+export interface DrawerVisualStateStore {
+  get(): DrawerVisualState;
+  set(next: Partial<DrawerVisualState>): void;
+  subscribe(listener: () => void): () => void;
+}
+
+/** A Root's nested swipe progress; listeners run only when it changes. */
+export interface NestedSwipeProgressChannel {
+  get(): number;
+  set(progress: number): void;
+  subscribe(listener: () => void): () => void;
+}
+
+const visualStates = new Map<string, { store: DrawerVisualStateStore; users: number }>();
+const nestedChannels = new WeakMap<Element, NestedSwipeProgressChannel>();
+
+function notifyAll(listeners: Set<() => void>): void {
+  for (const listener of listeners) {
+    listener();
+  }
+}
+
+function createVisualStateStore(): DrawerVisualStateStore {
+  const state: DrawerVisualState = { swipeProgress: 0, frontmostHeight: 0 };
+  const listeners = new Set<() => void>();
+  return {
+    get: () => state,
+    set(next) {
+      let swipeProgress = state.swipeProgress;
+      if (next.swipeProgress !== undefined) {
+        swipeProgress = Number.isFinite(next.swipeProgress) ? next.swipeProgress : 0;
+      }
+      let frontmostHeight = state.frontmostHeight;
+      if (next.frontmostHeight !== undefined) {
+        frontmostHeight = Number.isFinite(next.frontmostHeight) ? next.frontmostHeight : 0;
+      }
+      if (swipeProgress === state.swipeProgress && frontmostHeight === state.frontmostHeight) {
+        return;
+      }
+      state.swipeProgress = swipeProgress;
+      state.frontmostHeight = frontmostHeight;
+      notifyAll(listeners);
+    },
+    subscribe(listener) {
+      listeners.add(listener);
+      return () => listeners.delete(listener);
+    },
+  };
+}
+
 /**
- * Attaches a drawer handle.
- * @param elementOrId The Viewport element, or its id.
+ * Gets the visual state of the Provider with a token, creating it when no handle uses it yet.
+ * @param token The Provider's token.
+ * @returns The store.
+ */
+export function drawerVisualState(token: string): DrawerVisualStateStore {
+  let entry = visualStates.get(token);
+  if (!entry) {
+    entry = { store: createVisualStateStore(), users: 0 };
+    visualStates.set(token, entry);
+  }
+  return entry.store;
+}
+
+function acquireVisualState(token: string | null | undefined): DrawerVisualStateStore | null {
+  if (!token) {
+    return null;
+  }
+  const store = drawerVisualState(token);
+  visualStates.get(token)!.users += 1;
+  return store;
+}
+
+function releaseVisualState(token: string | null | undefined): void {
+  const entry = token ? visualStates.get(token) : undefined;
+  if (entry && --entry.users <= 0) {
+    visualStates.delete(token!);
+  }
+}
+
+/**
+ * Gets the nested swipe progress of the Root whose popup is the element, creating it at 0.
+ * @param popup The Root's popup element.
+ * @returns The channel.
+ */
+export function nestedSwipeProgress(popup: Element): NestedSwipeProgressChannel {
+  let channel = nestedChannels.get(popup);
+  if (!channel) {
+    let value = 0;
+    const listeners = new Set<() => void>();
+    channel = {
+      get: () => value,
+      set(progress) {
+        const next = Number.isFinite(progress) ? progress : 0;
+        if (next === value) {
+          return;
+        }
+        value = next;
+        notifyAll(listeners);
+      },
+      subscribe(listener) {
+        listeners.add(listener);
+        return () => listeners.delete(listener);
+      },
+    };
+    nestedChannels.set(popup, channel);
+  }
+  return channel;
+}
+
+// Two handles write the Popup's `component` band (the Viewport's gesture and the Popup's own measurement), each its own
+// properties; a handle's disposal removes only what it set.
+function ownedLayer(layer: StyleLayer): StyleLayer {
+  const owned = new Set<string>();
+  return {
+    set(property, value) {
+      owned.add(property);
+      layer.set(property, value);
+    },
+    remove: (property) => layer.remove(property),
+    clear() {
+      for (const property of owned) {
+        layer.remove(property);
+      }
+      owned.clear();
+    },
+  };
+}
+
+// DRW-DOM-32 (DrawerIndent.tsx:40-82): an Indent shows its Provider's visual state.
+function attachIndent(indent: HTMLElement | null, initial: DrawerOptions): TwinHandle {
+  let options = initial;
+  let store: DrawerVisualStateStore | null = null;
+  let unsubscribe: (() => void) | null = null;
+  let band: StyleLayer | null = null;
+  if (indent) {
+    const writer = styleWriter(indent);
+    writer.absorbForeignWrites();
+    band = writer.layer('component');
+  }
+  const sync = () => {
+    const { swipeProgress, frontmostHeight } = store!.get();
+    band?.set(SWIPE_PROGRESS, swipeProgress <= 0 ? '0' : `${swipeProgress}`);
+    if (frontmostHeight <= 0) {
+      band?.remove(DRAWER_HEIGHT);
+    } else {
+      band?.set(DRAWER_HEIGHT, `${frontmostHeight}px`);
+    }
+  };
+  const subscribe = () => {
+    store = acquireVisualState(options.provider);
+    if (store) {
+      sync();
+      unsubscribe = store.subscribe(sync);
+    }
+  };
+  const unsubscribeAndRestore = () => {
+    if (!store) {
+      return;
+    }
+    unsubscribe?.();
+    unsubscribe = null;
+    store = null;
+    releaseVisualState(options.provider);
+    band?.set(SWIPE_PROGRESS, '0');
+    band?.remove(DRAWER_HEIGHT);
+  };
+  subscribe();
+  let disposed = false;
+  return {
+    update(nextJson) {
+      if (disposed) {
+        return;
+      }
+      const next = parseOptions<DrawerOptions>(nextJson);
+      if ((next.provider ?? null) !== (options.provider ?? null)) {
+        unsubscribeAndRestore();
+        options = next;
+        subscribe();
+      } else {
+        options = next;
+      }
+    },
+    dispose() {
+      if (!disposed) {
+        disposed = true;
+        unsubscribeAndRestore();
+      }
+    },
+  };
+}
+
+// DRW-STA-10 (DrawerPopup.tsx:181-242), DRW-DOM-09 (321-325) and DRW-DOM-14 (244-269): the Popup measures its own height and
+// reports it to its Root, declares that height while a nested drawer is present or it animates out, and shows the nested
+// swipe progress its nested drawers publish.
+function attachPopup(popup: HTMLElement | null, initial: DrawerOptions, twin: ReturnType<typeof createTwinChannel>): TwinHandle {
+  let options = initial;
+  let disposed = false;
+  // Base UI's `popupHeightRef` (the last measurement) and `popupHeight` (the height the variable shows).
+  let lastHeight = 0;
+  let shownHeight = 0;
+  let stopResize: (() => void) | null = null;
+  const band = popup ? styleWriter(popup) : null;
+  band?.absorbForeignWrites();
+  const layer = band ? band.layer('component') : null;
+  const channel = popup ? nestedSwipeProgress(popup) : null;
+
+  const syncProgress = () => {
+    const progress = channel!.get();
+    layer?.set(SWIPE_PROGRESS, progress > 0 ? `${progress}` : '0');
+  };
+  const syncHeight = () => {
+    if (shownHeight && (options.hasNestedDrawer || options.ending)) {
+      layer?.set(DRAWER_HEIGHT, `${shownHeight}px`);
+    } else {
+      layer?.remove(DRAWER_HEIGHT);
+    }
+  };
+  const report = (height: number) => {
+    shownHeight = height;
+    twin.report('OnPopupHeightChange', { height });
+    syncHeight();
+  };
+  const measure = () => {
+    if (disposed || !popup || !options.mounted) {
+      return;
+    }
+    const height = popup.offsetHeight;
+    // Skipped while the element is still stretched beyond its last measured height by a nested drawer.
+    if (lastHeight > 0 && (options.frontmostHeight ?? 0) > lastHeight && height > lastHeight) {
+      return;
+    }
+    if (lastHeight > 0 && options.hasNestedDrawer) {
+      report(lastHeight);
+      return;
+    }
+    if (height !== lastHeight) {
+      lastHeight = height;
+      report(height);
+    }
+  };
+  // Base UI's layout effect on `mounted` and `nestedDrawerOpen`.
+  const syncMeasurement = () => {
+    stopResize?.();
+    stopResize = null;
+    if (!options.mounted) {
+      lastHeight = 0;
+      report(0);
+      return;
+    }
+    if (popup) {
+      measure();
+      stopResize = observeResize(popup, measure);
+    }
+  };
+
+  const unsubscribe = channel?.subscribe(syncProgress);
+  if (channel) {
+    syncProgress();
+  }
+  syncMeasurement();
+
+  return {
+    update(nextJson) {
+      if (disposed) {
+        return;
+      }
+      const previous = options;
+      options = parseOptions<DrawerOptions>(nextJson);
+      if (options.mounted !== previous.mounted || (options.nestedOpenDrawerCount > 0) !== (previous.nestedOpenDrawerCount > 0)) {
+        syncMeasurement();
+      }
+      syncHeight();
+    },
+    dispose() {
+      if (disposed) {
+        return;
+      }
+      disposed = true;
+      stopResize?.();
+      unsubscribe?.();
+      layer?.set(SWIPE_PROGRESS, '0');
+      layer?.remove(DRAWER_HEIGHT);
+    },
+  };
+}
+
+/**
+ * Attaches a drawer handle: a Viewport's gesture, a Popup's measurement, or an Indent's visual state.
+ * @param elementOrId The part's element, or its id.
  * @param optionsJson The `DrawerOptions` JSON.
  * @param twinReference The twin's object reference.
- * @param references The elements the options name by index (`popup`, `backdrop`).
+ * @param references The elements the options name by index (`popup`, `backdrop`, `ancestorPopups`).
  * @param captures The capture ids C# sends beside the element and the references.
  * @returns The handle.
  */
@@ -399,9 +713,25 @@ export function attach(
   references?: TwinReferences,
   captures?: TwinCaptures,
 ): TwinHandle {
-  const viewport = attachTarget(elementOrId, captures);
-  const twin = createTwinChannel(twinReference);
-  let options = parseOptions<DrawerOptions>(optionsJson);
+  const element = attachTarget(elementOrId, captures);
+  const options = parseOptions<DrawerOptions>(optionsJson);
+  if (options.role === 'indent') {
+    return attachIndent(element, options);
+  }
+  if (options.role === 'popup') {
+    return attachPopup(element, options, createTwinChannel(twinReference));
+  }
+  return attachViewport(element, options, createTwinChannel(twinReference), references, captures);
+}
+
+function attachViewport(
+  viewport: HTMLElement | null,
+  initial: DrawerOptions,
+  twin: ReturnType<typeof createTwinChannel>,
+  references?: TwinReferences,
+  captures?: TwinCaptures,
+): TwinHandle {
+  let options = initial;
   let popup: HTMLElement | null = null;
   let backdrop: HTMLElement | null = null;
   let popupBand: StyleLayer | null = null;
@@ -426,6 +756,13 @@ export function attach(
   let lastPointerType = '';
   let ignoreNextTouchStartFromPen = false;
   let removeTouchMove: (() => void) | null = null;
+
+  // DRW-PTR-16, PTR-17: the Provider this drawer publishes to, the enclosing drawers' popups, and whether this drawer has
+  // reported swiping to its parent in the current gesture (Base UI's `nestedSwipeActiveRef`).
+  let provider = acquireVisualState(options.provider);
+  let providerToken = options.provider;
+  let ancestors: HTMLElement[] = [];
+  let nestedSwipeActive = false;
 
   const scrollAxis = (): ScrollAxis => (options.swipeDirection === 'left' || options.swipeDirection === 'right' ? 'horizontal' : 'vertical');
 
@@ -463,6 +800,13 @@ export function attach(
   };
 
   const readReferences = (refs: TwinReferences, refCaptures?: TwinCaptures) => {
+    ancestors.length = 0;
+    for (const index of options.ancestorPopups ?? []) {
+      const ancestor = resolveReference<HTMLElement>(refs, index, refCaptures);
+      if (ancestor) {
+        ancestors.push(ancestor);
+      }
+    }
     const nextPopup = resolveReference<HTMLElement>(refs, options.popup, refCaptures);
     const nextBackdrop = resolveReference<HTMLElement>(refs, options.backdrop, refCaptures);
     if (nextPopup !== popup) {
@@ -472,7 +816,7 @@ export function attach(
       // its writer takes a re-rendered `style` as the consumer's and writes the bands again over it.
       const writer = popup ? styleWriter(popup) : null;
       writer?.absorbForeignWrites();
-      popupBand = writer ? writer.layer('component') : null;
+      popupBand = writer ? ownedLayer(writer.layer('component')) : null;
     }
     if (nextBackdrop !== backdrop) {
       backdrop = nextBackdrop;
@@ -495,21 +839,67 @@ export function attach(
     popupBand?.remove(SWIPE_STRENGTH);
   };
 
-  // DRW-PTR-16's Backdrop half; the Provider visual state and the parent's progress are slice 3.
-  const applySwipeProgress = (progress: number) => {
+  // DRW-PTR-17: "finish" sends `false` only when `true` was sent.
+  const finishNestedSwipe = () => {
+    if (!nestedSwipeActive) {
+      return;
+    }
+    nestedSwipeActive = false;
+    if (options.hasParent) {
+      twin.report('OnNestedSwipingChange', { swiping: false });
+    }
+  };
+  // DRW-PTR-17: swiping is reported once per gesture, when the drag passes the threshold along its direction.
+  const updateNestedSwipeActive = (details: SwipeProgressDetails | undefined) => {
+    if (nestedSwipeActive || !details) {
+      return;
+    }
+    if (Math.abs(getDisplacement(details.direction ?? options.swipeDirection, details.deltaX, details.deltaY)) < MIN_SWIPE_THRESHOLD) {
+      return;
+    }
+    nestedSwipeActive = true;
+    if (options.hasParent) {
+      twin.report('OnNestedSwipingChange', { swiping: true });
+    }
+  };
+  // DRW-PTR-16's parent half and DRW-STA-13's forwarding: every enclosing drawer's popup follows the drag.
+  const publishNestedProgress = (progress: number) => {
+    for (const ancestor of ancestors) {
+      nestedSwipeProgress(ancestor).set(progress);
+    }
+  };
+
+  // DRW-PTR-16 (DrawerViewport.tsx:199-234): the Backdrop, the Provider's visual state and, with `notifyParent`, the
+  // enclosing drawers.
+  const applySwipeProgress = (progress: number, notifyParent = false) => {
     const active = options.open && !options.nested;
-    const shown = active && progress > 0 ? progress : 0;
-    backdropBand?.set(SWIPE_PROGRESS, `${shown}`);
-    backdropBand?.remove(DRAWER_HEIGHT);
+    const shown = active ? progress : 0;
+    if (notifyParent && options.hasParent) {
+      const nested = options.open ? progress : 0;
+      publishNestedProgress(nested);
+      if (nested <= 0) {
+        finishNestedSwipe();
+      }
+    }
+    const frontmostHeight = options.frontmostHeight ?? 0;
+    provider?.set({ swipeProgress: shown, frontmostHeight: shown > 0 ? frontmostHeight : 0 });
+    const showProgress = active && shown > 0;
+    backdropBand?.set(SWIPE_PROGRESS, showProgress ? `${shown}` : '0');
+    if (showProgress && frontmostHeight > 0) {
+      backdropBand?.set(DRAWER_HEIGHT, `${frontmostHeight}px`);
+    } else {
+      backdropBand?.remove(DRAWER_HEIGHT);
+    }
   };
 
   // DRW-DOM-11 and the resting half of DRW-PTR-16: the offset variable, and the resting progress while no drag runs.
   const refreshSnap = () => {
-    const { activeOffset, resting } = snapState();
+    const { activeOffset, range, resting } = snapState();
     const offset = usesSnapPoints() && activeOffset !== null ? activeOffset : 0;
     popupBand?.set(SNAP_POINT_OFFSET, `${options.swipeDirection === 'up' && offset !== 0 ? -offset : offset}px`);
-    if (!swiping && resting !== null) {
-      applySwipeProgress(resting);
+    // DrawerViewport.tsx:823-841: without notifying the parent.
+    if (!swiping && range) {
+      applySwipeProgress(!options.open || options.nested ? 0 : (resting ?? 0));
     }
   };
 
@@ -539,6 +929,7 @@ export function attach(
     if (!popup) {
       return;
     }
+    finishNestedSwipe();
     setSwipeDismissed(true);
     popupBand?.remove('transition');
     forceEnding(popup);
@@ -605,7 +996,7 @@ export function attach(
     const indexOf = (entry: SnapPointEntry) => snapValues().findIndex((value) => Object.is(value, entry.value));
 
     const settleInPlace = () => {
-      applySwipeProgress(0);
+      applySwipeProgress(0, true);
       clearSwipeRelease();
       refreshSnap();
       return false;
@@ -737,9 +1128,15 @@ export function attach(
       popup?.toggleAttribute(SWIPING, next);
       backdrop?.toggleAttribute(SWIPING, next);
       twin.report('OnSwipingChange', { swiping: next });
+      if (!next && !options.hasParent) {
+        finishNestedSwipe();
+      }
     },
     // DRW-PTR-16 with DRW-ALG-05 and DRW-DOM-12's snap point exception (DrawerViewport.tsx:386-425).
-    onProgress: (progress: number, details?: { deltaY: number }) => {
+    onProgress: (progress: number, details?: SwipeProgressDetails) => {
+      if (swiping) {
+        updateNestedSwipeActive(details);
+      }
       const snaps = usesSnapPoints();
       const state = snaps ? snapState() : null;
       if (swiping && state && options.swipeDirection === 'down' && details) {
@@ -756,7 +1153,14 @@ export function attach(
           resolved = state.resting;
         }
       }
-      applySwipeProgress(resolved);
+      // A parent follows an active drag only.
+      if (!swiping) {
+        if (options.hasParent) {
+          publishNestedProgress(0);
+        }
+        finishNestedSwipe();
+      }
+      applySwipeProgress(resolved, swiping);
     },
     // DRW-PTR-10 (DrawerViewport.tsx:475-500).
     onRelease: (details: {
@@ -793,6 +1197,7 @@ export function attach(
     },
     // DRW-PTR-14.
     onDismiss: (event: PointerEvent | TouchEvent) => {
+      provider?.set({ swipeProgress: 0, frontmostHeight: 0 });
       backdropBand?.set(SWIPE_PROGRESS, '0');
       backdropBand?.remove(DRAWER_HEIGHT);
       // The `dismiss` point: on WebAssembly C# requests the close inside the dispatch.
@@ -993,6 +1398,10 @@ export function attach(
   viewport?.addEventListener('touchcancel', onTouchEnd);
   syncTouchMoveListener();
 
+  // DrawerViewport.tsx:842-854: a closed nested drawer leaves its parent at rest.
+  if (options.hasParent && !options.open) {
+    publishNestedProgress(0);
+  }
   refreshSnap();
 
   return {
@@ -1007,6 +1416,15 @@ export function attach(
       }
       tracker.setOptions(trackerOptions());
       syncTouchMoveListener();
+      if ((options.provider ?? null) !== (providerToken ?? null)) {
+        provider?.set({ swipeProgress: 0, frontmostHeight: 0 });
+        releaseVisualState(providerToken);
+        provider = acquireVisualState(options.provider);
+        providerToken = options.provider;
+      }
+      if (options.hasParent && !options.open && previous.open) {
+        publishNestedProgress(0);
+      }
       // DRW-ALG-01 on Blazor Server: a canceled change to no snap point drops its dismissal, and Base UI settles that
       // release in place with no snap point asked for again.
       if (pendingSnap && pendingSnap.index === null && (options.canceledSnap ?? 0) >= pendingSnap.request) {
@@ -1045,7 +1463,15 @@ export function attach(
       viewport?.removeEventListener('touchend', onTouchEnd);
       viewport?.removeEventListener('touchcancel', onTouchEnd);
       syncTouchMoveListener();
+      // DRW-ANI-05 (DrawerViewport.tsx:869-885).
+      provider?.set({ swipeProgress: 0, frontmostHeight: 0 });
+      releaseVisualState(providerToken);
+      provider = null;
       backdrop?.toggleAttribute(SWIPING, false);
+      finishNestedSwipe();
+      if (options.hasParent) {
+        publishNestedProgress(0);
+      }
       popupBand?.clear();
       backdropBand?.clear();
     },
