@@ -416,6 +416,17 @@ describe('otp-field: paste and composition (OTP-KEY-18..23, OTP-EDGE-05)', () =>
     expect(slots[0].value).toBe('');
   });
 
+  it('port: a composition that ends after C# rendered the slot disabled commits nothing, before the update arrives', () => {
+    const { slots, fake } = mount({ value: '', optimistic: false });
+    slots[0].focus();
+    slots[0].dispatchEvent(new CompositionEvent('compositionstart', { bubbles: true }));
+    type(slots[0], 'abc');
+    slots[0].disabled = true;
+    slots[0].dispatchEvent(new CompositionEvent('compositionend', { bubbles: true }));
+    expect(edits(fake)).toEqual([]);
+    expect(slots[0].value).toBe('');
+  });
+
   it('port: on Android every input during a composition is committed (OTP-KEY-22, OTP-KEY-23)', () => {
     setEnvironmentForTesting({ android: true });
     const { slots, fake } = mount({ value: '', optimistic: false });
