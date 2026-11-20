@@ -2354,3 +2354,545 @@ test.describe('<Drawer.Viewport /> snap point gestures held over from slice 2', 
     });
   }
 });
+
+// Slice 4 (M6 track 8b, issue 279, added 2026-11-21): DrawerSwipeArea.test.tsx on the `drawer-swipe-area` fixture. Base
+// UI's `swipe()` helper fires a press, a one-pixel step, the end and the release on the area, 16 ms apart; `areaSwipe`
+// dispatches the same events in the page on the same timeline (ADR 06 Amendments 2026-11-18).
+const areaCase = (page: Page, mode: RenderMode, options: Record<string, string | boolean> = {}) =>
+  gotoPopupFixture(page, mode, 'drawer-swipe-area', options);
+
+interface AreaPoint {
+  x: number;
+  y: number;
+}
+
+type AreaFire = (type: 'pointerdown' | 'pointermove' | 'pointerup', point: AreaPoint, time: number, pointerType?: string) => Promise<void>;
+
+const fireOnArea: (page: Page) => AreaFire = (page) => (type, point, time, pointerType = 'mouse') =>
+  page.getByTestId('swipe-area').evaluate((element, step) => {
+    const event = new PointerEvent(step.type, {
+      bubbles: true,
+      cancelable: true,
+      composed: true,
+      isPrimary: true,
+      pointerId: 1,
+      pointerType: step.pointerType,
+      button: step.type === 'pointermove' ? -1 : 0,
+      buttons: step.type === 'pointerup' ? 0 : 1,
+      clientX: step.x,
+      clientY: step.y,
+    });
+    Object.defineProperty(event, 'timeStamp', { value: step.time });
+    element.dispatchEvent(event);
+  }, { type, x: point.x, y: point.y, time, pointerType });
+
+const areaSwipe = async (
+  page: Page,
+  start: AreaPoint,
+  end: AreaPoint,
+  options: { beforeRelease?: (next: () => number, fire: AreaFire) => Promise<void>; step?: number; startAt?: number; pointerType?: string } = {},
+) => {
+  const { step = 16, startAt = 1, pointerType = 'mouse' } = options;
+  const fire = fireOnArea(page);
+  let time = startAt;
+  const next = () => (time += step);
+  const nudge = { x: start.x + Math.sign(end.x - start.x), y: start.y + Math.sign(end.y - start.y) };
+  await fire('pointerdown', start, time, pointerType);
+  await fire('pointermove', nudge, next(), pointerType);
+  await fire('pointermove', end, next(), pointerType);
+  await options.beforeRelease?.(next, fire);
+  await fire('pointerup', end, next(), pointerType);
+};
+const areaUp = (page: Page, from: number, to: number, options?: Parameters<typeof areaSwipe>[3]) =>
+  areaSwipe(page, { x: 10, y: from }, { x: 10, y: to }, options);
+const areaLeft = (page: Page, from: number, to: number, options?: Parameters<typeof areaSwipe>[3]) =>
+  areaSwipe(page, { x: from, y: 10 }, { x: to, y: 10 }, options);
+
+test.describe('<Drawer.SwipeArea />', () => {
+  // DRW-PTR-28 (DrawerSwipeArea.test.tsx:303-317).
+  test('opens the drawer when swiped in the open direction', async ({ page, mode }) => {
+    await areaCase(page, mode);
+    const area = page.getByTestId('swipe-area');
+    await expect(area).toHaveAttribute('data-closed', '');
+
+    await areaUp(page, 120, 40);
+    await expect(area).toHaveAttribute('data-open', '');
+  });
+
+  // DRW-PTR-28 (DrawerSwipeArea.test.tsx:319-334): a horizontal drag never locks to `up`. Folded with its positive half.
+  test('does not open when the swipe direction never locks to the open direction', async ({ page, mode }) => {
+    const fixture = await areaCase(page, mode);
+    const area = page.getByTestId('swipe-area');
+
+    await areaSwipe(page, { x: 10, y: 120 }, { x: 70, y: 118 });
+    await settle(fixture);
+    await expect(area).toHaveAttribute('data-closed', '');
+    await expect(fixture).toHaveAttribute('data-open-changes', '');
+
+    await areaUp(page, 120, 40, { startAt: 1000 });
+    await expect(area).toHaveAttribute('data-open', '');
+  });
+
+  // DRW-PTR-27 (DrawerSwipeArea.test.tsx:336-353).
+  test('prevents default pointer down for non-touch swipes', async ({ page, mode }) => {
+    await areaCase(page, mode);
+    const notCanceled = await page.getByTestId('swipe-area').evaluate((element) =>
+      element.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, cancelable: true, button: 0, buttons: 1, pointerId: 1, clientX: 10, clientY: 120, pointerType: 'mouse' })),
+    );
+    expect(notCanceled).toBe(false);
+  });
+
+  // DRW-PTR-26 (DrawerSwipeArea.test.tsx:355-367). Folded with its positive half: enabled again, the same swipe opens.
+  test('does not open the drawer when disabled', async ({ page, mode }) => {
+    const fixture = await areaCase(page, mode, { disabled: true });
+    const area = page.getByTestId('swipe-area');
+
+    await areaUp(page, 120, 40);
+    await settle(fixture);
+    await expect(area).toHaveAttribute('data-closed', '');
+
+    await pressControl(fixture.locator('[data-enable-area]'));
+    await expect(area).not.toHaveAttribute('data-disabled');
+    await settle(fixture);
+    await areaUp(page, 120, 40, { startAt: 1000 });
+    await expect(area).toHaveAttribute('data-open', '');
+  });
+
+  // DRW-API-09, PTR-28 (DrawerSwipeArea.test.tsx:369-381).
+  test('respects custom swipeDirection', async ({ page, mode }) => {
+    await areaCase(page, mode, { area: 'left' });
+    await areaLeft(page, 120, 40);
+    await expect(page.getByTestId('swipe-area')).toHaveAttribute('data-open', '');
+  });
+
+  // DRW-ALG-04, PTR-29, PTR-31 (DrawerSwipeArea.test.tsx:383-459): 250 px of a 100 px popup overshoots by √150.
+  test('synchronizes overshoot styles across the popup, backdrop, and provider indent', async ({ page, mode }) => {
+    await areaCase(page, mode, { provider: true, parts: true, area: 'left' });
+    const indent = page.getByTestId('indent');
+    const backdrop = page.getByTestId('backdrop');
+
+    await areaLeft(page, 200, -50, {
+      beforeRelease: async (next, fire) => {
+        const popup = page.getByTestId('popup');
+        await expect.poll(async () => Number.parseFloat(await styleOf(popup, '--drawer-swipe-movement-x'))).toBeCloseTo(-Math.sqrt(150), 3);
+        expect(await styleOf(popup, '--drawer-swipe-movement-y')).toBe('0px');
+        expect(await styleOf(popup, 'transition')).toBe('none');
+        await expect(backdrop).toHaveAttribute('data-swiping', '');
+        await expect.poll(() => styleOf(backdrop, '--drawer-height')).toBe('100px');
+        expect(await styleOf(indent, '--drawer-swipe-progress')).toBe('1');
+        expect(await styleOf(indent, '--drawer-height')).toBe('100px');
+
+        await fire('pointermove', { x: 200, y: 10 }, next());
+        await expect.poll(() => styleOf(indent, '--drawer-swipe-progress')).toBe('0');
+        expect(await styleOf(indent, '--drawer-height')).toBe('');
+        await fire('pointermove', { x: -50, y: 10 }, next());
+      },
+    });
+    await expect(backdrop).not.toHaveAttribute('data-swiping');
+    expect(await styleOf(backdrop, '--drawer-swipe-progress')).toBe('0');
+    await expect.poll(() => styleOf(indent, '--drawer-swipe-progress')).toBe('0');
+    expect(await styleOf(indent, '--drawer-height')).toBe('');
+  });
+
+  // DRW-ALG-04 (DrawerSwipeArea.test.tsx:461-502): the popup rests 60 px out, so 40 px of travel leaves 20 px.
+  test('opens from the rendered transform distance in either horizontal direction', async ({ page, mode }) => {
+    await areaCase(page, mode, { parts: true, root: 'left', area: 'right', transform: 'matrix(1, 0, 0, 1, 60, 0)' });
+
+    await areaSwipe(page, { x: 0, y: 10 }, { x: 40, y: 10 }, {
+      beforeRelease: async () => {
+        await expect.poll(async () => Number.parseFloat(await styleOf(page.getByTestId('popup'), '--drawer-swipe-movement-x'))).toBeCloseTo(-20, 3);
+      },
+    });
+    await expect(page.getByTestId('swipe-area')).toHaveAttribute('data-open', '');
+  });
+
+  // DRW-DOM-21, PTR-29 (DrawerSwipeArea.test.tsx:504-537): a popup with no height gives no frontmost height. Folded with its
+  // positive half: the backdrop does follow the swipe.
+  test('omits frontmost height when an opening drawer has no measured height', async ({ page, mode }) => {
+    await areaCase(page, mode, { provider: true, parts: true, area: 'left', ph: '0' });
+
+    await areaLeft(page, 100, 40, {
+      beforeRelease: async () => {
+        await expect(page.getByTestId('backdrop')).toHaveAttribute('data-swiping', '');
+        expect(await styleOf(page.getByTestId('backdrop'), '--drawer-height')).toBe('');
+        expect(await styleOf(page.getByTestId('indent'), '--drawer-height')).toBe('');
+      },
+    });
+  });
+
+  // DRW-PTR-28, EVT-01 (DrawerSwipeArea.test.tsx:539-575): a controlled root that stays closed gets one open request, no
+  // close, and its popup never moves.
+  test('does not apply or close swipe state when a controlled parent rejects opening', async ({ page, mode }) => {
+    const fixture = await areaCase(page, mode, { parts: true, keepMounted: true, open: 'reject' });
+
+    await areaUp(page, 120, 110, { startAt: 1000, step: 1000 });
+    await settle(fixture);
+    await expect(fixture).toHaveAttribute('data-open-changes', 'true:swipe');
+    await expect(page.getByTestId('popup')).not.toHaveAttribute('data-swiping');
+    expect(await styleOf(page.getByTestId('popup'), '--drawer-swipe-movement-y')).not.toMatch(/^-?[1-9]/);
+  });
+});
+
+// Base UI's `pressOutside` and `pressOutsideTouch`: a fresh press on the body, dispatched in the page.
+const pressOutsideInPage = (page: Page, touch = false) =>
+  page.evaluate((isTouch) => {
+    const target = document.body;
+    const pointerType = isTouch ? 'touch' : 'mouse';
+    target.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, button: 0, buttons: 1, pointerId: 1, pointerType }));
+    if (isTouch) {
+      const point = new Touch({ identifier: 1, target, clientX: 0, clientY: 0 });
+      target.dispatchEvent(new TouchEvent('touchstart', { bubbles: true, touches: [point] }));
+      target.dispatchEvent(new TouchEvent('touchend', { bubbles: true, changedTouches: [point], touches: [] }));
+    }
+    target.dispatchEvent(new PointerEvent('pointerup', { bubbles: true, button: 0, buttons: 0, pointerId: 1, pointerType }));
+    target.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+  }, touch);
+// The click a gesture's own pointerup synthesizes: a physical click (detail 1) with no pointerdown of its own.
+const releaseClickInPage = (page: Page, pointerType: string) =>
+  page.evaluate((type) => {
+    const click = new MouseEvent('click', { bubbles: true, detail: 1 });
+    Object.defineProperty(click, 'pointerType', { value: type });
+    document.body.dispatchEvent(click);
+  }, pointerType);
+const touchUpOnArea = (page: Page, from: number, to: number) => touchDrag(page, [[{ x: 10, y: from }, { x: 10, y: to }]], { steps: 4 });
+
+test.describe('<Drawer.SwipeArea /> outside presses and gesture ends', () => {
+  // DRW-PTR-31, DIS-02 (DrawerSwipeArea.test.tsx:577-693).
+  test('cancels an active opening gesture when the swipe area becomes disabled', async ({ page, mode }) => {
+    const fixture = await areaCase(page, mode, { provider: true, parts: true });
+    const fire = fireOnArea(page);
+    await fire('pointerdown', { x: 0, y: 100 }, 1);
+    await fire('pointermove', { x: 0, y: 99 }, 17);
+    await fire('pointermove', { x: 0, y: 60 }, 33);
+    const popup = page.getByTestId('popup');
+    await expect(popup).toHaveAttribute('data-swiping', '');
+
+    await pressControl(fixture.locator('[data-disable-area]'));
+    await expect(page.getByTestId('swipe-area')).toHaveAttribute('data-disabled', '');
+    await expect(popup).not.toHaveAttribute('data-swiping');
+    await expect.poll(() => styleOf(page.getByTestId('indent'), '--drawer-swipe-progress')).toBe('0');
+
+    await pressOutsideInPage(page);
+    await expect(page.getByTestId('popup')).toHaveCount(0);
+  });
+
+  // DRW-DIS-02 (DrawerSwipeArea.test.tsx:695-757).
+  test('keeps the drawer open when the release click follows a mid-gesture disable', async ({ page, mode }) => {
+    const fixture = await areaCase(page, mode, { parts: true });
+    const fire = fireOnArea(page);
+    await fire('pointerdown', { x: 0, y: 100 }, 1);
+    await fire('pointermove', { x: 0, y: 99 }, 17);
+    await fire('pointermove', { x: 0, y: 40 }, 33);
+    const popup = page.getByTestId('popup');
+    await expect(popup).toHaveAttribute('data-open', '');
+
+    await pressControl(fixture.locator('[data-disable-area]'));
+    await expect(page.getByTestId('swipe-area')).toHaveAttribute('data-disabled', '');
+    await releaseClickInPage(page, 'mouse');
+    await settle(fixture);
+    await expect(popup).toHaveAttribute('data-open', '');
+
+    await pressOutsideInPage(page);
+    await expect(page.getByTestId('popup')).toHaveCount(0);
+  });
+
+  // DRW-PTR-27 (DrawerSwipeArea.test.tsx:759-791).
+  test('does not prevent a non-cancelable pointer start', async ({ page, mode }) => {
+    await areaCase(page, mode);
+    const result = await page.getByTestId('swipe-area').evaluate((element) => {
+      const event = new Event('pointerdown', { bubbles: true, cancelable: false });
+      Object.defineProperties(event, {
+        pointerType: { value: 'mouse' },
+        pointerId: { value: 1 },
+        button: { value: 0 },
+        buttons: { value: 1 },
+        clientX: { value: 0 },
+        clientY: { value: 0 },
+      });
+      let prevented = false;
+      const original = event.preventDefault.bind(event);
+      event.preventDefault = () => {
+        prevented = true;
+        original();
+      };
+      const dispatched = element.dispatchEvent(event);
+      element.dispatchEvent(new PointerEvent('pointercancel', { bubbles: true, pointerType: 'mouse', pointerId: 1 }));
+      return { dispatched, defaultPrevented: event.defaultPrevented, prevented };
+    });
+    expect(result).toEqual({ dispatched: true, defaultPrevented: false, prevented: false });
+  });
+
+  // DRW-PTR-27 (DrawerSwipeArea.test.tsx:793-828): touch pointers are the touch events' business. Folded with its positive
+  // half: a mouse swipe after them opens.
+  test('ignores compatibility touch pointer gestures with real displacement', async ({ page, mode }) => {
+    const fixture = await areaCase(page, mode);
+    await page.getByTestId('swipe-area').evaluate((element) => {
+      for (const [type, y] of [['pointerdown', 120], ['pointermove', 40], ['pointerup', 40], ['pointercancel', 40]] as const) {
+        const event = new Event(type, { bubbles: true, cancelable: true });
+        Object.defineProperties(event, {
+          pointerType: { value: 'touch' },
+          pointerId: { value: 1 },
+          button: { value: 0 },
+          buttons: { value: type === 'pointerup' || type === 'pointercancel' ? 0 : 1 },
+          clientX: { value: 0 },
+          clientY: { value: y },
+        });
+        element.dispatchEvent(event);
+      }
+    });
+    await settle(fixture);
+    await expect(fixture).toHaveAttribute('data-open-changes', '');
+
+    await areaUp(page, 120, 40, { startAt: 1000 });
+    await expect(page.getByTestId('swipe-area')).toHaveAttribute('data-open', '');
+  });
+
+  // DRW-PTR-27 (DrawerSwipeArea.test.tsx:908-926), real touches.
+  testWithTouch('opens the drawer when swiped with touch events', async ({ touchPage: page, mode }) => {
+    await areaCase(page, mode, { parts: true });
+    await touchUpOnArea(page, 120, 40);
+    await expect(page.getByTestId('swipe-area')).toHaveAttribute('data-open', '');
+    await expect(page.getByTestId('popup')).toHaveAttribute('data-open', '');
+  });
+
+  // DRW-DOM-06, PTR-25 (DrawerSwipeArea.test.tsx:928-944).
+  test('applies data-swiping during an active swipe gesture', async ({ page, mode }) => {
+    await areaCase(page, mode);
+    const area = page.getByTestId('swipe-area');
+    await areaUp(page, 120, 40, {
+      beforeRelease: async () => {
+        await expect(area).toHaveAttribute('data-swiping', '');
+      },
+    });
+    await expect(area).not.toHaveAttribute('data-swiping');
+  });
+
+  // DRW-DIS-02 (DrawerSwipeArea.test.tsx:946-1008).
+  for (const touch of [false, true]) {
+    testWithTouch(
+      touch ? 're-enables outside press dismissal for a touch outside press after opening by swipe' : 're-enables outside press dismissal after opening by swipe',
+      async ({ touchPage: page, mode }) => {
+        const fixture = await areaCase(page, mode, { parts: true });
+        await touchUpOnArea(page, 120, 40);
+        await expect(page.getByTestId('popup')).toHaveAttribute('data-open', '');
+        await settle(fixture);
+
+        await pressOutsideInPage(page, touch);
+        await expect(page.getByTestId('popup')).toHaveCount(0);
+        await expect(page.getByTestId('swipe-area')).toHaveAttribute('data-closed', '');
+      },
+    );
+  }
+
+  // DRW-DIS-02 (DrawerSwipeArea.test.tsx:1010-1053). Folded with its positive half: a fresh press afterwards dismisses.
+  for (const [pointerType, input] of [['mouse', 'pointer'], ['pen', 'pointer'], ['touch', 'touch']] as const) {
+    testWithTouch(`does not dismiss from the ${pointerType}/${input} click synthesized by the swipe-open release`, async ({ touchPage: page, mode }) => {
+      const fixture = await areaCase(page, mode, { parts: true });
+      if (input === 'touch') {
+        await touchUpOnArea(page, 120, 40);
+      } else {
+        await areaUp(page, 120, 40, { pointerType });
+      }
+      await expect(page.getByTestId('popup')).toHaveAttribute('data-open', '');
+      await settle(fixture);
+
+      await releaseClickInPage(page, pointerType);
+      await settle(fixture);
+      await expect(page.getByTestId('popup')).toHaveAttribute('data-open', '');
+
+      await pressOutsideInPage(page);
+      await expect(page.getByTestId('popup')).toHaveCount(0);
+    });
+  }
+
+  // DRW-DIS-02 (DrawerSwipeArea.test.tsx:1055-1124, browser-only): a real click whose pointerdown never reaches the document
+  // is the release's and is ignored; the next real click dismisses.
+  test('suppresses a trusted release click that arrives without a preceding pointerdown', async ({ page, mode }) => {
+    const fixture = await areaCase(page, mode, { parts: true });
+    await areaUp(page, 120, 40);
+    await expect(page.getByTestId('popup')).toHaveAttribute('data-open', '');
+    await settle(fixture);
+
+    await page.evaluate(() => {
+      (window as unknown as { stopPointerDown: (event: Event) => void }).stopPointerDown = (event: Event) => event.stopPropagation();
+      window.addEventListener('pointerdown', (window as unknown as { stopPointerDown: (event: Event) => void }).stopPointerDown, true);
+    });
+    await page.getByTestId('outside').click({ force: true });
+    await page.evaluate(() =>
+      window.removeEventListener('pointerdown', (window as unknown as { stopPointerDown: (event: Event) => void }).stopPointerDown, true),
+    );
+    await settle(fixture);
+    await expect(page.getByTestId('popup')).toHaveAttribute('data-open', '');
+
+    await page.getByTestId('outside').click({ force: true });
+    await expect(page.getByTestId('popup')).toHaveCount(0);
+  });
+
+  // DRW-DIS-02 (DrawerSwipeArea.test.tsx:1126-1155): Enter on a focused outside button is a click-only activation.
+  test('allows a later click-only activation to dismiss after a swipe', async ({ page, mode }) => {
+    await areaCase(page, mode, { parts: true, modal: false, initialFocus: false });
+    const outside = page.getByTestId('outside-button');
+    await outside.focus();
+    await areaUp(page, 120, 40);
+    await expect(page.getByTestId('popup')).toHaveAttribute('data-open', '');
+    await expect(outside).toBeFocused();
+
+    await page.keyboard.press('Enter');
+    await expect(page.getByTestId('popup')).toHaveCount(0);
+  });
+
+  // DRW-DIS-02 (DrawerSwipeArea.test.tsx:1157-1189): a press-less click (detail 0) is virtual.
+  testWithTouch('allows a later pointerless virtual click to dismiss when the release has no click', async ({ touchPage: page, mode }) => {
+    await areaCase(page, mode, { parts: true, modal: false, initialFocus: false });
+    await touchUpOnArea(page, 120, 40);
+    await expect(page.getByTestId('popup')).toHaveAttribute('data-open', '');
+
+    await page.getByTestId('outside-button').evaluate((element) => {
+      const click = new MouseEvent('click', { bubbles: true, detail: 0 });
+      Object.defineProperty(click, 'pointerType', { value: '' });
+      element.dispatchEvent(click);
+    });
+    await expect(page.getByTestId('popup')).toHaveCount(0);
+  });
+});
+
+// One pointer event on the area with Base UI's `firePointer` fields, `buttons` included.
+const areaPointer = (page: Page, type: string, x: number, y: number, buttons: number, time?: number) =>
+  page.getByTestId('swipe-area').evaluate((element, step) => {
+    const event = new PointerEvent(step.type, {
+      bubbles: true,
+      cancelable: true,
+      composed: true,
+      isPrimary: true,
+      pointerId: 1,
+      pointerType: 'mouse',
+      button: step.type === 'pointermove' ? -1 : step.buttons === 2 ? 2 : 0,
+      buttons: step.buttons,
+      clientX: step.x,
+      clientY: step.y,
+    });
+    if (step.time !== undefined) {
+      Object.defineProperty(event, 'timeStamp', { value: step.time });
+    }
+    element.dispatchEvent(event);
+  }, { type, x, y, buttons, time });
+
+test.describe('<Drawer.SwipeArea /> interruptions, thresholds and quick flicks', () => {
+  // DRW-PTR-31, DIS-02 (DrawerSwipeArea.test.tsx:1191-1260): a move with the secondary button cancels the gesture.
+  test('re-enables outside press dismissal after an interrupted swipe-open gesture', async ({ page, mode }) => {
+    const fixture = await areaCase(page, mode, { parts: true });
+    await areaPointer(page, 'pointerdown', 10, 120, 1);
+    await areaPointer(page, 'pointermove', 10, 119, 1);
+    await areaPointer(page, 'pointermove', 10, 80, 1);
+    await expect(page.getByTestId('popup')).toHaveAttribute('data-open', '');
+    await expect(page.getByTestId('swipe-area')).toHaveAttribute('data-open', '');
+
+    await areaPointer(page, 'pointermove', 10, 60, 2);
+    await settle(fixture);
+    await pressOutsideInPage(page);
+    await expect(page.getByTestId('popup')).toHaveCount(0);
+    await expect(page.getByTestId('swipe-area')).toHaveAttribute('data-closed', '');
+  });
+
+  // DRW-PTR-31, DIS-02 (DrawerSwipeArea.test.tsx:1262-1334).
+  test('re-enables outside press dismissal after a context menu interrupts swipe-open', async ({ page, mode }) => {
+    const fixture = await areaCase(page, mode, { parts: true });
+    await areaPointer(page, 'pointerdown', 10, 120, 1);
+    await areaPointer(page, 'pointermove', 10, 119, 1);
+    await areaPointer(page, 'pointermove', 10, 80, 1);
+    await expect(page.getByTestId('popup')).toHaveAttribute('data-open', '');
+
+    await areaPointer(page, 'pointermove', 10, 60, 2);
+    await page.getByTestId('swipe-area').evaluate((element) =>
+      element.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, cancelable: true, button: 2, clientX: 10, clientY: 60 })),
+    );
+    await settle(fixture);
+    await pressOutsideInPage(page);
+    await expect(page.getByTestId('popup')).toHaveCount(0);
+  });
+
+  // DRW-PTR-30 (DrawerSwipeArea.test.tsx:1336-1369): half of a 200 px popup is the threshold; 70 px stays closed, 120 px
+  // opens, on a slow timeline.
+  test('uses a size-based swipe threshold by default', async ({ page, mode }) => {
+    const fixture = await areaCase(page, mode, { parts: true, ph: '200' });
+    const area = page.getByTestId('swipe-area');
+
+    await areaUp(page, 200, 130, { step: 100 });
+    await settle(fixture);
+    await expect(area).toHaveAttribute('data-closed', '');
+
+    await areaUp(page, 200, 80, { step: 100, startAt: 5000 });
+    await expect(area).toHaveAttribute('data-open', '');
+  });
+
+  // DRW-PTR-25, DIS-02 (DrawerSwipeArea.test.tsx:1466-1513): the only move arrives with no button held.
+  test('opens on a quick flick whose only move is already released (buttons: 0)', async ({ page, mode }) => {
+    await areaCase(page, mode, { parts: true });
+    await areaPointer(page, 'pointerdown', 10, 120, 1, 1);
+    await areaPointer(page, 'pointermove', 10, 40, 0, 16);
+    const area = page.getByTestId('swipe-area');
+    await expect(area).toHaveAttribute('data-open', '');
+    await expect(area).not.toHaveAttribute('data-swiping');
+
+    await pressOutsideInPage(page);
+    await expect(page.getByTestId('popup')).toHaveCount(0);
+  });
+
+  // DRW-PTR-25, PTR-30 (DrawerSwipeArea.test.tsx:1515-1573).
+  test('commits a released-move quick flick exactly once when a real pointerup trails it', async ({ page, mode }) => {
+    const fixture = await areaCase(page, mode, { parts: true });
+    const area = page.getByTestId('swipe-area');
+    await areaPointer(page, 'pointerdown', 10, 120, 1, 1);
+    await areaPointer(page, 'pointermove', 10, 40, 0, 16);
+    await expect(area).toHaveAttribute('data-open', '');
+    await expect(fixture).toHaveAttribute('data-open-changes', 'true:swipe');
+
+    await areaPointer(page, 'pointerup', 10, 40, 0, 32);
+    await settle(fixture);
+    await expect(area).toHaveAttribute('data-open', '');
+    await expect(area).not.toHaveAttribute('data-swiping');
+    await expect(fixture).toHaveAttribute('data-open-changes', 'true:swipe');
+  });
+
+  // DRW-PTR-25 (DrawerSwipeArea.test.tsx:1575-1606): touch events dispatched in the page, the whole travel in one move.
+  test('opens on a quick flick that lands its whole travel in a single touch move', async ({ page, mode }) => {
+    await areaCase(page, mode);
+    await page.getByTestId('swipe-area').evaluate((element) => {
+      const at = (y: number) => new Touch({ identifier: 1, target: element, clientX: 10, clientY: y });
+      element.dispatchEvent(new TouchEvent('touchstart', { bubbles: true, cancelable: true, touches: [at(120)] }));
+      element.dispatchEvent(new TouchEvent('touchmove', { bubbles: true, cancelable: true, touches: [at(40)] }));
+      element.dispatchEvent(new TouchEvent('touchend', { bubbles: true, cancelable: true, changedTouches: [at(40)], touches: [] }));
+    });
+    await expect(page.getByTestId('swipe-area')).toHaveAttribute('data-open', '');
+  });
+
+  // DRW-PTR-25 (DrawerSwipeArea.test.tsx:1608-1653). Folded with its positive half: a moving flick then opens.
+  test('does not open on an in-place press-release without movement', async ({ page, mode }) => {
+    const fixture = await areaCase(page, mode);
+    await areaPointer(page, 'pointerdown', 10, 120, 1, 1);
+    await areaPointer(page, 'pointermove', 10, 120, 0, 16);
+    await areaPointer(page, 'pointerup', 10, 120, 0, 32);
+    await settle(fixture);
+    await expect(page.getByTestId('swipe-area')).toHaveAttribute('data-closed', '');
+    await expect(fixture).toHaveAttribute('data-open-changes', '');
+
+    await areaPointer(page, 'pointerdown', 10, 120, 1, 1000);
+    await areaPointer(page, 'pointermove', 10, 40, 0, 1016);
+    await expect(page.getByTestId('swipe-area')).toHaveAttribute('data-open', '');
+  });
+
+  // DRW-PTR-25 (DrawerSwipeArea.test.tsx:1655-1690). Folded with its positive half: a leftward drag then opens.
+  test('does not open a horizontal drawer on a stationary pointer move', async ({ page, mode }) => {
+    const fixture = await areaCase(page, mode, { area: 'left' });
+    await areaPointer(page, 'pointerdown', 100, 10, 1, 1);
+    await areaPointer(page, 'pointermove', 100, 10, 1, 17);
+    await settle(fixture);
+    await expect(fixture).toHaveAttribute('data-open-changes', '');
+    await areaPointer(page, 'pointerup', 100, 10, 0, 33);
+    await settle(fixture);
+    await expect(fixture).toHaveAttribute('data-open-changes', '');
+
+    await areaLeft(page, 120, 40, { startAt: 1000 });
+    await expect(page.getByTestId('swipe-area')).toHaveAttribute('data-open', '');
+  });
+});
