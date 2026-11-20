@@ -857,6 +857,7 @@ canSwipeFromEdgeOnMove(scroller, delta) ← (dismissFromStart ? delta > 0 : delt
   Port note 2026-11-19 (M6 track 8b slice 2, [issue 279](https://github.com/JakeMurrayDev/Blazix.Primitives/issues/279)): transcribed in `js/drawer.ts` (`shouldYieldTouchMove`, `isAtSwipeStartEdge`, `canSwipeFromScrollEdgeOnMove`). [L3] as PTR-21/22, green.
 - **DRW-ALG-04** — MUST. The implementation reproduces the following SwipeArea open movement exactly (`open` = opening direction, `dismiss` = its opposite). Server: relaxed, see §9.
   Port note 2026-11-21 (M6 track 8b slice 4, [issue 279](https://github.com/JakeMurrayDev/Blazix.Primitives/issues/279)): transcribed in `js/drawer.ts`'s `swipe-area` role. [L3] "synchronizes overshoot styles across the popup, backdrop, and provider indent" and "opens from the rendered transform distance in either horizontal direction" are green in `js/drawer.swipe-area.test.ts`; "keeps the swipe-area movement on the popup when re-grabbed during close" is open.
+  Port note 2026-11-21 (M6 track 8b slice 4, [issue 279](https://github.com/JakeMurrayDev/Blazix.Primitives/issues/279)): [L3] "port: keeps the swipe-area movement on the popup when re-grabbed during close" is green (`120px`, with a Viewport handle on the same popup), red when the Viewport resets on every open (a planted fault). Base UI's [L4] title, which closes the drawer through its Close with a 200 ms exit animation and re-grabs mid-exit, is open.
 
 ```
 require Popup element, store open and mounted

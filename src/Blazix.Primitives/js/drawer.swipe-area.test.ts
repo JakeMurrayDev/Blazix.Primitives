@@ -150,6 +150,25 @@ describe('drawer module: the swipe area (DrawerSwipeArea.test.tsx)', () => {
     pointer('pointerup', area, 40, 10);
   });
 
+  // DRW-ALG-04, PTR-29 (DrawerSwipeArea.test.tsx:1371-1464, "keeps the swipe-area movement on the popup when re-grabbed
+  // during close"): 80 px of a 200 px popup leaves 120 px, and the Viewport's open-time reset leaves the area's movement.
+  it('port: keeps the swipe-area movement on the popup when re-grabbed during close', () => {
+    const { area, popup, backdrop, opened } = swipeArea({ swipeDirection: 'up' });
+    Object.defineProperty(popup, 'offsetHeight', { value: 200, configurable: true });
+    const viewportElement = element();
+    const viewportOptions = { role: 'viewport', open: false, mounted: true, nested: false, nestedOpenDrawerCount: 0, swipeDirection: 'down', answeredDismiss: 0, popup: 0, backdrop: 1 };
+    const viewport = attach(viewportElement, JSON.stringify(viewportOptions), createFakeTwin().twin, [popup, backdrop]);
+    handles.push(viewport);
+
+    pointer('pointerdown', area, 10, 120);
+    pointer('pointermove', area, 10, 40);
+    opened();
+    viewport.update(JSON.stringify({ ...viewportOptions, open: true }), [popup, backdrop]);
+    expect(area.hasAttribute('data-swiping')).toBe(true);
+    expect(popup.style.getPropertyValue('--drawer-swipe-movement-y')).toBe('120px');
+    pointer('pointerup', area, 10, 40);
+  });
+
   // DRW-PTR-28, PTR-30: one open request per gesture, with the start event; a release past half the popup commits it.
   it('port: requests one open per gesture from the start event and keeps it on a committing release', () => {
     const { area, opened, requests } = swipeArea();
