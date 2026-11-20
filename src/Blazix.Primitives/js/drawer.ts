@@ -74,6 +74,14 @@ export interface DrawerOptions extends TwinOptions {
   swipeDirection: SwipeDirection;
   /** The number of the last dismiss request C# has answered. */
   answeredDismiss: number;
+  /** The snap points as the consumer wrote them: fractions of the viewport height, pixels, or `px`/`rem` strings. */
+  snapPoints?: Array<number | string> | null;
+  /** The active snap point, one of `snapPoints` or any other value, or `null` for none. */
+  activeSnapPoint?: number | string | null;
+  /** Whether a release moves at most one snap point at a time. */
+  snapToSequentialPoints?: boolean;
+  /** The number of the last snap point request C# has answered. */
+  answeredSnap?: number;
   /** The index of the Popup element among the references, or `null` while none is rendered. */
   popup?: number | null;
   /** The index of the Backdrop element among the references, or `null` while none is rendered. */
@@ -104,6 +112,7 @@ const MOVEMENT_Y = '--drawer-swipe-movement-y';
 const SWIPE_STRENGTH = '--drawer-swipe-strength';
 const SWIPE_PROGRESS = '--drawer-swipe-progress';
 const DRAWER_HEIGHT = '--drawer-height';
+const SNAP_POINT_OFFSET = '--drawer-snap-point-offset';
 
 function clamp(value: number, min: number, max: number): number {
   return Math.min(Math.max(value, min), max);
@@ -118,10 +127,140 @@ function getBaseSwipeThreshold(element: HTMLElement, direction: SwipeDirection):
   return Math.max(getBaseSwipeSize(element, direction) * 0.5, MIN_SWIPE_THRESHOLD);
 }
 
-// DRW-ALG-02 (DrawerViewport.tsx:236-293), without the snap point base offset (slice 3).
+// Slice 3 (M6 track 8b, issue 279, added 2026-11-20): the snap points. DRW-STA-05/06/07 resolve them from the viewport
+// height, the popup height and the root font size, which the module measures (useDrawerSnapPoints.ts:21-195).
+
+/** A snap point the drawer can rest on: the consumer's value, its height in pixels, and the popup's offset from fully open. */
+export interface SnapPointEntry {
+  value: number | string;
+  height: number;
+  offset: number;
+}
+
+// DRW-STA-05.
+function resolveSnapPointValue(value: number | string, viewportHeight: number, rootFontSize: number): number | null {
+  if (!Number.isFinite(viewportHeight) || viewportHeight <= 0) {
+    return null;
+  }
+  if (typeof value === 'number') {
+    if (!Number.isFinite(value)) {
+      return null;
+    }
+    return value <= 1 ? clamp(value, 0, 1) * viewportHeight : value;
+  }
+  const trimmed = value.trim();
+  if (trimmed.endsWith('px')) {
+    const pixels = Number.parseFloat(trimmed);
+    return Number.isFinite(pixels) ? pixels : null;
+  }
+  if (trimmed.endsWith('rem')) {
+    const rems = Number.parseFloat(trimmed);
+    return Number.isFinite(rems) ? rems * rootFontSize : null;
+  }
+  return null;
+}
+
+/**
+ * Resolves snap points to heights and offsets, in input order, keeping the last of any two within 1 px of each other.
+ * @param values The snap points as the consumer wrote them.
+ * @param viewportHeight The viewport height, in pixels.
+ * @param popupHeight The popup height, in pixels.
+ * @param rootFontSize The root font size, in pixels.
+ * @returns The resolved snap points; empty when nothing resolves or a height is not positive.
+ */
+export function resolveSnapPoints(
+  values: ReadonlyArray<number | string>,
+  viewportHeight: number,
+  popupHeight: number,
+  rootFontSize: number,
+): SnapPointEntry[] {
+  // DRW-STA-06.
+  if (values.length === 0 || viewportHeight <= 0 || popupHeight <= 0) {
+    return [];
+  }
+  const maxHeight = Math.min(popupHeight, viewportHeight);
+  const resolved: SnapPointEntry[] = [];
+  for (const value of values) {
+    const height = resolveSnapPointValue(value, viewportHeight, rootFontSize);
+    if (height === null) {
+      continue;
+    }
+    const clamped = clamp(height, 0, maxHeight);
+    resolved.push({ value, height: clamped, offset: Math.max(0, popupHeight - clamped) });
+  }
+  if (resolved.length <= 1) {
+    return resolved;
+  }
+  const kept: SnapPointEntry[] = [];
+  for (let index = resolved.length - 1; index >= 0; index -= 1) {
+    const entry = resolved[index]!;
+    if (!kept.some((other) => Math.abs(other.height - entry.height) <= 1)) {
+      kept.unshift(entry);
+    }
+  }
+  return kept;
+}
+
+/**
+ * Finds the popup offset of the active snap point.
+ * @param active The active snap point, or `null`.
+ * @param resolved The resolved snap points.
+ * @param viewportHeight The viewport height, in pixels.
+ * @param popupHeight The popup height, in pixels.
+ * @param rootFontSize The root font size, in pixels.
+ * @returns The offset of the equal entry, else of the entry nearest the value's own height, else `null`.
+ */
+export function resolveActiveSnapPointOffset(
+  active: number | string | null,
+  resolved: readonly SnapPointEntry[],
+  viewportHeight: number,
+  popupHeight: number,
+  rootFontSize: number,
+): number | null {
+  // DRW-STA-07.
+  if (active === null) {
+    return null;
+  }
+  const exact = resolved.find((entry) => Object.is(entry.value, active));
+  if (exact) {
+    return exact.offset;
+  }
+  const height = resolveSnapPointValue(active, viewportHeight, rootFontSize);
+  if (height === null || resolved.length === 0) {
+    return null;
+  }
+  const target = clamp(height, 0, Math.min(popupHeight, viewportHeight));
+  let closest = resolved[0]!;
+  for (const entry of resolved) {
+    if (Math.abs(entry.height - target) < Math.abs(closest.height - target)) {
+      closest = entry;
+    }
+  }
+  return closest.offset;
+}
+
+// DRW-DOM-12's snap point exception (useDrawerSnapPoints.ts:21-28): past fully open, the movement is damped.
+function getSnapPointSwipeMovement(baseOffset: number, movement: number): number {
+  const nextOffset = baseOffset + movement;
+  return nextOffset >= 0 ? movement : -Math.sqrt(-nextOffset) - baseOffset;
+}
+
+// The index of the value nearest `target`; the first wins on ties.
+function closestIndex(values: readonly number[], target: number): number {
+  let best = 0;
+  for (let index = 1; index < values.length; index += 1) {
+    if (Math.abs(values[index]! - target) < Math.abs(values[best]! - target)) {
+      best = index;
+    }
+  }
+  return best;
+}
+
+// DRW-ALG-02 (DrawerViewport.tsx:236-293).
 function resolveSwipeStrength(
   popup: HTMLElement,
   direction: SwipeDirection,
+  baseOffset: number,
   deltaX: number,
   deltaY: number,
   velocityX: number,
@@ -133,7 +272,7 @@ function resolveSwipeStrength(
   if (size <= 0) {
     return null;
   }
-  const remainingDistance = Math.max(0, size - getDisplacement(direction, deltaX, deltaY));
+  const remainingDistance = Math.max(0, size - (baseOffset + getDisplacement(direction, deltaX, deltaY)));
   if (remainingDistance <= 0) {
     return null;
   }
@@ -271,6 +410,11 @@ export function attach(
   let pendingDismiss = 0;
   let dismissCount = 0;
 
+  // Slice 3: the snap point request still unanswered on Blazor Server, shown until C# answers it (the revision rule).
+  let pendingSnap: { request: number; index: number | null } | null = null;
+  let snapRequestCount = 0;
+  let swiping = false;
+
   // The touch path's state (slice 2): the current touch, whether it is ignored, and the pen mark of DRW-PTR-19 (1).
   let touchState: TouchScrollState | null = null;
   let ignoreTouchSwipe = false;
@@ -279,6 +423,39 @@ export function attach(
   let removeTouchMove: (() => void) | null = null;
 
   const scrollAxis = (): ScrollAxis => (options.swipeDirection === 'left' || options.swipeDirection === 'right' ? 'horizontal' : 'vertical');
+
+  // DRW-API-02: snap points apply to a vertical drawer with a non-empty list.
+  const snapValues = (): Array<number | string> => options.snapPoints ?? [];
+  const usesSnapPoints = () => snapValues().length > 0 && scrollAxis() === 'vertical';
+  // The viewport and root font size as Base UI measures them (useDrawerSnapPoints.ts:92-103).
+  const measureSnap = () => {
+    const html = ownerDocument(viewport ?? popup).documentElement;
+    const fontSize = Number.parseFloat(getComputedStyle(html).fontSize);
+    return {
+      viewportHeight: viewport ? viewport.offsetHeight : html.clientHeight,
+      popupHeight: popup?.offsetHeight ?? 0,
+      rootFontSize: Number.isFinite(fontSize) ? fontSize : 16,
+    };
+  };
+  const activeSnapValue = (): number | string | null => {
+    if (pendingSnap) {
+      return pendingSnap.index === null ? null : (snapValues()[pendingSnap.index] ?? null);
+    }
+    return options.activeSnapPoint ?? null;
+  };
+  const snapState = () => {
+    const { viewportHeight, popupHeight, rootFontSize } = measureSnap();
+    const resolved = resolveSnapPoints(snapValues(), viewportHeight, popupHeight, rootFontSize);
+    const activeOffset = resolveActiveSnapPointOffset(activeSnapValue(), resolved, viewportHeight, popupHeight, rootFontSize);
+    // DRW-STA-17.
+    let range: { minOffset: number; range: number } | null = null;
+    if (snapValues().length >= 2 && resolved.length >= 2 && scrollAxis() === 'vertical') {
+      const offsets = resolved.map((entry) => entry.offset).sort((a, b) => a - b);
+      range = { minOffset: offsets[0]!, range: offsets[1]! - offsets[0]! };
+    }
+    const resting = range && activeOffset !== null ? clamp((activeOffset - range.minOffset) / range.range, 0, 1) : null;
+    return { popupHeight, resolved, activeOffset, range, resting };
+  };
 
   const readReferences = (refs: TwinReferences, refCaptures?: TwinCaptures) => {
     const nextPopup = resolveReference<HTMLElement>(refs, options.popup, refCaptures);
@@ -321,6 +498,32 @@ export function attach(
     backdropBand?.remove(DRAWER_HEIGHT);
   };
 
+  // DRW-DOM-11 and the resting half of DRW-PTR-16: the offset variable, and the resting progress while no drag runs.
+  const refreshSnap = () => {
+    const { activeOffset, resting } = snapState();
+    const offset = usesSnapPoints() && activeOffset !== null ? activeOffset : 0;
+    popupBand?.set(SNAP_POINT_OFFSET, `${options.swipeDirection === 'up' && offset !== 0 ? -offset : offset}px`);
+    if (!swiping && resting !== null) {
+      applySwipeProgress(resting);
+    }
+  };
+
+  // DRW-STA-03 for a release: asks for a snap point by its index in `snapPoints`, or `null` for none, and says whether
+  // C# canceled it. On WebAssembly the `snap-point:<index>` point runs C#'s request inside the dispatch; on Blazor Server
+  // the request is reported and shown at once, until C#'s answer arrives in an update.
+  const requestSnapPoint = (index: number | null, event: PointerEvent | TouchEvent): boolean => {
+    const verdict = decide(twin, `snap-point:${index ?? 'none'}`, event, 'run');
+    if (verdict === 'stop') {
+      return true;
+    }
+    if (!twin.lastDecisionWasSynchronous) {
+      snapRequestCount += 1;
+      pendingSnap = { request: snapRequestCount, index };
+      twin.report('OnSnapPointRequest', { request: snapRequestCount, index, event: eventInfo(event) });
+    }
+    return false;
+  };
+
   // DRW-PTR-12: the release's synchronous styles, before the close request.
   const startSwipeRelease = (strength: number | null) => {
     if (!popup) {
@@ -342,6 +545,111 @@ export function attach(
     clearSwipeRelease();
   };
 
+  // DRW-PTR-11 and DRW-ALG-01 (DrawerViewport.tsx:502-637): the release of a drawer with snap points.
+  const releaseOnSnapPoints = (
+    element: HTMLElement,
+    details: {
+      event: PointerEvent | TouchEvent;
+      direction: SwipeDirection | undefined;
+      deltaX: number;
+      deltaY: number;
+      velocityX: number;
+      velocityY: number;
+      releaseVelocityX: number;
+      releaseVelocityY: number;
+    },
+  ): boolean | undefined => {
+    if (scrollAxis() !== 'vertical') {
+      clearSwipeRelease();
+      return undefined;
+    }
+    const state = snapState();
+    if (!state.popupHeight) {
+      clearSwipeRelease();
+      return false;
+    }
+    if (state.resolved.length === 0) {
+      clearSwipeRelease();
+      return undefined;
+    }
+    const popupHeight = state.popupHeight;
+    const sign = options.swipeDirection === 'down' ? 1 : -1;
+    const dragDelta = sign * details.deltaY;
+    const dragDirection = Math.sign(dragDelta);
+    let velocity = sign * details.releaseVelocityY;
+    // Touch reversals at the release are ignored.
+    if (dragDirection !== 0 && Math.abs(dragDelta) >= MIN_SWIPE_THRESHOLD && Math.sign(velocity) !== 0 && Math.sign(velocity) !== dragDirection) {
+      velocity = sign * details.velocityY;
+    }
+    const current = state.activeOffset ?? 0;
+    const dragTarget = clamp(current + dragDelta, 0, popupHeight);
+    const velocityOffset = Math.abs(velocity) >= FAST_SWIPE_VELOCITY ? clamp(velocity, -MAX_SWIPE_RELEASE_VELOCITY, MAX_SWIPE_RELEASE_VELOCITY) * 300 : 0;
+    const target = options.snapToSequentialPoints ? dragTarget : clamp(dragTarget + velocityOffset, 0, popupHeight);
+    const indexOf = (entry: SnapPointEntry) => snapValues().findIndex((value) => Object.is(value, entry.value));
+
+    const settleInPlace = () => {
+      applySwipeProgress(0);
+      clearSwipeRelease();
+      refreshSnap();
+      return false;
+    };
+    const settle = (entry: SnapPointEntry) => {
+      requestSnapPoint(indexOf(entry), details.event);
+      return settleInPlace();
+    };
+    const close = (fallback: SnapPointEntry) => {
+      // An unattributed gesture never dismisses.
+      if (!details.direction) {
+        return settle(fallback);
+      }
+      if (requestSnapPoint(null, details.event)) {
+        return settleInPlace();
+      }
+      refreshSnap();
+      startSwipeRelease(
+        resolveSwipeStrength(
+          element,
+          options.swipeDirection,
+          current,
+          details.deltaX,
+          details.deltaY,
+          details.velocityX,
+          details.velocityY,
+          details.releaseVelocityX,
+          details.releaseVelocityY,
+        ),
+      );
+      return true;
+    };
+
+    if (options.snapToSequentialPoints) {
+      const ordered = [...state.resolved].sort((a, b) => a.offset - b.offset);
+      const offsets = ordered.map((entry) => entry.offset);
+      const currentIndex = closestIndex(offsets, current);
+      let chosen = ordered[closestIndex(offsets, target)]!;
+      let effective = target;
+      if (dragDirection !== 0 && Math.sign(velocity) === dragDirection && Math.abs(velocity) >= FAST_SWIPE_VELOCITY) {
+        const adjacent = clamp(currentIndex + dragDirection, 0, ordered.length - 1);
+        if (adjacent !== currentIndex) {
+          const next = ordered[adjacent]!;
+          if ((dragDirection > 0 && target < next.offset) || (dragDirection < 0 && target > next.offset)) {
+            chosen = next;
+            effective = next.offset;
+          }
+        } else if (dragDirection > 0) {
+          // A flick past the last snap point.
+          return close(chosen);
+        }
+      }
+      return Math.abs(effective - popupHeight) < Math.abs(effective - chosen.offset) ? close(chosen) : settle(chosen);
+    }
+    const nearest = state.resolved[closestIndex(state.resolved.map((entry) => entry.offset), target)]!;
+    if (velocity >= FAST_SWIPE_VELOCITY && dragDelta > 0) {
+      return close(nearest);
+    }
+    return Math.abs(target - popupHeight) < Math.abs(target - nearest.offset) ? close(nearest) : settle(nearest);
+  };
+
   const tracker: SwipeTracker = createSwipeTracker({
     enabled: false,
     directions: [options.swipeDirection],
@@ -353,9 +661,13 @@ export function attach(
     },
   });
 
+  // Base UI's `swipeDirections`: a vertical drawer with snap points is dragged both ways.
+  const swipeDirections = (): SwipeDirection[] =>
+    usesSnapPoints() ? (options.swipeDirection === 'down' ? ['down', 'up'] : ['up', 'down']) : [options.swipeDirection];
+
   const trackerOptions = () => ({
     enabled: options.mounted && options.nestedOpenDrawerCount === 0,
-    directions: [options.swipeDirection] as SwipeDirection[],
+    directions: swipeDirections(),
     element: () => popup,
     movementCssVars: { x: MOVEMENT_X, y: MOVEMENT_Y },
     style: {
@@ -399,14 +711,35 @@ export function attach(
         selection.removeAllRanges();
       }
     },
-    onSwipingChange: (swiping: boolean) => {
-      popup?.toggleAttribute(SWIPING, swiping);
-      backdrop?.toggleAttribute(SWIPING, swiping);
-      twin.report('OnSwipingChange', { swiping });
+    onSwipingChange: (next: boolean) => {
+      swiping = next;
+      popup?.toggleAttribute(SWIPING, next);
+      backdrop?.toggleAttribute(SWIPING, next);
+      twin.report('OnSwipingChange', { swiping: next });
     },
-    onProgress: (progress: number) => applySwipeProgress(progress),
+    // DRW-PTR-16 with DRW-ALG-05 and DRW-DOM-12's snap point exception (DrawerViewport.tsx:386-425).
+    onProgress: (progress: number, details?: { deltaY: number }) => {
+      const snaps = usesSnapPoints();
+      const state = snaps ? snapState() : null;
+      if (swiping && state && options.swipeDirection === 'down' && details) {
+        popupBand?.remove('transform');
+        popupBand?.set(MOVEMENT_Y, `${getSnapPointSwipeMovement(state.activeOffset ?? 0, details.deltaY)}px`);
+      }
+      let resolved = progress;
+      if (state?.range && state.popupHeight > 0) {
+        const { minOffset, range } = state.range;
+        // Outside a drag the tracker still reports the last deltas; the drawer rests on its snap point then.
+        if (swiping && details && Number.isFinite(details.deltaY)) {
+          resolved = clamp((clamp((state.activeOffset ?? minOffset) + details.deltaY, 0, state.popupHeight) - minOffset) / range, 0, 1);
+        } else if (state.resting !== null) {
+          resolved = state.resting;
+        }
+      }
+      applySwipeProgress(resolved);
+    },
     // DRW-PTR-10 (DrawerViewport.tsx:475-500).
     onRelease: (details: {
+      event: PointerEvent | TouchEvent;
       direction: SwipeDirection | undefined;
       deltaX: number;
       deltaY: number;
@@ -416,6 +749,9 @@ export function attach(
       releaseVelocityY: number;
     }) => {
       const { direction, deltaX, deltaY, velocityX, velocityY, releaseVelocityX, releaseVelocityY } = details;
+      if (popup && snapValues().length > 0) {
+        return releaseOnSnapPoints(popup, details);
+      }
       if (!popup || !direction) {
         clearSwipeRelease();
         return undefined;
@@ -428,7 +764,7 @@ export function attach(
       const shouldClose =
         getDisplacement(direction, velocityX, velocityY) >= FAST_SWIPE_VELOCITY || directionalDelta > getBaseSwipeThreshold(popup, direction);
       if (shouldClose) {
-        startSwipeRelease(resolveSwipeStrength(popup, direction, deltaX, deltaY, velocityX, velocityY, releaseVelocityX, releaseVelocityY));
+        startSwipeRelease(resolveSwipeStrength(popup, direction, 0, deltaX, deltaY, velocityX, velocityY, releaseVelocityX, releaseVelocityY));
       } else {
         clearSwipeRelease();
       }
@@ -636,6 +972,8 @@ export function attach(
   viewport?.addEventListener('touchcancel', onTouchEnd);
   syncTouchMoveListener();
 
+  refreshSnap();
+
   return {
     update(nextJson, nextReferences, nextCaptures) {
       if (disposed) {
@@ -661,6 +999,11 @@ export function attach(
         tracker.reset();
         clearSwipeRelease();
       }
+      // C#'s answer to a snap point request: from here its own active snap point stands, so a canceled one rolls back.
+      if (pendingSnap && (options.answeredSnap ?? 0) >= pendingSnap.request) {
+        pendingSnap = null;
+      }
+      refreshSnap();
     },
     dispose() {
       if (disposed) {
