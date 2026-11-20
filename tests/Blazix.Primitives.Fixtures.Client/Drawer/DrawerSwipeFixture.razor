@@ -36,14 +36,20 @@
       Viewport rendered there.
     - `noPopup=true`: the Viewport renders no Popup ("ignores swipe input until a popup is mounted").
     - `alwaysOpen=true`: the root is controlled with `Open="true"` and never follows a change.
+    The remove button (`data-remove-root`, added 2026-11-20) stops rendering the root, as Base UI's `unmount()`.
     The open changes are recorded as `open:reason` in `data-open-changes`; `cancelClose=true` cancels a close and
     `retainEveryClose=true` keeps a close mounted (PopupSuiteFixtureBase). The sync button is the suites' `settle` barrier.
 *@
 <FixtureContainer Name="drawer-swipe" data-attached="@(Attached ? "true" : "false")" data-sync="@Sync" data-case="@Case"
                   data-open-changes="@OpenChanges" data-open-change-completes="@OpenChangeCompletes">
     <button type="button" data-sync-button @onclick="() => Sync++">Sync</button>
+    <button type="button" data-remove-root @onclick="() => removed = true">Remove</button>
     <span data-testid="outside-text">Outside selection</span>
-    @if (QueryFlag("alwaysOpen") == true)
+    @if (removed)
+    {
+        // Base UI's unmount(): nothing of the root renders.
+    }
+    else if (QueryFlag("alwaysOpen") == true)
     {
         <DrawerRoot TPayload="NoPayload" @ref="root" Open="true" SwipeDirection="@Direction" OnOpenChange="RecordOpenChange">
             @Parts
@@ -61,6 +67,7 @@
 @code {
     private DrawerRoot<NoPayload>? root;
     private DrawerViewport? viewport;
+    private bool removed;
     private ElementReference shadowHost;
     private PortalContainerValue? container;
     private readonly TaskCompletionSource viewportRendered = new(TaskCreationOptions.RunContinuationsAsynchronously);

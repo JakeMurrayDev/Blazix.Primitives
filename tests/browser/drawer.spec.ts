@@ -1255,3 +1255,41 @@ test.describe('<Drawer.Viewport /> touch swipe and native scrolling', () => {
     });
   }
 });
+
+// Slice 2's teardown and taps (DRW-DOM-20, ANI-05, PTR-19; added 2026-11-20), on the fixture's down drawer.
+test.describe('<Drawer.Viewport /> touch swipe teardown and taps', () => {
+  // DRW-DOM-20, ANI-05 (DrawerViewport.test.tsx:415-456): the fixture's remove button stops rendering the root mid-swipe, as
+  // Base UI's unmount(); the detached backdrop keeps its attributes, so the check reads the cleanup.
+  testWithTouch('clears the backdrop data-swiping attribute when the drawer unmounts mid-swipe', async ({ touchPage: page, mode }) => {
+    const fixture = await downCase(page, mode);
+    const backdrop = await page.getByTestId('backdrop').elementHandle();
+
+    await touchDrag(page, [[popupPoint, { x: popupPoint.x, y: popupPoint.y + 25 }]], {
+      steps: 1,
+      beforeRelease: async () => {
+        await expect(page.getByTestId('backdrop')).toHaveAttribute('data-swiping', '');
+        await fixture.locator('[data-remove-root]').evaluate((button) => (button as HTMLButtonElement).click());
+        await expect(page.getByTestId('popup')).toHaveCount(0);
+        expect(await backdrop!.evaluate((element) => element.isConnected)).toBe(false);
+        await expect.poll(() => backdrop!.evaluate((element) => element.hasAttribute('data-swiping'))).toBe(false);
+      },
+    });
+  });
+
+  // DRW-PTR-19, no swipe on a tap (DrawerViewport.test.tsx:689-743): a real tap on a plain element in Drawer.Content.
+  testWithTouch('allows clicks on non-interactive elements without data-base-ui-swipe-ignore', async ({ touchPage: page, mode }) => {
+    const fixture = await downCase(page, mode);
+    const target = page.getByTestId('content-target');
+    await target.evaluate((element) => {
+      (window as unknown as { contentClicks: number }).contentClicks = 0;
+      element.addEventListener('click', () => ((window as unknown as { contentClicks: number }).contentClicks += 1));
+    });
+
+    await touchDrag(page, [[await pointOf(target)]]);
+
+    await expect.poll(() => page.evaluate(() => (window as unknown as { contentClicks: number }).contentClicks)).toBe(1);
+    await settle(fixture);
+    await expect(fixture).toHaveAttribute('data-open-changes', '');
+    await expect(page.getByTestId('backdrop')).not.toHaveAttribute('data-swiping');
+  });
+});
