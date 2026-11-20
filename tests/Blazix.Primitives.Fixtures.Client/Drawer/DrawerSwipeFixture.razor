@@ -1,7 +1,9 @@
 @namespace Blazix.Primitives.Fixtures.Client.DrawerFixtures
 @using Blazix.Primitives
 @using Blazix.Primitives.Fixtures.Client.PopupFixtures
+@using Microsoft.JSInterop
 @inherits PopupSuiteFixtureBase
+@inject IJSRuntime JS
 
 @*
     The `drawer-swipe` fixture (tests/browser/drawer.spec.ts; M6 track 8b, issue 279): the Viewport's dismiss gesture.
@@ -23,6 +25,11 @@
       at left 0 and top 100, 200 px wide and 300 px tall, and holds 40 px rows marked `y` and `x`, then a valueless
       ancestor around a row marked `x`; they fill its top 120 px. `direction` (`down`, the default, or `right`) is the
       swipe direction.
+    - `case=shadow` (added 2026-11-20): DrawerViewport.test.tsx's shadow-root drawers. The portal renders into an open
+      shadow root that a page script attaches to `[data-shadow-host]` after the first render (Base UI's `container:
+      shadowRoot`, as the Popover fixture does). The popup is fixed at left 0 and top 100, 200 px wide and 300 px tall, and
+      holds a 40 px target and a 40 px `data-base-ui-swipe-ignore` row; the rest is free. The attach marker waits for the
+      Viewport rendered there.
     - `noPopup=true`: the Viewport renders no Popup ("ignores swipe input until a popup is mounted").
     - `alwaysOpen=true`: the root is controlled with `Open="true"` and never follows a change.
     The open changes are recorded as `open:reason` in `data-open-changes`; `cancelClose=true` cancels a close and
@@ -44,11 +51,15 @@
             @Parts
         </DrawerRoot>
     }
+    <div data-shadow-host @ref="shadowHost"></div>
 </FixtureContainer>
 
 @code {
     private DrawerRoot<NoPayload>? root;
     private DrawerViewport? viewport;
+    private ElementReference shadowHost;
+    private PortalContainerValue? container;
+    private readonly TaskCompletionSource viewportRendered = new(TaskCreationOptions.RunContinuationsAsynchronously);
 
     private bool Down => Case == "down";
 
@@ -58,17 +69,19 @@
 
     private bool Axis => Case == "axis";
 
+    private bool Shadow => Case == "shadow";
+
     private SwipeDirection Direction => Scroll || Axis
         ? Query("direction") switch { "up" => SwipeDirection.Up, "left" => SwipeDirection.Left, "right" => SwipeDirection.Right, _ => SwipeDirection.Down }
-        : Down ? SwipeDirection.Down : SwipeDirection.Right;
+        : Down || Controls || Shadow ? SwipeDirection.Down : SwipeDirection.Right;
 
     private string PopupStyle => Scroll
         ? "position: fixed; left: 300px; top: 300px; width: 200px; height: 300px;"
-        : Down || Controls || Axis
+        : Down || Controls || Axis || Shadow
             ? "position: fixed; left: 0; top: 100px; width: 200px; height: 300px;"
             : "position: fixed; left: 0; top: 0; width: 200px; height: 300px;";
 
-    private RenderFragment Parts => @<DrawerPortal>
+    private RenderFragment Parts => @<DrawerPortal Container="@container">
         <DrawerBackdrop data-testid="backdrop" />
         <DrawerViewport @ref="viewport" data-testid="viewport" style="position: fixed; inset: 0;">
             @if (QueryFlag("noPopup") != true)
@@ -78,6 +91,11 @@
                 {
                     <div data-testid="scroll" style="overflow-y: auto; max-height: 60px;"><div style="height: 120px;">Scrollable content</div></div>
                     <div data-testid="hscroll" style="overflow-x: auto; max-width: 120px;"><div style="width: 360px; height: 40px;">Scrollable content</div></div>
+                }
+                else if (Shadow)
+                {
+                    <div data-testid="target" style="height: 40px;">Target</div>
+                    <div data-testid="ignored" data-base-ui-swipe-ignore style="height: 40px;">Ignore</div>
                 }
                 else if (Axis)
                 {
@@ -123,6 +141,51 @@
         </DrawerViewport>
     </DrawerPortal>;
 
-    protected override IEnumerable<Task> Attachments =>
-        [root?.SessionAttached ?? Task.CompletedTask, viewport?.GestureAttached ?? Task.CompletedTask];
+    protected override IEnumerable<Task> Attachments => [root?.SessionAttached ?? Task.CompletedTask, ViewportAttachedAsync()];
+
+    /// <inheritdoc />
+    protected override void OnInitialized()
+    {
+        base.OnInitialized();
+        if (Shadow)
+        {
+            container = PortalContainerValue.Pending;
+        }
+    }
+
+    /// <inheritdoc />
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (viewport is not null)
+        {
+            viewportRendered.TrySetResult();
+        }
+
+        // The shadow root's host exists only after the first render.
+        if (firstRender && RendererInfo.IsInteractive && Shadow)
+        {
+            try
+            {
+                container = new PortalContainerValue(await JS.InvokeAsync<IJSObjectReference>("blazixFixtureDom.createOpenShadowRoot", shadowHost));
+                StateHasChanged();
+            }
+            catch (JSDisconnectedException)
+            {
+                // The circuit went while the page was set up.
+            }
+        }
+
+        await base.OnAfterRenderAsync(firstRender);
+    }
+
+    // In the shadow case the Viewport renders only once the container arrives.
+    private async Task ViewportAttachedAsync()
+    {
+        if (viewport is null && Shadow)
+        {
+            await viewportRendered.Task;
+        }
+
+        await (viewport?.GestureAttached ?? Task.CompletedTask);
+    }
 }

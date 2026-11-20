@@ -928,3 +928,42 @@ test.describe('<Drawer.Viewport /> touch swipe over swipe-ignore axis values', (
     await expect(fixture).toHaveAttribute('data-open-changes', 'false:swipe');
   });
 });
+
+// Slice 2's shadow roots (DRW-PTR-19 (7), PTR-06; added 2026-11-20), on the fixture's `case=shadow`: the portal renders
+// into an open shadow root, so the document's hit test retargets every point in the popup to the shadow host, and only
+// the root node's hit test finds the element under the touch. Locators pierce the open root.
+test.describe('<Drawer.Viewport /> touch swipe in a shadow root', () => {
+  // DRW-PTR-19 (7) (DrawerViewport.test.tsx:297-351). Base UI stubs both hit tests; here they are real. The ignored row
+  // stops the swipe only if the shadow root's hit test finds it, and the target starts one only if it does.
+  testWithTouch('uses shadow-root hit testing for touch swipe targets', async ({ touchPage: page, mode }) => {
+    const fixture = await gotoPopupFixture(page, mode, 'drawer-swipe', { case: 'shadow' });
+    const backdrop = page.getByTestId('backdrop');
+    const ignored = await pointOf(page.getByTestId('ignored'));
+    const target = await pointOf(page.getByTestId('target'));
+
+    await touchDrag(page, [[ignored, { x: ignored.x, y: ignored.y + 25 }, { x: ignored.x, y: ignored.y + 40 }]], {
+      steps: 1,
+      beforeRelease: async () => {
+        await settle(fixture);
+        await expect(backdrop).not.toHaveAttribute('data-swiping');
+      },
+    });
+
+    await touchDrag(page, [[target, { x: target.x, y: target.y + 25 }, { x: target.x, y: target.y + 40 }]], {
+      steps: 1,
+      beforeRelease: () => expect(backdrop).toHaveAttribute('data-swiping', ''),
+    });
+  });
+
+  // DRW-PTR-06 (DrawerViewport.test.tsx:352-413, a browser-only title in Base UI).
+  testWithTouch('starts a swipe inside a shadow root using real hit testing', async ({ touchPage: page, mode }) => {
+    const fixture = await gotoPopupFixture(page, mode, 'drawer-swipe', { case: 'shadow' });
+
+    await touchDrag(page, [[popupPoint, { x: popupPoint.x, y: popupPoint.y + 25 }, { x: popupPoint.x, y: popupPoint.y + 250 }]], {
+      steps: 1,
+      beforeRelease: () => expect(page.getByTestId('backdrop')).toHaveAttribute('data-swiping', ''),
+    });
+
+    await expect(fixture).toHaveAttribute('data-open-changes', 'false:swipe');
+  });
+});
