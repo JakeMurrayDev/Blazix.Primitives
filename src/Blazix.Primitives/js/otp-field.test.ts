@@ -45,9 +45,12 @@ function options(overrides: Partial<OtpFieldOptions> = {}): OtpFieldOptions {
   };
 }
 
+/** Six slots, the length every title renders, typed so each index is a slot. */
+type Slots = [HTMLInputElement, HTMLInputElement, HTMLInputElement, HTMLInputElement, HTMLInputElement, HTMLInputElement];
+
 interface Field {
   root: HTMLDivElement;
-  slots: HTMLInputElement[];
+  slots: Slots;
   hidden: HTMLInputElement;
   form: HTMLFormElement;
 }
@@ -69,7 +72,7 @@ function render(length: number, value: string): Field {
   hidden.value = value;
   form.append(root, hidden);
   document.body.append(form);
-  return { root, slots, hidden, form };
+  return { root, slots: slots as Slots, hidden, form };
 }
 
 interface Attached extends Field {
@@ -89,7 +92,7 @@ function mount(
 ): Attached {
   const opts = options(overrides);
   const field = render(opts.length, opts.value);
-  const fake = createFakeTwin({ synchronous: twin.synchronous, verdict: twin.verdict });
+  const fake = createFakeTwin({ synchronous: twin.synchronous ?? false, verdict: twin.verdict ?? 'run' });
   const handovers: OtpFieldEditReport[] = [];
   const invoke = fake.twin.invokeMethod.bind(fake.twin);
   let current = opts;
@@ -255,7 +258,7 @@ describe('otp-field: typing and the revision rule (variant (ii), decision 6 (a);
   });
 
   it('port: a field without the optimistic advance keeps focus until the update, whose focus request runs once per revision (OTP-FOC-10)', () => {
-    const attached = mount({ value: '', optimistic: undefined });
+    const attached = mount({ value: '', optimistic: false });
     const { slots } = attached;
     slots[0].focus();
     type(slots[0], '4');
@@ -349,7 +352,7 @@ describe('otp-field: paste and composition (OTP-KEY-18..23, OTP-EDGE-05)', () =>
   });
 
   it('port: text typed during a composition is buffered and committed once on compositionend', () => {
-    const { slots, fake } = mount({ value: '', optimistic: undefined });
+    const { slots, fake } = mount({ value: '', optimistic: false });
     slots[0].focus();
     slots[0].dispatchEvent(new CompositionEvent('compositionstart', { bubbles: true }));
     type(slots[0], 'd');
@@ -364,7 +367,7 @@ describe('otp-field: paste and composition (OTP-KEY-18..23, OTP-EDGE-05)', () =>
 
   it('port: on Android every input during a composition is committed (OTP-KEY-22, OTP-KEY-23)', () => {
     setEnvironmentForTesting({ android: true });
-    const { slots, fake } = mount({ value: '', optimistic: undefined });
+    const { slots, fake } = mount({ value: '', optimistic: false });
     slots[0].focus();
     slots[0].dispatchEvent(new CompositionEvent('compositionstart', { bubbles: true }));
     type(slots[0], '1');
