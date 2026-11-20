@@ -211,6 +211,17 @@ describe('drawer module: the snap point release (DRW-PTR-11, ALG-01)', () => {
     expect(fake.reported('OnDismissRequest')).toHaveLength(1);
   });
 
+  // ALG-01's velocity rule alone: 10 px in 16 ms puts the target (0 + 10 + 0.625 × 300) at 197.5, next to the `100px`
+  // snap point, which the distance rule alone would settle on.
+  it('port: a fast downward release dismisses on its velocity even when its target lands on a snap point', () => {
+    const { popup, fake } = mount({ ...three, activeSnapPoint: '300px' });
+
+    flick(popup, 10);
+
+    expect(fake.reported('OnSnapPointRequest')).toMatchObject([{ index: null }]);
+    expect(fake.reported('OnDismissRequest')).toHaveLength(1);
+  });
+
   it('port: with snapToSequentialPoints a fast flick advances one snap point instead of dismissing', () => {
     const { popup, fake } = mount({ ...three, activeSnapPoint: '300px', snapToSequentialPoints: true });
 
