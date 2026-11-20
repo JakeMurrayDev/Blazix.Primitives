@@ -81,6 +81,8 @@
     private ValueTask<FieldValidationResult?> Record(FieldValidationArguments arguments)
     {
         validations.Add($"{arguments.Value}");
+        // Validate is a plain delegate: the recorder re-renders itself.
+        _ = InvokeAsync(StateHasChanged);
         return ValueTask.FromResult<FieldValidationResult?>(null);
     }
 }
