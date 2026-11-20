@@ -1,0 +1,62 @@
+@namespace Blazix.Primitives.Fixtures.Client.OtpFieldFixtures
+@using Blazix.Primitives
+@inherits OtpFieldFixtureBase
+
+@*
+    The `otp-field-controlled` fixture (tests/browser/otp-field.root.spec.ts; OTP-FOC-10, OTP-EVT-10, OTP-EVT-15): six slots
+    `slot-{i}` in a root whose Value the fixture owns, starting at `?value=` (""). `?mode=ignore` (default): OnValueChange
+    changes nothing; `?mode=defer`: OnValueChange keeps the value until the `accept` button applies it; `?mode=mirror`: OnValueChange applies
+    the value at once. The `apply` button
+    sets the Value to `?apply=` (654321). Recorders as the basic fixture.
+*@
+<FixtureContainer Name="otp-field-controlled" data-attached="@(Attached ? "true" : "false")" data-changes="@string.Join(" ", Changes)"
+                  data-completes="@string.Join(" ", Completes)" data-pending="@(pending ?? string.Empty)">
+    <OtpFieldRoot @ref="Root" Length="6" Value="@value" OnValueChange="Change" OnValueComplete="RecordComplete" data-testid="root">
+        @for (int i = 0; i < 6; i++)
+        {
+            int index = i;
+            <OtpFieldInput data-testid="@($"slot-{index}")" aria-label="@($"Character {index + 1} of 6")" />
+        }
+    </OtpFieldRoot>
+    <button type="button" data-testid="apply" @onclick="Apply">Apply value</button>
+    <button type="button" data-testid="accept" @onclick="Accept">Accept</button>
+</FixtureContainer>
+
+@code {
+    private string value = string.Empty;
+    private string? pending;
+    private bool defer;
+    private bool mirror;
+
+    /// <inheritdoc />
+    protected override void OnInitialized()
+    {
+        value = Query("value", string.Empty);
+        defer = Query("mode", "ignore") == "defer";
+        mirror = Query("mode", "ignore") == "mirror";
+    }
+
+    private void Change(ValueChangeEventArgs<string> args)
+    {
+        RecordChange(args);
+        if (defer)
+        {
+            pending = args.Value;
+        }
+        else if (mirror)
+        {
+            value = args.Value;
+        }
+    }
+
+    private void Apply() => value = Query("apply", "654321");
+
+    private void Accept()
+    {
+        if (pending is not null)
+        {
+            value = pending;
+            pending = null;
+        }
+    }
+}

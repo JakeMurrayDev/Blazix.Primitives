@@ -22,7 +22,17 @@ internal sealed class TestCompositeListItem : PartBase<EmptyState>
     [Parameter]
     public int? ExplicitIndex { get; set; }
 
+    /// <summary>Gets or sets a value indicating whether the item guesses its index from render order; read once.</summary>
+    [Parameter]
+    public bool Guess { get; set; }
+
+    /// <summary>Gets or sets a value indicating whether the item takes its guess before it registers, as an OtpField slot does.</summary>
+    [Parameter]
+    public bool GuessBeforeRegistering { get; set; }
+
     public int Renders { get; private set; }
+
+    public int? GuessedBeforeRegistering { get; private set; }
 
     /// <inheritdoc />
     protected override string DefaultTagName => "div";
@@ -37,12 +47,17 @@ internal sealed class TestCompositeListItem : PartBase<EmptyState>
     protected override void OnInitialized()
     {
         base.OnInitialized();
-        behavior = new CompositeListItemBehavior(ListContext, StateHasChanged);
+        behavior = new CompositeListItemBehavior(ListContext, StateHasChanged, Guess);
     }
 
     /// <inheritdoc />
     protected override void OnParametersSet()
     {
+        if (GuessBeforeRegistering)
+        {
+            GuessedBeforeRegistering ??= behavior!.EnsureGuess();
+        }
+
         behavior!.SetRegistration(Id, ExplicitIndex);
     }
 

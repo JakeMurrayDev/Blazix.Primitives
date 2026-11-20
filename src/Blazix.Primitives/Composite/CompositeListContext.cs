@@ -38,6 +38,12 @@ internal sealed class CompositeListContext
     /// <summary>Records that a registered item rendered a new element under the same id.</summary>
     public void ElementReplaced() => list.ElementReplaced();
 
+    // M6 track 7 (CMP-STA-16; CompositeList.tsx:85, nextIndexRef; the Composite/ grant to OtpField, settled by the
+    // orchestrator 2026-11-19).
+    /// <summary>Hands out the next index of the list's render-order counter.</summary>
+    /// <returns>The guess: the number of items registered when the list last rendered, plus the guesses taken since.</returns>
+    public int TakeGuess() => list.TakeGuess();
+
     /// <summary>Sends the list's items if they changed since the last send.</summary>
     /// <returns>A task that completes when the browser-side behavior has the items.</returns>
     public Task FlushAsync() => list.FlushAsync();

@@ -1,0 +1,101 @@
+<DemoFrame Slug="otp-field" Note="Alphanumeric recovery codes, a placeholder that hides on the active slot, two groups with a separator, and a masked code.">
+    <Hero>
+        <div class="flex w-full max-w-80 flex-col items-start gap-1">
+            <label for="@HeroId" class="text-sm font-bold text-neutral-950 dark:text-white">
+                Verification code
+            </label>
+            <OtpFieldRoot Id="@HeroId" Length="Length" aria-describedby="@($"{HeroId}-description")" class="flex w-full gap-2">
+                @for (int i = 0; i < Length; i++)
+                {
+                    int index = i;
+                    <OtpFieldInput @key="index" class="@SlotClass" aria-label="@SlotLabel(index)" />
+                }
+            </OtpFieldRoot>
+            <p id="@($"{HeroId}-description")" class="m-0 text-sm text-neutral-600 dark:text-neutral-400">
+                Enter the 6-character code we sent to your device.
+            </p>
+        </div>
+    </Hero>
+    <Variants>
+        <div class="Variant">
+            <div class="flex w-full max-w-80 flex-col items-start gap-1">
+                <label for="recovery" class="text-sm font-bold text-neutral-950 dark:text-white">Recovery code</label>
+                <OtpFieldRoot Id="recovery" Length="Length" ValidationType="OtpFieldValidationType.Alphanumeric" aria-describedby="recovery-description" class="flex w-full gap-2">
+                    @for (int i = 0; i < Length; i++)
+                    {
+                        int index = i;
+                        <OtpFieldInput @key="index" class="@SlotClass" aria-label="@SlotLabel(index)" />
+                    }
+                </OtpFieldRoot>
+                <p id="recovery-description" class="m-0 text-sm text-neutral-600 dark:text-neutral-400">
+                    Accept letters and numbers for backup codes such as <code class="font-mono">A7C9XZ</code>.
+                </p>
+            </div>
+            <span class="VariantName">Alphanumeric</span>
+        </div>
+        <div class="Variant">
+            <div class="flex w-full max-w-80 flex-col items-start gap-1">
+                <label for="placeholder" class="text-sm font-bold text-neutral-950 dark:text-white">Verification code</label>
+                <OtpFieldRoot Id="placeholder" Length="Length" aria-describedby="placeholder-description" class="flex w-full gap-2">
+                    @for (int i = 0; i < Length; i++)
+                    {
+                        int index = i;
+                        <OtpFieldInput @key="index" class="@PlaceholderSlotClass" placeholder="•" aria-label="@SlotLabel(index)" />
+                    }
+                </OtpFieldRoot>
+                <p id="placeholder-description" class="m-0 text-sm text-neutral-600 dark:text-neutral-400">
+                    Placeholder hints can stay visible until the active slot is focused.
+                </p>
+            </div>
+            <span class="VariantName">Focused placeholder</span>
+        </div>
+        <div class="Variant">
+            <div class="flex w-full max-w-80 flex-col items-start gap-1">
+                <label for="grouped" class="text-sm font-bold text-neutral-950 dark:text-white">Verification code</label>
+                <OtpFieldRoot Id="grouped" Length="Length" class="flex w-full items-center gap-2">
+                    <div class="flex gap-2">
+                        @for (int i = 0; i < 3; i++)
+                        {
+                            int index = i;
+                            <OtpFieldInput @key="index" class="@SlotClass" aria-label="@SlotLabel(index)" />
+                        }
+                    </div>
+                    <OtpFieldSeparator class="h-px w-4 bg-current text-neutral-950 dark:text-white" />
+                    <div class="flex gap-2">
+                        @for (int i = 3; i < Length; i++)
+                        {
+                            int index = i;
+                            <OtpFieldInput @key="index" class="@SlotClass" aria-label="@SlotLabel(index)" />
+                        }
+                    </div>
+                </OtpFieldRoot>
+            </div>
+            <span class="VariantName">Grouped, with a separator</span>
+        </div>
+        <div class="Variant">
+            <div class="flex w-full max-w-80 flex-col items-start gap-1">
+                <label for="access" class="text-sm font-bold text-neutral-950 dark:text-white">Access code</label>
+                <OtpFieldRoot Id="access" Length="Length" Mask="true" aria-describedby="access-description" class="flex w-full gap-2">
+                    @for (int i = 0; i < Length; i++)
+                    {
+                        int index = i;
+                        <OtpFieldInput @key="index" class="@SlotClass" aria-label="@SlotLabel(index)" />
+                    }
+                </OtpFieldRoot>
+                <p id="access-description" class="m-0 text-sm text-neutral-600 dark:text-neutral-400">
+                    Use <code class="font-mono">Mask</code> to obscure the code on shared screens.
+                </p>
+            </div>
+            <span class="VariantName">Password</span>
+        </div>
+    </Variants>
+</DemoFrame>
+
+@code {
+    private const int Length = 6;
+    private const string HeroId = "verification-code";
+    private const string SlotClass = "m-0 h-10 w-10 rounded-none border border-neutral-950 bg-white dark:bg-neutral-950 text-center font-inherit text-base font-normal text-neutral-950 focus:outline-2 focus:-outline-offset-1 focus:outline-neutral-950 dark:focus:outline-white dark:border-white dark:text-white";
+    private const string PlaceholderSlotClass = "m-0 h-10 w-10 rounded-none border border-neutral-950 bg-white dark:bg-neutral-950 text-center font-inherit text-base font-normal text-neutral-950 placeholder:text-neutral-500 focus:outline-2 focus:-outline-offset-1 focus:outline-neutral-950 dark:focus:outline-white focus:placeholder:text-transparent dark:border-white dark:text-white dark:placeholder:text-neutral-400";
+
+    private static string? SlotLabel(int index) => index == 0 ? null : $"Character {index + 1} of {Length}";
+}

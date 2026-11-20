@@ -40,6 +40,7 @@ internal sealed class CompositeListBehavior : IDisposable
     private bool renderPending;
     private bool disposed;
     private string? lateId;
+    private int nextGuess;
 
     /// <summary>Occurs once per report of the items' order, after every item holds its new index.</summary>
     public event Action? ItemsChanged;
@@ -93,6 +94,10 @@ internal sealed class CompositeListBehavior : IDisposable
     {
         // The list rendered in this batch, so its after-render sends whatever the batch changed.
         renderPending = true;
+
+        // CMP-STA-16 (CompositeList.tsx:85): each render of the list restarts the guesses after the registered items, so the
+        // items its content renders for the first time guess in render order (M6 track 7; the Composite/ grant to OtpField).
+        nextGuess = items.Count;
 
         if (lateId is not null && consumerId is null)
         {
@@ -212,6 +217,10 @@ internal sealed class CompositeListBehavior : IDisposable
 
     /// <summary>Records that a registered item rendered a new element under the same id, which the module must resolve again.</summary>
     internal void ElementReplaced() => elementReplaced = true;
+
+    /// <summary>Hands out the next index of the render-order counter.</summary>
+    /// <returns>The next guess.</returns>
+    internal int TakeGuess() => nextGuess++;
 
     /// <summary>Sends the items if they changed since the last send.</summary>
     /// <returns>A task that completes when the module has the items.</returns>
