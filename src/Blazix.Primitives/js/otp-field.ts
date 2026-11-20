@@ -253,12 +253,18 @@ export function attach(
   // dispatch, whose update may arrive before `decide` returns (design point 2 (a)); elsewhere the fallback runs and the
   // edit is reported. Returns whether the edit ran.
   const edit = (index: number, kind: OtpFieldEditKind, raw: string, event: Event, advanced: boolean): boolean => {
+    const previousAct = lastAct;
     revision += 1;
     lastAct = revision;
     const report: OtpFieldEditReport = { index, kind, raw, advanced, revision, event: eventInfo(event) };
     if (twin.synchronous) {
       twinReference.invokeMethod<void>('OnEditHandover', JSON.stringify(report));
-      return decide(twin, EDIT_POINT, event, 'run') === 'run';
+      if (decide(twin, EDIT_POINT, event, 'run') === 'run') {
+        return true;
+      }
+      // A vetoed edit reaches no request, so C# never echoes its revision: the last act is the one before it.
+      lastAct = previousAct;
+      return false;
     }
     decide(twin, EDIT_POINT, event, 'run');
     twin.report('OnEdit', report);
