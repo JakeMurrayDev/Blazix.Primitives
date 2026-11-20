@@ -1,3 +1,5 @@
+using System.Text.Json.Serialization;
+
 namespace Blazix.Primitives.Interop;
 
 // ADR 04 §1 (the `drawer` component module) and Amendments 2026-11-18 (the `dismiss` and `snap-point` points; decision
@@ -40,6 +42,20 @@ internal sealed record DrawerOptions : TwinOptions
 
     /// <summary>Gets the index of the popup element among the references sent with the options.</summary>
     /// <value>The index, or <see langword="null"/>, the default, while no popup is rendered.</value>
+    /// <summary>Gets the snap points as the consumer wrote them, or <see langword="null"/> for none (DRW-API-02).</summary>
+    [JsonConverter(typeof(SnapPointListJsonConverter))]
+    public IReadOnlyList<SnapPointValue>? SnapPoints { get; init; }
+
+    /// <summary>Gets the active snap point, or <see langword="null"/> for none.</summary>
+    [JsonConverter(typeof(SnapPointJsonConverter))]
+    public SnapPointValue? ActiveSnapPoint { get; init; }
+
+    /// <summary>Gets a value indicating whether a release moves at most one snap point at a time.</summary>
+    public bool SnapToSequentialPoints { get; init; }
+
+    /// <summary>Gets the number of the last snap point request C# has answered.</summary>
+    public int AnsweredSnap { get; init; }
+
     public int? Popup { get; init; }
 
     /// <summary>Gets the index of the backdrop element among the references sent with the options.</summary>

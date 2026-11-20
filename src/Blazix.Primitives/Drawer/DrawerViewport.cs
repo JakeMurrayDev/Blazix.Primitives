@@ -77,6 +77,7 @@ public sealed class DrawerViewport : PartBase<DrawerViewportState>
     private IDisposable? drawerSubscription;
     private readonly TaskCompletionSource gestureAttached = new(TaskCreationOptions.RunContinuationsAsynchronously);
     private int answeredDismiss;
+    private int answeredSnap;
     private bool deciding;
     private ElementReference? sentPopup;
     private ElementReference? sentBackdrop;
@@ -147,6 +148,8 @@ public sealed class DrawerViewport : PartBase<DrawerViewportState>
         twin.SwipingChanged += swiping => _ = InvokeAsync(() => viewport.SetSwiping(swiping));
         twin.DismissRequested += request => _ = InvokeAsync(() => DismissAsync(request));
         twin.DismissDecider = DecideDismiss;
+        twin.SnapPointRequested += request => _ = InvokeAsync(() => SnapAsync(request));
+        twin.SnapPointDecider = DecideSnapPoint;
         base.OnInitialized();
     }
 
@@ -225,7 +228,9 @@ public sealed class DrawerViewport : PartBase<DrawerViewportState>
         if (handle is not null && sentOptions is { } sent
             && sent.Open == root.Open && sent.Mounted == root.Mounted && sent.Nested == root.Nested
             && sent.NestedOpenDrawerCount == root.NestedOpenDrawerCount && string.Equals(sent.SwipeDirection, direction, StringComparison.Ordinal)
-            && sent.AnsweredDismiss == answeredDismiss && SameElements())
+            && sent.AnsweredDismiss == answeredDismiss && ReferenceEquals(sent.SnapPoints, drawer.SnapPoints)
+            && Nullable.Equals(sent.ActiveSnapPoint, drawer.ActiveSnapPoint) && sent.SnapToSequentialPoints == drawer.SnapToSequentialPoints
+            && sent.AnsweredSnap == answeredSnap && SameElements())
         {
             // ADR 16: an unchanged render sends nothing and allocates nothing here.
             return;
@@ -242,6 +247,10 @@ public sealed class DrawerViewport : PartBase<DrawerViewportState>
             NestedOpenDrawerCount = root.NestedOpenDrawerCount,
             SwipeDirection = direction,
             AnsweredDismiss = answeredDismiss,
+            SnapPoints = drawer.SnapPoints,
+            ActiveSnapPoint = drawer.ActiveSnapPoint,
+            SnapToSequentialPoints = drawer.SnapToSequentialPoints,
+            AnsweredSnap = answeredSnap,
             Popup = popup,
             Backdrop = backdrop,
         };
@@ -314,6 +323,37 @@ public sealed class DrawerViewport : PartBase<DrawerViewportState>
         answeredDismiss += 1;
         return DecisionPolicy.Run;
     }
+
+    // DRW-PTR-11, STA-03 on Server (slice 3, 2026-11-20): the module's snap point request a round trip later, answered
+    // whatever its outcome; from the answer on the module shows C#'s active snap point, so a canceled request rolls back.
+    private async Task SnapAsync(DrawerSnapPointRequest request)
+    {
+        ChangeEventDetails details = new(EventReason.Swipe, request.Event);
+        await Drawer!.RequestSnapPointAsync(SnapPointAt(request.Index), details);
+        answeredSnap = Math.Max(answeredSnap, request.Request);
+        await SyncTwinAsync();
+    }
+
+    // DRW-PTR-11 on WebAssembly: the `snap-point:<index>` point, inside the release; the module numbers no request then.
+    private DecisionPolicy DecideSnapPoint(int? index, EventSnapshot snapshot)
+    {
+        ChangeEventDetails details = new(EventReason.Swipe, snapshot);
+        deciding = true;
+        try
+        {
+            _ = Drawer!.RequestSnapPointAsync(SnapPointAt(index), details);
+        }
+        finally
+        {
+            deciding = false;
+            SyncTwinLater();
+        }
+
+        return details.IsCanceled ? DecisionPolicy.Stop : DecisionPolicy.Run;
+    }
+
+    private SnapPointValue? SnapPointAt(int? index) =>
+        index is { } at && Drawer!.SnapPoints is { } snapPoints && at >= 0 && at < snapPoints.Count ? (SnapPointValue?)snapPoints[at] : null;
 
     // Yields first, so a sync asked for inside the `dismiss` dispatch runs after the dispatch has returned to the module.
     private void SyncTwinLater() => _ = InvokeAsync(async () =>

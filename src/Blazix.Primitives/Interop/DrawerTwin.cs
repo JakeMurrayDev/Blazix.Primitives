@@ -20,11 +20,19 @@ internal sealed class DrawerTwin(IJSRuntime jsRuntime)
     /// <summary>Represents the name of the decision point the module asks about when a swipe release dismisses the drawer.</summary>
     public const string DismissPoint = "dismiss";
 
+    // Slice 3 (2026-11-20): the module names the requested snap point in the point, `snap-point:<index>` into the options'
+    // snap points or `snap-point:none`, as a decision carries only its point and its event.
+    /// <summary>The prefix of the module's snap point decision point, followed by an index into the snap points or <c>none</c>.</summary>
+    public const string SnapPointPointPrefix = "snap-point:";
+
     /// <summary>Occurs when the popup starts or stops being swiped.</summary>
     public event Action<bool>? SwipingChanged;
 
     /// <summary>Occurs when a swipe release dismisses the drawer and no C# handler could decide it inside the dispatch.</summary>
     public event Action<DrawerDismissRequest>? DismissRequested;
+
+    /// <summary>Occurs when the module reports a release that moves the drawer to a snap point, on Blazor Server.</summary>
+    public event Action<DrawerSnapPointRequest>? SnapPointRequested;
 
     /// <summary>Gets or sets the C# handler chain of the dismiss decision point.</summary>
     /// <value>
@@ -34,6 +42,9 @@ internal sealed class DrawerTwin(IJSRuntime jsRuntime)
     /// must not await.
     /// </value>
     public Func<EventSnapshot, DecisionPolicy>? DismissDecider { get; set; }
+
+    /// <summary>Gets or sets the chain the snap point decision point runs: the requested index, or <see langword="null"/> for none, and the release.</summary>
+    public Func<int?, EventSnapshot, DecisionPolicy>? SnapPointDecider { get; set; }
 
     /// <summary>Receives a change of whether the popup is being swiped.</summary>
     /// <param name="payloadJson">The JSON of a <see cref="DrawerSwipingChange"/>.</param>
@@ -55,10 +66,39 @@ internal sealed class DrawerTwin(IJSRuntime jsRuntime)
         DismissRequested?.Invoke(request);
     }
 
+    /// <summary>Receives a swipe release that moves the drawer to a snap point, numbered for the options to answer.</summary>
+    /// <param name="payloadJson">The JSON of a <see cref="DrawerSnapPointRequest"/>.</param>
+    /// <exception cref="System.Text.Json.JsonException">The payload is not valid.</exception>
+    [JSInvokable]
+    public void OnSnapPointRequest(string payloadJson)
+    {
+        DrawerSnapPointRequest request = Deserialize(payloadJson, BlazixJsonContext.Default.DrawerSnapPointRequest);
+        SnapPointRequested?.Invoke(request);
+    }
+
     /// <inheritdoc />
-    /// <remarks>The module's points are <see cref="DismissPoint"/> and, later, the snap-point one; any other answers <see cref="DecisionPolicy.Run"/>.</remarks>
+    /// <remarks>The module's points are <see cref="DismissPoint"/> and <c>snap-point:&lt;index&gt;</c> (<see cref="SnapPointPointPrefix"/>); any other answers <see cref="DecisionPolicy.Run"/>.</remarks>
     protected override DecisionPolicy OnDecide(string point, EventSnapshot snapshot)
     {
-        return point == DismissPoint && DismissDecider is { } decider ? decider(snapshot) : DecisionPolicy.Run;
+        if (point == DismissPoint)
+        {
+            return DismissDecider is { } decider ? decider(snapshot) : DecisionPolicy.Run;
+        }
+
+        if (point.StartsWith(SnapPointPointPrefix, StringComparison.Ordinal) && SnapPointDecider is { } snapDecider)
+        {
+            ReadOnlySpan<char> target = point.AsSpan(SnapPointPointPrefix.Length);
+            if (target.SequenceEqual("none"))
+            {
+                return snapDecider(null, snapshot);
+            }
+
+            if (int.TryParse(target, System.Globalization.NumberStyles.None, System.Globalization.CultureInfo.InvariantCulture, out int index))
+            {
+                return snapDecider(index, snapshot);
+            }
+        }
+
+        return DecisionPolicy.Run;
     }
 }
