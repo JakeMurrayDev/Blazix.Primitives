@@ -40,9 +40,8 @@ internal sealed record DrawerOptions : TwinOptions
     /// <value>The number; the default is 0, for none.</value>
     public int AnsweredDismiss { get; init; }
 
-    /// <summary>Gets the index of the popup element among the references sent with the options.</summary>
-    /// <value>The index, or <see langword="null"/>, the default, while no popup is rendered.</value>
-    /// <summary>Gets the snap points as the consumer wrote them, or <see langword="null"/> for none (DRW-API-02).</summary>
+    // DRW-API-02: the snap points travel as the consumer wrote them; the module resolves them against its measurements.
+    /// <summary>Gets the snap points as the consumer wrote them, or <see langword="null"/> for none.</summary>
     [JsonConverter(typeof(SnapPointListJsonConverter))]
     public IReadOnlyList<SnapPointValue>? SnapPoints { get; init; }
 
@@ -56,6 +55,8 @@ internal sealed record DrawerOptions : TwinOptions
     /// <summary>Gets the number of the last snap point request C# has answered.</summary>
     public int AnsweredSnap { get; init; }
 
+    /// <summary>Gets the index of the popup element among the references sent with the options.</summary>
+    /// <value>The index, or <see langword="null"/>, the default, while no popup is rendered.</value>
     public int? Popup { get; init; }
 
     /// <summary>Gets the index of the backdrop element among the references sent with the options.</summary>
