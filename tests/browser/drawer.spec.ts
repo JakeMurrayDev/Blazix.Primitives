@@ -2896,3 +2896,38 @@ test.describe('<Drawer.SwipeArea /> interruptions, thresholds and quick flicks',
     await expect(page.getByTestId('swipe-area')).toHaveAttribute('data-open', '');
   });
 });
+
+// Slice 5 (added 2026-11-21): the last two titles of the row-by-row account of drawer.md's L4 rows.
+test.describe('<Drawer.Popup /> and <Drawer.Viewport /> lifecycle', () => {
+  // DRW-ANI-06, STA-12, DOM-03, DOM-08 (DrawerPopup.test.tsx:660-729, browser-only): the parent drops its nested state as
+  // the nested drawer starts closing, before it unmounts.
+  test('clears parent nested drawer state when a nested drawer starts closing before unmount', async ({ page, mode }) => {
+    await stackCase(page, mode, 'height', { animations: '1' });
+    const parentPopup = page.getByTestId('parent-popup');
+    await page.getByRole('button', { name: 'Open nested drawer' }).click();
+    await expect.poll(() => styleOf(parentPopup, '--nested-drawers')).toBe('1');
+    await expect(parentPopup).toHaveAttribute('data-nested-drawer-open', '');
+
+    await page.getByRole('button', { name: 'Close nested drawer' }).click();
+    await expect(page.getByTestId('child-popup')).toHaveAttribute('data-ending-style', '');
+    expect(await styleOf(parentPopup, '--nested-drawers')).toBe('0');
+    await expect(parentPopup).not.toHaveAttribute('data-nested-drawer-open');
+    await expect(page.getByTestId('child-popup')).toHaveCount(0);
+  });
+
+  // DRW-ANI-03, DOM-07 (DrawerViewport.test.tsx:5185-5240): a kept-mounted popup left with swipe styles is reset when the
+  // drawer opens again. Base UI checks the reset happens before passive effects; the port checks the reset itself.
+  test('clears kept-mounted swipe state before descendant layout effects on reopen', async ({ page, mode }) => {
+    const fixture = await snapCase(page, mode, { closed: 'true', keepMounted: 'true', snapPoints: '' });
+    const popup = page.getByTestId('popup');
+    await popup.evaluate((element) => {
+      (element as HTMLElement).style.setProperty('--drawer-swipe-movement-y', '50px');
+      element.setAttribute('data-swipe-dismiss', '');
+    });
+
+    await pressControl(fixture.locator('[data-toggle-open]'));
+    await expect(popup).toHaveAttribute('data-open', '');
+    await expect.poll(() => styleOf(popup, '--drawer-swipe-movement-y')).toBe('0px');
+    await expect(popup).not.toHaveAttribute('data-swipe-dismiss');
+  });
+});

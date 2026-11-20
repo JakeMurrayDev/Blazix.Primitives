@@ -52,7 +52,8 @@
     - `alwaysOpen=true`: the root is controlled with `Open="true"` and never follows a change.
     The remove button (`data-remove-root`, added 2026-11-20) stops rendering the root, as Base UI's `unmount()`. The snap-to
     control (`data-snap-to`, added 2026-11-21) sets the controlled snap point to the `snapTo` query, as Base UI's `setProps`;
-    on `case=snap`, `data-hide-popup` stops rendering the popup, `pt` is the popup's top, and `content` fills it: `scroll` (a
+    on `case=snap`, `closed` starts the drawer closed and `data-toggle-open` opens or closes it, `data-hide-popup` stops
+    rendering the popup, `pt` is the popup's top, and `content` fills it: `scroll` (a
     vertical scroller 40 px tall over 120 px), `html` and `svg` (a horizontal scroller 40 px wide over a 120 px target, an
     element or an SVG rect), `axis` (a `data-base-ui-swipe-ignore="x"` wrapper around the target) and `carousel` (a 100 px
     horizontal scroller over 400 px, itself the target).
@@ -66,6 +67,7 @@
     <button type="button" tabindex="-1" data-sync-button data-key-control @onclick="() => Sync++" @onkeydown="OnShift(() => Sync++)">Sync</button>
     <button type="button" data-remove-root @onclick="() => removed = true">Remove</button>
     <button type="button" tabindex="-1" data-snap-to data-key-control @onclick="SnapTo" @onkeydown="OnShift(SnapTo)">Snap to</button>
+    <button type="button" tabindex="-1" data-toggle-open data-key-control @onclick="() => snapOpen = !snapOpen" @onkeydown="OnShift(() => snapOpen = !snapOpen)">Toggle open</button>
     <button type="button" tabindex="-1" data-hide-popup data-key-control @onclick="() => showSnapPopup = false" @onkeydown="OnShift(() => showSnapPopup = false)">Hide popup</button>
     <span data-testid="outside-text">Outside selection</span>
     @if (removed)
@@ -285,6 +287,11 @@
     protected override void OnInitialized()
     {
         base.OnInitialized();
+        if (Snap && QueryFlag("closed") == true)
+        {
+            snapOpen = false;
+        }
+
         if (Snap && Query("snap") is { } snap)
         {
             snapPoint = snap == "null" ? (SnapPointValue?)null : ParseSnap(snap);
