@@ -158,7 +158,8 @@ describe('drawer module: snap point resolution (DrawerSnapPoints.test.tsx)', () 
     expect(resolveActiveSnapPointOffset('100px', resolved, 400, 300, 16)).toBe(200);
   });
 
-  it('port: the offset variable is negative for an up drawer and 0px without snap points', () => {
+  // DRW-DOM-11 (DrawerPopup.test.tsx), with the variable's 0px when no snap points apply.
+  it('applies a negative snap point offset to upward drawers', () => {
     expect(snapOffset(mount({ swipeDirection: 'up', snapPoints: ['100px', '200px'], activeSnapPoint: '100px' }).popup)).toBe('-200px');
     expect(snapOffset(mount().popup)).toBe('0px');
   });
