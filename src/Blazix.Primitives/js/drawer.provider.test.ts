@@ -338,4 +338,35 @@ describe('drawer module: the popup role (DrawerPopup.tsx)', () => {
   });
 });
 
+describe('drawer module: the nested swipe report (DRW-PTR-17)', () => {
+  // DRW-PTR-17: once per gesture, from 10 px along the direction; `false` only after `true`, here when the drag returns
+  // to its start, and nothing without a parent drawer.
+  it('port: a nested drawer reports swiping to its parent once past the threshold and clears it when the drag returns', () => {
+    const { popup: parent } = popupRole();
+    const { viewport: root, fake } = viewport({ nested: true, hasParent: true }, [parent]);
+    const swiping = () => fake.reported<{ swiping: boolean }>('OnNestedSwipingChange').map((change) => change.swiping);
+
+    pointer('pointerdown', root, 0);
+    pointer('pointermove', root, 1);
+    pointer('pointermove', root, 9);
+    expect(swiping()).toEqual([]);
+
+    pointer('pointermove', root, 12);
+    pointer('pointermove', root, 30);
+    expect(swiping()).toEqual([true]);
+
+    pointer('pointermove', root, 0);
+    expect(swiping()).toEqual([true, false]);
+    pointer('pointerup', root, 0);
+    expect(swiping()).toEqual([true, false]);
+
+    const { viewport: topLevel, fake: topFake } = viewport({});
+    pointer('pointerdown', topLevel, 0);
+    pointer('pointermove', topLevel, 1);
+    pointer('pointermove', topLevel, 30);
+    pointer('pointerup', topLevel, 30);
+    expect(topFake.reported('OnNestedSwipingChange')).toEqual([]);
+  });
+});
+
 export type { FakeTwin };
