@@ -1153,3 +1153,105 @@ test.describe('<Drawer.Viewport /> touch swipe with selections, pens and compati
     await expect(backdrop).toHaveAttribute('data-swiping', '');
   });
 });
+
+// Slice 2's remaining scroll arbitration (DRW-PTR-21 (f), PTR-22, ALG-03; added 2026-11-20). Base UI's last six titles
+// here are browser-only (skipped in jsdom) but still use synthetic touches; here every touch is real, and each absence
+// is folded with the native scroll the drawer leaves to the browser. The case=scroll popup adds a both-ways scroller
+// (x 300-420, y 400-460). Several vertical or horizontal moves begin each drag: Chromium may begin its scroll only on a
+// later move.
+const scrollOffsets = (page: Page, testId: string) =>
+  page.getByTestId(testId).evaluate((element) => ({ top: element.scrollTop, left: element.scrollLeft }));
+
+test.describe('<Drawer.Viewport /> touch swipe and native scrolling', () => {
+  // DRW-PTR-21 (f) (DrawerViewport.test.tsx:1704-1745), on the fixture's `case=wrap`: the scroll container sits between
+  // the Viewport and the popup.
+  testWithTouch('prevents touchmove when a scrollable ancestor wraps the popup at the top', async ({ touchPage: page, mode }) => {
+    await gotoPopupFixture(page, mode, 'drawer-swipe', { case: 'wrap' });
+    await recordMoves(page);
+    const start = await pointOf(page.getByTestId('item'));
+
+    await touchDrag(page, [[start, { x: start.x, y: start.y + 25 }, { x: start.x, y: start.y + 40 }]], {
+      steps: 1,
+      beforeRelease: () => expect(page.getByTestId('backdrop')).toHaveAttribute('data-swiping', ''),
+    });
+
+    const prevented = await preventedMoves(page);
+    expect(prevented.length).toBeGreaterThan(0);
+    expect(prevented.every(Boolean)).toBe(true);
+  });
+
+  // DRW-PTR-21 (f), ALG-03 (DrawerViewport.test.tsx:2399-2443): at the right edge, a leftward drag is not the drawer's.
+  // The content has nothing left to scroll that way, so the title asserts only absences; its red is a planted fault,
+  // quoted in PR 305.
+  testWithTouch('does not start an opposite-direction swipe from scroll right edge for right drawers', async ({ touchPage: page, mode }) => {
+    const fixture = await scrollCase(page, mode, 'right', { scrollLeft: 'max' });
+    await recordMoves(page);
+    const { x, y } = hscrollCenter;
+
+    await touchDrag(page, [[{ x: x + 50, y }, { x: x - 50, y }]], {
+      steps: 5,
+      beforeRelease: async () => {
+        await settle(fixture);
+        await expect(page.getByTestId('backdrop')).not.toHaveAttribute('data-swiping');
+      },
+    });
+
+    const prevented = await preventedMoves(page);
+    expect(prevented.length).toBeGreaterThan(0);
+    expect(prevented.some(Boolean)).toBe(false);
+  });
+
+  // DRW-PTR-22 (DrawerViewport.test.tsx:3292-3348): the both-ways scroller at scrollLeft 40; the drag wins on the cross
+  // axis.
+  testWithTouch('does not hijack cross-axis gestures from mixed-axis scroll containers', async ({ touchPage: page, mode }) => {
+    const fixture = await gotoPopupFixture(page, mode, 'drawer-swipe', { case: 'scroll', direction: 'down' });
+    await page.getByTestId('bscroll').evaluate((element) => (element.scrollLeft = 40));
+    await recordMoves(page);
+    const start = await pointOf(page.getByTestId('bscroll'));
+
+    await touchDrag(page, [[{ x: start.x + 50, y: start.y - 20 }, { x: start.x - 40, y: start.y + 20 }]], {
+      steps: 5,
+      beforeRelease: async () => {
+        await settle(fixture);
+        await expect(page.getByTestId('backdrop')).not.toHaveAttribute('data-swiping');
+      },
+    });
+
+    const prevented = await preventedMoves(page);
+    expect(prevented.length).toBeGreaterThan(0);
+    expect(prevented.some(Boolean)).toBe(false);
+    await expect.poll(async () => (await scrollOffsets(page, 'bscroll')).left).toBeGreaterThan(40);
+  });
+
+  // DRW-PTR-22 (DrawerViewport.test.tsx:3350-3532): a scroller overflowing only on the drawer's cross axis keeps its
+  // native scroll.
+  for (const [direction, testId, axis] of [
+    ['right', 'scroll', 'vertical'],
+    ['left', 'scroll', 'vertical'],
+    ['down', 'hscroll', 'horizontal'],
+    ['up', 'hscroll', 'horizontal'],
+  ] as const) {
+    testWithTouch(`does not block ${axis} scrolling in ${direction} drawers when only ${axis} overflow exists`, async ({ touchPage: page, mode }) => {
+      const fixture = await scrollCase(page, mode, direction, { scrollTop: 0, scrollLeft: 0 });
+      await recordMoves(page);
+      const { x, y } = await pointOf(page.getByTestId(testId));
+      const path = axis === 'vertical' ? [{ x, y: y + 25 }, { x, y: y - 25 }] : [{ x: x + 50, y }, { x: x - 50, y }];
+
+      await touchDrag(page, [path], {
+        steps: 5,
+        beforeRelease: async () => {
+          await settle(fixture);
+          await expect(page.getByTestId('backdrop')).not.toHaveAttribute('data-swiping');
+        },
+      });
+
+      const prevented = await preventedMoves(page);
+      expect(prevented.length).toBeGreaterThan(0);
+      expect(prevented.some(Boolean)).toBe(false);
+      await expect.poll(async () => {
+        const offsets = await scrollOffsets(page, testId);
+        return axis === 'vertical' ? offsets.top : offsets.left;
+      }).toBeGreaterThan(0);
+    });
+  }
+});
