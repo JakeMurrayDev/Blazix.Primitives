@@ -93,7 +93,8 @@ export interface OtpFieldPasteUnreadableReport {
   index: number;
 }
 
-/** A platform test seam for the Android composition path (OTP-KEY-22, OTP-KEY-23). */
+// OTP-KEY-22, OTP-KEY-23: Android commits every change during a composition.
+/** A platform test seam for the Android composition path. */
 export interface OtpFieldEnvironment {
   android: boolean;
 }
