@@ -17,7 +17,7 @@
     - `case=scroll` (added 2026-11-20): DrawerViewport.test.tsx's scroll-edge drawers. The popup is fixed at left 300 and
       top 300, 200 px wide and 300 px tall, and holds a vertical scroll container 60 px tall over 120 px of content and a
       horizontal one 120 px wide over 360 px, then (added later on 2026-11-20) one 120 by 60 px over 360 by 180 px of
-      content, scrolling both ways; `direction` (`down`, the default, `up`, `left` or `right`) is the swipe direction.
+      content, scrolling both ways, and one 100 px tall over 185 px whose 20 px SVG starts 45 px down; `direction` (`down`, the default, `up`, `left` or `right`) is the swipe direction.
     - `case=wrap` (added 2026-11-20): "prevents touchmove when a scrollable ancestor wraps the popup at the top". A
       vertical scroll container fixed at left 0 and top 100, 200 by 100 px, sits between the Viewport and an in-flow
       300 px popup holding Drawer.Content with an item.
@@ -124,6 +124,11 @@
                     <div data-testid="scroll" style="overflow-y: auto; max-height: 60px;"><div style="height: 120px;">Scrollable content</div></div>
                     <div data-testid="hscroll" style="overflow-x: auto; max-width: 120px;"><div style="width: 360px; height: 40px;">Scrollable content</div></div>
                     <div data-testid="bscroll" style="overflow: auto; width: 120px; height: 60px;"><div style="width: 360px; height: 180px;">Scrollable content</div></div>
+                    <div data-testid="svgscroll" style="overflow-y: auto; max-height: 100px;">
+                        <div style="height: 45px;"></div>
+                        <svg width="20" height="20" style="display: block;"><rect data-testid="rect" width="20" height="20" /></svg>
+                        <div style="height: 120px;"></div>
+                    </div>
                 }
                 else if (Combobox)
                 {

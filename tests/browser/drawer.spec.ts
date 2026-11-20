@@ -1342,3 +1342,65 @@ test.describe('<Drawer.Viewport /> touch swipe over portaled descendants', () =>
     await expect.poll(() => listbox.evaluate((element) => element.scrollTop)).toBeGreaterThan(0);
   });
 });
+
+// Slice 2's SVG targets (DRW-PTR-04, PTR-21, PSH-PTR-19; added 2026-11-20), on case=scroll's SVG scroller (x 300-500,
+// y 460-560; its 20 px SVG starts 45 px into 185 px of content). An SVG element has no scroll box of its own, and the
+// lookup walks past it to the scroller.
+const svgCase = async (page: Page, mode: RenderMode, scrollTop: number) => {
+  const fixture = await gotoPopupFixture(page, mode, 'drawer-swipe', { case: 'scroll', direction: 'down' });
+  await page.getByTestId('svgscroll').evaluate((element, scrollTop) => (element.scrollTop = scrollTop), scrollTop);
+  return { fixture, rect: await pointOf(page.getByTestId('rect')) };
+};
+
+test.describe('<Drawer.Viewport /> swipe from an SVG in scrollable content', () => {
+  // DRW-PTR-21 (DrawerViewport.test.tsx:526-572). Folded with its positive half: the content scrolls.
+  testWithTouch('scrolls instead of swiping when a touch drag starts on an SVG inside scrolled content', async ({ touchPage: page, mode }) => {
+    const { fixture, rect } = await svgCase(page, mode, 40);
+    await recordMoves(page);
+
+    await touchDrag(page, [[rect, { x: rect.x, y: rect.y + 25 }, { x: rect.x, y: rect.y + 40 }]], {
+      steps: 4,
+      beforeRelease: async () => {
+        await settle(fixture);
+        await expect(page.getByTestId('backdrop')).not.toHaveAttribute('data-swiping');
+      },
+    });
+
+    const prevented = await preventedMoves(page);
+    expect(prevented.length).toBeGreaterThan(0);
+    expect(prevented.some(Boolean)).toBe(false);
+    await expect.poll(async () => (await scrollOffsets(page, 'svgscroll')).top).toBeLessThan(40);
+  });
+
+  // DRW-PTR-04, PSH-PTR-19 (DrawerViewport.test.tsx:574-627), a real mouse. Folded with its positive half: the same
+  // drag from the popup's free area (y 560-600) swipes.
+  test('does not start a mouse drag swipe from an SVG inside scrollable content', async ({ page, mode }) => {
+    const { fixture, rect } = await svgCase(page, mode, 0);
+    const backdrop = page.getByTestId('backdrop');
+
+    await page.mouse.move(rect.x, rect.y);
+    await page.mouse.down();
+    await page.mouse.move(rect.x, rect.y + 40, { steps: 4 });
+    await settle(fixture);
+    await expect(backdrop).not.toHaveAttribute('data-swiping');
+    await page.mouse.up();
+
+    await page.mouse.move(400, 570);
+    await page.mouse.down();
+    await page.mouse.move(400, 610, { steps: 4 });
+    await expect(backdrop).toHaveAttribute('data-swiping', '');
+    await page.mouse.up();
+  });
+
+  // DRW-PTR-21, PTR-10 (DrawerViewport.test.tsx:629-687).
+  testWithTouch('dismisses with a touch swipe down that starts on an SVG inside a top-edge scroll container', async ({ touchPage: page, mode }) => {
+    const { fixture, rect } = await svgCase(page, mode, 0);
+
+    await touchDrag(page, [[rect, { x: rect.x, y: rect.y + 25 }, { x: rect.x, y: rect.y + 250 }]], {
+      steps: 1,
+      beforeRelease: () => expect(page.getByTestId('backdrop')).toHaveAttribute('data-swiping', ''),
+    });
+
+    await expect(fixture).toHaveAttribute('data-open-changes', 'false:swipe');
+  });
+});
