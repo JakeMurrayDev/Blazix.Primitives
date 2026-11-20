@@ -21,7 +21,9 @@ public sealed class DrawerViewportGestureTests : IDisposable
     private readonly BunitJSModuleInterop drawerModule;
     private readonly BunitJSModuleInterop drawerHandle;
     private readonly List<(bool Open, EventReason Reason)> changes = [];
+    private readonly List<(SnapPointValue? Value, EventReason Reason)> snapChanges = [];
     private bool cancelClose;
+    private bool cancelSnap;
 
     public DrawerViewportGestureTests()
     {
@@ -142,6 +144,60 @@ public sealed class DrawerViewportGestureTests : IDisposable
         cut.WaitForAssertion(() => Assert.False(popupState?.Swiping));
     }
 
+    // Slice 3 (2026-11-20): the C# half of the snap points. The module resolves and releases them (js/drawer.snap.test.ts);
+    // C# sends the list, the active value and the flag, and applies the module's requests (DRW-PTR-11, STA-03).
+    [Fact(DisplayName = "port: the viewport sends the snap points, the active snap point and the sequential flag to the module")]
+    [Trait("Requirement", "DRW-PTR-11")]
+    public void The_viewport_sends_the_snap_points()
+    {
+        IRenderedComponent<IComponent> cut = test.Context.Render(Drawer(snapPoints: [0.5, "200px"], defaultSnapPoint: "200px", sequential: true));
+
+        cut.WaitForAssertion(() =>
+        {
+            string options = LastOptions();
+            Assert.Contains("\"snapPoints\":[0.5,\"200px\"]", options, StringComparison.Ordinal);
+            Assert.Contains("\"activeSnapPoint\":\"200px\"", options, StringComparison.Ordinal);
+            Assert.Contains("\"snapToSequentialPoints\":true", options, StringComparison.Ordinal);
+        });
+    }
+
+    [Fact(DisplayName = "port: a snap point report selects the indexed snap point with reason swipe and answers it in the next update")]
+    [Trait("Requirement", "DRW-PTR-11")]
+    public async Task A_snap_point_report_selects_the_snap_point_and_answers_it()
+    {
+        IRenderedComponent<IComponent> cut = test.Context.Render(Drawer(snapPoints: [0.5, "200px"], defaultSnapPoint: "200px"));
+        cut.WaitForAssertion(() => Assert.Single(drawerModule.Invocations["attach"]));
+
+        await cut.InvokeAsync(() => Twin().OnSnapPointRequest($$"""{"request":1,"index":0,"event":{{ReleaseJson}}}"""));
+        Assert.Equal([((SnapPointValue?)0.5, EventReason.Swipe)], snapChanges);
+        cut.WaitForAssertion(() =>
+        {
+            string options = LastOptions();
+            Assert.Contains("\"answeredSnap\":1", options, StringComparison.Ordinal);
+            Assert.Contains("\"activeSnapPoint\":0.5", options, StringComparison.Ordinal);
+        });
+
+        await cut.InvokeAsync(() => Twin().OnSnapPointRequest($$"""{"request":2,"index":null,"event":{{ReleaseJson}}}"""));
+        Assert.Equal(((SnapPointValue?)null, EventReason.Swipe), snapChanges[^1]);
+        cut.WaitForAssertion(() => Assert.Contains("\"answeredSnap\":2", LastOptions(), StringComparison.Ordinal));
+    }
+
+    [Fact(DisplayName = "port: the snap-point point requests the indexed snap point inside the dispatch, and answers stop when it is canceled")]
+    [Trait("Requirement", "DRW-PTR-11")]
+    public async Task The_snap_point_point_requests_the_snap_point_inside_the_dispatch()
+    {
+        IRenderedComponent<IComponent> cut = test.Context.Render(Drawer(snapPoints: [0.5, "200px"], defaultSnapPoint: "200px"));
+        cut.WaitForAssertion(() => Assert.Single(drawerModule.Invocations["attach"]));
+
+        Assert.Equal("run", await cut.InvokeAsync(() => Twin().Decide("snap-point:0", ReleaseJson)));
+        Assert.Equal([((SnapPointValue?)0.5, EventReason.Swipe)], snapChanges);
+
+        cancelSnap = true;
+        Assert.Equal("stop", await cut.InvokeAsync(() => Twin().Decide("snap-point:none", ReleaseJson)));
+        Assert.Equal(((SnapPointValue?)null, EventReason.Swipe), snapChanges[^1]);
+        cut.WaitForAssertion(() => Assert.Contains("\"activeSnapPoint\":0.5", LastOptions(), StringComparison.Ordinal));
+    }
+
     private DrawerTwin Twin() => ((DotNetObjectReference<DrawerTwin>)drawerModule.Invocations["attach"][^1].Arguments[2]!).Value;
 
     private string LastOptions()
@@ -150,10 +206,29 @@ public sealed class DrawerViewportGestureTests : IDisposable
         return (updates.Count > 0 ? updates[^1].Arguments[0] : drawerModule.Invocations["attach"][^1].Arguments[1]) as string ?? string.Empty;
     }
 
-    private RenderFragment Drawer(Func<DrawerPopupState, string?>? popupClass = null) => builder =>
+    private RenderFragment Drawer(
+        Func<DrawerPopupState, string?>? popupClass = null,
+        IReadOnlyList<SnapPointValue>? snapPoints = null,
+        SnapPointValue? defaultSnapPoint = null,
+        bool sequential = false) => builder =>
     {
         builder.OpenComponent<DrawerRoot<NoPayload>>(0);
         builder.AddComponentParameter(1, nameof(DrawerRoot<NoPayload>.DefaultOpen), true);
+        if (snapPoints is not null)
+        {
+            builder.AddComponentParameter(5, nameof(DrawerRoot<NoPayload>.SnapPoints), snapPoints);
+            builder.AddComponentParameter(6, nameof(DrawerRoot<NoPayload>.DefaultSnapPoint), defaultSnapPoint);
+            builder.AddComponentParameter(7, nameof(DrawerRoot<NoPayload>.SnapToSequentialPoints), sequential);
+            builder.AddComponentParameter(8, nameof(DrawerRoot<NoPayload>.OnSnapPointChange), EventCallback.Factory.Create<ValueChangeEventArgs<SnapPointValue?>>(this, args =>
+            {
+                snapChanges.Add((args.Value, args.Details.Reason));
+                if (cancelSnap)
+                {
+                    args.Details.Cancel();
+                }
+            }));
+        }
+
         builder.AddComponentParameter(2, nameof(DrawerRoot<NoPayload>.OnOpenChange), EventCallback.Factory.Create<ValueChangeEventArgs<bool>>(this, args =>
         {
             changes.Add((args.Value, args.Details.Reason));
