@@ -27,6 +27,7 @@ import {
   contains,
   findScrollableTouchTarget,
   getElementAtPoint,
+  getElementTransform,
   getTarget,
   isElement,
   observeResize,
@@ -38,6 +39,7 @@ import {
 } from './dom';
 import { decide } from './decide';
 import { eventInfo } from './event-info';
+import { getSession, isVirtualClick, setOutsidePressGate } from './interactions';
 import {
   BASE_UI_SWIPE_IGNORE_ATTRIBUTE,
   BASE_UI_SWIPE_IGNORE_SELECTOR,
@@ -63,7 +65,7 @@ import {
 /** The options of a drawer handle; mirrors `DrawerOptions` in C#. */
 export interface DrawerOptions extends TwinOptions {
   /** The part the handle serves: the Viewport's gesture, the Popup's measurement, or an Indent's visual state. */
-  role: 'viewport' | 'popup' | 'indent';
+  role: 'viewport' | 'popup' | 'indent' | 'swipe-area';
   /** Whether the drawer is open. */
   open: boolean;
   /** Whether the drawer's popup is mounted. */
@@ -98,6 +100,14 @@ export interface DrawerOptions extends TwinOptions {
   hasNestedDrawer?: boolean;
   /** The popup role: whether the popup is animating out. */
   ending?: boolean;
+  /** The swipe-area role: whether swiping to open is disabled. */
+  disabled?: boolean;
+  /** The swipe-area role: the token of the Root's interactions session, whose outside-press gate the gesture closes. */
+  sessionToken?: string | null;
+  /** The swipe-area role: the id the Popup renders with, found before an update hands the element over. */
+  popupId?: string | null;
+  /** The swipe-area role: the number of the last open request C# has answered. */
+  answeredOpen?: number;
   /** The index of the Popup element among the references, or `null` while none is rendered. */
   popup?: number | null;
   /** The index of the Backdrop element among the references, or `null` while none is rendered. */
@@ -130,6 +140,16 @@ const SWIPE_PROGRESS = '--drawer-swipe-progress';
 const DRAWER_HEIGHT = '--drawer-height';
 const SNAP_POINT_OFFSET = '--drawer-snap-point-offset';
 const NESTED_DRAWER_OPEN = 'data-nested-drawer-open';
+
+// DRW-PTR-28, PTR-30 (DrawerSwipeArea.tsx:28-31).
+const DEFAULT_SWIPE_OPEN_RATIO = 0.5;
+const MIN_SWIPE_START_DISTANCE = 1;
+const VELOCITY_THRESHOLD = 0.1;
+const FALLBACK_SWIPE_OPEN_THRESHOLD = 40;
+const OPPOSITE_DIRECTION: Record<SwipeDirection, SwipeDirection> = { up: 'down', down: 'up', left: 'right', right: 'left' };
+
+// DRW-PTR-29: the popups a swipe area is moving; their Viewport skips its open-time reset (Base UI's `swipeAreaActiveRef`).
+const swipeAreaDriven = new WeakSet<Element>();
 
 function clamp(value: number, min: number, max: number): number {
   return Math.min(Math.max(value, min), max);
@@ -540,6 +560,403 @@ function ownedLayer(layer: StyleLayer): StyleLayer {
   };
 }
 
+// Slice 4 (M6 track 8b, issue 279, added 2026-11-21): the SwipeArea's opening gesture (DRW-PTR-25…31, DrawerSwipeArea.tsx
+// 80-490). It moves the Popup by DRW-ALG-04 once the drawer renders open, publishes to the Backdrop and the Provider, and
+// closes the Root's outside-press gate for the gesture (DRW-DIS-02). Opening and closing are reported to C#
+// (`OnOpenRequest`, numbered, answered as `answeredOpen`). Blazor Server answers a round trip later, so while the gesture
+// waits for the open it watches for the Popup by the id the options name and moves it as soon as it renders open.
+function attachSwipeArea(
+  area: HTMLElement | null,
+  initial: DrawerOptions,
+  twin: ReturnType<typeof createTwinChannel>,
+  references?: TwinReferences,
+  captures?: TwinCaptures,
+): TwinHandle {
+  let options = initial;
+  let disposed = false;
+  let popup: HTMLElement | null = null;
+  let backdrop: HTMLElement | null = null;
+  let popupBand: StyleLayer | null = null;
+  let backdropBand: StyleLayer | null = null;
+  let provider = acquireVisualState(options.provider);
+  let providerToken = options.provider;
+
+  let swipeActive = false;
+  let startEvent: PointerEvent | TouchEvent | null = null;
+  let openedBySwipe = false;
+  let deltaX = 0;
+  let deltaY = 0;
+  let closedOffset: number | null = null;
+  let applied = false;
+  let movedPopup: HTMLElement | null = null;
+  let movedPopupBand: StyleLayer | null = null;
+  let movedBackdrop: HTMLElement | null = null;
+  let renderedOpen = false;
+  let openRequests = 0;
+  let releaseGuard: (() => void) | null = null;
+  let popupWatch: MutationObserver | null = null;
+
+  const openDirection = (): SwipeDirection => options.swipeDirection;
+  const dismissDirection = (): SwipeDirection => OPPOSITE_DIRECTION[openDirection()];
+  const horizontal = () => dismissDirection() === 'left' || dismissDirection() === 'right';
+  const isOpen = () => (options.open && options.mounted) || renderedOpen;
+  const enabled = () => !options.disabled && (!options.open || swipeActive);
+
+  const setPopup = (next: HTMLElement | null) => {
+    popup = next;
+    const writer = next ? styleWriter(next) : null;
+    writer?.absorbForeignWrites();
+    popupBand = writer ? ownedLayer(writer.layer('component')) : null;
+  };
+  const readReferences = (refs: TwinReferences, refCaptures?: TwinCaptures) => {
+    const nextPopup = resolveReference<HTMLElement>(refs, options.popup, refCaptures);
+    const nextBackdrop = resolveReference<HTMLElement>(refs, options.backdrop, refCaptures);
+    if (nextPopup !== popup && (nextPopup !== null || !renderedOpen)) {
+      setPopup(nextPopup);
+    }
+    if (nextBackdrop !== backdrop) {
+      backdrop = nextBackdrop;
+      backdropBand = backdrop ? ownedLayer(styleWriter(backdrop).layer('component')) : null;
+    }
+  };
+  readReferences(references, captures);
+
+  // DRW-DIS-02 (DrawerSwipeArea.tsx:132-169): the release guard is also its own cleanup, which reopens the gate.
+  const session = () => (options.sessionToken ? getSession(options.sessionToken) : undefined);
+  const disableDismissForSwipe = () => {
+    releaseGuard?.();
+    const current = session();
+    if (current) {
+      setOutsidePressGate(current, false);
+    }
+  };
+  const enableDismissAfterRelease = () => {
+    releaseGuard?.();
+    const doc = ownerDocument(area);
+    const restore = (event?: Event) => {
+      // The gesture's trailing release click is a physical click without a pointerdown of its own.
+      if (event?.type === 'click' && (event as MouseEvent).detail !== 0 && !isVirtualClick(event as MouseEvent)) {
+        return;
+      }
+      releaseGuard = null;
+      doc.removeEventListener('pointerdown', restore, true);
+      doc.removeEventListener('click', restore, true);
+      const current = session();
+      if (current) {
+        setOutsidePressGate(current, true);
+      }
+    };
+    releaseGuard = restore;
+    doc.addEventListener('pointerdown', restore, true);
+    doc.addEventListener('click', restore, true);
+  };
+
+  const popupSize = (element: HTMLElement): number | null => {
+    const size = horizontal() ? element.offsetWidth : element.offsetHeight;
+    return size > 0 ? size : null;
+  };
+  const resolveClosedOffset = (element: HTMLElement): number | null => {
+    const size = popupSize(element);
+    if (size === null) {
+      return null;
+    }
+    const transform = getElementTransform(element);
+    const offset = horizontal() ? transform.x : transform.y;
+    return Number.isFinite(offset) && Math.abs(offset) > 0.5 ? Math.min(size, Math.abs(offset)) : size;
+  };
+
+  // DRW-ALG-04.
+  const applySwipeMovement = () => {
+    if (!popup || !isOpen()) {
+      return;
+    }
+    if (closedOffset === null) {
+      closedOffset = resolveClosedOffset(popup);
+    }
+    const closed = closedOffset;
+    if (closed === null) {
+      return;
+    }
+    const displacement = Math.max(0, getDisplacement(openDirection(), deltaX, deltaY));
+    const damped = displacement > closed ? closed + Math.sqrt(displacement - closed) : displacement;
+    const dismiss = dismissDirection();
+    const movement = (closed - damped) * (dismiss === 'left' || dismiss === 'up' ? -1 : 1);
+    const openProgress = clamp(displacement / closed, 0, 1);
+    popupBand?.set(MOVEMENT_X, `${horizontal() ? movement : 0}px`);
+    popupBand?.set(MOVEMENT_Y, `${horizontal() ? 0 : movement}px`);
+    popupBand?.set('transition', 'none');
+    popup.setAttribute(SWIPING, '');
+    movedPopup = popup;
+    movedPopupBand = popupBand;
+    swipeAreaDriven.add(popup);
+    const frontmostHeight = options.frontmostHeight ?? 0;
+    if (backdrop) {
+      backdrop.setAttribute(SWIPING, '');
+      movedBackdrop = backdrop;
+      backdropBand?.set(SWIPE_PROGRESS, `${clamp(1 - openProgress, 0, 1)}`);
+      if (openProgress > 0 && frontmostHeight > 0) {
+        backdropBand?.set(DRAWER_HEIGHT, `${frontmostHeight}px`);
+      } else {
+        backdropBand?.remove(DRAWER_HEIGHT);
+      }
+    }
+    provider?.set({ swipeProgress: openProgress, frontmostHeight: openProgress > 0 ? frontmostHeight : 0 });
+    applied = true;
+  };
+
+  // DRW-PTR-31's style half.
+  const clearSwipeStyles = () => {
+    movedPopupBand?.clear();
+    if (movedPopup) {
+      movedPopup.removeAttribute(SWIPING);
+      swipeAreaDriven.delete(movedPopup);
+    }
+    if (movedBackdrop) {
+      movedBackdrop.removeAttribute(SWIPING);
+      if (movedBackdrop === backdrop) {
+        backdropBand?.set(SWIPE_PROGRESS, '0');
+        backdropBand?.remove(DRAWER_HEIGHT);
+      }
+    }
+    provider?.set({ swipeProgress: 0, frontmostHeight: 0 });
+    applied = false;
+    movedPopup = null;
+    movedPopupBand = null;
+    movedBackdrop = null;
+  };
+
+  const stopWatching = () => {
+    popupWatch?.disconnect();
+    popupWatch = null;
+  };
+  // DRW-PTR-29's first paint on Blazor Server: the Popup renders open before C#'s update hands it over.
+  const watchForPopup = () => {
+    const View = area ? ownerWindow(area).MutationObserver : undefined;
+    if (popupWatch || !options.popupId || typeof View !== 'function') {
+      return;
+    }
+    const doc = ownerDocument(area);
+    popupWatch = new View(() => {
+      if (!swipeActive || !openedBySwipe || !options.popupId) {
+        return;
+      }
+      const found = doc.getElementById(options.popupId);
+      if (found && found.hasAttribute('data-open')) {
+        if (found !== popup) {
+          setPopup(found);
+        }
+        renderedOpen = true;
+        applySwipeMovement();
+      }
+    });
+    popupWatch.observe(doc.body, { childList: true, subtree: true, attributes: true, attributeFilter: ['data-open'] });
+  };
+
+  const requestOpen = (open: boolean, event: PointerEvent | TouchEvent) => {
+    if (open) {
+      openedBySwipe = true;
+      watchForPopup();
+    }
+    openRequests += 1;
+    twin.report('OnOpenRequest', { request: openRequests, open, event: eventInfo(event) });
+  };
+
+  const resetInteraction = () => {
+    startEvent = null;
+    openedBySwipe = false;
+    closedOffset = null;
+    renderedOpen = false;
+    stopWatching();
+    setActive(false);
+  };
+  const finish = () => {
+    resetInteraction();
+    enableDismissAfterRelease();
+    deltaX = 0;
+    deltaY = 0;
+    clearSwipeStyles();
+  };
+
+  const threshold = () => {
+    const size = popup ? popupSize(popup) : null;
+    return size === null ? FALLBACK_SWIPE_OPEN_THRESHOLD : size * DEFAULT_SWIPE_OPEN_RATIO;
+  };
+
+  // The area's own declarations, if the tracker makes any (`trackDrag` is off, so its movement variables stay inert).
+  const areaBand = area ? ownedLayer(styleWriter(area).layer('component')) : null;
+  const trackerOptions = () => ({
+    enabled: enabled(),
+    directions: [openDirection()],
+    element: () => area,
+    trackDrag: false,
+    movementCssVars: { x: MOVEMENT_X, y: MOVEMENT_Y },
+    style: {
+      set: (property: string, value: string) => areaBand?.set(property, value),
+      remove: (property: string) => areaBand?.remove(property),
+    },
+    onSwipeStart: (event: PointerEvent | TouchEvent) => {
+      disableDismissForSwipe();
+      startEvent = event;
+      openedBySwipe = false;
+      setActive(true);
+      deltaX = 0;
+      deltaY = 0;
+    },
+    onSwipingChange: (next: boolean) => {
+      area?.toggleAttribute(SWIPING, next);
+      twin.report('OnSwipingChange', { swiping: next });
+    },
+    onProgress: (_progress: number, details?: SwipeProgressDetails) => {
+      if (!details || !startEvent) {
+        return;
+      }
+      deltaX = details.deltaX;
+      deltaY = details.deltaY;
+      if (details.direction !== openDirection()) {
+        return;
+      }
+      if (!openedBySwipe && getDisplacement(openDirection(), deltaX, deltaY) < MIN_SWIPE_START_DISTANCE) {
+        return;
+      }
+      if (!openedBySwipe && !isOpen()) {
+        requestOpen(true, startEvent);
+      }
+      applySwipeMovement();
+    },
+    onRelease: (details: {
+      event: PointerEvent | TouchEvent;
+      direction: SwipeDirection | undefined;
+      deltaX: number;
+      deltaY: number;
+      releaseVelocityX: number;
+      releaseVelocityY: number;
+    }) => {
+      const displacement = getDisplacement(openDirection(), details.deltaX, details.deltaY);
+      const velocity = getDisplacement(openDirection(), details.releaseVelocityX, details.releaseVelocityY);
+      const commit = details.direction === openDirection() && (displacement >= threshold() || velocity >= VELOCITY_THRESHOLD) && !options.disabled;
+      // An open asked for in this gesture and not answered yet is not asked for again.
+      const openPending = openedBySwipe && openRequests > (options.answeredOpen ?? 0);
+      if (commit) {
+        if (!isOpen() && !openPending) {
+          requestOpen(true, details.event);
+        }
+      } else if (openedBySwipe && isOpen()) {
+        requestOpen(false, details.event);
+      }
+      finish();
+      return false;
+    },
+    onCancel: finish,
+  });
+  const tracker = createSwipeTracker(trackerOptions());
+  function setActive(next: boolean) {
+    if (swipeActive !== next) {
+      swipeActive = next;
+      tracker.setOptions(trackerOptions());
+    }
+  }
+
+  // DRW-PTR-27 (DrawerSwipeArea.tsx:456-486).
+  const onPointerDown = (event: PointerEvent) => {
+    if (event.pointerType === 'touch') {
+      return;
+    }
+    tracker.getPointerProps().pointerdown?.(event);
+    if (event.cancelable) {
+      event.preventDefault();
+    }
+  };
+  const onPointerMove = (event: PointerEvent) => {
+    if (event.pointerType !== 'touch') {
+      tracker.getPointerProps().pointermove?.(event);
+    }
+  };
+  const onPointerUp = (event: PointerEvent) => {
+    if (event.pointerType !== 'touch') {
+      tracker.getPointerProps().pointerup?.(event);
+    }
+  };
+  const onPointerCancel = (event: PointerEvent) => {
+    if (event.pointerType !== 'touch') {
+      tracker.getPointerProps().pointercancel?.(event);
+    }
+  };
+  const onTouchStart = (event: TouchEvent) => tracker.getTouchProps().touchstart?.(event);
+  const onTouchMove = (event: TouchEvent) => tracker.getTouchProps().touchmove?.(event);
+  const onTouchEnd = (event: TouchEvent) => tracker.getTouchProps().touchend?.(event);
+  const onTouchCancel = (event: TouchEvent) => tracker.getTouchProps().touchcancel?.(event);
+  area?.addEventListener('pointerdown', onPointerDown);
+  area?.addEventListener('pointermove', onPointerMove);
+  area?.addEventListener('pointerup', onPointerUp);
+  area?.addEventListener('pointercancel', onPointerCancel);
+  area?.addEventListener('touchstart', onTouchStart);
+  area?.addEventListener('touchmove', onTouchMove);
+  area?.addEventListener('touchend', onTouchEnd);
+  area?.addEventListener('touchcancel', onTouchCancel);
+
+  return {
+    update(nextJson, nextReferences, nextCaptures) {
+      if (disposed) {
+        return;
+      }
+      options = parseOptions<DrawerOptions>(nextJson);
+      // C#'s update is the authority on whether the drawer is open.
+      renderedOpen = false;
+      if (nextReferences !== undefined) {
+        readReferences(nextReferences, nextCaptures);
+      }
+      if ((options.provider ?? null) !== (providerToken ?? null)) {
+        provider?.set({ swipeProgress: 0, frontmostHeight: 0 });
+        releaseVisualState(providerToken);
+        provider = acquireVisualState(options.provider);
+        providerToken = options.provider;
+      }
+      tracker.setOptions(trackerOptions());
+      // DrawerSwipeArea.tsx:411-428: an area that is no longer enabled ends its gesture before paint.
+      if (!enabled()) {
+        if (swipeActive) {
+          enableDismissAfterRelease();
+        }
+        tracker.reset();
+        deltaX = 0;
+        deltaY = 0;
+        clearSwipeStyles();
+        resetInteraction();
+        return;
+      }
+      // DrawerSwipeArea.tsx:402-409: every update during the gesture re-applies the movement, the opening one included.
+      if (swipeActive && (applied || openedBySwipe)) {
+        applySwipeMovement();
+      }
+    },
+    dispose() {
+      if (disposed) {
+        return;
+      }
+      disposed = true;
+      stopWatching();
+      area?.removeEventListener('pointerdown', onPointerDown);
+      area?.removeEventListener('pointermove', onPointerMove);
+      area?.removeEventListener('pointerup', onPointerUp);
+      area?.removeEventListener('pointercancel', onPointerCancel);
+      area?.removeEventListener('touchstart', onTouchStart);
+      area?.removeEventListener('touchmove', onTouchMove);
+      area?.removeEventListener('touchend', onTouchEnd);
+      area?.removeEventListener('touchcancel', onTouchCancel);
+      clearSwipeStyles();
+      areaBand?.clear();
+      // DrawerSwipeArea.tsx:430-435.
+      releaseGuard?.();
+      const current = session();
+      if (current) {
+        setOutsidePressGate(current, true);
+      }
+      releaseVisualState(providerToken);
+      provider = null;
+    },
+  };
+}
+
 // DRW-DOM-32 (DrawerIndent.tsx:40-82): an Indent shows its Provider's visual state.
 function attachIndent(indent: HTMLElement | null, initial: DrawerOptions): TwinHandle {
   let options = initial;
@@ -737,6 +1154,9 @@ export function attach(
   }
   if (options.role === 'popup') {
     return attachPopup(element, options, createTwinChannel(twinReference));
+  }
+  if (options.role === 'swipe-area') {
+    return attachSwipeArea(element, options, createTwinChannel(twinReference), references, captures);
   }
   return attachViewport(element, options, createTwinChannel(twinReference), references, captures);
 }
@@ -1458,7 +1878,9 @@ function attachViewport(
       }
       // An open after a close clears a release left from a kept-mounted dismissal (DrawerViewport.tsx:856-867).
       if (options.open && !previous.open) {
-        tracker.reset();
+        if (!(popup && swipeAreaDriven.has(popup))) {
+          tracker.reset();
+        }
         clearSwipeRelease();
       }
       // C#'s answer to a snap point request: from here its own active snap point stands, so a canceled one rolls back.
