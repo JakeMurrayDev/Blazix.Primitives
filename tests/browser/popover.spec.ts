@@ -39,6 +39,10 @@ detachedTriggersConformanceTests({
   close: true,
   positioner: true,
   viewport: true,
+  fixme: {
+    'port: a reparented trigger takes the readiness marker down until its handles attach again':
+      'Issue 270: the trigger keeps its instance across the reparent and re-attaches without a task the fixture can await; open to issue 306 (M6 track 10, the attach-task seam)',
+  },
 });
 
 // The first run of viewportConformanceTests (track 1 wrote it for the families): PopoverViewport.test.tsx's config.
