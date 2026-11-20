@@ -967,3 +967,72 @@ test.describe('<Drawer.Viewport /> touch swipe in a shadow root', () => {
     await expect(fixture).toHaveAttribute('data-open-changes', 'false:swipe');
   });
 });
+
+// Slice 2's touches without a usual target (DRW-PTR-19 (3) and (5), PTR-21; added 2026-11-20), on the fixture's down
+// drawer. A touchstart with no touches and one whose composed path holds no element are input no real device makes, so
+// they are dispatched in the page (ADR 04, Amendments 2026-11-19, point 14).
+const dispatchTouchAt = (page: Page, testId: string, type: string, point: Point | null, path: 'window' | null = null) =>
+  page.getByTestId(testId).evaluate(
+    (element, { type, point, path }: { type: string; point: Point | null; path: 'window' | null }) => {
+      const touches = point ? [new Touch({ identifier: 1, target: element, clientX: point.x, clientY: point.y })] : [];
+      const event = new TouchEvent(type, { bubbles: true, cancelable: true, composed: true, touches, changedTouches: touches });
+      if (path === 'window') {
+        Object.defineProperty(event, 'composedPath', { value: () => [window] });
+      }
+      element.dispatchEvent(event);
+      return event.defaultPrevented;
+    },
+    { type, point, path },
+  );
+
+test.describe('<Drawer.Viewport /> touch swipe without a usual target', () => {
+  // DRW-PTR-19 (3) (DrawerViewport.test.tsx:3644-3658). Folded with its positive half: a real touch drag after it swipes.
+  testWithTouch('ignores touchstart when there is no active touch', async ({ touchPage: page, mode }) => {
+    const fixture = await downCase(page, mode);
+    const backdrop = page.getByTestId('backdrop');
+
+    await dispatchTouchAt(page, 'viewport', 'touchstart', null);
+    await settle(fixture);
+    await expect(backdrop).not.toHaveAttribute('data-swiping');
+
+    await touchDrag(page, [[popupPoint, { x: popupPoint.x, y: popupPoint.y + 25 }, { x: popupPoint.x, y: popupPoint.y + 40 }]], {
+      steps: 1,
+      beforeRelease: () => expect(backdrop).toHaveAttribute('data-swiping', ''),
+    });
+  });
+
+  // DRW-PTR-19 (5) (DrawerViewport.test.tsx:4947-4981): the touchstart's composed path holds only the window.
+  testWithTouch('falls back to the viewport when a touch event has no element target', async ({ touchPage: page, mode }) => {
+    await downCase(page, mode);
+
+    await dispatchTouchAt(page, 'popup', 'touchstart', popupPoint, 'window');
+    await dispatchTouchAt(page, 'popup', 'touchmove', { x: popupPoint.x, y: popupPoint.y + 40 });
+
+    await expect(page.getByTestId('backdrop')).toHaveAttribute('data-swiping', '');
+  });
+
+  // DRW-PTR-21 (e) (DrawerViewport.test.tsx:5453-5494). The container overflows at the touchstart and stops overflowing
+  // before the first move: a page listener after the Viewport's shrinks its content. Base UI's last, non-cancelable move
+  // cannot be prevented by anyone, and Chromium sends none here.
+  testWithTouch('prevents page scrolling for a non-overflowing touch scroll container', async ({ touchPage: page, mode }) => {
+    await downCase(page, mode);
+    await recordScrollMoves(page);
+    await page.evaluate(() =>
+      document.addEventListener(
+        'touchstart',
+        () => {
+          // Clipped too: the scroller's height follows its content, and overflowing text would keep it scrollable.
+          (document.querySelector('[data-testid="scroll"]')!.firstElementChild as HTMLElement).style.cssText = 'height: 10px; overflow: hidden;';
+        },
+        { once: true },
+      ),
+    );
+    const start = await pointOf(page.getByTestId('scroll'));
+
+    await touchDrag(page, [[start, { x: start.x, y: start.y - 25 }, { x: start.x, y: start.y - 40 }]], { steps: 1 });
+
+    const { prevented } = await scrollMoves(page);
+    expect(prevented.length).toBeGreaterThan(0);
+    expect(prevented.every(Boolean)).toBe(true);
+  });
+});
