@@ -1,4 +1,5 @@
 import { expect, pointOf, swipeOnTimeline, test, testWithTouch, touchDrag, type Page, type RenderMode } from './helpers';
+import type { Locator } from '@playwright/test';
 import { gotoPopupFixture, settle } from './suites/popupFixture';
 
 // The [L4] rows of docs/components/drawer.md (DRW), both render modes, Server first (ADR 04 §6). Titles are Base UI's
@@ -671,5 +672,141 @@ test.describe('<Drawer.Viewport /> touch swipe over a cross-axis scroll containe
     const { prevented } = await scrollMoves(page);
     expect(prevented.length).toBe(3);
     expect(prevented.every(Boolean)).toBe(true);
+  });
+});
+
+// Slice 2's selection handles and range inputs (DRW-PTR-19, PTR-21 (b); added 2026-11-20), on the fixture's
+// `case=controls` down drawer: its controls fill the popup's top 164 px, and the drags start in the free part below.
+const controlsCase = (page: Page, mode: RenderMode) => gotoPopupFixture(page, mode, 'drawer-swipe', { case: 'controls' });
+const freePoint = { x: 100, y: 350 };
+// A window capture listener reads each move's defaultPrevented once every listener ran.
+const recordMoves = (page: Page) =>
+  page.evaluate(() => {
+    const record = { prevented: [] as boolean[] };
+    (window as unknown as { drawerMoves: typeof record }).drawerMoves = record;
+    const moves: TouchEvent[] = [];
+    window.addEventListener('touchmove', (event) => moves.push(event), { capture: true, passive: true });
+    window.addEventListener('touchend', () => (record.prevented = moves.map((event) => event.defaultPrevented)), { capture: true });
+  });
+const preventedMoves = (page: Page) => page.evaluate(() => (window as unknown as { drawerMoves: { prevented: boolean[] } }).drawerMoves.prevented);
+
+// Each selection title selects "Selec" in a control, drags down from the free area, and finds the moves left to the
+// browser and no swipe. Folded with its positive half: once the selection collapses, the same drag swipes.
+const selectionTitle = (title: string, select: (page: Page) => Promise<void>, collapse: (page: Page) => Promise<void>) =>
+  testWithTouch(title, async ({ touchPage: page, mode }) => {
+    const fixture = await controlsCase(page, mode);
+    const backdrop = page.getByTestId('backdrop');
+    const drag = [freePoint, { x: freePoint.x, y: freePoint.y + 30 }, { x: freePoint.x, y: freePoint.y + 40 }];
+    await select(page);
+    await recordMoves(page);
+
+    await touchDrag(page, [drag], {
+      steps: 1,
+      beforeRelease: async () => {
+        await settle(fixture);
+        await expect(backdrop).not.toHaveAttribute('data-swiping');
+      },
+    });
+    const prevented = await preventedMoves(page);
+    expect(prevented.length).toBeGreaterThan(0);
+    expect(prevented.some(Boolean)).toBe(false);
+
+    await collapse(page);
+    await touchDrag(page, [drag], { steps: 1, beforeRelease: () => expect(backdrop).toHaveAttribute('data-swiping', '') });
+  });
+
+const selectInControl = (testId: string) => (page: Page) =>
+  page.getByTestId(testId).evaluate((element) => {
+    const control = element as HTMLInputElement | HTMLTextAreaElement;
+    control.focus();
+    control.setSelectionRange(0, 5);
+  });
+const collapseInControl = (testId: string) => (page: Page) =>
+  page.getByTestId(testId).evaluate((element) => (element as HTMLInputElement | HTMLTextAreaElement).setSelectionRange(0, 0));
+const selectText = (testId: string, focus: boolean) => (page: Page) =>
+  page.getByTestId(testId).evaluate((element, focus) => {
+    if (focus) {
+      (element as HTMLElement).focus();
+    }
+    const range = document.createRange();
+    range.setStart(element.firstChild!, 0);
+    range.setEnd(element.firstChild!, 5);
+    const selection = window.getSelection()!;
+    selection.removeAllRanges();
+    selection.addRange(range);
+  }, focus);
+const collapseText = (page: Page) => page.evaluate(() => window.getSelection()!.collapseToStart());
+
+test.describe('<Drawer.Viewport /> touch swipe over selections and range inputs', () => {
+  // DRW-PTR-21 (b) (DrawerViewport.test.tsx:1975-2027).
+  selectionTitle('does not start swiping when adjusting input selection handles', selectInControl('input'), collapseInControl('input'));
+
+  // DRW-PTR-21 (b) (DrawerViewport.test.tsx:2029-2081).
+  selectionTitle('does not start swiping when adjusting textarea selection handles', selectInControl('textarea'), collapseInControl('textarea'));
+
+  // DRW-PTR-21 (b) (DrawerViewport.test.tsx:2083-2148).
+  selectionTitle('does not start swiping when adjusting contenteditable selection handles', selectText('editable', true), collapseText);
+
+  // DRW-PTR-21 (b) (DrawerViewport.test.tsx:2150-2212).
+  selectionTitle('does not start swiping when adjusting regular text selection handles', selectText('selectable', false), collapseText);
+
+  // DRW-PTR-19 (4) (DrawerViewport.test.tsx:1886-1925). Folded with its positive half: the drag moves the range's value.
+  testWithTouch('does not block touchmove on native range inputs', async ({ touchPage: page, mode }) => {
+    const fixture = await controlsCase(page, mode);
+    const range = page.getByTestId('range');
+    const start = await pointOf(range);
+    await recordMoves(page);
+
+    await touchDrag(page, [[start, { x: start.x + 20, y: start.y }, { x: start.x + 40, y: start.y }]], {
+      steps: 2,
+      beforeRelease: async () => {
+        await settle(fixture);
+        await expect(page.getByTestId('backdrop')).not.toHaveAttribute('data-swiping');
+      },
+    });
+
+    const prevented = await preventedMoves(page);
+    expect(prevented.length).toBeGreaterThan(0);
+    expect(prevented.some(Boolean)).toBe(false);
+    await expect.poll(() => range.evaluate((element) => Number((element as HTMLInputElement).value))).toBeGreaterThan(50);
+  });
+
+  // DRW-PTR-19 (4) (DrawerViewport.test.tsx:1927-1973). The Slider's range input is visually hidden inside its thumb, so a
+  // real touch lands on the thumb element and never has the input in its path (measured 2026-11-20: the hit target is
+  // the thumb `div`, and the drawer swipes as Base UI's identical check does). The title's touch on the input is input
+  // no real device makes, so it is dispatched in the page (ADR 04, Amendments 2026-11-19, point 14). Folded with its
+  // positive half: the same touch on the thumb element is claimed.
+  testWithTouch('does not block touchmove on slider thumb range inputs', async ({ touchPage: page, mode }) => {
+    const fixture = await controlsCase(page, mode);
+    const backdrop = page.getByTestId('backdrop');
+    const start = await pointOf(page.getByTestId('slider-thumb'));
+    const dispatchTouch = (target: Locator, type: string, x: number) =>
+      target.evaluate(
+        (element, { type, x, y }: { type: string; x: number; y: number }) => {
+          const touch = new Touch({ identifier: 1, target: element, clientX: x, clientY: y });
+          const event = new TouchEvent(type, {
+            bubbles: true,
+            cancelable: true,
+            composed: true,
+            touches: type === 'touchend' ? [] : [touch],
+            changedTouches: [touch],
+          });
+          element.dispatchEvent(event);
+          return event.defaultPrevented;
+        },
+        { type, x, y: start.y },
+      );
+
+    const input = page.getByRole('slider', { name: 'Volume' });
+    await dispatchTouch(input, 'touchstart', start.x);
+    expect(await dispatchTouch(input, 'touchmove', start.x + 20)).toBe(false);
+    await settle(fixture);
+    await expect(backdrop).not.toHaveAttribute('data-swiping');
+    await dispatchTouch(input, 'touchend', start.x + 20);
+
+    const thumb = page.getByTestId('slider-thumb');
+    await dispatchTouch(thumb, 'touchstart', start.x);
+    expect(await dispatchTouch(thumb, 'touchmove', start.x + 20)).toBe(true);
+    await expect(backdrop).toHaveAttribute('data-swiping', '');
   });
 });
