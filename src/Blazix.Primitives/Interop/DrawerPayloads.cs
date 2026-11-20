@@ -10,3 +10,11 @@ internal sealed record DrawerSwipingChange(bool Swiping);
 /// <param name="Request">The number of the request, which the options answer as <see cref="DrawerOptions.AnsweredDismiss"/>.</param>
 /// <param name="Event">The snapshot of the release event.</param>
 internal sealed record DrawerDismissRequest(int Request, EventSnapshot Event);
+
+// DRW-PTR-11, STA-03; M6 track 8b slice 3 (2026-11-20): the numbered snap point request the options answer, as the
+// dismiss request is (design point 10 (a), chosen by the user 2026-11-19).
+/// <summary>The payload of a swipe release that moves the drawer to a snap point, reported where it could not be decided inside the dispatch.</summary>
+/// <param name="Request">The number of the request, which the options answer as <see cref="DrawerOptions.AnsweredSnap"/>.</param>
+/// <param name="Index">The index of the requested snap point in <see cref="DrawerOptions.SnapPoints"/>, or <see langword="null"/> for none.</param>
+/// <param name="Event">The snapshot of the release event.</param>
+internal sealed record DrawerSnapPointRequest(int Request, int? Index, EventSnapshot Event);
