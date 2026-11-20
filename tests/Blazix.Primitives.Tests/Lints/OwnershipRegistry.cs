@@ -89,6 +89,12 @@ internal static class OwnershipRegistry
         // M6 track 7 (issue 278; ADR 04 Amendments 2026-10-18, the otp-field ownership row): the otp-field module writes each
         // slot's value from attach, C# rendering it at first and sending it on update (otp-field.md §5.2, OTP-DOM-08).
         new("otp-field", "Input", "value", Writer.CsharpToJs),
+
+        // M6 track 7 (issue 278; ADR 04 Amendments 2026-11-19, design point 5 (a), chosen by the user 2026-11-19): the
+        // module writes the roving tab stop with every focus move after attach (OTP-FOC-01); and after a native form reset it
+        // writes the hidden input's value back from the field's value (§16 item 9, OTP-FRM-14).
+        new("otp-field", "Input", "tabindex", Writer.CsharpToJs),
+        new("otp-field", "Hidden input", "value", Writer.CsharpToJs),
         // Switch (M2 track 4; ADR 04 Amendments 2026-10-22): the dom primitive owns the hidden checkbox input's checked
         // property from attach; C# renders the initial value once (the handover).
         new("switch", "Hidden checkbox input", "checked", Writer.CsharpToJs),
