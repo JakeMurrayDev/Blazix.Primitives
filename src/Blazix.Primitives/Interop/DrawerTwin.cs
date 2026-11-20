@@ -25,6 +25,10 @@ internal sealed class DrawerTwin(IJSRuntime jsRuntime)
     /// <summary>Represents the role of the handle a drawer indent attaches under a provider.</summary>
     public const string IndentRole = "indent";
 
+    // Slice 4 (2026-11-21): the SwipeArea's opening gesture (DRW-PTR-25…31).
+    /// <summary>Represents the role of the handle a drawer's swipe area attaches.</summary>
+    public const string SwipeAreaRole = "swipe-area";
+
     /// <summary>Represents the name of the decision point the module asks about when a swipe release dismisses the drawer.</summary>
     public const string DismissPoint = "dismiss";
 
@@ -47,6 +51,9 @@ internal sealed class DrawerTwin(IJSRuntime jsRuntime)
 
     /// <summary>Occurs when the viewport's handle reports that the drawer, nested in another, starts or stops being swiped.</summary>
     public event Action<bool>? NestedSwipingChanged;
+
+    /// <summary>Occurs when the swipe area's handle asks to open or close the drawer.</summary>
+    public event Action<DrawerOpenRequest>? OpenRequested;
 
     /// <summary>Gets or sets the C# handler chain of the dismiss decision point.</summary>
     /// <value>
@@ -108,6 +115,16 @@ internal sealed class DrawerTwin(IJSRuntime jsRuntime)
     {
         DrawerSwipingChange change = Deserialize(payloadJson, BlazixJsonContext.Default.DrawerSwipingChange);
         NestedSwipingChanged?.Invoke(change.Swiping);
+    }
+
+    /// <summary>Receives a swipe area's request to open or close the drawer, numbered for the options to answer.</summary>
+    /// <param name="payloadJson">The JSON of a <see cref="DrawerOpenRequest"/>.</param>
+    /// <exception cref="System.Text.Json.JsonException">The payload is not valid.</exception>
+    [JSInvokable]
+    public void OnOpenRequest(string payloadJson)
+    {
+        DrawerOpenRequest request = Deserialize(payloadJson, BlazixJsonContext.Default.DrawerOpenRequest);
+        OpenRequested?.Invoke(request);
     }
 
     /// <inheritdoc />

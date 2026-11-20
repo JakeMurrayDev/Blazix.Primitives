@@ -71,6 +71,8 @@ namespace Blazix.Primitives.Interop;
 [JsonSerializable(typeof(DrawerSnapPointRequest))]
 // M6 track 8b slice 3 (issue 279), 2026-11-21: the Popup's measured height (DRW-STA-10).
 [JsonSerializable(typeof(DrawerPopupHeightChange))]
+// M6 track 8b slice 4 (issue 279), 2026-11-21: the SwipeArea's open request (DRW-PTR-28).
+[JsonSerializable(typeof(DrawerOpenRequest))]
 [JsonSerializable(typeof(TabsSelection))]
 [JsonSerializable(typeof(TabsTabEvent))]
 [JsonSerializable(typeof(TabsDirectionChange))]

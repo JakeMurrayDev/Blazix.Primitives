@@ -23,3 +23,11 @@ internal sealed record DrawerSnapPointRequest(int Request, int? Index, EventSnap
 /// <summary>The payload of a measurement of the drawer's popup.</summary>
 /// <param name="Height">The popup's height in pixels, borders included; 0 once it is no longer mounted.</param>
 internal sealed record DrawerPopupHeightChange(double Height);
+
+// DRW-PTR-28, PTR-30; M6 track 8b slice 4 (2026-11-21): the SwipeArea's numbered open or close request, answered as the
+// dismiss request is (design point 10 (a), chosen by the user 2026-11-19).
+/// <summary>The payload of a swipe area's request to open or close the drawer.</summary>
+/// <param name="Request">The number of the request, which the options answer as <see cref="DrawerOptions.AnsweredOpen"/>.</param>
+/// <param name="Open">A value indicating whether the gesture asks to open the drawer; <see langword="false"/> to close it.</param>
+/// <param name="Event">The snapshot of the gesture's start event for an open during the drag, else of the release.</param>
+internal sealed record DrawerOpenRequest(int Request, bool Open, EventSnapshot Event);

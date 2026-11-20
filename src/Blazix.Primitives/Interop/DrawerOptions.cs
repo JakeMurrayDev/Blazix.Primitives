@@ -77,6 +77,19 @@ internal sealed record DrawerOptions : TwinOptions
     /// <summary>Gets a value indicating whether the popup is animating out; read by the popup role.</summary>
     public bool Ending { get; init; }
 
+    // Slice 4 (2026-11-21): the swipe-area role.
+    /// <summary>Gets a value indicating whether swiping to open is disabled; read by the swipe-area role.</summary>
+    public bool Disabled { get; init; }
+
+    /// <summary>Gets the token of the root's interactions session, whose outside-press gate the swipe area closes, or <see langword="null"/>.</summary>
+    public string? SessionToken { get; init; }
+
+    /// <summary>Gets the id the popup renders with, or <see langword="null"/>; read by the swipe-area role.</summary>
+    public string? PopupId { get; init; }
+
+    /// <summary>Gets the number of the last open request of the swipe area C# has answered.</summary>
+    public int AnsweredOpen { get; init; }
+
     /// <summary>Gets the index of the popup element among the references sent with the options.</summary>
     /// <value>The index, or <see langword="null"/>, the default, while no popup is rendered.</value>
     public int? Popup { get; init; }
