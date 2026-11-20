@@ -186,11 +186,13 @@ export function attach(
   };
 
   // OTP-DOM-08, OTP-KEY-17: slot i shows the value's code unit i; an ignored or cancelled edit is restored here, the empty
-  // slot included. A composing slot keeps the IME's text.
+  // slot included. A composing slot keeps the IME's text. A focused slot that is rewritten is selected again, as Base UI
+  // selects the restored slot (OTPFieldInput.tsx:126-129).
   const writeSlots = () => {
+    const focused = ownerWindow(root).document.activeElement;
     slots().forEach((slot, index) => {
-      if (!composing(slot)) {
-        writeTextValue(slot, slotValue(index));
+      if (!composing(slot) && writeTextValue(slot, slotValue(index)) && slot === focused) {
+        selectAll(slot);
       }
     });
   };
