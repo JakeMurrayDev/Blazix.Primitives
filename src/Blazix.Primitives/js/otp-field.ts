@@ -159,7 +159,11 @@ export function attach(
   const slotValue = (index: number) => value[index] ?? '';
   const lastIndex = () => Math.max(options.length - 1, 0);
   const asks = (point: string) => options.points?.includes(point) === true;
-  const composing = (slot: HTMLInputElement) => !environment.android && trackers.get(slot)?.composing() === true;
+  // The slots whose `compositionend` the module has handled: their trackers still say composing until the event reaches
+  // the slot (the capture listener runs first), but an update that arrives inside the commit's decision, or in the
+  // microtasks after it, must rewrite them. A slot leaves the set on its next `compositionstart`.
+  const ended = new Set<HTMLInputElement>();
+  const composing = (slot: HTMLInputElement) => !ended.has(slot) && !environment.android && trackers.get(slot)?.composing() === true;
 
   const syncTrackers = () => {
     const current = new Set(slots());
@@ -189,7 +193,7 @@ export function attach(
   // slot included. A composing slot keeps the IME's text. A focused slot that is rewritten is selected again, as Base UI
   // selects the restored slot (OTPFieldInput.tsx:126-129).
   const writeSlots = () => {
-    const focused = ownerWindow(root).document.activeElement;
+    const focused = listenRoot.activeElement;
     slots().forEach((slot, index) => {
       if (!composing(slot) && writeTextValue(slot, slotValue(index)) && slot === focused) {
         selectAll(slot);
@@ -325,7 +329,14 @@ export function attach(
       writeTextValue(slot, slotValue(index));
       return;
     }
+    ended.add(slot);
     commitText(slot, index, slot.value, 'input', event);
+  };
+
+  const onCompositionStart = (event: Event) => {
+    if (event.target instanceof ownerWindow(root).HTMLInputElement) {
+      ended.delete(event.target);
+    }
   };
 
   const onPaste = (event: Event) => {
@@ -506,6 +517,7 @@ export function attach(
   listenRoot.addEventListener('mousedown', onMouseDown);
   listenRoot.addEventListener('focusin', onFocusIn as EventListener);
   listenRoot.addEventListener('focusout', onFocusOut as EventListener);
+  listenRoot.addEventListener('compositionstart', onCompositionStart, true);
   listenRoot.addEventListener('compositionend', onCompositionEnd, true);
   listenRoot.addEventListener('reset', onReset);
 
@@ -525,12 +537,14 @@ export function attach(
       listenRoot.removeEventListener('mousedown', onMouseDown);
       listenRoot.removeEventListener('focusin', onFocusIn as EventListener);
       listenRoot.removeEventListener('focusout', onFocusOut as EventListener);
+      listenRoot.removeEventListener('compositionstart', onCompositionStart, true);
       listenRoot.removeEventListener('compositionend', onCompositionEnd, true);
       listenRoot.removeEventListener('reset', onReset);
       for (const tracker of trackers.values()) {
         tracker.dispose();
       }
       trackers.clear();
+      ended.clear();
     },
   };
 }
