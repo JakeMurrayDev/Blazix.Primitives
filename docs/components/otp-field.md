@@ -310,7 +310,7 @@ Field-derived state: `touched`, `dirty` and `valid` have the semantics of FFI-ST
 | `maxlength` | `length` on slot 0 only; absent elsewhere | OTP-DOM-14 | C# |
 | `disabled`, `readonly`, `required`, `form` | mirror effective disabled / `readOnly` / `required` / `form` | OTP-DOM-15 | C# |
 | `pattern` | slot pattern of OTP-STA-05; absent for `'none'` | OTP-DOM-16 | C# |
-| `tabindex` | `0` on the active slot, `-1` on every other | OTP-FOC-01 | C# |
+| `tabindex` | `0` on the active slot, `-1` on every other | OTP-FOC-01 | C# → JS |
 | `aria-labelledby`, `aria-label`, `aria-invalid` | see §5.5 | OTP-ARIA-06…09 | C# |
 | `name` | never | OTP-FRM-02 | C# |
 | `data-*` | §3.2 table (incl. `data-length`) | OTP-DOM-17, OTP-DOM-18 | C# |
@@ -350,7 +350,8 @@ Rendered as the root element's next sibling while `length` is a positive integer
 |---|---|---|---|
 | `type` | `"text"` | OTP-DOM-20 | C# |
 | `id` | `` `${controlId}-hidden-input` `` only when a control id exists **and** the effective name is `null`/`undefined`; otherwise none | OTP-DOM-21 | C# |
-| `name`, `value`, `form` | effective name; the normalized value; `form` prop | OTP-DOM-22 | C# |
+| `name`, `form` | effective name; `form` prop | OTP-DOM-22 | C# |
+| `value` | the normalized value; written back after a native form reset (OTP-FRM-14) | OTP-DOM-22 | C# → JS |
 | `autocomplete`, `inputmode` | `autoComplete` prop; effective `inputMode` | OTP-DOM-23 | C# |
 | `pattern` | whole-code pattern of OTP-STA-05 (`\d{6}`); none for `'none'` | OTP-DOM-24 | C# |
 | `minlength`, `maxlength` | both `length` | OTP-DOM-25 | C# |
@@ -365,6 +366,7 @@ Rendered as the root element's next sibling while `length` is a positive integer
   Source: `otp-field/root/OTPFieldRoot.tsx:442`; FFI-DOM-03. Test: [L2] `OTPFieldRoot.test.tsx` "renders a fallback hidden input id when name is not provided".
 - **OTP-DOM-22** — MUST. The hidden input MUST carry the effective name as `name` (absent when none), the normalized value as its `value`, the `form` prop as `form`, and `disabled`/`readonly`/`required` mirroring the effective disabled state, `readOnly` and `required`.
   Source: `otp-field/root/OTPFieldRoot.tsx:443-445,451-453`. Test: [L2] `OTPFieldRoot.test.tsx` "clamps an overlong default value to the rendered slot count" (`toHaveValue('123456')`), "submits the completed named OTP value from the owning form when enabled".
+  Port note 2026-11-20 (M6 track 7, issue 278; §16 item 9, the explicit re-sync on form reset, chosen by the user 2026-11-18): the `value` row's Writer cell is `C# → JS`. The `form` module owns the value after attach; after a native form reset, which puts the input back to its default value, the `otp-field` module writes the field's value back one task later (OTP-FRM-14).
 - **OTP-DOM-23** — MUST. The hidden input MUST carry `autocomplete` equal to the `autoComplete` prop and `inputmode` equal to the effective `inputMode` (none when absent).
   Source: `otp-field/root/OTPFieldRoot.tsx:446-447`. Test: [L2] `OTPFieldRoot.test.tsx` "allows overriding the autocomplete attribute", "allows a custom inputMode when validation is set to `none`".
 - **OTP-DOM-24** — MUST. The hidden input MUST carry the whole-code `pattern` of OTP-STA-05 with `length` interpolated (`\d{6}`, `[a-zA-Z0-9]{6}`, …) and no `pattern` for `validationType="none"`; it MUST be present in server-rendered output.
@@ -512,6 +514,7 @@ The field is a single tab stop. One slot — the *active slot* — has `tabindex
 
 - **OTP-FOC-01** — MUST. Exactly one slot MUST have `tabindex="0"` (the active slot, OTP-FOC-02); every other slot MUST have `tabindex="-1"`. Consequently <kbd>Tab</kbd> from any slot leaves the field.
   Source: `otp-field/input/OTPFieldInput.tsx:155`. Test: [L2] `OTPFieldInput.test.tsx` "allows tabbing out of the field from the active slot" (L4 for the Tab-out clause).
+  Port note 2026-11-20 (M6 track 7, issue 278; ADR 04 Amendments 2026-11-19, design point 5 (a), chosen by the user 2026-11-19): the Writer cell is `C# → JS`. C# renders the tab stop until the `otp-field` module attaches; the module then writes it with every focus move, so under the optimistic advance the tab stop never lags the focus.
 - **OTP-FOC-02** — MUST. The active slot index MUST be `min(lastFocusedIndex, max(length − 1, 0))` while a slot owns focus (OTP-FOC-07), and `min(value.length, length − 1)` (the first empty slot, or the last slot when complete) otherwise.
   Source: `otp-field/root/OTPFieldRoot.tsx:143-148`. Test: [L2] `OTPFieldInput.test.tsx` "allows tabbing out of the field from the active slot" (focus lands on slot 1 after typing, then Tab leaves).
 - **OTP-FOC-03** — MUST. When a slot with index `i > value.length` receives focus (by any means: click, programmatic `focus()`, arrow key), the component MUST immediately move focus to slot `min(value.length, length − 1)` instead (selecting its content) and MUST NOT record `i` as the last focused index.
