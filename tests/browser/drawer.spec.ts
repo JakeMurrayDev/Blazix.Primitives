@@ -601,3 +601,75 @@ test.describe('<Drawer.Viewport /> touch swipe from other scroll edges', () => {
     expect(prevented.some(Boolean)).toBe(false);
   });
 });
+
+// Slice 2's cross-axis arbitration (DRW-PTR-22, ALG-03; added 2026-11-20): a right drawer over the fixture's vertical
+// scroller. Chromium dispatches no move under its touch slop (12 px was swallowed), so the first move these titles send
+// is already past the port's 6 px slop on one axis; the sub-slop and non-cancelable paths are held at L3.
+const movementX = (page: Page) => page.getByTestId('popup').evaluate((element) => (element as HTMLElement).style.getPropertyValue('--drawer-swipe-movement-x'));
+
+test.describe('<Drawer.Viewport /> touch swipe over a cross-axis scroll container', () => {
+  // DRW-PTR-22 (DrawerViewport.test.tsx:3001-3047). Base UI's sub-slop first move never reaches the page here; the
+  // L3 port holds it.
+  testWithTouch('claims the gesture once the drawer axis passes the slop over cross-axis scrollable content', async ({ touchPage: page, mode }) => {
+    await scrollCase(page, mode, 'right');
+    await recordScrollMoves(page);
+    const { x, y } = scrollCenter;
+
+    await touchDrag(page, [[{ x, y }, { x: x + 25, y: y + 1 }, { x: x + 40, y: y + 1 }]], {
+      steps: 1,
+      beforeRelease: () => expect(page.getByTestId('backdrop')).toHaveAttribute('data-swiping', ''),
+    });
+
+    const { prevented } = await scrollMoves(page);
+    expect(prevented.length).toBeGreaterThan(0);
+    expect(prevented.every(Boolean)).toBe(true);
+    expect(await page.getByTestId('scroll').evaluate((element) => element.scrollTop)).toBe(0);
+  });
+
+  // DRW-PTR-22 (DrawerViewport.test.tsx:3049-3104). Base UI commits the gesture with a non-cancelable sub-slop move; here
+  // the first move wins on the cross axis and the browser scrolls, and the decisive drawer-axis moves after it are still
+  // not claimed. Folded with its positive half: the content scrolled.
+  testWithTouch('yields the gesture when the browser commits to a native cross-axis scroll', async ({ touchPage: page, mode }) => {
+    const fixture = await scrollCase(page, mode, 'right');
+    await recordScrollMoves(page);
+    const { x } = scrollCenter;
+
+    // Several vertical moves first: Chromium may begin its scroll only on a later move, and a scroll that begins on a
+    // horizontal one never scrolls this content.
+    await touchDrag(page, [[{ x, y: 357 }, { x, y: 305 }, { x: x + 80, y: 305 }]], {
+      steps: 4,
+      beforeRelease: async () => {
+        await settle(fixture);
+        await expect(page.getByTestId('backdrop')).not.toHaveAttribute('data-swiping');
+      },
+    });
+
+    const { prevented } = await scrollMoves(page);
+    expect(prevented.length).toBeGreaterThan(0);
+    expect(prevented.some(Boolean)).toBe(false);
+    // The compositor applies the native scroll in a later frame.
+    await expect.poll(() => page.getByTestId('scroll').evaluate((element) => element.scrollTop)).toBeGreaterThan(0);
+    await expect(fixture).toHaveAttribute('data-open-changes', '');
+  });
+
+  // DRW-PTR-22 (DrawerViewport.test.tsx:3106-3162).
+  testWithTouch('keeps tracking the finger when a claimed drag returns inside the slop', async ({ touchPage: page, mode }) => {
+    await scrollCase(page, mode, 'right');
+    await recordScrollMoves(page);
+    const { x, y } = scrollCenter;
+
+    await touchDrag(page, [[{ x, y }, { x: x + 20, y }, { x: x + 50, y }, { x: x + 3, y }]], {
+      steps: 1,
+      afterMove: async (move) => {
+        if (move === 2) {
+          expect(await movementX(page)).toBe('30px');
+        }
+      },
+      beforeRelease: async () => expect(Number.parseFloat(await movementX(page))).toBeLessThan(0),
+    });
+
+    const { prevented } = await scrollMoves(page);
+    expect(prevented.length).toBe(3);
+    expect(prevented.every(Boolean)).toBe(true);
+  });
+});
