@@ -279,6 +279,25 @@ describe('drawer module: the popup role (DrawerPopup.tsx)', () => {
     expect(height(popup)).toBe('');
   });
 
+  // DRW-DOM-09: "in place in the same commit that adds data-nested-drawer-open". C# renders that attribute before the nested
+  // drawer's presence reaches the module, so the popup role reads the attribute too, in the mutation's own microtask.
+  it('port: the popup declares its height as soon as C# marks a nested drawer open', async () => {
+    const { popup } = popupRole();
+    const seen: string[] = [];
+    new MutationObserver(() => seen.push(`${popup.hasAttribute('data-nested-drawer-open')}:${height(popup)}`)).observe(popup, {
+      attributes: true,
+      attributeFilter: ['data-nested-drawer-open', 'style'],
+    });
+
+    popup.setAttribute('data-nested-drawer-open', '');
+    await Promise.resolve();
+    expect(seen[0]).toBe('true:100px');
+
+    popup.removeAttribute('data-nested-drawer-open');
+    await Promise.resolve();
+    expect(height(popup)).toBe('');
+  });
+
   // DRW-STA-13 (DrawerRoot.test.tsx:973-998).
   it('normalizes invalid nested swipe progress without notifying for duplicate values', () => {
     const { popup } = popupRole();
