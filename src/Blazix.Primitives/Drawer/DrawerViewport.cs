@@ -64,6 +64,9 @@ public sealed class DrawerViewport : PartBase<DrawerViewportState>
     private static readonly StateAttributesMapping<DrawerViewportState> s_mapping = PopupStateMapping.CreateOpen<DrawerViewportState>()
         .Map<bool>(nameof(DrawerViewportState.NestedDialogOpen), static _ => null);
 
+    // Slice 3: the indexes of the ancestors' popups among the references, cached by position and count, so equal options compare
+    // equal without a new list.
+    private static readonly int[][][] s_ancestorIndexes = new int[8][][];
     private readonly DrawerViewportContext viewport = new();
     private RenderFragment? consumerContent;
     private RenderFragment? cascade;
@@ -83,6 +86,8 @@ public sealed class DrawerViewport : PartBase<DrawerViewportState>
     private bool deciding;
     private ElementReference? sentPopup;
     private ElementReference? sentBackdrop;
+    private ElementReference?[]? sentAncestors;
+    private IDisposable[]? ancestorSubscriptions;
 
     [Inject]
     private IJSRuntime JSRuntime { get; set; } = null!;
@@ -152,6 +157,8 @@ public sealed class DrawerViewport : PartBase<DrawerViewportState>
         twin.DismissDecider = DecideDismiss;
         twin.SnapPointRequested += request => _ = InvokeAsync(() => SnapAsync(request));
         twin.SnapPointDecider = DecideSnapPoint;
+        // Slice 3, DRW-PTR-17: a nested drawer's swiping reaches its parent, which forwards it (DRW-STA-12).
+        twin.NestedSwipingChanged += swiping => _ = InvokeAsync(() => Drawer.Parent?.ReportNestedSwiping(swiping));
         base.OnInitialized();
     }
 
@@ -182,6 +189,11 @@ public sealed class DrawerViewport : PartBase<DrawerViewportState>
         {
             rootSubscription?.Dispose();
             drawerSubscription?.Dispose();
+            foreach (IDisposable subscription in ancestorSubscriptions ?? [])
+            {
+                subscription.Dispose();
+            }
+
             if (twin is not null)
             {
                 _ = twin.DisposeAsync().AsTask();
@@ -204,7 +216,24 @@ public sealed class DrawerViewport : PartBase<DrawerViewportState>
         // The handle's options: the fields the gesture reads, and the elements it writes on. They reach the module without a
         // render of the viewport.
         rootSubscription = Context!.Subscribe(DialogFields.Open | DialogFields.Mounted | DialogFields.Nested | DialogFields.NestedOpenDrawerCount, SyncTwinLater);
-        drawerSubscription = Drawer!.Subscribe(DrawerFields.Settings | DrawerFields.Elements, SyncTwinLater);
+        drawerSubscription = Drawer!.Subscribe(DrawerFields.Settings | DrawerFields.Elements | DrawerFields.FrontmostHeight, SyncTwinLater);
+
+        // Slice 3: the enclosing drawers' popups, which follow this drawer's drag (DRW-PTR-16), are sent as references.
+        int depth = 0;
+        for (DrawerRootContext? ancestor = Drawer.Parent; ancestor is not null; ancestor = ancestor.Parent)
+        {
+            depth++;
+        }
+
+        if (depth > 0)
+        {
+            ancestorSubscriptions = new IDisposable[depth];
+            int at = 0;
+            for (DrawerRootContext? ancestor = Drawer.Parent; ancestor is not null; ancestor = ancestor.Parent)
+            {
+                ancestorSubscriptions[at++] = ancestor.Subscribe(DrawerFields.Elements, SyncTwinLater);
+            }
+        }
     }
 
     /// <inheritdoc />
@@ -232,7 +261,8 @@ public sealed class DrawerViewport : PartBase<DrawerViewportState>
             && sent.NestedOpenDrawerCount == root.NestedOpenDrawerCount && string.Equals(sent.SwipeDirection, direction, StringComparison.Ordinal)
             && sent.AnsweredDismiss == answeredDismiss && ReferenceEquals(sent.SnapPoints, drawer.SnapPoints)
             && Nullable.Equals(sent.ActiveSnapPoint, drawer.ActiveSnapPoint) && sent.SnapToSequentialPoints == drawer.SnapToSequentialPoints
-            && sent.AnsweredSnap == answeredSnap && sent.CanceledSnap == canceledSnap && SameElements())
+            && sent.AnsweredSnap == answeredSnap && sent.CanceledSnap == canceledSnap && SameElements()
+            && ReferenceEquals(sent.Provider, drawer.Provider?.Token) && sent.FrontmostHeight == drawer.FrontmostHeight)
         {
             // ADR 16: an unchanged render sends nothing and allocates nothing here.
             return;
@@ -241,6 +271,22 @@ public sealed class DrawerViewport : PartBase<DrawerViewportState>
         TwinReferences references = new();
         int? popup = drawer.PopupElement is { } popupElement ? references.Add(popupElement) : null;
         int? backdrop = drawer.BackdropElement is { } backdropElement ? references.Add(backdropElement) : null;
+        IReadOnlyList<int>? ancestorPopups = null;
+        if (ancestorSubscriptions is { Length: > 0 })
+        {
+            int count = 0;
+            for (DrawerRootContext? ancestor = drawer.Parent; ancestor is not null; ancestor = ancestor.Parent)
+            {
+                if (ancestor.PopupElement is { } ancestorPopup)
+                {
+                    references.Add(ancestorPopup);
+                    count++;
+                }
+            }
+
+            ancestorPopups = AncestorIndexes(references.Count - count, count);
+        }
+
         DrawerOptions options = new()
         {
             Open = root.Open,
@@ -256,6 +302,10 @@ public sealed class DrawerViewport : PartBase<DrawerViewportState>
             CanceledSnap = canceledSnap,
             Popup = popup,
             Backdrop = backdrop,
+            Provider = drawer.Provider?.Token,
+            FrontmostHeight = drawer.FrontmostHeight,
+            HasParent = drawer.Parent is not null,
+            AncestorPopups = ancestorPopups,
         };
 
         if (handle is null)
@@ -268,6 +318,7 @@ public sealed class DrawerViewport : PartBase<DrawerViewportState>
             sentOptions = options;
             sentPopup = drawer.PopupElement;
             sentBackdrop = drawer.BackdropElement;
+            RecordAncestors();
             attaching = twin.AttachAsync(element, options, references).AsTask();
             handle = await attaching;
             gestureAttached.TrySetResult();
@@ -287,6 +338,7 @@ public sealed class DrawerViewport : PartBase<DrawerViewportState>
         sentOptions = options;
         sentPopup = drawer.PopupElement;
         sentBackdrop = drawer.BackdropElement;
+        RecordAncestors();
         await handle.UpdateAsync(options, references);
     }
 
@@ -381,7 +433,64 @@ public sealed class DrawerViewport : PartBase<DrawerViewportState>
         await SyncTwinAsync();
     });
 
-    private bool SameElements() =>
-        string.Equals(sentPopup?.Id, Drawer!.PopupElement?.Id, StringComparison.Ordinal)
-        && string.Equals(sentBackdrop?.Id, Drawer.BackdropElement?.Id, StringComparison.Ordinal);
+    private static IReadOnlyList<int>? AncestorIndexes(int first, int count)
+    {
+        if (count == 0)
+        {
+            return null;
+        }
+
+        if (first >= s_ancestorIndexes.Length)
+        {
+            return [.. Enumerable.Range(first, count)];
+        }
+
+        int[][] byCount = s_ancestorIndexes[first] ??= new int[8][];
+        if (count >= byCount.Length)
+        {
+            return [.. Enumerable.Range(first, count)];
+        }
+
+        return byCount[count] ??= [.. Enumerable.Range(first, count)];
+    }
+
+    private void RecordAncestors()
+    {
+        if (ancestorSubscriptions is not { Length: > 0 } subscriptions)
+        {
+            return;
+        }
+
+        sentAncestors ??= new ElementReference?[subscriptions.Length];
+        int at = 0;
+        for (DrawerRootContext? ancestor = Drawer!.Parent; ancestor is not null && at < sentAncestors.Length; ancestor = ancestor.Parent)
+        {
+            sentAncestors[at++] = ancestor.PopupElement;
+        }
+    }
+
+    private bool SameElements()
+    {
+        if (!string.Equals(sentPopup?.Id, Drawer!.PopupElement?.Id, StringComparison.Ordinal)
+            || !string.Equals(sentBackdrop?.Id, Drawer.BackdropElement?.Id, StringComparison.Ordinal))
+        {
+            return false;
+        }
+
+        if (sentAncestors is null)
+        {
+            return true;
+        }
+
+        int at = 0;
+        for (DrawerRootContext? ancestor = Drawer.Parent; ancestor is not null && at < sentAncestors.Length; ancestor = ancestor.Parent)
+        {
+            if (!string.Equals(sentAncestors[at++]?.Id, ancestor.PopupElement?.Id, StringComparison.Ordinal))
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
 }

@@ -126,6 +126,7 @@ public sealed class DrawerPopup : PartBase<DrawerPopupState>
         .Map<SwipeDirection>(nameof(DrawerPopupState.SwipeDirection), DrawerSwipeDirections.Project);
 
     private DialogPopupBehavior? behavior;
+    private DrawerPopupMeasurement? measurement;
     private IDisposable? drawerCount;
     private IDisposable? drawerStack;
     private Action? viewportChanged;
@@ -228,6 +229,7 @@ public sealed class DrawerPopup : PartBase<DrawerPopupState>
         }
 
         behavior = new DialogPopupBehavior("Drawer", JSRuntime, Logger, StateHasChanged, InvokeAsync, DispatchExceptionAsync);
+        measurement = new DrawerPopupMeasurement(JSRuntime, Context, Drawer, InvokeAsync);
         base.OnInitialized();
     }
 
@@ -245,7 +247,7 @@ public sealed class DrawerPopup : PartBase<DrawerPopupState>
     }
 
     /// <inheritdoc />
-    protected override Task OnAfterRenderAsync(bool firstRender)
+    protected override async Task OnAfterRenderAsync(bool firstRender)
     {
         // DRW-EDGE-01 (DrawerPopup.tsx:137-147): after the first render, once, with nothing appended.
         if (firstRender && Viewport is null && !warnedViewport && DevelopmentWarnings.IsEnabled)
@@ -258,7 +260,13 @@ public sealed class DrawerPopup : PartBase<DrawerPopupState>
 
         // M6 track 8b: the Viewport's drawer handle writes the swipe attributes and styles on this element.
         Drawer!.SetPopupElement(Element);
-        return behavior!.OnAfterRenderAsync(Element, RenderedId);
+        await behavior!.OnAfterRenderAsync(Element, RenderedId);
+
+        // Slice 3: the Popup's own handle measures it (DRW-STA-10), and the reports to the parent drawer follow the render.
+        if (Element is { } element)
+        {
+            await measurement!.SyncAsync(element);
+        }
     }
 
     /// <inheritdoc />
@@ -273,6 +281,11 @@ public sealed class DrawerPopup : PartBase<DrawerPopupState>
 
             drawerCount?.Dispose();
             drawerStack?.Dispose();
+            if (measurement is not null)
+            {
+                _ = measurement.DisposeAsync().AsTask();
+            }
+
             if (viewportChanged is not null)
             {
                 Viewport?.SetListener(null);

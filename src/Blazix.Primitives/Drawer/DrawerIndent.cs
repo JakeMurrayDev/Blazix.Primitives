@@ -1,5 +1,7 @@
+using Blazix.Primitives.Interop;
 using Blazix.Primitives.Rendering;
 using Microsoft.AspNetCore.Components;
+using Microsoft.JSInterop;
 
 namespace Blazix.Primitives;
 
@@ -23,8 +25,8 @@ public static class DrawerIndentDataAttributes
 // Base UI's Drawer.Indent (drawer/indent/DrawerIndent.tsx); the contract is docs/components/drawer.md (§3.3; DRW-STR-08,
 // DOM-31, DOM-32, API-13). It reads the provider's Active through the fixed cascade's listener and works without a
 // provider, then permanently inactive. Its inline --drawer-swipe-progress and --drawer-height are the `drawer` module's
-// (8b; the Writer cells C# → JS and JS); until a module takes the element, C# renders the resting 0 under the consumer's
-// style ('component-under', ADR 04 Amendments 2026-11-18).
+// (8b; the Writer cells C# → JS and JS): C# renders the resting 0, and under a provider the module's `indent` handle writes
+// the Provider's visual state over it (M6 track 8b slice 3, 2026-11-21).
 /// <summary>
 /// Represents a wrapper for the page content behind the drawers, Base UI's <c>Drawer.Indent</c>, rendered as a <c>div</c>.
 /// It is active while a drawer under the nearest <see cref="DrawerProvider"/> is open.
@@ -35,6 +37,10 @@ public sealed class DrawerIndent : PartBase<DrawerIndentState>
 
     private Action? changed;
     private DrawerIndentState state = new(false);
+    private DrawerTwin? twin;
+
+    [Inject]
+    private IJSRuntime JSRuntime { get; set; } = null!;
 
     [CascadingParameter]
     private DrawerProviderContext? Provider { get; set; }
@@ -60,12 +66,28 @@ public sealed class DrawerIndent : PartBase<DrawerIndentState>
     /// <inheritdoc />
     protected override StateAttributesMapping<DrawerIndentState>? StateAttributesMapping => DrawerIndentMapping<DrawerIndentState>.Instance;
 
+    // DRW-DOM-32: the module shows the Provider's visual state; the token is fixed with the provider's cascade.
+    /// <inheritdoc />
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender && Provider is { } provider && Element is { } element)
+        {
+            twin = new DrawerTwin(JSRuntime);
+            await twin.AttachAsync(element, new DrawerOptions { Role = DrawerTwin.IndentRole, Provider = provider.Token });
+        }
+    }
+
     /// <inheritdoc />
     protected override void Dispose(bool disposing)
     {
         if (disposing && changed is not null)
         {
             Provider?.RemoveListener(changed);
+        }
+
+        if (disposing && twin is not null)
+        {
+            _ = twin.DisposeAsync().AsTask();
         }
 
         base.Dispose(disposing);

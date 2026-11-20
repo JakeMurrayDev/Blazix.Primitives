@@ -44,7 +44,7 @@ public sealed class DrawerViewportGestureTests : IDisposable
 
         cut.WaitForAssertion(() =>
         {
-            JSRuntimeInvocation attach = Assert.Single(drawerModule.Invocations["attach"]);
+            JSRuntimeInvocation attach = Assert.Single(ViewportAttaches());
             Assert.Equal(cut.Find("[data-testid=viewport]").GetAttribute("id") ?? string.Empty, attach.Arguments[0] as string ?? string.Empty);
             string options = LastOptions();
             Assert.Contains("\"role\":\"viewport\"", options, StringComparison.Ordinal);
@@ -61,7 +61,7 @@ public sealed class DrawerViewportGestureTests : IDisposable
     public async Task A_dismiss_report_closes_the_drawer_and_answers_it()
     {
         IRenderedComponent<IComponent> cut = test.Context.Render(Drawer());
-        cut.WaitForAssertion(() => Assert.Single(drawerModule.Invocations["attach"]));
+        cut.WaitForAssertion(() => Assert.Single(ViewportAttaches()));
 
         await cut.InvokeAsync(() => Twin().OnDismissRequest($$"""{"request":1,"event":{{ReleaseJson}}}"""));
 
@@ -75,7 +75,7 @@ public sealed class DrawerViewportGestureTests : IDisposable
     {
         cancelClose = true;
         IRenderedComponent<IComponent> cut = test.Context.Render(Drawer());
-        cut.WaitForAssertion(() => Assert.Single(drawerModule.Invocations["attach"]));
+        cut.WaitForAssertion(() => Assert.Single(ViewportAttaches()));
 
         await cut.InvokeAsync(() => Twin().OnDismissRequest($$"""{"request":1,"event":{{ReleaseJson}}}"""));
 
@@ -93,7 +93,7 @@ public sealed class DrawerViewportGestureTests : IDisposable
     {
         cancelClose = true;
         IRenderedComponent<IComponent> cut = test.Context.Render(Drawer());
-        cut.WaitForAssertion(() => Assert.Single(drawerModule.Invocations["attach"]));
+        cut.WaitForAssertion(() => Assert.Single(ViewportAttaches()));
 
         string canceled = await cut.InvokeAsync(() => Twin().Decide(DrawerTwin.DismissPoint, ReleaseJson));
         Assert.Equal("stop", canceled);
@@ -115,13 +115,13 @@ public sealed class DrawerViewportGestureTests : IDisposable
     public async Task The_dismiss_point_answer_follows_the_dispatch()
     {
         IRenderedComponent<IComponent> cut = test.Context.Render(Drawer());
-        cut.WaitForAssertion(() => Assert.Single(drawerModule.Invocations["attach"]));
-        int before = drawerHandle.Invocations["update"].Count;
+        cut.WaitForAssertion(() => Assert.Single(ViewportAttaches()));
+        int before = ViewportUpdates().Count;
 
         int during = await cut.InvokeAsync(() =>
         {
             Assert.Equal("run", Twin().Decide(DrawerTwin.DismissPoint, ReleaseJson));
-            return drawerHandle.Invocations["update"].Count;
+            return ViewportUpdates().Count;
         });
 
         Assert.Equal(before, during);
@@ -135,7 +135,7 @@ public sealed class DrawerViewportGestureTests : IDisposable
     {
         DrawerPopupState? popupState = null;
         IRenderedComponent<IComponent> cut = test.Context.Render(Drawer(popupClass: state => { popupState = state; return null; }));
-        cut.WaitForAssertion(() => Assert.Single(drawerModule.Invocations["attach"]));
+        cut.WaitForAssertion(() => Assert.Single(ViewportAttaches()));
 
         await cut.InvokeAsync(() => Twin().OnSwipingChange("""{"swiping":true}"""));
         cut.WaitForAssertion(() => Assert.True(popupState?.Swiping));
@@ -166,7 +166,7 @@ public sealed class DrawerViewportGestureTests : IDisposable
     public async Task A_snap_point_report_selects_the_snap_point_and_answers_it()
     {
         IRenderedComponent<IComponent> cut = test.Context.Render(Drawer(snapPoints: [0.5, "200px"], defaultSnapPoint: "200px"));
-        cut.WaitForAssertion(() => Assert.Single(drawerModule.Invocations["attach"]));
+        cut.WaitForAssertion(() => Assert.Single(ViewportAttaches()));
 
         await cut.InvokeAsync(() => Twin().OnSnapPointRequest($$"""{"request":1,"index":0,"event":{{ReleaseJson}}}"""));
         Assert.Equal([((SnapPointValue?)0.5, EventReason.Swipe)], snapChanges);
@@ -187,7 +187,7 @@ public sealed class DrawerViewportGestureTests : IDisposable
     public async Task The_snap_point_point_requests_the_snap_point_inside_the_dispatch()
     {
         IRenderedComponent<IComponent> cut = test.Context.Render(Drawer(snapPoints: [0.5, "200px"], defaultSnapPoint: "200px"));
-        cut.WaitForAssertion(() => Assert.Single(drawerModule.Invocations["attach"]));
+        cut.WaitForAssertion(() => Assert.Single(ViewportAttaches()));
 
         Assert.Equal("run", await cut.InvokeAsync(() => Twin().Decide("snap-point:0", ReleaseJson)));
         Assert.Equal([((SnapPointValue?)0.5, EventReason.Swipe)], snapChanges);
@@ -206,7 +206,7 @@ public sealed class DrawerViewportGestureTests : IDisposable
     public async Task A_dismissal_after_a_canceled_change_to_none_requests_no_close()
     {
         IRenderedComponent<IComponent> cut = test.Context.Render(Drawer(snapPoints: [0.5, "200px"], defaultSnapPoint: "200px"));
-        cut.WaitForAssertion(() => Assert.Single(drawerModule.Invocations["attach"]));
+        cut.WaitForAssertion(() => Assert.Single(ViewportAttaches()));
         cancelSnap = true;
 
         await cut.InvokeAsync(() => Twin().OnSnapPointRequest($$"""{"request":1,"index":null,"event":{{ReleaseJson}}}"""));
@@ -228,12 +228,22 @@ public sealed class DrawerViewportGestureTests : IDisposable
         Assert.Equal([(false, EventReason.Swipe)], changes);
     }
 
-    private DrawerTwin Twin() => ((DotNetObjectReference<DrawerTwin>)drawerModule.Invocations["attach"][^1].Arguments[2]!).Value;
+    private DrawerTwin Twin() => ((DotNetObjectReference<DrawerTwin>)ViewportAttaches()[^1].Arguments[2]!).Value;
+
+    // Slice 3: the Popup attaches its own handle (role `popup`) to the same module; these titles read the Viewport's.
+    private List<JSRuntimeInvocation> ViewportAttaches() =>
+        drawerModule.Invocations["attach"].Where(attach => IsViewport(attach.Arguments[1])).ToList();
+
+    private List<JSRuntimeInvocation> ViewportUpdates() =>
+        drawerHandle.Invocations["update"].Where(update => IsViewport(update.Arguments[0])).ToList();
+
+    private static bool IsViewport(object? options) =>
+        options is string json && json.Contains("\"role\":\"viewport\"", StringComparison.Ordinal);
 
     private string LastOptions()
     {
-        IReadOnlyList<JSRuntimeInvocation> updates = drawerHandle.Invocations["update"];
-        return (updates.Count > 0 ? updates[^1].Arguments[0] : drawerModule.Invocations["attach"][^1].Arguments[1]) as string ?? string.Empty;
+        List<JSRuntimeInvocation> updates = ViewportUpdates();
+        return (updates.Count > 0 ? updates[^1].Arguments[0] : ViewportAttaches()[^1].Arguments[1]) as string ?? string.Empty;
     }
 
     private RenderFragment Drawer(

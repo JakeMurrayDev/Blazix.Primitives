@@ -45,6 +45,12 @@ public sealed class DrawerTwinContractTests
             SnapToSequentialPoints = true,
             AnsweredSnap = 4,
             CanceledSnap = 2,
+            Provider = "blazix-drawer-provider-7",
+            FrontmostHeight = 240.5,
+            HasParent = true,
+            AncestorPopups = [2, 3],
+            HasNestedDrawer = true,
+            Ending = true,
             Popup = 0,
             Backdrop = 1,
         });
@@ -53,13 +59,13 @@ public sealed class DrawerTwinContractTests
         JSRuntimeInvocation attach = Assert.Single(module.Invocations["attach"]);
         Assert.Equal("base-ui-1", attach.Arguments[0]);
         Assert.Equal(
-            """{"role":"viewport","open":false,"mounted":false,"nested":false,"nestedOpenDrawerCount":0,"swipeDirection":"down","answeredDismiss":0,"snapToSequentialPoints":false,"answeredSnap":0,"canceledSnap":0}""",
+            """{"role":"viewport","open":false,"mounted":false,"nested":false,"nestedOpenDrawerCount":0,"swipeDirection":"down","answeredDismiss":0,"snapToSequentialPoints":false,"answeredSnap":0,"canceledSnap":0,"frontmostHeight":0,"hasParent":false,"hasNestedDrawer":false,"ending":false}""",
             attach.Arguments[1]);
         Assert.IsType<DotNetObjectReference<DrawerTwin>>(attach.Arguments[2]);
 
         JSRuntimeInvocation update = Assert.Single(handle.Invocations["update"]);
         Assert.Equal(
-            """{"role":"viewport","open":true,"mounted":true,"nested":true,"nestedOpenDrawerCount":2,"swipeDirection":"right","answeredDismiss":3,"snapPoints":[0.5,"200px"],"activeSnapPoint":"200px","snapToSequentialPoints":true,"answeredSnap":4,"canceledSnap":2,"popup":0,"backdrop":1}""",
+            """{"role":"viewport","open":true,"mounted":true,"nested":true,"nestedOpenDrawerCount":2,"swipeDirection":"right","answeredDismiss":3,"snapPoints":[0.5,"200px"],"activeSnapPoint":"200px","snapToSequentialPoints":true,"answeredSnap":4,"canceledSnap":2,"provider":"blazix-drawer-provider-7","frontmostHeight":240.5,"hasParent":true,"ancestorPopups":[2,3],"hasNestedDrawer":true,"ending":true,"popup":0,"backdrop":1}""",
             update.Arguments[0]);
     }
 
