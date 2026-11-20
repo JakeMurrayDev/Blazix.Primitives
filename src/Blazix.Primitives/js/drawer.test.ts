@@ -545,6 +545,74 @@ describe('drawer module: the Viewport touch path', () => {
     expect(backdrop.getAttribute('data-swiping')).toBe('');
   });
 
+  // DRW-PTR-19, PTR-21 (DrawerViewport.test.tsx:458-524, 5496-5545, 5546-5574), ported here rather than at L4, chosen by
+  // the user 2026-11-20: each needs input Chromium cannot make. They are a hit test that changes between calls within one
+  // touch, a non-cancelable move after a prevented one, and a zero-distance move.
+  it('uses the event target for non-keyboard touch scroll arbitration', () => {
+    const { popup, backdrop } = mount();
+    const scroller = (scrollTop: number) => {
+      const element = document.createElement('div');
+      element.style.overflowY = 'auto';
+      Object.defineProperty(element, 'scrollHeight', { value: 160, configurable: true });
+      Object.defineProperty(element, 'clientHeight', { value: 40, configurable: true });
+      element.scrollTop = scrollTop;
+      Object.defineProperty(element, 'scrollTop', { value: scrollTop, configurable: true });
+      popup.append(element);
+      return element;
+    };
+    const scroll = scroller(0);
+    const button = document.createElement('button');
+    scroll.append(button);
+    const otherScroll = scroller(40);
+    let hitTests = 0;
+    Object.defineProperty(document, 'elementFromPoint', { value: () => (++hitTests === 1 ? otherScroll : button), configurable: true });
+    try {
+      touch('touchstart', button, [{ clientX: 0, clientY: 0 }]);
+      touch('touchmove', button, [{ clientX: 0, clientY: 40 }]);
+      expect(backdrop.getAttribute('data-swiping')).toBe('');
+    } finally {
+      Object.defineProperty(document, 'elementFromPoint', { value: () => pointTarget, configurable: true });
+    }
+  });
+
+  it('keeps a claimed scroll-edge swipe moving through non-cancelable events', () => {
+    const { popup } = mount();
+    const scroller = document.createElement('div');
+    scroller.style.overflowY = 'auto';
+    Object.defineProperty(scroller, 'scrollHeight', { value: 300, configurable: true });
+    Object.defineProperty(scroller, 'clientHeight', { value: 100, configurable: true });
+    popup.append(scroller);
+    pointTarget = scroller;
+    let parentMoves = 0;
+    const countParentMove = () => (parentMoves += 1);
+    document.body.addEventListener('touchmove', countParentMove);
+    try {
+      touch('touchstart', scroller, [{ clientX: 0, clientY: 100 }]);
+      touch('touchmove', scroller, [{ clientX: 0, clientY: 120 }]);
+      parentMoves = 0;
+
+      const nonCancelable = touch('touchmove', scroller, [{ clientX: 0, clientY: 130 }], false);
+      expect(nonCancelable.defaultPrevented).toBe(false);
+      expect(parentMoves).toBe(0);
+      expect(touch('touchmove', scroller, [{ clientX: 0, clientY: 140 }]).defaultPrevented).toBe(true);
+    } finally {
+      document.body.removeEventListener('touchmove', countParentMove);
+    }
+  });
+
+  it('does not claim a stationary touch in overflowing content', () => {
+    const { popup } = mount();
+    const scroller = document.createElement('div');
+    scroller.style.overflowY = 'auto';
+    Object.defineProperty(scroller, 'scrollHeight', { value: 300, configurable: true });
+    Object.defineProperty(scroller, 'clientHeight', { value: 100, configurable: true });
+    popup.append(scroller);
+    pointTarget = scroller;
+
+    touch('touchstart', scroller, [{ clientX: 0, clientY: 100 }]);
+    expect(touch('touchmove', scroller, [{ clientX: 0, clientY: 100 }]).defaultPrevented).toBe(false);
+  });
+
   it('port: a touch that starts in the popup may start after leaving it, and one that starts outside moves nothing until it enters', () => {
     // The start waits for the drawer axis over a cross-axis target, and by then the touch has left the popup.
     const inside = mount();

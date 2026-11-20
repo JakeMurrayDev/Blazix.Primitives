@@ -791,8 +791,11 @@ test.describe('<Drawer.Viewport /> touch swipe over selections and range inputs'
   // real touch lands on the thumb element and never has the input in its path (measured 2026-11-20: the hit target is
   // the thumb `div`, and the drawer swipes as Base UI's identical check does). The title's touch on the input is input
   // no real device makes, so it is dispatched in the page (ADR 04, Amendments 2026-11-19, point 14). Folded with its
-  // positive half: the same touch on the thumb element is claimed.
-  testWithTouch('does not block touchmove on slider thumb range inputs', async ({ touchPage: page, mode }) => {
+  // positive half: the same touch on the thumb element is claimed. The real-touch behaviour is kept as Base UI's and filed
+  // as issue 331 (track 10), chosen by the user 2026-11-20.
+  testWithTouch('does not block touchmove on slider thumb range inputs', {
+    annotation: { type: 'issue', description: 'https://github.com/JakeMurrayDev/Blazix.Primitives/issues/331' },
+  }, async ({ touchPage: page, mode }) => {
     const fixture = await controlsCase(page, mode);
     const backdrop = page.getByTestId('backdrop');
     const start = await pointOf(page.getByTestId('slider-thumb'));
