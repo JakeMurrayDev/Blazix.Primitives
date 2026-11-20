@@ -6,9 +6,10 @@
     The `otp-field-basic` fixture (tests/browser/otp-field*.spec.ts): a `before` button, a `<label for="otp">`, one root with
     id `otp` and `?length=` slots (6), each `slot-{i}` with `aria-label="Character {i+1} of {length}"` from slot 1 on, then an
     `outside` button. `?value=` the default value, `?type=` numeric (default), alpha, alphanumeric or none, `?readonly`,
-    `?disabled`, `?mask`; `?cancel=` cancels every OnValueChange whose reason is that literal, or `all`. `?veto` gives every
-    slot onkeydown, onmousedown, onfocus and onblur handlers that call PreventPartHandler(), each recorded by event type in
-    data-vetoes. The recorders are data-changes, data-invalids and data-completes; data-attached marks the module's attach.
+    `?disabled`, `?mask`; `?cancel=` cancels every OnValueChange whose reason is that literal, or `all`. `?veto=` gives every
+    slot onkeydown, oninput, onpaste, onmousedown, onfocus and onblur handlers; those of the listed types (comma-separated:
+    keydown, input, paste, mousedown, focus, blur; `?veto` alone lists all) call PreventPartHandler() and are recorded in
+    data-vetoes (`keydown:{key}` for a key). The recorders are data-changes, data-invalids and data-completes; data-attached marks the module's attach.
 *@
 <FixtureContainer Name="otp-field-basic" data-attached="@(Attached ? "true" : "false")" data-changes="@string.Join(" ", Changes)"
                   data-invalids="@string.Join(" ", Invalids)" data-completes="@string.Join(" ", Completes)" data-vetoes="@string.Join(" ", vetoes)">
@@ -23,7 +24,7 @@
             string? label = index == 0 ? null : $"Character {index + 1} of {length}";
             @if (veto)
             {
-                <OtpFieldInput data-testid="@($"slot-{index}")" aria-label="@label" @onkeydown="Veto" @onmousedown="Veto" @onfocus="Veto" @onblur="Veto" />
+                <OtpFieldInput data-testid="@($"slot-{index}")" aria-label="@label" @onkeydown="Veto" @oninput="Veto" @onpaste="Veto" @onmousedown="Veto" @onfocus="Veto" @onblur="Veto" />
             }
             else
             {
@@ -43,6 +44,7 @@
     private bool disabled;
     private bool mask;
     private bool veto;
+    private HashSet<string> vetoTypes = [];
     private string cancel = string.Empty;
 
     /// <inheritdoc />
@@ -60,7 +62,9 @@
         readOnly = Flag("readonly");
         disabled = Flag("disabled");
         mask = Flag("mask");
-        veto = Flag("veto");
+        string vetoList = Query("veto", "false");
+        veto = vetoList != "false";
+        vetoTypes = vetoList.Length == 0 ? ["keydown", "input", "paste", "mousedown", "focus", "blur"] : [.. vetoList.Split(',')];
         cancel = Query("cancel", string.Empty);
     }
 
@@ -75,12 +79,20 @@
 
     private void Veto(EventArgs args)
     {
-        vetoes.Add(args switch
+        string type = args switch
         {
-            Microsoft.AspNetCore.Components.Web.KeyboardEventArgs key => $"keydown:{key.Key}",
-            Microsoft.AspNetCore.Components.Web.FocusEventArgs focus => focus.Type ?? "focus",
-            _ => "mousedown",
-        });
+            Microsoft.AspNetCore.Components.Web.KeyboardEventArgs => "keydown",
+            Microsoft.AspNetCore.Components.Web.FocusEventArgs focus => focus.Type is "blur" or "focusout" ? "blur" : "focus",
+            Microsoft.AspNetCore.Components.Web.ClipboardEventArgs => "paste",
+            Microsoft.AspNetCore.Components.Web.MouseEventArgs => "mousedown",
+            _ => "input",
+        };
+        if (!vetoTypes.Contains(type))
+        {
+            return;
+        }
+
+        vetoes.Add(args is Microsoft.AspNetCore.Components.Web.KeyboardEventArgs key ? $"keydown:{key.Key}" : type);
         args.PreventPartHandler();
     }
 }
