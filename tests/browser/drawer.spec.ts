@@ -1423,3 +1423,293 @@ test.describe('<Drawer.Viewport /> swipe from an SVG in scrollable content', () 
     await expect(fixture).toHaveAttribute('data-open-changes', 'false:swipe');
   });
 });
+
+// Slice 3 (M6 track 8b, issue 279, added 2026-11-21): snap points. Base UI's snap titles run on a timeline whose every event
+// carries its own `timeStamp` (DrawerRoot.test.tsx:107-131, `simulateTimedSwipe`), so they dispatch in-page on that
+// timeline, as ADR 06 Amendments 2026-11-18 sets for the velocity-dependent titles; `swipeOnTimeline` steps evenly, and
+// these steps are Base UI's own. The fixture's popup is fixed at the top left, 200 px wide and 600 px tall by default, so
+// every point of those timelines lands on it, as Base UI's mocked `elementFromPoint` makes it.
+const snapCase = (page: Page, mode: RenderMode, options: Record<string, string> = {}) =>
+  gotoPopupFixture(page, mode, 'drawer-swipe', { case: 'snap', ...options });
+
+interface TimedStep {
+  type: 'down' | 'move' | 'up';
+  x: number;
+  y: number;
+  time: number;
+}
+
+/** Dispatches Base UI's timed steps one by one on the element under each point, the popup when none is. */
+const timedSwipe = async (page: Page, steps: TimedStep[]) => {
+  const popup = page.getByTestId('popup');
+  for (const step of steps) {
+    await popup.evaluate((element, step) => {
+      const type = step.type === 'down' ? 'pointerdown' : step.type === 'move' ? 'pointermove' : 'pointerup';
+      const event = new PointerEvent(type, {
+        bubbles: true,
+        cancelable: true,
+        composed: true,
+        isPrimary: true,
+        pointerId: 1,
+        pointerType: 'mouse',
+        button: step.type === 'move' ? -1 : 0,
+        buttons: step.type === 'up' ? 0 : 1,
+        clientX: step.x,
+        clientY: step.y,
+      });
+      Object.defineProperty(event, 'timeStamp', { value: step.time });
+      (element.ownerDocument.elementFromPoint(step.x, step.y) ?? element).dispatchEvent(event);
+    }, step);
+  }
+};
+
+/** Base UI's `simulateTimedDownSwipe` (DrawerRoot.test.tsx:77-105). */
+const timedDownSwipe = (page: Page, startY: number, endY: number, start: number, move: number, end: number, settleAt?: number) =>
+  timedSwipe(page, [
+    { type: 'down', x: 100, y: startY, time: start },
+    { type: 'move', x: 100, y: startY + 1, time: move },
+    ...(settleAt === undefined ? [] : [{ type: 'move' as const, x: 100, y: endY - 1, time: settleAt }]),
+    { type: 'move', x: 100, y: endY, time: end - 1 },
+    { type: 'up', x: 100, y: endY, time: end },
+  ]);
+
+/** A down, a one-pixel nudge, one move and the up a millisecond later: Base UI's four-step gesture timelines. */
+const gesture = (page: Page, from: number, nudge: number, to: number, moveAt: number) =>
+  timedSwipe(page, [
+    { type: 'down', x: 100, y: from, time: 1000 },
+    { type: 'move', x: 100, y: nudge, time: 1010 },
+    { type: 'move', x: 100, y: to, time: moveAt },
+    { type: 'up', x: 100, y: to, time: moveAt + 1 },
+  ]);
+
+test.describe('<Drawer.Root /> snap point swipes', () => {
+  // DRW-EVT-04, PTR-14 (DrawerRoot.test.tsx:1175-1194): the parent accepts the swipe close, and the snap point resets to
+  // the first one (DRW-DIS-05) instead of being restored to 300px.
+  test('does not restore snap point when a controlled swipe close is accepted by the parent', async ({ page, mode }) => {
+    const fixture = await snapCase(page, mode, { snap: '300px' });
+
+    await timedDownSwipe(page, 100, 260, 1000, 1010, 1040);
+
+    await expect(fixture).toHaveAttribute('data-active-snap', '100px');
+  });
+
+  // DRW-ANI-02, PTR-14 (DrawerRoot.test.tsx:1196-1220).
+  test('restores snap point and swipe offsets when swipe close is canceled', async ({ page, mode }) => {
+    const fixture = await snapCase(page, mode, { snap: '100px', cancelClose: 'true' });
+    const popup = page.getByTestId('popup');
+
+    await timedDownSwipe(page, 100, 260, 1000, 1010, 1040);
+
+    await expect(fixture).toHaveAttribute('data-open-changes', 'false:swipe');
+    await expect(fixture).toHaveAttribute('data-active-snap', '100px');
+    await expect(popup).toHaveAttribute('data-open', '');
+    await expect(popup).not.toHaveAttribute('data-swipe-dismiss');
+    await expect(popup).not.toHaveAttribute('data-ending-style');
+    await expect.poll(() => popup.evaluate((element) => element.style.getPropertyValue('--drawer-swipe-movement-y'))).toBe('0px');
+  });
+
+  // DRW-DOM-12, PTR-02 (DrawerRoot.test.tsx:1222-1288): at the full-height snap point a 150 px drag up overshoots and is
+  // damped to its square root.
+  test('damps active snap point overshoot after the swipe direction is established', async ({ page, mode }) => {
+    await snapCase(page, mode, { snapPoints: '100px,1', defaultSnap: '1', ph: '400' });
+    const popup = page.getByTestId('popup');
+
+    await timedSwipe(page, [
+      { type: 'down', x: 100, y: 200, time: 1000 },
+      { type: 'move', x: 100, y: 200, time: 1016 },
+      { type: 'move', x: 100, y: 100, time: 1032 },
+      { type: 'move', x: 100, y: 50, time: 1048 },
+    ]);
+
+    expect(await popup.evaluate((element) => element.style.transform)).toBe('');
+    const movement = await popup.evaluate((element) => Number.parseFloat(element.style.getPropertyValue('--drawer-swipe-movement-y')));
+    expect(movement).toBeCloseTo(-Math.sqrt(150));
+  });
+
+  // DRW-API-06, PTR-11 (DrawerRoot.test.tsx:1290-1314).
+  test('allows dragging past a snap point when snapToSequentialPoints is enabled', async ({ page, mode }) => {
+    const fixture = await snapCase(page, mode, { snap: '100px', sequential: 'true', alwaysOpen: 'true' });
+
+    await timedDownSwipe(page, 500, 50, 1000, 1010, 1040);
+
+    await expect(fixture).toHaveAttribute('data-active-snap', '1');
+  });
+
+  // DRW-PTR-11 (DrawerRoot.test.tsx:1316-1342): a 36 px flick at 0.75 px/ms, with or without a trailing half-pixel sample.
+  for (const phantom of [false, true]) {
+    test(`advances on a short flick with a trailing stationary sample: ${phantom}`, async ({ page, mode }) => {
+      const fixture = await snapCase(page, mode, { snap: '100px', sequential: 'true', alwaysOpen: 'true' });
+
+      await timedSwipe(page, [
+        { type: 'down', x: 100, y: 500, time: 992 },
+        { type: 'move', x: 100, y: 500, time: 1000 },
+        { type: 'move', x: 100, y: 488, time: 1016 },
+        { type: 'move', x: 100, y: 476, time: 1032 },
+        { type: 'move', x: 100, y: 464, time: 1048 },
+        ...(phantom ? [{ type: 'move' as const, x: 100, y: 463.5, time: 1064 }] : []),
+        { type: 'up', x: 100, y: phantom ? 463.5 : 464, time: phantom ? 1072 : 1056 },
+      ]);
+
+      await expect(fixture).toHaveAttribute('data-active-snap', '300px');
+    });
+  }
+
+  // DRW-PTR-11 (DrawerRoot.test.tsx:1344-1370).
+  test('stays on the current snap point after repeated stationary samples', async ({ page, mode }) => {
+    const fixture = await snapCase(page, mode, { snap: '100px', sequential: 'true', alwaysOpen: 'true' });
+
+    await timedSwipe(page, [
+      { type: 'down', x: 100, y: 500, time: 992 },
+      { type: 'move', x: 100, y: 500, time: 1000 },
+      { type: 'move', x: 100, y: 460, time: 1016 },
+      { type: 'move', x: 100, y: 460, time: 1032 },
+      { type: 'move', x: 100, y: 460, time: 1048 },
+      { type: 'move', x: 100, y: 460, time: 1064 },
+      { type: 'up', x: 100, y: 460, time: 1072 },
+    ]);
+    await settle(fixture);
+
+    await expect(fixture).toHaveAttribute('data-active-snap', '100px');
+  });
+
+  // DRW-PTR-11 (DrawerRoot.test.tsx:1372-1396).
+  test('advances to the next snap point on fast flicks when snapToSequentialPoints is enabled', async ({ page, mode }) => {
+    const fixture = await snapCase(page, mode, { snap: '100px', sequential: 'true', alwaysOpen: 'true' });
+
+    await timedDownSwipe(page, 500, 460, 2000, 2010, 2050);
+
+    await expect(fixture).toHaveAttribute('data-active-snap', '300px');
+  });
+
+  // DRW-PTR-11 (DrawerRoot.test.tsx:1398-1422): a 20 px drag that rests before its release.
+  test('keeps the drawer open on low-velocity swipes near a snap point', async ({ page, mode }) => {
+    const fixture = await snapCase(page, mode, { snap: '100px' });
+
+    await timedDownSwipe(page, 100, 120, 1000, 1005, 1035, 1015);
+    await settle(fixture);
+
+    await expect(fixture).toHaveAttribute('data-open-changes', '');
+    await expect(fixture).toHaveAttribute('data-active-snap', '100px');
+  });
+
+  // DRW-PTR-11 (DrawerRoot.test.tsx:1424-1452).
+  test('keeps the drawer open when the release velocity reverses during an upward swipe', async ({ page, mode }) => {
+    const fixture = await snapCase(page, mode, { snap: '100px' });
+
+    await timedSwipe(page, [
+      { type: 'down', x: 100, y: 300, time: 1000 },
+      { type: 'move', x: 100, y: 299, time: 1003 },
+      { type: 'move', x: 100, y: 120, time: 1010 },
+      { type: 'move', x: 100, y: 140, time: 1015 },
+      { type: 'up', x: 100, y: 140, time: 1025 },
+    ]);
+    await settle(fixture);
+
+    await expect(fixture).not.toHaveAttribute('data-open-changes', /false/);
+    await expect(page.getByTestId('popup')).toHaveAttribute('data-open', '');
+  });
+
+  // DRW-PTR-11 (DrawerRoot.test.tsx:1454-1724): Base UI's SnapPointGestureCase, snap points 100px, 300px and 1 on a
+  // controlled drawer whose 600 px popup is swiped down unless marked.
+  test('chooses the nearest sequential snap point on a slow drag', async ({ page, mode }) => {
+    const fixture = await snapCase(page, mode, { snap: '100px', sequential: 'true' });
+
+    await gesture(page, 500, 499, 350, 2010);
+
+    await expect(fixture).toHaveAttribute('data-active-snap', '300px');
+  });
+
+  test('advances a sequential snap point toward dismissal', async ({ page, mode }) => {
+    const fixture = await snapCase(page, mode, { snap: '1', sequential: 'true' });
+
+    await gesture(page, 100, 101, 140, 1020);
+
+    await expect(fixture).toHaveAttribute('data-active-snap', '300px');
+  });
+
+  test('dismisses past the final sequential snap point', async ({ page, mode }) => {
+    await snapCase(page, mode, { snap: '100px', sequential: 'true' });
+
+    await gesture(page, 100, 101, 160, 1020);
+
+    await expect(page.getByTestId('popup')).toHaveCount(0);
+  });
+
+  test('dismisses when a slow snap-point drag ends closer to closed', async ({ page, mode }) => {
+    await snapCase(page, mode, { snap: '100px', sequential: 'true' });
+
+    await gesture(page, 100, 101, 180, 2010);
+
+    await expect(page.getByTestId('popup')).toHaveCount(0);
+  });
+
+  test('dismisses from upward snap points using upward velocity', async ({ page, mode }) => {
+    await snapCase(page, mode, { snap: '100px', direction: 'up' });
+
+    await gesture(page, 500, 499, 420, 1020);
+
+    await expect(page.getByTestId('popup')).toHaveCount(0);
+  });
+
+  test('opens from a controlled null snap point', async ({ page, mode }) => {
+    const fixture = await snapCase(page, mode, { snap: 'null' });
+
+    await gesture(page, 100, 99, 60, 1020);
+
+    await expect(fixture).toHaveAttribute('data-active-snap', '1');
+  });
+
+  test('dismisses from a controlled null snap point', async ({ page, mode }) => {
+    await snapCase(page, mode, { snap: 'null' });
+
+    await gesture(page, 100, 101, 160, 1020);
+
+    await expect(page.getByTestId('popup')).toHaveCount(0);
+  });
+
+  test('keeps the first sequential snap point on a fast opening flick', async ({ page, mode }) => {
+    const fixture = await snapCase(page, mode, { snap: '1', sequential: 'true' });
+
+    await gesture(page, 100, 99, 40, 1020);
+    await settle(fixture);
+
+    await expect(fixture).toHaveAttribute('data-active-snap', '1');
+  });
+
+  test('keeps the current snap point after a sub-threshold drag', async ({ page, mode }) => {
+    const fixture = await snapCase(page, mode, { snap: '300px' });
+
+    await gesture(page, 100, 101, 105, 2010);
+    await settle(fixture);
+
+    await expect(fixture).toHaveAttribute('data-active-snap', '300px');
+  });
+
+  test('dismisses a non-sequential snap point when closed is nearest', async ({ page, mode }) => {
+    await snapCase(page, mode, { snap: '100px' });
+
+    await gesture(page, 100, 101, 180, 2010);
+
+    await expect(page.getByTestId('popup')).toHaveCount(0);
+  });
+
+  // DRW-ANI-01, PTR-14.
+  test('finishes a controlled accepted dismissal while kept mounted', async ({ page, mode }) => {
+    await snapCase(page, mode, { snap: '100px', sequential: 'true', keepMounted: 'true' });
+
+    await gesture(page, 100, 101, 160, 1020);
+
+    await expect(page.getByTestId('popup')).toHaveAttribute('data-closed', '');
+  });
+
+  // DRW-PTR-15: the parent rejects the close, so the snap point the gesture left is restored.
+  test('restores a snap point when a controlled parent rejects dismissal', async ({ page, mode }) => {
+    const fixture = await snapCase(page, mode, { snap: '300px', alwaysOpen: 'true' });
+
+    await gesture(page, 100, 101, 160, 1020);
+
+    await expect(fixture).toHaveAttribute('data-open-changes', 'false:swipe');
+    await expect(fixture).toHaveAttribute('data-active-snap', '300px');
+    await expect(page.getByTestId('popup')).toHaveAttribute('data-open', '');
+  });
+});

@@ -265,6 +265,45 @@ describe('drawer module: the snap point release (DRW-PTR-11, ALG-01)', () => {
     expect(canceled.fake.reported('OnDismissRequest')).toEqual([]);
   });
 
+  // DRW-PTR-15 (DrawerViewport.tsx:567-568, 653-694): a dismissal that leaves the drawer open, canceled or kept open by
+  // its owner, asks again for the snap point the release closed from, with reason `swipe` and the release; an accepted
+  // one does not.
+  it('port: a dismissal that leaves the drawer open requests the snap point it closed from again', () => {
+    const rejected = mount({ ...three, activeSnapPoint: '100px' });
+    slowDrag(rejected.popup, 80);
+    expect(rejected.fake.reported('OnSnapPointRequest')).toMatchObject([{ request: 1, index: null }]);
+
+    rejected.update({ activeSnapPoint: null, answeredSnap: 1, answeredDismiss: 1 });
+
+    expect(rejected.fake.reported('OnSnapPointRequest')).toMatchObject([
+      { request: 1, index: null },
+      { request: 2, index: 0, event: { type: 'pointerup' } },
+    ]);
+    expect(rejected.popup.hasAttribute('data-swipe-dismiss')).toBe(false);
+    // Shown at once, as any snap request on Blazor Server.
+    expect(snapOffset(rejected.popup)).toBe('200px');
+
+    const accepted = mount({ ...three, activeSnapPoint: '300px' });
+    flick(accepted.popup, 30);
+    accepted.update({ open: false, activeSnapPoint: null, answeredSnap: 1, answeredDismiss: 1 });
+    accepted.update({ open: true, activeSnapPoint: '100px', answeredSnap: 1, answeredDismiss: 1 });
+    expect(accepted.fake.reported('OnSnapPointRequest')).toHaveLength(1);
+  });
+
+  // DRW-PTR-15 on WebAssembly: C#'s `dismiss` chain canceled the close inside the dispatch.
+  it('port: on WebAssembly a canceled dismissal requests the snap point it closed from again', () => {
+    const { popup, fake } = mount({ ...three, activeSnapPoint: '300px' }, true);
+    // The fake answers every point alike; only the `dismiss` chain cancels here.
+    const invoke = fake.twin.invokeMethod.bind(fake.twin);
+    fake.twin.invokeMethod = (<T>(name: string, ...args: unknown[]): T =>
+      (name === 'Decide' && args[0] === 'dismiss' ? (invoke(name, ...args), 'stop') : invoke(name, ...args)) as T) as typeof fake.twin.invokeMethod;
+
+    flick(popup, 30);
+
+    expect(fake.decisions.map((decision) => decision.point)).toEqual(['snap-point:none', 'dismiss']);
+    expect(fake.reported('OnSnapPointRequest')).toMatchObject([{ index: 1 }]);
+  });
+
   it('port: a horizontal drawer with snap points, or a list that resolves to nothing, uses regular dismissal', () => {
     const horizontal = mount({ swipeDirection: 'right', snapPoints: ['100px', '200px'], activeSnapPoint: '100px' });
     horizontal.popup.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, button: 0, buttons: 1, pointerId: 1, clientX: 10, clientY: 10 }));

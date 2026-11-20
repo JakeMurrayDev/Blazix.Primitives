@@ -37,6 +37,16 @@
     - `case=combobox` (added 2026-11-20): DrawerViewport.test.tsx's portaled descendants. The popup is fixed at left 0
       and top 100, 200 px wide and 300 px tall, and holds Drawer.Content with a Combobox of ten fruits, open by default,
       whose portaled list is 40 px tall and scrolls.
+    - `case=snap` (added 2026-11-21): DrawerRoot.test.tsx's and DrawerViewport.test.tsx's snap point drawers. The root's
+      open state is the fixture's: a close it is told of closes it, unless `alwaysOpen=true` (a parent that rejects every
+      close) or `cancelClose=true`. `snapPoints` lists the snap points, comma-separated, numbers or CSS lengths
+      (`100px,300px,1` by default); `snap` makes the snap point controlled from that value (`null` for none), and
+      `defaultSnap` makes it uncontrolled from that default; `cancelSnap=true` cancels every snap point change;
+      `sequential=true` sets `SnapToSequentialPoints`; `keepMounted=true` keeps the portal mounted; `direction` is the
+      swipe direction (`down` by default). The Viewport covers the page (720 px tall under Playwright's default viewport), and the
+      popup is fixed at left 0 and top 0, 200 px wide and `ph` px tall (600 by default), so every start point of Base UI's
+      timelines lands on it. The snap point changes are recorded as `value:reason` in `data-snap-changes`, and the
+      controlled value as `data-active-snap` (`null` for none).
     - `noPopup=true`: the Viewport renders no Popup ("ignores swipe input until a popup is mounted").
     - `alwaysOpen=true`: the root is controlled with `Open="true"` and never follows a change.
     The remove button (`data-remove-root`, added 2026-11-20) stops rendering the root, as Base UI's `unmount()`.
@@ -45,13 +55,33 @@
     suites' Shift keydown (`data-key-control`), so the barrier is no outside press for the `case=combobox` Combobox.
 *@
 <FixtureContainer Name="drawer-swipe" data-attached="@(Attached ? "true" : "false")" data-sync="@Sync" data-case="@Case"
-                  data-open-changes="@OpenChanges" data-combobox-changes="@string.Join(' ', comboboxChanges)" data-open-change-completes="@OpenChangeCompletes">
+                  data-open-changes="@OpenChanges" data-combobox-changes="@string.Join(' ', comboboxChanges)" data-open-change-completes="@OpenChangeCompletes"
+                  data-snap-changes="@string.Join(' ', snapChanges)" data-active-snap="@SnapText(snapPoint)">
     <button type="button" tabindex="-1" data-sync-button data-key-control @onclick="() => Sync++" @onkeydown="OnShift(() => Sync++)">Sync</button>
     <button type="button" data-remove-root @onclick="() => removed = true">Remove</button>
     <span data-testid="outside-text">Outside selection</span>
     @if (removed)
     {
         // Base UI's unmount(): nothing of the root renders.
+    }
+    else if (Snap)
+    {
+        if (QueryValue("defaultSnap") is { } defaultSnap)
+        {
+            <DrawerRoot TPayload="NoPayload" @ref="root" Open="@snapOpen" OnOpenChange="RecordSnapOpenChange" SwipeDirection="@Direction"
+                        SnapPoints="@SnapPoints" DefaultSnapPoint="@defaultSnap" OnSnapPointChange="RecordSnapPointChange"
+                        SnapToSequentialPoints="@(QueryFlag("sequential") == true)">
+                @SnapParts
+            </DrawerRoot>
+        }
+        else
+        {
+            <DrawerRoot TPayload="NoPayload" @ref="root" Open="@snapOpen" OnOpenChange="RecordSnapOpenChange" SwipeDirection="@Direction"
+                        SnapPoints="@SnapPoints" SnapPoint="@snapPoint" OnSnapPointChange="RecordSnapPointChange"
+                        SnapToSequentialPoints="@(QueryFlag("sequential") == true)">
+                @SnapParts
+            </DrawerRoot>
+        }
     }
     else if (QueryFlag("alwaysOpen") == true)
     {
@@ -91,9 +121,17 @@
 
     private bool Combobox => Case == "combobox";
 
+    private bool Snap => Case == "snap";
+
+    private bool snapOpen = true;
+
+    private SnapPointValue? snapPoint;
+
+    private readonly List<string> snapChanges = [];
+
     private static readonly string[] s_fruits = ["Apple", "Banana", "Cherry", "Date", "Elderberry", "Fig", "Grape", "Honeydew", "Kiwi", "Lime"];
 
-    private SwipeDirection Direction => Scroll || Axis
+    private SwipeDirection Direction => Scroll || Axis || Snap
         ? Query("direction") switch { "up" => SwipeDirection.Up, "left" => SwipeDirection.Left, "right" => SwipeDirection.Right, _ => SwipeDirection.Down }
         : Down || Controls || Shadow || Wrap || Combobox ? SwipeDirection.Down : SwipeDirection.Right;
 
@@ -198,12 +236,26 @@
         </DrawerViewport>
     </DrawerPortal>;
 
+    private IReadOnlyList<SnapPointValue> SnapPoints => [.. (Query("snapPoints") ?? "100px,300px,1").Split(',').Select(ParseSnap)];
+
+    private RenderFragment SnapParts => @<DrawerPortal KeepMounted="@(QueryFlag("keepMounted") == true)">
+        <DrawerBackdrop data-testid="backdrop" />
+        <DrawerViewport @ref="viewport" data-testid="viewport" style="position: fixed; inset: 0;">
+            <DrawerPopup data-testid="popup" style="@($"position: fixed; left: 0; top: 0; width: 200px; height: {Query("ph") ?? "600"}px;")">Drawer</DrawerPopup>
+        </DrawerViewport>
+    </DrawerPortal>;
+
     protected override IEnumerable<Task> Attachments => [root?.SessionAttached ?? Task.CompletedTask, ViewportAttachedAsync()];
 
     /// <inheritdoc />
     protected override void OnInitialized()
     {
         base.OnInitialized();
+        if (Snap && Query("snap") is { } snap)
+        {
+            snapPoint = snap == "null" ? (SnapPointValue?)null : ParseSnap(snap);
+        }
+
         if (Shadow)
         {
             container = PortalContainerValue.Pending;
@@ -233,6 +285,40 @@
         }
 
         await base.OnAfterRenderAsync(firstRender);
+    }
+
+    private static SnapPointValue ParseSnap(string value) =>
+        double.TryParse(value, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out double number)
+            ? new SnapPointValue(number)
+            : new SnapPointValue(value);
+
+    private static string SnapText(SnapPointValue? value) => value is not { } held
+        ? "null"
+        : held.TryGetValue(out double number) ? number.ToString("R", System.Globalization.CultureInfo.InvariantCulture) : held.Value?.ToString() ?? "null";
+
+    private SnapPointValue? QueryValue(string name) => Query(name) is { } value && value != "null" ? ParseSnap(value) : (SnapPointValue?)null;
+
+    // Base UI's controlled open state: a close is followed unless the case rejects it or cancels it.
+    private void RecordSnapOpenChange(ValueChangeEventArgs<bool> args)
+    {
+        RecordOpenChange(args);
+        if (!args.Details.IsCanceled && QueryFlag("alwaysOpen") != true)
+        {
+            snapOpen = args.Value;
+        }
+    }
+
+    private void RecordSnapPointChange(ValueChangeEventArgs<SnapPointValue?> args)
+    {
+        snapChanges.Add($"{SnapText(args.Value)}:{args.Details.Reason.ToLiteral()}");
+        if (QueryFlag("cancelSnap") == true)
+        {
+            args.Details.Cancel();
+        }
+        else
+        {
+            snapPoint = args.Value;
+        }
     }
 
     private void RecordComboboxChange(ValueChangeEventArgs<bool> args) =>
