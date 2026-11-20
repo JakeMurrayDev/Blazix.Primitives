@@ -252,3 +252,37 @@ for (const act of acts) {
     });
   }
 }
+
+// Decision 26 (a): the messages and bytes a typed six-digit code costs on Server, counted on the circuit's WebSocket from
+// the first key to the completion's record; nothing is coalesced.
+test('port: the messages and bytes of a typed six-digit code on Server (decision 26)', async ({ page, mode }) => {
+  test.skip(mode !== 'server', 'Only Server has a circuit.');
+  const counts = { counting: false, sent: 0, sentBytes: 0, received: 0, receivedBytes: 0 };
+  page.on('websocket', (socket) => {
+    socket.on('framesent', (frame) => {
+      if (counts.counting) {
+        counts.sent += 1;
+        counts.sentBytes += typeof frame.payload === 'string' ? Buffer.byteLength(frame.payload) : frame.payload.length;
+      }
+    });
+    socket.on('framereceived', (frame) => {
+      if (counts.counting) {
+        counts.received += 1;
+        counts.receivedBytes += typeof frame.payload === 'string' ? Buffer.byteLength(frame.payload) : frame.payload.length;
+      }
+    });
+  });
+  const field = await gotoOtp(page, mode);
+  await field.slot(0).focus();
+
+  counts.counting = true;
+  await page.keyboard.type('123456');
+  await expect(field.fixture).toHaveAttribute('data-completes', '123456:input-change');
+  await expect(field.hidden).toHaveValue('123456');
+  counts.counting = false;
+
+  const line = `a typed six-digit code: ${counts.sent} frames sent (${counts.sentBytes} bytes), ${counts.received} received (${counts.receivedBytes} bytes)`;
+  test.info().annotations.push({ type: 'figure', description: line });
+  console.log(`[figure] server ${line}`);
+  expect(counts.sent).toBeGreaterThan(0);
+});
