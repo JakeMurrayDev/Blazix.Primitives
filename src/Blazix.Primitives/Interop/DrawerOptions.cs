@@ -55,6 +55,9 @@ internal sealed record DrawerOptions : TwinOptions
     /// <summary>Gets the number of the last snap point request C# has answered.</summary>
     public int AnsweredSnap { get; init; }
 
+    /// <summary>Gets the number of the last request for no snap point that a consumer canceled, whose dismissal C# dropped.</summary>
+    public int CanceledSnap { get; init; }
+
     /// <summary>Gets the index of the popup element among the references sent with the options.</summary>
     /// <value>The index, or <see langword="null"/>, the default, while no popup is rendered.</value>
     public int? Popup { get; init; }

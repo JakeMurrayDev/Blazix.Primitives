@@ -78,6 +78,8 @@ public sealed class DrawerViewport : PartBase<DrawerViewportState>
     private readonly TaskCompletionSource gestureAttached = new(TaskCreationOptions.RunContinuationsAsynchronously);
     private int answeredDismiss;
     private int answeredSnap;
+    private int canceledSnap;
+    private bool dropNextDismissal;
     private bool deciding;
     private ElementReference? sentPopup;
     private ElementReference? sentBackdrop;
@@ -230,7 +232,7 @@ public sealed class DrawerViewport : PartBase<DrawerViewportState>
             && sent.NestedOpenDrawerCount == root.NestedOpenDrawerCount && string.Equals(sent.SwipeDirection, direction, StringComparison.Ordinal)
             && sent.AnsweredDismiss == answeredDismiss && ReferenceEquals(sent.SnapPoints, drawer.SnapPoints)
             && Nullable.Equals(sent.ActiveSnapPoint, drawer.ActiveSnapPoint) && sent.SnapToSequentialPoints == drawer.SnapToSequentialPoints
-            && sent.AnsweredSnap == answeredSnap && SameElements())
+            && sent.AnsweredSnap == answeredSnap && sent.CanceledSnap == canceledSnap && SameElements())
         {
             // ADR 16: an unchanged render sends nothing and allocates nothing here.
             return;
@@ -251,6 +253,7 @@ public sealed class DrawerViewport : PartBase<DrawerViewportState>
             ActiveSnapPoint = drawer.ActiveSnapPoint,
             SnapToSequentialPoints = drawer.SnapToSequentialPoints,
             AnsweredSnap = answeredSnap,
+            CanceledSnap = canceledSnap,
             Popup = popup,
             Backdrop = backdrop,
         };
@@ -291,8 +294,18 @@ public sealed class DrawerViewport : PartBase<DrawerViewportState>
     // rolls the dismissal back when the drawer is still open (design point 10 (a)).
     private async Task DismissAsync(DrawerDismissRequest request)
     {
-        OpenChangeEventDetails details = new(EventReason.Swipe, request.Event);
-        await Context!.RequestOpenAsync(false, details);
+        // DRW-ALG-01: the dismissal of a release whose change to no snap point was canceled is dropped, as Base UI settles
+        // that release in place; Blazor Server learns of the cancel only after the module started the dismissal.
+        if (dropNextDismissal)
+        {
+            dropNextDismissal = false;
+        }
+        else
+        {
+            OpenChangeEventDetails details = new(EventReason.Swipe, request.Event);
+            await Context!.RequestOpenAsync(false, details);
+        }
+
         answeredDismiss = Math.Max(answeredDismiss, request.Request);
         await SyncTwinAsync();
     }
@@ -330,6 +343,12 @@ public sealed class DrawerViewport : PartBase<DrawerViewportState>
     {
         ChangeEventDetails details = new(EventReason.Swipe, request.Event);
         await Drawer!.RequestSnapPointAsync(SnapPointAt(request.Index), details);
+        dropNextDismissal = request.Index is null && details.IsCanceled;
+        if (dropNextDismissal)
+        {
+            canceledSnap = request.Request;
+        }
+
         answeredSnap = Math.Max(answeredSnap, request.Request);
         await SyncTwinAsync();
     }

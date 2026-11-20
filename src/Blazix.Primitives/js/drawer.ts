@@ -82,6 +82,8 @@ export interface DrawerOptions extends TwinOptions {
   snapToSequentialPoints?: boolean;
   /** The number of the last snap point request C# has answered. */
   answeredSnap?: number;
+  /** The number of the last request for no snap point that C# canceled; its dismissal is dropped. */
+  canceledSnap?: number;
   /** The index of the Popup element among the references, or `null` while none is rendered. */
   popup?: number | null;
   /** The index of the Backdrop element among the references, or `null` while none is rendered. */
@@ -1005,6 +1007,11 @@ export function attach(
       }
       tracker.setOptions(trackerOptions());
       syncTouchMoveListener();
+      // DRW-ALG-01 on Blazor Server: a canceled change to no snap point drops its dismissal, and Base UI settles that
+      // release in place with no snap point asked for again.
+      if (pendingSnap && pendingSnap.index === null && (options.canceledSnap ?? 0) >= pendingSnap.request) {
+        closedFrom = null;
+      }
       // The answer to a dismissal: the drawer still open means a canceled request or an owner that kept it open.
       if (pendingDismiss !== 0 && options.answeredDismiss >= pendingDismiss) {
         if (options.open) {
