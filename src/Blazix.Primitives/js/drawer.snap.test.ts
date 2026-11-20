@@ -301,7 +301,9 @@ describe('drawer module: the snap point release (DRW-PTR-11, ALG-01)', () => {
     flick(popup, 30);
 
     expect(fake.decisions.map((decision) => decision.point)).toEqual(['snap-point:none', 'dismiss']);
-    expect(fake.reported('OnSnapPointRequest')).toMatchObject([{ index: 1 }]);
+    // `300px`, index 2 of the three.
+    expect(fake.reported('OnSnapPointRequest')).toMatchObject([{ request: 1, index: 2, event: { type: 'pointerup' } }]);
+    expect(popup.hasAttribute('data-swipe-dismiss')).toBe(false);
   });
 
   it('port: a horizontal drawer with snap points, or a list that resolves to nothing, uses regular dismissal', () => {

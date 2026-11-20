@@ -414,6 +414,9 @@ export function attach(
   let pendingSnap: { request: number; index: number | null } | null = null;
   let snapRequestCount = 0;
   let swiping = false;
+  // DRW-PTR-15 (Base UI's `pendingSwipeCloseSnapPointRef`): the snap point a release closed from, and the release, asked for
+  // again when the dismissal leaves the drawer open.
+  let closedFrom: { index: number | null; event: PointerEvent | TouchEvent } | null = null;
 
   // The touch path's state (slice 2): the current touch, whether it is ignored, and the pen mark of DRW-PTR-19 (1).
   let touchState: TouchScrollState | null = null;
@@ -517,11 +520,16 @@ export function attach(
       return true;
     }
     if (!twin.lastDecisionWasSynchronous) {
-      snapRequestCount += 1;
-      pendingSnap = { request: snapRequestCount, index };
-      twin.report('OnSnapPointRequest', { request: snapRequestCount, index, event: eventInfo(event) });
+      reportSnapPoint(index, event);
     }
     return false;
+  };
+
+  // The numbered request, shown until C# answers it: Blazor Server's release, and DRW-PTR-15's restore on both modes.
+  const reportSnapPoint = (index: number | null, event: PointerEvent | TouchEvent) => {
+    snapRequestCount += 1;
+    pendingSnap = { request: snapRequestCount, index };
+    twin.report('OnSnapPointRequest', { request: snapRequestCount, index, event: eventInfo(event) });
   };
 
   // DRW-PTR-12: the release's synchronous styles, before the close request.
@@ -543,6 +551,13 @@ export function attach(
     pendingDismiss = 0;
     tracker.reset();
     clearSwipeRelease();
+    // DRW-PTR-15: the snap point the release closed from comes back, with reason `swipe` and the release.
+    if (closedFrom) {
+      const { index, event } = closedFrom;
+      closedFrom = null;
+      reportSnapPoint(index, event);
+      refreshSnap();
+    }
   };
 
   // DRW-PTR-11 and DRW-ALG-01 (DrawerViewport.tsx:502-637): the release of a drawer with snap points.
@@ -602,9 +617,13 @@ export function attach(
       if (!details.direction) {
         return settle(fallback);
       }
+      const left = activeSnapValue();
       if (requestSnapPoint(null, details.event)) {
         return settleInPlace();
       }
+      // A value the list no longer holds has no index to ask for; it is not restored.
+      const leftIndex = left === null ? null : snapValues().findIndex((value) => Object.is(value, left));
+      closedFrom = leftIndex === -1 ? null : { index: leftIndex, event: details.event };
       refreshSnap();
       startSwipeRelease(
         resolveSwipeStrength(
@@ -992,6 +1011,7 @@ export function attach(
           rollBack();
         } else {
           pendingDismiss = 0;
+          closedFrom = null;
         }
       }
       // An open after a close clears a release left from a kept-mounted dismissal (DrawerViewport.tsx:856-867).
