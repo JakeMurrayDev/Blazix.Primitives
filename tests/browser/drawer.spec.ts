@@ -1853,3 +1853,145 @@ test.describe('<Drawer.Viewport /> snap point releases', () => {
     await expect(fixture).toHaveAttribute('data-open-changes', 'false:swipe');
   });
 });
+
+// Slice 3 (M6 track 8b, issue 279, added 2026-11-21): the Provider's visual state and the nested-drawer report, on the
+// `drawer-stack` fixture. The popup's measured height reaches its Root and comes back as `--drawer-frontmost-height`
+// before a drag, so each title waits for it first.
+const stackCase = (page: Page, mode: RenderMode, name: string) => gotoPopupFixture(page, mode, 'drawer-stack', { case: name });
+const styleOf = (target: Locator, property: string) =>
+  target.evaluate((element, name) => (element as HTMLElement).style.getPropertyValue(name), property);
+const clickInPage = (target: Locator) => target.evaluate((element) => (element as HTMLElement).click());
+
+test.describe('<Drawer.Provider /> visual state', () => {
+  // DRW-PTR-16, DRW-DOM-32 (DrawerViewport.test.tsx:5033-5108): 39 px of the 100 px popup's drag.
+  test('publishes and clears swipe progress through Drawer.Provider', async ({ page, mode }) => {
+    await stackCase(page, mode, 'provider');
+    const indent = page.getByTestId('indent');
+    await expect.poll(() => styleOf(page.getByTestId('popup'), '--drawer-frontmost-height')).toBe('100px');
+
+    await page.mouse.move(10, 10);
+    await page.mouse.down();
+    await page.mouse.move(10, 11);
+    await page.mouse.move(10, 50);
+    await expect.poll(async () => Number.parseFloat(await styleOf(indent, '--drawer-swipe-progress'))).toBeCloseTo(0.39, 2);
+    await expect.poll(() => styleOf(indent, '--drawer-height')).toBe('100px');
+
+    await page.mouse.move(10, 10);
+    await expect.poll(() => styleOf(indent, '--drawer-swipe-progress')).toBe('0');
+    await expect.poll(() => styleOf(indent, '--drawer-height')).toBe('');
+    await page.mouse.up();
+  });
+
+  // DRW-STA-15, DRW-DOM-32 (DrawerProvider.test.tsx:153-176), driven by a drag: 50 px of the 100 px popup is 0.5. Base UI's
+  // non-finite and single-field steps set the store directly and run at L3 (js/drawer.provider.test.ts).
+  test('synchronizes and restores visual state on Drawer.Indent', async ({ page, mode }) => {
+    await stackCase(page, mode, 'provider');
+    const indent = page.getByTestId('indent');
+    await expect.poll(() => styleOf(page.getByTestId('popup'), '--drawer-frontmost-height')).toBe('100px');
+
+    await page.mouse.move(10, 10);
+    await page.mouse.down();
+    await page.mouse.move(10, 11);
+    await page.mouse.move(10, 61);
+    await expect.poll(() => styleOf(indent, '--drawer-swipe-progress')).toBe('0.5');
+    await expect.poll(() => styleOf(indent, '--drawer-height')).toBe('100px');
+
+    await page.mouse.move(10, 11);
+    await expect.poll(() => styleOf(indent, '--drawer-swipe-progress')).toBe('0');
+    await expect.poll(() => styleOf(indent, '--drawer-height')).toBe('');
+
+    await page.mouse.move(10, 61);
+    await expect.poll(() => styleOf(indent, '--drawer-swipe-progress')).toBe('0.5');
+    const removed = await indent.elementHandle();
+    await clickInPage(page.locator('[data-hide-indent]'));
+    await expect(page.getByTestId('indent')).toHaveCount(0);
+    await expect.poll(() => removed!.evaluate((element) => (element as HTMLElement).style.getPropertyValue('--drawer-swipe-progress'))).toBe('0');
+    expect(await removed!.evaluate((element) => (element as HTMLElement).style.getPropertyValue('--drawer-height'))).toBe('');
+    await page.mouse.up();
+  });
+
+  // DRW-ANI-05 (DrawerViewport.test.tsx:5327-5420): the Viewport's teardown mid-drag clears the Provider's visual state and
+  // the Backdrop's `data-swiping`.
+  test('clears provider and backdrop swipe state during layout teardown', async ({ page, mode }) => {
+    await stackCase(page, mode, 'provider');
+    const indent = page.getByTestId('indent');
+    const backdrop = page.getByTestId('backdrop');
+    await expect.poll(() => styleOf(page.getByTestId('popup'), '--drawer-frontmost-height')).toBe('100px');
+
+    await page.mouse.move(10, 10);
+    await page.mouse.down();
+    await page.mouse.move(10, 11);
+    await page.mouse.move(10, 61);
+    await expect.poll(() => styleOf(indent, '--drawer-swipe-progress')).toBe('0.5');
+    await expect.poll(() => styleOf(indent, '--drawer-height')).toBe('100px');
+    await expect(backdrop).toHaveAttribute('data-swiping', '');
+
+    await clickInPage(page.locator('[data-hide-viewport]'));
+    await expect(page.getByTestId('popup')).toHaveCount(0);
+    await expect.poll(() => styleOf(indent, '--drawer-swipe-progress')).toBe('0');
+    await expect.poll(() => styleOf(indent, '--drawer-height')).toBe('');
+    await expect(backdrop).not.toHaveAttribute('data-swiping');
+    await page.mouse.up();
+  });
+});
+
+test.describe('<Drawer.Viewport /> nested drawers', () => {
+  // DRW-PTR-17, DRW-DOM-04, DRW-DOM-22 (DrawerViewport.test.tsx:1446-1519): no mark after 5 px, the mark after 20 px.
+  testWithTouch('does not mark nested drawers as swiping until movement passes the threshold', async ({ touchPage: page, mode }) => {
+    const fixture = await stackCase(page, mode, 'nested');
+    const parentPopup = page.getByTestId('parent-popup');
+    const start = await pointOf(page.getByTestId('child-button'));
+
+    // Chromium's touch slop holds back the first small touchmove, so the swipe starts on the 20 px move; the drag goes on to
+    // 40 px for the threshold to count from there.
+    await touchDrag(page, [[start, { x: start.x, y: start.y + 5 }, { x: start.x, y: start.y + 20 }, { x: start.x, y: start.y + 40 }]], {
+      afterMove: async (move) => {
+        if (move === 1) {
+          await settle(fixture);
+          await expect(parentPopup).not.toHaveAttribute('data-nested-drawer-swiping');
+          await expect(page.getByTestId('child-viewport')).not.toHaveAttribute('data-nested-dialog-open');
+        }
+      },
+      beforeRelease: async () => {
+        await expect(parentPopup).toHaveAttribute('data-nested-drawer-swiping', '');
+      },
+    });
+  });
+
+  // DRW-PTR-17, DRW-DOM-14 (DrawerViewport.test.tsx:1521-1600).
+  testWithTouch('clears nested swiping when a nested drawer swipe is reversed before release', async ({ touchPage: page, mode }) => {
+    await stackCase(page, mode, 'nested');
+    const parentPopup = page.getByTestId('parent-popup');
+    const start = await pointOf(page.getByTestId('child-button'));
+
+    // As above, the drag goes on to 40 px past Chromium's touch slop before it is reversed.
+    await touchDrag(page, [[start, { x: start.x, y: start.y + 5 }, { x: start.x, y: start.y + 20 }, { x: start.x, y: start.y + 40 }, start]], {
+      afterMove: async (move) => {
+        if (move === 3) {
+          await expect(parentPopup).toHaveAttribute('data-nested-drawer-swiping', '');
+        }
+      },
+      beforeRelease: async () => {
+        await expect(parentPopup).not.toHaveAttribute('data-nested-drawer-swiping');
+        await expect.poll(() => styleOf(parentPopup, '--drawer-swipe-progress')).toBe('0');
+      },
+    });
+  });
+
+  // DRW-DOM-14 (DrawerViewport.test.tsx:5242-5325): 100 px of the 200 px nested popup shows 0.5 on the parent's popup, and the
+  // nested drawer's close clears it.
+  testWithTouch('clears nested progress before descendant layout effects when the child closes', async ({ touchPage: page, mode }) => {
+    await stackCase(page, mode, 'nested');
+    const parentPopup = page.getByTestId('parent-popup');
+    await expect.poll(() => styleOf(page.getByTestId('child-popup'), '--drawer-frontmost-height')).toBe('200px');
+    const start = await pointOf(page.getByTestId('child-button'));
+
+    await touchDrag(page, [[start, { x: start.x, y: start.y + 20 }, { x: start.x, y: start.y + 120 }]], {
+      beforeRelease: async () => {
+        await expect.poll(async () => Number.parseFloat(await styleOf(parentPopup, '--drawer-swipe-progress'))).toBeGreaterThan(0.4);
+        await clickInPage(page.locator('[data-close-child]'));
+        await expect.poll(() => styleOf(parentPopup, '--drawer-swipe-progress')).toBe('0');
+      },
+    });
+  });
+});

@@ -1,0 +1,82 @@
+@namespace Blazix.Primitives.Fixtures.Client.DrawerFixtures
+@using Blazix.Primitives
+@using Blazix.Primitives.Fixtures.Client.PopupFixtures
+@inherits PopupSuiteFixtureBase
+
+@*
+    The `drawer-stack` fixture (tests/browser/drawer.spec.ts; M6 track 8b slice 3, added 2026-11-21): the Provider's visual
+    state and the nested-drawer report.
+    - `case=provider`: DrawerViewport.test.tsx's and DrawerProvider.test.tsx's Provider trees. A Provider holds an Indent
+      (`indent`) and an open non-modal drawer with a Backdrop (`backdrop`), its Viewport fixed at inset 0 and its popup
+      (`popup`) fixed at the top left, 200 px wide and 100 px tall. "Hide indent" and "Hide viewport" remove the Indent and
+      the Viewport.
+    - `case=nested`: DrawerViewport.test.tsx's nested trees. An open non-modal parent drawer whose popup (`parent-popup`,
+      fixed at the top left, 300 by 300 px) holds an open non-modal nested drawer whose popup (`child-popup`, fixed at the
+      top left, 200 by 200 px) holds the button `child-button`. "Close child" closes the nested drawer.
+*@
+<FixtureContainer Name="drawer-stack" data-attached="@(Attached ? "true" : "false")" data-sync="@Sync" data-case="@Case"
+                  data-open-changes="@OpenChanges">
+    <button type="button" tabindex="-1" data-sync-button data-key-control @onclick="() => Sync++" @onkeydown="OnShift(() => Sync++)">Sync</button>
+    <button type="button" data-hide-indent @onclick="() => showIndent = false">Hide indent</button>
+    <button type="button" data-hide-viewport @onclick="() => showViewport = false">Hide viewport</button>
+    <button type="button" data-close-child @onclick="() => childOpen = false">Close child</button>
+    @if (Case == "nested")
+    {
+        <DrawerRoot TPayload="NoPayload" @ref="root" Open="true" Modal="false" OnOpenChange="RecordOpenChange">
+            <DrawerPortal>
+                <DrawerViewport @ref="viewport" style="position: fixed; inset: 0;">
+                    <DrawerPopup data-testid="parent-popup" style="position: fixed; left: 0; top: 0; width: 300px; height: 300px; margin: 0; padding: 0; border: 0;">
+                        <DrawerRoot TPayload="NoPayload" @ref="child" Open="@childOpen" Modal="false">
+                            <DrawerPortal>
+                                <DrawerViewport @ref="childViewport" data-testid="child-viewport" style="position: fixed; inset: 0;">
+                                    <DrawerPopup data-testid="child-popup" style="position: fixed; left: 0; top: 0; width: 200px; height: 200px; margin: 0; padding: 0; border: 0;">
+                                        <button type="button" data-testid="child-button" style="display: block; width: 200px; height: 40px;">Action</button>
+                                    </DrawerPopup>
+                                </DrawerViewport>
+                            </DrawerPortal>
+                        </DrawerRoot>
+                    </DrawerPopup>
+                </DrawerViewport>
+            </DrawerPortal>
+        </DrawerRoot>
+    }
+    else
+    {
+        <DrawerProvider>
+            @if (showIndent)
+            {
+                <DrawerIndent data-testid="indent" />
+            }
+            <DrawerRoot TPayload="NoPayload" @ref="root" Open="true" Modal="false" OnOpenChange="RecordOpenChange">
+                <DrawerPortal>
+                    <DrawerBackdrop data-testid="backdrop" />
+                    @if (showViewport)
+                    {
+                        <DrawerViewport @ref="viewport" style="position: fixed; inset: 0;">
+                            <DrawerPopup data-testid="popup" style="position: fixed; left: 0; top: 0; width: 200px; height: 100px; margin: 0; padding: 0; border: 0;">Drawer</DrawerPopup>
+                        </DrawerViewport>
+                    }
+                </DrawerPortal>
+            </DrawerRoot>
+        </DrawerProvider>
+    }
+</FixtureContainer>
+
+@code {
+    private DrawerRoot<NoPayload>? root;
+    private DrawerRoot<NoPayload>? child;
+    private DrawerViewport? viewport;
+    private DrawerViewport? childViewport;
+    private bool showIndent = true;
+    private bool showViewport = true;
+    private bool childOpen = true;
+
+    /// <inheritdoc />
+    protected override IEnumerable<Task> Attachments =>
+    [
+        root?.SessionAttached ?? Task.CompletedTask,
+        child?.SessionAttached ?? Task.CompletedTask,
+        viewport?.GestureAttached ?? Task.CompletedTask,
+        childViewport?.GestureAttached ?? Task.CompletedTask,
+    ];
+}

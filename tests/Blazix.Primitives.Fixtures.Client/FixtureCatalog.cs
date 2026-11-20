@@ -285,6 +285,7 @@ public static class FixtureCatalog
         ["alert-dialog-root"] = new(typeof(AlertDialogRootFixture)),
         ["drawer-popup"] = new(typeof(DrawerPopupFixture)),
         ["drawer-swipe"] = new(typeof(DrawerSwipeFixture)),
+        ["drawer-stack"] = new(typeof(DrawerStackFixture)),
         ["tooltip-conformance"] = new(typeof(TooltipConformanceFixture)),
         ["tooltip-triggers"] = new(typeof(TooltipTriggersFixture)),
         ["tooltip-root"] = new(typeof(TooltipRootFixture)),
