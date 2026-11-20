@@ -80,6 +80,7 @@ public sealed class OtpFieldRoot : PartBase<OtpFieldRootState>
     private object? focusOwner;
     private string? labelFallbackId;
     private readonly List<OtpFieldInput> slotParts = [];
+    private readonly TaskCompletionSource attachedSource = new(TaskCreationOptions.RunContinuationsAsynchronously);
     private OtpFieldTwin? twin;
     private TwinHandle<OtpFieldOptions>? handle;
     private OtpFieldOptions? sentOptions;
@@ -377,6 +378,9 @@ public sealed class OtpFieldRoot : PartBase<OtpFieldRootState>
     // OTP-DOM-08, design point 5 (a): once the module is attached it owns the slots' `value` and `tabindex`.
     /// <summary>Gets a value indicating whether the module owns the slots' <c>value</c> and <c>tabindex</c>.</summary>
     internal bool ModuleOwnsSlots => handle is not null;
+
+    /// <summary>Gets a task that completes once the <c>otp-field</c> module is attached (the browser fixtures' marker).</summary>
+    internal Task TwinAttached => attachedSource.Task;
 
     /// <summary>Gets the id of the slot 0's native label the slot reported, which labels the group without a field label.</summary>
     internal string? LabelFallbackId => labelFallbackId;
@@ -1060,6 +1064,7 @@ public sealed class OtpFieldRoot : PartBase<OtpFieldRootState>
         sentOptions = options;
         rollback = false;
         handle = await twin.AttachAsync(element, options);
+        attachedSource.TrySetResult();
     }
 
     // OTP-ARIA-05, OTP-EDGE-13 (mergeAriaIds, OTPFieldRoot.tsx:639-642): split on whitespace, first occurrence kept.

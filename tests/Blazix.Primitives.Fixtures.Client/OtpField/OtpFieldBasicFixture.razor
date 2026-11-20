@@ -1,0 +1,86 @@
+@namespace Blazix.Primitives.Fixtures.Client.OtpFieldFixtures
+@using Blazix.Primitives
+@inherits OtpFieldFixtureBase
+
+@*
+    The `otp-field-basic` fixture (tests/browser/otp-field*.spec.ts): a `before` button, a `<label for="otp">`, one root with
+    id `otp` and `?length=` slots (6), each `slot-{i}` with `aria-label="Character {i+1} of {length}"` from slot 1 on, then an
+    `outside` button. `?value=` the default value, `?type=` numeric (default), alpha, alphanumeric or none, `?readonly`,
+    `?disabled`, `?mask`; `?cancel=` cancels every OnValueChange whose reason is that literal, or `all`. `?veto` gives every
+    slot onkeydown, onmousedown, onfocus and onblur handlers that call PreventPartHandler(), each recorded by event type in
+    data-vetoes. The recorders are data-changes, data-invalids and data-completes; data-attached marks the module's attach.
+*@
+<FixtureContainer Name="otp-field-basic" data-attached="@(Attached ? "true" : "false")" data-changes="@string.Join(" ", Changes)"
+                  data-invalids="@string.Join(" ", Invalids)" data-completes="@string.Join(" ", Completes)" data-vetoes="@string.Join(" ", vetoes)">
+    <button type="button" data-testid="before">Before</button>
+    <label for="otp">Verification code</label>
+    <OtpFieldRoot @ref="Root" Id="otp" Length="length" DefaultValue="@defaultValue" ValidationType="validationType" ReadOnly="readOnly"
+                  Disabled="disabled" Mask="mask" OnValueChange="Change" OnValueInvalid="RecordInvalid" OnValueComplete="RecordComplete"
+                  data-testid="root">
+        @for (int i = 0; i < length; i++)
+        {
+            int index = i;
+            string? label = index == 0 ? null : $"Character {index + 1} of {length}";
+            @if (veto)
+            {
+                <OtpFieldInput data-testid="@($"slot-{index}")" aria-label="@label" @onkeydown="Veto" @onmousedown="Veto" @onfocus="Veto" @onblur="Veto" />
+            }
+            else
+            {
+                <OtpFieldInput data-testid="@($"slot-{index}")" aria-label="@label" />
+            }
+        }
+    </OtpFieldRoot>
+    <button type="button" data-testid="outside">Outside</button>
+</FixtureContainer>
+
+@code {
+    private readonly List<string> vetoes = [];
+    private int length;
+    private string? defaultValue;
+    private OtpFieldValidationType validationType;
+    private bool readOnly;
+    private bool disabled;
+    private bool mask;
+    private bool veto;
+    private string cancel = string.Empty;
+
+    /// <inheritdoc />
+    protected override void OnInitialized()
+    {
+        length = int.Parse(Query("length", "6"), System.Globalization.CultureInfo.InvariantCulture);
+        defaultValue = Query("value", string.Empty);
+        validationType = Query("type", "numeric") switch
+        {
+            "alpha" => OtpFieldValidationType.Alpha,
+            "alphanumeric" => OtpFieldValidationType.Alphanumeric,
+            "none" => OtpFieldValidationType.None,
+            _ => OtpFieldValidationType.Numeric,
+        };
+        readOnly = Flag("readonly");
+        disabled = Flag("disabled");
+        mask = Flag("mask");
+        veto = Flag("veto");
+        cancel = Query("cancel", string.Empty);
+    }
+
+    private void Change(ValueChangeEventArgs<string> args)
+    {
+        RecordChange(args);
+        if (cancel == "all" || cancel == args.Details.Reason.ToLiteral())
+        {
+            args.Details.Cancel();
+        }
+    }
+
+    private void Veto(EventArgs args)
+    {
+        vetoes.Add(args switch
+        {
+            Microsoft.AspNetCore.Components.Web.KeyboardEventArgs key => $"keydown:{key.Key}",
+            Microsoft.AspNetCore.Components.Web.FocusEventArgs focus => focus.Type ?? "focus",
+            _ => "mousedown",
+        });
+        args.PreventPartHandler();
+    }
+}
