@@ -1,6 +1,8 @@
 using System.Globalization;
 using System.Linq.Expressions;
+using Blazix.Primitives.Interop;
 using Blazix.Primitives.Rendering;
+using Blazix.Primitives.Store;
 using Blazix.Primitives.Utilities;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Forms;
@@ -20,6 +22,14 @@ namespace Blazix.Primitives;
 // - The slots register with the root's CompositeListBehavior (registration-only, the TabsRoot precedent) and take their
 //   index from its render-order counter until the module's order report (OTP-STR-03, OTP-EDGE-10/11; CMP-STA-16).
 // - The store of OTP §4: the last focused index, the focused flag and its owner slot (OTP-FOC-02, OTP-FOC-07, OTP-FOC-09).
+// - The `otp-field` module attaches to the root element after the composite list (design point 6 (a)); its edit reports
+//   become Base UI's requests (OTPFieldRoot.tsx:228-266 `setValue`, OTPFieldInput.tsx:101-133 and :256-303), each echoed
+//   by its revision so the update restores the slots (the revision rule, ADR 04 Amendments 2026-11-18, decision 6). On
+//   WebAssembly the edit decision runs the slot's consumer handler, then the request, inside the dispatch (design points 1
+//   and 2 (a), chosen by the user 2026-11-19).
+// - Typing and clearing commit regardless of Cancel(), which suppresses the queued focus, the completion and AutoSubmit;
+//   keyboard and paste follow OTP-EVT-04 (ADR 05 Amendments 2026-11-18 item 1, decision 9 (a)). A canceled edit the module
+//   advanced ahead rolls its focus back (design point 4 (a)).
 // - Inside a field the root is the field's control through OtpFieldField (OTP §8; ADR 05 Amendments 2026-11-18 item 2).
 // - aria-labelledby and aria-describedby are read from the consumer's attributes and replaced in FinishAttributes, so they
 //   are consumed rather than forwarded (OTP-ARIA-02..05, OTP-EDGE-13; ADR 08 Amendments 2026-11-18).
@@ -69,6 +79,19 @@ public sealed class OtpFieldRoot : PartBase<OtpFieldRootState>
     private int focusedIndex;
     private object? focusOwner;
     private string? labelFallbackId;
+    private readonly List<OtpFieldInput> slotParts = [];
+    private OtpFieldTwin? twin;
+    private TwinHandle<OtpFieldOptions>? handle;
+    private OtpFieldOptions? sentOptions;
+    private int editRevision;
+    private bool rollback;
+    private int pendingFocusIndex = -1;
+    private string? pendingFocusValue;
+    private OtpFieldFocusRequest? focusRequest;
+    private string? pendingCompleteValue;
+    private GenericEventDetails? pendingCompleteDetails;
+    private int submitRevision;
+    private int processedVersion;
     private OtpFieldRootState? state;
     private RenderFragment? cascade;
     private RenderFragment? cascadedContent;
@@ -98,6 +121,10 @@ public sealed class OtpFieldRoot : PartBase<OtpFieldRootState>
 
     // OTP-ARIA-03, OTP-ARIA-04 (useAriaLabelledBy): the field label's id, else the native label of slot 0.
     private string? ResolvedLabel => fieldHalf!.FieldLabelId ?? labelFallbackId;
+
+    // Variant (ii) (decision 6 (a)): the optimistic advance needs built-in validation, no custom normalization and the
+    // field's own value.
+    private bool Optimistic => !value!.IsControlled && NormalizeValue is null && SlotPattern is not null;
 
     [CascadingParameter]
     private FieldRootContext? FieldContext { get; set; }
@@ -347,6 +374,10 @@ public sealed class OtpFieldRoot : PartBase<OtpFieldRootState>
     /// <summary>Gets the <c>aria-labelledby</c> a slot without its own label inherits, or <see langword="null"/>.</summary>
     internal string? InheritedLabel => ConsumerAttribute(AriaLabelledBy) is null ? ResolvedLabel : null;
 
+    // OTP-DOM-08, design point 5 (a): once the module is attached it owns the slots' `value` and `tabindex`.
+    /// <summary>Gets a value indicating whether the module owns the slots' <c>value</c> and <c>tabindex</c>.</summary>
+    internal bool ModuleOwnsSlots => handle is not null;
+
     /// <summary>Gets the id of the slot 0's native label the slot reported, which labels the group without a field label.</summary>
     internal string? LabelFallbackId => labelFallbackId;
 
@@ -408,6 +439,9 @@ public sealed class OtpFieldRoot : PartBase<OtpFieldRootState>
         {
             hiddenValueHandedOver = true;
         }
+
+        await ProcessCommittedValueAsync();
+        await SyncTwinAsync();
     }
 
     /// <inheritdoc />
@@ -418,6 +452,17 @@ public sealed class OtpFieldRoot : PartBase<OtpFieldRootState>
             ReleaseFocus();
             slots?.Dispose();
             fieldHalf?.Dispose();
+            if (twin is not null)
+            {
+                twin.Edited -= OnEdited;
+                twin.SlotFocused -= OnSlotFocused;
+                twin.SlotBlurred -= OnSlotBlurred;
+                twin.PasteUnreadable -= OnPasteUnreadable;
+                fieldHalf!.Autofilled -= OnAutofilled;
+                _ = twin.DisposeAsync().AsTask();
+                twin = null;
+                handle = null;
+            }
         }
 
         base.Dispose(disposing);
@@ -576,6 +621,14 @@ public sealed class OtpFieldRoot : PartBase<OtpFieldRootState>
         }
     }
 
+    /// <summary>Adds a slot to the parts the root's decisions find by index.</summary>
+    /// <param name="slot">The slot.</param>
+    internal void RegisterSlot(OtpFieldInput slot) => slotParts.Add(slot);
+
+    /// <summary>Removes a slot from the parts the root's decisions find by index.</summary>
+    /// <param name="slot">The slot.</param>
+    internal void UnregisterSlot(OtpFieldInput slot) => slotParts.Remove(slot);
+
     /// <summary>Re-renders the root and its slots after a change of the fields a slot renders.</summary>
     internal void Refresh()
     {
@@ -585,6 +638,428 @@ public sealed class OtpFieldRoot : PartBase<OtpFieldRootState>
         }
 
         StateHasChanged();
+    }
+
+    // OTPFieldInput.tsx:101-133 (`commitValue`) and :256-303 (the keyboard edits): one edit report, one request.
+    /// <summary>Turns an edit the module reported into a request, then echoes its revision.</summary>
+    /// <param name="edit">The edit.</param>
+    /// <returns>A task that completes when the request and its callbacks have run.</returns>
+    internal async Task HandleEditAsync(OtpFieldEditReport edit)
+    {
+        string current = normalized;
+        int index = edit.Index;
+        EventSnapshot @event = edit.Event;
+        bool canEdit = !EffectiveDisabled && !ReadOnly && index >= 0;
+        if (canEdit)
+        {
+            switch (edit.Kind)
+            {
+                case "input":
+                case "paste":
+                    await CommitTextAsync(current, edit, edit.Kind == "paste" ? EventReason.InputPaste : EventReason.InputChange).ConfigureAwait(true);
+                    break;
+                case "clear":
+                    await SetKeyboardValueAsync(string.Empty, 0, @event).ConfigureAwait(true);
+                    break;
+                case "delete":
+                    await SetKeyboardValueAsync(OtpValue.Remove(current, index), index, @event).ConfigureAwait(true);
+                    break;
+                case "backspace":
+                    int target = Math.Max(0, index - 1);
+                    int deleteIndex = index < current.Length ? index : target;
+                    await SetKeyboardValueAsync(OtpValue.Remove(current, deleteIndex), target, @event).ConfigureAwait(true);
+                    break;
+            }
+        }
+
+        // The revision rule: the update that follows echoes the report, so the module applies it (and restores the slots).
+        editRevision = Math.Max(editRevision, edit.Revision);
+        Refresh();
+    }
+
+    private async Task CommitTextAsync(string current, OtpFieldEditReport edit, EventReason reason)
+    {
+        int index = edit.Index;
+        (string digits, bool rejected) = OtpValue.NormalizeWithDetails(edit.Raw, Length, EffectiveValidationType, NormalizeValue);
+        if (rejected)
+        {
+            await OnValueInvalid.InvokeAsync(new OtpFieldInvalidEventArgs(edit.Raw, new GenericEventDetails(reason, edit.Event))).ConfigureAwait(true);
+        }
+
+        if (digits.Length == 0)
+        {
+            // Typed input edits the slot in place: an emptied slot clears; a fully rejected character is restored by the
+            // update. An empty or fully rejected paste changes nothing.
+            if (reason == EventReason.InputChange && edit.Raw.Length == 0)
+            {
+                await SetValueAsync(OtpValue.Remove(current, index), EventReason.InputClear, edit.Event, -1).ConfigureAwait(true);
+            }
+
+            return;
+        }
+
+        string? committed = await SetValueAsync(
+            OtpValue.Replace(current, index, digits, Length, EffectiveValidationType, NormalizeValue),
+            reason,
+            edit.Event,
+            edit.Advanced ? -1 : Math.Min(index + digits.Length, Length - 1)).ConfigureAwait(true);
+        if (committed is null && edit.Advanced)
+        {
+            // Design point 4 (a): the module moved focus ahead of a request that was canceled; focus returns to the slot.
+            rollback = true;
+            focusRequest = new OtpFieldFocusRequest(index, (focusRequest?.Revision ?? 0) + 1);
+        }
+    }
+
+    private async Task SetKeyboardValueAsync(string next, int target, EventSnapshot @event)
+    {
+        await SetValueAsync(next, EventReason.Keyboard, @event, target).ConfigureAwait(true);
+    }
+
+    // OTPFieldRoot.tsx:228-266 `setValue`, with decision 9 (a): typing and clearing commit regardless of Cancel(), which
+    // still suppresses the queued focus and the completion. The focus and the completion are queued before the commit, whose
+    // render may run inside it, and dropped again when it is canceled. Returns the committed value, or null.
+    private async Task<string?> SetValueAsync(string next, EventReason reason, EventSnapshot @event, int focusIndex)
+    {
+        string current = normalized;
+        string value = OtpValue.Normalize(next, Length, EffectiveValidationType, NormalizeValue);
+        bool canComplete = reason is EventReason.InputChange or EventReason.InputPaste;
+        GenericEventDetails? complete = canComplete && value.Length == Length && (current.Length != Length || reason == EventReason.InputPaste)
+            ? new GenericEventDetails(reason, @event)
+            : null;
+        if (Equality.StrictEquals(value, current))
+        {
+            if (complete is not null)
+            {
+                await CompleteAsync(value, complete).ConfigureAwait(true);
+            }
+
+            return null;
+        }
+
+        ChangeEventDetails details = new(reason, @event);
+        bool typing = reason is EventReason.InputChange or EventReason.InputClear;
+        string? previousComplete = pendingCompleteValue;
+        GenericEventDetails? previousDetails = pendingCompleteDetails;
+        if (focusIndex >= 0)
+        {
+            pendingFocusIndex = focusIndex;
+            pendingFocusValue = value;
+        }
+
+        if (complete is not null)
+        {
+            pendingCompleteValue = value;
+            pendingCompleteDetails = complete;
+        }
+        else if (value.Length != Length)
+        {
+            pendingCompleteValue = null;
+            pendingCompleteDetails = null;
+        }
+
+        bool accepted = await this.value!.RequestAsync(value, details, OnValueChange, ValueChanged, nativeTextEdit: typing).ConfigureAwait(true);
+        if (!accepted)
+        {
+            if (focusIndex >= 0 && ReferenceEquals(pendingFocusValue, value))
+            {
+                pendingFocusValue = null;
+            }
+
+            pendingCompleteValue = previousComplete;
+            pendingCompleteDetails = previousDetails;
+            return null;
+        }
+
+        return value;
+    }
+
+    // OTPFieldRoot.tsx:201-226 (useValueChanged): after a committed value renders, the queued focus and completion run when
+    // they were queued for that value.
+    private async Task ProcessCommittedValueAsync()
+    {
+        if (processedVersion == valueVersion)
+        {
+            return;
+        }
+
+        processedVersion = valueVersion;
+        if (pendingFocusValue is not null)
+        {
+            string queued = pendingFocusValue;
+            pendingFocusValue = null;
+            if (string.Equals(queued, normalized, StringComparison.Ordinal))
+            {
+                focusRequest = new OtpFieldFocusRequest(pendingFocusIndex, (focusRequest?.Revision ?? 0) + 1);
+            }
+        }
+
+        if (pendingCompleteValue is not null)
+        {
+            string queued = pendingCompleteValue;
+            GenericEventDetails details = pendingCompleteDetails!;
+            pendingCompleteValue = null;
+            pendingCompleteDetails = null;
+            if (string.Equals(queued, normalized, StringComparison.Ordinal))
+            {
+                await CompleteAsync(queued, details).ConfigureAwait(true);
+            }
+        }
+    }
+
+    // OTP-EVT-08..15 (OTPFieldRoot.tsx:192-199): the completion, then AutoSubmit's revision (design point 7 (a)).
+    private async Task CompleteAsync(string completed, GenericEventDetails details)
+    {
+        await OnValueComplete.InvokeAsync(new OtpFieldCompleteEventArgs(completed, details)).ConfigureAwait(true);
+        if (AutoSubmit)
+        {
+            submitRevision++;
+            StateHasChanged();
+        }
+    }
+
+    // OTP-FRM-11..13 (OTPFieldRoot.tsx:409-431): an autofill of the hidden input commits like typing, then focuses the last
+    // filled slot.
+    private void OnAutofilled(FormAutofillReport report) => _ = InvokeAsync(() => HandleAutofillAsync(report));
+
+    private async Task HandleAutofillAsync(FormAutofillReport report)
+    {
+        if (report.DefaultPrevented || EffectiveDisabled || ReadOnly)
+        {
+            return;
+        }
+
+        (string next, bool rejected) = OtpValue.NormalizeWithDetails(report.Text, Length, EffectiveValidationType, NormalizeValue);
+        if (rejected)
+        {
+            await OnValueInvalid.InvokeAsync(new OtpFieldInvalidEventArgs(report.Text, new GenericEventDetails(EventReason.InputChange, report.Event))).ConfigureAwait(true);
+        }
+
+        await SetValueAsync(next, EventReason.InputChange, report.Event, next.Length - 1).ConfigureAwait(true);
+        Refresh();
+    }
+
+    private void OnEdited(OtpFieldEditReport edit) => _ = InvokeAsync(() => HandleEditAsync(edit));
+
+    private void OnSlotFocused(OtpFieldFocusReport report) => _ = InvokeAsync(() => HandleSlotFocus(FindSlot(report.Index) ?? (object)this, report.Index));
+
+    private void OnSlotBlurred(OtpFieldBlurReport report) => _ = InvokeAsync(() => HandleLeaveAsync(focusOwner ?? FindSlot(report.Index) ?? (object)this));
+
+    // OTP-EDGE-05 (OTPFieldInput.tsx:312-321).
+    private void OnPasteUnreadable(OtpFieldPasteUnreadableReport report) =>
+        _ = InvokeAsync(() => Warn("Blazix: `<OtpFieldInput>` could not read clipboard text during paste handling."));
+
+    private OtpFieldInput? FindSlot(int index)
+    {
+        foreach (OtpFieldInput slot in slotParts)
+        {
+            if (slot.Index == index)
+            {
+                return slot;
+            }
+        }
+
+        return null;
+    }
+
+    private OtpFieldInput? FindSlot(EventSnapshot snapshot)
+    {
+        string? id = snapshot.Target?.Id;
+        foreach (OtpFieldInput slot in slotParts)
+        {
+            if (string.Equals(SlotId(slot.Index), id, StringComparison.Ordinal))
+            {
+                return slot;
+            }
+        }
+
+        return null;
+    }
+
+    // Design points 1 and 2 (a): on WebAssembly the slot's consumer handler runs first and may veto; the request then runs
+    // inside the dispatch, and its update may reach the module before the handler returns.
+    private DecisionPolicy DecideEdit(EventSnapshot snapshot)
+    {
+        OtpFieldEditReport? edit = twin!.PendingEdit;
+        OtpFieldInput? slot = edit is null ? FindSlot(snapshot) : FindSlot(edit.Index);
+        if (slot is not null && slot.DecideConsumer(snapshot) != DecisionPolicy.Run)
+        {
+            return DecisionPolicy.Stop;
+        }
+
+        if (edit is not null)
+        {
+            Task task = HandleEditAsync(edit);
+            if (task.IsFaulted)
+            {
+                _ = DispatchExceptionAsync(task.Exception!.GetBaseException());
+            }
+        }
+
+        return DecisionPolicy.Run;
+    }
+
+    private DecisionPolicy DecideSlot(EventSnapshot snapshot) => FindSlot(snapshot)?.DecideConsumer(snapshot) ?? DecisionPolicy.Run;
+
+    private int PointsMask()
+    {
+        int mask = 0;
+        foreach (OtpFieldInput slot in slotParts)
+        {
+            mask |= (slot.HasConsumer(OtpFieldTwin.KeyPoint) ? 1 : 0)
+                | (slot.HasConsumer(OtpFieldTwin.PressPoint) ? 2 : 0)
+                | (slot.HasConsumer(OtpFieldTwin.FocusPoint) ? 4 : 0)
+                | (slot.HasConsumer(OtpFieldTwin.BlurPoint) ? 8 : 0);
+        }
+
+        return mask;
+    }
+
+    private static List<string>? Points(int mask)
+    {
+        if (mask == 0)
+        {
+            return null;
+        }
+
+        List<string> points = [];
+        if ((mask & 1) != 0)
+        {
+            points.Add(OtpFieldTwin.KeyPoint);
+        }
+
+        if ((mask & 2) != 0)
+        {
+            points.Add(OtpFieldTwin.PressPoint);
+        }
+
+        if ((mask & 4) != 0)
+        {
+            points.Add(OtpFieldTwin.FocusPoint);
+        }
+
+        if ((mask & 8) != 0)
+        {
+            points.Add(OtpFieldTwin.BlurPoint);
+        }
+
+        return points;
+    }
+
+    private int SentPointsMask()
+    {
+        int mask = 0;
+        if (sentOptions?.Points is { } points)
+        {
+            foreach (string point in points)
+            {
+                mask |= point switch
+                {
+                    OtpFieldTwin.KeyPoint => 1,
+                    OtpFieldTwin.PressPoint => 2,
+                    OtpFieldTwin.FocusPoint => 4,
+                    _ => 8,
+                };
+            }
+        }
+
+        return mask;
+    }
+
+    private OtpFieldOptions BuildOptions(int mask)
+    {
+        int count = Math.Max(mountedSlots, 0);
+        string[] ids = new string[count];
+        for (int i = 0; i < count; i++)
+        {
+            ids[i] = SlotId(i);
+        }
+
+        return new OtpFieldOptions
+        {
+            Slots = ids,
+            Length = Length,
+            Value = normalized,
+            Revision = editRevision,
+            Rollback = rollback ? true : null,
+            ActiveIndex = ActiveIndex,
+            Focus = focusRequest,
+            Disabled = EffectiveDisabled ? true : null,
+            ReadOnly = ReadOnly ? true : null,
+            Rtl = Rtl ? true : null,
+            Optimistic = Optimistic ? true : null,
+            SlotPattern = SlotPattern,
+            SubmitRevision = submitRevision,
+            Form = Form,
+            Points = Points(mask),
+            DevelopmentChecks = DevelopmentWarnings.IsEnabled ? true : null,
+        };
+    }
+
+    // Compares before constructing, so an unchanged render allocates no options record (ADR 16 rule 7).
+    private bool OptionsChanged(int mask) =>
+        sentOptions is not { } sent
+        || !ReferenceEquals(sent.Value, normalized)
+        || sent.Length != Length
+        || sent.Revision != editRevision
+        || sent.Rollback is not null || rollback
+        || sent.ActiveIndex != ActiveIndex
+        || !ReferenceEquals(sent.Focus, focusRequest)
+        || (sent.Disabled == true) != EffectiveDisabled
+        || (sent.ReadOnly == true) != ReadOnly
+        || (sent.Rtl == true) != Rtl
+        || (sent.Optimistic == true) != Optimistic
+        || !string.Equals(sent.SlotPattern, SlotPattern, StringComparison.Ordinal)
+        || sent.SubmitRevision != submitRevision
+        || !string.Equals(sent.Form, Form, StringComparison.Ordinal)
+        || sent.Slots.Count != Math.Max(mountedSlots, 0)
+        || (sent.Slots.Count > 0 && !string.Equals(sent.Slots[0], ControlId, StringComparison.Ordinal))
+        || SentPointsMask() != mask;
+
+    // Design point 6 (a): one handle on the root element, attached after the composite list's (the attach order is pinned at
+    // L4).
+    private async Task SyncTwinAsync()
+    {
+        if (Element is not { } element)
+        {
+            return;
+        }
+
+        int mask = PointsMask();
+        if (handle is not null)
+        {
+            if (OptionsChanged(mask))
+            {
+                OtpFieldOptions next = BuildOptions(mask);
+                sentOptions = next;
+                rollback = false;
+                await handle.UpdateAsync(next);
+            }
+
+            return;
+        }
+
+        if (twin is null)
+        {
+            twin = new OtpFieldTwin(JSRuntime)
+            {
+                EditDecider = DecideEdit,
+                KeyDecider = DecideSlot,
+                PressDecider = DecideSlot,
+                FocusDecider = DecideSlot,
+                BlurDecider = DecideSlot,
+            };
+            twin.Edited += OnEdited;
+            twin.SlotFocused += OnSlotFocused;
+            twin.SlotBlurred += OnSlotBlurred;
+            twin.PasteUnreadable += OnPasteUnreadable;
+            fieldHalf!.Autofilled += OnAutofilled;
+        }
+
+        OtpFieldOptions options = BuildOptions(mask);
+        sentOptions = options;
+        rollback = false;
+        handle = await twin.AttachAsync(element, options);
     }
 
     // OTP-ARIA-05, OTP-EDGE-13 (mergeAriaIds, OTPFieldRoot.tsx:639-642): split on whitespace, first occurrence kept.

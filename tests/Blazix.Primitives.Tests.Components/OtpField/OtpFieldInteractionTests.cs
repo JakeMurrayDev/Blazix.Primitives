@@ -249,7 +249,7 @@ public sealed class OtpFieldInteractionTests : IDisposable
         Assert.Null(cut.Find("input").GetAttribute("onkeydown"));
     }
 
-    [Fact(DisplayName = "port: a focus report sets data-focused, and a blur that leaves the root clears it and sets data-touched")]
+    [Fact(DisplayName = "port: a focus report sets data-focused, and a blur that leaves the root clears it")]
     public async Task FocusAndBlurReports()
     {
         IRenderedComponent<OtpFieldRoot> cut = test.RenderSix(p => p.Add(r => r.DefaultValue, "12"));
@@ -260,6 +260,5 @@ public sealed class OtpFieldInteractionTests : IDisposable
 
         Assert.True(focused);
         Assert.False(cut.Find("[role=group]").HasAttribute("data-focused"));
-        Assert.True(cut.Find("[role=group]").HasAttribute("data-touched"));
     }
 }

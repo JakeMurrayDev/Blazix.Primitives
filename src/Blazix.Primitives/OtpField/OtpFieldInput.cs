@@ -2,6 +2,7 @@ using System.Globalization;
 using Blazix.Primitives.Interop;
 using Blazix.Primitives.Rendering;
 using Microsoft.AspNetCore.Components;
+using Microsoft.AspNetCore.Components.Web;
 using Microsoft.Extensions.Logging;
 using Microsoft.JSInterop;
 
@@ -16,6 +17,12 @@ namespace Blazix.Primitives;
 //   report (OTP-STR-03, OTP-EDGE-10/11; CMP-STA-16); there is no Index parameter (OTP-API-24).
 // - The consumer's aria-label and aria-labelledby are consumed: aria-label applies from slot 1 on, aria-labelledby wins over
 //   the inherited group label (OTP-API-21/22, OTP-ARIA-06..08).
+// - The consumer's onkeydown, oninput, onpaste, onmousedown, onfocus and onblur are declined and run from the part's own
+//   handler, and on WebAssembly inside the root's decision with a one-shot marker (ADR 02 Amendments 2026-10-21; design
+//   point 1 (a), chosen by the user 2026-11-19; the NumberFieldInput precedent): Blazor dispatches each at the document
+//   before the module, which listens at the root node, so its run leaves the verdict the decision takes.
+// - The slot's `value` and `tabindex` are rendered until the root's module attaches, then the module owns them (OTP-DOM-08;
+//   OTP-FOC-01, design point 5 (a)): the rendered attributes stay as handed over, so Blazor's diff never writes them again.
 // - Slot 0 discovers its native label through the `form` module's label fallback (FFI-ALG-08, OTP-ARIA-04): the root
 //   takes the label as the group's when neither the consumer nor a field labels it.
 /// <summary>
@@ -42,6 +49,16 @@ public sealed class OtpFieldInput : PartBase<OtpFieldInputState>
     private OtpFieldInputState? state;
     private int stateVersion = -1;
     private int stateIndex = -1;
+    private string? renderedValue;
+    private string? renderedTabIndex;
+
+    // One declined consumer handler per event the module handles (design point 1 (a)).
+    private readonly ConsumerHandler keyDown;
+    private readonly ConsumerHandler input;
+    private readonly ConsumerHandler paste;
+    private readonly ConsumerHandler mouseDown;
+    private readonly ConsumerHandler focus;
+    private readonly ConsumerHandler blur;
 
     /// <summary>Initializes a new instance of the <see cref="OtpFieldInput"/> class.</summary>
     public OtpFieldInput()
@@ -49,6 +66,18 @@ public sealed class OtpFieldInput : PartBase<OtpFieldInputState>
         stateChanged = StateHasChanged;
         indexChanged = OnIndexChanged;
         labelReported = report => _ = InvokeAsync(() => OnLabelReport(report));
+        keyDown = new ConsumerHandler("onkeydown");
+        keyDown.Handler = CreateHandler<KeyboardEventArgs>(keyDown.Name, keyDown.RunAsync);
+        input = new ConsumerHandler("oninput");
+        input.Handler = CreateHandler<ChangeEventArgs>(input.Name, input.RunAsync);
+        paste = new ConsumerHandler("onpaste");
+        paste.Handler = CreateHandler<ClipboardEventArgs>(paste.Name, paste.RunAsync);
+        mouseDown = new ConsumerHandler("onmousedown");
+        mouseDown.Handler = CreateHandler<MouseEventArgs>(mouseDown.Name, mouseDown.RunAsync);
+        focus = new ConsumerHandler("onfocus");
+        focus.Handler = CreateHandler<FocusEventArgs>(focus.Name, focus.RunAsync);
+        blur = new ConsumerHandler("onblur");
+        blur.Handler = CreateHandler<FocusEventArgs>(blur.Name, blur.RunAsync);
     }
 
     [Inject]
@@ -99,6 +128,7 @@ public sealed class OtpFieldInput : PartBase<OtpFieldInputState>
         context = OtpFieldRootContext.Require(RootContext);
         context.AddListener(stateChanged);
         context.Root.SetSlotMounted(true);
+        context.Root.RegisterSlot(this);
         listItem = new CompositeListItemBehavior(context.Root.Slots, indexChanged, guess: true);
         base.OnInitialized();
     }
@@ -109,6 +139,19 @@ public sealed class OtpFieldInput : PartBase<OtpFieldInputState>
         // OTP-STR-03, OTP-DOM-07: the guess comes first, since the slot's registered id derives from its index.
         int index = listItem!.EnsureGuess();
         listItem.SetRegistration(context!.Root.SlotId(index));
+        bool hadPoints = HasConsumer(OtpFieldTwin.KeyPoint) || HasConsumer(OtpFieldTwin.PressPoint) || HasConsumer(OtpFieldTwin.FocusPoint) || HasConsumer(OtpFieldTwin.BlurPoint);
+        foreach (ConsumerHandler handler in (ReadOnlySpan<ConsumerHandler>)[keyDown, input, paste, mouseDown, focus, blur])
+        {
+            handler.Consumer = AdditionalAttributes is not null && AdditionalAttributes.TryGetValue(handler.Name, out object? supplied)
+                ? AttributeValue.FromObject(supplied)
+                : default;
+        }
+
+        bool hasPoints = HasConsumer(OtpFieldTwin.KeyPoint) || HasConsumer(OtpFieldTwin.PressPoint) || HasConsumer(OtpFieldTwin.FocusPoint) || HasConsumer(OtpFieldTwin.BlurPoint);
+        if (hadPoints || hasPoints)
+        {
+            context.Root.Refresh();
+        }
     }
 
     /// <inheritdoc />
@@ -126,6 +169,7 @@ public sealed class OtpFieldInput : PartBase<OtpFieldInputState>
             context.RemoveListener(stateChanged);
             context.Root.SetSlotMounted(false);
             context.Root.ReleaseSlot(this);
+            context.Root.UnregisterSlot(this);
             listItem?.Dispose();
             if (labelTwin is not null)
             {
@@ -147,7 +191,14 @@ public sealed class OtpFieldInput : PartBase<OtpFieldInputState>
         int index = Index;
         int length = root.Length;
         attributes.Set("id", root.SlotId(index));
-        attributes.Set("value", SlotCharacter(rootState.Value, index));
+        // The handover at attach (OTP-DOM-08): the first value is rendered, then the module writes it.
+        if (!root.ModuleOwnsSlots)
+        {
+            renderedValue = SlotCharacter(rootState.Value, index);
+            renderedTabIndex = root.ActiveIndex == index ? "0" : "-1";
+        }
+
+        attributes.Set("value", renderedValue);
         attributes.Set("type", root.Mask ? "password" : "text");
         attributes.Set("inputmode", root.InputModeLiteral);
         attributes.Set("autocomplete", index == 0 ? root.AutoComplete : "off");
@@ -159,13 +210,23 @@ public sealed class OtpFieldInput : PartBase<OtpFieldInputState>
             attributes.Set("maxlength", length.ToString(CultureInfo.InvariantCulture));
         }
 
-        attributes.Set("tabindex", root.ActiveIndex == index ? "0" : "-1");
+        attributes.Set("tabindex", renderedTabIndex);
         attributes.Set("disabled", rootState.Disabled);
         attributes.Set("form", root.Form);
         attributes.Set("pattern", root.SlotPattern);
         attributes.Set("readonly", rootState.ReadOnly);
         attributes.Set("required", rootState.Required);
+        foreach (ConsumerHandler handler in (ReadOnlySpan<ConsumerHandler>)[keyDown, input, paste, mouseDown, focus, blur])
+        {
+            if (handler.Consumer.IsHandler)
+            {
+                attributes.Set(handler.Name, handler.Handler);
+            }
+        }
     }
+
+    /// <inheritdoc />
+    protected override bool ForwardsConsumerHandler(string eventName) => !IsDeclined(eventName);
 
     // OTP-API-21/22, OTP-ARIA-06..09 (OTPFieldInput.tsx:81-83,161-163): the consumer's aria-label applies from slot 1 on; a
     // slot with an aria-label renders no aria-labelledby; otherwise the consumer's aria-labelledby, else the inherited label.
@@ -203,6 +264,87 @@ public sealed class OtpFieldInput : PartBase<OtpFieldInputState>
             attributes.Remove("aria-invalid");
         }
     }
+
+    /// <summary>Gets a value indicating whether the consumer passed the handler a decision point runs.</summary>
+    /// <param name="point">The decision point: <c>key</c>, <c>press</c>, <c>focus</c> or <c>blur</c>.</param>
+    /// <returns><see langword="true"/> when the slot has the consumer's handler for that point.</returns>
+    internal bool HasConsumer(string point) => point switch
+    {
+        OtpFieldTwin.KeyPoint => keyDown.Consumer.IsHandler,
+        OtpFieldTwin.PressPoint => mouseDown.Consumer.IsHandler,
+        OtpFieldTwin.FocusPoint => focus.Consumer.IsHandler,
+        OtpFieldTwin.BlurPoint => blur.Consumer.IsHandler,
+        _ => false,
+    };
+
+    // On WebAssembly, inside the root's decision: the consumer's handler for the event in flight, by the snapshot's type.
+    /// <summary>Runs the consumer's handler for the event a decision point is asked about.</summary>
+    /// <param name="snapshot">The event, as JavaScript saw it.</param>
+    /// <returns><see cref="DecisionPolicy.Stop"/> when the consumer called <c>PreventPartHandler()</c>; otherwise <see cref="DecisionPolicy.Run"/>.</returns>
+    internal DecisionPolicy DecideConsumer(EventSnapshot snapshot)
+    {
+        ConsumerHandler? handler = snapshot.Type switch
+        {
+            "keydown" => keyDown,
+            "input" or "compositionend" => input,
+            "paste" => paste,
+            "mousedown" => mouseDown,
+            "focusin" or "focus" => focus,
+            "focusout" or "blur" => blur,
+            _ => null,
+        };
+        if (handler is null || !handler.Consumer.IsHandler)
+        {
+            return DecisionPolicy.Run;
+        }
+
+        if (handler.Ran)
+        {
+            handler.Ran = false;
+            return handler.RanPrevented ? DecisionPolicy.Stop : DecisionPolicy.Run;
+        }
+
+        EventArgs args = snapshot.Type switch
+        {
+            "keydown" => new KeyboardEventArgs
+            {
+                Type = snapshot.Type,
+                Key = snapshot.Key ?? string.Empty,
+                Code = snapshot.Code ?? string.Empty,
+                AltKey = snapshot.AltKey,
+                CtrlKey = snapshot.CtrlKey,
+                MetaKey = snapshot.MetaKey,
+                ShiftKey = snapshot.ShiftKey,
+            },
+            "paste" => new ClipboardEventArgs { Type = snapshot.Type },
+            "mousedown" => new MouseEventArgs { Type = snapshot.Type, Detail = snapshot.Detail, Buttons = snapshot.Buttons },
+            "input" or "compositionend" => new ChangeEventArgs(),
+            _ => new FocusEventArgs { Type = snapshot.Type },
+        };
+        handler.Decided = true;
+        try
+        {
+            Task task = handler.Consumer.InvokeAsync(args);
+            if (task.IsFaulted)
+            {
+                _ = DispatchExceptionAsync(task.Exception!.GetBaseException());
+            }
+        }
+        catch (Exception exception)
+        {
+            _ = DispatchExceptionAsync(exception);
+        }
+
+        return args.PartHandlerPrevented() ? DecisionPolicy.Stop : DecisionPolicy.Run;
+    }
+
+    private static bool IsDeclined(string eventName) =>
+        eventName.Equals("onkeydown", StringComparison.OrdinalIgnoreCase)
+        || eventName.Equals("oninput", StringComparison.OrdinalIgnoreCase)
+        || eventName.Equals("onpaste", StringComparison.OrdinalIgnoreCase)
+        || eventName.Equals("onmousedown", StringComparison.OrdinalIgnoreCase)
+        || eventName.Equals("onfocus", StringComparison.OrdinalIgnoreCase)
+        || eventName.Equals("onblur", StringComparison.OrdinalIgnoreCase);
 
     // OTP-STA-11, OTP-EDGE-12: indexed by UTF-16 code unit, as `value[index] ?? ''` is.
     private static string SlotCharacter(string value, int index) =>
@@ -271,6 +413,38 @@ public sealed class OtpFieldInput : PartBase<OtpFieldInputState>
         if (report.Value is null && Index == 0 && ConsumerAttribute(AriaLabel) is not null)
         {
             DevelopmentLog.Report(Logger, "Blazix: `<OtpFieldInput>` ignores `aria-label` on the first input. Use a `<label>` or `<FieldLabel>` to label the one-time code field.");
+        }
+    }
+
+    // A declined consumer handler with its one-shot marker: Blazor's dispatch runs first and leaves its verdict for the
+    // decision of the same event; a handler the decision ran is not run again by Blazor's dispatch.
+    private sealed class ConsumerHandler(string name)
+    {
+        public string Name { get; } = name;
+
+        public AttributeValue Consumer { get; set; }
+
+        public EventCallback Handler { get; set; }
+
+        public bool Decided { get; set; }
+
+        public bool Ran { get; set; }
+
+        public bool RanPrevented { get; set; }
+
+        public Task RunAsync(EventArgs e)
+        {
+            bool pending = Decided;
+            Decided = false;
+            if (!Consumer.IsHandler || pending)
+            {
+                return Task.CompletedTask;
+            }
+
+            Task task = Consumer.InvokeAsync(e);
+            Ran = true;
+            RanPrevented = e.PartHandlerPrevented();
+            return task;
         }
     }
 }

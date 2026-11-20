@@ -105,7 +105,8 @@ public sealed class OtpFieldRenderTests : IDisposable
 
         cut.Render(p => p.Add(r => r.Value, "654321"));
 
-        Assert.Equal("654321", string.Concat(SlotValues(cut)));
+        // OTP-DOM-08 (C# → JS): after attach the module writes slot i from the value C# sends.
+        Assert.Equal("654321", host.OtpOptions[^1].Value);
     }
 
     [Fact(DisplayName = "supports alphabetic values when set to `alpha`")]
