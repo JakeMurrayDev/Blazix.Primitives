@@ -492,6 +492,59 @@ describe('drawer module: the Viewport touch path', () => {
     expect(backdrop.getAttribute('data-swiping')).toBe('');
   });
 
+  // DRW-PTR-22, ALG-03 (DrawerViewport.test.tsx:2950-2999, 3164-3229, 3231-3290), ported here rather than at L4
+  // (2026-11-20): each needs a first move under the 6 px slop, or a non-cancelable move after a claimed one, and Chromium
+  // dispatches neither (it swallowed every first move up to 12 px and keeps a prevented gesture cancelable).
+  const crossAxisScroller = (popup: HTMLElement, axis: 'vertical' | 'horizontal') => {
+    const scroller = document.createElement('div');
+    if (axis === 'vertical') {
+      scroller.style.overflowY = 'auto';
+      Object.defineProperty(scroller, 'scrollHeight', { value: 120, configurable: true });
+      Object.defineProperty(scroller, 'clientHeight', { value: 40, configurable: true });
+    } else {
+      scroller.style.overflowX = 'auto';
+      Object.defineProperty(scroller, 'scrollWidth', { value: 120, configurable: true });
+      Object.defineProperty(scroller, 'clientWidth', { value: 40, configurable: true });
+    }
+    popup.append(scroller);
+    pointTarget = scroller;
+    return scroller;
+  };
+
+  it('does not prevent a sub-slop first touchmove over cross-axis scrollable content', () => {
+    const { popup } = mount({ swipeDirection: 'right' });
+    const scroller = crossAxisScroller(popup, 'vertical');
+
+    touch('touchstart', scroller, [{ clientX: 100, clientY: 100 }]);
+    expect(touch('touchmove', scroller, [{ clientX: 100, clientY: 97 }]).defaultPrevented).toBe(false);
+    expect(touch('touchmove', scroller, [{ clientX: 100, clientY: 60 }]).defaultPrevented).toBe(false);
+  });
+
+  it('keeps driving a claimed drag through a non-cancelable touchmove', () => {
+    const { popup } = mount({ swipeDirection: 'right' });
+    const scroller = crossAxisScroller(popup, 'vertical');
+    const movement = () => popup.style.getPropertyValue('--drawer-swipe-movement-x');
+
+    touch('touchstart', scroller, [{ clientX: 100, clientY: 100 }]);
+    touch('touchmove', scroller, [{ clientX: 150, clientY: 100 }]);
+    touch('touchmove', scroller, [{ clientX: 200, clientY: 100 }]);
+    expect(movement()).toBe('50px');
+    touch('touchmove', scroller, [{ clientX: 250, clientY: 100 }], false);
+    expect(movement()).toBe('100px');
+    expect(touch('touchmove', scroller, [{ clientX: 300, clientY: 100 }]).defaultPrevented).toBe(true);
+    expect(movement()).toBe('150px');
+  });
+
+  it('does not lock vertical swipe after minor cross-axis jitter in down drawers', () => {
+    const { popup, backdrop } = mount({ swipeDirection: 'down' });
+    const scroller = crossAxisScroller(popup, 'horizontal');
+
+    touch('touchstart', scroller, [{ clientX: 0, clientY: 0 }]);
+    touch('touchmove', scroller, [{ clientX: 4, clientY: 3 }]);
+    touch('touchmove', scroller, [{ clientX: 4, clientY: 28 }]);
+    expect(backdrop.getAttribute('data-swiping')).toBe('');
+  });
+
   it('port: a touch that starts in the popup may start after leaving it, and one that starts outside moves nothing until it enters', () => {
     // The start waits for the drawer axis over a cross-axis target, and by then the touch has left the popup.
     const inside = mount();
