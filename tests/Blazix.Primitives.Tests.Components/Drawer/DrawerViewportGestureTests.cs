@@ -198,6 +198,36 @@ public sealed class DrawerViewportGestureTests : IDisposable
         cut.WaitForAssertion(() => Assert.Contains("\"activeSnapPoint\":0.5", LastOptions(), StringComparison.Ordinal));
     }
 
+    // DRW-ALG-01's canceled close on Blazor Server (DrawerViewport.tsx:562-566): the module reports the change to none and
+    // then the dismissal it started optimistically; a canceled change to none drops the dismissal, so no close is requested,
+    // and the next update names the canceled request.
+    [Fact(DisplayName = "port: a dismissal after a canceled change to no snap point requests no close and is still answered")]
+    [Trait("Requirement", "DRW-ALG-01")]
+    public async Task A_dismissal_after_a_canceled_change_to_none_requests_no_close()
+    {
+        IRenderedComponent<IComponent> cut = test.Context.Render(Drawer(snapPoints: [0.5, "200px"], defaultSnapPoint: "200px"));
+        cut.WaitForAssertion(() => Assert.Single(drawerModule.Invocations["attach"]));
+        cancelSnap = true;
+
+        await cut.InvokeAsync(() => Twin().OnSnapPointRequest($$"""{"request":1,"index":null,"event":{{ReleaseJson}}}"""));
+        await cut.InvokeAsync(() => Twin().OnDismissRequest($$"""{"request":1,"event":{{ReleaseJson}}}"""));
+
+        Assert.Empty(changes);
+        cut.WaitForAssertion(() =>
+        {
+            string options = LastOptions();
+            Assert.Contains("\"canceledSnap\":1", options, StringComparison.Ordinal);
+            Assert.Contains("\"answeredDismiss\":1", options, StringComparison.Ordinal);
+            Assert.Contains("\"open\":true", options, StringComparison.Ordinal);
+        });
+
+        // A later dismissal with no canceled change before it closes.
+        cancelSnap = false;
+        await cut.InvokeAsync(() => Twin().OnSnapPointRequest($$"""{"request":2,"index":null,"event":{{ReleaseJson}}}"""));
+        await cut.InvokeAsync(() => Twin().OnDismissRequest($$"""{"request":2,"event":{{ReleaseJson}}}"""));
+        Assert.Equal([(false, EventReason.Swipe)], changes);
+    }
+
     private DrawerTwin Twin() => ((DotNetObjectReference<DrawerTwin>)drawerModule.Invocations["attach"][^1].Arguments[2]!).Value;
 
     private string LastOptions()

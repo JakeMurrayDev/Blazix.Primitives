@@ -290,6 +290,20 @@ describe('drawer module: the snap point release (DRW-PTR-11, ALG-01)', () => {
     expect(accepted.fake.reported('OnSnapPointRequest')).toHaveLength(1);
   });
 
+  // DRW-ALG-01's canceled close on Blazor Server: C# names the canceled change to none, so the dismissal it drops asks for
+  // no snap point back (Base UI settles in place with no request).
+  it('port: on Blazor Server a canceled change to no snap point restores no snap point when its dismissal rolls back', () => {
+    const { popup, fake, update } = mount({ ...three, activeSnapPoint: '100px' });
+    slowDrag(popup, 80);
+
+    update({ activeSnapPoint: '100px', answeredSnap: 1, canceledSnap: 1 });
+    update({ activeSnapPoint: '100px', answeredSnap: 1, canceledSnap: 1, answeredDismiss: 1 });
+
+    expect(fake.reported('OnSnapPointRequest')).toHaveLength(1);
+    expect(popup.hasAttribute('data-swipe-dismiss')).toBe(false);
+    expect(snapOffset(popup)).toBe('200px');
+  });
+
   // DRW-PTR-15 on WebAssembly: C#'s `dismiss` chain canceled the close inside the dispatch.
   it('port: on WebAssembly a canceled dismissal requests the snap point it closed from again', () => {
     const { popup, fake } = mount({ ...three, activeSnapPoint: '300px' }, true);
