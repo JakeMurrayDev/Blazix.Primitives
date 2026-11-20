@@ -34,15 +34,19 @@
       shadowRoot`, as the Popover fixture does). The popup is fixed at left 0 and top 100, 200 px wide and 300 px tall, and
       holds a 40 px target and a 40 px `data-base-ui-swipe-ignore` row; the rest is free. The attach marker waits for the
       Viewport rendered there.
+    - `case=combobox` (added 2026-11-20): DrawerViewport.test.tsx's portaled descendants. The popup is fixed at left 0
+      and top 100, 200 px wide and 300 px tall, and holds Drawer.Content with a Combobox of ten fruits, open by default,
+      whose portaled list is 40 px tall and scrolls.
     - `noPopup=true`: the Viewport renders no Popup ("ignores swipe input until a popup is mounted").
     - `alwaysOpen=true`: the root is controlled with `Open="true"` and never follows a change.
     The remove button (`data-remove-root`, added 2026-11-20) stops rendering the root, as Base UI's `unmount()`.
     The open changes are recorded as `open:reason` in `data-open-changes`; `cancelClose=true` cancels a close and
-    `retainEveryClose=true` keeps a close mounted (PopupSuiteFixtureBase). The sync button is the suites' `settle` barrier.
+    `retainEveryClose=true` keeps a close mounted (PopupSuiteFixtureBase). The sync button is the suites' `settle` barrier; since 2026-11-20 it takes the
+    suites' Shift keydown (`data-key-control`), so the barrier is no outside press for the `case=combobox` Combobox.
 *@
 <FixtureContainer Name="drawer-swipe" data-attached="@(Attached ? "true" : "false")" data-sync="@Sync" data-case="@Case"
-                  data-open-changes="@OpenChanges" data-open-change-completes="@OpenChangeCompletes">
-    <button type="button" data-sync-button @onclick="() => Sync++">Sync</button>
+                  data-open-changes="@OpenChanges" data-combobox-changes="@string.Join(' ', comboboxChanges)" data-open-change-completes="@OpenChangeCompletes">
+    <button type="button" tabindex="-1" data-sync-button data-key-control @onclick="() => Sync++" @onkeydown="OnShift(() => Sync++)">Sync</button>
     <button type="button" data-remove-root @onclick="() => removed = true">Remove</button>
     <span data-testid="outside-text">Outside selection</span>
     @if (removed)
@@ -68,6 +72,7 @@
     private DrawerRoot<NoPayload>? root;
     private DrawerViewport? viewport;
     private bool removed;
+    private readonly List<string> comboboxChanges = [];
     private ElementReference shadowHost;
     private PortalContainerValue? container;
     private readonly TaskCompletionSource viewportRendered = new(TaskCreationOptions.RunContinuationsAsynchronously);
@@ -84,15 +89,19 @@
 
     private bool Wrap => Case == "wrap";
 
+    private bool Combobox => Case == "combobox";
+
+    private static readonly string[] s_fruits = ["Apple", "Banana", "Cherry", "Date", "Elderberry", "Fig", "Grape", "Honeydew", "Kiwi", "Lime"];
+
     private SwipeDirection Direction => Scroll || Axis
         ? Query("direction") switch { "up" => SwipeDirection.Up, "left" => SwipeDirection.Left, "right" => SwipeDirection.Right, _ => SwipeDirection.Down }
-        : Down || Controls || Shadow || Wrap ? SwipeDirection.Down : SwipeDirection.Right;
+        : Down || Controls || Shadow || Wrap || Combobox ? SwipeDirection.Down : SwipeDirection.Right;
 
     private string PopupStyle => Scroll
         ? "position: fixed; left: 300px; top: 300px; width: 200px; height: 300px;"
         : Wrap
             ? "width: 200px; height: 300px;"
-        : Down || Controls || Axis || Shadow
+        : Down || Controls || Axis || Shadow || Combobox
             ? "position: fixed; left: 0; top: 100px; width: 200px; height: 300px;"
             : "position: fixed; left: 0; top: 0; width: 200px; height: 300px;";
 
@@ -115,6 +124,25 @@
                     <div data-testid="scroll" style="overflow-y: auto; max-height: 60px;"><div style="height: 120px;">Scrollable content</div></div>
                     <div data-testid="hscroll" style="overflow-x: auto; max-width: 120px;"><div style="width: 360px; height: 40px;">Scrollable content</div></div>
                     <div data-testid="bscroll" style="overflow: auto; width: 120px; height: 60px;"><div style="width: 360px; height: 180px;">Scrollable content</div></div>
+                }
+                else if (Combobox)
+                {
+                    <DrawerContent>
+                        <ComboboxRoot TValue="string" Items="@s_fruits" DefaultOpen="true" OnOpenChange="RecordComboboxChange">
+                            <ComboboxInput data-testid="combobox-input" />
+                            <ComboboxPortal>
+                                <ComboboxPositioner>
+                                    <ComboboxPopup data-testid="combobox-popup">
+                                        <ComboboxList TValue="string" data-testid="listbox" style="max-height: 40px; overflow: auto;">
+                                            <ItemContent>
+                                                <ComboboxItem TValue="string" Value="@context.Value" @key="context.Value">@context.Value</ComboboxItem>
+                                            </ItemContent>
+                                        </ComboboxList>
+                                    </ComboboxPopup>
+                                </ComboboxPositioner>
+                            </ComboboxPortal>
+                        </ComboboxRoot>
+                    </DrawerContent>
                 }
                 else if (Shadow)
                 {
@@ -201,6 +229,9 @@
 
         await base.OnAfterRenderAsync(firstRender);
     }
+
+    private void RecordComboboxChange(ValueChangeEventArgs<bool> args) =>
+        comboboxChanges.Add($"{(args.Value ? "true" : "false")}:{args.Details.Reason.ToString().ToLowerInvariant()}");
 
     // In the shadow case the Viewport renders only once the container arrives.
     private async Task ViewportAttachedAsync()

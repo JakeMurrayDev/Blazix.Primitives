@@ -1293,3 +1293,52 @@ test.describe('<Drawer.Viewport /> touch swipe teardown and taps', () => {
     await expect(page.getByTestId('backdrop')).not.toHaveAttribute('data-swiping');
   });
 });
+
+// Slice 2's portaled descendants (DRW-PTR-19 (5), PTR-21, PTR-22; added 2026-11-20), on the fixture's `case=combobox`: a
+// Combobox in Drawer.Content whose list portals out of the drawer. In Base UI a touch on a portaled descendant reaches the
+// Viewport's handler through React's tree, and the Viewport-containment check turns it away. Here the Viewport listens on
+// its element, so no such touch reaches it at all.
+test.describe('<Drawer.Viewport /> touch swipe over portaled descendants', () => {
+  // DRW-PTR-19 (5) (DrawerViewport.test.tsx:1005-1047). It asserts only an absence; its red is a planted fault, quoted in
+  // PR 305.
+  testWithTouch('does not prevent native touch scrolling in portaled descendants', async ({ touchPage: page, mode }) => {
+    const fixture = await gotoPopupFixture(page, mode, 'drawer-swipe', { case: 'combobox' });
+    const listbox = page.getByTestId('listbox');
+    await expect(listbox).toBeVisible();
+    await recordMoves(page);
+    const start = await pointOf(listbox);
+
+    await touchDrag(page, [[{ x: start.x, y: start.y - 15 }, { x: start.x, y: start.y + 25 }]], {
+      steps: 4,
+      beforeRelease: () => settle(fixture),
+    });
+
+    const prevented = await preventedMoves(page);
+    expect(prevented.length).toBeGreaterThan(0);
+    expect(prevented.some(Boolean)).toBe(false);
+  });
+
+  // DRW-PTR-22 (DrawerViewport.test.tsx:1049-1152, browser-only in Base UI): a real touch scroll of the list, bottom to
+  // top. Folded with its positive half: the list scrolls.
+  testWithTouch('allows touch gestures on a portaled combobox popup without starting drawer swipe', async ({ touchPage: page, mode }) => {
+    const fixture = await gotoPopupFixture(page, mode, 'drawer-swipe', { case: 'combobox' });
+    const listbox = page.getByTestId('listbox');
+    await expect(listbox).toBeVisible();
+    await expect.poll(() => listbox.evaluate((element) => element.scrollHeight > element.clientHeight)).toBe(true);
+    const box = (await listbox.boundingBox())!;
+    const x = box.x + box.width / 2;
+
+    await touchDrag(page, [[{ x, y: box.y + box.height - 8 }, { x, y: box.y + box.height / 2 }, { x, y: box.y + 8 }]], {
+      steps: 4,
+      beforeRelease: async () => {
+        await settle(fixture);
+        await expect(page.getByTestId('backdrop')).not.toHaveAttribute('data-swiping');
+      },
+    });
+
+    await settle(fixture);
+    await expect(fixture).toHaveAttribute('data-open-changes', '');
+    await expect(listbox).toBeVisible();
+    await expect.poll(() => listbox.evaluate((element) => element.scrollTop)).toBeGreaterThan(0);
+  });
+});
