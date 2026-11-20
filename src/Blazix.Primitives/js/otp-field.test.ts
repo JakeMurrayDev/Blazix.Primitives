@@ -445,7 +445,7 @@ describe('otp-field: pointer and focus (OTP-PTR-01, OTP-FOC-01..07)', () => {
     expect(slots.map((s) => s.tabIndex)).toEqual([-1, -1, 0, -1, -1, -1]);
   });
 
-  it('port: focus is reported once when it enters the root and blur once when it leaves', () => {
+  it('port: every slot focus is reported, so the focus owner follows it, and blur once when focus leaves the root', () => {
     const { slots, fake } = mount({ value: '1234' });
     const outside = document.createElement('button');
     document.body.append(outside);
@@ -453,7 +453,8 @@ describe('otp-field: pointer and focus (OTP-PTR-01, OTP-FOC-01..07)', () => {
     slots[1].focus();
     slots[2].focus();
     outside.focus();
-    expect(fake.reports.map((r) => r.method)).toEqual(['OnFocus', 'OnBlur']);
+    expect(fake.reports.map((r) => r.method)).toEqual(['OnFocus', 'OnFocus', 'OnFocus', 'OnBlur']);
+    expect(fake.reported<{ index: number }>('OnFocus').map((r) => r.index)).toEqual([0, 1, 2]);
     expect(fake.reported<{ index: number; outside: boolean }>('OnBlur').map((r) => [r.index, r.outside])).toEqual([[2, true]]);
     expect(slots.map((s) => s.tabIndex)).toEqual([-1, -1, -1, -1, 0, -1]);
   });
