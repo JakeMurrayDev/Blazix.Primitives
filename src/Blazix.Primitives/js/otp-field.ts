@@ -324,7 +324,8 @@ export function attach(
     if (!composing(slot)) {
       return;
     }
-    if (options.disabled || options.readOnly) {
+    // The slot's own `disabled` and `readOnly` are C#'s render, which reaches the page before the module's update does.
+    if (options.disabled || options.readOnly || slot.disabled || slot.readOnly) {
       // OTPFieldInput.tsx:201-205: the buffer is dropped and the slot shows its committed character again.
       writeTextValue(slot, slotValue(index));
       return;
