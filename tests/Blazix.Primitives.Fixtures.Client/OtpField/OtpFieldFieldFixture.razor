@@ -1,0 +1,86 @@
+@namespace Blazix.Primitives.Fixtures.Client.OtpFieldFixtures
+@using Blazix.Primitives
+@inherits OtpFieldFixtureBase
+
+@*
+    The `otp-field-field` fixture (tests/browser/otp-field.form.spec.ts; OTP-FOC-07, OTP-FOC-09, OTP-FRM-09, OTP-FRM-10,
+    OTP-FRM-13). `?case=`:
+    `onblur`: a Form around a FieldRoot named otp in onBlur mode whose Validate records each call's value in
+    data-validations (ValidationType none), then an `outside` button.
+    `focus`: a FieldRoot `field` around a root `first` (six slots); `disable` disables the root, `unmount` removes it.
+    `sibling`: a FieldRoot `field` around a root `otp`, DefaultValue "1", whose first slot `unmount` removes (Length 3, then 2).
+    `remains`: a FieldRoot `field` around a root `otp` (Length 3) whose first slot `unmount` removes.
+    `lock-readonly`, `lock-disabled`: a Form whose Errors give otp "test", a FieldRoot otp around a read-only or disabled root,
+    its FieldError `error`; the recorders count the callbacks.
+*@
+<FixtureContainer Name="otp-field-field" data-attached="@(Attached ? "true" : "false")" data-validations="@string.Join(" ", validations)"
+                  data-changes="@string.Join(" ", Changes)" data-invalids="@string.Join(" ", Invalids)" data-completes="@string.Join(" ", Completes)">
+    @switch (fixtureCase)
+    {
+        case "onblur":
+            <Form>
+                <FieldRoot Name="otp" ValidationMode="ValidationMode.OnBlur" Validate="Record">
+                    <OtpFieldRoot @ref="Root" Length="6" ValidationType="OtpFieldValidationType.None" data-testid="root">@Slots(6, true)</OtpFieldRoot>
+                </FieldRoot>
+            </Form>
+            break;
+        case "focus":
+            <FieldRoot data-testid="field">
+                @if (mounted)
+                {
+                    <OtpFieldRoot @ref="Root" Length="6" Disabled="disabled" data-testid="first">@Slots(6, true)</OtpFieldRoot>
+                }
+            </FieldRoot>
+            break;
+        case "sibling":
+        case "remains":
+            <FieldRoot data-testid="field">
+                <OtpFieldRoot @ref="Root" Length="@(fixtureCase == "sibling" && !mounted ? 2 : 3)" DefaultValue="@(fixtureCase == "sibling" ? "1" : string.Empty)" data-testid="root">
+                    @if (mounted)
+                    {
+                        <OtpFieldInput @key="@("first")" data-testid="slot-first" />
+                    }
+                    <OtpFieldInput @key="@("second")" data-testid="slot-second" />
+                    <OtpFieldInput @key="@("third")" data-testid="slot-third" />
+                </OtpFieldRoot>
+            </FieldRoot>
+            break;
+        default:
+            <Form Errors="errors">
+                <FieldRoot Name="otp">
+                    <OtpFieldRoot @ref="Root" Length="6" Name="otp" ReadOnly="@(fixtureCase == "lock-readonly")" Disabled="@(fixtureCase == "lock-disabled")"
+                                  OnValueChange="RecordChange" OnValueInvalid="RecordInvalid" OnValueComplete="RecordComplete" data-testid="root">@Slots(6, true)</OtpFieldRoot>
+                    <FieldError data-testid="error" />
+                </FieldRoot>
+            </Form>
+            break;
+    }
+    <button type="button" data-testid="disable" @onclick="() => disabled = true">Disable</button>
+    <button type="button" data-testid="unmount" @onclick="() => mounted = false">Unmount</button>
+    <button type="button" data-testid="outside">Outside</button>
+</FixtureContainer>
+
+@code {
+    private readonly List<string> validations = [];
+    private readonly FormErrors errors = new() { ["otp"] = "test" };
+    private string fixtureCase = "onblur";
+    private bool mounted = true;
+    private bool disabled;
+
+    private static RenderFragment Slots(int count, bool labelled) => @<text>
+        @for (int i = 0; i < count; i++)
+        {
+            int index = i;
+            <OtpFieldInput data-testid="@($"slot-{index}")" aria-label="@(labelled && index > 0 ? $"Character {index + 1} of {count}" : null)" />
+        }
+    </text>;
+
+    /// <inheritdoc />
+    protected override void OnInitialized() => fixtureCase = Query("case", "onblur");
+
+    private ValueTask<FieldValidationResult?> Record(FieldValidationArguments arguments)
+    {
+        validations.Add($"{arguments.Value}");
+        return ValueTask.FromResult<FieldValidationResult?>(null);
+    }
+}

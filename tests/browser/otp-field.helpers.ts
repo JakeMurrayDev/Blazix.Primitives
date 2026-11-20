@@ -66,3 +66,26 @@ export async function paste(slot: Locator, text: string, throws = false): Promis
     [text, throws] as const,
   );
 }
+
+/**
+ * Sets a slot's whole text and dispatches one `input` event, as Base UI's `fireEvent.change` does: the text a browser's
+ * input would leave in the slot, without the keystrokes (a disabled slot cannot be typed into).
+ */
+export async function change(slot: Locator, text: string): Promise<void> {
+  await slot.evaluate((input, value) => {
+    (input as HTMLInputElement).value = value;
+    input.dispatchEvent(new Event('input', { bubbles: true }));
+  }, text);
+}
+
+/**
+ * Autofills the hidden input as a browser or password manager does: the value is set and `change` dispatched (the
+ * `list-values.spec.ts` precedent).
+ */
+export async function autofill(hidden: Locator, text: string): Promise<void> {
+  await hidden.evaluate((input, value) => {
+    (input as HTMLInputElement).value = value;
+    input.dispatchEvent(new Event('input', { bubbles: true }));
+    input.dispatchEvent(new Event('change', { bubbles: true }));
+  }, text);
+}
