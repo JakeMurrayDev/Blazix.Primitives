@@ -1036,3 +1036,120 @@ test.describe('<Drawer.Viewport /> touch swipe without a usual target', () => {
     expect(prevented.every(Boolean)).toBe(true);
   });
 });
+
+// Slice 2's selections, pens and compatibility pointers on the touch path (DRW-PTR-05, PTR-08, PTR-19 (1), PTR-21 (b);
+// added 2026-11-20), on the fixture's down drawer.
+const selectPopupText = (page: Page, anchor: 'text' | 'outside-text') =>
+  page.evaluate((anchor) => {
+    const anchorNode = document.querySelector(`[data-testid="${anchor}"]`)!.firstChild!;
+    const focusNode = document.querySelector('[data-testid="text"]')!.firstChild!;
+    window.getSelection()!.setBaseAndExtent(anchorNode, 0, focusNode, 5);
+  }, anchor);
+const selectionState = (page: Page) =>
+  page.evaluate(() => {
+    const selection = window.getSelection()!;
+    return { rangeCount: selection.rangeCount, collapsed: selection.isCollapsed };
+  });
+
+test.describe('<Drawer.Viewport /> touch swipe with selections, pens and compatibility pointers', () => {
+  // DRW-PTR-08 (DrawerViewport.test.tsx:204-255). The touch is cancelled, not lifted: a lifted touch is a tap, and the
+  // browser's tap moves the selection.
+  testWithTouch('does not clear text selection on touch swipe start', async ({ touchPage: page, mode }) => {
+    const fixture = await downCase(page, mode);
+    await selectPopupText(page, 'text');
+
+    await touchDrag(page, [[popupPoint, { x: popupPoint.x, y: popupPoint.y + 25 }]], {
+      steps: 1,
+      release: 'cancel',
+      beforeRelease: async () => {
+        await settle(fixture);
+        expect(await selectionState(page)).toEqual({ rangeCount: 1, collapsed: false });
+      },
+    });
+  });
+
+  // DRW-PTR-21 (b) (DrawerViewport.test.tsx:4906-4945): a real selection from the text outside the drawer into the
+  // popup. Folded with its positive half: once the selection collapses, the same drag swipes.
+  testWithTouch('preserves an expanded touch selection whose focus endpoint is in the popup', async ({ touchPage: page, mode }) => {
+    const fixture = await downCase(page, mode);
+    const backdrop = page.getByTestId('backdrop');
+    const drag = [popupPoint, { x: popupPoint.x, y: popupPoint.y + 25 }, { x: popupPoint.x, y: popupPoint.y + 40 }];
+    await selectPopupText(page, 'outside-text');
+
+    await touchDrag(page, [drag], {
+      steps: 1,
+      release: 'cancel',
+      beforeRelease: async () => {
+        await settle(fixture);
+        await expect(backdrop).not.toHaveAttribute('data-swiping');
+        expect(await selectionState(page)).toEqual({ rangeCount: 1, collapsed: false });
+      },
+    });
+
+    await page.evaluate(() => window.getSelection()!.collapseToEnd());
+    await touchDrag(page, [drag], { steps: 1, beforeRelease: () => expect(backdrop).toHaveAttribute('data-swiping', '') });
+  });
+
+  // DRW-PTR-19 (1), PTR-04 (DrawerViewport.test.tsx:1377-1444): a real pen press (CDP) on Drawer.Content, then the
+  // touch events a pen's platform sends for the same contact. CDP's touch sends its own touch pointerdown first, which a
+  // pen's touch events never follow, so the touch events are dispatched in the page (ADR 04, Amendments 2026-11-19,
+  // point 14). Folded with its positive half: a pen drag from the popup's free area swipes, as a non-touch drag.
+  testWithTouch('treats pen interactions on Drawer.Content as non-touch swipes', async ({ touchPage: page, mode }) => {
+    const fixture = await downCase(page, mode);
+    const backdrop = page.getByTestId('backdrop');
+    const cdp = await page.context().newCDPSession(page);
+    const pen = (type: 'mousePressed' | 'mouseMoved' | 'mouseReleased', { x, y }: Point) =>
+      cdp.send('Input.dispatchMouseEvent', {
+        type,
+        x,
+        y,
+        button: type === 'mouseMoved' ? 'none' : 'left',
+        buttons: type === 'mouseReleased' ? 0 : 1,
+        clickCount: type === 'mouseMoved' ? 0 : 1,
+        pointerType: 'pen',
+      });
+    const content = await pointOf(page.getByTestId('content-target'));
+
+    await pen('mousePressed', content);
+    await dispatchTouchAt(page, 'content-target', 'touchstart', content);
+    await settle(fixture);
+    await expect(backdrop).not.toHaveAttribute('data-swiping');
+    expect(await dispatchTouchAt(page, 'content-target', 'touchmove', { x: content.x, y: content.y + 25 })).toBe(false);
+    await dispatchTouchAt(page, 'content-target', 'touchend', null);
+    await pen('mouseReleased', content);
+    await settle(fixture);
+    await expect(backdrop).not.toHaveAttribute('data-swiping');
+
+    await pen('mousePressed', popupPoint);
+    await pen('mouseMoved', { x: popupPoint.x, y: popupPoint.y + 20 });
+    await expect(backdrop).toHaveAttribute('data-swiping', '');
+    await pen('mouseReleased', { x: popupPoint.x, y: popupPoint.y + 20 });
+    await cdp.detach();
+  });
+
+  // DRW-PTR-05 (DrawerViewport.test.tsx:4983-5031): touch pointer events with no touch events beside them are input no
+  // real device makes, so they are dispatched in the page (ADR 04, Amendments 2026-11-19, point 14). Folded with its
+  // positive half: the same sequence as a mouse swipes.
+  test('ignores compatibility touch pointer gestures with real displacement', async ({ page, mode }) => {
+    const fixture = await downCase(page, mode);
+    const backdrop = page.getByTestId('backdrop');
+    const sequence = async (pointerType: string, pointerId: number, end: boolean) => {
+      const { x, y } = popupPoint;
+      await dispatchPointer(page, 'viewport', 'pointerdown', { x, y, pointerType, pointerId });
+      await dispatchPointer(page, 'viewport', 'pointermove', { x, y: y + 1, pointerType, pointerId });
+      await dispatchPointer(page, 'viewport', 'pointermove', { x, y: y + 100, pointerType, pointerId });
+      if (end) {
+        await dispatchPointer(page, 'viewport', 'pointerup', { x, y: y + 100, pointerType, pointerId });
+        await dispatchPointer(page, 'viewport', 'pointercancel', { x, y: y + 100, pointerType, pointerId });
+      }
+    };
+
+    await sequence('touch', 1, true);
+    await settle(fixture);
+    await expect(backdrop).not.toHaveAttribute('data-swiping');
+    await expect(fixture).toHaveAttribute('data-open-changes', '');
+
+    await sequence('mouse', 2, false);
+    await expect(backdrop).toHaveAttribute('data-swiping', '');
+  });
+});
