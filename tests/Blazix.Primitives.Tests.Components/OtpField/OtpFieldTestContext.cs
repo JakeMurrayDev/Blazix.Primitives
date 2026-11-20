@@ -96,5 +96,78 @@ public sealed class OtpFieldTestContext : IDisposable
     }
 
     /// <inheritdoc />
+    // The options the `otp-field` module received: the attach's, then every update's, in order.
+    internal IReadOnlyList<OtpFieldOptions> OtpOptions =>
+        [
+            .. OtpFieldModule.Invocations["attach"].Select(i => JsonSerializer.Deserialize((string)i.Arguments[1]!, BlazixJsonContext.Default.OtpFieldOptions)!),
+            .. OtpFieldHandle.Invocations["update"].Select(i => JsonSerializer.Deserialize((string)i.Arguments[0]!, BlazixJsonContext.Default.OtpFieldOptions)!),
+        ];
+
+    internal OtpFieldTwin OtpTwin() =>
+        OtpFieldModule.Invocations["attach"].Select(i => i.Arguments[2]).OfType<DotNetObjectReference<OtpFieldTwin>>().Last().Value;
+
+    public static string EventJson(string type, string? key = null, string? targetId = null, bool ctrlKey = false) =>
+        JsonSerializer.Serialize(new
+        {
+            kind = type == "keydown" ? "KeyboardEvent" : "Event",
+            type,
+            key,
+            code = (string?)null,
+            altKey = false,
+            ctrlKey,
+            metaKey = false,
+            shiftKey = false,
+            pointerType = (string?)null,
+            detail = 0,
+            buttons = 0,
+            target = new { id = targetId, tagName = "INPUT" },
+            defaultPrevented = false,
+            timeStamp = 7,
+        });
+
+    public static string EditJson(int index, string kind, string raw, int revision, bool advanced = false)
+    {
+        string type = kind switch { "paste" => "paste", "input" => "input", _ => "keydown" };
+        string? key = kind switch { "backspace" or "clear" => "Backspace", "delete" => "Delete", _ => null };
+        string @event = EventJson(type, key, null, kind == "clear");
+        return $$"""{"index":{{index}},"kind":"{{kind}}","raw":{{JsonSerializer.Serialize(raw)}},"advanced":{{(advanced ? "true" : "false")}},"revision":{{revision}},"event":{{@event}}}""";
+    }
+
+    // Server: the module reports the edit after the dispatch.
+    internal Task EditAsync<TComponent>(IRenderedComponent<TComponent> cut, int index, string kind, string raw, int revision, bool advanced = false)
+        where TComponent : IComponent
+    {
+        OtpFieldTwin twin = OtpTwin();
+        return cut.InvokeAsync(() => twin.OnEdit(EditJson(index, kind, raw, revision, advanced)));
+    }
+
+    // WebAssembly: the module hands the edit over, then asks `edit`, whose chain runs inside the dispatch.
+    internal Task<string> DecideEditAsync<TComponent>(IRenderedComponent<TComponent> cut, int index, string kind, string raw, int revision)
+        where TComponent : IComponent
+    {
+        OtpFieldTwin twin = OtpTwin();
+        string json = EditJson(index, kind, raw, revision);
+        string @event = JsonDocument.Parse(json).RootElement.GetProperty("event").GetRawText();
+        return cut.InvokeAsync(() =>
+        {
+            twin.OnEditHandover(json);
+            return twin.Decide(OtpFieldTwin.EditPoint, @event);
+        });
+    }
+
+    internal Task FocusAsync<TComponent>(IRenderedComponent<TComponent> cut, int index)
+        where TComponent : IComponent
+    {
+        OtpFieldTwin twin = OtpTwin();
+        return cut.InvokeAsync(() => twin.OnFocus($$"""{"index":{{index}},"event":{{EventJson("focusin")}}}"""));
+    }
+
+    internal Task BlurAsync<TComponent>(IRenderedComponent<TComponent> cut, int index)
+        where TComponent : IComponent
+    {
+        OtpFieldTwin twin = OtpTwin();
+        return cut.InvokeAsync(() => twin.OnBlur($$"""{"index":{{index}},"outside":true,"event":{{EventJson("focusout")}}}"""));
+    }
+
     public void Dispose() => Context.Dispose();
 }
