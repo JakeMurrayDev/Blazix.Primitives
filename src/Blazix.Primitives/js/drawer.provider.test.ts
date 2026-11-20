@@ -279,6 +279,40 @@ describe('drawer module: the popup role (DrawerPopup.tsx)', () => {
     expect(height(popup)).toBe('');
   });
 
+  // DRW-STA-10 (DrawerPopup.test.tsx "ignores a queued measurement after the popup unmounts"): a resize notification that
+  // runs after the handle is disposed measures nothing and reports nothing.
+  it('port: a resize notification queued before the popup unmounts reports nothing after it', () => {
+    const callbacks: ResizeObserverCallback[] = [];
+    const original = globalThis.ResizeObserver;
+    globalThis.ResizeObserver = class {
+      constructor(callback: ResizeObserverCallback) {
+        callbacks.push(callback);
+      }
+      observe() {}
+      unobserve() {}
+      disconnect() {}
+    } as unknown as typeof ResizeObserver;
+    try {
+      const { popup, handle, reports, resize } = popupRole();
+      // The port's observer callback runs per entry, so the queued notification carries the popup's.
+      const entries = [{ target: popup } as unknown as ResizeObserverEntry];
+      resize(140);
+      for (const callback of callbacks) {
+        callback(entries, {} as ResizeObserver);
+      }
+      expect(reports()).toEqual([100, 140]);
+
+      handle.dispose();
+      resize(180);
+      for (const callback of callbacks) {
+        callback(entries, {} as ResizeObserver);
+      }
+      expect(reports()).toEqual([100, 140]);
+    } finally {
+      globalThis.ResizeObserver = original;
+    }
+  });
+
   // DRW-DOM-09: "in place in the same commit that adds data-nested-drawer-open". C# renders that attribute before the nested
   // drawer's presence reaches the module, so the popup role reads the attribute too, in the mutation's own microtask.
   it('port: the popup declares its height as soon as C# marks a nested drawer open', async () => {

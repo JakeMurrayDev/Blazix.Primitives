@@ -1857,7 +1857,8 @@ test.describe('<Drawer.Viewport /> snap point releases', () => {
 // Slice 3 (M6 track 8b, issue 279, added 2026-11-21): the Provider's visual state and the nested-drawer report, on the
 // `drawer-stack` fixture. The popup's measured height reaches its Root and comes back as `--drawer-frontmost-height`
 // before a drag, so each title waits for it first.
-const stackCase = (page: Page, mode: RenderMode, name: string) => gotoPopupFixture(page, mode, 'drawer-stack', { case: name });
+const stackCase = (page: Page, mode: RenderMode, name: string, options: Record<string, string | boolean> = {}) =>
+  gotoPopupFixture(page, mode, 'drawer-stack', { case: name, ...options });
 const styleOf = (target: Locator, property: string) =>
   target.evaluate((element, name) => (element as HTMLElement).style.getPropertyValue(name), property);
 const clickInPage = (target: Locator) => target.evaluate((element) => (element as HTMLElement).click());
@@ -1993,5 +1994,152 @@ test.describe('<Drawer.Viewport /> nested drawers', () => {
         await expect.poll(() => styleOf(parentPopup, '--drawer-swipe-progress')).toBe('0');
       },
     });
+  });
+});
+
+// Slice 3 (added 2026-11-21): the Popup's own measurement (DRW-STA-10, STA-11's border clause, DOM-09), on `drawer-stack`.
+test.describe('<Drawer.Popup /> measurement', () => {
+  // DRW-STA-10 (a), (b) (DrawerPopup.test.tsx:197-240). Base UI's probe reports a nested height of 200 and resizes the popup
+  // to 150; here the 200 px nested drawer stretches the parent through `--drawer-frontmost-height`. The parent's own height
+  // stays the 100 px it measured, which shows once the nested drawer closes and the frontmost height falls back to it.
+  test('keeps the last measured popup height while nested content stretches it', async ({ page, mode }) => {
+    const fixture = await stackCase(page, mode, 'stretch');
+    const parentPopup = page.getByTestId('parent-popup');
+    await expect.poll(() => styleOf(parentPopup, '--drawer-frontmost-height')).toBe('100px');
+
+    await page.getByRole('button', { name: 'Open nested drawer' }).click();
+    await expect.poll(() => styleOf(parentPopup, '--drawer-frontmost-height')).toBe('204px');
+    await expect.poll(() => parentPopup.evaluate((element) => (element as HTMLElement).offsetHeight)).toBe(204);
+    await settle(fixture);
+
+    await page.getByRole('button', { name: 'Close nested drawer' }).click();
+    await expect.poll(() => styleOf(parentPopup, '--drawer-frontmost-height')).toBe('100px');
+    await expect.poll(() => parentPopup.evaluate((element) => (element as HTMLElement).offsetHeight)).toBe(100);
+  });
+
+  // DRW-STA-11's border-inclusive `offsetHeight` (DrawerPopup.test.tsx:301-341): 200 px plus two 2 px borders.
+  test('includes border size in frontmost height CSS variable for nested drawers', async ({ page, mode }) => {
+    await stackCase(page, mode, 'stretch');
+    const parentPopup = page.getByTestId('parent-popup');
+    await page.getByRole('button', { name: 'Open nested drawer' }).click();
+    const childPopup = page.getByTestId('child-popup');
+
+    await expect.poll(async () => styleOf(parentPopup, '--drawer-frontmost-height')).toBe(
+      `${await childPopup.evaluate((element) => (element as HTMLElement).offsetHeight)}px`,
+    );
+    expect(await childPopup.evaluate((element) => (element as HTMLElement).offsetHeight)).toBeGreaterThan(
+      await childPopup.evaluate((element) => element.scrollHeight),
+    );
+  });
+
+  // DRW-STA-10 (DrawerPopup.test.tsx:257-299): a resize notification queued for the popup runs after it has gone, and
+  // nothing fails. The page's ResizeObserver callbacks are kept so the title can run them after the removal.
+  test('ignores a queued measurement after the popup unmounts', async ({ page, mode }) => {
+    // The observers that watch an element keep their callbacks, so the title can run those of the popup after its removal
+    // with an entry for it (the port's callback runs per entry).
+    await page.addInitScript(() => {
+      const kept: Array<{ callback: ResizeObserverCallback; targets: Element[] }> = [];
+      (window as unknown as { resizeKept: typeof kept }).resizeKept = kept;
+      const Original = window.ResizeObserver;
+      window.ResizeObserver = class extends Original {
+        private readonly record: { callback: ResizeObserverCallback; targets: Element[] };
+        constructor(callback: ResizeObserverCallback) {
+          super(callback);
+          this.record = { callback, targets: [] };
+          kept.push(this.record);
+        }
+        override observe(target: Element, options?: ResizeObserverOptions): void {
+          this.record.targets.push(target);
+          super.observe(target, options);
+        }
+      };
+    });
+    const errors: string[] = [];
+    page.on('pageerror', (error) => errors.push(error.message));
+    const fixture = await stackCase(page, mode, 'provider');
+    const popup = page.getByTestId('popup');
+    await expect.poll(() => styleOf(popup, '--drawer-frontmost-height')).toBe('100px');
+    const watched = await popup.elementHandle();
+    const runQueued = () =>
+      page.evaluate((target) => {
+        const kept = (window as unknown as { resizeKept: Array<{ callback: ResizeObserverCallback; targets: Element[] }> }).resizeKept;
+        for (const { callback, targets } of kept.filter((record) => record.targets.includes(target!))) {
+          void targets;
+          callback([{ target, contentRect: target!.getBoundingClientRect(), borderBoxSize: [], contentBoxSize: [], devicePixelContentBoxSize: [] } as unknown as ResizeObserverEntry], {} as ResizeObserver);
+        }
+      }, watched);
+
+    // The positive half: while the popup is mounted, a queued notification measures it. The popup grows through a stylesheet
+    // rule, as C# re-renders its `style` attribute.
+    await page.evaluate(() => {
+      const rule = document.createElement('style');
+      rule.textContent = '[data-testid="popup"] { height: 140px !important; }';
+      document.head.append(rule);
+    });
+    await runQueued();
+    await expect.poll(() => styleOf(popup, '--drawer-frontmost-height')).toBe('140px');
+
+    await clickInPage(page.locator('[data-hide-viewport]'));
+    await expect(page.getByTestId('popup')).toHaveCount(0);
+    await runQueued();
+    await settle(fixture);
+    expect(errors).toEqual([]);
+  });
+
+  // DRW-DOM-09 (DrawerPopup.test.tsx:731-849): the parent keeps its measured height declared while the nested drawer animates
+  // out, after `data-nested-drawer-open` is gone.
+  test('keeps a fixed height applied while a nested drawer closes', async ({ page, mode }) => {
+    // Base UI turns animations on for this title (BASE_UI_ANIMATIONS_DISABLED = false), so the nested drawer animates out.
+    await stackCase(page, mode, 'height', { animations: '1' });
+    const parentPopup = page.getByTestId('parent-popup');
+    await page.getByRole('button', { name: 'Open nested drawer' }).click();
+    await expect(parentPopup).toHaveAttribute('data-nested-drawer-open', '');
+    await expect.poll(() => styleOf(parentPopup, '--drawer-height')).not.toBe('');
+    await parentPopup.evaluate((element) => {
+      const log: Array<{ hasNested: boolean; drawerHeight: string }> = [];
+      (window as unknown as { heightLog: typeof log }).heightLog = log;
+      new MutationObserver(() => {
+        log.push({
+          hasNested: element.hasAttribute('data-nested-drawer-open'),
+          drawerHeight: (element as HTMLElement).style.getPropertyValue('--drawer-height'),
+        });
+      }).observe(element, { attributeFilter: ['data-nested-drawer-open', 'style'], attributes: true });
+    });
+
+    await page.getByRole('button', { name: 'Close nested drawer' }).click();
+    await expect(parentPopup).not.toHaveAttribute('data-nested-drawer-open');
+    await expect.poll(() => styleOf(parentPopup, '--drawer-height')).not.toBe('');
+    await expect
+      .poll(() => page.evaluate(() => (window as unknown as { heightLog: Array<{ hasNested: boolean; drawerHeight: string }> }).heightLog.some((entry) => !entry.hasNested && entry.drawerHeight !== '')))
+      .toBe(true);
+    await expect(page.getByTestId('child-popup')).toHaveCount(0);
+  });
+
+  // DRW-DOM-09 (DrawerPopup.test.tsx:851-928): on reopening, the first mutation that shows `data-nested-drawer-open` already
+  // has the measured height declared.
+  test('restores a fixed height before nested state when reopening a nested drawer', async ({ page, mode }) => {
+    await stackCase(page, mode, 'height', { animations: '1' });
+    const parentPopup = page.getByTestId('parent-popup');
+    await page.getByRole('button', { name: 'Open nested drawer' }).click();
+    await expect(parentPopup).toHaveAttribute('data-nested-drawer-open', '');
+    await page.getByRole('button', { name: 'Close nested drawer' }).click();
+    await expect(parentPopup).not.toHaveAttribute('data-nested-drawer-open');
+    await expect(page.getByTestId('child-popup')).toHaveCount(0);
+    await parentPopup.evaluate((element) => {
+      const log: Array<{ hasNested: boolean; drawerHeight: string }> = [];
+      (window as unknown as { heightLog: typeof log }).heightLog = log;
+      new MutationObserver(() => {
+        log.push({
+          hasNested: element.hasAttribute('data-nested-drawer-open'),
+          drawerHeight: (element as HTMLElement).style.getPropertyValue('--drawer-height'),
+        });
+      }).observe(element, { attributeFilter: ['data-nested-drawer-open', 'style'], attributes: true });
+    });
+
+    await page.getByRole('button', { name: 'Open nested drawer' }).click();
+    await expect(parentPopup).toHaveAttribute('data-nested-drawer-open', '');
+    await expect
+      .poll(() => page.evaluate(() => (window as unknown as { heightLog: Array<{ hasNested: boolean; drawerHeight: string }> }).heightLog.find((entry) => entry.hasNested)?.drawerHeight))
+      .not.toBe('');
   });
 });
