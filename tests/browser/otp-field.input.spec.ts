@@ -13,7 +13,7 @@ async function selection(slot: Locator): Promise<[number | null, number | null]>
 }
 
 // A listener above the document: the module's stopPropagation() at the root node hides a handled key from it (design point
-// 9 of N3, pending the user: ancestor element listeners still see it).
+// 9 of N3, (a), chosen by the user 2026-11-20: ancestor element listeners still see it).
 async function countWindowKeydowns(page: Page): Promise<void> {
   await page.evaluate(() => {
     const record = { count: 0 };
@@ -249,7 +249,7 @@ test.describe('OtpFieldInput', () => {
     });
   }
 
-  // OTP-KEY-05; design point 9 of N3 (pending the user, recommendation (a)): the module listens at the root node, so its
+  // OTP-KEY-05; design point 9 of N3, (a), chosen by the user 2026-11-20: the module listens at the root node, so its
   // stopPropagation() hides the key from listeners above the document, not from ancestor elements.
   test('port: stops propagation when ArrowDown moves focus to the empty end slot (a window listener)', async ({ page, mode }) => {
     const field = await gotoOtp(page, mode, 'value=1234');
