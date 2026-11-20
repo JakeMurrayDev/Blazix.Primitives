@@ -315,7 +315,12 @@ export function attach(
       return;
     }
     const slot = event.target as HTMLInputElement;
-    if (!composing(slot) || options.disabled || options.readOnly) {
+    if (!composing(slot)) {
+      return;
+    }
+    if (options.disabled || options.readOnly) {
+      // OTPFieldInput.tsx:201-205: the buffer is dropped and the slot shows its committed character again.
+      writeTextValue(slot, slotValue(index));
       return;
     }
     commitText(slot, index, slot.value, 'input', event);
