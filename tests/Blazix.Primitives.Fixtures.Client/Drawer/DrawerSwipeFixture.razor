@@ -51,7 +51,11 @@
     - `noPopup=true`: the Viewport renders no Popup ("ignores swipe input until a popup is mounted").
     - `alwaysOpen=true`: the root is controlled with `Open="true"` and never follows a change.
     The remove button (`data-remove-root`, added 2026-11-20) stops rendering the root, as Base UI's `unmount()`. The snap-to
-    control (`data-snap-to`, added 2026-11-21) sets the controlled snap point to the `snapTo` query, as Base UI's `setProps`.
+    control (`data-snap-to`, added 2026-11-21) sets the controlled snap point to the `snapTo` query, as Base UI's `setProps`;
+    on `case=snap`, `data-hide-popup` stops rendering the popup, `pt` is the popup's top, and `content` fills it: `scroll` (a
+    vertical scroller 40 px tall over 120 px), `html` and `svg` (a horizontal scroller 40 px wide over a 120 px target, an
+    element or an SVG rect), `axis` (a `data-base-ui-swipe-ignore="x"` wrapper around the target) and `carousel` (a 100 px
+    horizontal scroller over 400 px, itself the target).
     The open changes are recorded as `open:reason` in `data-open-changes`; `cancelClose=true` cancels a close and
     `retainEveryClose=true` keeps a close mounted (PopupSuiteFixtureBase). The sync button is the suites' `settle` barrier; since 2026-11-20 it takes the
     suites' Shift keydown (`data-key-control`), so the barrier is no outside press for the `case=combobox` Combobox.
@@ -62,6 +66,7 @@
     <button type="button" tabindex="-1" data-sync-button data-key-control @onclick="() => Sync++" @onkeydown="OnShift(() => Sync++)">Sync</button>
     <button type="button" data-remove-root @onclick="() => removed = true">Remove</button>
     <button type="button" tabindex="-1" data-snap-to data-key-control @onclick="SnapTo" @onkeydown="OnShift(SnapTo)">Snap to</button>
+    <button type="button" tabindex="-1" data-hide-popup data-key-control @onclick="() => showSnapPopup = false" @onkeydown="OnShift(() => showSnapPopup = false)">Hide popup</button>
     <span data-testid="outside-text">Outside selection</span>
     @if (removed)
     {
@@ -104,6 +109,7 @@
 @code {
     private DrawerRoot<NoPayload>? root;
     private DrawerViewport? viewport;
+    private bool showSnapPopup = true;
     private bool removed;
     private readonly List<string> comboboxChanges = [];
     private ElementReference shadowHost;
@@ -244,7 +250,32 @@
     private RenderFragment SnapParts => @<DrawerPortal KeepMounted="@(QueryFlag("keepMounted") == true)">
         <DrawerBackdrop data-testid="backdrop" />
         <DrawerViewport @ref="viewport" data-testid="viewport" style="position: fixed; inset: 0;">
-            <DrawerPopup data-testid="popup" style="@($"position: fixed; left: 0; top: 0; width: {Query("pw") ?? "200"}px; height: {Query("ph") ?? "600"}px;")">Drawer</DrawerPopup>
+            @if (showSnapPopup)
+            {
+                <DrawerPopup data-testid="popup" style="@($"position: fixed; left: 0; top: {Query("pt") ?? "0"}px; width: {Query("pw") ?? "200"}px; height: {Query("ph") ?? "600"}px; margin: 0; padding: 0; border: 0;")">
+                    @switch (Query("content"))
+                    {
+                        case "scroll":
+                            <div data-testid="scroll" style="overflow-y: auto; max-height: 40px;"><div style="height: 120px;">Scrollable content</div></div>
+                            break;
+                        case "html":
+                            <div data-testid="scroll" style="overflow-x: auto; width: 40px;"><div data-testid="target" style="width: 120px; height: 40px;">Swipe here</div></div>
+                            break;
+                        case "svg":
+                            <div data-testid="scroll" style="overflow-x: auto; width: 40px;"><svg width="120" height="40" style="display: block;"><rect data-testid="target" width="120" height="40"></rect></svg></div>
+                            break;
+                        case "axis":
+                            <div data-testid="scroll" data-base-ui-swipe-ignore="x"><div data-testid="target" style="height: 40px;">Swipe here</div></div>
+                            break;
+                        case "carousel":
+                            <div data-testid="target" style="overflow-x: auto; width: 100px; height: 40px;"><div style="width: 400px; height: 40px;">Carousel</div></div>
+                            break;
+                        default:
+                            @("Drawer")
+                            break;
+                    }
+                </DrawerPopup>
+            }
         </DrawerViewport>
     </DrawerPortal>;
 

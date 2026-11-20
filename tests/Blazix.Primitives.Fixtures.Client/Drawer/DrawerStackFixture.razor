@@ -24,6 +24,10 @@
     - `case=nested-snap`: DrawerViewport.test.tsx's nested snap point trees. An open parent drawer (`parent-popup`, fixed at
       the top left, 400 by 400 px) holds an open nested drawer with the snap points `100px` and `200px`, its Viewport fixed
       at the top, 400 px tall, and its popup (`popup`) fixed at the top left, 300 by 300 px.
+    - `case=body`: "starts a swipe away from the page scroll edge when the body is a scroll container". `html` and `body` are
+      100% tall with `overflow-y: auto`, so `body` is the page's scroll container over 5000 px of content; an open non-modal
+      drawer with the snap points 300 and 100 has a Viewport fixed at inset 0 without pointer events and a 300 px popup
+      (`popup`) at the bottom, moved by its snap offset and drag, whose first 100 px are `drag`.
 *@
 <FixtureContainer Name="drawer-stack" data-attached="@(Attached ? "true" : "false")" data-sync="@Sync" data-case="@Case"
                   data-open-changes="@OpenChanges">
@@ -66,6 +70,21 @@
                                 </DrawerViewport>
                             </DrawerPortal>
                         </DrawerRoot>
+                    </DrawerPopup>
+                </DrawerViewport>
+            </DrawerPortal>
+        </DrawerRoot>
+    }
+    else if (Case == "body")
+    {
+        <style>html, body { height: 100%; overflow-y: auto; }</style>
+        <div style="height: 5000px;"></div>
+        <DrawerRoot TPayload="NoPayload" @ref="root" Open="true" Modal="false" SnapPoints="@bodySnapPoints" OnOpenChange="RecordOpenChange">
+            <DrawerPortal>
+                <DrawerBackdrop data-testid="backdrop" />
+                <DrawerViewport @ref="viewport" style="position: fixed; inset: 0; pointer-events: none;">
+                    <DrawerPopup data-testid="popup" style="position: absolute; left: 0; right: 0; bottom: 0; height: 300px; margin: 0; padding: 0; border: 0; pointer-events: auto; transform: translateY(calc(var(--drawer-snap-point-offset) + var(--drawer-swipe-movement-y)));">
+                        <div data-testid="drag" style="height: 100px;">Drag</div>
                     </DrawerPopup>
                 </DrawerViewport>
             </DrawerPortal>
@@ -139,6 +158,7 @@
     private bool showIndent = true;
     private bool showViewport = true;
     private bool childOpen = true;
+    private readonly IReadOnlyList<SnapPointValue> bodySnapPoints = [new SnapPointValue(300), new SnapPointValue(100)];
     private readonly IReadOnlyList<SnapPointValue> nestedSnapPoints = [new SnapPointValue("100px"), new SnapPointValue("200px")];
 
     /// <inheritdoc />
