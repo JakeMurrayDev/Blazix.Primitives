@@ -1,0 +1,53 @@
+@namespace Blazix.Primitives.Fixtures.Client.OtpFieldFixtures
+@using Blazix.Primitives
+@inherits OtpFieldFixtureBase
+
+@*
+    The `otp-field-labels` fixture (tests/browser/otp-field.input.spec.ts; OTP-ARIA-04, OTP-ARIA-06..08, OTP-EDGE-04): six
+    slots `slot-{i}` in a root with id `verification-code`. `?case=`: `native` (a `<label for>`, no slot aria-label),
+    `shared` (the label, and aria-label "Character 1 of 6" and "Character 2 of 6" on slots 0 and 1), `warn` (no label,
+    aria-label on slot 0), `field-label` (a FieldRoot with a FieldLabel, aria-label on slot 0).
+*@
+<FixtureContainer Name="otp-field-labels" data-attached="@(Attached ? "true" : "false")">
+    @if (labelCase == "field-label")
+    {
+        <FieldRoot>
+            <FieldLabel>Verification code</FieldLabel>
+            <OtpFieldRoot @ref="Root" Length="6" data-testid="root">
+                @Slots
+            </OtpFieldRoot>
+        </FieldRoot>
+    }
+    else
+    {
+        @if (labelCase != "warn")
+        {
+            <label for="verification-code">Verification code</label>
+        }
+
+        <OtpFieldRoot @ref="Root" Id="verification-code" Length="6" data-testid="root">
+            @Slots
+        </OtpFieldRoot>
+    }
+</FixtureContainer>
+
+@code {
+    private string labelCase = "native";
+
+    private RenderFragment Slots => @<text>
+        @for (int i = 0; i < 6; i++)
+        {
+            int index = i;
+            string? label = labelCase switch
+            {
+                "shared" when index < 2 => $"Character {index + 1} of 6",
+                "warn" or "field-label" when index == 0 => "Character 1 of 6",
+                _ => null,
+            };
+            <OtpFieldInput data-testid="@($"slot-{index}")" aria-label="@label" />
+        }
+    </text>;
+
+    /// <inheritdoc />
+    protected override void OnInitialized() => labelCase = Query("case", "native");
+}

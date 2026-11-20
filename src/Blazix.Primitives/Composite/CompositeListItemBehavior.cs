@@ -18,16 +18,19 @@ internal sealed class CompositeListItemBehavior : IDisposable
 {
     private readonly CompositeListContext? list;
     private readonly Action indexChanged;
+    private readonly bool guess;
     private string? elementId;
     private bool registered;
 
     /// <summary>Initializes a new instance of the <see cref="CompositeListItemBehavior"/> class.</summary>
     /// <param name="context">The cascaded registry of the nearest list, or <see langword="null"/> for an inert item.</param>
     /// <param name="indexChanged">Renders the part again; called when the reported index changes.</param>
-    public CompositeListItemBehavior(CompositeListContext? context, Action indexChanged)
+    /// <param name="guess">Whether the item takes its index from the list's render order until the first report.</param>
+    public CompositeListItemBehavior(CompositeListContext? context, Action indexChanged, bool guess = false)
     {
         list = context;
         this.indexChanged = indexChanged;
+        this.guess = guess;
     }
 
     /// <summary>Gets the item's index in its list.</summary>
@@ -71,6 +74,16 @@ internal sealed class CompositeListItemBehavior : IDisposable
         {
             Id = value;
             ExplicitIndex = index;
+
+            // M6 track 7 (CMP-STA-16; useCompositeListItem.ts:39-55, the `guess` option; Q-OTP-2 (b) of the M6 plan, chosen by
+            // the user 2026-11-18; the Composite/ grant to OtpField, settled by the orchestrator 2026-11-19): a guessing item
+            // takes the next index of the list's render-order counter once, before it registers, and keeps it until a report
+            // names it; an explicitly indexed item takes none. Prerender has no report, so it renders the guess (OTP-EDGE-10).
+            if (index is null)
+            {
+                EnsureGuess();
+            }
+
             registered = true;
             list.Register(this);
             return;
@@ -83,6 +96,20 @@ internal sealed class CompositeListItemBehavior : IDisposable
             ExplicitIndex = index;
             list.RegistrationChanged(this, previousId);
         }
+    }
+
+    // An item whose registered id derives from its index (an OtpField slot's `{id}-{index + 1}`) takes the guess before it
+    // registers; SetRegistration then takes none.
+    /// <summary>Takes the render-order guess now, when the item guesses and holds no index yet.</summary>
+    /// <returns>The item's index after the call.</returns>
+    public int EnsureGuess()
+    {
+        if (guess && list is not null && !registered && Index == -1)
+        {
+            Index = list.TakeGuess();
+        }
+
+        return Index;
     }
 
     /// <summary>Reports a replaced element and asks the list to send what changed.</summary>

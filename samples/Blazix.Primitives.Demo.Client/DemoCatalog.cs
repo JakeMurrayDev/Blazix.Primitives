@@ -45,6 +45,7 @@ public static class DemoCatalog
         new("toast", "Toast", "Notifications stacked in a corner that expand on hover, swipe away and close on a timer.", typeof(ToastDemo)),
         new("slider", "Slider", "An input for a value or a range of values, chosen by dragging a thumb along a track or with the arrow keys.", typeof(SliderDemo)),
         new("number-field", "Number Field", "A numeric input with increment and decrement buttons and a scrub area that changes the value by dragging.", typeof(NumberFieldDemo)),
+        new("otp-field", "OTP Field", "A one-time code entered one character per slot, with paste, keyboard navigation and autofill.", typeof(OtpFieldDemo)),
     ];
 
     public static DemoEntry? Find(string slug) =>

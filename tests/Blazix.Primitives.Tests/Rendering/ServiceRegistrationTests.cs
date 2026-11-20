@@ -11,15 +11,17 @@ namespace Blazix.Primitives.Tests.Rendering;
 /// </summary>
 public sealed class ServiceRegistrationTests
 {
-    [Fact(DisplayName = "port: AddBlazixPrimitives registers seven scoped services, the toast manager among them")]
+    // M6 track 7 (issue 278; granted by the orchestrator 2026-11-19): the one-time code field's warnings log joins them.
+    [Fact(DisplayName = "port: AddBlazixPrimitives registers eight scoped services, the toast manager and the one-time code field's log among them")]
     [Trait("Requirement", "TST-API-03")]
-    public void AddBlazixPrimitives_registers_seven_scoped_services_the_toast_manager_among_them()
+    [Trait("Requirement", "OTP-EDGE-02")]
+    public void AddBlazixPrimitives_registers_eight_scoped_services()
     {
         ServiceCollection services = new();
 
         services.AddBlazixPrimitives();
 
-        Assert.Equal(7, services.Count);
+        Assert.Equal(8, services.Count);
         Assert.All(services, descriptor => Assert.Equal(ServiceLifetime.Scoped, descriptor.Lifetime));
         Assert.Equal(
             [
@@ -30,6 +32,7 @@ public sealed class ServiceRegistrationTests
                 typeof(ToggleDevelopmentLog),
                 typeof(DefaultFormScope),
                 typeof(ToastManager),
+                typeof(OtpFieldDevelopmentLog),
             ],
             services.Select(descriptor => descriptor.ServiceType));
     }

@@ -1,0 +1,50 @@
+@namespace Blazix.Primitives.Fixtures.Client.OtpFieldFixtures
+@using System.Text.RegularExpressions
+@using Blazix.Primitives
+@inherits OtpFieldFixtureBase
+
+@*
+    The `otp-field-normalize` fixture (tests/browser/otp-field.root.spec.ts; OTP-API-08, OTP-EVT-07): six slots `slot-{i}`
+    in a root named `otp` with a NormalizeValue chosen by `?fn=`: `strip-upper` (drops every non-alphanumeric character, then
+    upper-cases), `upper`, `zero-three` (drops every character outside 0–3), `expand` ("1" becomes "12") or `empty` (always
+    ""); `?type=` numeric (default), alphanumeric or none, `?inputmode=numeric`, `?value=`. Recorders as the basic fixture.
+*@
+<FixtureContainer Name="otp-field-normalize" data-attached="@(Attached ? "true" : "false")" data-changes="@string.Join(" ", Changes)"
+                  data-invalids="@string.Join(" ", Invalids)" data-completes="@string.Join(" ", Completes)">
+    <OtpFieldRoot @ref="Root" Length="6" Name="otp" DefaultValue="@Query("value", string.Empty)" ValidationType="validationType"
+                  InputMode="inputMode" NormalizeValue="normalize" OnValueChange="RecordChange" OnValueInvalid="RecordInvalid"
+                  OnValueComplete="RecordComplete" data-testid="root">
+        @for (int i = 0; i < 6; i++)
+        {
+            int index = i;
+            <OtpFieldInput data-testid="@($"slot-{index}")" aria-label="@($"Character {index + 1} of 6")" />
+        }
+    </OtpFieldRoot>
+    <button type="button" data-testid="outside">Outside</button>
+</FixtureContainer>
+
+@code {
+    private OtpFieldValidationType validationType;
+    private InputMode? inputMode;
+    private Func<string, string>? normalize;
+
+    /// <inheritdoc />
+    protected override void OnInitialized()
+    {
+        validationType = Query("type", "numeric") switch
+        {
+            "alphanumeric" => OtpFieldValidationType.Alphanumeric,
+            "none" => OtpFieldValidationType.None,
+            _ => OtpFieldValidationType.Numeric,
+        };
+        inputMode = Query("inputmode", string.Empty) == "numeric" ? InputMode.Numeric : null;
+        normalize = Query("fn", "upper") switch
+        {
+            "strip-upper" => value => Regex.Replace(value, "[^a-zA-Z0-9]", string.Empty).ToUpperInvariant(),
+            "zero-three" => value => Regex.Replace(value, "[^0-3]", string.Empty),
+            "expand" => value => value == "1" ? "12" : value,
+            "empty" => _ => string.Empty,
+            _ => value => value.ToUpperInvariant(),
+        };
+    }
+}

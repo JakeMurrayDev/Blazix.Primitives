@@ -1,0 +1,19 @@
+@namespace Blazix.Primitives.Fixtures.Client.OtpFieldFixtures
+@using Blazix.Primitives
+@inherits OtpFieldFixtureBase
+
+@*
+    The `otp-field-rtl` fixture (tests/browser/otp-field.input.spec.ts, OTP-I18N-01): the `otp-field-basic` field, six slots
+    `slot-{i}` with `?value=` (1234), inside a right-to-left DirectionProvider.
+*@
+<FixtureContainer Name="otp-field-rtl" data-attached="@(Attached ? "true" : "false")" data-changes="@string.Join(" ", Changes)">
+    <DirectionProvider Direction="TextDirection.Rtl">
+        <OtpFieldRoot @ref="Root" Length="6" DefaultValue="@Query("value", "1234")" OnValueChange="RecordChange" data-testid="root">
+            @for (int i = 0; i < 6; i++)
+            {
+                int index = i;
+                <OtpFieldInput data-testid="@($"slot-{index}")" aria-label="@($"Character {index + 1} of 6")" />
+            }
+        </OtpFieldRoot>
+    </DirectionProvider>
+</FixtureContainer>
