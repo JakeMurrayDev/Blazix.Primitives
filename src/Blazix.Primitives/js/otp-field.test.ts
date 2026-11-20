@@ -324,6 +324,15 @@ describe('otp-field: typing and the revision rule (variant (ii), decision 6 (a);
     expect(edits(fake)).toEqual([]);
   });
 
+  it('port: on WebAssembly a vetoed edit does not hold back the next update', () => {
+    const attached = mount({ value: '5' }, { synchronous: true, verdict: 'stop' });
+    const { slots } = attached;
+    slots[0].focus();
+    type(slots[0], '9');
+    attached.update({ value: '7', revision: 0 });
+    expect(slots[0].value).toBe('7');
+  });
+
   it('port: on WebAssembly a vetoed Backspace is not prevented', () => {
     const { slots } = mount({ value: '5' }, { synchronous: true, verdict: 'stop' });
     slots[0].focus();
