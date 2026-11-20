@@ -2931,3 +2931,23 @@ test.describe('<Drawer.Popup /> and <Drawer.Viewport /> lifecycle', () => {
     await expect(popup).not.toHaveAttribute('data-swipe-dismiss');
   });
 });
+
+// DRW-PTR-29, ALG-04 (DrawerSwipeArea.test.tsx:1371-1464, browser-only; added 2026-11-21): the area re-grabs a drawer that
+// is animating out after its Close; 80 px of the 200 px popup leaves it 120 px out, and the Viewport's open-time reset does
+// not wipe it.
+test('keeps the swipe-area movement on the popup when re-grabbed during close', async ({ page, mode }) => {
+  await areaCase(page, mode, { parts: true, regrab: true, animations: '1' });
+  const area = page.getByTestId('swipe-area');
+  await areaUp(page, 220, 20);
+  await expect(area).toHaveAttribute('data-open', '');
+  const popup = page.getByTestId('popup');
+
+  // Base UI clicks the Close programmatically, as here.
+  await clickInPage(page.getByRole('button', { name: 'Close' }));
+  await expect(popup).toHaveAttribute('data-ending-style', '');
+  await areaPointer(page, 'pointerdown', 10, 120, 1, 5000);
+  await areaPointer(page, 'pointermove', 10, 40, 1, 5016);
+  await expect(area).toHaveAttribute('data-open', '');
+  await expect.poll(() => styleOf(popup, '--drawer-swipe-movement-y')).toBe('120px');
+  await areaPointer(page, 'pointerup', 10, 40, 0, 5032);
+});

@@ -11,7 +11,8 @@
     - `area`, `root`: the area's and the root's swipe directions; `disabled`: the area starts disabled; `id`: the area's id;
     - `provider`: a Provider around it all with an Indent (`indent`); `keepMounted`: the portal stays mounted;
     - `open=reject`: the root is controlled and stays closed, recording each request; `modal=false`: a non-modal root;
-      `initialFocus=false`: the popup leaves focus where it is. An outside button (`outside-button`) sits beside the target.
+      `initialFocus=false`: the popup leaves focus where it is; `regrab`: the popup is 200 px tall by its class, animates out
+      for 200 ms and holds a Close (DrawerSwipeArea.test.tsx's re-grab tree, with `animations=1`). An outside button (`outside-button`) sits beside the target.
     Controls (Shift keydowns, as no outside press reads them): "Disable area", "Enable area", "Change id". The page also has
     an outside target (`outside`). Every open change is recorded in `data-open-changes`.
 *@
@@ -89,7 +90,21 @@
             <DrawerPortal KeepMounted="@(QueryFlag("keepMounted") == true)">
                 <DrawerBackdrop data-testid="backdrop" />
                 <DrawerViewport style="position: fixed; inset: 0; pointer-events: none;">
-                    <DrawerPopup data-testid="popup" style="@PopupStyle" InitialFocus="@(QueryFlag("initialFocus") == false ? false : null)">Drawer</DrawerPopup>
+                    @if (QueryFlag("regrab") == true)
+                    {
+                        <style>
+                            @@keyframes swipe-regrab-exit { to { opacity: 0; } }
+                            .swipe-regrab-popup { height: 200px; }
+                            .swipe-regrab-popup[data-ending-style] { animation: swipe-regrab-exit 200ms; }
+                        </style>
+                        <DrawerPopup data-testid="popup" class="swipe-regrab-popup" style="position: fixed; right: 0; top: 0; width: 100px; margin: 0; padding: 0; border: 0;">
+                            <DrawerClose>Close</DrawerClose>
+                        </DrawerPopup>
+                    }
+                    else
+                    {
+                        <DrawerPopup data-testid="popup" style="@PopupStyle" InitialFocus="@(QueryFlag("initialFocus") == false ? false : null)">Drawer</DrawerPopup>
+                    }
                 </DrawerViewport>
             </DrawerPortal>
         }
