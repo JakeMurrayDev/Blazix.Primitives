@@ -395,6 +395,22 @@ test.describe('<Drawer.Viewport /> touch swipe', () => {
     await expect(fixture).toHaveAttribute('data-open-changes', 'false:swipe');
   });
 
+  // DRW-PTR-06, PSH-PTR-13 (DrawerViewport.test.tsx:1256-1304): the touch starts on the viewport above the popup (top
+  // 100); the first move that enters the popup starts the swipe and re-anchors it there, so the popup does not jump.
+  testWithTouch('does not jump when touch starts outside the popup and then enters it', async ({ touchPage: page, mode }) => {
+    await downCase(page, mode);
+    const backdrop = page.getByTestId('backdrop');
+    const movementY = () => page.getByTestId('popup').evaluate((element) => Number.parseFloat((element as HTMLElement).style.getPropertyValue('--drawer-swipe-movement-y') || '0'));
+
+    await touchDrag(page, [[{ x: 100, y: 50 }, { x: 100, y: 170 }]], {
+      steps: 1,
+      beforeRelease: async () => {
+        await expect(backdrop).toHaveAttribute('data-swiping', '');
+        expect(await movementY()).toBe(0);
+      },
+    });
+  });
+
   // DRW-PTR-21 (d) (DrawerViewport.test.tsx:1839-1884): a window capture listener sees each move first and reads its
   // defaultPrevented after the module's document listener ran.
   testWithTouch('prevents touchmove when there is no scroll container', async ({ touchPage: page, mode }) => {
