@@ -50,7 +50,8 @@
       controlled value as `data-active-snap` (`null` for none).
     - `noPopup=true`: the Viewport renders no Popup ("ignores swipe input until a popup is mounted").
     - `alwaysOpen=true`: the root is controlled with `Open="true"` and never follows a change.
-    The remove button (`data-remove-root`, added 2026-11-20) stops rendering the root, as Base UI's `unmount()`.
+    The remove button (`data-remove-root`, added 2026-11-20) stops rendering the root, as Base UI's `unmount()`. The snap-to
+    control (`data-snap-to`, added 2026-11-21) sets the controlled snap point to the `snapTo` query, as Base UI's `setProps`.
     The open changes are recorded as `open:reason` in `data-open-changes`; `cancelClose=true` cancels a close and
     `retainEveryClose=true` keeps a close mounted (PopupSuiteFixtureBase). The sync button is the suites' `settle` barrier; since 2026-11-20 it takes the
     suites' Shift keydown (`data-key-control`), so the barrier is no outside press for the `case=combobox` Combobox.
@@ -60,6 +61,7 @@
                   data-snap-changes="@string.Join(' ', snapChanges)" data-active-snap="@SnapText(snapPoint)">
     <button type="button" tabindex="-1" data-sync-button data-key-control @onclick="() => Sync++" @onkeydown="OnShift(() => Sync++)">Sync</button>
     <button type="button" data-remove-root @onclick="() => removed = true">Remove</button>
+    <button type="button" tabindex="-1" data-snap-to data-key-control @onclick="SnapTo" @onkeydown="OnShift(SnapTo)">Snap to</button>
     <span data-testid="outside-text">Outside selection</span>
     @if (removed)
     {
@@ -308,6 +310,8 @@
             snapOpen = args.Value;
         }
     }
+
+    private void SnapTo() => snapPoint = QueryValue("snapTo");
 
     private void RecordSnapPointChange(ValueChangeEventArgs<SnapPointValue?> args)
     {

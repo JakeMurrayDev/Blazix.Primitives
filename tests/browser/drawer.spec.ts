@@ -1,6 +1,6 @@
 import { expect, pointOf, swipeOnTimeline, test, testWithTouch, touchDrag, type Page, type RenderMode } from './helpers';
 import type { Locator } from '@playwright/test';
-import { gotoPopupFixture, settle } from './suites/popupFixture';
+import { gotoPopupFixture, pressControl, settle } from './suites/popupFixture';
 
 // The [L4] rows of docs/components/drawer.md (DRW), both render modes, Server first (ADR 04 §6). Titles are Base UI's
 // (drawer/**/*.test.tsx at v1.9.0) unless marked "port:". M6 track 8a (issue 279): the rows that need only the C# parts and
@@ -2141,5 +2141,64 @@ test.describe('<Drawer.Popup /> measurement', () => {
     await expect
       .poll(() => page.evaluate(() => (window as unknown as { heightLog: Array<{ hasNested: boolean; drawerHeight: string }> }).heightLog.find((entry) => entry.hasNested)?.drawerHeight))
       .not.toBe('');
+  });
+});
+
+// Slice 3 (added 2026-11-21): a nested drawer with snap points clears its parent's swipe state when its release settles
+// (DRW-PTR-17, DRW-DOM-14, DRW-ALG-01), on `drawer-stack`'s `nested-snap` case; and the resting snap progress (DRW-PTR-16).
+test.describe('<Drawer.Viewport /> nested snap points', () => {
+  // DrawerViewport.test.tsx:3898-3972: a diagonal drag has no attributed direction, so its release settles in place.
+  test('clears nested swipe state after an unattributed snap point gesture', async ({ page, mode }) => {
+    await stackCase(page, mode, 'nested-snap');
+    const parentPopup = page.getByTestId('parent-popup');
+
+    await timedSwipe(page, [
+      { type: 'down', x: 100, y: 10, time: 1000 },
+      { type: 'move', x: 120, y: 12, time: 1016 },
+      { type: 'move', x: 200, y: 30, time: 1032 },
+    ]);
+    await expect(parentPopup).toHaveAttribute('data-nested-drawer-swiping', '');
+    expect(await styleOf(parentPopup, '--drawer-swipe-progress')).not.toBe('0');
+
+    await timedSwipe(page, [{ type: 'up', x: 200, y: 30, time: 1048 }]);
+    await expect.poll(() => styleOf(parentPopup, '--drawer-swipe-progress')).toBe('0');
+    await expect(parentPopup).not.toHaveAttribute('data-nested-drawer-swiping');
+  });
+
+  // DrawerViewport.test.tsx:3974-4072: a straight drag down ending in a slight reversal settles back on its snap point.
+  test('clears nested swipe state after an attributed drag settles on a snap point', async ({ page, mode }) => {
+    await stackCase(page, mode, 'nested-snap');
+    const parentPopup = page.getByTestId('parent-popup');
+    const childPopup = page.getByTestId('popup');
+
+    await timedSwipe(page, [
+      { type: 'down', x: 100, y: 10, time: 1000 },
+      { type: 'move', x: 100, y: 24, time: 1050 },
+      { type: 'move', x: 100, y: 48, time: 1150 },
+    ]);
+    await expect(parentPopup).toHaveAttribute('data-nested-drawer-swiping', '');
+    expect(await styleOf(parentPopup, '--drawer-swipe-progress')).not.toBe('0');
+
+    await timedSwipe(page, [
+      { type: 'move', x: 100, y: 44, time: 1250 },
+      { type: 'up', x: 100, y: 44, time: 1600 },
+    ]);
+    await expect.poll(() => styleOf(parentPopup, '--drawer-swipe-progress')).toBe('0');
+    await expect(parentPopup).not.toHaveAttribute('data-nested-drawer-swiping');
+    await expect(childPopup).not.toHaveAttribute('data-ending-style');
+    await expect(childPopup).not.toHaveAttribute('data-swipe-dismiss');
+  });
+
+  // DRW-PTR-16 (DrawerViewport.test.tsx:5110-5180). Base UI checks that the resting progress is written before React's
+  // passive effects, which Blazor has no counterpart of; the port checks the write itself: at `100px` of a 200 px popup the
+  // Backdrop rests at 1, and the controlled change to `200px` publishes 0.
+  test('publishes resting snap progress before descendant layout effects', async ({ page, mode }) => {
+    const fixture = await gotoPopupFixture(page, mode, 'drawer-swipe', { case: 'snap', snapPoints: '100px,200px', snap: '100px', ph: '200', snapTo: '200px' });
+    const backdrop = page.getByTestId('backdrop');
+    await expect.poll(() => styleOf(backdrop, '--drawer-swipe-progress')).toBe('1');
+
+    await pressControl(fixture.locator('[data-snap-to]'));
+    await expect(fixture).toHaveAttribute('data-active-snap', '200px');
+    await expect.poll(() => styleOf(backdrop, '--drawer-swipe-progress')).toBe('0');
   });
 });

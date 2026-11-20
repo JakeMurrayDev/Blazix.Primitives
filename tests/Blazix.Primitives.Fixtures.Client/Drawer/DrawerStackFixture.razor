@@ -21,6 +21,9 @@
     - `case=stretch`: an open non-modal parent drawer whose popup (`parent-popup`) is `var(--drawer-frontmost-height, 100px)`
       tall, so an open nested drawer stretches it, and an uncontrolled nested drawer ("Open nested drawer") whose popup
       (`child-popup`) is 200 px tall with 2 px top and bottom borders and holds "Close nested drawer".
+    - `case=nested-snap`: DrawerViewport.test.tsx's nested snap point trees. An open parent drawer (`parent-popup`, fixed at
+      the top left, 400 by 400 px) holds an open nested drawer with the snap points `100px` and `200px`, its Viewport fixed
+      at the top, 400 px tall, and its popup (`popup`) fixed at the top left, 300 by 300 px.
 *@
 <FixtureContainer Name="drawer-stack" data-attached="@(Attached ? "true" : "false")" data-sync="@Sync" data-case="@Case"
                   data-open-changes="@OpenChanges">
@@ -60,6 +63,24 @@
                                         }
                                         <DrawerClose>Close nested drawer</DrawerClose>
                                     </DrawerPopup>
+                                </DrawerViewport>
+                            </DrawerPortal>
+                        </DrawerRoot>
+                    </DrawerPopup>
+                </DrawerViewport>
+            </DrawerPortal>
+        </DrawerRoot>
+    }
+    else if (Case == "nested-snap")
+    {
+        <DrawerRoot TPayload="NoPayload" @ref="root" Open="true" OnOpenChange="RecordOpenChange">
+            <DrawerPortal>
+                <DrawerViewport @ref="viewport" style="position: fixed; inset: 0;">
+                    <DrawerPopup data-testid="parent-popup" style="position: fixed; left: 0; top: 0; width: 400px; height: 400px; margin: 0; padding: 0; border: 0;">
+                        <DrawerRoot TPayload="NoPayload" @ref="child" Open="true" SnapPoints="@nestedSnapPoints">
+                            <DrawerPortal>
+                                <DrawerViewport @ref="childViewport" data-testid="child-viewport" style="position: fixed; left: 0; top: 0; width: 100%; height: 400px;">
+                                    <DrawerPopup data-testid="popup" style="position: fixed; left: 0; top: 0; width: 300px; height: 300px; margin: 0; padding: 0; border: 0;">Child</DrawerPopup>
                                 </DrawerViewport>
                             </DrawerPortal>
                         </DrawerRoot>
@@ -118,6 +139,7 @@
     private bool showIndent = true;
     private bool showViewport = true;
     private bool childOpen = true;
+    private readonly IReadOnlyList<SnapPointValue> nestedSnapPoints = [new SnapPointValue("100px"), new SnapPointValue("200px")];
 
     /// <inheritdoc />
     protected override IEnumerable<Task> Attachments =>
