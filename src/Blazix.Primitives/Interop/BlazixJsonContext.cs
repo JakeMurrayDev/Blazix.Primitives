@@ -66,6 +66,9 @@ namespace Blazix.Primitives.Interop;
 [JsonSerializable(typeof(DrawerOptions))]
 [JsonSerializable(typeof(DrawerSwipingChange))]
 [JsonSerializable(typeof(DrawerDismissRequest))]
+// M6 track 8b slice 3 (issue 279), 2026-11-20: the Drawer's numbered snap point request, as DrawerDismissRequest above
+// (design point 10 (a), chosen by the user 2026-11-19).
+[JsonSerializable(typeof(DrawerSnapPointRequest))]
 [JsonSerializable(typeof(TabsSelection))]
 [JsonSerializable(typeof(TabsTabEvent))]
 [JsonSerializable(typeof(TabsDirectionChange))]
