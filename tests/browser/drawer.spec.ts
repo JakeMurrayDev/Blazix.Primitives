@@ -1713,3 +1713,143 @@ test.describe('<Drawer.Root /> snap point swipes', () => {
     await expect(page.getByTestId('popup')).toHaveAttribute('data-open', '');
   });
 });
+
+/** Base UI's mouse steps at explicit points, 16 ms apart where Base UI's own events carry no `timeStamp`. */
+const steps = (points: Array<[number, number]>, times?: number[]): TimedStep[] =>
+  points.map(([x, y], index) => ({
+    type: index === 0 ? 'down' : index === points.length - 1 ? 'up' : 'move',
+    x,
+    y,
+    time: times?.[index] ?? 1000 + 16 * index,
+  }));
+
+// DrawerViewport.test.tsx's snap point releases (3660-4620). Base UI's open drawer is controlled and never closes there
+// (`alwaysOpen`); its 300 px popup is the fixture's with `ph=300`.
+test.describe('<Drawer.Viewport /> snap point releases', () => {
+  // DRW-API-02, PTR-10, PTR-11 (DrawerViewport.test.tsx:3660-3729).
+  test('uses regular horizontal dismissal when snap points are configured', async ({ page, mode }) => {
+    const fixture = await snapCase(page, mode, { snapPoints: '100px,200px', direction: 'left', alwaysOpen: 'true', ph: '300' });
+
+    await timedSwipe(page, steps([[180, 10], [179, 10], [40, 10], [40, 10]]));
+
+    await expect(fixture).toHaveAttribute('data-open-changes', 'false:swipe');
+  });
+
+  // DRW-PTR-11, ALG-01 (DrawerViewport.test.tsx:3731-3820): a mostly horizontal flick never attributes a direction, so
+  // its fast downward release settles on the nearest snap point instead of dismissing.
+  test('does not dismiss from a fast swipe that was never attributed to the snap point axis', async ({ page, mode }) => {
+    const fixture = await snapCase(page, mode, { snapPoints: '200px,100px', alwaysOpen: 'true', ph: '300' });
+    const popup = page.getByTestId('popup');
+
+    await timedSwipe(page, steps([[100, 10], [120, 12], [200, 20], [240, 55], [240, 55]], [1000, 1050, 1100, 1120, 1130]));
+
+    await expect(fixture).toHaveAttribute('data-snap-changes', '100px:swipe');
+    await expect(fixture).toHaveAttribute('data-open-changes', '');
+    await expect(popup).not.toHaveAttribute('data-ending-style');
+    await expect(popup).not.toHaveAttribute('data-swipe-dismiss');
+  });
+
+  // DRW-PTR-11, ALG-01 (DrawerViewport.test.tsx:3822-3896): the popup is 400 px wide here so Base UI's start at x 300
+  // lands on it.
+  test('navigates snap points from a drag that was never attributed to the swipe axis', async ({ page, mode }) => {
+    const fixture = await snapCase(page, mode, { snapPoints: '100px,200px', alwaysOpen: 'true', ph: '300', pw: '400' });
+
+    await timedSwipe(page, steps([[300, 300], [280, 290], [200, 220], [140, 150], [140, 150]]));
+
+    await expect(fixture).toHaveAttribute('data-snap-changes', /200px:swipe/);
+    await expect(fixture).toHaveAttribute('data-open-changes', '');
+    await expect(page.getByTestId('popup')).not.toHaveAttribute('data-ending-style');
+  });
+
+  // DRW-PTR-11, ALG-01 (DrawerViewport.test.tsx:4073-4160).
+  test('does not dismiss from an unattributed fast swipe with snapToSequentialPoints', async ({ page, mode }) => {
+    const fixture = await snapCase(page, mode, { snapPoints: '100px,200px', sequential: 'true', alwaysOpen: 'true', ph: '300' });
+    const popup = page.getByTestId('popup');
+
+    await timedSwipe(page, steps([[100, 10], [120, 12], [200, 20], [240, 55], [240, 55]], [1000, 1050, 1100, 1120, 1130]));
+
+    await expect(fixture).toHaveAttribute('data-snap-changes', '100px:swipe');
+    await expect(fixture).toHaveAttribute('data-open-changes', '');
+    await expect(popup).not.toHaveAttribute('data-ending-style');
+    await expect(popup).not.toHaveAttribute('data-swipe-dismiss');
+  });
+
+  // DRW-ALG-01, ANI-02, DIS-05 (DrawerViewport.test.tsx:4162-4262): the change to none is canceled, so no exit style is
+  // ever written.
+  test('does not start swipe dismissal when closing the snap point is canceled', async ({ page, mode }) => {
+    const fixture = await snapCase(page, mode, {
+      snapPoints: '100px,200px',
+      defaultSnap: '100px',
+      sequential: 'true',
+      alwaysOpen: 'true',
+      cancelSnap: 'null',
+      ph: '300',
+    });
+    const popup = page.getByTestId('popup');
+    await popup.evaluate((element) => {
+      const seen: string[] = [];
+      (window as unknown as { releaseAttributes: string[] }).releaseAttributes = seen;
+      new MutationObserver((records) => records.forEach((record) => record.attributeName && seen.push(record.attributeName))).observe(element, {
+        attributeFilter: ['data-ending-style', 'data-swipe-dismiss'],
+        attributes: true,
+      });
+    });
+
+    await timedSwipe(page, steps([[100, 10], [100, 30], [100, 80], [100, 100]], [1000, 1050, 1100, 1120]));
+
+    await expect(fixture).toHaveAttribute('data-snap-changes', 'null:swipe');
+    await settle(fixture);
+    await expect(fixture).toHaveAttribute('data-open-changes', '');
+    // Blazor Server learns of the cancel a round trip after the release, which starts its exit styles optimistically and
+    // removes them when the answer comes (the 8b design's Server relaxation, an ADR 01 row of slice 5). WebAssembly decides
+    // inside the release, so no exit style is ever written there, as in Base UI.
+    if (mode === 'wasm') {
+      expect(await page.evaluate(() => (window as unknown as { releaseAttributes: string[] }).releaseAttributes)).toEqual([]);
+    }
+    await expect(popup).not.toHaveAttribute('data-ending-style');
+    await expect(popup).not.toHaveAttribute('data-swipe-dismiss');
+  });
+
+  // DRW-PTR-11, ALG-01 (DrawerViewport.test.tsx:4264-4437): a slow diagonal drag that never attributes a direction ends
+  // nearer closed than any snap point, and settles on the nearest one.
+  for (const sequential of [false, true]) {
+    const title = sequential
+      ? 'settles on the nearest snap point when an unattributed drag ends past the last snap point with snapToSequentialPoints'
+      : 'settles on the nearest snap point when an unattributed drag ends past the last snap point';
+    test(title, async ({ page, mode }) => {
+      const fixture = await snapCase(page, mode, {
+        snapPoints: '200px,100px',
+        defaultSnap: '100px',
+        alwaysOpen: 'true',
+        ph: '300',
+        ...(sequential ? { sequential: 'true' } : {}),
+      });
+
+      await timedSwipe(page, steps([[100, 100], [200, 120], [300, 170], [400, 190], [400, 190]], [1000, 1100, 1400, 1900, 1950]));
+
+      await expect(fixture).toHaveAttribute('data-snap-changes', '100px:swipe');
+      await expect(fixture).toHaveAttribute('data-open-changes', '');
+      await expect(page.getByTestId('popup')).not.toHaveAttribute('data-ending-style');
+    });
+  }
+
+  // DRW-EDGE-04, PTR-11 (DrawerViewport.test.tsx:4485-4554): a popup 0 px tall; its text overflows, so the press lands on
+  // it.
+  test('does not resolve snap points before the popup has a measurable height', async ({ page, mode }) => {
+    const fixture = await snapCase(page, mode, { snapPoints: '100px,200px', alwaysOpen: 'true', ph: '0' });
+
+    await timedSwipe(page, steps([[5, 5], [5, 6], [5, 45], [5, 45]]));
+    await settle(fixture);
+
+    await expect(fixture).toHaveAttribute('data-open-changes', '');
+  });
+
+  // DRW-EDGE-04, PTR-10, PTR-11 (DrawerViewport.test.tsx:4556-4620).
+  test('falls back to regular dismissal when all snap points are invalid', async ({ page, mode }) => {
+    const fixture = await snapCase(page, mode, { snapPoints: '50%', alwaysOpen: 'true', ph: '200' });
+
+    await timedSwipe(page, steps([[5, 5], [5, 6], [5, 145], [5, 145]]));
+
+    await expect(fixture).toHaveAttribute('data-open-changes', 'false:swipe');
+  });
+});

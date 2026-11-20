@@ -41,10 +41,11 @@
       open state is the fixture's: a close it is told of closes it, unless `alwaysOpen=true` (a parent that rejects every
       close) or `cancelClose=true`. `snapPoints` lists the snap points, comma-separated, numbers or CSS lengths
       (`100px,300px,1` by default); `snap` makes the snap point controlled from that value (`null` for none), and
-      `defaultSnap` makes it uncontrolled from that default; `cancelSnap=true` cancels every snap point change;
+      `defaultSnap` makes it uncontrolled from that default; `cancelSnap=true` cancels every snap point change and
+      `cancelSnap=null` only a change to none;
       `sequential=true` sets `SnapToSequentialPoints`; `keepMounted=true` keeps the portal mounted; `direction` is the
       swipe direction (`down` by default). The Viewport covers the page (720 px tall under Playwright's default viewport), and the
-      popup is fixed at left 0 and top 0, 200 px wide and `ph` px tall (600 by default), so every start point of Base UI's
+      popup is fixed at left 0 and top 0, `pw` px wide (200 by default) and `ph` px tall (600 by default), so every start point of Base UI's
       timelines lands on it. The snap point changes are recorded as `value:reason` in `data-snap-changes`, and the
       controlled value as `data-active-snap` (`null` for none).
     - `noPopup=true`: the Viewport renders no Popup ("ignores swipe input until a popup is mounted").
@@ -241,7 +242,7 @@
     private RenderFragment SnapParts => @<DrawerPortal KeepMounted="@(QueryFlag("keepMounted") == true)">
         <DrawerBackdrop data-testid="backdrop" />
         <DrawerViewport @ref="viewport" data-testid="viewport" style="position: fixed; inset: 0;">
-            <DrawerPopup data-testid="popup" style="@($"position: fixed; left: 0; top: 0; width: 200px; height: {Query("ph") ?? "600"}px;")">Drawer</DrawerPopup>
+            <DrawerPopup data-testid="popup" style="@($"position: fixed; left: 0; top: 0; width: {Query("pw") ?? "200"}px; height: {Query("ph") ?? "600"}px;")">Drawer</DrawerPopup>
         </DrawerViewport>
     </DrawerPortal>;
 
@@ -311,7 +312,7 @@
     private void RecordSnapPointChange(ValueChangeEventArgs<SnapPointValue?> args)
     {
         snapChanges.Add($"{SnapText(args.Value)}:{args.Details.Reason.ToLiteral()}");
-        if (QueryFlag("cancelSnap") == true)
+        if (QueryFlag("cancelSnap") == true || (Query("cancelSnap") == "null" && args.Value is null))
         {
             args.Details.Cancel();
         }
