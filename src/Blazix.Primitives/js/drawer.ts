@@ -129,6 +129,7 @@ const SWIPE_STRENGTH = '--drawer-swipe-strength';
 const SWIPE_PROGRESS = '--drawer-swipe-progress';
 const DRAWER_HEIGHT = '--drawer-height';
 const SNAP_POINT_OFFSET = '--drawer-snap-point-offset';
+const NESTED_DRAWER_OPEN = 'data-nested-drawer-open';
 
 function clamp(value: number, min: number, max: number): number {
   return Math.min(Math.max(value, min), max);
@@ -616,13 +617,28 @@ function attachPopup(popup: HTMLElement | null, initial: DrawerOptions, twin: Re
   band?.absorbForeignWrites();
   const layer = band ? band.layer('component') : null;
   const channel = popup ? nestedSwipeProgress(popup) : null;
+  // DRW-DOM-09's same commit: C# renders `data-nested-drawer-open` before the nested drawer's presence (DRW-STA-12) reaches
+  // this handle, and an open nested drawer is a present one, so the attribute counts as presence in its own microtask.
+  let nestedOpenMarked = popup?.hasAttribute(NESTED_DRAWER_OPEN) ?? false;
+  const View = popup ? ownerWindow(popup).MutationObserver : undefined;
+  const markObserver =
+    popup && typeof View === 'function'
+      ? new View(() => {
+          const marked = popup.hasAttribute(NESTED_DRAWER_OPEN);
+          if (marked !== nestedOpenMarked) {
+            nestedOpenMarked = marked;
+            syncHeight();
+          }
+        })
+      : null;
+  markObserver?.observe(popup!, { attributes: true, attributeFilter: [NESTED_DRAWER_OPEN] });
 
   const syncProgress = () => {
     const progress = channel!.get();
     layer?.set(SWIPE_PROGRESS, progress > 0 ? `${progress}` : '0');
   };
   const syncHeight = () => {
-    if (shownHeight && (options.hasNestedDrawer || options.ending)) {
+    if (shownHeight && (options.hasNestedDrawer || nestedOpenMarked || options.ending)) {
       layer?.set(DRAWER_HEIGHT, `${shownHeight}px`);
     } else {
       layer?.remove(DRAWER_HEIGHT);
@@ -690,6 +706,7 @@ function attachPopup(popup: HTMLElement | null, initial: DrawerOptions, twin: Re
       }
       disposed = true;
       stopResize?.();
+      markObserver?.disconnect();
       unsubscribe?.();
       layer?.set(SWIPE_PROGRESS, '0');
       layer?.remove(DRAWER_HEIGHT);
