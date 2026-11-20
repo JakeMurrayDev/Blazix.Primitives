@@ -257,6 +257,16 @@ describe('otp-field: typing and the revision rule (variant (ii), decision 6 (a);
     expect(slots[0].value).toBe('');
   });
 
+  it('port: a focused slot the update restores stays selected (OTP-KEY-17, "keeps the filled slot selected when typing an invalid character")', () => {
+    const attached = mount({ value: '1' });
+    const { slots } = attached;
+    slots[0].focus();
+    type(slots[0], 'a');
+    attached.update({ value: '1', revision: 1 });
+    expect([slots[0].value, slots[0].selectionStart, slots[0].selectionEnd]).toEqual(['1', 0, 1]);
+    expect(document.activeElement).toBe(slots[0]);
+  });
+
   it('port: a field without the optimistic advance keeps focus until the update, whose focus request runs once per revision (OTP-FOC-10)', () => {
     const attached = mount({ value: '', optimistic: false });
     const { slots } = attached;

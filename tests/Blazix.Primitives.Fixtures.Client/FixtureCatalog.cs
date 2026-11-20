@@ -116,6 +116,8 @@ public static class FixtureCatalog
         ["number-field-scrub"] = new(typeof(NumberFieldScrubFixture)),
         ["number-field-toolbar"] = new(typeof(NumberFieldToolbarFixture)),
         ["otp-field-basic"] = new(typeof(OtpFieldBasicFixture)),
+        ["otp-field-rtl"] = new(typeof(OtpFieldRtlFixture)),
+        ["otp-field-labels"] = new(typeof(OtpFieldLabelsFixture)),
         ["progress-basic"] = new(typeof(ProgressBasicFixture)),
         ["progress-prerender"] = new(typeof(ProgressPrerenderFixture), Prerender: true),
         ["composite-list"] = new(typeof(CompositeListFixture)),
