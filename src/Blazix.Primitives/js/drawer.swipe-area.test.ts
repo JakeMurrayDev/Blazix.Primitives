@@ -177,6 +177,27 @@ describe('drawer module: the swipe area (DrawerSwipeArea.test.tsx)', () => {
     expect(requests().map((request) => request.open)).toEqual([true, false]);
   });
 
+  // DRW-PTR-30 on Blazor Server: a release that does not commit before C# answers the gesture's open closes the drawer once
+  // the answer says it opened, and asks for nothing when the open was rejected.
+  it('port: a release before the open is answered closes the drawer only once it opened', () => {
+    const accepted = swipeArea();
+    pointer('pointerdown', accepted.area, 200, 0);
+    pointer('pointermove', accepted.area, 190, 0, 200);
+    pointer('pointermove', accepted.area, 180, 0, 200);
+    pointer('pointerup', accepted.area, 180, 0, 400);
+    expect(accepted.requests().map((request) => request.open)).toEqual([true]);
+    accepted.opened({ answeredOpen: 1 });
+    expect(accepted.requests().map((request) => request.open)).toEqual([true, false]);
+
+    const rejected = swipeArea();
+    pointer('pointerdown', rejected.area, 200, 0);
+    pointer('pointermove', rejected.area, 190, 0, 200);
+    pointer('pointermove', rejected.area, 180, 0, 200);
+    pointer('pointerup', rejected.area, 180, 0, 400);
+    rejected.update({ open: false, answeredOpen: 1 });
+    expect(rejected.requests().map((request) => request.open)).toEqual([true]);
+  });
+
   // DRW-PTR-28, EVT-01 (DrawerSwipeArea.test.tsx:539-575): a controlled owner that keeps the drawer closed sees no movement
   // and no close.
   it('port: applies no movement and requests no close when the open is rejected', () => {
