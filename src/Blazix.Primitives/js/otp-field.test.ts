@@ -374,6 +374,18 @@ describe('otp-field: paste and composition (OTP-KEY-18..23, OTP-EDGE-05)', () =>
     expect(edits(fake).map((e) => [e.kind, e.raw])).toEqual([['input', '3']]);
   });
 
+  it('port: a composition that ends after the field became read-only commits nothing and restores the slot', () => {
+    const attached = mount({ value: '', optimistic: false });
+    const { slots, fake } = attached;
+    slots[0].focus();
+    slots[0].dispatchEvent(new CompositionEvent('compositionstart', { bubbles: true }));
+    type(slots[0], 'abc');
+    attached.update({ readOnly: true });
+    slots[0].dispatchEvent(new CompositionEvent('compositionend', { bubbles: true }));
+    expect(edits(fake)).toEqual([]);
+    expect(slots[0].value).toBe('');
+  });
+
   it('port: on Android every input during a composition is committed (OTP-KEY-22, OTP-KEY-23)', () => {
     setEnvironmentForTesting({ android: true });
     const { slots, fake } = mount({ value: '', optimistic: false });
