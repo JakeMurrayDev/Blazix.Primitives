@@ -448,8 +448,9 @@ export function attach(
     focusInput(index);
   };
 
-  // OTP-FOC-03..05, OTP-FOC-07 (OTPFieldInput.tsx:171-187; OTPFieldRoot.tsx:274-283): a slot past the value's end sends
-  // focus to the end target; otherwise the slot is selected. The focus is reported once when it enters the root.
+  // OTP-FOC-03..05, OTP-FOC-07, OTP-FOC-09 (OTPFieldInput.tsx:171-187; OTPFieldRoot.tsx:274-283): a slot past the value's
+  // end sends focus to the end target; otherwise the slot is selected. Every slot focus is reported, so the field's focus
+  // owner is the slot that last took focus (useSetFieldFocused, one per slot).
   const onFocusIn = (event: FocusEvent) => {
     const index = indexOf(event.target);
     if (index < 0 || disposed || event.defaultPrevented || options.disabled) {
@@ -458,10 +459,8 @@ export function attach(
     if (asks(FOCUS_POINT) && decide(twin, FOCUS_POINT, event, 'run') !== 'run') {
       return;
     }
-    if (!reportedFocus) {
-      reportedFocus = true;
-      twin.report('OnFocus', { index, event: eventInfo(event) } satisfies OtpFieldFocusReport);
-    }
+    reportedFocus = true;
+    twin.report('OnFocus', { index, event: eventInfo(event) } satisfies OtpFieldFocusReport);
     if (index > value.length) {
       focusInput(Math.min(value.length, options.length - 1));
       return;

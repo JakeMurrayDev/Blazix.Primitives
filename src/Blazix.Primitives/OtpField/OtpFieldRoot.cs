@@ -593,12 +593,12 @@ public sealed class OtpFieldRoot : PartBase<OtpFieldRootState>
             focusedIndex = index;
         }
 
+        // OTP-FOC-09: a slot-to-slot move only hands the owner over; the module owns the tab stop, so nothing renders.
         if (!focused)
         {
             focused = true;
+            Refresh();
         }
-
-        Refresh();
     }
 
     // OTP-FOC-07, OTP-FRM-09, OTP-FRM-10 (OTPFieldRoot.tsx:286-298): a blur whose related target is outside the root.
