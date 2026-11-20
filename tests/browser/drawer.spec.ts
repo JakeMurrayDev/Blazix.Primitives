@@ -475,3 +475,129 @@ test.describe('<Drawer.Viewport /> touch swipe over a scroll container', () => {
     await expect(fixture).toHaveAttribute('data-open-changes', 'false:swipe');
   });
 });
+
+// Slice 2's other scroll edges (added 2026-11-20): the fixture's `case=scroll` popup sits at left 300, top 300 (200 by
+// 300 px) with a vertical scroller (60 px over 120, y 300-360) and a horizontal one (120 px over 360, x 300-420, y
+// 360-400); `direction` is the swipe direction. Base UI stubs the scroll offsets; here they are set before the drag.
+const scrollCase = async (page: Page, mode: RenderMode, direction: string, offsets: { scrollTop?: number | 'max'; scrollLeft?: number | 'max' } = {}) => {
+  const fixture = await gotoPopupFixture(page, mode, 'drawer-swipe', { case: 'scroll', direction });
+  await page.evaluate((offsets) => {
+    const scroll = document.querySelector<HTMLElement>('[data-testid="scroll"]')!;
+    const hscroll = document.querySelector<HTMLElement>('[data-testid="hscroll"]')!;
+    if (offsets.scrollTop !== undefined) {
+      scroll.scrollTop = offsets.scrollTop === 'max' ? scroll.scrollHeight - scroll.clientHeight : offsets.scrollTop;
+    }
+    if (offsets.scrollLeft !== undefined) {
+      hscroll.scrollLeft = offsets.scrollLeft === 'max' ? hscroll.scrollWidth - hscroll.clientWidth : offsets.scrollLeft;
+    }
+  }, offsets);
+  return fixture;
+};
+const scrollCenter = { x: 400, y: 330 };
+const hscrollCenter = { x: 360, y: 380 };
+
+test.describe('<Drawer.Viewport /> touch swipe from other scroll edges', () => {
+  // DRW-PTR-21 (DrawerViewport.test.tsx:1652-1702): at the bottom, a drag toward an up drawer's dismiss direction is the
+  // drawer's.
+  testWithTouch('prevents touchmove at scroll bottom when swiping up on scrollable content', async ({ touchPage: page, mode }) => {
+    await scrollCase(page, mode, 'up', { scrollTop: 'max' });
+    await recordScrollMoves(page);
+    const { x, y } = scrollCenter;
+
+    await touchDrag(page, [[{ x, y }, { x, y: y - 25 }, { x, y: y - 60 }]], {
+      steps: 1,
+      beforeRelease: () => expect(page.getByTestId('backdrop')).toHaveAttribute('data-swiping', ''),
+    });
+
+    const { prevented, reached } = await scrollMoves(page);
+    expect(prevented.length).toBeGreaterThan(0);
+    expect(prevented.every(Boolean)).toBe(true);
+    expect(reached).toBe(0);
+  });
+
+  // "starts swipe-to-dismiss after a scrollable container reaches the dismiss edge" (DRW-PTR-21, ALG-03;
+  // DrawerViewport.test.tsx:2445-2511) is ported at L3 (js/drawer.test.ts), 2026-11-20: here the drag from scrollTop 20
+  // scrolled the content to 0, and Chromium sent every move after the first as non-cancelable (cancelable, y, scrollTop:
+  // [true,330,20], [false,343,0], [false,355,0], [false,403,0], [false,450,0]), so Base UI's own condition, a cancelable
+  // move toward the dismiss edge, never holds in one real gesture.
+
+  // DRW-PTR-21, PTR-10 (DrawerViewport.test.tsx:2584-2653).
+  testWithTouch('dismisses from a bottom-edge scroll container with a touch swipe up', async ({ touchPage: page, mode }) => {
+    const fixture = await scrollCase(page, mode, 'up', { scrollTop: 'max' });
+    const { x, y } = scrollCenter;
+
+    await touchDrag(page, [[{ x, y }, { x, y: y - 25 }, { x, y: y - 250 }]], {
+      steps: 1,
+      beforeRelease: () => expect(page.getByTestId('backdrop')).toHaveAttribute('data-swiping', ''),
+    });
+
+    await expect(fixture).toHaveAttribute('data-open-changes', 'false:swipe');
+  });
+
+  // DRW-PTR-21, PTR-10 (DrawerViewport.test.tsx:2655-2724).
+  testWithTouch('dismisses from a left-edge horizontal scroll container with a touch swipe right', async ({ touchPage: page, mode }) => {
+    const fixture = await scrollCase(page, mode, 'right', { scrollLeft: 0 });
+    const { x, y } = hscrollCenter;
+
+    await touchDrag(page, [[{ x, y }, { x: x + 25, y }, { x: x + 250, y }]], {
+      steps: 1,
+      beforeRelease: () => expect(page.getByTestId('backdrop')).toHaveAttribute('data-swiping', ''),
+    });
+
+    await expect(fixture).toHaveAttribute('data-open-changes', 'false:swipe');
+  });
+
+  // DRW-PTR-21, PTR-10 (DrawerViewport.test.tsx:2726-2795).
+  testWithTouch('dismisses from a right-edge horizontal scroll container with a touch swipe left', async ({ touchPage: page, mode }) => {
+    const fixture = await scrollCase(page, mode, 'left', { scrollLeft: 'max' });
+    const { x, y } = hscrollCenter;
+
+    await touchDrag(page, [[{ x, y }, { x: x - 25, y }, { x: x - 250, y }]], {
+      steps: 1,
+      beforeRelease: () => expect(page.getByTestId('backdrop')).toHaveAttribute('data-swiping', ''),
+    });
+
+    await expect(fixture).toHaveAttribute('data-open-changes', 'false:swipe');
+  });
+
+  // DRW-PTR-21, PTR-22 (DrawerViewport.test.tsx:2898-2948): the vertical scroller is the cross axis of a right drawer.
+  testWithTouch('allows horizontal swipe dismiss from a vertical scroll container', async ({ touchPage: page, mode }) => {
+    await scrollCase(page, mode, 'right', { scrollTop: 20 });
+    const { x, y } = scrollCenter;
+
+    await touchDrag(page, [[{ x, y }, { x: x + 25, y }, { x: x + 80, y }]], {
+      steps: 1,
+      beforeRelease: () => expect(page.getByTestId('backdrop')).toHaveAttribute('data-swiping', ''),
+    });
+  });
+
+  // DRW-PTR-21 (a) (DrawerViewport.test.tsx:5421-5451). Folded with its positive half: the first finger's drag alone
+  // moves the popup. Base UI's jsdom title also finds no data-swiping, because jsdom's hit test misses the popup at the
+  // touch start; in a browser the touch on the popup starts the swipe at once, so here the title asserts what the
+  // browser keeps: the moves are not prevented and the popup does not follow the fingers. The root is always open, so a
+  // dismissal attempt leaves the popup in place.
+  testWithTouch('leaves pinch-zoom touchmove to the browser', async ({ touchPage: page, mode }) => {
+    const fixture = await downCase(page, mode, { alwaysOpen: 'true' });
+    const popup = page.getByTestId('popup');
+    const top = () => popup.evaluate((element) => Math.round(element.getBoundingClientRect().top));
+    const first = [popupPoint, { x: popupPoint.x, y: popupPoint.y + 30 }, { x: popupPoint.x, y: popupPoint.y + 60 }];
+
+    await touchDrag(page, [first], { steps: 1, beforeRelease: () => expect.poll(top).toBeGreaterThan(100) });
+    await settle(fixture);
+    await expect.poll(top).toBe(100);
+
+    await recordScrollMoves(page);
+    const second = [{ x: 150, y: popupPoint.y }, { x: 150, y: popupPoint.y - 30 }, { x: 150, y: popupPoint.y - 60 }];
+    await touchDrag(page, [first, second], {
+      steps: 1,
+      beforeRelease: async () => {
+        await settle(fixture);
+        expect(await top()).toBe(100);
+      },
+    });
+
+    const { prevented } = await scrollMoves(page);
+    expect(prevented.length).toBeGreaterThan(0);
+    expect(prevented.some(Boolean)).toBe(false);
+  });
+});

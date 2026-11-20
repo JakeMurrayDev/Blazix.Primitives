@@ -468,6 +468,30 @@ describe('drawer module: the Viewport touch path', () => {
     expect(top.fake.reported('OnDismissRequest')).toHaveLength(1);
   });
 
+  // DRW-PTR-21, ALG-03 (DrawerViewport.test.tsx:2445-2511), ported here rather than at L4 (2026-11-20): Chromium makes every
+  // touchmove after the first non-cancelable once its native scroll starts, so one real gesture never reaches the edge
+  // with a cancelable move (tests/browser/drawer.spec.ts's note on the title).
+  it('starts swipe-to-dismiss after a scrollable container reaches the dismiss edge', () => {
+    const { popup, backdrop } = mount();
+    const scroller = document.createElement('div');
+    scroller.style.overflowY = 'auto';
+    Object.defineProperty(scroller, 'scrollHeight', { value: 120, configurable: true });
+    Object.defineProperty(scroller, 'clientHeight', { value: 40, configurable: true });
+    scroller.scrollTop = 30;
+    popup.append(scroller);
+    pointTarget = scroller;
+
+    touch('touchstart', scroller, [{ clientX: 0, clientY: 30 }]);
+    const first = touch('touchmove', scroller, [{ clientX: 0, clientY: 40 }]);
+    expect(first.defaultPrevented).toBe(false);
+    expect(backdrop.hasAttribute('data-swiping')).toBe(false);
+
+    scroller.scrollTop = 0;
+    const second = touch('touchmove', scroller, [{ clientX: 0, clientY: 50 }]);
+    expect(second.defaultPrevented).toBe(true);
+    expect(backdrop.getAttribute('data-swiping')).toBe('');
+  });
+
   it('port: a touch that starts in the popup may start after leaving it, and one that starts outside moves nothing until it enters', () => {
     // The start waits for the drawer axis over a cross-axis target, and by then the touch has left the popup.
     const inside = mount();
