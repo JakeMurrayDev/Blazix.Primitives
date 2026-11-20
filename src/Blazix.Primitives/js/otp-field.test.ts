@@ -384,6 +384,26 @@ describe('otp-field: paste and composition (OTP-KEY-18..23, OTP-EDGE-05)', () =>
     expect(edits(fake).map((e) => [e.kind, e.raw])).toEqual([['input', '3']]);
   });
 
+  it('port: on WebAssembly the update a committed composition gets inside the decision rewrites the composed slot', () => {
+    const { slots } = mount(
+      { value: '', optimistic: false, slotPattern: '[a-zA-Z0-9]{1}' },
+      {
+        synchronous: true,
+        onDecide: (point, attached) => {
+          if (point === EDIT_POINT) {
+            attached.update({ value: 'ddd', revision: 1, focus: { index: 3, revision: 1 } });
+          }
+        },
+      },
+    );
+    slots[0].focus();
+    slots[0].dispatchEvent(new CompositionEvent('compositionstart', { bubbles: true }));
+    type(slots[0], 'ddd');
+    slots[0].dispatchEvent(new CompositionEvent('compositionend', { bubbles: true }));
+    expect(slots.map((s) => s.value).join('')).toBe('ddd');
+    expect(document.activeElement).toBe(slots[3]);
+  });
+
   it('port: a composition that ends after the field became read-only commits nothing and restores the slot', () => {
     const attached = mount({ value: '', optimistic: false });
     const { slots, fake } = attached;
