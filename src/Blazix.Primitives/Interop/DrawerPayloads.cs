@@ -18,3 +18,8 @@ internal sealed record DrawerDismissRequest(int Request, EventSnapshot Event);
 /// <param name="Index">The index of the requested snap point in <see cref="DrawerOptions.SnapPoints"/>, or <see langword="null"/> for none.</param>
 /// <param name="Event">The snapshot of the release event.</param>
 internal sealed record DrawerSnapPointRequest(int Request, int? Index, EventSnapshot Event);
+
+// DRW-STA-10; M6 track 8b slice 3 (2026-11-21): the Popup's measured height, which its Root records as its popup height.
+/// <summary>The payload of a measurement of the drawer's popup.</summary>
+/// <param name="Height">The popup's height in pixels, borders included; 0 once it is no longer mounted.</param>
+internal sealed record DrawerPopupHeightChange(double Height);

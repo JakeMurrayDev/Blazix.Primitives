@@ -58,6 +58,25 @@ internal sealed record DrawerOptions : TwinOptions
     /// <summary>Gets the number of the last request for no snap point that a consumer canceled, whose dismissal C# dropped.</summary>
     public int CanceledSnap { get; init; }
 
+    // Slice 3 (2026-11-21): DRW-PTR-16's Provider and parent halves, PTR-17, and the popup and indent roles.
+    /// <summary>Gets the token of the provider the drawer or the indent is under, or <see langword="null"/> without one.</summary>
+    public string? Provider { get; init; }
+
+    /// <summary>Gets the root's frontmost height in pixels; 0 before any measurement.</summary>
+    public double FrontmostHeight { get; init; }
+
+    /// <summary>Gets a value indicating whether the drawer is nested in another drawer.</summary>
+    public bool HasParent { get; init; }
+
+    /// <summary>Gets the indexes among the references of the enclosing drawers' popups, the nearest first, or <see langword="null"/> for none.</summary>
+    public IReadOnlyList<int>? AncestorPopups { get; init; }
+
+    /// <summary>Gets a value indicating whether a nested drawer is open or animating out; read by the popup role.</summary>
+    public bool HasNestedDrawer { get; init; }
+
+    /// <summary>Gets a value indicating whether the popup is animating out; read by the popup role.</summary>
+    public bool Ending { get; init; }
+
     /// <summary>Gets the index of the popup element among the references sent with the options.</summary>
     /// <value>The index, or <see langword="null"/>, the default, while no popup is rendered.</value>
     public int? Popup { get; init; }

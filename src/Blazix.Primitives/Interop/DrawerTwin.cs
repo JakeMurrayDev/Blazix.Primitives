@@ -17,6 +17,14 @@ internal sealed class DrawerTwin(IJSRuntime jsRuntime)
     /// <summary>Represents the role of the handle a drawer's viewport attaches.</summary>
     public const string ViewportRole = "viewport";
 
+    // Slice 3 (2026-11-21): the Popup measures itself (DRW-STA-10) and shows its nested drawers' progress (DOM-14); an
+    // Indent shows its Provider's visual state (DOM-32).
+    /// <summary>Represents the role of the handle a drawer's popup attaches.</summary>
+    public const string PopupRole = "popup";
+
+    /// <summary>Represents the role of the handle a drawer indent attaches under a provider.</summary>
+    public const string IndentRole = "indent";
+
     /// <summary>Represents the name of the decision point the module asks about when a swipe release dismisses the drawer.</summary>
     public const string DismissPoint = "dismiss";
 
@@ -33,6 +41,12 @@ internal sealed class DrawerTwin(IJSRuntime jsRuntime)
 
     /// <summary>Occurs when the module reports a release that moves the drawer to a snap point, on Blazor Server.</summary>
     public event Action<DrawerSnapPointRequest>? SnapPointRequested;
+
+    /// <summary>Occurs when the popup's handle reports a new measured height.</summary>
+    public event Action<double>? PopupHeightChanged;
+
+    /// <summary>Occurs when the viewport's handle reports that the drawer, nested in another, starts or stops being swiped.</summary>
+    public event Action<bool>? NestedSwipingChanged;
 
     /// <summary>Gets or sets the C# handler chain of the dismiss decision point.</summary>
     /// <value>
@@ -74,6 +88,26 @@ internal sealed class DrawerTwin(IJSRuntime jsRuntime)
     {
         DrawerSnapPointRequest request = Deserialize(payloadJson, BlazixJsonContext.Default.DrawerSnapPointRequest);
         SnapPointRequested?.Invoke(request);
+    }
+
+    /// <summary>Receives the popup's measured height.</summary>
+    /// <param name="payloadJson">The JSON of a <see cref="DrawerPopupHeightChange"/>.</param>
+    /// <exception cref="System.Text.Json.JsonException">The payload is not valid.</exception>
+    [JSInvokable]
+    public void OnPopupHeightChange(string payloadJson)
+    {
+        DrawerPopupHeightChange change = Deserialize(payloadJson, BlazixJsonContext.Default.DrawerPopupHeightChange);
+        PopupHeightChanged?.Invoke(change.Height);
+    }
+
+    /// <summary>Receives a change of whether the drawer, nested in another, is being swiped.</summary>
+    /// <param name="payloadJson">The JSON of a <see cref="DrawerSwipingChange"/>.</param>
+    /// <exception cref="System.Text.Json.JsonException">The payload is not valid.</exception>
+    [JSInvokable]
+    public void OnNestedSwipingChange(string payloadJson)
+    {
+        DrawerSwipingChange change = Deserialize(payloadJson, BlazixJsonContext.Default.DrawerSwipingChange);
+        NestedSwipingChanged?.Invoke(change.Swiping);
     }
 
     /// <inheritdoc />

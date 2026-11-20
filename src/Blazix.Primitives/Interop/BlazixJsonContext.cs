@@ -69,6 +69,8 @@ namespace Blazix.Primitives.Interop;
 // M6 track 8b slice 3 (issue 279), 2026-11-20: the Drawer's numbered snap point request, as DrawerDismissRequest above
 // (design point 10 (a), chosen by the user 2026-11-19).
 [JsonSerializable(typeof(DrawerSnapPointRequest))]
+// M6 track 8b slice 3 (issue 279), 2026-11-21: the Popup's measured height (DRW-STA-10).
+[JsonSerializable(typeof(DrawerPopupHeightChange))]
 [JsonSerializable(typeof(TabsSelection))]
 [JsonSerializable(typeof(TabsTabEvent))]
 [JsonSerializable(typeof(TabsDirectionChange))]
