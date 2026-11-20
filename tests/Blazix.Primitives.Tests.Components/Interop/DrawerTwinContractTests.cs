@@ -40,6 +40,10 @@ public sealed class DrawerTwinContractTests
             NestedOpenDrawerCount = 2,
             SwipeDirection = "right",
             AnsweredDismiss = 3,
+            SnapPoints = [0.5, "200px"],
+            ActiveSnapPoint = "200px",
+            SnapToSequentialPoints = true,
+            AnsweredSnap = 4,
             Popup = 0,
             Backdrop = 1,
         });
@@ -48,13 +52,13 @@ public sealed class DrawerTwinContractTests
         JSRuntimeInvocation attach = Assert.Single(module.Invocations["attach"]);
         Assert.Equal("base-ui-1", attach.Arguments[0]);
         Assert.Equal(
-            """{"role":"viewport","open":false,"mounted":false,"nested":false,"nestedOpenDrawerCount":0,"swipeDirection":"down","answeredDismiss":0}""",
+            """{"role":"viewport","open":false,"mounted":false,"nested":false,"nestedOpenDrawerCount":0,"swipeDirection":"down","answeredDismiss":0,"snapToSequentialPoints":false,"answeredSnap":0}""",
             attach.Arguments[1]);
         Assert.IsType<DotNetObjectReference<DrawerTwin>>(attach.Arguments[2]);
 
         JSRuntimeInvocation update = Assert.Single(handle.Invocations["update"]);
         Assert.Equal(
-            """{"role":"viewport","open":true,"mounted":true,"nested":true,"nestedOpenDrawerCount":2,"swipeDirection":"right","answeredDismiss":3,"popup":0,"backdrop":1}""",
+            """{"role":"viewport","open":true,"mounted":true,"nested":true,"nestedOpenDrawerCount":2,"swipeDirection":"right","answeredDismiss":3,"snapPoints":[0.5,"200px"],"activeSnapPoint":"200px","snapToSequentialPoints":true,"answeredSnap":4,"popup":0,"backdrop":1}""",
             update.Arguments[0]);
     }
 
