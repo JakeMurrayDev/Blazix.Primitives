@@ -1435,9 +1435,13 @@ function createVirtualKeyboard(rootElement: HTMLElement | null): VirtualKeyboard
     };
     getKeyboardViewportRef = getKeyboardViewport;
 
-    // DRW-DOM-23.
+    // DRW-DOM-23. C# renders the Viewport's `style`, and a Blazor re-render rewrites the whole attribute, so the inset is
+    // a `component` band of the Viewport's style writer, which absorbs that foreign write before paint (M6 track 8c).
+    const insetWriter = styleWriter(root);
+    insetWriter.absorbForeignWrites();
+    const insetBand = insetWriter.layer('component');
     const setDrawerKeyboardInset = (value: number) => {
-      root.style.setProperty(KEYBOARD_INSET, `${Math.max(0, Math.ceil(value))}px`);
+      insetBand.set(KEYBOARD_INSET, `${Math.max(0, Math.ceil(value))}px`);
     };
 
     // DRW-FOC-09: while the drawer is modal, a window scroll during keyboard interaction is spurious (WebKit's reveal can
@@ -1688,7 +1692,7 @@ function createVirtualKeyboard(rootElement: HTMLElement | null): VirtualKeyboard
       keyboardRealignTimeout.clear();
       getKeyboardViewportRef = null;
       (smallViewportProbe as HTMLElement | null)?.remove();
-      root.style.removeProperty(KEYBOARD_INSET);
+      insetBand.remove(KEYBOARD_INSET);
     };
   };
 
