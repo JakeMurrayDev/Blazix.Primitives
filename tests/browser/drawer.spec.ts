@@ -2023,6 +2023,8 @@ test.describe('<Drawer.Popup /> measurement', () => {
     const parentPopup = page.getByTestId('parent-popup');
     await page.getByRole('button', { name: 'Open nested drawer' }).click();
     const childPopup = page.getByTestId('child-popup');
+    // The expected value is read once, so it waits for the nested popup's layout (an offsetHeight of 0 before it).
+    await expect.poll(() => childPopup.evaluate((element) => (element as HTMLElement).offsetHeight)).toBeGreaterThan(0);
 
     await expect.poll(async () => styleOf(parentPopup, '--drawer-frontmost-height')).toBe(
       `${await childPopup.evaluate((element) => (element as HTMLElement).offsetHeight)}px`,
