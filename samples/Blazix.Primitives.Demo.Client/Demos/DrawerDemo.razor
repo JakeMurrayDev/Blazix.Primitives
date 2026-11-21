@@ -1,0 +1,67 @@
+<DemoFrame Slug="drawer" Note="A drawer that slides in from the side and is swiped away, and a bottom sheet that snaps between a peek and a near full-height view.">
+    <Hero>
+        <DrawerRoot TPayload="NoPayload" SwipeDirection="SwipeDirection.Right">
+            <DrawerTrigger TPayload="NoPayload" class="@ButtonClass">Open drawer</DrawerTrigger>
+            <DrawerPortal>
+                <DrawerBackdrop class="@BackdropClass" />
+                <DrawerViewport class="[--viewport-padding:0px] supports-[-webkit-touch-callout:none]:[--viewport-padding:0.625rem] fixed inset-0 flex items-stretch justify-end p-(--viewport-padding)">
+                    <DrawerPopup class="[--bleed:3rem] supports-[-webkit-touch-callout:none]:[--bleed:0px] h-full w-[calc(20rem+3rem)] max-w-[calc(100vw-3rem+3rem)] -mr-[3rem] border-l border-neutral-950 bg-white p-6 pr-[calc(1.5rem+3rem)] text-neutral-950 outline-none shadow-[0.25rem_0.25rem_0] shadow-black/12 overflow-y-auto overscroll-contain touch-auto [transform:translateX(var(--drawer-swipe-movement-x))] transition-transform duration-[450ms] ease-[cubic-bezier(0.32,0.72,0,1)] data-swiping:select-none data-ending-style:[transform:translateX(calc(100%-var(--bleed)+var(--viewport-padding)+2px))] data-starting-style:[transform:translateX(calc(100%-var(--bleed)+var(--viewport-padding)+2px))] data-ending-style:duration-[calc(var(--drawer-swipe-strength)*400ms)] supports-[-webkit-touch-callout:none]:mr-0 supports-[-webkit-touch-callout:none]:w-[20rem] supports-[-webkit-touch-callout:none]:max-w-[calc(100vw-3rem)] supports-[-webkit-touch-callout:none]:border supports-[-webkit-touch-callout:none]:pr-6 dark:border-white dark:bg-neutral-950 dark:text-white dark:shadow-none">
+                        <DrawerContent class="mx-auto w-full max-w-[32rem]">
+                            <DrawerTitle class="mb-1 text-base font-bold">Drawer</DrawerTitle>
+                            <DrawerDescription class="mb-6 text-sm text-neutral-600 dark:text-neutral-400">
+                                This is a drawer that slides in from the side. You can swipe to dismiss it.
+                            </DrawerDescription>
+                            <div class="flex justify-end gap-3">
+                                <DrawerClose class="@ButtonClass">Close</DrawerClose>
+                            </div>
+                        </DrawerContent>
+                    </DrawerPopup>
+                </DrawerViewport>
+            </DrawerPortal>
+        </DrawerRoot>
+    </Hero>
+    <Variants>
+        <div class="Variant">
+            <DrawerRoot TPayload="NoPayload" SnapPoints="@s_snapPoints">
+                <DrawerTrigger TPayload="NoPayload" class="@ButtonClass">Open snap drawer</DrawerTrigger>
+                <DrawerPortal>
+                    <DrawerBackdrop class="@BackdropClass" />
+                    <DrawerViewport class="fixed inset-0 flex items-end justify-center touch-none [--bleed:3rem] after:pointer-events-none after:fixed after:inset-x-0 after:bottom-0 after:h-[var(--bleed)] after:bg-white after:content-[''] data-closed:after:opacity-0 dark:after:bg-neutral-950">
+                        <DrawerPopup class="relative z-1 flex w-full max-h-[calc(100dvh-var(--top-margin))] min-h-0 flex-col overflow-visible border-t border-neutral-950 bg-white text-neutral-950 outline-none touch-none shadow-[0.25rem_0.25rem_0] shadow-black/12 [padding-bottom:max(0px,calc(var(--drawer-snap-point-offset)+var(--drawer-swipe-movement-y)))] [transform:translateY(calc(var(--drawer-snap-point-offset)+var(--drawer-swipe-movement-y)))] transition-[transform,box-shadow] duration-[450ms] ease-[cubic-bezier(0.32,0.72,0,1)] after:pointer-events-none after:absolute after:inset-x-0 after:top-full after:h-[var(--bleed)] after:bg-[inherit] after:content-[''] data-ending-style:[transform:translateY(calc(100%+2px))] data-starting-style:[transform:translateY(calc(100%+2px))] data-starting-style:[padding-bottom:0] data-ending-style:[padding-bottom:0] data-starting-style:shadow-[0.25rem_0.25rem_0] data-starting-style:shadow-black/0 data-ending-style:shadow-[0.25rem_0.25rem_0] data-ending-style:shadow-black/0 data-ending-style:duration-[calc(var(--drawer-swipe-strength)*400ms)] dark:border-white dark:bg-neutral-950 dark:text-white dark:shadow-none"
+                                     style="--top-margin: 1rem">
+                            <div class="shrink-0 border-b border-neutral-300 px-6 pt-3.5 pb-4 touch-none select-none dark:border-neutral-700">
+                                <div class="mx-auto mb-2.5 h-1 w-12 shrink-0 bg-neutral-300 dark:bg-neutral-700"></div>
+                                <DrawerTitle class="cursor-default text-center text-base font-bold">Snap points</DrawerTitle>
+                            </div>
+                            <DrawerContent class="min-h-0 flex-1 overflow-y-auto overscroll-contain touch-auto px-6 pt-4 pb-[calc(1.5rem+env(safe-area-inset-bottom,0px))]">
+                                <div class="mx-auto w-full max-w-90">
+                                    <DrawerDescription class="mb-4 text-sm text-neutral-600 text-center dark:text-neutral-400">
+                                        Drag the sheet to snap between a compact peek and a near full-height view.
+                                    </DrawerDescription>
+                                    <div class="grid gap-3 mb-6" aria-hidden="true">
+                                        @for (int i = 0; i < 20; i++)
+                                        {
+                                            <div class="h-12 bg-neutral-200 dark:bg-neutral-700"></div>
+                                        }
+                                    </div>
+                                    <div class="flex items-center justify-end gap-3">
+                                        <DrawerClose class="@ButtonClass">Close</DrawerClose>
+                                    </div>
+                                </div>
+                            </DrawerContent>
+                        </DrawerPopup>
+                    </DrawerViewport>
+                </DrawerPortal>
+            </DrawerRoot>
+            <span class="VariantName">SnapPoints: a bottom sheet that rests at 31rem or at full height, and is swiped down to close</span>
+        </div>
+    </Variants>
+</DemoFrame>
+
+@code {
+    private const string ButtonClass = "flex h-8 items-center justify-center gap-2 border border-neutral-950 bg-white px-3 text-sm leading-none whitespace-nowrap font-normal text-neutral-950 select-none hover:not-data-disabled:bg-neutral-100 active:not-data-disabled:bg-neutral-200 data-disabled:border-neutral-500 data-disabled:text-neutral-500 disabled:border-neutral-500 disabled:text-neutral-500 dark:border-white dark:bg-neutral-950 dark:text-white dark:hover:not-data-disabled:bg-neutral-800 dark:active:not-data-disabled:bg-neutral-700 dark:data-disabled:border-neutral-400 dark:data-disabled:text-neutral-400 focus-visible:outline-2 focus-visible:-outline-offset-1 focus-visible:outline-neutral-950 dark:focus-visible:outline-white";
+    private const string BackdropClass = "[--backdrop-opacity:0.2] [--bleed:3rem] dark:[--backdrop-opacity:0.7] fixed inset-0 min-h-dvh bg-black opacity-[calc(var(--backdrop-opacity)*(1-var(--drawer-swipe-progress)))] transition-opacity duration-[450ms] ease-[cubic-bezier(0.32,0.72,0,1)] data-swiping:duration-0 data-ending-style:opacity-0 data-starting-style:opacity-0 data-ending-style:duration-[calc(var(--drawer-swipe-strength)*400ms)] supports-[-webkit-touch-callout:none]:absolute";
+
+    // The documentation's 30rem peek plus its 1rem top margin, and the full height.
+    private static readonly IReadOnlyList<SnapPointValue> s_snapPoints = ["31rem", 1];
+}
