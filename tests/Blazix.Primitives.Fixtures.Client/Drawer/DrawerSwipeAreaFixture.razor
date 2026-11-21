@@ -14,10 +14,12 @@
       `initialFocus=false`: the popup leaves focus where it is; `regrab`: the popup is 200 px tall by its class, animates out
       for 200 ms and holds a Close (DrawerSwipeArea.test.tsx's re-grab tree, with `animations=1`). An outside button (`outside-button`) sits beside the target.
     Controls (Shift keydowns, as no outside press reads them): "Disable area", "Enable area", "Change id". The page also has
-    an outside target (`outside`). Every open change is recorded in `data-open-changes`.
+    an outside target (`outside`). Every open change is recorded in `data-open-changes`. `data-popup-attached` reads `true`
+    once the mounted popup's handles (transitions, focus, floating, popup) have attached, so a title's outside press comes
+    after the popup's dismissal listeners (slice 5, added 2026-11-21).
 *@
 <FixtureContainer Name="drawer-swipe-area" data-attached="@(Attached ? "true" : "false")" data-sync="@Sync" data-case="@Case"
-                  data-open-changes="@OpenChanges">
+                  data-open-changes="@OpenChanges" data-popup-attached="@(popupAttached ? "true" : "false")">
     <button type="button" tabindex="-1" data-sync-button data-key-control @onclick="() => Sync++" @onkeydown="OnShift(() => Sync++)">Sync</button>
     <button type="button" tabindex="-1" data-disable-area data-key-control @onclick="() => disabled = true" @onkeydown="OnShift(() => disabled = true)">Disable area</button>
     <button type="button" tabindex="-1" data-enable-area data-key-control @onclick="() => disabled = false" @onkeydown="OnShift(() => disabled = false)">Enable area</button>
@@ -40,6 +42,8 @@
 @code {
     private DrawerRoot<NoPayload>? root;
     private DrawerSwipeArea? area;
+    private DrawerPopup? popup;
+    private bool popupAttached;
     private bool disabled;
     private string areaId = "swipe-area-id";
 
@@ -52,6 +56,23 @@
         base.OnInitialized();
         disabled = QueryFlag("disabled") == true;
         areaId = Query("id") ?? areaId;
+    }
+
+    // The popup's reference is set when its signal renders; the marker follows its handles' attach.
+    private async Task TrackPopupAsync()
+    {
+        if (popup is not { } current)
+        {
+            return;
+        }
+
+        popupAttached = false;
+        await current.TwinAttached;
+        if (ReferenceEquals(popup, current))
+        {
+            popupAttached = true;
+            StateHasChanged();
+        }
     }
 
     private ModalValue Modal => QueryFlag("modal") != false;
@@ -97,13 +118,14 @@
                             .swipe-regrab-popup { height: 200px; }
                             .swipe-regrab-popup[data-ending-style] { animation: swipe-regrab-exit 200ms; }
                         </style>
-                        <DrawerPopup data-testid="popup" class="swipe-regrab-popup" style="position: fixed; right: 0; top: 0; width: 100px; margin: 0; padding: 0; border: 0;">
+                        <DrawerPopup @ref="popup" data-testid="popup" class="swipe-regrab-popup" style="position: fixed; right: 0; top: 0; width: 100px; margin: 0; padding: 0; border: 0;">
                             <DrawerClose>Close</DrawerClose>
+                            <AfterRenderSignal Rendered="TrackPopupAsync" />
                         </DrawerPopup>
                     }
                     else
                     {
-                        <DrawerPopup data-testid="popup" style="@PopupStyle" InitialFocus="@(QueryFlag("initialFocus") == false ? false : null)">Drawer</DrawerPopup>
+                        <DrawerPopup @ref="popup" data-testid="popup" style="@PopupStyle" InitialFocus="@(QueryFlag("initialFocus") == false ? false : null)">Drawer<AfterRenderSignal Rendered="TrackPopupAsync" /></DrawerPopup>
                     }
                 </DrawerViewport>
             </DrawerPortal>

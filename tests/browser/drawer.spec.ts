@@ -2829,12 +2829,15 @@ test.describe('<Drawer.SwipeArea /> interruptions, thresholds and quick flicks',
 
   // DRW-PTR-25, DIS-02 (DrawerSwipeArea.test.tsx:1466-1513): the only move arrives with no button held.
   test('opens on a quick flick whose only move is already released (buttons: 0)', async ({ page, mode }) => {
-    await areaCase(page, mode, { parts: true });
+    const fixture = await areaCase(page, mode, { parts: true });
     await areaPointer(page, 'pointerdown', 10, 120, 1, 1);
     await areaPointer(page, 'pointermove', 10, 40, 0, 16);
     const area = page.getByTestId('swipe-area');
     await expect(area).toHaveAttribute('data-open', '');
     await expect(area).not.toHaveAttribute('data-swiping');
+    // The popup's dismissal listeners come with its floating handle's attach, after the open's render: a press before them
+    // finds none, and the area's release guard spends it reopening the gate (slice 5, added 2026-11-21).
+    await expect(fixture).toHaveAttribute('data-popup-attached', 'true');
 
     await pressOutsideInPage(page);
     await expect(page.getByTestId('popup')).toHaveCount(0);
