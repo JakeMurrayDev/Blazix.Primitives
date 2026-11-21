@@ -116,6 +116,67 @@ test.describe('Drawer: ADR 01 relaxation rows', () => {
     }
   });
 
+  // DRW-DIS-01 (M6 track 8c, added 2026-11-21; design point D1 (a), chosen by the user 2026-11-21): a back press that no
+  // consumer cancels. WebAssembly decides inside the watcher's `cancel` event (the `close-watcher` point); Server prevents
+  // the event, keeping the watcher, and closes when the numbered request's answer renders. Base UI's stub class and an
+  // Android user agent stand in for the platform, as in drawer.spec.ts.
+  perDelay('a back press that no consumer cancels closes the drawer', async ({ page, mode, delay }) => {
+    await page.addInitScript(() => {
+      Object.defineProperty(Navigator.prototype, 'userAgent', {
+        get: () => 'Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Mobile Safari/537.36',
+      });
+      class CloseWatcherStub extends EventTarget {
+        static instances: CloseWatcherStub[] = [];
+        active = true;
+        constructor() {
+          super();
+          CloseWatcherStub.instances.push(this);
+        }
+        destroy() {
+          this.active = false;
+        }
+        requestClose(cancelable: boolean) {
+          if (!this.active) {
+            return;
+          }
+          const cancelEvent = new Event('cancel', { cancelable });
+          this.dispatchEvent(cancelEvent);
+          if (cancelEvent.defaultPrevented) {
+            return;
+          }
+          this.destroy();
+          this.dispatchEvent(new Event('close'));
+        }
+      }
+      (window as unknown as { CloseWatcher: unknown }).CloseWatcher = CloseWatcherStub;
+      (window as unknown as { closeWatchers: CloseWatcherStub[] }).closeWatchers = CloseWatcherStub.instances;
+    });
+    await gotoPopupFixture(page, mode, 'drawer-popup', { case: 'watcher' });
+    type Watchers = { closeWatchers: Array<{ requestClose(cancelable: boolean): void }> };
+    await expect.poll(() => page.evaluate(() => (window as unknown as Watchers).closeWatchers.length)).toBeGreaterThan(0);
+    const timed = await page.getByTestId('popup').evaluate((popup) => new Promise<Timed>((resolve) => {
+      let tick = false;
+      const start = performance.now();
+      setTimeout(() => (tick = true), 0);
+      (window as unknown as { closeWatchers: Array<{ requestClose(cancelable: boolean): void }> }).closeWatchers.at(-1)!.requestClose(true);
+      const check = () => {
+        if (!popup.hasAttribute('data-open')) {
+          observer.disconnect();
+          resolve({ ms: performance.now() - start, inTask: !tick });
+        }
+      };
+      const observer = new MutationObserver(() => queueMicrotask(check));
+      observer.observe(popup, { attributes: true });
+      queueMicrotask(check);
+    }));
+    figure('DIS-01 close-watcher close', mode, delay, { ...timed });
+    if (mode === 'wasm') {
+      expect(timed.inTask).toBe(true);
+    } else {
+      expect(timed.ms).toBeGreaterThanOrEqual(legsFloor(delay, 2));
+    }
+  });
+
   // DRW-STA-10, STA-11, DOM-10: the Popup's measurement reaches C#, whose frontmost height comes back rendered.
   perDelay('a nested drawer\'s height reaches its parent\'s frontmost height', async ({ page, mode, delay }) => {
     await gotoPopupFixture(page, mode, 'drawer-stack', { case: 'stretch' });
