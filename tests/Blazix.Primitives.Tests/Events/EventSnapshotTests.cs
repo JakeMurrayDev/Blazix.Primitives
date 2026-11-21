@@ -55,9 +55,24 @@ public sealed class EventSnapshotTests
         using JsonDocument json = JsonDocument.Parse(JsonSerializer.Serialize(snapshot));
 
         Assert.Equal(
-            ["kind", "type", "key", "code", "altKey", "ctrlKey", "metaKey", "shiftKey", "pointerType", "detail", "buttons", "target", "defaultPrevented", "timeStamp"],
+            ["kind", "type", "key", "code", "altKey", "ctrlKey", "metaKey", "shiftKey", "pointerType", "detail", "buttons", "target", "defaultPrevented", "cancelable", "timeStamp"],
             json.RootElement.EnumerateObject().Select(property => property.Name).ToArray());
         Assert.Equal("KeyboardEvent", json.RootElement.GetProperty("kind").GetString());
+    }
+
+    // DRW-DIS-01's "closes on a close request that cannot be prevented even if onOpenChange cancels it" reads
+    // `details.event.cancelable`. M6 track 8c (issue 279), design point D3 (b), chosen by the user 2026-11-21.
+    [Fact(DisplayName = "port: reads whether the event was cancelable, which the placeholder is not")]
+    [Trait("Requirement", "EVD-API-05")]
+    [Trait("Requirement", "DRW-DIS-01")]
+    public void Port_reads_whether_the_event_was_cancelable()
+    {
+        EventSnapshot? cancelable = JsonSerializer.Deserialize<EventSnapshot>("""{"kind":"Event","type":"cancel","cancelable":true}""");
+        EventSnapshot? fixedEvent = JsonSerializer.Deserialize<EventSnapshot>("""{"kind":"Event","type":"cancel","cancelable":false}""");
+
+        Assert.True(cancelable!.Cancelable);
+        Assert.False(fixedEvent!.Cancelable);
+        Assert.False(EventSnapshot.CreatePlaceholder().Cancelable);
     }
 
     [Fact(DisplayName = "the placeholder has type base-ui and kind Event")]

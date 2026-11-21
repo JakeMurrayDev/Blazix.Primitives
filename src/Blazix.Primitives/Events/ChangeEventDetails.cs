@@ -12,6 +12,7 @@ namespace Blazix.Primitives;
 public class ChangeEventDetails
 {
     private bool canceled;
+    private bool cancelIgnored;
     private bool propagationAllowed;
 
     // EVD-ALG-01
@@ -66,7 +67,7 @@ public class ChangeEventDetails
     /// Cancels the request.
     /// </summary>
     /// <remarks>An uncontrolled part does not commit a canceled request, and the effects that follow a commit do not run.</remarks>
-    public void Cancel() => canceled = true;
+    public void Cancel() => canceled = !cancelIgnored;
 
     // EVD §4.4
     /// <summary>
@@ -74,4 +75,9 @@ public class ChangeEventDetails
     /// </summary>
     /// <remarks>Sets <see cref="IsPropagationAllowed"/>. The case it matters for is Escape on a nested popup.</remarks>
     public void AllowPropagation() => propagationAllowed = true;
+
+    // EVD-EVT-10, EVD §8 ("cancel replaced by a no-op"): DRW-DIS-01's close request that the browser does not let be
+    // prevented. Added 2026-11-21 (M6 track 8c, issue 279), design point D2 (a), chosen by the user 2026-11-21.
+    /// <summary>Makes <see cref="Cancel"/> a no-op for this request, which then always proceeds.</summary>
+    internal void IgnoreCancel() => cancelIgnored = true;
 }

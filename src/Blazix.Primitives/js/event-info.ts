@@ -35,6 +35,9 @@ export interface EventInfo {
   buttons: number;
   target: EventTargetInfo | null;
   defaultPrevented: boolean;
+  // M6 track 8c (issue 279), design point D3 (b), chosen by the user 2026-11-21: DRW-DIS-01 reads it.
+  /** `event.cancelable`: whether the event's default action could be prevented. */
+  cancelable: boolean;
   timeStamp: number;
 }
 
@@ -57,6 +60,7 @@ export function placeholderEvent(): EventInfo {
     buttons: 0,
     target: null,
     defaultPrevented: false,
+    cancelable: false,
     timeStamp: 0,
   };
 }
@@ -129,6 +133,7 @@ export function eventInfo(event: Event | undefined, target?: EventTargetInfo): E
     buttons: mouse?.buttons ?? 0,
     target: target ?? targetOf(event),
     defaultPrevented: event.defaultPrevented,
+    cancelable: event.cancelable,
     timeStamp: event.timeStamp,
   };
 }

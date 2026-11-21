@@ -231,4 +231,4 @@ Base UI v1.9.0 run in Chromium through its own vitest browser mode, from a copy 
 - Restatements: EVT-14's two flushSync titles are "port: ... without an exception" (Blazor has no flushSync); Base UI's `fireEvent.change` is a set value and one `input` event; the deferred-controlled titles accept with a button, not a 10 ms timer; the `%p` length titles for 3.7, NaN and ±Infinity cannot be expressed (`int Length`).
 - OTP §16 items 1–11 are resolved by the dated notes of 2026-11-20 in §16 (replicated, or as built).
 - Seen on the way: on WebAssembly a fixture's attach marker read true while the module's script was still held by a route; the attach-order titles assert the route's hits instead (as `dialog.spec.ts` does). Not investigated further.
-
+- 2026-11-21, drawer.md (M6 track 8c, issue 279): fidelity correction on DRW-FOC-05, FOC-07, FOC-10 and FOC-11. "The Root" there is Base UI's `rootElement`, the Viewport element (`DrawerVirtualKeyboardProvider.tsx:96`); each row carries a dated note.

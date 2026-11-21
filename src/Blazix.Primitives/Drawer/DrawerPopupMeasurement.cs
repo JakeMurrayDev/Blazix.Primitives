@@ -43,7 +43,11 @@ internal sealed class DrawerPopupMeasurement : IAsyncDisposable
             drawer.ReportPopupHeight(height);
             return Task.CompletedTask;
         });
-        rootSubscription = root.Subscribe(DialogFields.Open | DialogFields.Mounted | DialogFields.TransitionStatus | DialogFields.NestedOpenDrawerCount, SyncLater);
+        twin.CloseWatcherRequested += request => _ = invokeAsync(() => CloseFromWatcherAsync(request));
+        twin.CloseWatcherDecider = DecideCloseWatcher;
+        rootSubscription = root.Subscribe(
+            DialogFields.Open | DialogFields.Mounted | DialogFields.TransitionStatus | DialogFields.NestedOpenDrawerCount | DialogFields.NestedOpenDialogCount,
+            SyncLater);
         drawerSubscription = drawer.Subscribe(DrawerFields.HasNestedDrawer | DrawerFields.FrontmostHeight, SyncLater);
     }
 
@@ -97,7 +101,8 @@ internal sealed class DrawerPopupMeasurement : IAsyncDisposable
 
         bool ending = root.TransitionStatus == TransitionStatus.Ending;
         if (sent is { } last && last.Open == root.Open && last.Mounted == root.Mounted && last.HasNestedDrawer == drawer.HasNestedDrawer
-            && last.Ending == ending && last.FrontmostHeight == drawer.FrontmostHeight && last.NestedOpenDrawerCount == root.NestedOpenDrawerCount)
+            && last.Ending == ending && last.FrontmostHeight == drawer.FrontmostHeight && last.NestedOpenDrawerCount == root.NestedOpenDrawerCount
+            && last.NestedOpenDialogCount == root.NestedOpenDialogCount)
         {
             // ADR 16: an unchanged render sends nothing and allocates nothing here.
             return;
@@ -112,6 +117,7 @@ internal sealed class DrawerPopupMeasurement : IAsyncDisposable
             Ending = ending,
             FrontmostHeight = drawer.FrontmostHeight,
             NestedOpenDrawerCount = root.NestedOpenDrawerCount,
+            NestedOpenDialogCount = root.NestedOpenDialogCount,
         };
         sent = options;
         if (handle is null)
@@ -134,6 +140,39 @@ internal sealed class DrawerPopupMeasurement : IAsyncDisposable
         }
 
         await handle.UpdateAsync(options);
+    }
+
+    // DRW-DIS-01 on Server (design point D1 (a), chosen by the user 2026-11-21): the module kept the watcher by preventing
+    // the cancelable event, and the close runs a round trip later; the handle destroys the watcher once the drawer closes.
+    // A request the browser did not let be prevented cannot be canceled (EVD-EVT-10; design point D2 (a), chosen by the user
+    // 2026-11-21): the browser has destroyed the watcher, and the close always proceeds.
+    private Task CloseFromWatcherAsync(DrawerCloseWatcherRequest request)
+    {
+        if (!root.Open)
+        {
+            return Task.CompletedTask;
+        }
+
+        OpenChangeEventDetails details = new(EventReason.CloseWatcher, request.Event);
+        if (!request.Cancelable)
+        {
+            details.IgnoreCancel();
+        }
+
+        return root.RequestOpenAsync(false, details);
+    }
+
+    // DRW-DIS-01 on WebAssembly: the close-watcher point, inside the `cancel` event; a canceled close keeps the watcher.
+    private DecisionPolicy DecideCloseWatcher(EventSnapshot snapshot)
+    {
+        if (!root.Open)
+        {
+            return DecisionPolicy.Run;
+        }
+
+        OpenChangeEventDetails details = new(EventReason.CloseWatcher, snapshot);
+        _ = root.RequestOpenAsync(false, details);
+        return details.IsCanceled ? DecisionPolicy.Prevent : DecisionPolicy.Run;
     }
 
     private void ReportToParent()

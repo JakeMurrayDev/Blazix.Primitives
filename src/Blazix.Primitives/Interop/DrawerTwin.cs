@@ -37,6 +37,10 @@ internal sealed class DrawerTwin(IJSRuntime jsRuntime)
     /// <summary>The prefix of the module's snap point decision point, followed by an index into the snap points or <c>none</c>.</summary>
     public const string SnapPointPointPrefix = "snap-point:";
 
+    // M6 track 8c (2026-11-21): DRW-DIS-01, design point D1 (a), chosen by the user 2026-11-21 (ADR 04 §3).
+    /// <summary>Represents the name of the decision point the popup's handle asks about inside its close watcher's <c>cancel</c> event.</summary>
+    public const string CloseWatcherPoint = "close-watcher";
+
     /// <summary>Occurs when the popup starts or stops being swiped.</summary>
     public event Action<bool>? SwipingChanged;
 
@@ -55,6 +59,9 @@ internal sealed class DrawerTwin(IJSRuntime jsRuntime)
     /// <summary>Occurs when the swipe area's handle asks to open or close the drawer.</summary>
     public event Action<DrawerOpenRequest>? OpenRequested;
 
+    /// <summary>Occurs when the popup's close watcher asks to close the drawer and no C# handler could decide it inside the event.</summary>
+    public event Action<DrawerCloseWatcherRequest>? CloseWatcherRequested;
+
     /// <summary>Gets or sets the C# handler chain of the dismiss decision point.</summary>
     /// <value>
     /// A function that receives the release event, requests the close, and returns <see cref="DecisionPolicy.Run"/> to
@@ -66,6 +73,14 @@ internal sealed class DrawerTwin(IJSRuntime jsRuntime)
 
     /// <summary>Gets or sets the chain the snap point decision point runs: the requested index, or <see langword="null"/> for none, and the release.</summary>
     public Func<int?, EventSnapshot, DecisionPolicy>? SnapPointDecider { get; set; }
+
+    /// <summary>Gets or sets the chain the close-watcher decision point runs on the watcher's <c>cancel</c> event.</summary>
+    /// <value>
+    /// A function that receives the event, requests the close, and returns <see cref="DecisionPolicy.Prevent"/> when a
+    /// consumer canceled it, so the watcher stays, or <see cref="DecisionPolicy.Run"/>; <see langword="null"/> always runs.
+    /// It runs only on WebAssembly, synchronously inside the event, and must not await.
+    /// </value>
+    public Func<EventSnapshot, DecisionPolicy>? CloseWatcherDecider { get; set; }
 
     /// <summary>Receives a change of whether the popup is being swiped.</summary>
     /// <param name="payloadJson">The JSON of a <see cref="DrawerSwipingChange"/>.</param>
@@ -127,13 +142,28 @@ internal sealed class DrawerTwin(IJSRuntime jsRuntime)
         OpenRequested?.Invoke(request);
     }
 
+    /// <summary>Receives a close request of the popup's close watcher, reported where the point could not decide it.</summary>
+    /// <param name="payloadJson">The JSON of a <see cref="DrawerCloseWatcherRequest"/>.</param>
+    /// <exception cref="System.Text.Json.JsonException">The payload is not valid.</exception>
+    [JSInvokable]
+    public void OnCloseWatcherRequest(string payloadJson)
+    {
+        DrawerCloseWatcherRequest request = Deserialize(payloadJson, BlazixJsonContext.Default.DrawerCloseWatcherRequest);
+        CloseWatcherRequested?.Invoke(request);
+    }
+
     /// <inheritdoc />
-    /// <remarks>The module's points are <see cref="DismissPoint"/> and <c>snap-point:&lt;index&gt;</c> (<see cref="SnapPointPointPrefix"/>); any other answers <see cref="DecisionPolicy.Run"/>.</remarks>
+    /// <remarks>The module's points are <see cref="DismissPoint"/>, <c>snap-point:&lt;index&gt;</c> (<see cref="SnapPointPointPrefix"/>) and <see cref="CloseWatcherPoint"/>; any other answers <see cref="DecisionPolicy.Run"/>.</remarks>
     protected override DecisionPolicy OnDecide(string point, EventSnapshot snapshot)
     {
         if (point == DismissPoint)
         {
             return DismissDecider is { } decider ? decider(snapshot) : DecisionPolicy.Run;
+        }
+
+        if (point == CloseWatcherPoint)
+        {
+            return CloseWatcherDecider is { } watcherDecider ? watcherDecider(snapshot) : DecisionPolicy.Run;
         }
 
         if (point.StartsWith(SnapPointPointPrefix, StringComparison.Ordinal) && SnapPointDecider is { } snapDecider)

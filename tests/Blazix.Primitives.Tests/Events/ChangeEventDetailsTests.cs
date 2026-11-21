@@ -130,4 +130,22 @@ public sealed class ChangeEventDetailsTests
         Assert.Same(details, args.Details);
         Assert.True(typeof(ValueChangeEventArgs<bool>).IsValueType);
     }
+
+    // EVD-EVT-10 and EVD §8 ("cancel replaced by a no-op"); DRW-DIS-01's close request that the browser does not let be
+    // prevented. M6 track 8c (issue 279), design point D2 (a), chosen by the user 2026-11-21.
+    [Fact(DisplayName = "port: a request whose cancel is ignored stays uncanceled when a handler cancels it")]
+    [Trait("Requirement", "EVD-EVT-10")]
+    [Trait("Requirement", "DRW-DIS-01")]
+    public void A_request_whose_cancel_is_ignored_stays_uncanceled()
+    {
+        OpenChangeEventDetails ignored = new(EventReason.CloseWatcher);
+        ignored.IgnoreCancel();
+        OpenChangeEventDetails plain = new(EventReason.CloseWatcher);
+
+        ignored.Cancel();
+        plain.Cancel();
+
+        Assert.False(ignored.IsCanceled);
+        Assert.True(plain.IsCanceled);
+    }
 }

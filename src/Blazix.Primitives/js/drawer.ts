@@ -30,16 +30,19 @@ import {
   getElementTransform,
   getTarget,
   isElement,
+  isHTMLElement,
+  isShadowRoot,
   observeResize,
   ownerDocument,
   ownerWindow,
+  platform,
   styleWriter,
   type ScrollAxis,
   type StyleLayer,
 } from './dom';
 import { decide } from './decide';
 import { eventInfo } from './event-info';
-import { getSession, isVirtualClick, setOutsidePressGate } from './interactions';
+import { getSession, isInteractiveElement, isVirtualClick, setOutsidePressGate } from './interactions';
 import {
   BASE_UI_SWIPE_IGNORE_ATTRIBUTE,
   BASE_UI_SWIPE_IGNORE_SELECTOR,
@@ -88,6 +91,14 @@ export interface DrawerOptions extends TwinOptions {
   answeredSnap?: number;
   /** The number of the last request for no snap point that C# canceled; its dismissal is dropped. */
   canceledSnap?: number;
+  // M6 track 8c (issue 279): DRW-API-11, STR-09, FOC-03…11; design point 1 (a) of 2026-11-18.
+  /** The Viewport role: whether a `DrawerVirtualKeyboardProvider` is under the Root, which turns the keyboard role on. */
+  keyboard?: boolean;
+  // DRW-FOC-09.
+  /** The Viewport role: whether the Root's `Modal` is `true` (not focus trapping only, not non-modal). */
+  modal?: boolean;
+  /** The Viewport role: the Root's count of open nested dialogs and drawers. */
+  nestedOpenDialogCount?: number;
   /** The token of the Provider the drawer or the Indent is under, or `null` without one. */
   provider?: string | null;
   // DRW-STA-11.
@@ -1054,6 +1065,41 @@ function attachIndent(indent: HTMLElement | null, initial: DrawerOptions): TwinH
 // DRW-STA-10 (DrawerPopup.tsx:181-242), DRW-DOM-09 (321-325) and DRW-DOM-14 (244-269): the Popup measures its own height and
 // reports it to its Root, declares that height while a nested drawer is present or it animates out, and shows the nested
 // swipe progress its nested drawers publish.
+// DRW-DOM-33 (DrawerPopup.tsx:28-89): the swipe variables are registered once per page, without inheritance, so a popup
+// at rest reads 0px movement and a deep subtree does not recalculate on every move. Errors (already registered) are
+// ignored. M6 track 8c (issue 279), found by the sample page.
+let swipeVariablesRegistered = false;
+function registerSwipeVariables(): void {
+  if (swipeVariablesRegistered) {
+    return;
+  }
+  swipeVariablesRegistered = true;
+  if (typeof CSS === 'undefined' || typeof CSS.registerProperty !== 'function') {
+    return;
+  }
+  const lengths = ['--drawer-swipe-movement-x', '--drawer-swipe-movement-y', '--drawer-snap-point-offset'];
+  const numbers: Array<[string, string]> = [['--drawer-swipe-progress', '0'], ['--drawer-swipe-strength', '1']];
+  for (const name of lengths) {
+    try {
+      CSS.registerProperty({ name, syntax: '<length>', inherits: false, initialValue: '0px' });
+    } catch {
+      // Already registered, by another bundle or the page.
+    }
+  }
+  for (const [name, initialValue] of numbers) {
+    try {
+      CSS.registerProperty({ name, syntax: '<number>', inherits: false, initialValue });
+    } catch {
+      // Already registered, by another bundle or the page.
+    }
+  }
+}
+
+// The part of the platform's CloseWatcher the popup role uses (Chromium's; DRW-DIS-01).
+interface CloseWatcherLike extends EventTarget {
+  destroy(): void;
+}
+
 function attachPopup(popup: HTMLElement | null, initial: DrawerOptions, twin: ReturnType<typeof createTwinChannel>): TwinHandle {
   let options = initial;
   let disposed = false;
@@ -1061,6 +1107,9 @@ function attachPopup(popup: HTMLElement | null, initial: DrawerOptions, twin: Re
   let lastHeight = 0;
   let shownHeight = 0;
   let stopResize: (() => void) | null = null;
+  if (popup) {
+    registerSwipeVariables();
+  }
   const band = popup ? styleWriter(popup) : null;
   band?.absorbForeignWrites();
   const layer = band ? band.layer('component') : null;
@@ -1130,11 +1179,60 @@ function attachPopup(popup: HTMLElement | null, initial: DrawerOptions, twin: Re
     }
   };
 
+  // DRW-DIS-01 (DrawerRoot.tsx:445-493): on Android, while the drawer is open and topmost, a CloseWatcher turns the back
+  // gesture into a close request with reason `close-watcher`. M6 track 8c; design point D1 (a), chosen by the user
+  // 2026-11-21 (ADR 04 Amendments 2026-11-21): a cancelable `cancel` asks the `close-watcher` point, which WebAssembly
+  // decides inside the event; elsewhere the event is prevented, so the watcher stays, and a numbered request follows.
+  // A `cancel` the browser does not let be prevented is reported with `cancelable: false`, and C# cannot cancel it.
+  let watcher: { instance: CloseWatcherLike; onCancel: (event: Event) => void } | null = null;
+  let closeRequests = 0;
+  const reportClose = (event: Event, cancelable: boolean) => {
+    closeRequests += 1;
+    twin.report('OnCloseWatcherRequest', { request: closeRequests, cancelable, event: eventInfo(event) });
+  };
+  const destroyWatcher = () => {
+    if (watcher) {
+      watcher.instance.removeEventListener('cancel', watcher.onCancel);
+      watcher.instance.destroy();
+      watcher = null;
+    }
+  };
+  const syncWatcher = () => {
+    if (disposed || !popup || !options.open || (options.nestedOpenDialogCount ?? 0) > 0 || !platform.os.android) {
+      destroyWatcher();
+      return;
+    }
+    const Ctor = (ownerWindow(popup) as Window & { CloseWatcher?: new () => CloseWatcherLike }).CloseWatcher;
+    if (watcher || !Ctor) {
+      return;
+    }
+    const onCancel = (event: Event) => {
+      if (!options.open) {
+        return;
+      }
+      if (!event.cancelable) {
+        reportClose(event, false);
+        return;
+      }
+      const verdict = decide(twin, 'close-watcher', event, 'prevent');
+      if (verdict === 'prevent') {
+        event.preventDefault();
+      }
+      if (!twin.lastDecisionWasSynchronous) {
+        reportClose(event, true);
+      }
+    };
+    const instance = new Ctor();
+    instance.addEventListener('cancel', onCancel);
+    watcher = { instance, onCancel };
+  };
+
   const unsubscribe = channel?.subscribe(syncProgress);
   if (channel) {
     syncProgress();
   }
   syncMeasurement();
+  syncWatcher();
 
   return {
     update(nextJson) {
@@ -1147,12 +1245,14 @@ function attachPopup(popup: HTMLElement | null, initial: DrawerOptions, twin: Re
         syncMeasurement();
       }
       syncHeight();
+      syncWatcher();
     },
     dispose() {
       if (disposed) {
         return;
       }
       disposed = true;
+      destroyWatcher();
       stopResize?.();
       markObserver?.disconnect();
       unsubscribe?.();
@@ -1192,6 +1292,720 @@ export function attach(
   return attachViewport(element, options, createTwinChannel(twinReference), references, captures);
 }
 
+// ---------------------------------------------------------------------------------------------------------------
+// The keyboard role: Drawer.VirtualKeyboardProvider on the Viewport handle
+// ---------------------------------------------------------------------------------------------------------------
+
+// M6 track 8c (issue 279): DRW-FOC-03…FOC-11, DOM-23 and DRW-ALG-06…08, transcribed from
+// DrawerVirtualKeyboardProvider.tsx. Design point 1 (a) of 2026-11-18: the provider has no twin; it rides the Viewport
+// handle, whose element is Base UI's `rootElement` (the provider's measurement and containment root, 9 (a)).
+const KEYBOARD_RESIZE_THRESHOLD = 60;
+const KEYBOARD_VISIBILITY_MARGIN = 16;
+// The cadence and count of the settle-watching realign passes after focus moves with the keyboard open.
+const KEYBOARD_REALIGN_INTERVAL = 150;
+const KEYBOARD_REALIGN_MAX_PASSES = 4;
+// Frames the alignment waits for the scroll destination to stop moving before scrolling anyway.
+const KEYBOARD_SETTLE_FRAME_LIMIT = 60;
+const INPUT_TAP_MOVE_THRESHOLD = 10;
+const INPUT_TAP_HIT_SLOP = 16;
+const KEYBOARD_INPUT_TYPES = new Set(['email', 'number', 'password', 'search', 'tel', 'text', 'url']);
+const KEYBOARD_INSET = '--drawer-keyboard-inset';
+
+// A scroll container's inline values to restore, and the computed baselines slack is added to.
+interface ScrollAdjustment {
+  readonly element: HTMLElement;
+  readonly overflowAnchor: string;
+  readonly paddingBottom: string;
+  readonly scrollPaddingBottom: string;
+  readonly computedPaddingBottom: number;
+  readonly computedScrollPaddingBottom: number;
+}
+
+interface KeyboardVisualViewport {
+  readonly top: number;
+  readonly bottom: number;
+  // The browser is still resizing the layout viewport to the visual viewport.
+  readonly resizing: boolean;
+}
+
+interface KeyboardTouchTarget {
+  readonly focusTarget: HTMLElement;
+  readonly clickTarget: HTMLElement;
+}
+
+// The lift point landed on another interactive or label element: the tap is the native one's, and the touchstart target
+// must not be used instead.
+const KEYBOARD_TAP_BLOCKED = Symbol('KeyboardTapBlocked');
+
+interface VirtualKeyboard {
+  sync(options: DrawerOptions): void;
+  onTouchStart(event: TouchEvent): void;
+  onTouchMove(event: TouchEvent): void;
+  onTouchEnd(event: TouchEvent): void;
+  onTouchCancel(): void;
+  dispose(): void;
+}
+
+// One pending callback at a time, as Base UI's `useAnimationFrame` and `useTimeout`.
+function frameScheduler(getWindow: () => Window) {
+  let id: number | null = null;
+  let owner: Window | null = null;
+  return {
+    request(callback: () => void) {
+      this.cancel();
+      owner = getWindow();
+      id = owner.requestAnimationFrame(() => {
+        id = null;
+        callback();
+      });
+    },
+    cancel() {
+      if (id !== null) {
+        owner?.cancelAnimationFrame(id);
+        id = null;
+      }
+    },
+  };
+}
+
+function timeoutScheduler(getWindow: () => Window) {
+  let id: number | null = null;
+  let owner: Window | null = null;
+  return {
+    start(delay: number, callback: () => void) {
+      this.clear();
+      owner = getWindow();
+      id = owner.setTimeout(() => {
+        id = null;
+        callback();
+      }, delay);
+    },
+    clear() {
+      if (id !== null) {
+        owner?.clearTimeout(id);
+        id = null;
+      }
+    },
+  };
+}
+
+function createVirtualKeyboard(rootElement: HTMLElement | null): VirtualKeyboard {
+  let options: DrawerOptions | null = null;
+  let effectKey: string | null = null;
+  let cleanup: (() => void) | null = null;
+
+  let pendingKeyboardFocusMoved = false;
+  let keyboardTouchStart: { x: number; y: number } | null = null;
+  let focusedKeyboardTarget: HTMLElement | null = null;
+  let keyboardScrollAdjustment: ScrollAdjustment | null = null;
+  let programmaticKeyboardFocus = false;
+  let getKeyboardViewportRef: (() => KeyboardVisualViewport | null) | null = null;
+  const windowOf = () => ownerWindow(rootElement);
+  const keyboardFocusFrame = frameScheduler(windowOf);
+  const keyboardRealignTimeout = timeoutScheduler(windowOf);
+
+  const open = () => options?.open === true;
+  const mounted = () => options?.mounted === true;
+  const nestedDrawerOpen = () => (options?.nestedOpenDialogCount ?? 0) > 0;
+
+  const restoreKeyboardScrollAdjustment = () => {
+    const adjustment = keyboardScrollAdjustment;
+    if (!adjustment) {
+      return;
+    }
+    adjustment.element.style.overflowAnchor = adjustment.overflowAnchor;
+    adjustment.element.style.paddingBottom = adjustment.paddingBottom;
+    adjustment.element.style.scrollPaddingBottom = adjustment.scrollPaddingBottom;
+    keyboardScrollAdjustment = null;
+  };
+
+  // DRW-FOC-06.
+  const setKeyboardScrollSlack = (element: HTMLElement, slack: number) => {
+    const roundedSlack = Math.max(0, Math.ceil(slack));
+    let adjustment = keyboardScrollAdjustment;
+    if (adjustment && !adjustment.element.isConnected) {
+      restoreKeyboardScrollAdjustment();
+      adjustment = null;
+    }
+    if (roundedSlack === 0) {
+      restoreKeyboardScrollAdjustment();
+      return;
+    }
+    if (adjustment && adjustment.element !== element) {
+      restoreKeyboardScrollAdjustment();
+      adjustment = null;
+    }
+    if (!adjustment) {
+      const styles = ownerWindow(element).getComputedStyle(element);
+      adjustment = {
+        element,
+        overflowAnchor: element.style.overflowAnchor,
+        paddingBottom: element.style.paddingBottom,
+        scrollPaddingBottom: element.style.scrollPaddingBottom,
+        computedPaddingBottom: Number.parseFloat(styles.paddingBottom) || 0,
+        computedScrollPaddingBottom: Number.parseFloat(styles.scrollPaddingBottom) || 0,
+      };
+      keyboardScrollAdjustment = adjustment;
+    }
+    element.style.overflowAnchor = 'none';
+    // The baseline below the content is at least the visibility margin, so the last field never ends flush against the
+    // keyboard when the container's own padding is smaller.
+    element.style.paddingBottom = `${roundedSlack + Math.max(adjustment.computedPaddingBottom, KEYBOARD_VISIBILITY_MARGIN)}px`;
+    element.style.scrollPaddingBottom = `${adjustment.computedScrollPaddingBottom + KEYBOARD_VISIBILITY_MARGIN}px`;
+  };
+
+  // DRW-FOC-05: smooth unless the user prefers reduced motion.
+  const animateKeyboardScroll = (element: HTMLElement, scrollTop: number) => {
+    const win = ownerWindow(element);
+    const behavior: ScrollBehavior = win.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches ? 'auto' : 'smooth';
+    element.scrollTo({ top: scrollTop, behavior });
+  };
+
+  const resetTouchTrackingState = () => {
+    pendingKeyboardFocusMoved = false;
+    keyboardTouchStart = null;
+  };
+
+  // Base UI's effect (DrawerVirtualKeyboardProvider.tsx:176-593), run again whenever its inputs change.
+  const setUp = (): (() => void) | null => {
+    if (!mounted() || !open()) {
+      focusedKeyboardTarget = null;
+      restoreKeyboardScrollAdjustment();
+      keyboardFocusFrame.cancel();
+      return null;
+    }
+    if (!rootElement) {
+      restoreKeyboardScrollAdjustment();
+      return null;
+    }
+    const root = rootElement;
+    const doc = ownerDocument(root);
+    const win = ownerWindow(root);
+    const visualViewport = win.visualViewport;
+    const modal = options?.modal === true;
+    const nested = nestedDrawerOpen();
+
+    // Alignment scroll bookkeeping: destination stability, whether a scroll was issued, and the last observed progress so
+    // delayed passes can tell moving from stalled.
+    let keyboardScrollElement: HTMLElement | null = null;
+    let keyboardScrollDestination = 0;
+    let keyboardScrollChecks = 0;
+    let keyboardScrollObserved = -1;
+    // The visual viewport height last seen while the keyboard overlapped the layout viewport.
+    let keyboardVisualHeight = -1;
+    let smallViewportProbe: HTMLElement | null = null;
+
+    // DRW-FOC-04, ALG-06: remembering the keyboard's visual height keeps it detected once a layout viewport that follows
+    // the keyboard (new Chrome on iOS) removes the overlap; a substantial change in visual height clears it.
+    const getKeyboardViewport = (): KeyboardVisualViewport | null => {
+      if (!visualViewport || visualViewport.scale !== 1) {
+        return null;
+      }
+      const layoutHeight = win.innerHeight;
+      const visualHeight = visualViewport.height;
+      if (layoutHeight - visualHeight > KEYBOARD_RESIZE_THRESHOLD) {
+        keyboardVisualHeight = visualHeight;
+      } else if (Math.abs(visualHeight - keyboardVisualHeight) > KEYBOARD_RESIZE_THRESHOLD) {
+        keyboardVisualHeight = -1;
+        return null;
+      }
+      if (!smallViewportProbe) {
+        smallViewportProbe = doc.createElement('div');
+        smallViewportProbe.style.cssText = 'position:fixed;top:0;height:100svh;visibility:hidden';
+        doc.body.appendChild(smallViewportProbe);
+      }
+      const layoutFollowsKeyboard = smallViewportProbe.offsetHeight - visualHeight <= KEYBOARD_RESIZE_THRESHOLD;
+      const top = Math.max(0, visualViewport.offsetTop);
+      return {
+        top,
+        // Fixed content already sits above the keyboard, so an inset would lift it twice.
+        bottom: layoutFollowsKeyboard ? layoutHeight : Math.min(layoutHeight, top + visualHeight),
+        resizing: layoutFollowsKeyboard && Math.abs(layoutHeight - visualHeight) >= 1,
+      };
+    };
+    getKeyboardViewportRef = getKeyboardViewport;
+
+    // DRW-DOM-23. C# renders the Viewport's `style`, and a Blazor re-render rewrites the whole attribute, so the inset is
+    // a `component` band of the Viewport's style writer, which absorbs that foreign write before paint (M6 track 8c).
+    const insetWriter = styleWriter(root);
+    insetWriter.absorbForeignWrites();
+    const insetBand = insetWriter.layer('component');
+    const setDrawerKeyboardInset = (value: number) => {
+      insetBand.set(KEYBOARD_INSET, `${Math.max(0, Math.ceil(value))}px`);
+    };
+
+    // DRW-FOC-09: while the drawer is modal, a window scroll during keyboard interaction is spurious (WebKit's reveal can
+    // move the locked page), so the page is pinned to its position when the drawer opened.
+    const baseScrollX = win.scrollX;
+    const baseScrollY = win.scrollY;
+    const restoreWindowScroll = (): boolean => {
+      if (
+        !modal
+        || nested
+        || !focusedKeyboardTarget
+        || (win.scrollX === baseScrollX && win.scrollY === baseScrollY)
+        || getKeyboardViewport() == null
+      ) {
+        return false;
+      }
+      // An instant jump: the two-argument form obeys the page's `scroll-behavior`.
+      win.scrollTo({ left: baseScrollX, top: baseScrollY, behavior: 'instant' as ScrollBehavior });
+      return true;
+    };
+
+    // DRW-FOC-07: a native focus move with the keyboard up (the iOS previous/next arrows) commits WebKit's reveal before
+    // `focusin`, so the incoming field's geometry is overridden in the outgoing field's `focusout` and restored in
+    // `focusin`.
+    let restorePreemptedFocus: (() => void) | null = null;
+    const consumePreemptedFocus = () => {
+      restorePreemptedFocus?.();
+      restorePreemptedFocus = null;
+    };
+    const preemptFocusReveal = (target: HTMLElement, keyboardViewport: KeyboardVisualViewport) => {
+      consumePreemptedFocus();
+      // Presenting the field as already centered in the visible band above the keyboard makes both the in-page reveal and
+      // the viewport pan no-ops.
+      const targetRect = target.getBoundingClientRect();
+      restorePreemptedFocus = overrideGeometryDuringFocus(target, (keyboardViewport.top + keyboardViewport.bottom - targetRect.top - targetRect.bottom) / 2);
+    };
+
+    // DRW-FOC-05, FOC-08, ALG-07.
+    const alignFocusedKeyboardTarget = () => {
+      // If focus never lands on a preempted target, the focusout-scheduled alignment still restores it before paint.
+      consumePreemptedFocus();
+      const target = focusedKeyboardTarget;
+      // A focused field removed without `focusout` restores its slack here, on the next focus or viewport event, or when
+      // the drawer closes.
+      if (nested || !target || !contains(root, target)) {
+        setDrawerKeyboardInset(0);
+        restoreKeyboardScrollAdjustment();
+        return;
+      }
+      // Undo a reveal scroll on the locked page before measuring.
+      restoreWindowScroll();
+      const keyboardViewport = getKeyboardViewport();
+      if (!keyboardViewport) {
+        setDrawerKeyboardInset(0);
+        restoreKeyboardScrollAdjustment();
+        return;
+      }
+      setDrawerKeyboardInset(Math.max(0, win.innerHeight - keyboardViewport.bottom));
+      const scrollTarget = findKeyboardScrollTarget(target, root);
+      if (!scrollTarget) {
+        restoreKeyboardScrollAdjustment();
+        return;
+      }
+      const scrollTargetRect = scrollTarget.getBoundingClientRect();
+      const clippedBottom = Math.min(scrollTargetRect.bottom, keyboardViewport.bottom);
+      const overlap = Math.max(0, scrollTargetRect.bottom - keyboardViewport.bottom);
+      setKeyboardScrollSlack(scrollTarget, overlap);
+      const maxScrollTop = Math.max(0, scrollTarget.scrollHeight - scrollTarget.clientHeight);
+      if (maxScrollTop <= 0) {
+        return;
+      }
+      const clippedTop = Math.max(scrollTargetRect.top, keyboardViewport.top);
+      const visibleTop = clippedTop + KEYBOARD_VISIBILITY_MARGIN;
+      const visibleBottom = clippedBottom - KEYBOARD_VISIBILITY_MARGIN;
+      if (visibleBottom <= visibleTop) {
+        return;
+      }
+      const targetRect = target.getBoundingClientRect();
+      const nextScrollTop = scrollTarget.scrollTop + (targetRect.top + targetRect.bottom - visibleTop - visibleBottom) / 2;
+      const destination = Math.round(clamp(nextScrollTop, 0, maxScrollTop));
+      // WebKit restarts a smooth scroll re-issued while the layout viewport resizes.
+      const settled = keyboardScrollElement === scrollTarget && !keyboardViewport.resizing && Math.abs(keyboardScrollDestination - destination) <= 1;
+      if (!settled) {
+        // The scroll is committed only once the destination holds across two consecutive checks.
+        const checks = keyboardScrollElement === scrollTarget ? keyboardScrollChecks + 1 : 1;
+        keyboardScrollElement = scrollTarget;
+        keyboardScrollDestination = destination;
+        keyboardScrollChecks = checks;
+        keyboardScrollObserved = -1;
+        if (checks <= KEYBOARD_SETTLE_FRAME_LIMIT) {
+          keyboardFocusFrame.request(alignFocusedKeyboardTarget);
+          return;
+        }
+      } else if (keyboardScrollObserved >= 0) {
+        // A scroll toward this destination is out: leave it while it has arrived or is still progressing, and re-issue it
+        // only when it stalled short.
+        const current = scrollTarget.scrollTop;
+        if (Math.abs(current - destination) <= 1) {
+          return;
+        }
+        if (current !== keyboardScrollObserved) {
+          keyboardScrollObserved = current;
+          return;
+        }
+      }
+      keyboardScrollElement = scrollTarget;
+      keyboardScrollDestination = destination;
+      keyboardScrollChecks = 0;
+      keyboardScrollObserved = scrollTarget.scrollTop;
+      animateKeyboardScroll(scrollTarget, destination);
+    };
+
+    const scheduleKeyboardFocusAlignment = () => keyboardFocusFrame.request(alignFocusedKeyboardTarget);
+
+    // With the keyboard already up no viewport events follow a focus move, so alignment re-runs on an interval until the
+    // reveal and the layout settle; passes that find the scroll on course are inert.
+    const scheduleDelayedKeyboardRealign = () => {
+      let remainingPasses = KEYBOARD_REALIGN_MAX_PASSES;
+      const realign = () => {
+        alignFocusedKeyboardTarget();
+        remainingPasses -= 1;
+        if (remainingPasses > 0) {
+          keyboardRealignTimeout.start(KEYBOARD_REALIGN_INTERVAL, realign);
+        }
+      };
+      keyboardRealignTimeout.start(KEYBOARD_REALIGN_INTERVAL, realign);
+    };
+
+    // A tap's compatibility mousedown moves focus before mouseup and click hit-test the same point, so releasing the
+    // inset and slack waits for the next frame.
+    const releaseFocusedKeyboardTarget = () => {
+      focusedKeyboardTarget = null;
+      keyboardVisualHeight = -1;
+      keyboardRealignTimeout.clear();
+      scheduleKeyboardFocusAlignment();
+    };
+
+    const captureFocusedKeyboardTarget = (eventTarget: EventTarget | null): boolean => {
+      if (nested) {
+        return false;
+      }
+      const target = resolveKeyboardInputTarget(eventTarget);
+      if (!target || !contains(root, target)) {
+        return false;
+      }
+      // A new field starts a fresh alignment.
+      if (focusedKeyboardTarget !== target) {
+        keyboardScrollElement = null;
+      }
+      focusedKeyboardTarget = target;
+      return true;
+    };
+
+    const handleFocus = (event: FocusEvent) => {
+      const target = focusedKeyboardTarget;
+      // iOS 27 dispatches focus before recording the native focus options: preventScroll is applied again here.
+      if (restorePreemptedFocus && target && target === getTarget(event)) {
+        target.focus({ preventScroll: true });
+      }
+    };
+
+    const handleFocusIn = (event: FocusEvent) => {
+      // The programmatic transition is over once focus lands; a later `focusout` is the consumer's own.
+      programmaticKeyboardFocus = false;
+      consumePreemptedFocus();
+      if (!captureFocusedKeyboardTarget(getTarget(event))) {
+        // Focus landed outside any keyboard input of the drawer (a consumer's `onFocus` redirect): reconcile here.
+        releaseFocusedKeyboardTarget();
+        return;
+      }
+      if (getKeyboardViewport() != null) {
+        scheduleDelayedKeyboardRealign();
+      }
+      scheduleKeyboardFocusAlignment();
+    };
+
+    const handleFocusOut = (event: FocusEvent) => {
+      // The blur inside `focusKeyboardInputWithoutPageScroll` is followed synchronously by a re-focus.
+      if (programmaticKeyboardFocus) {
+        return;
+      }
+      if (captureFocusedKeyboardTarget(event.relatedTarget)) {
+        const target = focusedKeyboardTarget;
+        const keyboardViewport = getKeyboardViewport();
+        if (target && keyboardViewport) {
+          preemptFocusReveal(target, keyboardViewport);
+        }
+        scheduleKeyboardFocusAlignment();
+        return;
+      }
+      releaseFocusedKeyboardTarget();
+    };
+
+    const handleViewportUpdate = () => {
+      if (focusedKeyboardTarget || captureFocusedKeyboardTarget(activeElement(doc))) {
+        scheduleKeyboardFocusAlignment();
+      }
+    };
+
+    const handleWindowScroll = () => {
+      if (restoreWindowScroll()) {
+        // The inset is measured again once the page is back at rest.
+        scheduleKeyboardFocusAlignment();
+      }
+    };
+
+    // DRW-FOC-08: a finger going down owns the scroll position; the frame loop and the delayed passes stop.
+    const cancelKeyboardRealignOnPointerDown = () => {
+      // A pending cleanup is kept when focus has already left the keyboard input.
+      if (focusedKeyboardTarget) {
+        keyboardFocusFrame.cancel();
+      }
+      keyboardRealignTimeout.clear();
+      keyboardScrollElement = null;
+    };
+
+    const cleanups: Array<() => void> = [];
+    const listen = (target: EventTarget, type: string, listener: (event: any) => void, capture = false) => {
+      target.addEventListener(type, listener, capture);
+      cleanups.push(() => target.removeEventListener(type, listener, capture));
+    };
+    // DRW-FOC-03.
+    if (visualViewport) {
+      listen(visualViewport, 'resize', handleViewportUpdate);
+      listen(visualViewport, 'scroll', handleViewportUpdate);
+      // Chrome can keep resizing the layout viewport after visual viewport events stop.
+      listen(win, 'resize', handleViewportUpdate);
+    }
+    listen(doc, 'focus', handleFocus, true);
+    listen(doc, 'focusin', handleFocusIn, true);
+    listen(doc, 'focusout', handleFocusOut, true);
+    listen(win, 'scroll', handleWindowScroll);
+    listen(doc, 'pointerdown', cancelKeyboardRealignOnPointerDown, true);
+
+    if (captureFocusedKeyboardTarget(activeElement(doc))) {
+      scheduleKeyboardFocusAlignment();
+    }
+
+    // DRW-FOC-11.
+    return () => {
+      for (const remove of cleanups) {
+        remove();
+      }
+      consumePreemptedFocus();
+      focusedKeyboardTarget = null;
+      restoreKeyboardScrollAdjustment();
+      keyboardFocusFrame.cancel();
+      keyboardRealignTimeout.clear();
+      getKeyboardViewportRef = null;
+      (smallViewportProbe as HTMLElement | null)?.remove();
+      insetBand.remove(KEYBOARD_INSET);
+    };
+  };
+
+  const tearDown = () => {
+    cleanup?.();
+    cleanup = null;
+  };
+
+  return {
+    sync(next) {
+      options = next;
+      // The effect's inputs: a provider under the Root, open, mounted, modal and a nested drawer open.
+      const key = next.keyboard === true ? `${next.open}|${next.mounted}|${next.modal === true}|${nestedDrawerOpen()}` : null;
+      if (key === effectKey) {
+        return;
+      }
+      tearDown();
+      effectKey = key;
+      if (key !== null) {
+        cleanup = setUp();
+      } else {
+        // The provider unmounted: Base UI's timers and frames end with it.
+        keyboardFocusFrame.cancel();
+        keyboardRealignTimeout.clear();
+        resetTouchTrackingState();
+      }
+    },
+    // DRW-FOC-10.
+    onTouchStart(event) {
+      const touch = event.touches[0];
+      pendingKeyboardFocusMoved = false;
+      keyboardTouchStart = touch ? { x: touch.clientX, y: touch.clientY } : null;
+    },
+    onTouchMove(event) {
+      const touch = event.touches[0];
+      const touchStart = keyboardTouchStart;
+      if (!touch || !touchStart || pendingKeyboardFocusMoved) {
+        return;
+      }
+      // Past the threshold the gesture is a scroll or a swipe, not a tap to focus.
+      if (Math.abs(touch.clientX - touchStart.x) > INPUT_TAP_MOVE_THRESHOLD || Math.abs(touch.clientY - touchStart.y) > INPUT_TAP_MOVE_THRESHOLD) {
+        pendingKeyboardFocusMoved = true;
+      }
+    },
+    onTouchEnd(event) {
+      if (!open() || !mounted() || nestedDrawerOpen() || !rootElement || !keyboardTouchStart || pendingKeyboardFocusMoved) {
+        resetTouchTrackingState();
+        return;
+      }
+      const touch = event.changedTouches[0] ?? event.touches[0];
+      const nativeEventTarget = getTarget(event);
+      const pointTarget = touch ? resolveKeyboardTouchTargetFromPoint(rootElement.getRootNode(), touch.clientX, touch.clientY) : null;
+      // DRW-ALG-08: the lift point landed on another interactive or label element; its native tap goes through.
+      if (pointTarget === KEYBOARD_TAP_BLOCKED) {
+        resetTouchTrackingState();
+        return;
+      }
+      const keyboardTarget = touch && (pointTarget ?? resolveKeyboardTouchTarget(nativeEventTarget));
+      if (keyboardTarget && (!contains(rootElement, keyboardTarget.focusTarget) || !contains(rootElement, keyboardTarget.clickTarget))) {
+        resetTouchTrackingState();
+        return;
+      }
+      if (keyboardTarget) {
+        const { clickTarget, focusTarget } = keyboardTarget;
+        const win = ownerWindow(focusTarget);
+        // While pinch-zoomed, native behaviour handles focus and caret placement.
+        if (win.visualViewport && win.visualViewport.scale !== 1) {
+          resetTouchTrackingState();
+          return;
+        }
+        // Already focused with the keyboard up: the native tap repositions the caret.
+        if (activeElement(ownerDocument(focusTarget)) === focusTarget && (!win.visualViewport || getKeyboardViewportRef?.() != null)) {
+          resetTouchTrackingState();
+          return;
+        }
+        // iOS opens the software keyboard only for a focus inside the touch gesture. The flag suppresses the `focusout`
+        // handling of the intermediate blur; the `focusin` that lands clears it, and `finally` is the backstop.
+        event.preventDefault();
+        programmaticKeyboardFocus = true;
+        try {
+          focusKeyboardInputWithoutPageScroll(focusTarget);
+        } finally {
+          programmaticKeyboardFocus = false;
+        }
+        // Preventing the touchend default also suppresses the compatibility click: an untrusted one replaces it.
+        dispatchKeyboardClick(clickTarget, touch);
+        // A label's activation refocuses its control without preventScroll: it is applied again without a blur.
+        if (clickTarget !== focusTarget && activeElement(ownerDocument(focusTarget)) === focusTarget) {
+          focusTarget.focus({ preventScroll: true });
+        }
+      }
+      resetTouchTrackingState();
+    },
+    onTouchCancel: resetTouchTrackingState,
+    dispose() {
+      tearDown();
+      effectKey = null;
+      keyboardFocusFrame.cancel();
+      keyboardRealignTimeout.clear();
+    },
+  };
+}
+
+// DRW-ALG-08 (DrawerVirtualKeyboardProvider.tsx:739-895).
+function isKeyboardInputElement(element: HTMLElement): boolean {
+  if (element.isContentEditable) {
+    return true;
+  }
+  const win = ownerWindow(element);
+  if (element instanceof win.HTMLTextAreaElement || (element instanceof win.HTMLInputElement && KEYBOARD_INPUT_TYPES.has(element.type))) {
+    // Disabled controls neither focus nor open the keyboard.
+    return !element.matches(':disabled');
+  }
+  return false;
+}
+
+function resolveKeyboardInputTarget(target: EventTarget | null): HTMLElement | null {
+  if (!isHTMLElement(target)) {
+    return null;
+  }
+  if (isKeyboardInputElement(target)) {
+    return target.isContentEditable ? getContentEditableHost(target) : target;
+  }
+  const control = closest<HTMLLabelElement>(target, 'label')?.control ?? null;
+  return isHTMLElement(control) && isKeyboardInputElement(control) ? control : null;
+}
+
+function resolveKeyboardTouchTarget(target: EventTarget | null): KeyboardTouchTarget | null {
+  if (!isHTMLElement(target)) {
+    return null;
+  }
+  const focusTarget = resolveKeyboardInputTarget(target);
+  return focusTarget ? { focusTarget, clickTarget: target } : null;
+}
+
+// Inherited-editable descendants are not focusable: a tap on one focuses the editing host.
+function getContentEditableHost(element: HTMLElement): HTMLElement {
+  let host = element;
+  while (host.parentElement?.isContentEditable) {
+    host = host.parentElement;
+  }
+  return host;
+}
+
+function resolveKeyboardTouchTargetFromPoint(root: Node, clientX: number, clientY: number): KeyboardTouchTarget | typeof KEYBOARD_TAP_BLOCKED | null {
+  const exactTarget = getElementAtPoint(root, clientX, clientY);
+  if (isHTMLElement(exactTarget)) {
+    const exactKeyboardTarget = resolveKeyboardInputTarget(exactTarget);
+    if (exactKeyboardTarget) {
+      return { focusTarget: exactKeyboardTarget, clickTarget: exactTarget };
+    }
+  }
+  // Nearby points compensate for iOS retargeting a tap while the page reacts to the keyboard, but never steal a tap that
+  // lands on another interactive element or a label.
+  if (isInteractiveElement(exactTarget) || closest(exactTarget, 'label') != null) {
+    return KEYBOARD_TAP_BLOCKED;
+  }
+  for (const [offsetX, offsetY] of [
+    [0, INPUT_TAP_HIT_SLOP],
+    [0, -INPUT_TAP_HIT_SLOP],
+    [INPUT_TAP_HIT_SLOP, 0],
+    [-INPUT_TAP_HIT_SLOP, 0],
+  ] as const) {
+    const keyboardTarget = resolveKeyboardInputTarget(getElementAtPoint(root, clientX + offsetX, clientY + offsetY));
+    if (keyboardTarget) {
+      return { focusTarget: keyboardTarget, clickTarget: keyboardTarget };
+    }
+  }
+  return null;
+}
+
+function dispatchKeyboardClick(target: HTMLElement, touch: Pick<Touch, 'clientX' | 'clientY'>) {
+  const win = ownerWindow(target);
+  const ClickEvent = win.PointerEvent ?? win.MouseEvent;
+  target.dispatchEvent(new ClickEvent('click', { bubbles: true, cancelable: true, clientX: touch.clientX, clientY: touch.clientY, detail: 1, view: win }));
+}
+
+function focusKeyboardInputWithoutPageScroll(target: HTMLElement) {
+  const wasFocused = activeElement(ownerDocument(target)) === target;
+  // iOS Safari can scroll the page for transformed sheets even with preventScroll, so the input is moved off-screen for
+  // the synchronous focus call only.
+  const restoreStyles = overrideGeometryDuringFocus(target, -2000);
+  try {
+    if (wasFocused) {
+      target.blur();
+    }
+    target.focus({ preventScroll: true });
+  } finally {
+    restoreStyles();
+  }
+}
+
+// Overrides the painted geometry WebKit samples when an element gains focus; the caller restores it before the next paint.
+function overrideGeometryDuringFocus(target: HTMLElement, translateY: number): () => void {
+  const previousOpacity = target.style.opacity;
+  const previousTransform = target.style.transform;
+  const previousTransition = target.style.transition;
+  target.style.transition = 'none';
+  target.style.opacity = '0';
+  target.style.transform = `translateY(${translateY}px)`;
+  return () => {
+    target.style.opacity = previousOpacity;
+    target.style.transform = previousTransform;
+    target.style.transition = previousTransition;
+  };
+}
+
+// The composed-tree parent, a shadow root's host for its direct children (floating-ui's `getParentNode`).
+function composedParent(node: Node): Node {
+  if ((node.nodeName || '').toLowerCase() === 'html') {
+    return node;
+  }
+  const result: Node = (node as Element).assignedSlot || node.parentNode || (isShadowRoot(node) ? node.host : null) || ownerDocument(node).documentElement;
+  return isShadowRoot(result) ? result.host : result;
+}
+
+// From the field's parent: scrolling an overflowing field's own content cannot move its box from under the keyboard. An
+// already scrollable ancestor first, then one that becomes scrollable once slack is added.
+function findKeyboardScrollTarget(target: HTMLElement, root: HTMLElement): HTMLElement | null {
+  const scrollStart = composedParent(target);
+  return findScrollableTouchTarget(scrollStart, root, 'vertical') ?? findScrollableTouchTarget(scrollStart, root, 'vertical', true);
+}
+
 function attachViewport(
   viewport: HTMLElement | null,
   initial: DrawerOptions,
@@ -1224,6 +2038,8 @@ function attachViewport(
   let lastPointerType = '';
   let ignoreNextTouchStartFromPen = false;
   let removeTouchMove: (() => void) | null = null;
+  // M6 track 8c: the keyboard role (Drawer.VirtualKeyboardProvider), on only while C# says a provider is under the Root.
+  const keyboard = createVirtualKeyboard(viewport);
 
   // DRW-PTR-16, PTR-17: the Provider this drawer publishes to, the enclosing drawers' popups, and whether this drawer has
   // reported swiping to its parent in the current gesture (Base UI's `nestedSwipeActiveRef`).
@@ -1744,7 +2560,10 @@ function attachViewport(
       resetTouchSwipeState(true);
       return;
     }
-    // DRW-FOC-10's touchstart notification comes with 8c's keyboard role.
+    // DRW-FOC-10 (DrawerViewport.tsx:999): the provider records the touch before the swipe checks below.
+    if (options.keyboard) {
+      keyboard.onTouchStart(event);
+    }
     const axis = scrollAxis();
     const crossAxis: ScrollAxis = axis === 'vertical' ? 'horizontal' : 'vertical';
     // `x`/`y` hand touch drags along that axis to the element; any other value ignores the swipe outright.
@@ -1772,6 +2591,14 @@ function attachViewport(
   };
   // DRW-PTR-23.
   const onTouchEnd = (event: TouchEvent) => {
+    // DRW-FOC-10 (DrawerViewport.tsx:1043,1048): the provider sees the lift or the cancel first.
+    if (options.keyboard) {
+      if (event.type === 'touchend') {
+        keyboard.onTouchEnd(event);
+      } else {
+        keyboard.onTouchCancel();
+      }
+    }
     resetTouchSwipeState(false);
     lastPointerType = '';
     ignoreNextTouchStartFromPen = false;
@@ -1828,7 +2655,10 @@ function attachViewport(
     }
   };
   const onDocumentTouchMove = (event: TouchEvent) => {
-    // DRW-FOC-10's touchmove notification comes with 8c's keyboard role.
+    // DRW-FOC-10 (DrawerViewport.tsx:790): every move reaches the provider, even one the swipe claims below.
+    if (options.keyboard) {
+      keyboard.onTouchMove(event);
+    }
     if (ignoreTouchSwipe) {
       return;
     }
@@ -1865,6 +2695,7 @@ function attachViewport(
   viewport?.addEventListener('touchend', onTouchEnd);
   viewport?.addEventListener('touchcancel', onTouchEnd);
   syncTouchMoveListener();
+  keyboard.sync(options);
 
   // DrawerViewport.tsx:842-854: a closed nested drawer leaves its parent at rest.
   if (options.hasParent && !options.open) {
@@ -1919,6 +2750,7 @@ function attachViewport(
         pendingSnap = null;
       }
       refreshSnap();
+      keyboard.sync(options);
     },
     dispose() {
       if (disposed) {
@@ -1933,6 +2765,7 @@ function attachViewport(
       viewport?.removeEventListener('touchend', onTouchEnd);
       viewport?.removeEventListener('touchcancel', onTouchEnd);
       syncTouchMoveListener();
+      keyboard.dispose();
       // DRW-ANI-05 (DrawerViewport.tsx:869-885).
       provider?.set({ swipeProgress: 0, frontmostHeight: 0 });
       releaseVisualState(providerToken);

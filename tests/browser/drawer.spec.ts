@@ -985,6 +985,33 @@ test.describe('<Drawer.Viewport /> touch swipe in a shadow root', () => {
 
     await expect(fixture).toHaveAttribute('data-open-changes', 'false:swipe');
   });
+
+  // DRW-EDGE-05's lift-point clause, DRW-FOC-10 (DrawerVirtualKeyboardProvider.test.tsx; M6 track 8c, added 2026-11-21).
+  // Base UI stubs both hit tests; here they are real: the document's retargets to the shadow host, so only the shadow
+  // root's finds the button under the lift point. Folded with its positive half: a tap that lifts on the input itself is
+  // taken by the provider (its touchend default-prevented, the input focused).
+  testWithTouch('resolves the lift point through the shadow root when the drawer renders in one', async ({ touchPage: page, mode }) => {
+    await gotoPopupFixture(page, mode, 'drawer-swipe', { case: 'shadow', keyboard: true });
+    const input = page.getByTestId('input');
+    const button = page.getByTestId('button');
+    await page.evaluate(() => {
+      const prevented: boolean[] = [];
+      (window as unknown as { touchEnds: boolean[] }).touchEnds = prevented;
+      document.addEventListener('touchend', (event) => prevented.push(event.defaultPrevented));
+    });
+    const touchEnds = () => page.evaluate(() => (window as unknown as { touchEnds: boolean[] }).touchEnds);
+    const inputBox = (await input.boundingBox())!;
+    const buttonBox = (await button.boundingBox())!;
+    const y = inputBox.y + inputBox.height / 2;
+
+    await touchDrag(page, [[{ x: inputBox.x + inputBox.width - 2, y }, { x: buttonBox.x + 2, y }]], { steps: 1 });
+    await expect.poll(touchEnds).toEqual([false]);
+    await expect(input).not.toBeFocused();
+
+    await touchDrag(page, [[{ x: inputBox.x + 20, y }, { x: inputBox.x + 22, y }]], { steps: 1 });
+    await expect.poll(touchEnds).toEqual([false, true]);
+    await expect(input).toBeFocused();
+  });
 });
 
 // Slice 2's touches without a usual target (DRW-PTR-19 (3) and (5), PTR-21; added 2026-11-20), on the fixture's down
@@ -3045,5 +3072,151 @@ test.describe('<Drawer.Popup /> attach order', () => {
     await expect.poll(arrowBubbles).toBe(false);
     await expect(page.locator(Fixture.container('drawer-stack'))).toHaveAttribute('data-attached', 'true');
     expect(await styleOf(parent, '--drawer-frontmost-height')).toBe('200px');
+  });
+});
+
+// DRW-DIS-01, EVT-01's `close-watcher` (DrawerRoot.test.tsx:1757-1935; M6 track 8c, added 2026-11-21). Chromium's real
+// CloseWatcher cannot be driven as an Android back gesture, and on desktop Escape is also a close request, which the
+// drawer handles itself; so, as Base UI does, an init script installs Base UI's own stub class and an Android user agent
+// (js/platform.ts reads `navigator.userAgent`). On Server a cancelable request is prevented first and closes a round trip
+// later (design point D1 (a), chosen by the user 2026-11-21).
+test.describe('<Drawer.Root /> CloseWatcher', () => {
+  interface WatcherStub { active: boolean; requestClose(cancelable: boolean): void }
+  type WatcherWindow = Window & { closeWatchers: WatcherStub[] };
+
+  test.beforeEach(async ({ page }) => {
+    await page.addInitScript(() => {
+      Object.defineProperty(Navigator.prototype, 'userAgent', {
+        get: () => 'Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Mobile Safari/537.36',
+      });
+      class CloseWatcherStub extends EventTarget {
+        static instances: CloseWatcherStub[] = [];
+        active = true;
+        constructor() {
+          super();
+          CloseWatcherStub.instances.push(this);
+        }
+        destroy() {
+          this.active = false;
+        }
+        // Mirrors the browser: `cancel` fires first and can only be prevented while the page has history-action
+        // activation; otherwise the watcher is destroyed before `close` fires.
+        requestClose(cancelable: boolean) {
+          if (!this.active) {
+            return;
+          }
+          const cancelEvent = new Event('cancel', { cancelable });
+          this.dispatchEvent(cancelEvent);
+          if (cancelEvent.defaultPrevented) {
+            return;
+          }
+          this.destroy();
+          this.dispatchEvent(new Event('close'));
+        }
+      }
+      (window as unknown as { CloseWatcher: unknown }).CloseWatcher = CloseWatcherStub;
+      (window as unknown as { closeWatchers: CloseWatcherStub[] }).closeWatchers = CloseWatcherStub.instances;
+    });
+  });
+
+  const watcherCase = (page: Page, mode: RenderMode, options: Record<string, string | boolean> = {}) =>
+    gotoPopupFixture(page, mode, 'drawer-popup', { case: 'watcher', ...options });
+  const watcherCount = (page: Page) => page.evaluate(() => (window as unknown as WatcherWindow).closeWatchers.length);
+  const watcherActive = (page: Page, index = -1) =>
+    page.evaluate((at) => (window as unknown as WatcherWindow).closeWatchers.at(at)?.active ?? null, index);
+  const requestClose = (page: Page, cancelable = true) =>
+    page.evaluate((value) => (window as unknown as WatcherWindow).closeWatchers.at(-1)!.requestClose(value), cancelable);
+
+  test('closes when the watcher requests a close', async ({ page, mode }) => {
+    const fixture = await watcherCase(page, mode);
+    await expect.poll(() => watcherCount(page)).toBeGreaterThan(0);
+
+    await requestClose(page);
+
+    await expect(fixture).toHaveAttribute('data-open-changes', 'false:close-watcher');
+    await expect(page.getByRole('dialog')).toHaveCount(0);
+    await expect.poll(() => watcherActive(page)).toBe(false);
+  });
+
+  test('keeps the same watcher active when a cancelable close request is canceled', async ({ page, mode }) => {
+    const fixture = await watcherCase(page, mode, { cancel: 'first' });
+    await expect.poll(() => watcherCount(page)).toBeGreaterThan(0);
+    const count = await watcherCount(page);
+
+    await requestClose(page);
+    await expect(fixture).toHaveAttribute('data-open-changes', 'false:close-watcher');
+    await settle(fixture);
+    await expect(page.getByRole('dialog')).toBeVisible();
+    expect(await watcherCount(page)).toBe(count);
+    expect(await watcherActive(page)).toBe(true);
+
+    await requestClose(page);
+    await expect(fixture).toHaveAttribute('data-open-changes', 'false:close-watcher false:close-watcher');
+    await expect(page.getByRole('dialog')).toHaveCount(0);
+    await expect.poll(() => watcherActive(page, count - 1)).toBe(false);
+  });
+
+  test('closes on a close request that cannot be prevented even if onOpenChange cancels it', async ({ page, mode }) => {
+    const fixture = await watcherCase(page, mode, { cancel: 'always' });
+    await expect.poll(() => watcherCount(page)).toBeGreaterThan(0);
+
+    await requestClose(page, false);
+
+    await expect(fixture).toHaveAttribute('data-open-changes', 'false:close-watcher');
+    await expect(page.getByTestId('unmount')).toHaveAttribute('data-last-canceled', 'false');
+    await expect(page.getByRole('dialog')).toHaveCount(0);
+    expect(await watcherActive(page)).toBe(false);
+  });
+
+  for (const controlled of [false, true]) {
+    test(`steps through content on back presses until one cannot be prevented (controlled: ${controlled})`, async ({ page, mode }) => {
+      const fixture = await watcherCase(page, mode, { cancel: 'steps', controlled });
+      await expect.poll(() => watcherCount(page)).toBeGreaterThan(0);
+      const count = await watcherCount(page);
+
+      await requestClose(page);
+      await expect(page.getByRole('dialog')).toHaveText('step 1');
+      await settle(fixture);
+      expect(await watcherCount(page)).toBe(count);
+      expect(await watcherActive(page)).toBe(true);
+
+      await requestClose(page, false);
+      await expect(page.getByRole('dialog')).toHaveCount(0);
+      expect(await watcherActive(page, count - 1)).toBe(false);
+    });
+  }
+
+  test('destroys the watcher on unmount', async ({ page, mode }) => {
+    const fixture = await watcherCase(page, mode, { cancel: 'always' });
+    await expect.poll(() => watcherCount(page)).toBeGreaterThan(0);
+
+    await requestClose(page);
+    await expect(fixture).toHaveAttribute('data-open-changes', 'false:close-watcher');
+    await settle(fixture);
+    expect(await watcherActive(page)).toBe(true);
+
+    // Base UI calls `unmount()`; the modal drawer covers the page's button, so it is clicked in the page.
+    await page.getByTestId('unmount').evaluate((element) => (element as HTMLElement).click());
+    await expect.poll(() => watcherActive(page)).toBe(false);
+  });
+});
+
+// DRW-DOM-33 (DrawerPopup.tsx:28-89, 229; M6 track 8c, added 2026-11-21): found by the sample page, whose snap sheet's
+// `translateY(calc(var(--drawer-snap-point-offset) + var(--drawer-swipe-movement-y)))` was invalid at rest, as the
+// movement variable was never declared. Folded with its positive half: a value set on the popup does not reach its
+// descendants (`inherits: false`).
+test.describe('<Drawer.Popup /> registered variables', () => {
+  test('port: registers the swipe variables, so a popup at rest reads 0px movement and its descendants do not inherit them', async ({ page, mode }) => {
+    await popupCase(page, mode, 'composite');
+    const popup = page.getByTestId('popup');
+    const computed = (target: Locator, name: string) =>
+      target.evaluate((element, property) => getComputedStyle(element).getPropertyValue(property), name);
+
+    expect(await computed(popup, '--drawer-swipe-movement-y')).toBe('0px');
+    expect(await computed(popup, '--drawer-swipe-strength')).toBe('1');
+
+    await popup.evaluate((element) => (element as HTMLElement).style.setProperty('--drawer-swipe-movement-x', '5px'));
+    expect(await computed(popup, '--drawer-swipe-movement-x')).toBe('5px');
+    expect(await computed(page.getByRole('textbox', { name: 'Field' }), '--drawer-swipe-movement-x')).toBe('0px');
   });
 });

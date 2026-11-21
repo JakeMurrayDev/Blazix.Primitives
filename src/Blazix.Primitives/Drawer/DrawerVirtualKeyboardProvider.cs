@@ -15,8 +15,10 @@ namespace Blazix.Primitives;
 /// Place it anywhere inside a <see cref="DrawerRoot{TPayload}"/> whose popup is inside a <see cref="DrawerViewport"/>; the
 /// viewport is where it measures the keyboard and sets <c>--drawer-keyboard-inset</c>.
 /// </remarks>
-public sealed class DrawerVirtualKeyboardProvider : ComponentBase
+public sealed class DrawerVirtualKeyboardProvider : ComponentBase, IDisposable
 {
+    private IDisposable? registration;
+
     [CascadingParameter]
     private DrawerRootContext? Root { get; set; }
 
@@ -31,6 +33,8 @@ public sealed class DrawerVirtualKeyboardProvider : ComponentBase
         {
             throw DialogParts.MissingRoot("Drawer");
         }
+
+        registration = Root.RegisterKeyboardProvider();
     }
 
     /// <inheritdoc />
@@ -38,4 +42,7 @@ public sealed class DrawerVirtualKeyboardProvider : ComponentBase
     {
         builder.AddContent(0, ChildContent);
     }
+
+    /// <inheritdoc />
+    public void Dispose() => registration?.Dispose();
 }

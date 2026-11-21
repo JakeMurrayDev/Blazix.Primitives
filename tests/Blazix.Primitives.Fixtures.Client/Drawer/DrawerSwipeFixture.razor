@@ -33,7 +33,9 @@
       shadow root that a page script attaches to `[data-shadow-host]` after the first render (Base UI's `container:
       shadowRoot`, as the Popover fixture does). The popup is fixed at left 0 and top 100, 200 px wide and 300 px tall, and
       holds a 40 px target and a 40 px `data-base-ui-swipe-ignore` row; the rest is free. The attach marker waits for the
-      Viewport rendered there.
+      Viewport rendered there. With `keyboard` (M6 track 8c, added 2026-11-21) the root is non-modal and wrapped in a
+      VirtualKeyboardProvider, and the popup holds instead a 100 px text input (`input`) and, 4 px to its right, a button
+      (`button`) that counts its clicks in `data-clicks` (DrawerVirtualKeyboardProvider.test.tsx's shadow-root tree).
     - `case=combobox` (added 2026-11-20): DrawerViewport.test.tsx's portaled descendants. The popup is fixed at left 0
       and top 100, 200 px wide and 300 px tall, and holds Drawer.Content with a Combobox of ten fruits, open by default,
       whose portaled list is 40 px tall and scrolls.
@@ -100,6 +102,14 @@
             @Parts
         </DrawerRoot>
     }
+    else if (Keyboard)
+    {
+        <DrawerRoot TPayload="NoPayload" @ref="root" DefaultOpen="true" Modal="false" SwipeDirection="@Direction" OnOpenChange="RecordOpenChange">
+            <DrawerVirtualKeyboardProvider>
+                @Parts
+            </DrawerVirtualKeyboardProvider>
+        </DrawerRoot>
+    }
     else
     {
         <DrawerRoot TPayload="NoPayload" @ref="root" DefaultOpen="true" SwipeDirection="@Direction" OnOpenChange="RecordOpenChange">
@@ -128,6 +138,10 @@
     private bool Axis => Case == "axis";
 
     private bool Shadow => Case == "shadow";
+
+    private bool Keyboard => QueryFlag("keyboard") == true;
+
+    private int buttonClicks;
 
     private bool Wrap => Case == "wrap";
 
@@ -198,6 +212,13 @@
                             </ComboboxPortal>
                         </ComboboxRoot>
                     </DrawerContent>
+                }
+                else if (Shadow && Keyboard)
+                {
+                    <div style="display: flex; gap: 4px; padding: 8px;">
+                        <input data-testid="input" type="text" style="width: 100px; height: 32px; margin: 0;" />
+                        <button data-testid="button" type="button" data-clicks="@buttonClicks" style="height: 32px; margin: 0;" @onclick="() => buttonClicks++">Action</button>
+                    </div>
                 }
                 else if (Shadow)
                 {
