@@ -1065,6 +1065,36 @@ function attachIndent(indent: HTMLElement | null, initial: DrawerOptions): TwinH
 // DRW-STA-10 (DrawerPopup.tsx:181-242), DRW-DOM-09 (321-325) and DRW-DOM-14 (244-269): the Popup measures its own height and
 // reports it to its Root, declares that height while a nested drawer is present or it animates out, and shows the nested
 // swipe progress its nested drawers publish.
+// DRW-DOM-33 (DrawerPopup.tsx:28-89): the swipe variables are registered once per page, without inheritance, so a popup
+// at rest reads 0px movement and a deep subtree does not recalculate on every move. Errors (already registered) are
+// ignored. M6 track 8c (issue 279), found by the sample page.
+let swipeVariablesRegistered = false;
+function registerSwipeVariables(): void {
+  if (swipeVariablesRegistered) {
+    return;
+  }
+  swipeVariablesRegistered = true;
+  if (typeof CSS === 'undefined' || typeof CSS.registerProperty !== 'function') {
+    return;
+  }
+  const lengths = ['--drawer-swipe-movement-x', '--drawer-swipe-movement-y', '--drawer-snap-point-offset'];
+  const numbers: Array<[string, string]> = [['--drawer-swipe-progress', '0'], ['--drawer-swipe-strength', '1']];
+  for (const name of lengths) {
+    try {
+      CSS.registerProperty({ name, syntax: '<length>', inherits: false, initialValue: '0px' });
+    } catch {
+      // Already registered, by another bundle or the page.
+    }
+  }
+  for (const [name, initialValue] of numbers) {
+    try {
+      CSS.registerProperty({ name, syntax: '<number>', inherits: false, initialValue });
+    } catch {
+      // Already registered, by another bundle or the page.
+    }
+  }
+}
+
 // The part of the platform's CloseWatcher the popup role uses (Chromium's; DRW-DIS-01).
 interface CloseWatcherLike extends EventTarget {
   destroy(): void;
@@ -1077,6 +1107,9 @@ function attachPopup(popup: HTMLElement | null, initial: DrawerOptions, twin: Re
   let lastHeight = 0;
   let shownHeight = 0;
   let stopResize: (() => void) | null = null;
+  if (popup) {
+    registerSwipeVariables();
+  }
   const band = popup ? styleWriter(popup) : null;
   band?.absorbForeignWrites();
   const layer = band ? band.layer('component') : null;
