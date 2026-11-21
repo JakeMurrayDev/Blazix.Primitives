@@ -260,13 +260,18 @@ public sealed class DrawerPopup : PartBase<DrawerPopupState>
 
         // M6 track 8b: the Viewport's drawer handle writes the swipe attributes and styles on this element.
         Drawer!.SetPopupElement(Element);
-        await behavior!.OnAfterRenderAsync(Element, RenderedId);
+        Task dialog = behavior!.OnAfterRenderAsync(Element, RenderedId);
 
         // Slice 3: the Popup's own handle measures it (DRW-STA-10), and the reports to the parent drawer follow the render.
+        // Slice 5 (chosen by the user 2026-11-21, ADR 01's amendment of 2026-11-21): it starts beside the Dialog popup
+        // behaviour's handles, not behind their imports and attaches, so a nested drawer's frontmost height reaches its
+        // parent in eight one-way legs instead of sixteen.
         if (Element is { } element)
         {
             await measurement!.SyncAsync(element);
         }
+
+        await dialog;
     }
 
     /// <inheritdoc />
