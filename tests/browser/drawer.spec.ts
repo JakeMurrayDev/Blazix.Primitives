@@ -985,6 +985,33 @@ test.describe('<Drawer.Viewport /> touch swipe in a shadow root', () => {
 
     await expect(fixture).toHaveAttribute('data-open-changes', 'false:swipe');
   });
+
+  // DRW-EDGE-05's lift-point clause, DRW-FOC-10 (DrawerVirtualKeyboardProvider.test.tsx; M6 track 8c, added 2026-11-21).
+  // Base UI stubs both hit tests; here they are real: the document's retargets to the shadow host, so only the shadow
+  // root's finds the button under the lift point. Folded with its positive half: a tap that lifts on the input itself is
+  // taken by the provider (its touchend default-prevented, the input focused).
+  testWithTouch('resolves the lift point through the shadow root when the drawer renders in one', async ({ touchPage: page, mode }) => {
+    await gotoPopupFixture(page, mode, 'drawer-swipe', { case: 'shadow', keyboard: true });
+    const input = page.getByTestId('input');
+    const button = page.getByTestId('button');
+    await page.evaluate(() => {
+      const prevented: boolean[] = [];
+      (window as unknown as { touchEnds: boolean[] }).touchEnds = prevented;
+      document.addEventListener('touchend', (event) => prevented.push(event.defaultPrevented));
+    });
+    const touchEnds = () => page.evaluate(() => (window as unknown as { touchEnds: boolean[] }).touchEnds);
+    const inputBox = (await input.boundingBox())!;
+    const buttonBox = (await button.boundingBox())!;
+    const y = inputBox.y + inputBox.height / 2;
+
+    await touchDrag(page, [[{ x: inputBox.x + inputBox.width - 2, y }, { x: buttonBox.x + 2, y }]], { steps: 1 });
+    await expect.poll(touchEnds).toEqual([false]);
+    await expect(input).not.toBeFocused();
+
+    await touchDrag(page, [[{ x: inputBox.x + 20, y }, { x: inputBox.x + 22, y }]], { steps: 1 });
+    await expect.poll(touchEnds).toEqual([false, true]);
+    await expect(input).toBeFocused();
+  });
 });
 
 // Slice 2's touches without a usual target (DRW-PTR-19 (3) and (5), PTR-21; added 2026-11-20), on the fixture's down
