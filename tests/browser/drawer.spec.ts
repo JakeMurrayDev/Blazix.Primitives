@@ -3200,3 +3200,23 @@ test.describe('<Drawer.Root /> CloseWatcher', () => {
     await expect.poll(() => watcherActive(page)).toBe(false);
   });
 });
+
+// DRW-DOM-33 (DrawerPopup.tsx:28-89, 229; M6 track 8c, added 2026-11-21): found by the sample page, whose snap sheet's
+// `translateY(calc(var(--drawer-snap-point-offset) + var(--drawer-swipe-movement-y)))` was invalid at rest, as the
+// movement variable was never declared. Folded with its positive half: a value set on the popup does not reach its
+// descendants (`inherits: false`).
+test.describe('<Drawer.Popup /> registered variables', () => {
+  test('port: registers the swipe variables, so a popup at rest reads 0px movement and its descendants do not inherit them', async ({ page, mode }) => {
+    await popupCase(page, mode, 'composite');
+    const popup = page.getByTestId('popup');
+    const computed = (target: Locator, name: string) =>
+      target.evaluate((element, property) => getComputedStyle(element).getPropertyValue(property), name);
+
+    expect(await computed(popup, '--drawer-swipe-movement-y')).toBe('0px');
+    expect(await computed(popup, '--drawer-swipe-strength')).toBe('1');
+
+    await popup.evaluate((element) => (element as HTMLElement).style.setProperty('--drawer-swipe-movement-x', '5px'));
+    expect(await computed(popup, '--drawer-swipe-movement-x')).toBe('5px');
+    expect(await computed(page.getByRole('textbox', { name: 'Field' }), '--drawer-swipe-movement-x')).toBe('0px');
+  });
+});
