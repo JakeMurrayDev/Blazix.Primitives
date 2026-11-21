@@ -62,6 +62,7 @@ JavaScript serialises the native event inside its dispatch as one object with ex
 | `buttons` | number | `MouseEvent.buttons` |
 | `target` | object or null | `{ "id": string or null, "tagName": string or null }` |
 | `defaultPrevented` | boolean | `event.defaultPrevented` when the snapshot was taken |
+| `cancelable` | boolean | `event.cancelable` (added 2026-11-21, ADR 05 Amendments 2026-11-21, chosen by the user) |
 | `timeStamp` | number | `event.timeStamp` in milliseconds |
 
 A request with no native event carries a fresh placeholder: `kind` `Event`, `type` `base-ui` (EVD-API-04).
@@ -69,7 +70,7 @@ A request with no native event carries a fresh placeholder: `kind` `Event`, `typ
 A request that a C# handler starts (a C#-dispatched click or key, whose event JavaScript never snapshotted) builds its snapshot from Blazor's arguments with the internal `EventSnapshot.FromEventArgs(MouseEventArgs)` and `FromEventArgs(KeyboardEventArgs)` (ADR 04 Amendments 2026-10-21):
 - `Kind` is `MouseEvent`, `PointerEvent`, `WheelEvent` or `KeyboardEvent`, after the argument type.
 - `Type`, `Detail`, `Buttons`, the four modifiers, `PointerType`, `Key` and `Code` are copied.
-- `Target` is `null`, `DefaultPrevented` is `false` and `TimeStamp` is `0`, because Blazor's arguments do not carry them.
+- `Target` is `null`, `DefaultPrevented` and `Cancelable` are `false` and `TimeStamp` is `0`, because Blazor's arguments do not carry them.
 
 The inverse, `snapshot.ToKeyboardEventArgs()`, is what a decision point hands a consumer's C# key handler (the button module's `activate`).
 
