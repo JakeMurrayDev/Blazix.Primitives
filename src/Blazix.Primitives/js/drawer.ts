@@ -35,6 +35,7 @@ import {
   observeResize,
   ownerDocument,
   ownerWindow,
+  platform,
   styleWriter,
   type ScrollAxis,
   type StyleLayer,
@@ -1064,6 +1065,11 @@ function attachIndent(indent: HTMLElement | null, initial: DrawerOptions): TwinH
 // DRW-STA-10 (DrawerPopup.tsx:181-242), DRW-DOM-09 (321-325) and DRW-DOM-14 (244-269): the Popup measures its own height and
 // reports it to its Root, declares that height while a nested drawer is present or it animates out, and shows the nested
 // swipe progress its nested drawers publish.
+// The part of the platform's CloseWatcher the popup role uses (Chromium's; DRW-DIS-01).
+interface CloseWatcherLike extends EventTarget {
+  destroy(): void;
+}
+
 function attachPopup(popup: HTMLElement | null, initial: DrawerOptions, twin: ReturnType<typeof createTwinChannel>): TwinHandle {
   let options = initial;
   let disposed = false;
@@ -1140,11 +1146,60 @@ function attachPopup(popup: HTMLElement | null, initial: DrawerOptions, twin: Re
     }
   };
 
+  // DRW-DIS-01 (DrawerRoot.tsx:445-493): on Android, while the drawer is open and topmost, a CloseWatcher turns the back
+  // gesture into a close request with reason `close-watcher`. M6 track 8c; design point D1 (a), chosen by the user
+  // 2026-11-21 (ADR 04 Amendments 2026-11-21): a cancelable `cancel` asks the `close-watcher` point, which WebAssembly
+  // decides inside the event; elsewhere the event is prevented, so the watcher stays, and a numbered request follows.
+  // A `cancel` the browser does not let be prevented is reported with `cancelable: false`, and C# cannot cancel it.
+  let watcher: { instance: CloseWatcherLike; onCancel: (event: Event) => void } | null = null;
+  let closeRequests = 0;
+  const reportClose = (event: Event, cancelable: boolean) => {
+    closeRequests += 1;
+    twin.report('OnCloseWatcherRequest', { request: closeRequests, cancelable, event: eventInfo(event) });
+  };
+  const destroyWatcher = () => {
+    if (watcher) {
+      watcher.instance.removeEventListener('cancel', watcher.onCancel);
+      watcher.instance.destroy();
+      watcher = null;
+    }
+  };
+  const syncWatcher = () => {
+    if (disposed || !popup || !options.open || (options.nestedOpenDialogCount ?? 0) > 0 || !platform.os.android) {
+      destroyWatcher();
+      return;
+    }
+    const Ctor = (ownerWindow(popup) as Window & { CloseWatcher?: new () => CloseWatcherLike }).CloseWatcher;
+    if (watcher || !Ctor) {
+      return;
+    }
+    const onCancel = (event: Event) => {
+      if (!options.open) {
+        return;
+      }
+      if (!event.cancelable) {
+        reportClose(event, false);
+        return;
+      }
+      const verdict = decide(twin, 'close-watcher', event, 'prevent');
+      if (verdict === 'prevent') {
+        event.preventDefault();
+      }
+      if (!twin.lastDecisionWasSynchronous) {
+        reportClose(event, true);
+      }
+    };
+    const instance = new Ctor();
+    instance.addEventListener('cancel', onCancel);
+    watcher = { instance, onCancel };
+  };
+
   const unsubscribe = channel?.subscribe(syncProgress);
   if (channel) {
     syncProgress();
   }
   syncMeasurement();
+  syncWatcher();
 
   return {
     update(nextJson) {
@@ -1157,12 +1212,14 @@ function attachPopup(popup: HTMLElement | null, initial: DrawerOptions, twin: Re
         syncMeasurement();
       }
       syncHeight();
+      syncWatcher();
     },
     dispose() {
       if (disposed) {
         return;
       }
       disposed = true;
+      destroyWatcher();
       stopResize?.();
       markObserver?.disconnect();
       unsubscribe?.();
