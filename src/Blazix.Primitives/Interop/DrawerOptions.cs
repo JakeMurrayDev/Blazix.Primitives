@@ -90,6 +90,16 @@ internal sealed record DrawerOptions : TwinOptions
     /// <summary>Gets the number of the last open request of the swipe area C# has answered.</summary>
     public int AnsweredOpen { get; init; }
 
+    // M6 track 8c (issue 279): DRW-API-11, STR-09, FOC-03, FOC-07, FOC-09; the keyboard role on the Viewport handle.
+    /// <summary>Gets a value indicating whether a VirtualKeyboardProvider is under the root; the keyboard role acts only then.</summary>
+    public bool Keyboard { get; init; }
+
+    /// <summary>Gets a value indicating whether the root is modal: <see langword="true"/> only for <c>Modal=true</c>, not for trap-focus.</summary>
+    public bool Modal { get; init; }
+
+    /// <summary>Gets the number of dialogs and drawers open inside the drawer.</summary>
+    public int NestedOpenDialogCount { get; init; }
+
     /// <summary>Gets the index of the popup element among the references sent with the options.</summary>
     /// <value>The index, or <see langword="null"/>, the default, while no popup is rendered.</value>
     public int? Popup { get; init; }

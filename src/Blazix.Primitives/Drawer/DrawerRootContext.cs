@@ -15,6 +15,7 @@ internal sealed class DrawerRootContext
 
     // Whether a nested drawer reported a positive frontmost height (isNestedDrawerOpenRef).
     private bool nestedHeightReported;
+    private int keyboardProviders;
 
     private readonly Func<SnapPointValue?, ChangeEventDetails?, Task> requestSnapPoint;
     private readonly Action<string, PopupTriggerElement> registerTrigger;
@@ -75,6 +76,24 @@ internal sealed class DrawerRootContext
 
     /// <summary>Gets a value indicating whether a nested drawer is being swiped, as it last reported.</summary>
     public bool NestedSwiping { get; private set; }
+
+    // M6 track 8c (issue 279): DRW-STR-09, API-11. The keyboard role rides the Viewport's handle (design point 1 (a) of
+    // 2026-11-18), which acts only while a provider is registered.
+    /// <summary>Gets a value indicating whether a <see cref="DrawerVirtualKeyboardProvider"/> is under the root.</summary>
+    public bool HasKeyboardProvider => keyboardProviders > 0;
+
+    /// <summary>Registers a <see cref="DrawerVirtualKeyboardProvider"/> under the root.</summary>
+    /// <returns>The registration, whose disposal removes the provider.</returns>
+    public IDisposable RegisterKeyboardProvider()
+    {
+        keyboardProviders++;
+        if (keyboardProviders == 1)
+        {
+            Notify(DrawerFields.KeyboardProvider);
+        }
+
+        return new KeyboardProviderRegistration(this);
+    }
 
     /// <summary>Sets the enclosing drawer root and provider, read from the root's cascades.</summary>
     /// <param name="parent">The nearest enclosing drawer root.</param>
@@ -305,6 +324,27 @@ internal sealed class DrawerRootContext
         }
     }
 
+    private sealed class KeyboardProviderRegistration(DrawerRootContext owner) : IDisposable
+    {
+        private bool disposed;
+
+        /// <inheritdoc />
+        public void Dispose()
+        {
+            if (disposed)
+            {
+                return;
+            }
+
+            disposed = true;
+            owner.keyboardProviders--;
+            if (owner.keyboardProviders == 0)
+            {
+                owner.Notify(DrawerFields.KeyboardProvider);
+            }
+        }
+    }
+
     private sealed class Registration(DrawerRootContext owner, (DrawerFields, Action) entry) : IDisposable
     {
         private bool disposed;
@@ -345,4 +385,7 @@ internal enum DrawerFields
 
     /// <summary>The popup's and the backdrop's elements.</summary>
     Elements = 1 << 5,
+
+    /// <summary>Whether a VirtualKeyboardProvider is under the root.</summary>
+    KeyboardProvider = 1 << 6,
 }

@@ -55,6 +55,9 @@ public sealed class DrawerTwinContractTests
             SessionToken = "blazix-session-3",
             PopupId = "base-ui-9",
             AnsweredOpen = 5,
+            Keyboard = true,
+            Modal = true,
+            NestedOpenDialogCount = 1,
             Popup = 0,
             Backdrop = 1,
         });
@@ -63,13 +66,13 @@ public sealed class DrawerTwinContractTests
         JSRuntimeInvocation attach = Assert.Single(module.Invocations["attach"]);
         Assert.Equal("base-ui-1", attach.Arguments[0]);
         Assert.Equal(
-            """{"role":"viewport","open":false,"mounted":false,"nested":false,"nestedOpenDrawerCount":0,"swipeDirection":"down","answeredDismiss":0,"snapToSequentialPoints":false,"answeredSnap":0,"canceledSnap":0,"frontmostHeight":0,"hasParent":false,"hasNestedDrawer":false,"ending":false,"disabled":false,"answeredOpen":0}""",
+            """{"role":"viewport","open":false,"mounted":false,"nested":false,"nestedOpenDrawerCount":0,"swipeDirection":"down","answeredDismiss":0,"snapToSequentialPoints":false,"answeredSnap":0,"canceledSnap":0,"frontmostHeight":0,"hasParent":false,"hasNestedDrawer":false,"ending":false,"disabled":false,"answeredOpen":0,"keyboard":false,"modal":false,"nestedOpenDialogCount":0}""",
             attach.Arguments[1]);
         Assert.IsType<DotNetObjectReference<DrawerTwin>>(attach.Arguments[2]);
 
         JSRuntimeInvocation update = Assert.Single(handle.Invocations["update"]);
         Assert.Equal(
-            """{"role":"viewport","open":true,"mounted":true,"nested":true,"nestedOpenDrawerCount":2,"swipeDirection":"right","answeredDismiss":3,"snapPoints":[0.5,"200px"],"activeSnapPoint":"200px","snapToSequentialPoints":true,"answeredSnap":4,"canceledSnap":2,"provider":"blazix-drawer-provider-7","frontmostHeight":240.5,"hasParent":true,"ancestorPopups":[2,3],"hasNestedDrawer":true,"ending":true,"disabled":true,"sessionToken":"blazix-session-3","popupId":"base-ui-9","answeredOpen":5,"popup":0,"backdrop":1}""",
+            """{"role":"viewport","open":true,"mounted":true,"nested":true,"nestedOpenDrawerCount":2,"swipeDirection":"right","answeredDismiss":3,"snapPoints":[0.5,"200px"],"activeSnapPoint":"200px","snapToSequentialPoints":true,"answeredSnap":4,"canceledSnap":2,"provider":"blazix-drawer-provider-7","frontmostHeight":240.5,"hasParent":true,"ancestorPopups":[2,3],"hasNestedDrawer":true,"ending":true,"disabled":true,"sessionToken":"blazix-session-3","popupId":"base-ui-9","answeredOpen":5,"keyboard":true,"modal":true,"nestedOpenDialogCount":1,"popup":0,"backdrop":1}""",
             update.Arguments[0]);
     }
 

@@ -215,8 +215,11 @@ public sealed class DrawerViewport : PartBase<DrawerViewportState>
 
         // The handle's options: the fields the gesture reads, and the elements it writes on. They reach the module without a
         // render of the viewport.
-        rootSubscription = Context!.Subscribe(DialogFields.Open | DialogFields.Mounted | DialogFields.Nested | DialogFields.NestedOpenDrawerCount, SyncTwinLater);
-        drawerSubscription = Drawer!.Subscribe(DrawerFields.Settings | DrawerFields.Elements | DrawerFields.FrontmostHeight, SyncTwinLater);
+        rootSubscription = Context!.Subscribe(
+            DialogFields.Open | DialogFields.Mounted | DialogFields.Nested | DialogFields.NestedOpenDrawerCount | DialogFields.NestedOpenDialogCount
+                | DialogFields.Modality,
+            SyncTwinLater);
+        drawerSubscription = Drawer!.Subscribe(DrawerFields.Settings | DrawerFields.Elements | DrawerFields.FrontmostHeight | DrawerFields.KeyboardProvider, SyncTwinLater);
 
         // Slice 3: the enclosing drawers' popups, which follow this drawer's drag (DRW-PTR-16), are sent as references.
         int depth = 0;
@@ -262,7 +265,9 @@ public sealed class DrawerViewport : PartBase<DrawerViewportState>
             && sent.AnsweredDismiss == answeredDismiss && ReferenceEquals(sent.SnapPoints, drawer.SnapPoints)
             && Nullable.Equals(sent.ActiveSnapPoint, drawer.ActiveSnapPoint) && sent.SnapToSequentialPoints == drawer.SnapToSequentialPoints
             && sent.AnsweredSnap == answeredSnap && sent.CanceledSnap == canceledSnap && SameElements()
-            && ReferenceEquals(sent.Provider, drawer.Provider?.Token) && sent.FrontmostHeight == drawer.FrontmostHeight)
+            && ReferenceEquals(sent.Provider, drawer.Provider?.Token) && sent.FrontmostHeight == drawer.FrontmostHeight
+            && sent.Keyboard == drawer.HasKeyboardProvider && sent.Modal == (root.Modality == DialogModality.Modal)
+            && sent.NestedOpenDialogCount == root.NestedOpenDialogCount)
         {
             // ADR 16: an unchanged render sends nothing and allocates nothing here.
             return;
@@ -306,6 +311,9 @@ public sealed class DrawerViewport : PartBase<DrawerViewportState>
             FrontmostHeight = drawer.FrontmostHeight,
             HasParent = drawer.Parent is not null,
             AncestorPopups = ancestorPopups,
+            Keyboard = drawer.HasKeyboardProvider,
+            Modal = root.Modality == DialogModality.Modal,
+            NestedOpenDialogCount = root.NestedOpenDialogCount,
         };
 
         if (handle is null)
