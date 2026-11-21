@@ -21,6 +21,7 @@ public sealed class DrawerCloseWatcherTests : IDisposable
     private readonly BunitJSModuleInterop drawerModule;
     private readonly BunitJSModuleInterop drawerHandle;
     private readonly List<(bool Open, EventReason Reason)> changes = [];
+    private readonly List<bool> canceledAfter = [];
     private bool cancelClose;
 
     public DrawerCloseWatcherTests()
@@ -84,6 +85,23 @@ public sealed class DrawerCloseWatcherTests : IDisposable
         Assert.True(cut.Find("[role=dialog]").HasAttribute("data-open"));
     }
 
+    // DRW-DIS-01, EVD-EVT-10; design point D2 (a), chosen by the user 2026-11-21.
+    [Fact(DisplayName = "port: a close-watcher report that cannot be prevented closes the drawer even when the consumer cancels it")]
+    [Trait("Requirement", "DRW-DIS-01")]
+    [Trait("Requirement", "EVD-EVT-10")]
+    public async Task A_close_watcher_report_that_cannot_be_prevented_closes_the_drawer()
+    {
+        cancelClose = true;
+        IRenderedComponent<IComponent> cut = test.Context.Render(Drawer());
+        cut.WaitForAssertion(() => Assert.Single(PopupAttaches()));
+
+        await cut.InvokeAsync(() => Twin().OnCloseWatcherRequest($$"""{"request":1,"cancelable":false,"event":{{CancelJson}}}"""));
+
+        Assert.Equal([(false, EventReason.CloseWatcher)], changes);
+        Assert.Equal([false], canceledAfter);
+        cut.WaitForAssertion(() => Assert.True(cut.Find("[role=dialog]").HasAttribute("data-closed")));
+    }
+
     [Fact(DisplayName = "port: the popup sends the number of dialogs open inside the drawer, which makes it not topmost")]
     [Trait("Requirement", "DRW-DIS-01")]
     public void The_popup_sends_the_nested_open_dialog_count()
@@ -118,6 +136,8 @@ public sealed class DrawerCloseWatcherTests : IDisposable
             {
                 args.Details.Cancel();
             }
+
+            canceledAfter.Add(args.Details.IsCanceled);
         }));
         builder.AddComponentParameter(3, nameof(DrawerRoot<NoPayload>.ChildContent), (RenderFragment)(root =>
         {
