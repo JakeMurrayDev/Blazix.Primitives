@@ -3,7 +3,14 @@
 // DrawerSnapPoints.test.tsx titles run here against the module's resolvers; the release (DRW-PTR-11, ALG-01), the resting
 // progress (DRW-STA-17, ALG-05), the offset variable (DRW-DOM-11) and the `snap-point` decision point run against a handle.
 import { afterEach, describe, expect, it } from 'vitest';
-import { attach, resolveActiveSnapPointOffset, resolveSnapPoints, type DrawerOptions } from './drawer';
+import {
+  attach,
+  closestSnapPointIndex,
+  getSnapPointSwipeMovement,
+  resolveActiveSnapPointOffset,
+  resolveSnapPoints,
+  type DrawerOptions,
+} from './drawer';
 import type { TwinHandle } from './twin';
 import { createFakeTwin, type FakeTwin } from './test-support/fake-twin';
 
@@ -334,5 +341,34 @@ describe('drawer module: the snap point release (DRW-PTR-11, ALG-01)', () => {
     slowDrag(invalid.popup, 200);
     expect(invalid.fake.reported('OnSnapPointRequest')).toEqual([]);
     expect(invalid.fake.reported('OnDismissRequest')).toHaveLength(1);
+  });
+});
+
+// DRW-STA-09 (useDrawerSnapPoints.test.ts, M6 track 8b slice 5, added 2026-11-21): the movement damping and the
+// closest-index helpers the module's snap point drag and release use, exported for these titles.
+describe('getSnapPointSwipeMovement', () => {
+  it('returns the raw movement when the drag does not overshoot the open edge', () => {
+    expect(getSnapPointSwipeMovement(100, -50)).toBe(-50);
+    expect(getSnapPointSwipeMovement(0, 20)).toBe(20);
+  });
+
+  it('returns the raw movement at the open edge (nextOffset === 0)', () => {
+    expect(getSnapPointSwipeMovement(100, -100)).toBe(-100);
+  });
+
+  it('damps the movement with a square root once the drag overshoots the open edge', () => {
+    expect(getSnapPointSwipeMovement(0, -150)).toBeCloseTo(-Math.sqrt(150));
+    expect(getSnapPointSwipeMovement(100, -250)).toBeCloseTo(-Math.sqrt(150) - 100);
+  });
+});
+
+describe('closestSnapPointIndex', () => {
+  it('returns the closest value and keeps the first value on ties', () => {
+    expect(closestSnapPointIndex([100, 200, 300], 240)).toBe(1);
+    expect(closestSnapPointIndex([100, 200], 150)).toBe(0);
+  });
+
+  it('returns -1 when there are no values', () => {
+    expect(closestSnapPointIndex([], 100)).toBe(-1);
   });
 });
