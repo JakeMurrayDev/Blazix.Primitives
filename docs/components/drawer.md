@@ -542,6 +542,7 @@ closed ──SwipeArea drag ≥ 1 px──▶ open (reason swipe) ── release
 
 - **DRW-DOM-33** — SHOULD. The first time any Drawer Popup mounts in the page, where `CSS.registerProperty` exists, the variables `--drawer-swipe-movement-x`, `--drawer-swipe-movement-y`, `--drawer-snap-point-offset` are registered as `<length>`, `inherits: false`, initial `0px`, and `--drawer-swipe-progress` (initial `0`) and `--drawer-swipe-strength` (initial `1`) as `<number>`, `inherits: false`; registration errors (already registered) are ignored and registration is attempted once per page. Consequently these variables are visible only on the element that declares them, not on descendants.
   Source: `drawer/popup/DrawerPopup.tsx:28-89,229`. Test: none. Docs: CHANGELOG.md v1.3.0 "Disable inheritance for swipe CSS variables".
+  Port note 2026-11-21 (M6 track 8c, [issue 279](https://github.com/JakeMurrayDev/Blazix.Primitives/issues/279)): built, found by the sample page. Its snap sheet's `translateY(calc(var(--drawer-snap-point-offset) + var(--drawer-swipe-movement-y)))` was invalid at rest, as nothing declared the movement variable, so the sheet sat at full height. The `drawer` module registers the five variables at the first Popup handle's attach, once per page, errors ignored. [L4] "port: registers the swipe variables, so a popup at rest reads 0px movement and its descendants do not inherit them" is green on both modes, red first (`Expected: "0px"`, `Received: ""`), folded with its non-inheritance half.
 
 ### 5.8 ARIA
 
