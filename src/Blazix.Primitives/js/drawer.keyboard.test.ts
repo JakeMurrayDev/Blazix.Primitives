@@ -459,7 +459,7 @@ describe('<Drawer.VirtualKeyboardProvider /> (drawer module keyboard role)', () 
     await waitFor(() => expect(inset(drawer.viewport)).toBe('300px'));
   });
 
-  it('does not add keyboard scroll slack by default', async () => {
+  it('does not add keyboard scroll slack by default', { tags: ['coverage'] }, async () => {
     mockWindowInnerHeight(800);
     const visualViewport = mockVisualViewport(800);
     // No Drawer.VirtualKeyboardProvider.
@@ -571,7 +571,7 @@ describe('<Drawer.VirtualKeyboardProvider /> (drawer module keyboard role)', () 
     await waitFor(() => expect(inset(drawer.viewport)).toBe('0px'));
   });
 
-  it('does not add keyboard scroll slack while pinch-zoomed', async () => {
+  it('does not add keyboard scroll slack while pinch-zoomed', { tags: ['coverage'] }, async () => {
     mockWindowInnerHeight(800);
     const visualViewport = mockVisualViewport(800);
     const drawer = mount(SCROLL_BODY('height: 420px; overflow-y: auto; padding-bottom: 20px', TALL + INPUT));
@@ -620,7 +620,7 @@ describe('<Drawer.VirtualKeyboardProvider /> (drawer module keyboard role)', () 
     await waitFor(() => expect(drawer.backdrop.hasAttribute('data-swiping')).toBe(false));
   });
 
-  it('preserves native taps on picker inputs', async () => {
+  it('preserves native taps on picker inputs', { tags: ['coverage'] }, async () => {
     const drawer = mount('<input data-testid="input" type="date">');
     const input = drawer.get('input');
     const focusSpy = vi.spyOn(input, 'focus');
@@ -635,7 +635,7 @@ describe('<Drawer.VirtualKeyboardProvider /> (drawer module keyboard role)', () 
     expect(focusSpy).not.toHaveBeenCalled();
   });
 
-  it('preserves native taps that lift over a neighboring interactive element', async () => {
+  it('preserves native taps that lift over a neighboring interactive element', { tags: ['coverage'] }, async () => {
     const drawer = mount(`${INPUT}<button data-testid="button" type="button">Action</button>`);
     const input = drawer.get('input');
     const button = drawer.get('button');
@@ -657,7 +657,7 @@ describe('<Drawer.VirtualKeyboardProvider /> (drawer module keyboard role)', () 
     expect(inputClickEvents).toHaveLength(0);
   });
 
-  it('resolves the lift point through the shadow root when the drawer renders in one', async () => {
+  it('resolves the lift point through the shadow root when the drawer renders in one', { tags: ['coverage'] }, async () => {
     const host = document.body.appendChild(document.createElement('div'));
     elements.push(host);
     const shadowRoot = host.attachShadow({ mode: 'open' });
@@ -679,7 +679,7 @@ describe('<Drawer.VirtualKeyboardProvider /> (drawer module keyboard role)', () 
     expect(focusSpy).not.toHaveBeenCalled();
   });
 
-  it('preserves native taps on disabled inputs', async () => {
+  it('preserves native taps on disabled inputs', { tags: ['coverage'] }, async () => {
     const drawer = mount('<input data-testid="input" type="text" disabled>');
     const input = drawer.get('input');
     const focusSpy = vi.spyOn(input, 'focus');
@@ -697,7 +697,7 @@ describe('<Drawer.VirtualKeyboardProvider /> (drawer module keyboard role)', () 
     expect(clickEvents).toHaveLength(0);
   });
 
-  it('preserves native taps on disabled textareas', async () => {
+  it('preserves native taps on disabled textareas', { tags: ['coverage'] }, async () => {
     const drawer = mount('<textarea data-testid="input" disabled></textarea>');
     const input = drawer.get('input');
     const focusSpy = vi.spyOn(input, 'focus');
@@ -715,7 +715,7 @@ describe('<Drawer.VirtualKeyboardProvider /> (drawer module keyboard role)', () 
     expect(clickEvents).toHaveLength(0);
   });
 
-  it('preserves native taps on a disabled labelled control', async () => {
+  it('preserves native taps on a disabled labelled control', { tags: ['coverage'] }, async () => {
     const drawer = mount('<label data-testid="label" for="note">Note</label><input data-testid="input" id="note" type="text" disabled>');
     const label = drawer.get('label');
     const input = drawer.get('input');
@@ -753,7 +753,7 @@ describe('<Drawer.VirtualKeyboardProvider /> (drawer module keyboard role)', () 
     expect(drawer.backdrop.hasAttribute('data-swiping')).toBe(false);
   });
 
-  it('does not focus a keyboard input on touchend without touchstart', async () => {
+  it('does not focus a keyboard input on touchend without touchstart', { tags: ['coverage'] }, async () => {
     const drawer = mount(INPUT);
     const input = drawer.get('input');
     const focusSpy = vi.spyOn(input, 'focus');
@@ -767,7 +767,7 @@ describe('<Drawer.VirtualKeyboardProvider /> (drawer module keyboard role)', () 
     expect(focusSpy).not.toHaveBeenCalled();
   });
 
-  it('does not focus a keyboard input after touchcancel', async () => {
+  it('does not focus a keyboard input after touchcancel', { tags: ['coverage'] }, async () => {
     const drawer = mount(INPUT);
     const input = drawer.get('input');
     const focusSpy = vi.spyOn(input, 'focus');
@@ -784,7 +784,7 @@ describe('<Drawer.VirtualKeyboardProvider /> (drawer module keyboard role)', () 
     expect(focusSpy).not.toHaveBeenCalled();
   });
 
-  it('does not focus a keyboard input while a nested drawer is open', async () => {
+  it('does not focus a keyboard input while a nested drawer is open', { tags: ['coverage'] }, async () => {
     const drawer = mount(INPUT);
     const input = drawer.get('input');
     const focusSpy = vi.spyOn(input, 'focus');
@@ -801,7 +801,7 @@ describe('<Drawer.VirtualKeyboardProvider /> (drawer module keyboard role)', () 
     expect(focusSpy).not.toHaveBeenCalled();
   });
 
-  it('preserves native taps on an already-focused keyboard input', async () => {
+  it('preserves native taps on an already-focused keyboard input', { tags: ['coverage'] }, async () => {
     mockWindowInnerHeight(800);
     mockVisualViewport(500);
     const drawer = mount(INPUT);
@@ -971,7 +971,7 @@ describe('<Drawer.VirtualKeyboardProvider /> (drawer module keyboard role)', () 
     expect(scrollToSpy).toHaveBeenLastCalledWith(expect.objectContaining({ top: 270 }));
   });
 
-  it('stops pending realignment once the user starts scrolling while geometry is changing', async () => {
+  it('stops pending realignment once the user starts scrolling while geometry is changing', { tags: ['coverage'] }, async () => {
     mockWindowInnerHeight(800);
     const visualViewport = mockVisualViewport(800);
     vi.useFakeTimers();
@@ -1150,7 +1150,7 @@ describe('<Drawer.VirtualKeyboardProvider /> (drawer module keyboard role)', () 
     });
   });
 
-  it('does not blur and re-focus for focus changes while the keyboard is closed', async () => {
+  it('does not blur and re-focus for focus changes while the keyboard is closed', { tags: ['coverage'] }, async () => {
     mockVisualViewport(800);
     const drawer = mount('<input data-testid="first" type="text"><input data-testid="second" type="text">');
     const first = drawer.get('first');
@@ -1193,7 +1193,7 @@ describe('<Drawer.VirtualKeyboardProvider /> (drawer module keyboard role)', () 
     expect(scrollToSpy).toHaveBeenCalledWith({ left: 0, top: 0, behavior: 'instant' });
   });
 
-  it('does not restore the page scroll position for a non-modal drawer', async () => {
+  it('does not restore the page scroll position for a non-modal drawer', { tags: ['coverage'] }, async () => {
     const visualViewport = mockVisualViewport(800);
     const drawer = mount(INPUT);
     const input = drawer.get('input');
@@ -1418,7 +1418,7 @@ describe('<Drawer.VirtualKeyboardProvider /> (drawer module keyboard role)', () 
     expect(scroll1.style.overflowAnchor).toBe('');
   });
 
-  it('does not steal a tap that lands on an interactive element near a keyboard input', async () => {
+  it('does not steal a tap that lands on an interactive element near a keyboard input', { tags: ['coverage'] }, async () => {
     const drawer = mount(`${INPUT}<button data-testid="clear" type="button">Clear</button>`);
     const input = drawer.get('input');
     const clear = drawer.get('clear');
@@ -1436,7 +1436,7 @@ describe('<Drawer.VirtualKeyboardProvider /> (drawer module keyboard role)', () 
     expect(focusSpy).not.toHaveBeenCalled();
   });
 
-  it('preserves native taps on keyboard inputs while pinch-zoomed', async () => {
+  it('preserves native taps on keyboard inputs while pinch-zoomed', { tags: ['coverage'] }, async () => {
     const visualViewport = mockVisualViewport(800);
     const drawer = mount(INPUT);
     const input = drawer.get('input');
@@ -1519,7 +1519,7 @@ describe('<Drawer.VirtualKeyboardProvider /> (drawer module keyboard role)', () 
 
   // Base UI drives the provider's touch handlers straight from an input under `useDrawerVirtualKeyboardContext`; the port
   // has no such context, so the touches go through the Viewport handle, which forwards them as Base UI's Viewport does.
-  it('ignores a directly captured touch target while a closed drawer remains mounted', async () => {
+  it('ignores a directly captured touch target while a closed drawer remains mounted', { tags: ['coverage'] }, async () => {
     const drawer = mount(`${INPUT}<button type="button">Close</button>`);
     const input = drawer.get('input');
     document.elementFromPoint = () => input;
@@ -1533,7 +1533,7 @@ describe('<Drawer.VirtualKeyboardProvider /> (drawer module keyboard role)', () 
     expect(document.activeElement).not.toBe(input);
   });
 
-  it('does not focus a lift-point target outside the drawer', async () => {
+  it('does not focus a lift-point target outside the drawer', { tags: ['coverage'] }, async () => {
     const outsideWrapper = document.createElement('div');
     outsideWrapper.innerHTML = '<input data-testid="outside" type="text">';
     document.body.append(outsideWrapper);
@@ -1587,7 +1587,7 @@ describe('<Drawer.VirtualKeyboardProvider /> (drawer module keyboard role)', () 
     expect(document.activeElement).toBe(input);
   });
 
-  it('ignores a keyboard tap whose native target is not an element', async () => {
+  it('ignores a keyboard tap whose native target is not an element', { tags: ['coverage'] }, async () => {
     const drawer = mount(INPUT);
     const input = drawer.get('input');
     document.elementFromPoint = () => null;
@@ -1601,7 +1601,7 @@ describe('<Drawer.VirtualKeyboardProvider /> (drawer module keyboard role)', () 
     expect(document.activeElement).not.toBe(input);
   });
 
-  it('ignores touchend without a lift coordinate', async () => {
+  it('ignores touchend without a lift coordinate', { tags: ['coverage'] }, async () => {
     const drawer = mount(INPUT);
     const input = drawer.get('input');
 
@@ -1802,7 +1802,7 @@ describe('<Drawer.VirtualKeyboardProvider /> (drawer module keyboard role)', () 
       expect(scrollToSpy).toHaveBeenCalledTimes(1);
     });
 
-    it('does not treat a plain resize of both viewports as the software keyboard', async () => {
+    it('does not treat a plain resize of both viewports as the software keyboard', { tags: ['coverage'] }, async () => {
       const innerHeight = mockResizableInnerHeight(800);
       const visualViewport = mockVisualViewport(800);
       vi.useFakeTimers();
