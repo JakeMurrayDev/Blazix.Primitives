@@ -56,7 +56,8 @@
     rendering the popup, `pt` is the popup's top, and `content` fills it: `scroll` (a
     vertical scroller 40 px tall over 120 px), `html` and `svg` (a horizontal scroller 40 px wide over a 120 px target, an
     element or an SVG rect), `axis` (a `data-base-ui-swipe-ignore="x"` wrapper around the target) and `carousel` (a 100 px
-    horizontal scroller over 400 px, itself the target).
+    horizontal scroller over 400 px, itself the target); and (added 2026-11-21, slice 5) `drawer` (a Drawer.Content
+    `content` reading "Drawer") and `close` ("Drawer" and a Close, `close`).
     The open changes are recorded as `open:reason` in `data-open-changes`; `cancelClose=true` cancels a close and
     `retainEveryClose=true` keeps a close mounted (PopupSuiteFixtureBase). The sync button is the suites' `settle` barrier; since 2026-11-20 it takes the
     suites' Shift keydown (`data-key-control`), so the barrier is no outside press for the `case=combobox` Combobox.
@@ -271,6 +272,13 @@
                             break;
                         case "carousel":
                             <div data-testid="target" style="overflow-x: auto; width: 100px; height: 40px;"><div style="width: 400px; height: 40px;">Carousel</div></div>
+                            break;
+                        case "drawer":
+                            <DrawerContent data-testid="content">Drawer</DrawerContent>
+                            break;
+                        case "close":
+                            @("Drawer")
+                            <DrawerClose data-testid="close">Close</DrawerClose>
                             break;
                         default:
                             @("Drawer")

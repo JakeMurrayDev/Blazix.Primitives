@@ -2951,3 +2951,37 @@ test('keeps the swipe-area movement on the popup when re-grabbed during close', 
   await expect.poll(() => styleOf(popup, '--drawer-swipe-movement-y')).toBe('120px');
   await areaPointer(page, 'pointerup', 10, 40, 0, 5032);
 });
+
+// Slice 5 (added 2026-11-21): DRW-DIS-05's and DRW-DOM-18/PTR-16's titles, ported to L4 by the user's choice of 2026-11-20
+// (recorded on issue 279), on `drawer-swipe`'s `case=snap`.
+test.describe('<Drawer.Root /> and <Drawer.Viewport /> snap point resets and resting progress', () => {
+  // DRW-DIS-05, STA-04 (DrawerRoot.test.tsx:890-899, SnapPointResetCase): closed through its Close at the full-height snap
+  // point, the drawer resets the controlled snap point to the first one.
+  test('resets the active snap point when closing', async ({ page, mode }) => {
+    const fixture = await snapCase(page, mode, { snap: '1', ph: '300', content: 'close' });
+    await expect(fixture).toHaveAttribute('data-active-snap', '1');
+
+    await page.getByTestId('close').click();
+
+    await expect(fixture).toHaveAttribute('data-open-changes', 'false:close-press');
+    await expect(fixture).toHaveAttribute('data-active-snap', '100px');
+  });
+
+  // DRW-DOM-18, PTR-16, STA-17, ALG-05 (DrawerViewport.test.tsx:4439-4483): at `100px` of a 300 px popup the Backdrop
+  // rests at 1 (offset 200 of a 200 px range). A press inside Drawer.Content never starts a swipe, but its release still
+  // reaches the gesture's release handler, whose progress report must not replace the resting progress.
+  test('keeps the resting snap point progress when a press never starts a swipe', async ({ page, mode }) => {
+    const fixture = await snapCase(page, mode, { snapPoints: '100px,200px', defaultSnap: '100px', ph: '300', content: 'drawer' });
+    const backdrop = page.getByTestId('backdrop');
+    await expect.poll(() => styleOf(backdrop, '--drawer-swipe-progress')).toBe('1');
+
+    const { x, y } = await pointOf(page.getByTestId('content'));
+    await page.mouse.move(x, y);
+    await page.mouse.down();
+    await page.mouse.up();
+    await settle(fixture);
+
+    expect(await styleOf(backdrop, '--drawer-swipe-progress')).toBe('1');
+    await expect(page.getByTestId('popup')).not.toHaveAttribute('data-swiping');
+  });
+});
