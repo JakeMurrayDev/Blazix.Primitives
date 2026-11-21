@@ -49,6 +49,19 @@ if (typeof Element.prototype.scrollTo !== 'function') {
 // jsdom's window.scrollTo only reports that it is not implemented.
 window.scrollTo = (() => {}) as typeof window.scrollTo;
 
+// vitest's jsdom window is a proxy that jsdom's event constructors reject as `view`; a browser's window is accepted. The
+// provider's redispatched click passes `view: window`, as Base UI's does.
+for (const name of ['MouseEvent', 'PointerEvent'] as const) {
+  const Native = window[name] as typeof MouseEvent;
+  class WithoutView extends Native {
+    constructor(type: string, init: MouseEventInit = {}) {
+      const { view: _view, ...rest } = init;
+      super(type, rest);
+    }
+  }
+  Object.defineProperty(window, name, { configurable: true, writable: true, value: WithoutView });
+}
+
 const defaultElementFromPoint = () => null;
 Object.defineProperty(document, 'elementFromPoint', { configurable: true, writable: true, value: defaultElementFromPoint });
 
