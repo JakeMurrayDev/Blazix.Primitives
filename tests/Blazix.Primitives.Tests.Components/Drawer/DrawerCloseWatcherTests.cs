@@ -45,13 +45,14 @@ public sealed class DrawerCloseWatcherTests : IDisposable
 
         string canceled = await cut.InvokeAsync(() => Twin().Decide(DrawerTwin.CloseWatcherPoint, CancelJson));
         Assert.Equal("prevent", canceled);
-        Assert.NotNull(cut.Find("[role=dialog]"));
+        Assert.True(cut.Find("[role=dialog]").HasAttribute("data-open"));
 
         cancelClose = false;
         string accepted = await cut.InvokeAsync(() => Twin().Decide(DrawerTwin.CloseWatcherPoint, CancelJson));
         Assert.Equal("run", accepted);
         Assert.Equal([(false, EventReason.CloseWatcher), (false, EventReason.CloseWatcher)], changes);
-        cut.WaitForAssertion(() => Assert.Empty(cut.FindAll("[role=dialog]")));
+        // The exit animation never completes here, so the popup stays mounted, closed.
+        cut.WaitForAssertion(() => Assert.True(cut.Find("[role=dialog]").HasAttribute("data-closed")));
     }
 
     [Fact(DisplayName = "port: a close-watcher report closes the drawer with reason close-watcher")]
@@ -65,7 +66,8 @@ public sealed class DrawerCloseWatcherTests : IDisposable
         await cut.InvokeAsync(() => Twin().OnCloseWatcherRequest($$"""{"request":1,"cancelable":true,"event":{{CancelJson}}}"""));
 
         Assert.Equal([(false, EventReason.CloseWatcher)], changes);
-        cut.WaitForAssertion(() => Assert.Empty(cut.FindAll("[role=dialog]")));
+        // The exit animation never completes here, so the popup stays mounted, closed.
+        cut.WaitForAssertion(() => Assert.True(cut.Find("[role=dialog]").HasAttribute("data-closed")));
     }
 
     [Fact(DisplayName = "port: a canceled close-watcher report keeps the drawer open")]
@@ -79,7 +81,7 @@ public sealed class DrawerCloseWatcherTests : IDisposable
         await cut.InvokeAsync(() => Twin().OnCloseWatcherRequest($$"""{"request":1,"cancelable":true,"event":{{CancelJson}}}"""));
 
         Assert.Equal([(false, EventReason.CloseWatcher)], changes);
-        Assert.NotNull(cut.Find("[role=dialog]"));
+        Assert.True(cut.Find("[role=dialog]").HasAttribute("data-open"));
     }
 
     [Fact(DisplayName = "port: the popup sends the number of dialogs open inside the drawer, which makes it not topmost")]

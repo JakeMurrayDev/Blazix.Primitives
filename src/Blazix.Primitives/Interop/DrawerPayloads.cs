@@ -31,3 +31,11 @@ internal sealed record DrawerPopupHeightChange(double Height);
 /// <param name="Open">A value indicating whether the gesture asks to open the drawer; <see langword="false"/> to close it.</param>
 /// <param name="Event">The snapshot of the gesture's start event for an open during the drag, else of the release.</param>
 internal sealed record DrawerOpenRequest(int Request, bool Open, EventSnapshot Event);
+
+// DRW-DIS-01; M6 track 8c (2026-11-21): the CloseWatcher's close request where the `close-watcher` point could not decide it
+// inside the `cancel` event (design point D1 (a), chosen by the user 2026-11-21).
+/// <summary>The payload of a close request of the drawer's close watcher, reported where it could not be decided inside the event.</summary>
+/// <param name="Request">The number of the request, in the order the module reported them.</param>
+/// <param name="Cancelable">Whether the browser let the module prevent the event; when not, the close cannot be canceled.</param>
+/// <param name="Event">The snapshot of the watcher's <c>cancel</c> event.</param>
+internal sealed record DrawerCloseWatcherRequest(int Request, bool Cancelable, EventSnapshot Event);
