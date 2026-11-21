@@ -1,5 +1,6 @@
-import { expect, test, type Page, type RenderMode } from './helpers';
-import { gotoPopupFixture } from './suites/popupFixture';
+import { expect, Fixture, fixtureUrl, pointOf, swipeOnTimeline, test, testWithTouch, touchDrag, type Page, type RenderMode } from './helpers';
+import type { Locator, Route } from '@playwright/test';
+import { gotoPopupFixture, pressControl, settle } from './suites/popupFixture';
 
 // The [L4] rows of docs/components/drawer.md (DRW), both render modes, Server first (ADR 04 §6). Titles are Base UI's
 // (drawer/**/*.test.tsx at v1.9.0) unless marked "port:". M6 track 8a (issue 279): the rows that need only the C# parts and
@@ -46,5 +47,3003 @@ test.describe('<Drawer.Popup />', () => {
     await page.keyboard.press('a');
 
     expect(await page.evaluate(() => (window as unknown as { drawerKeys: string[] }).drawerKeys)).toEqual(['a']);
+  });
+});
+
+// M6 track 8b (issue 279), slice 1: the Viewport's mouse and pen dismiss gesture. The module's own contract is pinned at L3
+// (js/drawer.test.ts) and its C# half at L2 (DrawerViewportGestureTests); these titles are Base UI's browser titles.
+const swipeCase = (page: Page, mode: RenderMode, name: string, options: Record<string, string> = {}) =>
+  gotoPopupFixture(page, mode, 'drawer-swipe', { case: name, ...options });
+
+test.describe('<Drawer.Root /> swipe', () => {
+  // DRW-PTR-03, PTR-10 (DrawerRoot.test.tsx:600-633): with a 200 px wide popup the threshold is 100 px; 90 px keeps the
+  // drawer open and 120 px closes it. Both drags run on a 200 ms step, slower than the 0.5 px/ms fast path, as Base UI's
+  // timed swipes are, and from the popup's point (Base UI stubs elementFromPoint with the popup).
+  test('uses a size-based swipe threshold', async ({ page, mode }) => {
+    const fixture = await swipeCase(page, mode, 'right');
+    const popup = page.getByTestId('popup');
+
+    await swipeOnTimeline(popup, { x: 100, y: 100 }, { x: 190, y: 100 }, { startTimeMs: 1000, timeStepMs: 200 });
+    await expect(popup).toBeVisible();
+    await expect(fixture).toHaveAttribute('data-open-changes', '');
+
+    await swipeOnTimeline(popup, { x: 100, y: 100 }, { x: 220, y: 100 }, { startTimeMs: 2000, timeStepMs: 200 });
+    await expect(fixture).toHaveAttribute('data-open-changes', 'false:swipe');
+  });
+});
+
+// Slice 1's remaining browser titles (M6 track 8b, issue 279, added 2026-11-19), on the `down` case of `drawer-swipe`.
+// Base UI fires these with `fireEvent` on the Viewport and stubs `elementFromPoint` with the Popup. Here a real mouse
+// stands in where one can make the event. Elsewhere (a pointercancel, a selection a real press would collapse) a
+// PointerEvent is dispatched in the page on the Viewport at a point inside the Popup, so the real hit test finds the
+// Popup (ADR 04 Amendments 2026-11-19, the ScrollArea track's point 14: in-page dispatch where no real device makes
+// the event, each with this note).
+const downCase = (page: Page, mode: RenderMode, options: Record<string, string> = {}) =>
+  gotoPopupFixture(page, mode, 'drawer-swipe', { case: 'down', ...options });
+
+interface PointerInit {
+  x: number;
+  y: number;
+  buttons?: number;
+  button?: number;
+  pointerType?: string;
+  pointerId?: number;
+}
+
+/** Dispatches one PointerEvent on the element with the test id, at a viewport point. */
+const dispatchPointer = (page: Page, testId: string, type: string, init: PointerInit) =>
+  page.getByTestId(testId).evaluate(
+    (element, { type, init }) => {
+      element.dispatchEvent(
+        new PointerEvent(type, {
+          bubbles: true,
+          cancelable: true,
+          composed: true,
+          isPrimary: true,
+          pointerId: init.pointerId ?? 1,
+          pointerType: init.pointerType ?? 'mouse',
+          button: init.button ?? (type === 'pointermove' ? -1 : 0),
+          buttons: init.buttons ?? (type === 'pointerup' || type === 'pointercancel' ? 0 : 1),
+          clientX: init.x,
+          clientY: init.y,
+        }),
+      );
+    },
+    { type, init },
+  );
+
+/** A point in the popup's free area under its regions (the popup is 300 px tall from top 100). */
+const popupPoint = { x: 100, y: 390 };
+
+test.describe('<Drawer.Viewport /> swipe', () => {
+  // DRW-PTR-01 (DrawerViewport.test.tsx:3534-3590).
+  test('toggles data-swiping on the backdrop while swiping', async ({ page, mode }) => {
+    await downCase(page, mode);
+    const backdrop = page.getByTestId('backdrop');
+
+    await page.mouse.move(popupPoint.x, popupPoint.y);
+    await page.mouse.down();
+    await page.mouse.move(popupPoint.x, popupPoint.y + 8, { steps: 2 });
+    await expect(backdrop).toHaveAttribute('data-swiping', '');
+
+    await page.mouse.up();
+    await expect(backdrop).not.toHaveAttribute('data-swiping');
+  });
+
+  // DRW-PTR-01 (DrawerViewport.test.tsx:4622-4692). A move whose `buttons` lacks the primary button is a chord: the right
+  // button pressed, then the left released. Base UI fires `buttons: 2`; no real device makes that move alone.
+  test('ends swipe drag when the primary mouse button is released mid-gesture', async ({ page, mode }) => {
+    await downCase(page, mode);
+    const backdrop = page.getByTestId('backdrop');
+
+    await dispatchPointer(page, 'viewport', 'pointerdown', { x: popupPoint.x, y: popupPoint.y });
+    await dispatchPointer(page, 'viewport', 'pointermove', { x: popupPoint.x, y: popupPoint.y + 8 });
+    await expect(backdrop).toHaveAttribute('data-swiping', '');
+
+    await dispatchPointer(page, 'viewport', 'pointermove', { x: popupPoint.x, y: popupPoint.y + 12, buttons: 2 });
+    await expect(backdrop).not.toHaveAttribute('data-swiping');
+
+    await dispatchPointer(page, 'viewport', 'pointermove', { x: popupPoint.x, y: popupPoint.y + 30, buttons: 0 });
+    await expect(backdrop).not.toHaveAttribute('data-swiping');
+  });
+
+  // DRW-PTR-01, PTR-05 (DrawerViewport.test.tsx:3592-3642): no real device makes a pointercancel.
+  test('cancels pointer drags and ignores compatibility touch pointer cancellation', async ({ page, mode }) => {
+    await downCase(page, mode);
+    const backdrop = page.getByTestId('backdrop');
+
+    await dispatchPointer(page, 'viewport', 'pointerdown', { x: popupPoint.x, y: popupPoint.y });
+    await dispatchPointer(page, 'viewport', 'pointermove', { x: popupPoint.x, y: popupPoint.y + 20 });
+    await expect(backdrop).toHaveAttribute('data-swiping', '');
+
+    await dispatchPointer(page, 'viewport', 'pointercancel', { x: popupPoint.x, y: popupPoint.y + 20 });
+    await expect(backdrop).not.toHaveAttribute('data-swiping');
+
+    await dispatchPointer(page, 'viewport', 'pointerdown', { x: popupPoint.x, y: popupPoint.y, pointerId: 2, pointerType: 'touch' });
+    await dispatchPointer(page, 'viewport', 'pointercancel', { x: popupPoint.x, y: popupPoint.y, pointerId: 2, pointerType: 'touch' });
+    await expect(backdrop).not.toHaveAttribute('data-swiping');
+  });
+
+  // DRW-PTR-04 (DrawerViewport.test.tsx:1216-1254). Base UI checks the press alone; the drag past the threshold here
+  // also shows nothing starts.
+  test('does not start non-touch swipes from Drawer.Content', async ({ page, mode }) => {
+    const fixture = await downCase(page, mode);
+    const box = (await page.getByTestId('content-target').boundingBox())!;
+
+    await page.mouse.move(box.x + 50, box.y + 50);
+    await page.mouse.down();
+    await expect(page.getByTestId('backdrop')).not.toHaveAttribute('data-swiping');
+    await page.mouse.move(box.x + 50, box.y + 250, { steps: 4 });
+    await expect(page.getByTestId('backdrop')).not.toHaveAttribute('data-swiping');
+    await page.mouse.up();
+
+    // The barrier: on Server a close the release requested would have reached C# by now.
+    await settle(fixture);
+    await expect(fixture).toHaveAttribute('data-open-changes', '');
+  });
+
+  // DRW-PTR-04, PTR-09 (DrawerViewport.test.tsx:4807-4866). Folded with its positive half (the review of 2026-11-19):
+  // the same press first starts a swipe on the open drawer, so the absence after the close shows the open gate. A planted
+  // fault that drops the gate alone leaves the absence standing, because the closed popup is hidden from the hit test.
+  test('does not start pointer swipes while a closed drawer remains mounted', async ({ page, mode }) => {
+    const fixture = await downCase(page, mode, { retainEveryClose: 'true' });
+    const popup = page.getByTestId('popup');
+    const backdrop = page.getByTestId('backdrop');
+
+    await dispatchPointer(page, 'viewport', 'pointerdown', { x: popupPoint.x, y: popupPoint.y });
+    await dispatchPointer(page, 'viewport', 'pointermove', { x: popupPoint.x, y: popupPoint.y + 20 });
+    await expect(backdrop).toHaveAttribute('data-swiping', '');
+    await dispatchPointer(page, 'viewport', 'pointerup', { x: popupPoint.x, y: popupPoint.y + 20 });
+    await expect(backdrop).not.toHaveAttribute('data-swiping');
+
+    await page.getByRole('button', { name: 'Close' }).click();
+    await expect(popup).toHaveAttribute('data-closed', '');
+    await expect(fixture).toHaveAttribute('data-open-changes', 'false:close-press');
+
+    await dispatchPointer(page, 'viewport', 'pointerdown', { x: popupPoint.x, y: popupPoint.y });
+    await dispatchPointer(page, 'viewport', 'pointermove', { x: popupPoint.x, y: popupPoint.y + 100 });
+    await expect(backdrop).not.toHaveAttribute('data-swiping');
+    await dispatchPointer(page, 'viewport', 'pointerup', { x: popupPoint.x, y: popupPoint.y + 100 });
+    await settle(fixture);
+    await expect(fixture).toHaveAttribute('data-open-changes', 'false:close-press');
+  });
+
+  // DRW-PTR-09 (DrawerViewport.test.tsx:4694-4736).
+  test('ignores swipe input until a popup is mounted', async ({ page, mode }) => {
+    const fixture = await downCase(page, mode, { noPopup: 'true' });
+
+    await page.mouse.move(10, 10);
+    await page.mouse.down();
+    await page.mouse.move(10, 110, { steps: 4 });
+    await page.mouse.up();
+
+    // The barrier: on Server a close the release requested would have reached C# by now.
+    await settle(fixture);
+    await expect(fixture).toHaveAttribute('data-open-changes', '');
+  });
+
+  // DRW-PTR-08 (DrawerViewport.test.tsx:101-152): dispatched, because a real press collapses the selection itself.
+  test('clears text selection on swipe start', async ({ page, mode }) => {
+    await downCase(page, mode);
+    await page.getByTestId('text').evaluate((text) => {
+      const range = document.createRange();
+      range.setStart(text.firstChild!, 0);
+      range.setEnd(text.firstChild!, 5);
+      document.getSelection()!.removeAllRanges();
+      document.getSelection()!.addRange(range);
+    });
+
+    await dispatchPointer(page, 'viewport', 'pointerdown', { x: popupPoint.x, y: popupPoint.y });
+
+    expect(await page.evaluate(() => document.getSelection()!.rangeCount)).toBe(0);
+  });
+
+  // DRW-PTR-08 (DrawerViewport.test.tsx:154-202).
+  test('preserves text selection outside the popup when a swipe starts', async ({ page, mode }) => {
+    await downCase(page, mode);
+    await page.getByTestId('outside-text').evaluate((text) => {
+      const range = document.createRange();
+      range.setStart(text.firstChild!, 0);
+      range.setEnd(text.firstChild!, 7);
+      document.getSelection()!.removeAllRanges();
+      document.getSelection()!.addRange(range);
+    });
+
+    await dispatchPointer(page, 'viewport', 'pointerdown', { x: popupPoint.x, y: popupPoint.y });
+
+    expect(await page.evaluate(() => [document.getSelection()!.rangeCount, document.getSelection()!.toString()])).toEqual([1, 'Outside']);
+  });
+
+  // DRW-PTR-08 (DrawerViewport.test.tsx:4868-4904). Base UI mocks the selection with the popup as both endpoints; here
+  // the real selection is set on the popup element itself.
+  test('clears a selection whose endpoints are popup elements', async ({ page, mode }) => {
+    await downCase(page, mode);
+    await page.getByTestId('popup').evaluate((popup) => {
+      document.getSelection()!.setBaseAndExtent(popup, 0, popup, popup.childNodes.length);
+    });
+    expect(await page.evaluate(() => document.getSelection()!.isCollapsed)).toBe(false);
+
+    await dispatchPointer(page, 'viewport', 'pointerdown', { x: popupPoint.x, y: popupPoint.y });
+
+    expect(await page.evaluate(() => document.getSelection()!.rangeCount)).toBe(0);
+  });
+});
+
+test.describe('<Drawer.Root /> swipe close', () => {
+  // DRW-PTR-03, PTR-10 (DrawerRoot.test.tsx:1726-1748): 149 px over a second, past half the 300 px popup only with a
+  // longer drag; here 200 px over a second.
+  test('closes an uncontrolled drawer after a slow long drag', async ({ page, mode }) => {
+    await downCase(page, mode);
+    const popup = page.getByTestId('popup');
+
+    await swipeOnTimeline(popup, popupPoint, { x: popupPoint.x, y: popupPoint.y + 200 }, { startTimeMs: 1000, timeStepMs: 333 });
+
+    await expect(popup).toHaveCount(0);
+  });
+
+  // DRW-PTR-14 (DrawerRoot.test.tsx:1109-1135): a fast swipe past the threshold whose close the parent cancels.
+  test('clears swipe-dismiss styles when swipe close is canceled', async ({ page, mode }) => {
+    const fixture = await downCase(page, mode, { cancelClose: 'true' });
+    const popup = page.getByTestId('popup');
+    const backdrop = page.getByTestId('backdrop');
+
+    await swipeOnTimeline(popup, popupPoint, { x: popupPoint.x, y: popupPoint.y + 200 }, { startTimeMs: 1000, timeStepMs: 10 });
+
+    await expect(fixture).toHaveAttribute('data-open-changes', 'false:swipe');
+    await expect(popup).not.toHaveAttribute('data-swipe-dismiss');
+    await expect(backdrop).not.toHaveAttribute('data-swipe-dismiss');
+    await expect(popup).not.toHaveAttribute('data-ending-style');
+    await expect(backdrop).not.toHaveAttribute('data-swiping');
+    await expect(popup).toHaveAttribute('data-open', '');
+    await expect.poll(() => popup.evaluate((element) => element.style.getPropertyValue('--drawer-swipe-movement-y'))).toBe('0px');
+  });
+
+  // DRW-PTR-15 (DrawerRoot.test.tsx:1136-1170).
+  test('does not dismiss a controlled drawer via swipe when open is always true', async ({ page, mode }) => {
+    const fixture = await downCase(page, mode, { alwaysOpen: 'true' });
+    const popup = page.getByTestId('popup');
+    const backdrop = page.getByTestId('backdrop');
+
+    await swipeOnTimeline(popup, popupPoint, { x: popupPoint.x, y: popupPoint.y + 200 }, { startTimeMs: 1000, timeStepMs: 10 });
+
+    await expect(fixture).toHaveAttribute('data-open-changes', 'false:swipe');
+    await expect(popup).not.toHaveAttribute('data-swipe-dismiss');
+    await expect(backdrop).not.toHaveAttribute('data-swipe-dismiss');
+    await expect(popup).not.toHaveAttribute('data-ending-style');
+    await expect(popup).toHaveAttribute('data-open', '');
+  });
+});
+
+// Slice 2 (M6 track 8b, issue 279, added 2026-11-19): the Viewport's touch path, with real CDP touch (`touchDrag`) on a
+// page whose context has touch. Chromium sends no touchmove for a first move under its 10 px slop, so every drag moves in
+// steps of more than that.
+test.describe('<Drawer.Viewport /> touch swipe', () => {
+  // DRW-PTR-20 (DrawerViewport.test.tsx:55-99). Base UI spies on the document's listeners; here an init script records
+  // the non-passive touchmove registrations the page makes.
+  testWithTouch('registers the non-passive document touchmove listener only while open', async ({ touchPage: page, mode }) => {
+    await page.addInitScript(() => {
+      const log: string[] = [];
+      (window as unknown as { touchMoveLog: string[] }).touchMoveLog = log;
+      const add = Document.prototype.addEventListener;
+      const remove = Document.prototype.removeEventListener;
+      // Only non-passive registrations: other modules add passive touchmove listeners of their own.
+      const nonPassive = new Set<EventListenerOrEventListenerObject>();
+      Document.prototype.addEventListener = function (type: string, listener: EventListenerOrEventListenerObject, options?: boolean | AddEventListenerOptions) {
+        if (type === 'touchmove' && typeof options === 'object' && options.passive === false) {
+          nonPassive.add(listener);
+          log.push(`add passive=${String(options.passive)} capture=${String(options.capture)}`);
+        }
+        add.call(this, type, listener, options);
+      };
+      Document.prototype.removeEventListener = function (type: string, listener: EventListenerOrEventListenerObject, options?: boolean | EventListenerOptions) {
+        if (type === 'touchmove' && nonPassive.delete(listener)) {
+          log.push('remove');
+        }
+        remove.call(this, type, listener, options);
+      };
+    });
+    await downCase(page, mode);
+    const log = () => page.evaluate(() => (window as unknown as { touchMoveLog: string[] }).touchMoveLog);
+    await expect.poll(log).toEqual(['add passive=false capture=true']);
+
+    await page.getByRole('button', { name: 'Close' }).click();
+    await expect(page.getByTestId('popup')).toHaveCount(0);
+    await expect.poll(log).toEqual(['add passive=false capture=true', 'remove']);
+  });
+
+  // DRW-PTR-07 (DrawerViewport.test.tsx:257-295): the ignore selector does not apply to touch.
+  testWithTouch('starts touch swipes from interactive elements', async ({ touchPage: page, mode }) => {
+    const fixture = await downCase(page, mode);
+    const start = await pointOf(page.getByRole('button', { name: 'Close' }));
+
+    await touchDrag(page, [[start, { x: start.x, y: start.y + 250 }]], { steps: 10 });
+
+    await expect(fixture).toHaveAttribute('data-open-changes', 'false:swipe');
+  });
+
+  // DRW-PTR-19 (DrawerViewport.test.tsx:745-799). Folded with its positive half: the same drag from the popup's free area
+  // dismisses.
+  testWithTouch('does not start touch swipes from elements with data-base-ui-swipe-ignore', async ({ touchPage: page, mode }) => {
+    const fixture = await downCase(page, mode);
+    const ignored = await pointOf(page.getByTestId('ignored'));
+
+    await touchDrag(page, [[ignored, { x: ignored.x, y: ignored.y + 250 }]], { steps: 10 });
+    await settle(fixture);
+    await expect(page.getByTestId('backdrop')).not.toHaveAttribute('data-swiping');
+    await expect(fixture).toHaveAttribute('data-open-changes', '');
+
+    await touchDrag(page, [[popupPoint, { x: popupPoint.x, y: popupPoint.y + 250 }]], { steps: 10 });
+    await expect(fixture).toHaveAttribute('data-open-changes', 'false:swipe');
+  });
+
+  // DRW-PTR-24 (DrawerViewport.test.tsx:1154-1214).
+  testWithTouch('still allows touch swipes from elements with legacy data-swipe-ignore', async ({ touchPage: page, mode }) => {
+    const fixture = await downCase(page, mode);
+    const legacy = await pointOf(page.getByTestId('legacy'));
+
+    await touchDrag(page, [[legacy, { x: legacy.x, y: legacy.y + 250 }]], { steps: 10 });
+
+    await expect(fixture).toHaveAttribute('data-open-changes', 'false:swipe');
+  });
+
+  // DRW-PTR-06 (DrawerViewport.test.tsx:1306-1375): the touch starts on the viewport above the popup.
+  testWithTouch('dismisses when touch starts outside the popup, then continues swiping down inside it', async ({ touchPage: page, mode }) => {
+    const fixture = await downCase(page, mode);
+
+    await touchDrag(page, [[{ x: 100, y: 50 }, { x: 100, y: 500 }]], { steps: 15 });
+
+    await expect(fixture).toHaveAttribute('data-open-changes', 'false:swipe');
+  });
+
+  // DRW-PTR-06, PSH-PTR-13 (DrawerViewport.test.tsx:1256-1304): the touch starts on the viewport above the popup (top
+  // 100); the first move that enters the popup starts the swipe and re-anchors it there, so the popup does not jump.
+  testWithTouch('does not jump when touch starts outside the popup and then enters it', async ({ touchPage: page, mode }) => {
+    await downCase(page, mode);
+    const backdrop = page.getByTestId('backdrop');
+    const movementY = () => page.getByTestId('popup').evaluate((element) => Number.parseFloat((element as HTMLElement).style.getPropertyValue('--drawer-swipe-movement-y') || '0'));
+
+    await touchDrag(page, [[{ x: 100, y: 50 }, { x: 100, y: 170 }]], {
+      steps: 1,
+      beforeRelease: async () => {
+        await expect(backdrop).toHaveAttribute('data-swiping', '');
+        expect(await movementY()).toBe(0);
+      },
+    });
+  });
+
+  // DRW-PTR-21 (d) (DrawerViewport.test.tsx:1839-1884): a window capture listener sees each move first and reads its
+  // defaultPrevented after the module's document listener ran.
+  testWithTouch('prevents touchmove when there is no scroll container', async ({ touchPage: page, mode }) => {
+    await downCase(page, mode);
+    await page.evaluate(() => {
+      const moves: TouchEvent[] = [];
+      (window as unknown as { drawerMoves: TouchEvent[] }).drawerMoves = moves;
+      window.addEventListener('touchmove', (event) => moves.push(event), { capture: true, passive: true });
+    });
+
+    await touchDrag(page, [[popupPoint, { x: popupPoint.x, y: popupPoint.y + 60 }]], { steps: 4 });
+
+    const prevented = await page.evaluate(() => (window as unknown as { drawerMoves: TouchEvent[] }).drawerMoves.map((event) => event.defaultPrevented));
+    expect(prevented.length).toBeGreaterThan(0);
+    expect(prevented.every(Boolean)).toBe(true);
+  });
+});
+
+// Slice 2's scroll-edge titles (DRW-PTR-21 (f), ALG-03's edges), real CDP touch on the fixture's 60 px scroll container.
+// The first move stays inside the container (25 px; Chromium swallowed every move up to 12 px): the tracker starts a swipe
+// from a scroll edge only when the move's point is still over the scroller, as Base UI's jsdom titles pin the hit test to
+// it.
+// Base UI reads `fireEvent`'s result and an `onTouchMove` on the container; here a window capture listener reads each
+// move's defaultPrevented and a listener on the container counts the moves that reach it.
+const recordScrollMoves = (page: Page) =>
+  page.evaluate(() => {
+    const record = { prevented: [] as boolean[], reached: 0 };
+    (window as unknown as { scrollMoves: typeof record }).scrollMoves = record;
+    const moves: TouchEvent[] = [];
+    window.addEventListener('touchmove', (event) => moves.push(event), { capture: true, passive: true });
+    document.querySelector('[data-testid="scroll"]')!.addEventListener('touchmove', () => (record.reached += 1), { passive: true });
+    // The page reads defaultPrevented after every listener ran.
+    window.addEventListener('touchend', () => (record.prevented = moves.map((event) => event.defaultPrevented)), { capture: true });
+  });
+const scrollMoves = (page: Page) => page.evaluate(() => (window as unknown as { scrollMoves: { prevented: boolean[]; reached: number } }).scrollMoves);
+
+test.describe('<Drawer.Viewport /> touch swipe over a scroll container', () => {
+  // DRW-PTR-21 (DrawerViewport.test.tsx:1604-1650): at the top, a drag toward the dismiss direction is the drawer's.
+  testWithTouch('prevents touchmove at scroll top when swiping down on scrollable content', async ({ touchPage: page, mode }) => {
+    await downCase(page, mode);
+    await recordScrollMoves(page);
+    const start = await pointOf(page.getByTestId('scroll'));
+
+    await touchDrag(page, [[start, { x: start.x, y: start.y + 25 }, { x: start.x, y: start.y + 60 }]], { steps: 1 });
+
+    const { prevented, reached } = await scrollMoves(page);
+    expect(prevented.length).toBeGreaterThan(0);
+    expect(prevented.every(Boolean)).toBe(true);
+    expect(reached).toBe(0);
+  });
+
+  // DRW-PTR-21 (DrawerViewport.test.tsx:2214-2260): at the top, a drag the other way scrolls the content.
+  testWithTouch('allows touchmove when scrolling down from scroll top', async ({ touchPage: page, mode }) => {
+    const fixture = await downCase(page, mode);
+    await recordScrollMoves(page);
+    const scroll = page.getByTestId('scroll');
+    const start = await pointOf(scroll);
+
+    await touchDrag(page, [[start, { x: start.x, y: start.y - 60 }]], { steps: 4 });
+
+    const { prevented, reached } = await scrollMoves(page);
+    expect(prevented.some(Boolean)).toBe(false);
+    expect(reached).toBeGreaterThan(0);
+    await expect.poll(() => scroll.evaluate((element) => element.scrollTop)).toBeGreaterThan(0);
+    await settle(fixture);
+    await expect(fixture).toHaveAttribute('data-open-changes', '');
+  });
+
+  // DRW-PTR-21, PTR-10 (DrawerViewport.test.tsx:2513-2582).
+  testWithTouch('dismisses from a top-edge scroll container with a touch swipe down', async ({ touchPage: page, mode }) => {
+    const fixture = await downCase(page, mode);
+    const start = await pointOf(page.getByTestId('scroll'));
+
+    await touchDrag(page, [[start, { x: start.x, y: start.y + 25 }, { x: start.x, y: start.y + 250 }]], {
+      steps: 1,
+      beforeRelease: () => expect(page.getByTestId('backdrop')).toHaveAttribute('data-swiping', ''),
+    });
+
+    await expect(fixture).toHaveAttribute('data-open-changes', 'false:swipe');
+  });
+});
+
+// Slice 2's other scroll edges (added 2026-11-20): the fixture's `case=scroll` popup sits at left 300, top 300 (200 by
+// 300 px) with a vertical scroller (60 px over 120, y 300-360) and a horizontal one (120 px over 360, x 300-420, y
+// 360-400); `direction` is the swipe direction. Base UI stubs the scroll offsets; here they are set before the drag.
+const scrollCase = async (page: Page, mode: RenderMode, direction: string, offsets: { scrollTop?: number | 'max'; scrollLeft?: number | 'max' } = {}) => {
+  const fixture = await gotoPopupFixture(page, mode, 'drawer-swipe', { case: 'scroll', direction });
+  await page.evaluate((offsets) => {
+    const scroll = document.querySelector<HTMLElement>('[data-testid="scroll"]')!;
+    const hscroll = document.querySelector<HTMLElement>('[data-testid="hscroll"]')!;
+    if (offsets.scrollTop !== undefined) {
+      scroll.scrollTop = offsets.scrollTop === 'max' ? scroll.scrollHeight - scroll.clientHeight : offsets.scrollTop;
+    }
+    if (offsets.scrollLeft !== undefined) {
+      hscroll.scrollLeft = offsets.scrollLeft === 'max' ? hscroll.scrollWidth - hscroll.clientWidth : offsets.scrollLeft;
+    }
+  }, offsets);
+  return fixture;
+};
+const scrollCenter = { x: 400, y: 330 };
+const hscrollCenter = { x: 360, y: 380 };
+
+test.describe('<Drawer.Viewport /> touch swipe from other scroll edges', () => {
+  // DRW-PTR-21 (DrawerViewport.test.tsx:1652-1702): at the bottom, a drag toward an up drawer's dismiss direction is the
+  // drawer's.
+  testWithTouch('prevents touchmove at scroll bottom when swiping up on scrollable content', async ({ touchPage: page, mode }) => {
+    await scrollCase(page, mode, 'up', { scrollTop: 'max' });
+    await recordScrollMoves(page);
+    const { x, y } = scrollCenter;
+
+    await touchDrag(page, [[{ x, y }, { x, y: y - 25 }, { x, y: y - 60 }]], {
+      steps: 1,
+      beforeRelease: () => expect(page.getByTestId('backdrop')).toHaveAttribute('data-swiping', ''),
+    });
+
+    const { prevented, reached } = await scrollMoves(page);
+    expect(prevented.length).toBeGreaterThan(0);
+    expect(prevented.every(Boolean)).toBe(true);
+    expect(reached).toBe(0);
+  });
+
+  // "starts swipe-to-dismiss after a scrollable container reaches the dismiss edge" (DRW-PTR-21, ALG-03;
+  // DrawerViewport.test.tsx:2445-2511) is ported at L3 (js/drawer.test.ts), 2026-11-20: here the drag from scrollTop 20
+  // scrolled the content to 0, and Chromium sent every move after the first as non-cancelable (cancelable, y, scrollTop:
+  // [true,330,20], [false,343,0], [false,355,0], [false,403,0], [false,450,0]), so Base UI's own condition, a cancelable
+  // move toward the dismiss edge, never holds in one real gesture.
+
+  // DRW-PTR-21, PTR-10 (DrawerViewport.test.tsx:2584-2653).
+  testWithTouch('dismisses from a bottom-edge scroll container with a touch swipe up', async ({ touchPage: page, mode }) => {
+    const fixture = await scrollCase(page, mode, 'up', { scrollTop: 'max' });
+    const { x, y } = scrollCenter;
+
+    await touchDrag(page, [[{ x, y }, { x, y: y - 25 }, { x, y: y - 250 }]], {
+      steps: 1,
+      beforeRelease: () => expect(page.getByTestId('backdrop')).toHaveAttribute('data-swiping', ''),
+    });
+
+    await expect(fixture).toHaveAttribute('data-open-changes', 'false:swipe');
+  });
+
+  // DRW-PTR-21, PTR-10 (DrawerViewport.test.tsx:2655-2724).
+  testWithTouch('dismisses from a left-edge horizontal scroll container with a touch swipe right', async ({ touchPage: page, mode }) => {
+    const fixture = await scrollCase(page, mode, 'right', { scrollLeft: 0 });
+    const { x, y } = hscrollCenter;
+
+    await touchDrag(page, [[{ x, y }, { x: x + 25, y }, { x: x + 250, y }]], {
+      steps: 1,
+      beforeRelease: () => expect(page.getByTestId('backdrop')).toHaveAttribute('data-swiping', ''),
+    });
+
+    await expect(fixture).toHaveAttribute('data-open-changes', 'false:swipe');
+  });
+
+  // DRW-PTR-21, PTR-10 (DrawerViewport.test.tsx:2726-2795).
+  testWithTouch('dismisses from a right-edge horizontal scroll container with a touch swipe left', async ({ touchPage: page, mode }) => {
+    const fixture = await scrollCase(page, mode, 'left', { scrollLeft: 'max' });
+    const { x, y } = hscrollCenter;
+
+    await touchDrag(page, [[{ x, y }, { x: x - 25, y }, { x: x - 250, y }]], {
+      steps: 1,
+      beforeRelease: () => expect(page.getByTestId('backdrop')).toHaveAttribute('data-swiping', ''),
+    });
+
+    await expect(fixture).toHaveAttribute('data-open-changes', 'false:swipe');
+  });
+
+  // DRW-PTR-21, PTR-22 (DrawerViewport.test.tsx:2898-2948): the vertical scroller is the cross axis of a right drawer.
+  testWithTouch('allows horizontal swipe dismiss from a vertical scroll container', async ({ touchPage: page, mode }) => {
+    await scrollCase(page, mode, 'right', { scrollTop: 20 });
+    const { x, y } = scrollCenter;
+
+    await touchDrag(page, [[{ x, y }, { x: x + 25, y }, { x: x + 80, y }]], {
+      steps: 1,
+      beforeRelease: () => expect(page.getByTestId('backdrop')).toHaveAttribute('data-swiping', ''),
+    });
+  });
+
+  // DRW-PTR-21 (a) (DrawerViewport.test.tsx:5421-5451). Folded with its positive half: the first finger's drag alone
+  // moves the popup. Base UI's jsdom title also finds no data-swiping, because jsdom's hit test misses the popup at the
+  // touch start; in a browser the touch on the popup starts the swipe at once, so here the title asserts what the
+  // browser keeps: the moves are not prevented and the popup does not follow the fingers. The root is always open, so a
+  // dismissal attempt leaves the popup in place.
+  testWithTouch('leaves pinch-zoom touchmove to the browser', async ({ touchPage: page, mode }) => {
+    const fixture = await downCase(page, mode, { alwaysOpen: 'true' });
+    const popup = page.getByTestId('popup');
+    const top = () => popup.evaluate((element) => Math.round(element.getBoundingClientRect().top));
+    const first = [popupPoint, { x: popupPoint.x, y: popupPoint.y + 30 }, { x: popupPoint.x, y: popupPoint.y + 60 }];
+
+    await touchDrag(page, [first], { steps: 1, beforeRelease: () => expect.poll(top).toBeGreaterThan(100) });
+    await settle(fixture);
+    await expect.poll(top).toBe(100);
+
+    await recordScrollMoves(page);
+    const second = [{ x: 150, y: popupPoint.y }, { x: 150, y: popupPoint.y - 30 }, { x: 150, y: popupPoint.y - 60 }];
+    await touchDrag(page, [first, second], {
+      steps: 1,
+      beforeRelease: async () => {
+        await settle(fixture);
+        expect(await top()).toBe(100);
+      },
+    });
+
+    const { prevented } = await scrollMoves(page);
+    expect(prevented.length).toBeGreaterThan(0);
+    expect(prevented.some(Boolean)).toBe(false);
+  });
+});
+
+// Slice 2's cross-axis arbitration (DRW-PTR-22, ALG-03; added 2026-11-20): a right drawer over the fixture's vertical
+// scroller. Chromium dispatches no move under its touch slop (12 px was swallowed), so the first move these titles send
+// is already past the port's 6 px slop on one axis; the sub-slop and non-cancelable paths are held at L3.
+const movementX = (page: Page) => page.getByTestId('popup').evaluate((element) => (element as HTMLElement).style.getPropertyValue('--drawer-swipe-movement-x'));
+
+test.describe('<Drawer.Viewport /> touch swipe over a cross-axis scroll container', () => {
+  // DRW-PTR-22 (DrawerViewport.test.tsx:3001-3047). Base UI's sub-slop first move never reaches the page here; the
+  // L3 port holds it.
+  testWithTouch('claims the gesture once the drawer axis passes the slop over cross-axis scrollable content', async ({ touchPage: page, mode }) => {
+    await scrollCase(page, mode, 'right');
+    await recordScrollMoves(page);
+    const { x, y } = scrollCenter;
+
+    await touchDrag(page, [[{ x, y }, { x: x + 25, y: y + 1 }, { x: x + 40, y: y + 1 }]], {
+      steps: 1,
+      beforeRelease: () => expect(page.getByTestId('backdrop')).toHaveAttribute('data-swiping', ''),
+    });
+
+    const { prevented } = await scrollMoves(page);
+    expect(prevented.length).toBeGreaterThan(0);
+    expect(prevented.every(Boolean)).toBe(true);
+    expect(await page.getByTestId('scroll').evaluate((element) => element.scrollTop)).toBe(0);
+  });
+
+  // DRW-PTR-22 (DrawerViewport.test.tsx:3049-3104). Base UI commits the gesture with a non-cancelable sub-slop move; here
+  // the first move wins on the cross axis and the browser scrolls, and the decisive drawer-axis moves after it are still
+  // not claimed. Folded with its positive half: the content scrolled.
+  testWithTouch('yields the gesture when the browser commits to a native cross-axis scroll', async ({ touchPage: page, mode }) => {
+    const fixture = await scrollCase(page, mode, 'right');
+    await recordScrollMoves(page);
+    const { x } = scrollCenter;
+
+    // Several vertical moves first: Chromium may begin its scroll only on a later move, and a scroll that begins on a
+    // horizontal one never scrolls this content.
+    await touchDrag(page, [[{ x, y: 357 }, { x, y: 305 }, { x: x + 80, y: 305 }]], {
+      steps: 4,
+      beforeRelease: async () => {
+        await settle(fixture);
+        await expect(page.getByTestId('backdrop')).not.toHaveAttribute('data-swiping');
+      },
+    });
+
+    const { prevented } = await scrollMoves(page);
+    expect(prevented.length).toBeGreaterThan(0);
+    expect(prevented.some(Boolean)).toBe(false);
+    // The compositor applies the native scroll in a later frame.
+    await expect.poll(() => page.getByTestId('scroll').evaluate((element) => element.scrollTop)).toBeGreaterThan(0);
+    await expect(fixture).toHaveAttribute('data-open-changes', '');
+  });
+
+  // DRW-PTR-22 (DrawerViewport.test.tsx:3106-3162).
+  testWithTouch('keeps tracking the finger when a claimed drag returns inside the slop', async ({ touchPage: page, mode }) => {
+    await scrollCase(page, mode, 'right');
+    await recordScrollMoves(page);
+    const { x, y } = scrollCenter;
+
+    await touchDrag(page, [[{ x, y }, { x: x + 20, y }, { x: x + 50, y }, { x: x + 3, y }]], {
+      steps: 1,
+      afterMove: async (move) => {
+        if (move === 2) {
+          expect(await movementX(page)).toBe('30px');
+        }
+      },
+      beforeRelease: async () => expect(Number.parseFloat(await movementX(page))).toBeLessThan(0),
+    });
+
+    const { prevented } = await scrollMoves(page);
+    expect(prevented.length).toBe(3);
+    expect(prevented.every(Boolean)).toBe(true);
+  });
+});
+
+// Slice 2's selection handles and range inputs (DRW-PTR-19, PTR-21 (b); added 2026-11-20), on the fixture's
+// `case=controls` down drawer: its controls fill the popup's top 164 px, and the drags start in the free part below.
+const controlsCase = (page: Page, mode: RenderMode) => gotoPopupFixture(page, mode, 'drawer-swipe', { case: 'controls' });
+const freePoint = { x: 100, y: 350 };
+// A window capture listener reads each move's defaultPrevented once every listener ran.
+const recordMoves = (page: Page) =>
+  page.evaluate(() => {
+    const record = { prevented: [] as boolean[] };
+    (window as unknown as { drawerMoves: typeof record }).drawerMoves = record;
+    const moves: TouchEvent[] = [];
+    window.addEventListener('touchmove', (event) => moves.push(event), { capture: true, passive: true });
+    window.addEventListener('touchend', () => (record.prevented = moves.map((event) => event.defaultPrevented)), { capture: true });
+  });
+const preventedMoves = (page: Page) => page.evaluate(() => (window as unknown as { drawerMoves: { prevented: boolean[] } }).drawerMoves.prevented);
+
+// Each selection title selects "Selec" in a control, drags down from the free area, and finds the moves left to the
+// browser and no swipe. Folded with its positive half: once the selection collapses, the same drag swipes.
+const selectionTitle = (title: string, select: (page: Page) => Promise<void>, collapse: (page: Page) => Promise<void>) =>
+  testWithTouch(title, async ({ touchPage: page, mode }) => {
+    const fixture = await controlsCase(page, mode);
+    const backdrop = page.getByTestId('backdrop');
+    const drag = [freePoint, { x: freePoint.x, y: freePoint.y + 30 }, { x: freePoint.x, y: freePoint.y + 40 }];
+    await select(page);
+    await recordMoves(page);
+
+    await touchDrag(page, [drag], {
+      steps: 1,
+      beforeRelease: async () => {
+        await settle(fixture);
+        await expect(backdrop).not.toHaveAttribute('data-swiping');
+      },
+    });
+    const prevented = await preventedMoves(page);
+    expect(prevented.length).toBeGreaterThan(0);
+    expect(prevented.some(Boolean)).toBe(false);
+
+    await collapse(page);
+    await touchDrag(page, [drag], { steps: 1, beforeRelease: () => expect(backdrop).toHaveAttribute('data-swiping', '') });
+  });
+
+const selectInControl = (testId: string) => (page: Page) =>
+  page.getByTestId(testId).evaluate((element) => {
+    const control = element as HTMLInputElement | HTMLTextAreaElement;
+    control.focus();
+    control.setSelectionRange(0, 5);
+  });
+const collapseInControl = (testId: string) => (page: Page) =>
+  page.getByTestId(testId).evaluate((element) => (element as HTMLInputElement | HTMLTextAreaElement).setSelectionRange(0, 0));
+const selectText = (testId: string, focus: boolean) => (page: Page) =>
+  page.getByTestId(testId).evaluate((element, focus) => {
+    if (focus) {
+      (element as HTMLElement).focus();
+    }
+    const range = document.createRange();
+    range.setStart(element.firstChild!, 0);
+    range.setEnd(element.firstChild!, 5);
+    const selection = window.getSelection()!;
+    selection.removeAllRanges();
+    selection.addRange(range);
+  }, focus);
+const collapseText = (page: Page) => page.evaluate(() => window.getSelection()!.collapseToStart());
+
+test.describe('<Drawer.Viewport /> touch swipe over selections and range inputs', () => {
+  // DRW-PTR-21 (b) (DrawerViewport.test.tsx:1975-2027).
+  selectionTitle('does not start swiping when adjusting input selection handles', selectInControl('input'), collapseInControl('input'));
+
+  // DRW-PTR-21 (b) (DrawerViewport.test.tsx:2029-2081).
+  selectionTitle('does not start swiping when adjusting textarea selection handles', selectInControl('textarea'), collapseInControl('textarea'));
+
+  // DRW-PTR-21 (b) (DrawerViewport.test.tsx:2083-2148).
+  selectionTitle('does not start swiping when adjusting contenteditable selection handles', selectText('editable', true), collapseText);
+
+  // DRW-PTR-21 (b) (DrawerViewport.test.tsx:2150-2212).
+  selectionTitle('does not start swiping when adjusting regular text selection handles', selectText('selectable', false), collapseText);
+
+  // DRW-PTR-19 (4) (DrawerViewport.test.tsx:1886-1925). Folded with its positive half: the drag moves the range's value.
+  testWithTouch('does not block touchmove on native range inputs', async ({ touchPage: page, mode }) => {
+    const fixture = await controlsCase(page, mode);
+    const range = page.getByTestId('range');
+    const start = await pointOf(range);
+    await recordMoves(page);
+
+    await touchDrag(page, [[start, { x: start.x + 20, y: start.y }, { x: start.x + 40, y: start.y }]], {
+      steps: 2,
+      beforeRelease: async () => {
+        await settle(fixture);
+        await expect(page.getByTestId('backdrop')).not.toHaveAttribute('data-swiping');
+      },
+    });
+
+    const prevented = await preventedMoves(page);
+    expect(prevented.length).toBeGreaterThan(0);
+    expect(prevented.some(Boolean)).toBe(false);
+    await expect.poll(() => range.evaluate((element) => Number((element as HTMLInputElement).value))).toBeGreaterThan(50);
+  });
+
+  // DRW-PTR-19 (4) (DrawerViewport.test.tsx:1927-1973). The Slider's range input is visually hidden inside its thumb, so a
+  // real touch lands on the thumb element and never has the input in its path (measured 2026-11-20: the hit target is
+  // the thumb `div`, and the drawer swipes as Base UI's identical check does). The title's touch on the input is input
+  // no real device makes, so it is dispatched in the page (ADR 04, Amendments 2026-11-19, point 14). Folded with its
+  // positive half: the same touch on the thumb element is claimed. The real-touch behaviour is kept as Base UI's and filed
+  // as issue 331 (track 10), chosen by the user 2026-11-20.
+  testWithTouch('does not block touchmove on slider thumb range inputs', {
+    annotation: { type: 'issue', description: 'https://github.com/JakeMurrayDev/Blazix.Primitives/issues/331' },
+  }, async ({ touchPage: page, mode }) => {
+    const fixture = await controlsCase(page, mode);
+    const backdrop = page.getByTestId('backdrop');
+    const start = await pointOf(page.getByTestId('slider-thumb'));
+    const dispatchTouch = (target: Locator, type: string, x: number) =>
+      target.evaluate(
+        (element, { type, x, y }: { type: string; x: number; y: number }) => {
+          const touch = new Touch({ identifier: 1, target: element, clientX: x, clientY: y });
+          const event = new TouchEvent(type, {
+            bubbles: true,
+            cancelable: true,
+            composed: true,
+            touches: type === 'touchend' ? [] : [touch],
+            changedTouches: [touch],
+          });
+          element.dispatchEvent(event);
+          return event.defaultPrevented;
+        },
+        { type, x, y: start.y },
+      );
+
+    const input = page.getByRole('slider', { name: 'Volume' });
+    await dispatchTouch(input, 'touchstart', start.x);
+    expect(await dispatchTouch(input, 'touchmove', start.x + 20)).toBe(false);
+    await settle(fixture);
+    await expect(backdrop).not.toHaveAttribute('data-swiping');
+    await dispatchTouch(input, 'touchend', start.x + 20);
+
+    const thumb = page.getByTestId('slider-thumb');
+    await dispatchTouch(thumb, 'touchstart', start.x);
+    expect(await dispatchTouch(thumb, 'touchmove', start.x + 20)).toBe(true);
+    await expect(backdrop).toHaveAttribute('data-swiping', '');
+  });
+});
+
+// Slice 2's `data-base-ui-swipe-ignore` axis values (DRW-PTR-19 (7), PTR-22; added 2026-11-20), on the fixture's
+// `case=axis`: rows marked `y` (y 100-140) and `x` (y 140-180), then a valueless ancestor around a row marked `x` (y
+// 180-220); the rest of the popup is free. Base UI's first move of each cross-axis drag is under the slop, which Chromium
+// does not dispatch; here the first move is past it, and the L3 port title holds the sub-slop move.
+const axisCase = (page: Page, mode: RenderMode, direction: 'down' | 'right') => gotoPopupFixture(page, mode, 'drawer-swipe', { case: 'axis', direction });
+type Point = { x: number; y: number };
+// Records whether each move was prevented, and how many moves reached a test id's element.
+const recordAxisMoves = (page: Page, testId: string) =>
+  page.evaluate((testId) => {
+    const record = { prevented: [] as boolean[], reached: 0 };
+    (window as unknown as { axisMoves: typeof record }).axisMoves = record;
+    const moves: TouchEvent[] = [];
+    window.addEventListener('touchmove', (event) => moves.push(event), { capture: true, passive: true });
+    document.querySelector(`[data-testid="${testId}"]`)!.addEventListener('touchmove', () => (record.reached += 1), { passive: true });
+    window.addEventListener('touchend', () => (record.prevented = moves.map((event) => event.defaultPrevented)), { capture: true });
+  }, testId);
+const axisMoves = (page: Page) => page.evaluate(() => (window as unknown as { axisMoves: { prevented: boolean[]; reached: number } }).axisMoves);
+const along = (direction: 'down' | 'right', from: Point, distance: number): Point =>
+  direction === 'down' ? { x: from.x, y: from.y + distance } : { x: from.x + distance, y: from.y };
+const across = (direction: 'down' | 'right', from: Point, distance: number): Point =>
+  direction === 'down' ? { x: from.x + distance, y: from.y + 1 } : { x: from.x + 1, y: from.y + distance };
+
+test.describe('<Drawer.Viewport /> touch swipe over swipe-ignore axis values', () => {
+  // DRW-PTR-19 (7) (DrawerViewport.test.tsx:836-859). Folded with its positive half: the same drag from the free area
+  // dismisses.
+  for (const [direction, axis] of [['down', 'y'], ['right', 'x']] as const) {
+    testWithTouch(`ignores ${direction} touch swipes from elements with the drawer axis value "${axis}"`, async ({ touchPage: page, mode }) => {
+      const fixture = await axisCase(page, mode, direction);
+      const start = await pointOf(page.getByTestId(`axis-${axis}`));
+      await recordAxisMoves(page, `axis-${axis}`);
+
+      await touchDrag(page, [[start, along(direction, start, 25), along(direction, start, 250)]], {
+        steps: 1,
+        beforeRelease: async () => {
+          await settle(fixture);
+          await expect(page.getByTestId('backdrop')).not.toHaveAttribute('data-swiping');
+        },
+      });
+      const { prevented } = await axisMoves(page);
+      expect(prevented.length).toBeGreaterThan(0);
+      expect(prevented.some(Boolean)).toBe(false);
+      await settle(fixture);
+      await expect(fixture).toHaveAttribute('data-open-changes', '');
+
+      const free = { x: 100, y: 350 };
+      await touchDrag(page, [[free, along(direction, free, 25), along(direction, free, 250)]], { steps: 1 });
+      await expect(fixture).toHaveAttribute('data-open-changes', 'false:swipe');
+    });
+  }
+
+  // DRW-PTR-22 (DrawerViewport.test.tsx:860-889): the target gets the cross-axis drag and the popup does not move.
+  for (const [direction, axis] of [['down', 'x'], ['right', 'y']] as const) {
+    testWithTouch(`hands cross-axis drags in ${direction} drawers to elements with the value "${axis}"`, async ({ touchPage: page, mode }) => {
+      const fixture = await axisCase(page, mode, direction);
+      const popup = page.getByTestId('popup');
+      const start = await pointOf(page.getByTestId(`axis-${axis}`));
+      await recordAxisMoves(page, `axis-${axis}`);
+
+      await touchDrag(page, [[start, across(direction, start, 14), across(direction, start, 18)]], {
+        steps: 1,
+        beforeRelease: async () => {
+          await settle(fixture);
+          await expect(page.getByTestId('backdrop')).not.toHaveAttribute('data-swiping');
+          const movement = await popup.evaluate((element) => [
+            (element as HTMLElement).style.getPropertyValue('--drawer-swipe-movement-x'),
+            (element as HTMLElement).style.getPropertyValue('--drawer-swipe-movement-y'),
+          ]);
+          expect(movement.map((value) => Number.parseFloat(value || '0'))).toEqual([0, 0]);
+        },
+      });
+
+      const { prevented, reached } = await axisMoves(page);
+      expect(reached).toBe(prevented.length);
+      expect(reached).toBeGreaterThan(0);
+      expect(prevented.some(Boolean)).toBe(false);
+      await settle(fixture);
+      await expect(fixture).toHaveAttribute('data-open-changes', '');
+    });
+  }
+
+  // DRW-PTR-19 (7), PTR-22 (DrawerViewport.test.tsx:927-981).
+  for (const [direction, axis] of [['down', 'x'], ['right', 'y']] as const) {
+    testWithTouch(`still swipes ${direction} drawers from elements with the cross-axis value "${axis}"`, async ({ touchPage: page, mode }) => {
+      const fixture = await axisCase(page, mode, direction);
+      const start = await pointOf(page.getByTestId(`axis-${axis}`));
+      await recordAxisMoves(page, `axis-${axis}`);
+
+      await touchDrag(page, [[start, along(direction, start, 25), along(direction, start, 250)]], { steps: 1 });
+
+      await expect(fixture).toHaveAttribute('data-open-changes', 'false:swipe');
+      const { prevented } = await axisMoves(page);
+      expect(prevented.length).toBeGreaterThan(0);
+      expect(prevented.every(Boolean)).toBe(true);
+    });
+  }
+
+  // DRW-PTR-19 (7) (DrawerViewport.test.tsx:982-1003). Folded with its positive half: the same drag from the free area
+  // dismisses.
+  testWithTouch('keeps an ancestor that ignores all directions in effect over a nested axis value', async ({ touchPage: page, mode }) => {
+    const fixture = await axisCase(page, mode, 'down');
+    const start = await pointOf(page.getByTestId('nested-x'));
+
+    await touchDrag(page, [[start, along('down', start, 25), along('down', start, 250)]], {
+      steps: 1,
+      beforeRelease: async () => {
+        await settle(fixture);
+        await expect(page.getByTestId('backdrop')).not.toHaveAttribute('data-swiping');
+      },
+    });
+    await settle(fixture);
+    await expect(fixture).toHaveAttribute('data-open-changes', '');
+
+    const free = { x: 100, y: 350 };
+    await touchDrag(page, [[free, along('down', free, 25), along('down', free, 250)]], { steps: 1 });
+    await expect(fixture).toHaveAttribute('data-open-changes', 'false:swipe');
+  });
+});
+
+// Slice 2's shadow roots (DRW-PTR-19 (7), PTR-06; added 2026-11-20), on the fixture's `case=shadow`: the portal renders
+// into an open shadow root, so the document's hit test retargets every point in the popup to the shadow host, and only
+// the root node's hit test finds the element under the touch. Locators pierce the open root.
+test.describe('<Drawer.Viewport /> touch swipe in a shadow root', () => {
+  // DRW-PTR-19 (7) (DrawerViewport.test.tsx:297-351). Base UI stubs both hit tests; here they are real. The ignored row
+  // stops the swipe only if the shadow root's hit test finds it, and the target starts one only if it does.
+  testWithTouch('uses shadow-root hit testing for touch swipe targets', async ({ touchPage: page, mode }) => {
+    const fixture = await gotoPopupFixture(page, mode, 'drawer-swipe', { case: 'shadow' });
+    const backdrop = page.getByTestId('backdrop');
+    const ignored = await pointOf(page.getByTestId('ignored'));
+    const target = await pointOf(page.getByTestId('target'));
+
+    await touchDrag(page, [[ignored, { x: ignored.x, y: ignored.y + 25 }, { x: ignored.x, y: ignored.y + 40 }]], {
+      steps: 1,
+      beforeRelease: async () => {
+        await settle(fixture);
+        await expect(backdrop).not.toHaveAttribute('data-swiping');
+      },
+    });
+
+    await touchDrag(page, [[target, { x: target.x, y: target.y + 25 }, { x: target.x, y: target.y + 40 }]], {
+      steps: 1,
+      beforeRelease: () => expect(backdrop).toHaveAttribute('data-swiping', ''),
+    });
+  });
+
+  // DRW-PTR-06 (DrawerViewport.test.tsx:352-413, a browser-only title in Base UI).
+  testWithTouch('starts a swipe inside a shadow root using real hit testing', async ({ touchPage: page, mode }) => {
+    const fixture = await gotoPopupFixture(page, mode, 'drawer-swipe', { case: 'shadow' });
+
+    await touchDrag(page, [[popupPoint, { x: popupPoint.x, y: popupPoint.y + 25 }, { x: popupPoint.x, y: popupPoint.y + 250 }]], {
+      steps: 1,
+      beforeRelease: () => expect(page.getByTestId('backdrop')).toHaveAttribute('data-swiping', ''),
+    });
+
+    await expect(fixture).toHaveAttribute('data-open-changes', 'false:swipe');
+  });
+});
+
+// Slice 2's touches without a usual target (DRW-PTR-19 (3) and (5), PTR-21; added 2026-11-20), on the fixture's down
+// drawer. A touchstart with no touches and one whose composed path holds no element are input no real device makes, so
+// they are dispatched in the page (ADR 04, Amendments 2026-11-19, point 14).
+const dispatchTouchAt = (page: Page, testId: string, type: string, point: Point | null, path: 'window' | null = null) =>
+  page.getByTestId(testId).evaluate(
+    (element, { type, point, path }: { type: string; point: Point | null; path: 'window' | null }) => {
+      const touches = point ? [new Touch({ identifier: 1, target: element, clientX: point.x, clientY: point.y })] : [];
+      const event = new TouchEvent(type, { bubbles: true, cancelable: true, composed: true, touches, changedTouches: touches });
+      if (path === 'window') {
+        Object.defineProperty(event, 'composedPath', { value: () => [window] });
+      }
+      element.dispatchEvent(event);
+      return event.defaultPrevented;
+    },
+    { type, point, path },
+  );
+
+test.describe('<Drawer.Viewport /> touch swipe without a usual target', () => {
+  // DRW-PTR-19 (3) (DrawerViewport.test.tsx:3644-3658). Folded with its positive half: a real touch drag after it swipes.
+  testWithTouch('ignores touchstart when there is no active touch', async ({ touchPage: page, mode }) => {
+    const fixture = await downCase(page, mode);
+    const backdrop = page.getByTestId('backdrop');
+
+    await dispatchTouchAt(page, 'viewport', 'touchstart', null);
+    await settle(fixture);
+    await expect(backdrop).not.toHaveAttribute('data-swiping');
+
+    await touchDrag(page, [[popupPoint, { x: popupPoint.x, y: popupPoint.y + 25 }, { x: popupPoint.x, y: popupPoint.y + 40 }]], {
+      steps: 1,
+      beforeRelease: () => expect(backdrop).toHaveAttribute('data-swiping', ''),
+    });
+  });
+
+  // DRW-PTR-19 (5) (DrawerViewport.test.tsx:4947-4981): the touchstart's composed path holds only the window.
+  testWithTouch('falls back to the viewport when a touch event has no element target', async ({ touchPage: page, mode }) => {
+    await downCase(page, mode);
+
+    await dispatchTouchAt(page, 'popup', 'touchstart', popupPoint, 'window');
+    await dispatchTouchAt(page, 'popup', 'touchmove', { x: popupPoint.x, y: popupPoint.y + 40 });
+
+    await expect(page.getByTestId('backdrop')).toHaveAttribute('data-swiping', '');
+  });
+
+  // DRW-PTR-21 (e) (DrawerViewport.test.tsx:5453-5494). The container overflows at the touchstart and stops overflowing
+  // before the first move: a page listener after the Viewport's shrinks its content. Base UI's last, non-cancelable move
+  // cannot be prevented by anyone, and Chromium sends none here.
+  testWithTouch('prevents page scrolling for a non-overflowing touch scroll container', async ({ touchPage: page, mode }) => {
+    await downCase(page, mode);
+    await recordScrollMoves(page);
+    await page.evaluate(() =>
+      document.addEventListener(
+        'touchstart',
+        () => {
+          // Clipped too: the scroller's height follows its content, and overflowing text would keep it scrollable.
+          (document.querySelector('[data-testid="scroll"]')!.firstElementChild as HTMLElement).style.cssText = 'height: 10px; overflow: hidden;';
+        },
+        { once: true },
+      ),
+    );
+    const start = await pointOf(page.getByTestId('scroll'));
+
+    await touchDrag(page, [[start, { x: start.x, y: start.y - 25 }, { x: start.x, y: start.y - 40 }]], { steps: 1 });
+
+    const { prevented } = await scrollMoves(page);
+    expect(prevented.length).toBeGreaterThan(0);
+    expect(prevented.every(Boolean)).toBe(true);
+  });
+});
+
+// Slice 2's selections, pens and compatibility pointers on the touch path (DRW-PTR-05, PTR-08, PTR-19 (1), PTR-21 (b);
+// added 2026-11-20), on the fixture's down drawer.
+const selectPopupText = (page: Page, anchor: 'text' | 'outside-text') =>
+  page.evaluate((anchor) => {
+    const anchorNode = document.querySelector(`[data-testid="${anchor}"]`)!.firstChild!;
+    const focusNode = document.querySelector('[data-testid="text"]')!.firstChild!;
+    window.getSelection()!.setBaseAndExtent(anchorNode, 0, focusNode, 5);
+  }, anchor);
+const selectionState = (page: Page) =>
+  page.evaluate(() => {
+    const selection = window.getSelection()!;
+    return { rangeCount: selection.rangeCount, collapsed: selection.isCollapsed };
+  });
+
+test.describe('<Drawer.Viewport /> touch swipe with selections, pens and compatibility pointers', () => {
+  // DRW-PTR-08 (DrawerViewport.test.tsx:204-255). The touch is cancelled, not lifted: a lifted touch is a tap, and the
+  // browser's tap moves the selection.
+  testWithTouch('does not clear text selection on touch swipe start', async ({ touchPage: page, mode }) => {
+    const fixture = await downCase(page, mode);
+    await selectPopupText(page, 'text');
+
+    await touchDrag(page, [[popupPoint, { x: popupPoint.x, y: popupPoint.y + 25 }]], {
+      steps: 1,
+      release: 'cancel',
+      beforeRelease: async () => {
+        await settle(fixture);
+        expect(await selectionState(page)).toEqual({ rangeCount: 1, collapsed: false });
+      },
+    });
+  });
+
+  // DRW-PTR-21 (b) (DrawerViewport.test.tsx:4906-4945): a real selection from the text outside the drawer into the
+  // popup. Folded with its positive half: once the selection collapses, the same drag swipes.
+  testWithTouch('preserves an expanded touch selection whose focus endpoint is in the popup', async ({ touchPage: page, mode }) => {
+    const fixture = await downCase(page, mode);
+    const backdrop = page.getByTestId('backdrop');
+    const drag = [popupPoint, { x: popupPoint.x, y: popupPoint.y + 25 }, { x: popupPoint.x, y: popupPoint.y + 40 }];
+    await selectPopupText(page, 'outside-text');
+
+    await touchDrag(page, [drag], {
+      steps: 1,
+      release: 'cancel',
+      beforeRelease: async () => {
+        await settle(fixture);
+        await expect(backdrop).not.toHaveAttribute('data-swiping');
+        expect(await selectionState(page)).toEqual({ rangeCount: 1, collapsed: false });
+      },
+    });
+
+    await page.evaluate(() => window.getSelection()!.collapseToEnd());
+    await touchDrag(page, [drag], { steps: 1, beforeRelease: () => expect(backdrop).toHaveAttribute('data-swiping', '') });
+  });
+
+  // DRW-PTR-19 (1), PTR-04 (DrawerViewport.test.tsx:1377-1444): a real pen press (CDP) on Drawer.Content, then the
+  // touch events a pen's platform sends for the same contact. CDP's touch sends its own touch pointerdown first, which a
+  // pen's touch events never follow, so the touch events are dispatched in the page (ADR 04, Amendments 2026-11-19,
+  // point 14). Folded with its positive half: a pen drag from the popup's free area swipes, as a non-touch drag.
+  testWithTouch('treats pen interactions on Drawer.Content as non-touch swipes', async ({ touchPage: page, mode }) => {
+    const fixture = await downCase(page, mode);
+    const backdrop = page.getByTestId('backdrop');
+    const cdp = await page.context().newCDPSession(page);
+    const pen = (type: 'mousePressed' | 'mouseMoved' | 'mouseReleased', { x, y }: Point) =>
+      cdp.send('Input.dispatchMouseEvent', {
+        type,
+        x,
+        y,
+        button: type === 'mouseMoved' ? 'none' : 'left',
+        buttons: type === 'mouseReleased' ? 0 : 1,
+        clickCount: type === 'mouseMoved' ? 0 : 1,
+        pointerType: 'pen',
+      });
+    const content = await pointOf(page.getByTestId('content-target'));
+
+    await pen('mousePressed', content);
+    await dispatchTouchAt(page, 'content-target', 'touchstart', content);
+    await settle(fixture);
+    await expect(backdrop).not.toHaveAttribute('data-swiping');
+    expect(await dispatchTouchAt(page, 'content-target', 'touchmove', { x: content.x, y: content.y + 25 })).toBe(false);
+    await dispatchTouchAt(page, 'content-target', 'touchend', null);
+    await pen('mouseReleased', content);
+    await settle(fixture);
+    await expect(backdrop).not.toHaveAttribute('data-swiping');
+
+    await pen('mousePressed', popupPoint);
+    await pen('mouseMoved', { x: popupPoint.x, y: popupPoint.y + 20 });
+    await expect(backdrop).toHaveAttribute('data-swiping', '');
+    await pen('mouseReleased', { x: popupPoint.x, y: popupPoint.y + 20 });
+    await cdp.detach();
+  });
+
+  // DRW-PTR-05 (DrawerViewport.test.tsx:4983-5031): touch pointer events with no touch events beside them are input no
+  // real device makes, so they are dispatched in the page (ADR 04, Amendments 2026-11-19, point 14). Folded with its
+  // positive half: the same sequence as a mouse swipes.
+  test('ignores compatibility touch pointer gestures with real displacement', async ({ page, mode }) => {
+    const fixture = await downCase(page, mode);
+    const backdrop = page.getByTestId('backdrop');
+    const sequence = async (pointerType: string, pointerId: number, end: boolean) => {
+      const { x, y } = popupPoint;
+      await dispatchPointer(page, 'viewport', 'pointerdown', { x, y, pointerType, pointerId });
+      await dispatchPointer(page, 'viewport', 'pointermove', { x, y: y + 1, pointerType, pointerId });
+      await dispatchPointer(page, 'viewport', 'pointermove', { x, y: y + 100, pointerType, pointerId });
+      if (end) {
+        await dispatchPointer(page, 'viewport', 'pointerup', { x, y: y + 100, pointerType, pointerId });
+        await dispatchPointer(page, 'viewport', 'pointercancel', { x, y: y + 100, pointerType, pointerId });
+      }
+    };
+
+    await sequence('touch', 1, true);
+    await settle(fixture);
+    await expect(backdrop).not.toHaveAttribute('data-swiping');
+    await expect(fixture).toHaveAttribute('data-open-changes', '');
+
+    await sequence('mouse', 2, false);
+    await expect(backdrop).toHaveAttribute('data-swiping', '');
+  });
+});
+
+// Slice 2's remaining scroll arbitration (DRW-PTR-21 (f), PTR-22, ALG-03; added 2026-11-20). Base UI's last six titles
+// here are browser-only (skipped in jsdom) but still use synthetic touches; here every touch is real, and each absence
+// is folded with the native scroll the drawer leaves to the browser. The case=scroll popup adds a both-ways scroller
+// (x 300-420, y 400-460). Several vertical or horizontal moves begin each drag: Chromium may begin its scroll only on a
+// later move.
+const scrollOffsets = (page: Page, testId: string) =>
+  page.getByTestId(testId).evaluate((element) => ({ top: element.scrollTop, left: element.scrollLeft }));
+
+test.describe('<Drawer.Viewport /> touch swipe and native scrolling', () => {
+  // DRW-PTR-21 (f) (DrawerViewport.test.tsx:1704-1745), on the fixture's `case=wrap`: the scroll container sits between
+  // the Viewport and the popup.
+  testWithTouch('prevents touchmove when a scrollable ancestor wraps the popup at the top', async ({ touchPage: page, mode }) => {
+    await gotoPopupFixture(page, mode, 'drawer-swipe', { case: 'wrap' });
+    await recordMoves(page);
+    const start = await pointOf(page.getByTestId('item'));
+
+    await touchDrag(page, [[start, { x: start.x, y: start.y + 25 }, { x: start.x, y: start.y + 40 }]], {
+      steps: 1,
+      beforeRelease: () => expect(page.getByTestId('backdrop')).toHaveAttribute('data-swiping', ''),
+    });
+
+    const prevented = await preventedMoves(page);
+    expect(prevented.length).toBeGreaterThan(0);
+    expect(prevented.every(Boolean)).toBe(true);
+  });
+
+  // DRW-PTR-21 (f), ALG-03 (DrawerViewport.test.tsx:2399-2443): at the right edge, a leftward drag is not the drawer's.
+  // The content has nothing left to scroll that way, so the title asserts only absences; its red is a planted fault,
+  // quoted in PR 305.
+  testWithTouch('does not start an opposite-direction swipe from scroll right edge for right drawers', async ({ touchPage: page, mode }) => {
+    const fixture = await scrollCase(page, mode, 'right', { scrollLeft: 'max' });
+    await recordMoves(page);
+    const { x, y } = hscrollCenter;
+
+    await touchDrag(page, [[{ x: x + 50, y }, { x: x - 50, y }]], {
+      steps: 5,
+      beforeRelease: async () => {
+        await settle(fixture);
+        await expect(page.getByTestId('backdrop')).not.toHaveAttribute('data-swiping');
+      },
+    });
+
+    const prevented = await preventedMoves(page);
+    expect(prevented.length).toBeGreaterThan(0);
+    expect(prevented.some(Boolean)).toBe(false);
+  });
+
+  // DRW-PTR-22 (DrawerViewport.test.tsx:3292-3348): the both-ways scroller at scrollLeft 40; the drag wins on the cross
+  // axis.
+  testWithTouch('does not hijack cross-axis gestures from mixed-axis scroll containers', async ({ touchPage: page, mode }) => {
+    const fixture = await gotoPopupFixture(page, mode, 'drawer-swipe', { case: 'scroll', direction: 'down' });
+    await page.getByTestId('bscroll').evaluate((element) => (element.scrollLeft = 40));
+    await recordMoves(page);
+    const start = await pointOf(page.getByTestId('bscroll'));
+
+    await touchDrag(page, [[{ x: start.x + 50, y: start.y - 20 }, { x: start.x - 40, y: start.y + 20 }]], {
+      steps: 5,
+      beforeRelease: async () => {
+        await settle(fixture);
+        await expect(page.getByTestId('backdrop')).not.toHaveAttribute('data-swiping');
+      },
+    });
+
+    const prevented = await preventedMoves(page);
+    expect(prevented.length).toBeGreaterThan(0);
+    expect(prevented.some(Boolean)).toBe(false);
+    await expect.poll(async () => (await scrollOffsets(page, 'bscroll')).left).toBeGreaterThan(40);
+  });
+
+  // DRW-PTR-22 (DrawerViewport.test.tsx:3350-3532): a scroller overflowing only on the drawer's cross axis keeps its
+  // native scroll.
+  for (const [direction, testId, axis] of [
+    ['right', 'scroll', 'vertical'],
+    ['left', 'scroll', 'vertical'],
+    ['down', 'hscroll', 'horizontal'],
+    ['up', 'hscroll', 'horizontal'],
+  ] as const) {
+    testWithTouch(`does not block ${axis} scrolling in ${direction} drawers when only ${axis} overflow exists`, async ({ touchPage: page, mode }) => {
+      const fixture = await scrollCase(page, mode, direction, { scrollTop: 0, scrollLeft: 0 });
+      await recordMoves(page);
+      const { x, y } = await pointOf(page.getByTestId(testId));
+      const path = axis === 'vertical' ? [{ x, y: y + 25 }, { x, y: y - 25 }] : [{ x: x + 50, y }, { x: x - 50, y }];
+
+      await touchDrag(page, [path], {
+        steps: 5,
+        beforeRelease: async () => {
+          await settle(fixture);
+          await expect(page.getByTestId('backdrop')).not.toHaveAttribute('data-swiping');
+        },
+      });
+
+      const prevented = await preventedMoves(page);
+      expect(prevented.length).toBeGreaterThan(0);
+      expect(prevented.some(Boolean)).toBe(false);
+      await expect.poll(async () => {
+        const offsets = await scrollOffsets(page, testId);
+        return axis === 'vertical' ? offsets.top : offsets.left;
+      }).toBeGreaterThan(0);
+    });
+  }
+});
+
+// Slice 2's teardown and taps (DRW-DOM-20, ANI-05, PTR-19; added 2026-11-20), on the fixture's down drawer.
+test.describe('<Drawer.Viewport /> touch swipe teardown and taps', () => {
+  // DRW-DOM-20, ANI-05 (DrawerViewport.test.tsx:415-456): the fixture's remove button stops rendering the root mid-swipe, as
+  // Base UI's unmount(); the detached backdrop keeps its attributes, so the check reads the cleanup.
+  testWithTouch('clears the backdrop data-swiping attribute when the drawer unmounts mid-swipe', async ({ touchPage: page, mode }) => {
+    const fixture = await downCase(page, mode);
+    const backdrop = await page.getByTestId('backdrop').elementHandle();
+
+    await touchDrag(page, [[popupPoint, { x: popupPoint.x, y: popupPoint.y + 25 }]], {
+      steps: 1,
+      beforeRelease: async () => {
+        await expect(page.getByTestId('backdrop')).toHaveAttribute('data-swiping', '');
+        await fixture.locator('[data-remove-root]').evaluate((button) => (button as HTMLButtonElement).click());
+        await expect(page.getByTestId('popup')).toHaveCount(0);
+        expect(await backdrop!.evaluate((element) => element.isConnected)).toBe(false);
+        await expect.poll(() => backdrop!.evaluate((element) => element.hasAttribute('data-swiping'))).toBe(false);
+      },
+    });
+  });
+
+  // DRW-PTR-19, no swipe on a tap (DrawerViewport.test.tsx:689-743): a real tap on a plain element in Drawer.Content.
+  testWithTouch('allows clicks on non-interactive elements without data-base-ui-swipe-ignore', async ({ touchPage: page, mode }) => {
+    const fixture = await downCase(page, mode);
+    const target = page.getByTestId('content-target');
+    await target.evaluate((element) => {
+      (window as unknown as { contentClicks: number }).contentClicks = 0;
+      element.addEventListener('click', () => ((window as unknown as { contentClicks: number }).contentClicks += 1));
+    });
+
+    await touchDrag(page, [[await pointOf(target)]]);
+
+    await expect.poll(() => page.evaluate(() => (window as unknown as { contentClicks: number }).contentClicks)).toBe(1);
+    await settle(fixture);
+    await expect(fixture).toHaveAttribute('data-open-changes', '');
+    await expect(page.getByTestId('backdrop')).not.toHaveAttribute('data-swiping');
+  });
+});
+
+// Slice 2's portaled descendants (DRW-PTR-19 (5), PTR-21, PTR-22; added 2026-11-20), on the fixture's `case=combobox`: a
+// Combobox in Drawer.Content whose list portals out of the drawer. In Base UI a touch on a portaled descendant reaches the
+// Viewport's handler through React's tree, and the Viewport-containment check turns it away. Here the Viewport listens on
+// its element, so no such touch reaches it at all.
+test.describe('<Drawer.Viewport /> touch swipe over portaled descendants', () => {
+  // DRW-PTR-19 (5) (DrawerViewport.test.tsx:1005-1047). It asserts only an absence; its red is a planted fault, quoted in
+  // PR 305.
+  testWithTouch('does not prevent native touch scrolling in portaled descendants', async ({ touchPage: page, mode }) => {
+    const fixture = await gotoPopupFixture(page, mode, 'drawer-swipe', { case: 'combobox' });
+    const listbox = page.getByTestId('listbox');
+    await expect(listbox).toBeVisible();
+    await recordMoves(page);
+    const start = await pointOf(listbox);
+
+    await touchDrag(page, [[{ x: start.x, y: start.y - 15 }, { x: start.x, y: start.y + 25 }]], {
+      steps: 4,
+      beforeRelease: () => settle(fixture),
+    });
+
+    const prevented = await preventedMoves(page);
+    expect(prevented.length).toBeGreaterThan(0);
+    expect(prevented.some(Boolean)).toBe(false);
+  });
+
+  // DRW-PTR-22 (DrawerViewport.test.tsx:1049-1152, browser-only in Base UI): a real touch scroll of the list, bottom to
+  // top. Folded with its positive half: the list scrolls.
+  testWithTouch('allows touch gestures on a portaled combobox popup without starting drawer swipe', async ({ touchPage: page, mode }) => {
+    const fixture = await gotoPopupFixture(page, mode, 'drawer-swipe', { case: 'combobox' });
+    const listbox = page.getByTestId('listbox');
+    await expect(listbox).toBeVisible();
+    await expect.poll(() => listbox.evaluate((element) => element.scrollHeight > element.clientHeight)).toBe(true);
+    const box = (await listbox.boundingBox())!;
+    const x = box.x + box.width / 2;
+
+    await touchDrag(page, [[{ x, y: box.y + box.height - 8 }, { x, y: box.y + box.height / 2 }, { x, y: box.y + 8 }]], {
+      steps: 4,
+      beforeRelease: async () => {
+        await settle(fixture);
+        await expect(page.getByTestId('backdrop')).not.toHaveAttribute('data-swiping');
+      },
+    });
+
+    await settle(fixture);
+    await expect(fixture).toHaveAttribute('data-open-changes', '');
+    await expect(listbox).toBeVisible();
+    await expect.poll(() => listbox.evaluate((element) => element.scrollTop)).toBeGreaterThan(0);
+  });
+});
+
+// Slice 2's SVG targets (DRW-PTR-04, PTR-21, PSH-PTR-19; added 2026-11-20), on case=scroll's SVG scroller (x 300-500,
+// y 460-560; its 20 px SVG starts 45 px into 185 px of content). An SVG element has no scroll box of its own, and the
+// lookup walks past it to the scroller.
+const svgCase = async (page: Page, mode: RenderMode, scrollTop: number) => {
+  const fixture = await gotoPopupFixture(page, mode, 'drawer-swipe', { case: 'scroll', direction: 'down' });
+  await page.getByTestId('svgscroll').evaluate((element, scrollTop) => (element.scrollTop = scrollTop), scrollTop);
+  return { fixture, rect: await pointOf(page.getByTestId('rect')) };
+};
+
+test.describe('<Drawer.Viewport /> swipe from an SVG in scrollable content', () => {
+  // DRW-PTR-21 (DrawerViewport.test.tsx:526-572). Folded with its positive half: the content scrolls.
+  testWithTouch('scrolls instead of swiping when a touch drag starts on an SVG inside scrolled content', async ({ touchPage: page, mode }) => {
+    const { fixture, rect } = await svgCase(page, mode, 40);
+    await recordMoves(page);
+
+    await touchDrag(page, [[rect, { x: rect.x, y: rect.y + 25 }, { x: rect.x, y: rect.y + 40 }]], {
+      steps: 4,
+      beforeRelease: async () => {
+        await settle(fixture);
+        await expect(page.getByTestId('backdrop')).not.toHaveAttribute('data-swiping');
+      },
+    });
+
+    const prevented = await preventedMoves(page);
+    expect(prevented.length).toBeGreaterThan(0);
+    expect(prevented.some(Boolean)).toBe(false);
+    await expect.poll(async () => (await scrollOffsets(page, 'svgscroll')).top).toBeLessThan(40);
+  });
+
+  // DRW-PTR-04, PSH-PTR-19 (DrawerViewport.test.tsx:574-627), a real mouse. Folded with its positive half: the same
+  // drag from the popup's free area (y 560-600) swipes.
+  test('does not start a mouse drag swipe from an SVG inside scrollable content', async ({ page, mode }) => {
+    const { fixture, rect } = await svgCase(page, mode, 0);
+    const backdrop = page.getByTestId('backdrop');
+
+    await page.mouse.move(rect.x, rect.y);
+    await page.mouse.down();
+    await page.mouse.move(rect.x, rect.y + 40, { steps: 4 });
+    await settle(fixture);
+    await expect(backdrop).not.toHaveAttribute('data-swiping');
+    await page.mouse.up();
+
+    await page.mouse.move(400, 570);
+    await page.mouse.down();
+    await page.mouse.move(400, 610, { steps: 4 });
+    await expect(backdrop).toHaveAttribute('data-swiping', '');
+    await page.mouse.up();
+  });
+
+  // DRW-PTR-21, PTR-10 (DrawerViewport.test.tsx:629-687).
+  testWithTouch('dismisses with a touch swipe down that starts on an SVG inside a top-edge scroll container', async ({ touchPage: page, mode }) => {
+    const { fixture, rect } = await svgCase(page, mode, 0);
+
+    await touchDrag(page, [[rect, { x: rect.x, y: rect.y + 25 }, { x: rect.x, y: rect.y + 250 }]], {
+      steps: 1,
+      beforeRelease: () => expect(page.getByTestId('backdrop')).toHaveAttribute('data-swiping', ''),
+    });
+
+    await expect(fixture).toHaveAttribute('data-open-changes', 'false:swipe');
+  });
+});
+
+// Slice 3 (M6 track 8b, issue 279, added 2026-11-21): snap points. Base UI's snap titles run on a timeline whose every event
+// carries its own `timeStamp` (DrawerRoot.test.tsx:107-131, `simulateTimedSwipe`), so they dispatch in-page on that
+// timeline, as ADR 06 Amendments 2026-11-18 sets for the velocity-dependent titles; `swipeOnTimeline` steps evenly, and
+// these steps are Base UI's own. The fixture's popup is fixed at the top left, 200 px wide and 600 px tall by default, so
+// every point of those timelines lands on it, as Base UI's mocked `elementFromPoint` makes it.
+const snapCase = (page: Page, mode: RenderMode, options: Record<string, string> = {}) =>
+  gotoPopupFixture(page, mode, 'drawer-swipe', { case: 'snap', ...options });
+
+interface TimedStep {
+  type: 'down' | 'move' | 'up';
+  x: number;
+  y: number;
+  time: number;
+}
+
+/** Dispatches Base UI's timed steps one by one on the element under each point, the popup when none is. */
+const timedSwipe = async (page: Page, steps: TimedStep[]) => {
+  const popup = page.getByTestId('popup');
+  for (const step of steps) {
+    await popup.evaluate((element, step) => {
+      const type = step.type === 'down' ? 'pointerdown' : step.type === 'move' ? 'pointermove' : 'pointerup';
+      const event = new PointerEvent(type, {
+        bubbles: true,
+        cancelable: true,
+        composed: true,
+        isPrimary: true,
+        pointerId: 1,
+        pointerType: 'mouse',
+        button: step.type === 'move' ? -1 : 0,
+        buttons: step.type === 'up' ? 0 : 1,
+        clientX: step.x,
+        clientY: step.y,
+      });
+      Object.defineProperty(event, 'timeStamp', { value: step.time });
+      (element.ownerDocument.elementFromPoint(step.x, step.y) ?? element).dispatchEvent(event);
+    }, step);
+  }
+};
+
+/** Base UI's `simulateTimedDownSwipe` (DrawerRoot.test.tsx:77-105). */
+const timedDownSwipe = (page: Page, startY: number, endY: number, start: number, move: number, end: number, settleAt?: number) =>
+  timedSwipe(page, [
+    { type: 'down', x: 100, y: startY, time: start },
+    { type: 'move', x: 100, y: startY + 1, time: move },
+    ...(settleAt === undefined ? [] : [{ type: 'move' as const, x: 100, y: endY - 1, time: settleAt }]),
+    { type: 'move', x: 100, y: endY, time: end - 1 },
+    { type: 'up', x: 100, y: endY, time: end },
+  ]);
+
+/** A down, a one-pixel nudge, one move and the up a millisecond later: Base UI's four-step gesture timelines. */
+const gesture = (page: Page, from: number, nudge: number, to: number, moveAt: number) =>
+  timedSwipe(page, [
+    { type: 'down', x: 100, y: from, time: 1000 },
+    { type: 'move', x: 100, y: nudge, time: 1010 },
+    { type: 'move', x: 100, y: to, time: moveAt },
+    { type: 'up', x: 100, y: to, time: moveAt + 1 },
+  ]);
+
+test.describe('<Drawer.Root /> snap point swipes', () => {
+  // DRW-EVT-04, PTR-14 (DrawerRoot.test.tsx:1175-1194): the parent accepts the swipe close, and the snap point resets to
+  // the first one (DRW-DIS-05) instead of being restored to 300px.
+  test('does not restore snap point when a controlled swipe close is accepted by the parent', async ({ page, mode }) => {
+    const fixture = await snapCase(page, mode, { snap: '300px' });
+
+    await timedDownSwipe(page, 100, 260, 1000, 1010, 1040);
+
+    await expect(fixture).toHaveAttribute('data-active-snap', '100px');
+  });
+
+  // DRW-ANI-02, PTR-14 (DrawerRoot.test.tsx:1196-1220).
+  test('restores snap point and swipe offsets when swipe close is canceled', async ({ page, mode }) => {
+    const fixture = await snapCase(page, mode, { snap: '100px', cancelClose: 'true' });
+    const popup = page.getByTestId('popup');
+
+    await timedDownSwipe(page, 100, 260, 1000, 1010, 1040);
+
+    await expect(fixture).toHaveAttribute('data-open-changes', 'false:swipe');
+    await expect(fixture).toHaveAttribute('data-active-snap', '100px');
+    await expect(popup).toHaveAttribute('data-open', '');
+    await expect(popup).not.toHaveAttribute('data-swipe-dismiss');
+    await expect(popup).not.toHaveAttribute('data-ending-style');
+    await expect.poll(() => popup.evaluate((element) => element.style.getPropertyValue('--drawer-swipe-movement-y'))).toBe('0px');
+  });
+
+  // DRW-DOM-12, PTR-02 (DrawerRoot.test.tsx:1222-1288): at the full-height snap point a 150 px drag up overshoots and is
+  // damped to its square root.
+  test('damps active snap point overshoot after the swipe direction is established', async ({ page, mode }) => {
+    await snapCase(page, mode, { snapPoints: '100px,1', defaultSnap: '1', ph: '400' });
+    const popup = page.getByTestId('popup');
+
+    await timedSwipe(page, [
+      { type: 'down', x: 100, y: 200, time: 1000 },
+      { type: 'move', x: 100, y: 200, time: 1016 },
+      { type: 'move', x: 100, y: 100, time: 1032 },
+      { type: 'move', x: 100, y: 50, time: 1048 },
+    ]);
+
+    expect(await popup.evaluate((element) => element.style.transform)).toBe('');
+    const movement = await popup.evaluate((element) => Number.parseFloat(element.style.getPropertyValue('--drawer-swipe-movement-y')));
+    expect(movement).toBeCloseTo(-Math.sqrt(150));
+  });
+
+  // DRW-API-06, PTR-11 (DrawerRoot.test.tsx:1290-1314).
+  test('allows dragging past a snap point when snapToSequentialPoints is enabled', async ({ page, mode }) => {
+    const fixture = await snapCase(page, mode, { snap: '100px', sequential: 'true', alwaysOpen: 'true' });
+
+    await timedDownSwipe(page, 500, 50, 1000, 1010, 1040);
+
+    await expect(fixture).toHaveAttribute('data-active-snap', '1');
+  });
+
+  // DRW-PTR-11 (DrawerRoot.test.tsx:1316-1342): a 36 px flick at 0.75 px/ms, with or without a trailing half-pixel sample.
+  for (const phantom of [false, true]) {
+    test(`advances on a short flick with a trailing stationary sample: ${phantom}`, async ({ page, mode }) => {
+      const fixture = await snapCase(page, mode, { snap: '100px', sequential: 'true', alwaysOpen: 'true' });
+
+      await timedSwipe(page, [
+        { type: 'down', x: 100, y: 500, time: 992 },
+        { type: 'move', x: 100, y: 500, time: 1000 },
+        { type: 'move', x: 100, y: 488, time: 1016 },
+        { type: 'move', x: 100, y: 476, time: 1032 },
+        { type: 'move', x: 100, y: 464, time: 1048 },
+        ...(phantom ? [{ type: 'move' as const, x: 100, y: 463.5, time: 1064 }] : []),
+        { type: 'up', x: 100, y: phantom ? 463.5 : 464, time: phantom ? 1072 : 1056 },
+      ]);
+
+      await expect(fixture).toHaveAttribute('data-active-snap', '300px');
+    });
+  }
+
+  // DRW-PTR-11 (DrawerRoot.test.tsx:1344-1370).
+  test('stays on the current snap point after repeated stationary samples', async ({ page, mode }) => {
+    const fixture = await snapCase(page, mode, { snap: '100px', sequential: 'true', alwaysOpen: 'true' });
+
+    await timedSwipe(page, [
+      { type: 'down', x: 100, y: 500, time: 992 },
+      { type: 'move', x: 100, y: 500, time: 1000 },
+      { type: 'move', x: 100, y: 460, time: 1016 },
+      { type: 'move', x: 100, y: 460, time: 1032 },
+      { type: 'move', x: 100, y: 460, time: 1048 },
+      { type: 'move', x: 100, y: 460, time: 1064 },
+      { type: 'up', x: 100, y: 460, time: 1072 },
+    ]);
+    await settle(fixture);
+
+    await expect(fixture).toHaveAttribute('data-active-snap', '100px');
+  });
+
+  // DRW-PTR-11 (DrawerRoot.test.tsx:1372-1396).
+  test('advances to the next snap point on fast flicks when snapToSequentialPoints is enabled', async ({ page, mode }) => {
+    const fixture = await snapCase(page, mode, { snap: '100px', sequential: 'true', alwaysOpen: 'true' });
+
+    await timedDownSwipe(page, 500, 460, 2000, 2010, 2050);
+
+    await expect(fixture).toHaveAttribute('data-active-snap', '300px');
+  });
+
+  // DRW-PTR-11 (DrawerRoot.test.tsx:1398-1422): a 20 px drag that rests before its release.
+  test('keeps the drawer open on low-velocity swipes near a snap point', async ({ page, mode }) => {
+    const fixture = await snapCase(page, mode, { snap: '100px' });
+
+    await timedDownSwipe(page, 100, 120, 1000, 1005, 1035, 1015);
+    await settle(fixture);
+
+    await expect(fixture).toHaveAttribute('data-open-changes', '');
+    await expect(fixture).toHaveAttribute('data-active-snap', '100px');
+  });
+
+  // DRW-PTR-11 (DrawerRoot.test.tsx:1424-1452).
+  test('keeps the drawer open when the release velocity reverses during an upward swipe', async ({ page, mode }) => {
+    const fixture = await snapCase(page, mode, { snap: '100px' });
+
+    await timedSwipe(page, [
+      { type: 'down', x: 100, y: 300, time: 1000 },
+      { type: 'move', x: 100, y: 299, time: 1003 },
+      { type: 'move', x: 100, y: 120, time: 1010 },
+      { type: 'move', x: 100, y: 140, time: 1015 },
+      { type: 'up', x: 100, y: 140, time: 1025 },
+    ]);
+    await settle(fixture);
+
+    await expect(fixture).not.toHaveAttribute('data-open-changes', /false/);
+    await expect(page.getByTestId('popup')).toHaveAttribute('data-open', '');
+  });
+
+  // DRW-PTR-11 (DrawerRoot.test.tsx:1454-1724): Base UI's SnapPointGestureCase, snap points 100px, 300px and 1 on a
+  // controlled drawer whose 600 px popup is swiped down unless marked.
+  test('chooses the nearest sequential snap point on a slow drag', async ({ page, mode }) => {
+    const fixture = await snapCase(page, mode, { snap: '100px', sequential: 'true' });
+
+    await gesture(page, 500, 499, 350, 2010);
+
+    await expect(fixture).toHaveAttribute('data-active-snap', '300px');
+  });
+
+  test('advances a sequential snap point toward dismissal', async ({ page, mode }) => {
+    const fixture = await snapCase(page, mode, { snap: '1', sequential: 'true' });
+
+    await gesture(page, 100, 101, 140, 1020);
+
+    await expect(fixture).toHaveAttribute('data-active-snap', '300px');
+  });
+
+  test('dismisses past the final sequential snap point', async ({ page, mode }) => {
+    await snapCase(page, mode, { snap: '100px', sequential: 'true' });
+
+    await gesture(page, 100, 101, 160, 1020);
+
+    await expect(page.getByTestId('popup')).toHaveCount(0);
+  });
+
+  test('dismisses when a slow snap-point drag ends closer to closed', async ({ page, mode }) => {
+    await snapCase(page, mode, { snap: '100px', sequential: 'true' });
+
+    await gesture(page, 100, 101, 180, 2010);
+
+    await expect(page.getByTestId('popup')).toHaveCount(0);
+  });
+
+  test('dismisses from upward snap points using upward velocity', async ({ page, mode }) => {
+    await snapCase(page, mode, { snap: '100px', direction: 'up' });
+
+    await gesture(page, 500, 499, 420, 1020);
+
+    await expect(page.getByTestId('popup')).toHaveCount(0);
+  });
+
+  test('opens from a controlled null snap point', async ({ page, mode }) => {
+    const fixture = await snapCase(page, mode, { snap: 'null' });
+
+    await gesture(page, 100, 99, 60, 1020);
+
+    await expect(fixture).toHaveAttribute('data-active-snap', '1');
+  });
+
+  test('dismisses from a controlled null snap point', async ({ page, mode }) => {
+    await snapCase(page, mode, { snap: 'null' });
+
+    await gesture(page, 100, 101, 160, 1020);
+
+    await expect(page.getByTestId('popup')).toHaveCount(0);
+  });
+
+  test('keeps the first sequential snap point on a fast opening flick', async ({ page, mode }) => {
+    const fixture = await snapCase(page, mode, { snap: '1', sequential: 'true' });
+
+    await gesture(page, 100, 99, 40, 1020);
+    await settle(fixture);
+
+    await expect(fixture).toHaveAttribute('data-active-snap', '1');
+  });
+
+  test('keeps the current snap point after a sub-threshold drag', async ({ page, mode }) => {
+    const fixture = await snapCase(page, mode, { snap: '300px' });
+
+    await gesture(page, 100, 101, 105, 2010);
+    await settle(fixture);
+
+    await expect(fixture).toHaveAttribute('data-active-snap', '300px');
+  });
+
+  test('dismisses a non-sequential snap point when closed is nearest', async ({ page, mode }) => {
+    await snapCase(page, mode, { snap: '100px' });
+
+    await gesture(page, 100, 101, 180, 2010);
+
+    await expect(page.getByTestId('popup')).toHaveCount(0);
+  });
+
+  // DRW-ANI-01, PTR-14.
+  test('finishes a controlled accepted dismissal while kept mounted', async ({ page, mode }) => {
+    await snapCase(page, mode, { snap: '100px', sequential: 'true', keepMounted: 'true' });
+
+    await gesture(page, 100, 101, 160, 1020);
+
+    await expect(page.getByTestId('popup')).toHaveAttribute('data-closed', '');
+  });
+
+  // DRW-PTR-15: the parent rejects the close, so the snap point the gesture left is restored.
+  test('restores a snap point when a controlled parent rejects dismissal', async ({ page, mode }) => {
+    const fixture = await snapCase(page, mode, { snap: '300px', alwaysOpen: 'true' });
+
+    await gesture(page, 100, 101, 160, 1020);
+
+    await expect(fixture).toHaveAttribute('data-open-changes', 'false:swipe');
+    await expect(fixture).toHaveAttribute('data-active-snap', '300px');
+    await expect(page.getByTestId('popup')).toHaveAttribute('data-open', '');
+  });
+});
+
+/** Base UI's mouse steps at explicit points, 16 ms apart where Base UI's own events carry no `timeStamp`. */
+const steps = (points: Array<[number, number]>, times?: number[]): TimedStep[] =>
+  points.map(([x, y], index) => ({
+    type: index === 0 ? 'down' : index === points.length - 1 ? 'up' : 'move',
+    x,
+    y,
+    time: times?.[index] ?? 1000 + 16 * index,
+  }));
+
+// DrawerViewport.test.tsx's snap point releases (3660-4620). Base UI's open drawer is controlled and never closes there
+// (`alwaysOpen`); its 300 px popup is the fixture's with `ph=300`.
+test.describe('<Drawer.Viewport /> snap point releases', () => {
+  // DRW-API-02, PTR-10, PTR-11 (DrawerViewport.test.tsx:3660-3729).
+  test('uses regular horizontal dismissal when snap points are configured', async ({ page, mode }) => {
+    const fixture = await snapCase(page, mode, { snapPoints: '100px,200px', direction: 'left', alwaysOpen: 'true', ph: '300' });
+
+    await timedSwipe(page, steps([[180, 10], [179, 10], [40, 10], [40, 10]]));
+
+    await expect(fixture).toHaveAttribute('data-open-changes', 'false:swipe');
+  });
+
+  // DRW-PTR-11, ALG-01 (DrawerViewport.test.tsx:3731-3820): a mostly horizontal flick never attributes a direction, so
+  // its fast downward release settles on the nearest snap point instead of dismissing.
+  test('does not dismiss from a fast swipe that was never attributed to the snap point axis', async ({ page, mode }) => {
+    const fixture = await snapCase(page, mode, { snapPoints: '200px,100px', alwaysOpen: 'true', ph: '300' });
+    const popup = page.getByTestId('popup');
+
+    await timedSwipe(page, steps([[100, 10], [120, 12], [200, 20], [240, 55], [240, 55]], [1000, 1050, 1100, 1120, 1130]));
+
+    await expect(fixture).toHaveAttribute('data-snap-changes', '100px:swipe');
+    await expect(fixture).toHaveAttribute('data-open-changes', '');
+    await expect(popup).not.toHaveAttribute('data-ending-style');
+    await expect(popup).not.toHaveAttribute('data-swipe-dismiss');
+  });
+
+  // DRW-PTR-11, ALG-01 (DrawerViewport.test.tsx:3822-3896): the popup is 400 px wide here so Base UI's start at x 300
+  // lands on it.
+  test('navigates snap points from a drag that was never attributed to the swipe axis', async ({ page, mode }) => {
+    const fixture = await snapCase(page, mode, { snapPoints: '100px,200px', alwaysOpen: 'true', ph: '300', pw: '400' });
+
+    await timedSwipe(page, steps([[300, 300], [280, 290], [200, 220], [140, 150], [140, 150]]));
+
+    await expect(fixture).toHaveAttribute('data-snap-changes', /200px:swipe/);
+    await expect(fixture).toHaveAttribute('data-open-changes', '');
+    await expect(page.getByTestId('popup')).not.toHaveAttribute('data-ending-style');
+  });
+
+  // DRW-PTR-11, ALG-01 (DrawerViewport.test.tsx:4073-4160).
+  test('does not dismiss from an unattributed fast swipe with snapToSequentialPoints', async ({ page, mode }) => {
+    const fixture = await snapCase(page, mode, { snapPoints: '100px,200px', sequential: 'true', alwaysOpen: 'true', ph: '300' });
+    const popup = page.getByTestId('popup');
+
+    await timedSwipe(page, steps([[100, 10], [120, 12], [200, 20], [240, 55], [240, 55]], [1000, 1050, 1100, 1120, 1130]));
+
+    await expect(fixture).toHaveAttribute('data-snap-changes', '100px:swipe');
+    await expect(fixture).toHaveAttribute('data-open-changes', '');
+    await expect(popup).not.toHaveAttribute('data-ending-style');
+    await expect(popup).not.toHaveAttribute('data-swipe-dismiss');
+  });
+
+  // DRW-ALG-01, ANI-02, DIS-05 (DrawerViewport.test.tsx:4162-4262): the change to none is canceled, so no exit style is
+  // ever written.
+  test('does not start swipe dismissal when closing the snap point is canceled', async ({ page, mode }) => {
+    const fixture = await snapCase(page, mode, {
+      snapPoints: '100px,200px',
+      defaultSnap: '100px',
+      sequential: 'true',
+      alwaysOpen: 'true',
+      cancelSnap: 'null',
+      ph: '300',
+    });
+    const popup = page.getByTestId('popup');
+    await popup.evaluate((element) => {
+      const seen: string[] = [];
+      (window as unknown as { releaseAttributes: string[] }).releaseAttributes = seen;
+      new MutationObserver((records) => records.forEach((record) => record.attributeName && seen.push(record.attributeName))).observe(element, {
+        attributeFilter: ['data-ending-style', 'data-swipe-dismiss'],
+        attributes: true,
+      });
+    });
+
+    await timedSwipe(page, steps([[100, 10], [100, 30], [100, 80], [100, 100]], [1000, 1050, 1100, 1120]));
+
+    await expect(fixture).toHaveAttribute('data-snap-changes', 'null:swipe');
+    await settle(fixture);
+    await expect(fixture).toHaveAttribute('data-open-changes', '');
+    // Blazor Server learns of the cancel a round trip after the release, which starts its exit styles optimistically and
+    // removes them when the answer comes (the 8b design's Server relaxation, an ADR 01 row of slice 5). WebAssembly decides
+    // inside the release, so no exit style is ever written there, as in Base UI.
+    if (mode === 'wasm') {
+      expect(await page.evaluate(() => (window as unknown as { releaseAttributes: string[] }).releaseAttributes)).toEqual([]);
+    }
+    await expect(popup).not.toHaveAttribute('data-ending-style');
+    await expect(popup).not.toHaveAttribute('data-swipe-dismiss');
+  });
+
+  // DRW-PTR-11, ALG-01 (DrawerViewport.test.tsx:4264-4437): a slow diagonal drag that never attributes a direction ends
+  // nearer closed than any snap point, and settles on the nearest one.
+  for (const sequential of [false, true]) {
+    const title = sequential
+      ? 'settles on the nearest snap point when an unattributed drag ends past the last snap point with snapToSequentialPoints'
+      : 'settles on the nearest snap point when an unattributed drag ends past the last snap point';
+    test(title, async ({ page, mode }) => {
+      const fixture = await snapCase(page, mode, {
+        snapPoints: '200px,100px',
+        defaultSnap: '100px',
+        alwaysOpen: 'true',
+        ph: '300',
+        ...(sequential ? { sequential: 'true' } : {}),
+      });
+
+      await timedSwipe(page, steps([[100, 100], [200, 120], [300, 170], [400, 190], [400, 190]], [1000, 1100, 1400, 1900, 1950]));
+
+      await expect(fixture).toHaveAttribute('data-snap-changes', '100px:swipe');
+      await expect(fixture).toHaveAttribute('data-open-changes', '');
+      await expect(page.getByTestId('popup')).not.toHaveAttribute('data-ending-style');
+    });
+  }
+
+  // DRW-EDGE-04, PTR-11 (DrawerViewport.test.tsx:4485-4554): a popup 0 px tall; its text overflows, so the press lands on
+  // it.
+  test('does not resolve snap points before the popup has a measurable height', async ({ page, mode }) => {
+    const fixture = await snapCase(page, mode, { snapPoints: '100px,200px', alwaysOpen: 'true', ph: '0' });
+
+    await timedSwipe(page, steps([[5, 5], [5, 6], [5, 45], [5, 45]]));
+    await settle(fixture);
+
+    await expect(fixture).toHaveAttribute('data-open-changes', '');
+  });
+
+  // DRW-EDGE-04, PTR-10, PTR-11 (DrawerViewport.test.tsx:4556-4620).
+  test('falls back to regular dismissal when all snap points are invalid', async ({ page, mode }) => {
+    const fixture = await snapCase(page, mode, { snapPoints: '50%', alwaysOpen: 'true', ph: '200' });
+
+    await timedSwipe(page, steps([[5, 5], [5, 6], [5, 145], [5, 145]]));
+
+    await expect(fixture).toHaveAttribute('data-open-changes', 'false:swipe');
+  });
+});
+
+// Slice 3 (M6 track 8b, issue 279, added 2026-11-21): the Provider's visual state and the nested-drawer report, on the
+// `drawer-stack` fixture. The popup's measured height reaches its Root and comes back as `--drawer-frontmost-height`
+// before a drag, so each title waits for it first.
+const stackCase = (page: Page, mode: RenderMode, name: string, options: Record<string, string | boolean> = {}) =>
+  gotoPopupFixture(page, mode, 'drawer-stack', { case: name, ...options });
+const styleOf = (target: Locator, property: string) =>
+  target.evaluate((element, name) => (element as HTMLElement).style.getPropertyValue(name), property);
+const clickInPage = (target: Locator) => target.evaluate((element) => (element as HTMLElement).click());
+
+test.describe('<Drawer.Provider /> visual state', () => {
+  // DRW-PTR-16, DRW-DOM-32 (DrawerViewport.test.tsx:5033-5108): 39 px of the 100 px popup's drag.
+  test('publishes and clears swipe progress through Drawer.Provider', async ({ page, mode }) => {
+    await stackCase(page, mode, 'provider');
+    const indent = page.getByTestId('indent');
+    await expect.poll(() => styleOf(page.getByTestId('popup'), '--drawer-frontmost-height')).toBe('100px');
+
+    await page.mouse.move(10, 10);
+    await page.mouse.down();
+    await page.mouse.move(10, 11);
+    await page.mouse.move(10, 50);
+    await expect.poll(async () => Number.parseFloat(await styleOf(indent, '--drawer-swipe-progress'))).toBeCloseTo(0.39, 2);
+    await expect.poll(() => styleOf(indent, '--drawer-height')).toBe('100px');
+
+    await page.mouse.move(10, 10);
+    await expect.poll(() => styleOf(indent, '--drawer-swipe-progress')).toBe('0');
+    await expect.poll(() => styleOf(indent, '--drawer-height')).toBe('');
+    await page.mouse.up();
+  });
+
+  // DRW-STA-15, DRW-DOM-32 (DrawerProvider.test.tsx:153-176), driven by a drag: 50 px of the 100 px popup is 0.5. Base UI's
+  // non-finite and single-field steps set the store directly and run at L3 (js/drawer.provider.test.ts).
+  test('synchronizes and restores visual state on Drawer.Indent', async ({ page, mode }) => {
+    await stackCase(page, mode, 'provider');
+    const indent = page.getByTestId('indent');
+    await expect.poll(() => styleOf(page.getByTestId('popup'), '--drawer-frontmost-height')).toBe('100px');
+
+    await page.mouse.move(10, 10);
+    await page.mouse.down();
+    await page.mouse.move(10, 11);
+    await page.mouse.move(10, 61);
+    await expect.poll(() => styleOf(indent, '--drawer-swipe-progress')).toBe('0.5');
+    await expect.poll(() => styleOf(indent, '--drawer-height')).toBe('100px');
+
+    await page.mouse.move(10, 11);
+    await expect.poll(() => styleOf(indent, '--drawer-swipe-progress')).toBe('0');
+    await expect.poll(() => styleOf(indent, '--drawer-height')).toBe('');
+
+    await page.mouse.move(10, 61);
+    await expect.poll(() => styleOf(indent, '--drawer-swipe-progress')).toBe('0.5');
+    const removed = await indent.elementHandle();
+    await clickInPage(page.locator('[data-hide-indent]'));
+    await expect(page.getByTestId('indent')).toHaveCount(0);
+    await expect.poll(() => removed!.evaluate((element) => (element as HTMLElement).style.getPropertyValue('--drawer-swipe-progress'))).toBe('0');
+    expect(await removed!.evaluate((element) => (element as HTMLElement).style.getPropertyValue('--drawer-height'))).toBe('');
+    await page.mouse.up();
+  });
+
+  // DRW-ANI-05 (DrawerViewport.test.tsx:5327-5420): the Viewport's teardown mid-drag clears the Provider's visual state and
+  // the Backdrop's `data-swiping`.
+  test('clears provider and backdrop swipe state during layout teardown', async ({ page, mode }) => {
+    await stackCase(page, mode, 'provider');
+    const indent = page.getByTestId('indent');
+    const backdrop = page.getByTestId('backdrop');
+    await expect.poll(() => styleOf(page.getByTestId('popup'), '--drawer-frontmost-height')).toBe('100px');
+
+    await page.mouse.move(10, 10);
+    await page.mouse.down();
+    await page.mouse.move(10, 11);
+    await page.mouse.move(10, 61);
+    await expect.poll(() => styleOf(indent, '--drawer-swipe-progress')).toBe('0.5');
+    await expect.poll(() => styleOf(indent, '--drawer-height')).toBe('100px');
+    await expect(backdrop).toHaveAttribute('data-swiping', '');
+
+    await clickInPage(page.locator('[data-hide-viewport]'));
+    await expect(page.getByTestId('popup')).toHaveCount(0);
+    await expect.poll(() => styleOf(indent, '--drawer-swipe-progress')).toBe('0');
+    await expect.poll(() => styleOf(indent, '--drawer-height')).toBe('');
+    await expect(backdrop).not.toHaveAttribute('data-swiping');
+    await page.mouse.up();
+  });
+});
+
+test.describe('<Drawer.Viewport /> nested drawers', () => {
+  // DRW-PTR-17, DRW-DOM-04, DRW-DOM-22 (DrawerViewport.test.tsx:1446-1519): no mark after 5 px, the mark after 20 px.
+  testWithTouch('does not mark nested drawers as swiping until movement passes the threshold', async ({ touchPage: page, mode }) => {
+    const fixture = await stackCase(page, mode, 'nested');
+    const parentPopup = page.getByTestId('parent-popup');
+    const start = await pointOf(page.getByTestId('child-button'));
+
+    // Chromium's touch slop holds back the first small touchmove, so the swipe starts on the 20 px move; the drag goes on to
+    // 40 px for the threshold to count from there.
+    await touchDrag(page, [[start, { x: start.x, y: start.y + 5 }, { x: start.x, y: start.y + 20 }, { x: start.x, y: start.y + 40 }]], {
+      afterMove: async (move) => {
+        if (move === 1) {
+          await settle(fixture);
+          await expect(parentPopup).not.toHaveAttribute('data-nested-drawer-swiping');
+          await expect(page.getByTestId('child-viewport')).not.toHaveAttribute('data-nested-dialog-open');
+        }
+      },
+      beforeRelease: async () => {
+        await expect(parentPopup).toHaveAttribute('data-nested-drawer-swiping', '');
+      },
+    });
+  });
+
+  // DRW-PTR-17, DRW-DOM-14 (DrawerViewport.test.tsx:1521-1600).
+  testWithTouch('clears nested swiping when a nested drawer swipe is reversed before release', async ({ touchPage: page, mode }) => {
+    await stackCase(page, mode, 'nested');
+    const parentPopup = page.getByTestId('parent-popup');
+    const start = await pointOf(page.getByTestId('child-button'));
+
+    // As above, the drag goes on to 40 px past Chromium's touch slop before it is reversed.
+    await touchDrag(page, [[start, { x: start.x, y: start.y + 5 }, { x: start.x, y: start.y + 20 }, { x: start.x, y: start.y + 40 }, start]], {
+      afterMove: async (move) => {
+        if (move === 3) {
+          await expect(parentPopup).toHaveAttribute('data-nested-drawer-swiping', '');
+        }
+      },
+      beforeRelease: async () => {
+        await expect(parentPopup).not.toHaveAttribute('data-nested-drawer-swiping');
+        await expect.poll(() => styleOf(parentPopup, '--drawer-swipe-progress')).toBe('0');
+      },
+    });
+  });
+
+  // DRW-DOM-14 (DrawerViewport.test.tsx:5242-5325): 100 px of the 200 px nested popup shows 0.5 on the parent's popup, and the
+  // nested drawer's close clears it.
+  testWithTouch('clears nested progress before descendant layout effects when the child closes', async ({ touchPage: page, mode }) => {
+    await stackCase(page, mode, 'nested');
+    const parentPopup = page.getByTestId('parent-popup');
+    await expect.poll(() => styleOf(page.getByTestId('child-popup'), '--drawer-frontmost-height')).toBe('200px');
+    const start = await pointOf(page.getByTestId('child-button'));
+
+    await touchDrag(page, [[start, { x: start.x, y: start.y + 20 }, { x: start.x, y: start.y + 120 }]], {
+      beforeRelease: async () => {
+        await expect.poll(async () => Number.parseFloat(await styleOf(parentPopup, '--drawer-swipe-progress'))).toBeGreaterThan(0.4);
+        await clickInPage(page.locator('[data-close-child]'));
+        await expect.poll(() => styleOf(parentPopup, '--drawer-swipe-progress')).toBe('0');
+      },
+    });
+  });
+});
+
+// Slice 3 (added 2026-11-21): the Popup's own measurement (DRW-STA-10, STA-11's border clause, DOM-09), on `drawer-stack`.
+test.describe('<Drawer.Popup /> measurement', () => {
+  // DRW-STA-10 (a), (b) (DrawerPopup.test.tsx:197-240). Base UI's probe reports a nested height of 200 and resizes the popup
+  // to 150; here the 200 px nested drawer stretches the parent through `--drawer-frontmost-height`. The parent's own height
+  // stays the 100 px it measured, which shows once the nested drawer closes and the frontmost height falls back to it.
+  test('keeps the last measured popup height while nested content stretches it', async ({ page, mode }) => {
+    const fixture = await stackCase(page, mode, 'stretch');
+    const parentPopup = page.getByTestId('parent-popup');
+    await expect.poll(() => styleOf(parentPopup, '--drawer-frontmost-height')).toBe('100px');
+
+    await page.getByRole('button', { name: 'Open nested drawer' }).click();
+    await expect.poll(() => styleOf(parentPopup, '--drawer-frontmost-height')).toBe('204px');
+    await expect.poll(() => parentPopup.evaluate((element) => (element as HTMLElement).offsetHeight)).toBe(204);
+    await settle(fixture);
+
+    await page.getByRole('button', { name: 'Close nested drawer' }).click();
+    await expect.poll(() => styleOf(parentPopup, '--drawer-frontmost-height')).toBe('100px');
+    await expect.poll(() => parentPopup.evaluate((element) => (element as HTMLElement).offsetHeight)).toBe(100);
+  });
+
+  // DRW-STA-11's border-inclusive `offsetHeight` (DrawerPopup.test.tsx:301-341): 200 px plus two 2 px borders.
+  test('includes border size in frontmost height CSS variable for nested drawers', async ({ page, mode }) => {
+    await stackCase(page, mode, 'stretch');
+    const parentPopup = page.getByTestId('parent-popup');
+    await page.getByRole('button', { name: 'Open nested drawer' }).click();
+    const childPopup = page.getByTestId('child-popup');
+    // The expected value is read once, so it waits for the nested popup's layout (an offsetHeight of 0 before it).
+    await expect.poll(() => childPopup.evaluate((element) => (element as HTMLElement).offsetHeight)).toBeGreaterThan(0);
+
+    await expect.poll(async () => styleOf(parentPopup, '--drawer-frontmost-height')).toBe(
+      `${await childPopup.evaluate((element) => (element as HTMLElement).offsetHeight)}px`,
+    );
+    expect(await childPopup.evaluate((element) => (element as HTMLElement).offsetHeight)).toBeGreaterThan(
+      await childPopup.evaluate((element) => element.scrollHeight),
+    );
+  });
+
+  // DRW-STA-10 (DrawerPopup.test.tsx:257-299): a resize notification queued for the popup runs after it has gone, and
+  // nothing fails. The page's ResizeObserver callbacks are kept so the title can run them after the removal.
+  test('ignores a queued measurement after the popup unmounts', async ({ page, mode }) => {
+    // The observers that watch an element keep their callbacks, so the title can run those of the popup after its removal
+    // with an entry for it (the port's callback runs per entry).
+    await page.addInitScript(() => {
+      const kept: Array<{ callback: ResizeObserverCallback; targets: Element[] }> = [];
+      (window as unknown as { resizeKept: typeof kept }).resizeKept = kept;
+      const Original = window.ResizeObserver;
+      window.ResizeObserver = class extends Original {
+        private readonly record: { callback: ResizeObserverCallback; targets: Element[] };
+        constructor(callback: ResizeObserverCallback) {
+          super(callback);
+          this.record = { callback, targets: [] };
+          kept.push(this.record);
+        }
+        override observe(target: Element, options?: ResizeObserverOptions): void {
+          this.record.targets.push(target);
+          super.observe(target, options);
+        }
+      };
+    });
+    const errors: string[] = [];
+    page.on('pageerror', (error) => errors.push(error.message));
+    const fixture = await stackCase(page, mode, 'provider');
+    const popup = page.getByTestId('popup');
+    await expect.poll(() => styleOf(popup, '--drawer-frontmost-height')).toBe('100px');
+    const watched = await popup.elementHandle();
+    const runQueued = () =>
+      page.evaluate((target) => {
+        const kept = (window as unknown as { resizeKept: Array<{ callback: ResizeObserverCallback; targets: Element[] }> }).resizeKept;
+        for (const { callback, targets } of kept.filter((record) => record.targets.includes(target!))) {
+          void targets;
+          callback([{ target, contentRect: target!.getBoundingClientRect(), borderBoxSize: [], contentBoxSize: [], devicePixelContentBoxSize: [] } as unknown as ResizeObserverEntry], {} as ResizeObserver);
+        }
+      }, watched);
+
+    // The positive half: while the popup is mounted, a queued notification measures it. The popup grows through a stylesheet
+    // rule, as C# re-renders its `style` attribute.
+    await page.evaluate(() => {
+      const rule = document.createElement('style');
+      rule.textContent = '[data-testid="popup"] { height: 140px !important; }';
+      document.head.append(rule);
+    });
+    await runQueued();
+    await expect.poll(() => styleOf(popup, '--drawer-frontmost-height')).toBe('140px');
+
+    await clickInPage(page.locator('[data-hide-viewport]'));
+    await expect(page.getByTestId('popup')).toHaveCount(0);
+    await runQueued();
+    await settle(fixture);
+    expect(errors).toEqual([]);
+  });
+
+  // DRW-DOM-09 (DrawerPopup.test.tsx:731-849): the parent keeps its measured height declared while the nested drawer animates
+  // out, after `data-nested-drawer-open` is gone.
+  test('keeps a fixed height applied while a nested drawer closes', async ({ page, mode }) => {
+    // Base UI turns animations on for this title (BASE_UI_ANIMATIONS_DISABLED = false), so the nested drawer animates out.
+    await stackCase(page, mode, 'height', { animations: '1' });
+    const parentPopup = page.getByTestId('parent-popup');
+    await page.getByRole('button', { name: 'Open nested drawer' }).click();
+    await expect(parentPopup).toHaveAttribute('data-nested-drawer-open', '');
+    await expect.poll(() => styleOf(parentPopup, '--drawer-height')).not.toBe('');
+    await parentPopup.evaluate((element) => {
+      const log: Array<{ hasNested: boolean; drawerHeight: string }> = [];
+      (window as unknown as { heightLog: typeof log }).heightLog = log;
+      new MutationObserver(() => {
+        log.push({
+          hasNested: element.hasAttribute('data-nested-drawer-open'),
+          drawerHeight: (element as HTMLElement).style.getPropertyValue('--drawer-height'),
+        });
+      }).observe(element, { attributeFilter: ['data-nested-drawer-open', 'style'], attributes: true });
+    });
+
+    await page.getByRole('button', { name: 'Close nested drawer' }).click();
+    await expect(parentPopup).not.toHaveAttribute('data-nested-drawer-open');
+    await expect.poll(() => styleOf(parentPopup, '--drawer-height')).not.toBe('');
+    await expect
+      .poll(() => page.evaluate(() => (window as unknown as { heightLog: Array<{ hasNested: boolean; drawerHeight: string }> }).heightLog.some((entry) => !entry.hasNested && entry.drawerHeight !== '')))
+      .toBe(true);
+    await expect(page.getByTestId('child-popup')).toHaveCount(0);
+  });
+
+  // DRW-DOM-09 (DrawerPopup.test.tsx:851-928): on reopening, the first mutation that shows `data-nested-drawer-open` already
+  // has the measured height declared.
+  test('restores a fixed height before nested state when reopening a nested drawer', async ({ page, mode }) => {
+    await stackCase(page, mode, 'height', { animations: '1' });
+    const parentPopup = page.getByTestId('parent-popup');
+    await page.getByRole('button', { name: 'Open nested drawer' }).click();
+    await expect(parentPopup).toHaveAttribute('data-nested-drawer-open', '');
+    await page.getByRole('button', { name: 'Close nested drawer' }).click();
+    await expect(parentPopup).not.toHaveAttribute('data-nested-drawer-open');
+    await expect(page.getByTestId('child-popup')).toHaveCount(0);
+    await parentPopup.evaluate((element) => {
+      const log: Array<{ hasNested: boolean; drawerHeight: string }> = [];
+      (window as unknown as { heightLog: typeof log }).heightLog = log;
+      new MutationObserver(() => {
+        log.push({
+          hasNested: element.hasAttribute('data-nested-drawer-open'),
+          drawerHeight: (element as HTMLElement).style.getPropertyValue('--drawer-height'),
+        });
+      }).observe(element, { attributeFilter: ['data-nested-drawer-open', 'style'], attributes: true });
+    });
+
+    await page.getByRole('button', { name: 'Open nested drawer' }).click();
+    await expect(parentPopup).toHaveAttribute('data-nested-drawer-open', '');
+    await expect
+      .poll(() => page.evaluate(() => (window as unknown as { heightLog: Array<{ hasNested: boolean; drawerHeight: string }> }).heightLog.find((entry) => entry.hasNested)?.drawerHeight))
+      .not.toBe('');
+  });
+});
+
+// Slice 3 (added 2026-11-21): a nested drawer with snap points clears its parent's swipe state when its release settles
+// (DRW-PTR-17, DRW-DOM-14, DRW-ALG-01), on `drawer-stack`'s `nested-snap` case; and the resting snap progress (DRW-PTR-16).
+test.describe('<Drawer.Viewport /> nested snap points', () => {
+  // DrawerViewport.test.tsx:3898-3972: a diagonal drag has no attributed direction, so its release settles in place.
+  test('clears nested swipe state after an unattributed snap point gesture', async ({ page, mode }) => {
+    await stackCase(page, mode, 'nested-snap');
+    const parentPopup = page.getByTestId('parent-popup');
+
+    await timedSwipe(page, [
+      { type: 'down', x: 100, y: 10, time: 1000 },
+      { type: 'move', x: 120, y: 12, time: 1016 },
+      { type: 'move', x: 200, y: 30, time: 1032 },
+    ]);
+    await expect(parentPopup).toHaveAttribute('data-nested-drawer-swiping', '');
+    expect(await styleOf(parentPopup, '--drawer-swipe-progress')).not.toBe('0');
+
+    await timedSwipe(page, [{ type: 'up', x: 200, y: 30, time: 1048 }]);
+    await expect.poll(() => styleOf(parentPopup, '--drawer-swipe-progress')).toBe('0');
+    await expect(parentPopup).not.toHaveAttribute('data-nested-drawer-swiping');
+  });
+
+  // DrawerViewport.test.tsx:3974-4072: a straight drag down ending in a slight reversal settles back on its snap point.
+  test('clears nested swipe state after an attributed drag settles on a snap point', async ({ page, mode }) => {
+    await stackCase(page, mode, 'nested-snap');
+    const parentPopup = page.getByTestId('parent-popup');
+    const childPopup = page.getByTestId('popup');
+
+    await timedSwipe(page, [
+      { type: 'down', x: 100, y: 10, time: 1000 },
+      { type: 'move', x: 100, y: 24, time: 1050 },
+      { type: 'move', x: 100, y: 48, time: 1150 },
+    ]);
+    await expect(parentPopup).toHaveAttribute('data-nested-drawer-swiping', '');
+    expect(await styleOf(parentPopup, '--drawer-swipe-progress')).not.toBe('0');
+
+    await timedSwipe(page, [
+      { type: 'move', x: 100, y: 44, time: 1250 },
+      { type: 'up', x: 100, y: 44, time: 1600 },
+    ]);
+    await expect.poll(() => styleOf(parentPopup, '--drawer-swipe-progress')).toBe('0');
+    await expect(parentPopup).not.toHaveAttribute('data-nested-drawer-swiping');
+    await expect(childPopup).not.toHaveAttribute('data-ending-style');
+    await expect(childPopup).not.toHaveAttribute('data-swipe-dismiss');
+  });
+
+  // DRW-PTR-16 (DrawerViewport.test.tsx:5110-5180). Base UI checks that the resting progress is written before React's
+  // passive effects, which Blazor has no counterpart of; the port checks the write itself: at `100px` of a 200 px popup the
+  // Backdrop rests at 1, and the controlled change to `200px` publishes 0.
+  test('publishes resting snap progress before descendant layout effects', async ({ page, mode }) => {
+    const fixture = await gotoPopupFixture(page, mode, 'drawer-swipe', { case: 'snap', snapPoints: '100px,200px', snap: '100px', ph: '200', snapTo: '200px' });
+    const backdrop = page.getByTestId('backdrop');
+    await expect.poll(() => styleOf(backdrop, '--drawer-swipe-progress')).toBe('1');
+
+    await pressControl(fixture.locator('[data-snap-to]'));
+    await expect(fixture).toHaveAttribute('data-active-snap', '200px');
+    await expect.poll(() => styleOf(backdrop, '--drawer-swipe-progress')).toBe('0');
+  });
+});
+
+// Slice 3 (added 2026-11-21): the snap point titles held over from slice 2, on `drawer-swipe`'s `case=snap` (its `content`,
+// `pt` and `data-hide-popup` switches) and `drawer-stack`'s `case=body`.
+test.describe('<Drawer.Viewport /> snap point gestures held over from slice 2', () => {
+  // DRW-ANI-05, DRW-DOM-06 (DrawerViewport.test.tsx:4738-4805).
+  test('cleans up when the popup unmounts during an active swipe', async ({ page, mode }) => {
+    const fixture = await snapCase(page, mode, { snapPoints: '100px,200px', ph: '300' });
+    const backdrop = page.getByTestId('backdrop');
+
+    await page.mouse.move(10, 10);
+    await page.mouse.down();
+    await page.mouse.move(10, 30);
+    await expect(backdrop).toHaveAttribute('data-swiping', '');
+
+    await pressControl(fixture.locator('[data-hide-popup]'));
+    await expect(page.getByTestId('popup')).toHaveCount(0);
+    await page.mouse.move(10, 40);
+    await expect(backdrop).toHaveAttribute('data-swiping', '');
+
+    await page.mouse.up();
+    await expect(backdrop).not.toHaveAttribute('data-swiping');
+    await settle(fixture);
+    expect(await fixture.getAttribute('data-open-changes')).toBe('');
+  });
+
+  // DRW-DOM-12, DRW-PTR-02 (DrawerViewport.test.tsx:2308-2397): 100 px past the fully open edge damps to -√100 px, and
+  // moves that change nothing keep it.
+  test('keeps damped snap-point styles when a duplicate-coordinate pointermove arrives', async ({ page, mode }) => {
+    await snapCase(page, mode, { snapPoints: '100px,1', snap: '1' });
+    const popup = page.getByTestId('popup');
+
+    await timedSwipe(page, [
+      { type: 'down', x: 10, y: 100, time: 1000 },
+      { type: 'move', x: 10, y: 100, time: 1016 },
+      { type: 'move', x: 10, y: 0, time: 1032 },
+    ]);
+    expect(await styleOf(popup, 'transform')).toBe('');
+    expect(await styleOf(popup, '--drawer-swipe-movement-y')).toBe('-10px');
+
+    await timedSwipe(page, [{ type: 'move', x: 10, y: 0, time: 1048 }]);
+    expect(await styleOf(popup, 'transform')).toBe('');
+    expect(await styleOf(popup, '--drawer-swipe-movement-y')).toBe('-10px');
+
+    await timedSwipe(page, [{ type: 'move', x: 15, y: 0, time: 1064 }]);
+    expect(await styleOf(popup, 'transform')).toBe('');
+    expect(await styleOf(popup, '--drawer-swipe-movement-y')).toBe('-10px');
+    await timedSwipe(page, [{ type: 'up', x: 15, y: 0, time: 1080 }]);
+  });
+
+  // DRW-PTR-21 (DrawerViewport.test.tsx:2262-2306): at the bottom of its scroller, a drag up scrolls, not swipes.
+  testWithTouch('does not start an opposite-direction swipe from scroll bottom for down drawers with snap points', async ({ touchPage: page, mode }) => {
+    const fixture = await snapCase(page, mode, { snapPoints: '100px,1', content: 'scroll' });
+    const scroll = page.getByTestId('scroll');
+    await scroll.evaluate((element) => (element.scrollTop = element.scrollHeight - element.clientHeight));
+    await recordMoves(page);
+    const { x, y } = await pointOf(scroll);
+
+    await touchDrag(page, [[{ x, y: y + 15 }, { x, y: y - 15 }]], {
+      steps: 5,
+      beforeRelease: async () => {
+        await settle(fixture);
+        await expect(page.getByTestId('backdrop')).not.toHaveAttribute('data-swiping');
+      },
+    });
+
+    const prevented = await preventedMoves(page);
+    expect(prevented.length).toBeGreaterThan(0);
+    expect(prevented.some(Boolean)).toBe(false);
+  });
+
+  // DRW-PTR-21 (DrawerViewport.test.tsx, browser-only in Base UI): with `body` as the page's scroll container at its top, a
+  // drag up from the sheet still swipes.
+  testWithTouch('starts a swipe away from the page scroll edge when the body is a scroll container', async ({ touchPage: page, mode }) => {
+    await stackCase(page, mode, 'body');
+    const popup = page.getByTestId('popup');
+    await expect.poll(() => styleOf(popup, '--drawer-snap-point-offset')).toBe('0px');
+    const metrics = await page.evaluate(() => ({ top: document.body.scrollTop, scroll: document.body.scrollHeight, client: document.body.clientHeight }));
+    expect(metrics.top).toBe(0);
+    expect(metrics.scroll).toBeGreaterThan(metrics.client);
+    const box = (await page.getByTestId('drag').boundingBox())!;
+    const start = { x: box.x + 20, y: box.y + 80 };
+
+    await touchDrag(page, [[start, { x: start.x, y: start.y - 30 }]], {
+      steps: 3,
+      beforeRelease: async () => {
+        await expect(page.getByTestId('backdrop')).toHaveAttribute('data-swiping', '');
+      },
+    });
+  });
+
+  // DRW-EVT-03, DRW-PTR-22, PTR-23 (DrawerViewport.test.tsx:2797-2880). The popup is fixed 300 px down, so the first move
+  // leaves it; a touch that starts and stays outside then inherits nothing.
+  for (const [kind, content] of [['HTML scroller', 'html'], ['SVG scroller', 'svg'], ['axis ignore marker', 'axis']] as const) {
+    testWithTouch(`expands a collapsed sheet when the first move from a ${kind} leaves the popup`, async ({ touchPage: page, mode }) => {
+      const fixture = await snapCase(page, mode, { snapPoints: '100px,200px', defaultSnap: '100px', ph: '200', pt: '300', content });
+      const popup = page.getByTestId('popup');
+      const backdrop = page.getByTestId('backdrop');
+      await expect.poll(() => styleOf(popup, '--drawer-snap-point-offset')).toBe('100px');
+
+      await touchDrag(page, [[{ x: 20, y: 305 }, { x: 20, y: 275 }, { x: 20, y: 125 }]], {
+        afterMove: async (move) => {
+          if (move === 1) {
+            await expect(backdrop).toHaveAttribute('data-swiping', '');
+          }
+          if (move === 2) {
+            await expect.poll(async () => Number.parseFloat(await styleOf(popup, '--drawer-swipe-movement-y'))).toBeLessThan(0);
+          }
+        },
+      });
+      await expect(fixture).toHaveAttribute('data-snap-changes', '200px:swipe');
+
+      await touchDrag(page, [[{ x: 20, y: 275 }, { x: 20, y: 125 }]], {
+        beforeRelease: async () => {
+          await settle(fixture);
+          await expect(backdrop).not.toHaveAttribute('data-swiping');
+        },
+      });
+      await settle(fixture);
+      await expect(fixture).toHaveAttribute('data-snap-changes', '200px:swipe');
+    });
+  }
+
+  // DRW-PTR-19, DRW-ALG-03 (DrawerViewport.test.tsx:898-937): a cross-axis drag over a marked or scrollable carousel is
+  // left to it, and no snap point is settled. Folded with its positive half: a vertical drag from the same target swipes.
+  for (const [kind, content] of [['marked', 'axis'], ['scrollable', 'carousel']] as const) {
+    testWithTouch(`does not swipe or settle snap points while a ${kind} cross-axis target handles the drag`, async ({ touchPage: page, mode }) => {
+      const fixture = await snapCase(page, mode, { snapPoints: '200,360', content });
+      const target = page.getByTestId('target');
+      const start = await pointOf(target, { x: 10, y: 20 });
+      await recordMoves(page);
+
+      await touchDrag(page, [[start, { x: start.x + 60, y: start.y + 3 }]], {
+        steps: 5,
+        beforeRelease: async () => {
+          await settle(fixture);
+          await expect(page.getByTestId('backdrop')).not.toHaveAttribute('data-swiping');
+          await expect(page.getByTestId('popup')).not.toHaveAttribute('data-swiping');
+        },
+      });
+      await settle(fixture);
+      await expect(fixture).toHaveAttribute('data-snap-changes', '');
+      expect((await preventedMoves(page)).some(Boolean)).toBe(false);
+
+      await touchDrag(page, [[start, { x: start.x, y: start.y + 60 }]], {
+        steps: 5,
+        beforeRelease: async () => {
+          await expect(page.getByTestId('backdrop')).toHaveAttribute('data-swiping', '');
+        },
+      });
+    });
+  }
+});
+
+// Slice 4 (M6 track 8b, issue 279, added 2026-11-21): DrawerSwipeArea.test.tsx on the `drawer-swipe-area` fixture. Base
+// UI's `swipe()` helper fires a press, a one-pixel step, the end and the release on the area, 16 ms apart; `areaSwipe`
+// dispatches the same events in the page on the same timeline (ADR 06 Amendments 2026-11-18).
+const areaCase = (page: Page, mode: RenderMode, options: Record<string, string | boolean> = {}) =>
+  gotoPopupFixture(page, mode, 'drawer-swipe-area', options);
+
+interface AreaPoint {
+  x: number;
+  y: number;
+}
+
+type AreaFire = (type: 'pointerdown' | 'pointermove' | 'pointerup', point: AreaPoint, time: number, pointerType?: string) => Promise<void>;
+
+const fireOnArea: (page: Page) => AreaFire = (page) => (type, point, time, pointerType = 'mouse') =>
+  page.getByTestId('swipe-area').evaluate((element, step) => {
+    const event = new PointerEvent(step.type, {
+      bubbles: true,
+      cancelable: true,
+      composed: true,
+      isPrimary: true,
+      pointerId: 1,
+      pointerType: step.pointerType,
+      button: step.type === 'pointermove' ? -1 : 0,
+      buttons: step.type === 'pointerup' ? 0 : 1,
+      clientX: step.x,
+      clientY: step.y,
+    });
+    Object.defineProperty(event, 'timeStamp', { value: step.time });
+    element.dispatchEvent(event);
+  }, { type, x: point.x, y: point.y, time, pointerType });
+
+const areaSwipe = async (
+  page: Page,
+  start: AreaPoint,
+  end: AreaPoint,
+  options: { beforeRelease?: (next: () => number, fire: AreaFire) => Promise<void>; step?: number; startAt?: number; pointerType?: string } = {},
+) => {
+  const { step = 16, startAt = 1, pointerType = 'mouse' } = options;
+  const fire = fireOnArea(page);
+  let time = startAt;
+  const next = () => (time += step);
+  const nudge = { x: start.x + Math.sign(end.x - start.x), y: start.y + Math.sign(end.y - start.y) };
+  await fire('pointerdown', start, time, pointerType);
+  await fire('pointermove', nudge, next(), pointerType);
+  await fire('pointermove', end, next(), pointerType);
+  await options.beforeRelease?.(next, fire);
+  await fire('pointerup', end, next(), pointerType);
+};
+const areaUp = (page: Page, from: number, to: number, options?: Parameters<typeof areaSwipe>[3]) =>
+  areaSwipe(page, { x: 10, y: from }, { x: 10, y: to }, options);
+const areaLeft = (page: Page, from: number, to: number, options?: Parameters<typeof areaSwipe>[3]) =>
+  areaSwipe(page, { x: from, y: 10 }, { x: to, y: 10 }, options);
+
+test.describe('<Drawer.SwipeArea />', () => {
+  // DRW-PTR-28 (DrawerSwipeArea.test.tsx:303-317).
+  test('opens the drawer when swiped in the open direction', async ({ page, mode }) => {
+    await areaCase(page, mode);
+    const area = page.getByTestId('swipe-area');
+    await expect(area).toHaveAttribute('data-closed', '');
+
+    await areaUp(page, 120, 40);
+    await expect(area).toHaveAttribute('data-open', '');
+  });
+
+  // DRW-PTR-28 (DrawerSwipeArea.test.tsx:319-334): a horizontal drag never locks to `up`. Folded with its positive half.
+  test('does not open when the swipe direction never locks to the open direction', async ({ page, mode }) => {
+    const fixture = await areaCase(page, mode);
+    const area = page.getByTestId('swipe-area');
+
+    await areaSwipe(page, { x: 10, y: 120 }, { x: 70, y: 118 });
+    await settle(fixture);
+    await expect(area).toHaveAttribute('data-closed', '');
+    await expect(fixture).toHaveAttribute('data-open-changes', '');
+
+    await areaUp(page, 120, 40, { startAt: 1000 });
+    await expect(area).toHaveAttribute('data-open', '');
+  });
+
+  // DRW-PTR-27 (DrawerSwipeArea.test.tsx:336-353).
+  test('prevents default pointer down for non-touch swipes', async ({ page, mode }) => {
+    await areaCase(page, mode);
+    const notCanceled = await page.getByTestId('swipe-area').evaluate((element) =>
+      element.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, cancelable: true, button: 0, buttons: 1, pointerId: 1, clientX: 10, clientY: 120, pointerType: 'mouse' })),
+    );
+    expect(notCanceled).toBe(false);
+  });
+
+  // DRW-PTR-26 (DrawerSwipeArea.test.tsx:355-367). Folded with its positive half: enabled again, the same swipe opens.
+  test('does not open the drawer when disabled', async ({ page, mode }) => {
+    const fixture = await areaCase(page, mode, { disabled: true });
+    const area = page.getByTestId('swipe-area');
+
+    await areaUp(page, 120, 40);
+    await settle(fixture);
+    await expect(area).toHaveAttribute('data-closed', '');
+
+    await pressControl(fixture.locator('[data-enable-area]'));
+    await expect(area).not.toHaveAttribute('data-disabled');
+    await settle(fixture);
+    await areaUp(page, 120, 40, { startAt: 1000 });
+    await expect(area).toHaveAttribute('data-open', '');
+  });
+
+  // DRW-API-09, PTR-28 (DrawerSwipeArea.test.tsx:369-381).
+  test('respects custom swipeDirection', async ({ page, mode }) => {
+    await areaCase(page, mode, { area: 'left' });
+    await areaLeft(page, 120, 40);
+    await expect(page.getByTestId('swipe-area')).toHaveAttribute('data-open', '');
+  });
+
+  // DRW-ALG-04, PTR-29, PTR-31 (DrawerSwipeArea.test.tsx:383-459): 250 px of a 100 px popup overshoots by √150.
+  test('synchronizes overshoot styles across the popup, backdrop, and provider indent', async ({ page, mode }) => {
+    await areaCase(page, mode, { provider: true, parts: true, area: 'left' });
+    const indent = page.getByTestId('indent');
+    const backdrop = page.getByTestId('backdrop');
+
+    await areaLeft(page, 200, -50, {
+      beforeRelease: async (next, fire) => {
+        const popup = page.getByTestId('popup');
+        await expect.poll(async () => Number.parseFloat(await styleOf(popup, '--drawer-swipe-movement-x'))).toBeCloseTo(-Math.sqrt(150), 3);
+        expect(await styleOf(popup, '--drawer-swipe-movement-y')).toBe('0px');
+        expect(await styleOf(popup, 'transition')).toBe('none');
+        await expect(backdrop).toHaveAttribute('data-swiping', '');
+        await expect.poll(() => styleOf(backdrop, '--drawer-height')).toBe('100px');
+        expect(await styleOf(indent, '--drawer-swipe-progress')).toBe('1');
+        expect(await styleOf(indent, '--drawer-height')).toBe('100px');
+
+        await fire('pointermove', { x: 200, y: 10 }, next());
+        await expect.poll(() => styleOf(indent, '--drawer-swipe-progress')).toBe('0');
+        expect(await styleOf(indent, '--drawer-height')).toBe('');
+        await fire('pointermove', { x: -50, y: 10 }, next());
+      },
+    });
+    await expect(backdrop).not.toHaveAttribute('data-swiping');
+    expect(await styleOf(backdrop, '--drawer-swipe-progress')).toBe('0');
+    await expect.poll(() => styleOf(indent, '--drawer-swipe-progress')).toBe('0');
+    expect(await styleOf(indent, '--drawer-height')).toBe('');
+  });
+
+  // DRW-ALG-04 (DrawerSwipeArea.test.tsx:461-502): the popup rests 60 px out, so 40 px of travel leaves 20 px.
+  test('opens from the rendered transform distance in either horizontal direction', async ({ page, mode }) => {
+    await areaCase(page, mode, { parts: true, root: 'left', area: 'right', transform: 'matrix(1, 0, 0, 1, 60, 0)' });
+
+    await areaSwipe(page, { x: 0, y: 10 }, { x: 40, y: 10 }, {
+      beforeRelease: async () => {
+        await expect.poll(async () => Number.parseFloat(await styleOf(page.getByTestId('popup'), '--drawer-swipe-movement-x'))).toBeCloseTo(-20, 3);
+      },
+    });
+    await expect(page.getByTestId('swipe-area')).toHaveAttribute('data-open', '');
+  });
+
+  // DRW-DOM-21, PTR-29 (DrawerSwipeArea.test.tsx:504-537): a popup with no height gives no frontmost height. Folded with its
+  // positive half: the backdrop does follow the swipe.
+  test('omits frontmost height when an opening drawer has no measured height', async ({ page, mode }) => {
+    await areaCase(page, mode, { provider: true, parts: true, area: 'left', ph: '0' });
+
+    await areaLeft(page, 100, 40, {
+      beforeRelease: async () => {
+        await expect(page.getByTestId('backdrop')).toHaveAttribute('data-swiping', '');
+        expect(await styleOf(page.getByTestId('backdrop'), '--drawer-height')).toBe('');
+        expect(await styleOf(page.getByTestId('indent'), '--drawer-height')).toBe('');
+      },
+    });
+  });
+
+  // DRW-PTR-28, EVT-01 (DrawerSwipeArea.test.tsx:539-575): a controlled root that stays closed gets one open request, no
+  // close, and its popup never moves.
+  test('does not apply or close swipe state when a controlled parent rejects opening', async ({ page, mode }) => {
+    const fixture = await areaCase(page, mode, { parts: true, keepMounted: true, open: 'reject' });
+
+    await areaUp(page, 120, 110, { startAt: 1000, step: 1000 });
+    await settle(fixture);
+    await expect(fixture).toHaveAttribute('data-open-changes', 'true:swipe');
+    await expect(page.getByTestId('popup')).not.toHaveAttribute('data-swiping');
+    expect(await styleOf(page.getByTestId('popup'), '--drawer-swipe-movement-y')).not.toMatch(/^-?[1-9]/);
+  });
+});
+
+// Base UI's `pressOutside` and `pressOutsideTouch`: a fresh press on the body, dispatched in the page.
+const pressOutsideInPage = (page: Page, touch = false) =>
+  page.evaluate((isTouch) => {
+    const target = document.body;
+    const pointerType = isTouch ? 'touch' : 'mouse';
+    target.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, button: 0, buttons: 1, pointerId: 1, pointerType }));
+    if (isTouch) {
+      const point = new Touch({ identifier: 1, target, clientX: 0, clientY: 0 });
+      target.dispatchEvent(new TouchEvent('touchstart', { bubbles: true, touches: [point] }));
+      target.dispatchEvent(new TouchEvent('touchend', { bubbles: true, changedTouches: [point], touches: [] }));
+    }
+    target.dispatchEvent(new PointerEvent('pointerup', { bubbles: true, button: 0, buttons: 0, pointerId: 1, pointerType }));
+    target.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+  }, touch);
+// The click a gesture's own pointerup synthesizes: a physical click (detail 1) with no pointerdown of its own.
+const releaseClickInPage = (page: Page, pointerType: string) =>
+  page.evaluate((type) => {
+    const click = new MouseEvent('click', { bubbles: true, detail: 1 });
+    Object.defineProperty(click, 'pointerType', { value: type });
+    document.body.dispatchEvent(click);
+  }, pointerType);
+const touchUpOnArea = (page: Page, from: number, to: number) => touchDrag(page, [[{ x: 10, y: from }, { x: 10, y: to }]], { steps: 4 });
+
+test.describe('<Drawer.SwipeArea /> outside presses and gesture ends', () => {
+  // DRW-PTR-31, DIS-02 (DrawerSwipeArea.test.tsx:577-693).
+  test('cancels an active opening gesture when the swipe area becomes disabled', async ({ page, mode }) => {
+    const fixture = await areaCase(page, mode, { provider: true, parts: true });
+    const fire = fireOnArea(page);
+    await fire('pointerdown', { x: 0, y: 100 }, 1);
+    await fire('pointermove', { x: 0, y: 99 }, 17);
+    await fire('pointermove', { x: 0, y: 60 }, 33);
+    const popup = page.getByTestId('popup');
+    await expect(popup).toHaveAttribute('data-swiping', '');
+
+    await pressControl(fixture.locator('[data-disable-area]'));
+    await expect(page.getByTestId('swipe-area')).toHaveAttribute('data-disabled', '');
+    await expect(popup).not.toHaveAttribute('data-swiping');
+    await expect.poll(() => styleOf(page.getByTestId('indent'), '--drawer-swipe-progress')).toBe('0');
+
+    await pressOutsideInPage(page);
+    await expect(page.getByTestId('popup')).toHaveCount(0);
+  });
+
+  // DRW-DIS-02 (DrawerSwipeArea.test.tsx:695-757).
+  test('keeps the drawer open when the release click follows a mid-gesture disable', async ({ page, mode }) => {
+    const fixture = await areaCase(page, mode, { parts: true });
+    const fire = fireOnArea(page);
+    await fire('pointerdown', { x: 0, y: 100 }, 1);
+    await fire('pointermove', { x: 0, y: 99 }, 17);
+    await fire('pointermove', { x: 0, y: 40 }, 33);
+    const popup = page.getByTestId('popup');
+    await expect(popup).toHaveAttribute('data-open', '');
+
+    await pressControl(fixture.locator('[data-disable-area]'));
+    await expect(page.getByTestId('swipe-area')).toHaveAttribute('data-disabled', '');
+    await releaseClickInPage(page, 'mouse');
+    await settle(fixture);
+    await expect(popup).toHaveAttribute('data-open', '');
+
+    await pressOutsideInPage(page);
+    await expect(page.getByTestId('popup')).toHaveCount(0);
+  });
+
+  // DRW-PTR-27 (DrawerSwipeArea.test.tsx:759-791).
+  test('does not prevent a non-cancelable pointer start', async ({ page, mode }) => {
+    await areaCase(page, mode);
+    const result = await page.getByTestId('swipe-area').evaluate((element) => {
+      const event = new Event('pointerdown', { bubbles: true, cancelable: false });
+      Object.defineProperties(event, {
+        pointerType: { value: 'mouse' },
+        pointerId: { value: 1 },
+        button: { value: 0 },
+        buttons: { value: 1 },
+        clientX: { value: 0 },
+        clientY: { value: 0 },
+      });
+      let prevented = false;
+      const original = event.preventDefault.bind(event);
+      event.preventDefault = () => {
+        prevented = true;
+        original();
+      };
+      const dispatched = element.dispatchEvent(event);
+      element.dispatchEvent(new PointerEvent('pointercancel', { bubbles: true, pointerType: 'mouse', pointerId: 1 }));
+      return { dispatched, defaultPrevented: event.defaultPrevented, prevented };
+    });
+    expect(result).toEqual({ dispatched: true, defaultPrevented: false, prevented: false });
+  });
+
+  // DRW-PTR-27 (DrawerSwipeArea.test.tsx:793-828): touch pointers are the touch events' business. Folded with its positive
+  // half: a mouse swipe after them opens.
+  test('ignores compatibility touch pointer gestures with real displacement', async ({ page, mode }) => {
+    const fixture = await areaCase(page, mode);
+    await page.getByTestId('swipe-area').evaluate((element) => {
+      for (const [type, y] of [['pointerdown', 120], ['pointermove', 40], ['pointerup', 40], ['pointercancel', 40]] as const) {
+        const event = new Event(type, { bubbles: true, cancelable: true });
+        Object.defineProperties(event, {
+          pointerType: { value: 'touch' },
+          pointerId: { value: 1 },
+          button: { value: 0 },
+          buttons: { value: type === 'pointerup' || type === 'pointercancel' ? 0 : 1 },
+          clientX: { value: 0 },
+          clientY: { value: y },
+        });
+        element.dispatchEvent(event);
+      }
+    });
+    await settle(fixture);
+    await expect(fixture).toHaveAttribute('data-open-changes', '');
+
+    await areaUp(page, 120, 40, { startAt: 1000 });
+    await expect(page.getByTestId('swipe-area')).toHaveAttribute('data-open', '');
+  });
+
+  // DRW-PTR-27 (DrawerSwipeArea.test.tsx:908-926), real touches.
+  testWithTouch('opens the drawer when swiped with touch events', async ({ touchPage: page, mode }) => {
+    await areaCase(page, mode, { parts: true });
+    await touchUpOnArea(page, 120, 40);
+    await expect(page.getByTestId('swipe-area')).toHaveAttribute('data-open', '');
+    await expect(page.getByTestId('popup')).toHaveAttribute('data-open', '');
+  });
+
+  // DRW-DOM-06, PTR-25 (DrawerSwipeArea.test.tsx:928-944).
+  test('applies data-swiping during an active swipe gesture', async ({ page, mode }) => {
+    await areaCase(page, mode);
+    const area = page.getByTestId('swipe-area');
+    await areaUp(page, 120, 40, {
+      beforeRelease: async () => {
+        await expect(area).toHaveAttribute('data-swiping', '');
+      },
+    });
+    await expect(area).not.toHaveAttribute('data-swiping');
+  });
+
+  // DRW-DIS-02 (DrawerSwipeArea.test.tsx:946-1008).
+  for (const touch of [false, true]) {
+    testWithTouch(
+      touch ? 're-enables outside press dismissal for a touch outside press after opening by swipe' : 're-enables outside press dismissal after opening by swipe',
+      async ({ touchPage: page, mode }) => {
+        const fixture = await areaCase(page, mode, { parts: true });
+        await touchUpOnArea(page, 120, 40);
+        await expect(page.getByTestId('popup')).toHaveAttribute('data-open', '');
+        await settle(fixture);
+
+        await pressOutsideInPage(page, touch);
+        await expect(page.getByTestId('popup')).toHaveCount(0);
+        await expect(page.getByTestId('swipe-area')).toHaveAttribute('data-closed', '');
+      },
+    );
+  }
+
+  // DRW-DIS-02 (DrawerSwipeArea.test.tsx:1010-1053). Folded with its positive half: a fresh press afterwards dismisses.
+  for (const [pointerType, input] of [['mouse', 'pointer'], ['pen', 'pointer'], ['touch', 'touch']] as const) {
+    testWithTouch(`does not dismiss from the ${pointerType}/${input} click synthesized by the swipe-open release`, async ({ touchPage: page, mode }) => {
+      const fixture = await areaCase(page, mode, { parts: true });
+      if (input === 'touch') {
+        await touchUpOnArea(page, 120, 40);
+      } else {
+        await areaUp(page, 120, 40, { pointerType });
+      }
+      await expect(page.getByTestId('popup')).toHaveAttribute('data-open', '');
+      await settle(fixture);
+
+      await releaseClickInPage(page, pointerType);
+      await settle(fixture);
+      await expect(page.getByTestId('popup')).toHaveAttribute('data-open', '');
+
+      await pressOutsideInPage(page);
+      await expect(page.getByTestId('popup')).toHaveCount(0);
+    });
+  }
+
+  // DRW-DIS-02 (DrawerSwipeArea.test.tsx:1055-1124, browser-only): a real click whose pointerdown never reaches the document
+  // is the release's and is ignored; the next real click dismisses.
+  test('suppresses a trusted release click that arrives without a preceding pointerdown', async ({ page, mode }) => {
+    const fixture = await areaCase(page, mode, { parts: true });
+    await areaUp(page, 120, 40);
+    await expect(page.getByTestId('popup')).toHaveAttribute('data-open', '');
+    await settle(fixture);
+
+    await page.evaluate(() => {
+      (window as unknown as { stopPointerDown: (event: Event) => void }).stopPointerDown = (event: Event) => event.stopPropagation();
+      window.addEventListener('pointerdown', (window as unknown as { stopPointerDown: (event: Event) => void }).stopPointerDown, true);
+    });
+    await page.getByTestId('outside').click({ force: true });
+    await page.evaluate(() =>
+      window.removeEventListener('pointerdown', (window as unknown as { stopPointerDown: (event: Event) => void }).stopPointerDown, true),
+    );
+    await settle(fixture);
+    await expect(page.getByTestId('popup')).toHaveAttribute('data-open', '');
+
+    await page.getByTestId('outside').click({ force: true });
+    await expect(page.getByTestId('popup')).toHaveCount(0);
+  });
+
+  // DRW-DIS-02 (DrawerSwipeArea.test.tsx:1126-1155): Enter on a focused outside button is a click-only activation.
+  test('allows a later click-only activation to dismiss after a swipe', async ({ page, mode }) => {
+    await areaCase(page, mode, { parts: true, modal: false, initialFocus: false });
+    const outside = page.getByTestId('outside-button');
+    await outside.focus();
+    await areaUp(page, 120, 40);
+    await expect(page.getByTestId('popup')).toHaveAttribute('data-open', '');
+    await expect(outside).toBeFocused();
+
+    await page.keyboard.press('Enter');
+    await expect(page.getByTestId('popup')).toHaveCount(0);
+  });
+
+  // DRW-DIS-02 (DrawerSwipeArea.test.tsx:1157-1189): a press-less click (detail 0) is virtual.
+  testWithTouch('allows a later pointerless virtual click to dismiss when the release has no click', async ({ touchPage: page, mode }) => {
+    await areaCase(page, mode, { parts: true, modal: false, initialFocus: false });
+    await touchUpOnArea(page, 120, 40);
+    await expect(page.getByTestId('popup')).toHaveAttribute('data-open', '');
+
+    await page.getByTestId('outside-button').evaluate((element) => {
+      const click = new MouseEvent('click', { bubbles: true, detail: 0 });
+      Object.defineProperty(click, 'pointerType', { value: '' });
+      element.dispatchEvent(click);
+    });
+    await expect(page.getByTestId('popup')).toHaveCount(0);
+  });
+});
+
+// One pointer event on the area with Base UI's `firePointer` fields, `buttons` included.
+const areaPointer = (page: Page, type: string, x: number, y: number, buttons: number, time?: number) =>
+  page.getByTestId('swipe-area').evaluate((element, step) => {
+    const event = new PointerEvent(step.type, {
+      bubbles: true,
+      cancelable: true,
+      composed: true,
+      isPrimary: true,
+      pointerId: 1,
+      pointerType: 'mouse',
+      button: step.type === 'pointermove' ? -1 : step.buttons === 2 ? 2 : 0,
+      buttons: step.buttons,
+      clientX: step.x,
+      clientY: step.y,
+    });
+    if (step.time !== undefined) {
+      Object.defineProperty(event, 'timeStamp', { value: step.time });
+    }
+    element.dispatchEvent(event);
+  }, { type, x, y, buttons, time });
+
+test.describe('<Drawer.SwipeArea /> interruptions, thresholds and quick flicks', () => {
+  // DRW-PTR-31, DIS-02 (DrawerSwipeArea.test.tsx:1191-1260): a move with the secondary button cancels the gesture.
+  test('re-enables outside press dismissal after an interrupted swipe-open gesture', async ({ page, mode }) => {
+    const fixture = await areaCase(page, mode, { parts: true });
+    await areaPointer(page, 'pointerdown', 10, 120, 1);
+    await areaPointer(page, 'pointermove', 10, 119, 1);
+    await areaPointer(page, 'pointermove', 10, 80, 1);
+    await expect(page.getByTestId('popup')).toHaveAttribute('data-open', '');
+    await expect(page.getByTestId('swipe-area')).toHaveAttribute('data-open', '');
+
+    await areaPointer(page, 'pointermove', 10, 60, 2);
+    await settle(fixture);
+    await pressOutsideInPage(page);
+    await expect(page.getByTestId('popup')).toHaveCount(0);
+    await expect(page.getByTestId('swipe-area')).toHaveAttribute('data-closed', '');
+  });
+
+  // DRW-PTR-31, DIS-02 (DrawerSwipeArea.test.tsx:1262-1334).
+  test('re-enables outside press dismissal after a context menu interrupts swipe-open', async ({ page, mode }) => {
+    const fixture = await areaCase(page, mode, { parts: true });
+    await areaPointer(page, 'pointerdown', 10, 120, 1);
+    await areaPointer(page, 'pointermove', 10, 119, 1);
+    await areaPointer(page, 'pointermove', 10, 80, 1);
+    await expect(page.getByTestId('popup')).toHaveAttribute('data-open', '');
+
+    await areaPointer(page, 'pointermove', 10, 60, 2);
+    await page.getByTestId('swipe-area').evaluate((element) =>
+      element.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, cancelable: true, button: 2, clientX: 10, clientY: 60 })),
+    );
+    await settle(fixture);
+    await pressOutsideInPage(page);
+    await expect(page.getByTestId('popup')).toHaveCount(0);
+  });
+
+  // DRW-PTR-30 (DrawerSwipeArea.test.tsx:1336-1369): half of a 200 px popup is the threshold; 70 px stays closed, 120 px
+  // opens, on a slow timeline.
+  test('uses a size-based swipe threshold by default', async ({ page, mode }) => {
+    const fixture = await areaCase(page, mode, { parts: true, ph: '200' });
+    const area = page.getByTestId('swipe-area');
+
+    await areaUp(page, 200, 130, { step: 100 });
+    await settle(fixture);
+    await expect(area).toHaveAttribute('data-closed', '');
+
+    await areaUp(page, 200, 80, { step: 100, startAt: 5000 });
+    await expect(area).toHaveAttribute('data-open', '');
+  });
+
+  // DRW-PTR-25, DIS-02 (DrawerSwipeArea.test.tsx:1466-1513): the only move arrives with no button held.
+  // On Server the first outside press after the open is swallowed until the popup's floating handle attaches (issue 332,
+  // track 10; drawer.md §9): the barrier below waits out that documented window.
+  test('opens on a quick flick whose only move is already released (buttons: 0)', {
+    annotation: { type: 'issue', description: 'https://github.com/JakeMurrayDev/Blazix.Primitives/issues/332' },
+  }, async ({ page, mode }) => {
+    const fixture = await areaCase(page, mode, { parts: true });
+    await areaPointer(page, 'pointerdown', 10, 120, 1, 1);
+    await areaPointer(page, 'pointermove', 10, 40, 0, 16);
+    const area = page.getByTestId('swipe-area');
+    await expect(area).toHaveAttribute('data-open', '');
+    await expect(area).not.toHaveAttribute('data-swiping');
+    // The popup's dismissal listeners come with its floating handle's attach, after the open's render: a press before them
+    // finds none, and the area's release guard spends it reopening the gate (slice 5, added 2026-11-21; issue 332).
+    await expect(fixture).toHaveAttribute('data-popup-attached', 'true');
+
+    await pressOutsideInPage(page);
+    await expect(page.getByTestId('popup')).toHaveCount(0);
+  });
+
+  // DRW-PTR-25, PTR-30 (DrawerSwipeArea.test.tsx:1515-1573).
+  test('commits a released-move quick flick exactly once when a real pointerup trails it', async ({ page, mode }) => {
+    const fixture = await areaCase(page, mode, { parts: true });
+    const area = page.getByTestId('swipe-area');
+    await areaPointer(page, 'pointerdown', 10, 120, 1, 1);
+    await areaPointer(page, 'pointermove', 10, 40, 0, 16);
+    await expect(area).toHaveAttribute('data-open', '');
+    await expect(fixture).toHaveAttribute('data-open-changes', 'true:swipe');
+
+    await areaPointer(page, 'pointerup', 10, 40, 0, 32);
+    await settle(fixture);
+    await expect(area).toHaveAttribute('data-open', '');
+    await expect(area).not.toHaveAttribute('data-swiping');
+    await expect(fixture).toHaveAttribute('data-open-changes', 'true:swipe');
+  });
+
+  // DRW-PTR-25 (DrawerSwipeArea.test.tsx:1575-1606): touch events dispatched in the page, the whole travel in one move.
+  test('opens on a quick flick that lands its whole travel in a single touch move', async ({ page, mode }) => {
+    await areaCase(page, mode);
+    await page.getByTestId('swipe-area').evaluate((element) => {
+      const at = (y: number) => new Touch({ identifier: 1, target: element, clientX: 10, clientY: y });
+      element.dispatchEvent(new TouchEvent('touchstart', { bubbles: true, cancelable: true, touches: [at(120)] }));
+      element.dispatchEvent(new TouchEvent('touchmove', { bubbles: true, cancelable: true, touches: [at(40)] }));
+      element.dispatchEvent(new TouchEvent('touchend', { bubbles: true, cancelable: true, changedTouches: [at(40)], touches: [] }));
+    });
+    await expect(page.getByTestId('swipe-area')).toHaveAttribute('data-open', '');
+  });
+
+  // DRW-PTR-25 (DrawerSwipeArea.test.tsx:1608-1653). Folded with its positive half: a moving flick then opens.
+  test('does not open on an in-place press-release without movement', async ({ page, mode }) => {
+    const fixture = await areaCase(page, mode);
+    await areaPointer(page, 'pointerdown', 10, 120, 1, 1);
+    await areaPointer(page, 'pointermove', 10, 120, 0, 16);
+    await areaPointer(page, 'pointerup', 10, 120, 0, 32);
+    await settle(fixture);
+    await expect(page.getByTestId('swipe-area')).toHaveAttribute('data-closed', '');
+    await expect(fixture).toHaveAttribute('data-open-changes', '');
+
+    await areaPointer(page, 'pointerdown', 10, 120, 1, 1000);
+    await areaPointer(page, 'pointermove', 10, 40, 0, 1016);
+    await expect(page.getByTestId('swipe-area')).toHaveAttribute('data-open', '');
+  });
+
+  // DRW-PTR-25 (DrawerSwipeArea.test.tsx:1655-1690). Folded with its positive half: a leftward drag then opens.
+  test('does not open a horizontal drawer on a stationary pointer move', async ({ page, mode }) => {
+    const fixture = await areaCase(page, mode, { area: 'left' });
+    await areaPointer(page, 'pointerdown', 100, 10, 1, 1);
+    await areaPointer(page, 'pointermove', 100, 10, 1, 17);
+    await settle(fixture);
+    await expect(fixture).toHaveAttribute('data-open-changes', '');
+    await areaPointer(page, 'pointerup', 100, 10, 0, 33);
+    await settle(fixture);
+    await expect(fixture).toHaveAttribute('data-open-changes', '');
+
+    await areaLeft(page, 120, 40, { startAt: 1000 });
+    await expect(page.getByTestId('swipe-area')).toHaveAttribute('data-open', '');
+  });
+});
+
+// Slice 5 (added 2026-11-21): the last two titles of the row-by-row account of drawer.md's L4 rows.
+test.describe('<Drawer.Popup /> and <Drawer.Viewport /> lifecycle', () => {
+  // DRW-ANI-06, STA-12, DOM-03, DOM-08 (DrawerPopup.test.tsx:660-729, browser-only): the parent drops its nested state as
+  // the nested drawer starts closing, before it unmounts.
+  test('clears parent nested drawer state when a nested drawer starts closing before unmount', async ({ page, mode }) => {
+    await stackCase(page, mode, 'height', { animations: '1' });
+    const parentPopup = page.getByTestId('parent-popup');
+    await page.getByRole('button', { name: 'Open nested drawer' }).click();
+    await expect.poll(() => styleOf(parentPopup, '--nested-drawers')).toBe('1');
+    await expect(parentPopup).toHaveAttribute('data-nested-drawer-open', '');
+
+    await page.getByRole('button', { name: 'Close nested drawer' }).click();
+    await expect(page.getByTestId('child-popup')).toHaveAttribute('data-ending-style', '');
+    expect(await styleOf(parentPopup, '--nested-drawers')).toBe('0');
+    await expect(parentPopup).not.toHaveAttribute('data-nested-drawer-open');
+    await expect(page.getByTestId('child-popup')).toHaveCount(0);
+  });
+
+  // DRW-ANI-03, DOM-07 (DrawerViewport.test.tsx:5185-5240): a kept-mounted popup left with swipe styles is reset when the
+  // drawer opens again. Base UI checks the reset happens before passive effects; the port checks the reset itself.
+  test('clears kept-mounted swipe state before descendant layout effects on reopen', async ({ page, mode }) => {
+    const fixture = await snapCase(page, mode, { closed: 'true', keepMounted: 'true', snapPoints: '' });
+    const popup = page.getByTestId('popup');
+    await popup.evaluate((element) => {
+      (element as HTMLElement).style.setProperty('--drawer-swipe-movement-y', '50px');
+      element.setAttribute('data-swipe-dismiss', '');
+    });
+
+    await pressControl(fixture.locator('[data-toggle-open]'));
+    await expect(popup).toHaveAttribute('data-open', '');
+    await expect.poll(() => styleOf(popup, '--drawer-swipe-movement-y')).toBe('0px');
+    await expect(popup).not.toHaveAttribute('data-swipe-dismiss');
+  });
+});
+
+// DRW-PTR-29, ALG-04 (DrawerSwipeArea.test.tsx:1371-1464, browser-only; added 2026-11-21): the area re-grabs a drawer that
+// is animating out after its Close; 80 px of the 200 px popup leaves it 120 px out, and the Viewport's open-time reset does
+// not wipe it.
+test('keeps the swipe-area movement on the popup when re-grabbed during close', async ({ page, mode }) => {
+  await areaCase(page, mode, { parts: true, regrab: true, animations: '1' });
+  const area = page.getByTestId('swipe-area');
+  await areaUp(page, 220, 20);
+  await expect(area).toHaveAttribute('data-open', '');
+  const popup = page.getByTestId('popup');
+
+  // Base UI clicks the Close programmatically, as here.
+  await clickInPage(page.getByRole('button', { name: 'Close' }));
+  await expect(popup).toHaveAttribute('data-ending-style', '');
+  await areaPointer(page, 'pointerdown', 10, 120, 1, 5000);
+  await areaPointer(page, 'pointermove', 10, 40, 1, 5016);
+  await expect(area).toHaveAttribute('data-open', '');
+  await expect.poll(() => styleOf(popup, '--drawer-swipe-movement-y')).toBe('120px');
+  await areaPointer(page, 'pointerup', 10, 40, 0, 5032);
+});
+
+// Slice 5 (added 2026-11-21): DRW-DIS-05's and DRW-DOM-18/PTR-16's titles, ported to L4 by the user's choice of 2026-11-20
+// (recorded on issue 279), on `drawer-swipe`'s `case=snap`.
+test.describe('<Drawer.Root /> and <Drawer.Viewport /> snap point resets and resting progress', () => {
+  // DRW-DIS-05, STA-04 (DrawerRoot.test.tsx:890-899, SnapPointResetCase): closed through its Close at the full-height snap
+  // point, the drawer resets the controlled snap point to the first one.
+  test('resets the active snap point when closing', async ({ page, mode }) => {
+    const fixture = await snapCase(page, mode, { snap: '1', ph: '300', content: 'close' });
+    await expect(fixture).toHaveAttribute('data-active-snap', '1');
+
+    await page.getByTestId('close').click();
+
+    await expect(fixture).toHaveAttribute('data-open-changes', 'false:close-press');
+    await expect(fixture).toHaveAttribute('data-active-snap', '100px');
+  });
+
+  // DRW-DOM-18, PTR-16, STA-17, ALG-05 (DrawerViewport.test.tsx:4439-4483): at `100px` of a 300 px popup the Backdrop
+  // rests at 1 (offset 200 of a 200 px range). A press inside Drawer.Content never starts a swipe, but its release still
+  // reaches the gesture's release handler, whose progress report must not replace the resting progress.
+  test('keeps the resting snap point progress when a press never starts a swipe', async ({ page, mode }) => {
+    const fixture = await snapCase(page, mode, { snapPoints: '100px,200px', defaultSnap: '100px', ph: '300', content: 'drawer' });
+    const backdrop = page.getByTestId('backdrop');
+    await expect.poll(() => styleOf(backdrop, '--drawer-swipe-progress')).toBe('1');
+
+    const { x, y } = await pointOf(page.getByTestId('content'));
+    await page.mouse.move(x, y);
+    await page.mouse.down();
+    await page.mouse.up();
+    await settle(fixture);
+
+    expect(await styleOf(backdrop, '--drawer-swipe-progress')).toBe('1');
+    await expect(page.getByTestId('popup')).not.toHaveAttribute('data-swiping');
+  });
+});
+
+// The attach order of the Popup's two handle sets (M6 track 8b slice 5, issue 279, added 2026-11-21, chosen by the user
+// 2026-11-21; the standing rule of CI run 40461905812): the Popup's own `drawer` handle starts beside the Dialog popup
+// behaviour's handles, not behind them, so a nested drawer's height reaches its parent while js/popup.js (the behaviour's
+// Popup role, which js/drawer.js does not import) is still loading, and the Popup role's stopped arrow keys follow once
+// the module arrives. Behind the behaviour (the order before the change), the frontmost height stays unset while stalled.
+test.describe('<Drawer.Popup /> attach order', () => {
+  async function stall(page: Page, module: string): Promise<{ hits: () => number; release: () => Promise<void> }> {
+    const held: Route[] = [];
+    let hits = 0;
+    let released = false;
+    // WebAssembly requests the fingerprinted URL (`<module>.<hash>.js`).
+    await page.route(new RegExp(`/js/${module}(\\.[\\w-]+)?\\.js(\\?.*)?$`), (route) => {
+      hits += 1;
+      return released ? route.continue() : void held.push(route);
+    });
+    return {
+      hits: () => hits,
+      release: async () => {
+        released = true;
+        for (const route of held.splice(0)) {
+          await route.continue();
+        }
+      },
+    };
+  }
+
+  test('port: with js/popup.js stalled a nested drawer open from the start reports its height to its parent, and its popup stops the arrow keys once the module arrives', async ({ page, mode }) => {
+    const stalled = await stall(page, 'popup');
+    await page.goto(`${fixtureUrl(mode, 'drawer-stack')}?case=nested`, { waitUntil: 'commit' });
+    await page.locator(Fixture.started).waitFor({ state: 'attached' });
+    await expect.poll(stalled.hits).toBeGreaterThan(0);
+    const parent = page.getByTestId('parent-popup');
+    const child = page.getByTestId('child-popup');
+    // Whether an ArrowDown dispatched on the nested popup bubbles past it to the document.
+    const arrowBubbles = () => child.evaluate((element) => {
+      let reached = false;
+      const listener = () => (reached = true);
+      document.addEventListener('keydown', listener);
+      element.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowDown', bubbles: true, cancelable: true }));
+      document.removeEventListener('keydown', listener);
+      return reached;
+    });
+
+    await expect.poll(() => styleOf(parent, '--drawer-frontmost-height')).toBe('200px');
+    expect(await arrowBubbles()).toBe(true);
+
+    await stalled.release();
+    await expect.poll(arrowBubbles).toBe(false);
+    await expect(page.locator(Fixture.container('drawer-stack'))).toHaveAttribute('data-attached', 'true');
+    expect(await styleOf(parent, '--drawer-frontmost-height')).toBe('200px');
   });
 });

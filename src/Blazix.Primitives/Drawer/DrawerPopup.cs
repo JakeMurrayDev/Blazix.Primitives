@@ -126,6 +126,7 @@ public sealed class DrawerPopup : PartBase<DrawerPopupState>
         .Map<SwipeDirection>(nameof(DrawerPopupState.SwipeDirection), DrawerSwipeDirections.Project);
 
     private DialogPopupBehavior? behavior;
+    private DrawerPopupMeasurement? measurement;
     private IDisposable? drawerCount;
     private IDisposable? drawerStack;
     private Action? viewportChanged;
@@ -228,6 +229,7 @@ public sealed class DrawerPopup : PartBase<DrawerPopupState>
         }
 
         behavior = new DialogPopupBehavior("Drawer", JSRuntime, Logger, StateHasChanged, InvokeAsync, DispatchExceptionAsync);
+        measurement = new DrawerPopupMeasurement(JSRuntime, Context, Drawer, InvokeAsync);
         base.OnInitialized();
     }
 
@@ -245,7 +247,7 @@ public sealed class DrawerPopup : PartBase<DrawerPopupState>
     }
 
     /// <inheritdoc />
-    protected override Task OnAfterRenderAsync(bool firstRender)
+    protected override async Task OnAfterRenderAsync(bool firstRender)
     {
         // DRW-EDGE-01 (DrawerPopup.tsx:137-147): after the first render, once, with nothing appended.
         if (firstRender && Viewport is null && !warnedViewport && DevelopmentWarnings.IsEnabled)
@@ -256,7 +258,20 @@ public sealed class DrawerPopup : PartBase<DrawerPopupState>
                 "Blazix: `<DrawerPopup>` expected to be rendered within `<DrawerViewport>`. Omitting the viewport disables drawer swipe handling and touch scroll locking. Wrap `<DrawerPopup>` in `<DrawerViewport>`.");
         }
 
-        return behavior!.OnAfterRenderAsync(Element, RenderedId);
+        // M6 track 8b: the Viewport's drawer handle writes the swipe attributes and styles on this element.
+        Drawer!.SetPopupElement(Element);
+        Task dialog = behavior!.OnAfterRenderAsync(Element, RenderedId);
+
+        // Slice 3: the Popup's own handle measures it (DRW-STA-10), and the reports to the parent drawer follow the render.
+        // Slice 5 (chosen by the user 2026-11-21, ADR 01's amendment of 2026-11-21): it starts beside the Dialog popup
+        // behaviour's handles, not behind their imports and attaches, so a nested drawer's frontmost height reaches its
+        // parent in eight one-way legs instead of sixteen.
+        if (Element is { } element)
+        {
+            await measurement!.SyncAsync(element);
+        }
+
+        await dialog;
     }
 
     /// <inheritdoc />
@@ -264,8 +279,18 @@ public sealed class DrawerPopup : PartBase<DrawerPopupState>
     {
         if (disposing)
         {
+            if (Element is { } element && string.Equals(Drawer?.PopupElement?.Id, element.Id, StringComparison.Ordinal))
+            {
+                Drawer!.SetPopupElement(null);
+            }
+
             drawerCount?.Dispose();
             drawerStack?.Dispose();
+            if (measurement is not null)
+            {
+                _ = measurement.DisposeAsync().AsTask();
+            }
+
             if (viewportChanged is not null)
             {
                 Viewport?.SetListener(null);

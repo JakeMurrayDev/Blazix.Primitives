@@ -1,0 +1,172 @@
+@namespace Blazix.Primitives.Fixtures.Client.DrawerFixtures
+@using Blazix.Primitives
+@using Blazix.Primitives.Fixtures.Client.PopupFixtures
+@inherits PopupSuiteFixtureBase
+
+@*
+    The `drawer-stack` fixture (tests/browser/drawer.spec.ts; M6 track 8b slice 3, added 2026-11-21): the Provider's visual
+    state and the nested-drawer report.
+    - `case=provider`: DrawerViewport.test.tsx's and DrawerProvider.test.tsx's Provider trees. A Provider holds an Indent
+      (`indent`) and an open non-modal drawer with a Backdrop (`backdrop`), its Viewport fixed at inset 0 and its popup
+      (`popup`) fixed at the top left, 200 px wide and 100 px tall. "Hide indent" and "Hide viewport" remove the Indent and
+      the Viewport.
+    - `case=nested`: DrawerViewport.test.tsx's nested trees. An open non-modal parent drawer whose popup (`parent-popup`,
+      fixed at the top left, 300 by 300 px) holds an open non-modal nested drawer whose popup (`child-popup`, fixed at the
+      top left, 200 by 200 px) holds the button `child-button`. "Close child" closes the nested drawer.
+    - `case=height`: DrawerPopup.test.tsx's fixed-height trees. An open non-modal parent drawer whose popup (`parent-popup`)
+      is `var(--drawer-height, auto)` tall with a 100 ms height transition, and `var(--drawer-frontmost-height,
+      var(--drawer-height))` while a nested drawer is open; it holds 160 px of content and an uncontrolled nested drawer with
+      the trigger "Open nested drawer", whose popup (`child-popup`) holds 64 px of content, a 100 ms exit animation and the
+      Close "Close nested drawer".
+    - `case=stretch`: an open non-modal parent drawer whose popup (`parent-popup`) is `var(--drawer-frontmost-height, 100px)`
+      tall, so an open nested drawer stretches it, and an uncontrolled nested drawer ("Open nested drawer") whose popup
+      (`child-popup`) is 200 px tall with 2 px top and bottom borders and holds "Close nested drawer".
+    - `case=nested-snap`: DrawerViewport.test.tsx's nested snap point trees. An open parent drawer (`parent-popup`, fixed at
+      the top left, 400 by 400 px) holds an open nested drawer with the snap points `100px` and `200px`, its Viewport fixed
+      at the top, 400 px tall, and its popup (`popup`) fixed at the top left, 300 by 300 px.
+    - `case=body`: "starts a swipe away from the page scroll edge when the body is a scroll container". `html` and `body` are
+      100% tall with `overflow-y: auto`, so `body` is the page's scroll container over 5000 px of content; an open non-modal
+      drawer with the snap points 300 and 100 has a Viewport fixed at inset 0 without pointer events and a 300 px popup
+      (`popup`) at the bottom, moved by its snap offset and drag, whose first 100 px are `drag`.
+*@
+<FixtureContainer Name="drawer-stack" data-attached="@(Attached ? "true" : "false")" data-sync="@Sync" data-case="@Case"
+                  data-open-changes="@OpenChanges">
+    <button type="button" tabindex="-1" data-sync-button data-key-control @onclick="() => Sync++" @onkeydown="OnShift(() => Sync++)">Sync</button>
+    <button type="button" data-hide-indent @onclick="() => showIndent = false">Hide indent</button>
+    <button type="button" data-hide-viewport @onclick="() => showViewport = false">Hide viewport</button>
+    <button type="button" data-close-child @onclick="() => childOpen = false">Close child</button>
+    @if (Case == "height" || Case == "stretch")
+    {
+        <style>
+            @@keyframes test-drawer-exit { to { opacity: 0; } }
+            .animation-test-parent-popup { height: var(--drawer-height, auto); overflow: hidden; transition: height 100ms linear; }
+            .animation-test-parent-popup[data-nested-drawer-open] { height: var(--drawer-frontmost-height, var(--drawer-height)); }
+            .animation-test-parent-content { display: block; height: 160px; }
+            .animation-test-child-content { display: block; height: 64px; }
+            .animation-test-child-popup[data-ending-style] { animation: test-drawer-exit 100ms; }
+            .stretch-test-parent-popup { height: var(--drawer-frontmost-height, 100px); overflow: hidden; box-sizing: border-box; }
+            .stretch-test-child-popup { height: 200px; border-top: 2px solid transparent; border-bottom: 2px solid transparent; box-sizing: content-box; overflow: hidden; }
+        </style>
+        bool stretch = Case == "stretch";
+        <DrawerRoot TPayload="NoPayload" @ref="root" Open="true" Modal="false" OnOpenChange="RecordOpenChange">
+            <DrawerPortal>
+                <DrawerViewport @ref="viewport">
+                    <DrawerPopup data-testid="parent-popup" class="@(stretch ? "stretch-test-parent-popup" : "animation-test-parent-popup")">
+                        @if (!stretch)
+                        {
+                            <div class="animation-test-parent-content"></div>
+                        }
+                        <DrawerRoot TPayload="NoPayload" @ref="child" Modal="false">
+                            <DrawerTrigger TPayload="NoPayload">Open nested drawer</DrawerTrigger>
+                            <DrawerPortal>
+                                <DrawerViewport>
+                                    <DrawerPopup data-testid="child-popup" class="@(stretch ? "stretch-test-child-popup" : "animation-test-child-popup")">
+                                        @if (!stretch)
+                                        {
+                                            <div class="animation-test-child-content"></div>
+                                        }
+                                        <DrawerClose>Close nested drawer</DrawerClose>
+                                    </DrawerPopup>
+                                </DrawerViewport>
+                            </DrawerPortal>
+                        </DrawerRoot>
+                    </DrawerPopup>
+                </DrawerViewport>
+            </DrawerPortal>
+        </DrawerRoot>
+    }
+    else if (Case == "body")
+    {
+        <style>html, body { height: 100%; overflow-y: auto; }</style>
+        <div style="height: 5000px;"></div>
+        <DrawerRoot TPayload="NoPayload" @ref="root" Open="true" Modal="false" SnapPoints="@bodySnapPoints" OnOpenChange="RecordOpenChange">
+            <DrawerPortal>
+                <DrawerBackdrop data-testid="backdrop" />
+                <DrawerViewport @ref="viewport" style="position: fixed; inset: 0; pointer-events: none;">
+                    <DrawerPopup data-testid="popup" style="position: absolute; left: 0; right: 0; bottom: 0; height: 300px; margin: 0; padding: 0; border: 0; pointer-events: auto; transform: translateY(calc(var(--drawer-snap-point-offset) + var(--drawer-swipe-movement-y)));">
+                        <div data-testid="drag" style="height: 100px;">Drag</div>
+                    </DrawerPopup>
+                </DrawerViewport>
+            </DrawerPortal>
+        </DrawerRoot>
+    }
+    else if (Case == "nested-snap")
+    {
+        <DrawerRoot TPayload="NoPayload" @ref="root" Open="true" OnOpenChange="RecordOpenChange">
+            <DrawerPortal>
+                <DrawerViewport @ref="viewport" style="position: fixed; inset: 0;">
+                    <DrawerPopup data-testid="parent-popup" style="position: fixed; left: 0; top: 0; width: 400px; height: 400px; margin: 0; padding: 0; border: 0;">
+                        <DrawerRoot TPayload="NoPayload" @ref="child" Open="true" SnapPoints="@nestedSnapPoints">
+                            <DrawerPortal>
+                                <DrawerViewport @ref="childViewport" data-testid="child-viewport" style="position: fixed; left: 0; top: 0; width: 100%; height: 400px;">
+                                    <DrawerPopup data-testid="popup" style="position: fixed; left: 0; top: 0; width: 300px; height: 300px; margin: 0; padding: 0; border: 0;">Child</DrawerPopup>
+                                </DrawerViewport>
+                            </DrawerPortal>
+                        </DrawerRoot>
+                    </DrawerPopup>
+                </DrawerViewport>
+            </DrawerPortal>
+        </DrawerRoot>
+    }
+    else if (Case == "nested")
+    {
+        <DrawerRoot TPayload="NoPayload" @ref="root" Open="true" Modal="false" OnOpenChange="RecordOpenChange">
+            <DrawerPortal>
+                <DrawerViewport @ref="viewport" style="position: fixed; inset: 0;">
+                    <DrawerPopup data-testid="parent-popup" style="position: fixed; left: 0; top: 0; width: 300px; height: 300px; margin: 0; padding: 0; border: 0;">
+                        <DrawerRoot TPayload="NoPayload" @ref="child" Open="@childOpen" Modal="false">
+                            <DrawerPortal>
+                                <DrawerViewport @ref="childViewport" data-testid="child-viewport" style="position: fixed; inset: 0;">
+                                    <DrawerPopup data-testid="child-popup" style="position: fixed; left: 0; top: 0; width: 200px; height: 200px; margin: 0; padding: 0; border: 0;">
+                                        <button type="button" data-testid="child-button" style="display: block; width: 200px; height: 40px;">Action</button>
+                                    </DrawerPopup>
+                                </DrawerViewport>
+                            </DrawerPortal>
+                        </DrawerRoot>
+                    </DrawerPopup>
+                </DrawerViewport>
+            </DrawerPortal>
+        </DrawerRoot>
+    }
+    else
+    {
+        <DrawerProvider>
+            @if (showIndent)
+            {
+                <DrawerIndent data-testid="indent" />
+            }
+            <DrawerRoot TPayload="NoPayload" @ref="root" Open="true" Modal="false" OnOpenChange="RecordOpenChange">
+                <DrawerPortal>
+                    <DrawerBackdrop data-testid="backdrop" />
+                    @if (showViewport)
+                    {
+                        <DrawerViewport @ref="viewport" style="position: fixed; inset: 0;">
+                            <DrawerPopup data-testid="popup" style="position: fixed; left: 0; top: 0; width: 200px; height: 100px; margin: 0; padding: 0; border: 0;">Drawer</DrawerPopup>
+                        </DrawerViewport>
+                    }
+                </DrawerPortal>
+            </DrawerRoot>
+        </DrawerProvider>
+    }
+</FixtureContainer>
+
+@code {
+    private DrawerRoot<NoPayload>? root;
+    private DrawerRoot<NoPayload>? child;
+    private DrawerViewport? viewport;
+    private DrawerViewport? childViewport;
+    private bool showIndent = true;
+    private bool showViewport = true;
+    private bool childOpen = true;
+    private readonly IReadOnlyList<SnapPointValue> bodySnapPoints = [new SnapPointValue(300), new SnapPointValue(100)];
+    private readonly IReadOnlyList<SnapPointValue> nestedSnapPoints = [new SnapPointValue("100px"), new SnapPointValue("200px")];
+
+    /// <inheritdoc />
+    protected override IEnumerable<Task> Attachments =>
+    [
+        root?.SessionAttached ?? Task.CompletedTask,
+        child?.SessionAttached ?? Task.CompletedTask,
+        viewport?.GestureAttached ?? Task.CompletedTask,
+        childViewport?.GestureAttached ?? Task.CompletedTask,
+    ];
+}

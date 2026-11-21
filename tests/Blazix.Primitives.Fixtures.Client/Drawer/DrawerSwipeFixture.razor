@@ -1,0 +1,388 @@
+@namespace Blazix.Primitives.Fixtures.Client.DrawerFixtures
+@using Blazix.Primitives
+@using Blazix.Primitives.Fixtures.Client.PopupFixtures
+@using Microsoft.JSInterop
+@inherits PopupSuiteFixtureBase
+@inject IJSRuntime JS
+
+@*
+    The `drawer-swipe` fixture (tests/browser/drawer.spec.ts; M6 track 8b, issue 279): the Viewport's dismiss gesture.
+    - `case=right`: DrawerRoot.test.tsx's TestCase, an open drawer swiped to the right; its popup is fixed at the top
+      left, 200 px wide and 300 px tall, so the dismiss threshold is 100 px ("uses a size-based swipe threshold"); the
+      viewport covers the page, as a Drawer viewport does, so a point past the popup still lands in it.
+    - `case=down` (added 2026-11-19): DrawerViewport.test.tsx's drawers, the default direction. The popup is fixed at
+      left 0 and top 100, 200 px wide and 300 px tall, and holds a Close button, a Drawer.Content region with
+      selectable text and a target, two 40 px regions, one with `data-base-ui-swipe-ignore` and one with the legacy
+      `data-swipe-ignore`, and a vertical scroll container 60 px tall over 120 px of content. Selectable text outside the drawer precedes the root.
+    - `case=scroll` (added 2026-11-20): DrawerViewport.test.tsx's scroll-edge drawers. The popup is fixed at left 300 and
+      top 300, 200 px wide and 300 px tall, and holds a vertical scroll container 60 px tall over 120 px of content and a
+      horizontal one 120 px wide over 360 px, then (added later on 2026-11-20) one 120 by 60 px over 360 by 180 px of
+      content, scrolling both ways, and one 100 px tall over 185 px whose 20 px SVG starts 45 px down; `direction` (`down`, the default, `up`, `left` or `right`) is the swipe direction.
+    - `case=wrap` (added 2026-11-20): "prevents touchmove when a scrollable ancestor wraps the popup at the top". A
+      vertical scroll container fixed at left 0 and top 100, 200 by 100 px, sits between the Viewport and an in-flow
+      300 px popup holding Drawer.Content with an item.
+    - `case=controls` (added 2026-11-20): DrawerViewport.test.tsx's selection-handle and range-input drawers, swiped down.
+      The popup is fixed at left 0 and top 100, 200 px wide and 300 px tall, and holds, in order, a text input, a
+      textarea, a contenteditable region and a text span, each reading "Selectable text"; a native range input 150 px
+      wide; and a Slider (100 px control, 10 px thumb, value 50). They fill its top 164 px; the rest is free.
+    - `case=axis` (added 2026-11-20): DrawerViewport.test.tsx's `data-base-ui-swipe-ignore` axis values. The popup is fixed
+      at left 0 and top 100, 200 px wide and 300 px tall, and holds 40 px rows marked `y` and `x`, then a valueless
+      ancestor around a row marked `x`; they fill its top 120 px. `direction` (`down`, the default, or `right`) is the
+      swipe direction.
+    - `case=shadow` (added 2026-11-20): DrawerViewport.test.tsx's shadow-root drawers. The portal renders into an open
+      shadow root that a page script attaches to `[data-shadow-host]` after the first render (Base UI's `container:
+      shadowRoot`, as the Popover fixture does). The popup is fixed at left 0 and top 100, 200 px wide and 300 px tall, and
+      holds a 40 px target and a 40 px `data-base-ui-swipe-ignore` row; the rest is free. The attach marker waits for the
+      Viewport rendered there.
+    - `case=combobox` (added 2026-11-20): DrawerViewport.test.tsx's portaled descendants. The popup is fixed at left 0
+      and top 100, 200 px wide and 300 px tall, and holds Drawer.Content with a Combobox of ten fruits, open by default,
+      whose portaled list is 40 px tall and scrolls.
+    - `case=snap` (added 2026-11-21): DrawerRoot.test.tsx's and DrawerViewport.test.tsx's snap point drawers. The root's
+      open state is the fixture's: a close it is told of closes it, unless `alwaysOpen=true` (a parent that rejects every
+      close) or `cancelClose=true`. `snapPoints` lists the snap points, comma-separated, numbers or CSS lengths
+      (`100px,300px,1` by default); `snap` makes the snap point controlled from that value (`null` for none), and
+      `defaultSnap` makes it uncontrolled from that default; `cancelSnap=true` cancels every snap point change and
+      `cancelSnap=null` only a change to none;
+      `sequential=true` sets `SnapToSequentialPoints`; `keepMounted=true` keeps the portal mounted; `direction` is the
+      swipe direction (`down` by default). The Viewport covers the page (720 px tall under Playwright's default viewport), and the
+      popup is fixed at left 0 and top 0, `pw` px wide (200 by default) and `ph` px tall (600 by default), so every start point of Base UI's
+      timelines lands on it. The snap point changes are recorded as `value:reason` in `data-snap-changes`, and the
+      controlled value as `data-active-snap` (`null` for none).
+    - `noPopup=true`: the Viewport renders no Popup ("ignores swipe input until a popup is mounted").
+    - `alwaysOpen=true`: the root is controlled with `Open="true"` and never follows a change.
+    The remove button (`data-remove-root`, added 2026-11-20) stops rendering the root, as Base UI's `unmount()`. The snap-to
+    control (`data-snap-to`, added 2026-11-21) sets the controlled snap point to the `snapTo` query, as Base UI's `setProps`;
+    on `case=snap`, `closed` starts the drawer closed and `data-toggle-open` opens or closes it, `data-hide-popup` stops
+    rendering the popup, `pt` is the popup's top, and `content` fills it: `scroll` (a
+    vertical scroller 40 px tall over 120 px), `html` and `svg` (a horizontal scroller 40 px wide over a 120 px target, an
+    element or an SVG rect), `axis` (a `data-base-ui-swipe-ignore="x"` wrapper around the target) and `carousel` (a 100 px
+    horizontal scroller over 400 px, itself the target); and (added 2026-11-21, slice 5) `drawer` (a Drawer.Content
+    `content` reading "Drawer") and `close` ("Drawer" and a Close, `close`).
+    The open changes are recorded as `open:reason` in `data-open-changes`; `cancelClose=true` cancels a close and
+    `retainEveryClose=true` keeps a close mounted (PopupSuiteFixtureBase). The sync button is the suites' `settle` barrier; since 2026-11-20 it takes the
+    suites' Shift keydown (`data-key-control`), so the barrier is no outside press for the `case=combobox` Combobox.
+*@
+<FixtureContainer Name="drawer-swipe" data-attached="@(Attached ? "true" : "false")" data-sync="@Sync" data-case="@Case"
+                  data-open-changes="@OpenChanges" data-combobox-changes="@string.Join(' ', comboboxChanges)" data-open-change-completes="@OpenChangeCompletes"
+                  data-snap-changes="@string.Join(' ', snapChanges)" data-active-snap="@SnapText(snapPoint)">
+    <button type="button" tabindex="-1" data-sync-button data-key-control @onclick="() => Sync++" @onkeydown="OnShift(() => Sync++)">Sync</button>
+    <button type="button" data-remove-root @onclick="() => removed = true">Remove</button>
+    <button type="button" tabindex="-1" data-snap-to data-key-control @onclick="SnapTo" @onkeydown="OnShift(SnapTo)">Snap to</button>
+    <button type="button" tabindex="-1" data-toggle-open data-key-control @onclick="() => snapOpen = !snapOpen" @onkeydown="OnShift(() => snapOpen = !snapOpen)">Toggle open</button>
+    <button type="button" tabindex="-1" data-hide-popup data-key-control @onclick="() => showSnapPopup = false" @onkeydown="OnShift(() => showSnapPopup = false)">Hide popup</button>
+    <span data-testid="outside-text">Outside selection</span>
+    @if (removed)
+    {
+        // Base UI's unmount(): nothing of the root renders.
+    }
+    else if (Snap)
+    {
+        if (QueryValue("defaultSnap") is { } defaultSnap)
+        {
+            <DrawerRoot TPayload="NoPayload" @ref="root" Open="@snapOpen" OnOpenChange="RecordSnapOpenChange" SwipeDirection="@Direction"
+                        SnapPoints="@SnapPoints" DefaultSnapPoint="@defaultSnap" OnSnapPointChange="RecordSnapPointChange"
+                        SnapToSequentialPoints="@(QueryFlag("sequential") == true)">
+                @SnapParts
+            </DrawerRoot>
+        }
+        else
+        {
+            <DrawerRoot TPayload="NoPayload" @ref="root" Open="@snapOpen" OnOpenChange="RecordSnapOpenChange" SwipeDirection="@Direction"
+                        SnapPoints="@SnapPoints" SnapPoint="@snapPoint" OnSnapPointChange="RecordSnapPointChange"
+                        SnapToSequentialPoints="@(QueryFlag("sequential") == true)">
+                @SnapParts
+            </DrawerRoot>
+        }
+    }
+    else if (QueryFlag("alwaysOpen") == true)
+    {
+        <DrawerRoot TPayload="NoPayload" @ref="root" Open="true" SwipeDirection="@Direction" OnOpenChange="RecordOpenChange">
+            @Parts
+        </DrawerRoot>
+    }
+    else
+    {
+        <DrawerRoot TPayload="NoPayload" @ref="root" DefaultOpen="true" SwipeDirection="@Direction" OnOpenChange="RecordOpenChange">
+            @Parts
+        </DrawerRoot>
+    }
+    <div data-shadow-host @ref="shadowHost"></div>
+</FixtureContainer>
+
+@code {
+    private DrawerRoot<NoPayload>? root;
+    private DrawerViewport? viewport;
+    private bool showSnapPopup = true;
+    private bool removed;
+    private readonly List<string> comboboxChanges = [];
+    private ElementReference shadowHost;
+    private PortalContainerValue? container;
+    private readonly TaskCompletionSource viewportRendered = new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+    private bool Down => Case == "down";
+
+    private bool Scroll => Case == "scroll";
+
+    private bool Controls => Case == "controls";
+
+    private bool Axis => Case == "axis";
+
+    private bool Shadow => Case == "shadow";
+
+    private bool Wrap => Case == "wrap";
+
+    private bool Combobox => Case == "combobox";
+
+    private bool Snap => Case == "snap";
+
+    private bool snapOpen = true;
+
+    private SnapPointValue? snapPoint;
+
+    private readonly List<string> snapChanges = [];
+
+    private static readonly string[] s_fruits = ["Apple", "Banana", "Cherry", "Date", "Elderberry", "Fig", "Grape", "Honeydew", "Kiwi", "Lime"];
+
+    private SwipeDirection Direction => Scroll || Axis || Snap
+        ? Query("direction") switch { "up" => SwipeDirection.Up, "left" => SwipeDirection.Left, "right" => SwipeDirection.Right, _ => SwipeDirection.Down }
+        : Down || Controls || Shadow || Wrap || Combobox ? SwipeDirection.Down : SwipeDirection.Right;
+
+    private string PopupStyle => Scroll
+        ? "position: fixed; left: 300px; top: 300px; width: 200px; height: 300px;"
+        : Wrap
+            ? "width: 200px; height: 300px;"
+        : Down || Controls || Axis || Shadow || Combobox
+            ? "position: fixed; left: 0; top: 100px; width: 200px; height: 300px;"
+            : "position: fixed; left: 0; top: 0; width: 200px; height: 300px;";
+
+    private RenderFragment Parts => @<DrawerPortal Container="@container">
+        <DrawerBackdrop data-testid="backdrop" />
+        <DrawerViewport @ref="viewport" data-testid="viewport" style="position: fixed; inset: 0;">
+            @if (Wrap)
+            {
+                <div data-testid="wrap" style="position: fixed; left: 0; top: 100px; width: 200px; height: 100px; overflow-y: auto;">
+                    <DrawerPopup data-testid="popup" style="@PopupStyle">
+                        <DrawerContent><span data-testid="item">Scrollable content</span></DrawerContent>
+                    </DrawerPopup>
+                </div>
+            }
+            else if (QueryFlag("noPopup") != true)
+            {
+            <DrawerPopup data-testid="popup" style="@PopupStyle">
+                @if (Scroll)
+                {
+                    <div data-testid="scroll" style="overflow-y: auto; max-height: 60px;"><div style="height: 120px;">Scrollable content</div></div>
+                    <div data-testid="hscroll" style="overflow-x: auto; max-width: 120px;"><div style="width: 360px; height: 40px;">Scrollable content</div></div>
+                    <div data-testid="bscroll" style="overflow: auto; width: 120px; height: 60px;"><div style="width: 360px; height: 180px;">Scrollable content</div></div>
+                    <div data-testid="svgscroll" style="overflow-y: auto; max-height: 100px;">
+                        <div style="height: 45px;"></div>
+                        <svg width="20" height="20" style="display: block;"><rect data-testid="rect" width="20" height="20" /></svg>
+                        <div style="height: 120px;"></div>
+                    </div>
+                }
+                else if (Combobox)
+                {
+                    <DrawerContent>
+                        <ComboboxRoot TValue="string" Items="@s_fruits" DefaultOpen="true" OnOpenChange="RecordComboboxChange">
+                            <ComboboxInput data-testid="combobox-input" />
+                            <ComboboxPortal>
+                                <ComboboxPositioner>
+                                    <ComboboxPopup data-testid="combobox-popup">
+                                        <ComboboxList TValue="string" data-testid="listbox" style="max-height: 40px; overflow: auto;">
+                                            <ItemContent>
+                                                <ComboboxItem TValue="string" Value="@context.Value" @key="context.Value">@context.Value</ComboboxItem>
+                                            </ItemContent>
+                                        </ComboboxList>
+                                    </ComboboxPopup>
+                                </ComboboxPositioner>
+                            </ComboboxPortal>
+                        </ComboboxRoot>
+                    </DrawerContent>
+                }
+                else if (Shadow)
+                {
+                    <div data-testid="target" style="height: 40px;">Target</div>
+                    <div data-testid="ignored" data-base-ui-swipe-ignore style="height: 40px;">Ignore</div>
+                }
+                else if (Axis)
+                {
+                    <div data-testid="axis-y" data-base-ui-swipe-ignore="y" style="height: 40px;">Carousel y</div>
+                    <div data-testid="axis-x" data-base-ui-swipe-ignore="x" style="height: 40px;">Carousel x</div>
+                    <div data-base-ui-swipe-ignore>
+                        <div data-testid="nested-x" data-base-ui-swipe-ignore="x" style="height: 40px;">Nested x</div>
+                    </div>
+                }
+                else if (Controls)
+                {
+                    <input data-testid="input" value="Selectable text" style="display: block; height: 24px; box-sizing: border-box;" />
+                    <textarea data-testid="textarea" style="display: block; height: 30px; box-sizing: border-box;">Selectable text</textarea>
+                    <div data-testid="editable" contenteditable="true" style="height: 30px;">Selectable text</div>
+                    <span data-testid="selectable" style="display: block; height: 30px;">Selectable text</span>
+                    <input data-testid="range" type="range" style="display: block; width: 150px; height: 30px; margin: 0;" />
+                    <SliderRoot DefaultValue="50" Culture="@System.Globalization.CultureInfo.GetCultureInfo("en-US")">
+                        <SliderControl data-testid="slider-control" style="width: 100px; height: 20px; position: relative">
+                            <SliderTrack style="width: 100%; height: 100%">
+                                <SliderIndicator />
+                                <SliderThumb data-testid="slider-thumb" aria-label="Volume" style="width: 10px; height: 10px; background: red" />
+                            </SliderTrack>
+                        </SliderControl>
+                    </SliderRoot>
+                }
+                else if (Down)
+                {
+                    <DrawerClose>Close</DrawerClose>
+                    <DrawerContent>
+                        <span data-testid="text">Selectable</span>
+                        <div data-testid="content-target" style="height: 100px;">Action</div>
+                    </DrawerContent>
+                    <div data-testid="ignored" data-base-ui-swipe-ignore style="height: 40px;">Ignored</div>
+                    <div data-testid="legacy" data-swipe-ignore style="height: 40px;">Legacy</div>
+                    <div data-testid="scroll" style="overflow-y: auto; max-height: 60px;"><div style="height: 120px;">Scrollable content</div></div>
+                }
+                else
+                {
+                    @("Drawer")
+                }
+            </DrawerPopup>
+            }
+        </DrawerViewport>
+    </DrawerPortal>;
+
+    private IReadOnlyList<SnapPointValue> SnapPoints => [.. (Query("snapPoints") ?? "100px,300px,1").Split(',').Select(ParseSnap)];
+
+    private RenderFragment SnapParts => @<DrawerPortal KeepMounted="@(QueryFlag("keepMounted") == true)">
+        <DrawerBackdrop data-testid="backdrop" />
+        <DrawerViewport @ref="viewport" data-testid="viewport" style="position: fixed; inset: 0;">
+            @if (showSnapPopup)
+            {
+                <DrawerPopup data-testid="popup" style="@($"position: fixed; left: 0; top: {Query("pt") ?? "0"}px; width: {Query("pw") ?? "200"}px; height: {Query("ph") ?? "600"}px; margin: 0; padding: 0; border: 0;")">
+                    @switch (Query("content"))
+                    {
+                        case "scroll":
+                            <div data-testid="scroll" style="overflow-y: auto; max-height: 40px;"><div style="height: 120px;">Scrollable content</div></div>
+                            break;
+                        case "html":
+                            <div data-testid="scroll" style="overflow-x: auto; width: 40px;"><div data-testid="target" style="width: 120px; height: 40px;">Swipe here</div></div>
+                            break;
+                        case "svg":
+                            <div data-testid="scroll" style="overflow-x: auto; width: 40px;"><svg width="120" height="40" style="display: block;"><rect data-testid="target" width="120" height="40"></rect></svg></div>
+                            break;
+                        case "axis":
+                            <div data-testid="scroll" data-base-ui-swipe-ignore="x"><div data-testid="target" style="height: 40px;">Swipe here</div></div>
+                            break;
+                        case "carousel":
+                            <div data-testid="target" style="overflow-x: auto; width: 100px; height: 40px;"><div style="width: 400px; height: 40px;">Carousel</div></div>
+                            break;
+                        case "drawer":
+                            <DrawerContent data-testid="content">Drawer</DrawerContent>
+                            break;
+                        case "close":
+                            @("Drawer")
+                            <DrawerClose data-testid="close">Close</DrawerClose>
+                            break;
+                        default:
+                            @("Drawer")
+                            break;
+                    }
+                </DrawerPopup>
+            }
+        </DrawerViewport>
+    </DrawerPortal>;
+
+    protected override IEnumerable<Task> Attachments => [root?.SessionAttached ?? Task.CompletedTask, ViewportAttachedAsync()];
+
+    /// <inheritdoc />
+    protected override void OnInitialized()
+    {
+        base.OnInitialized();
+        if (Snap && QueryFlag("closed") == true)
+        {
+            snapOpen = false;
+        }
+
+        if (Snap && Query("snap") is { } snap)
+        {
+            snapPoint = snap == "null" ? (SnapPointValue?)null : ParseSnap(snap);
+        }
+
+        if (Shadow)
+        {
+            container = PortalContainerValue.Pending;
+        }
+    }
+
+    /// <inheritdoc />
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (viewport is not null)
+        {
+            viewportRendered.TrySetResult();
+        }
+
+        // The shadow root's host exists only after the first render.
+        if (firstRender && RendererInfo.IsInteractive && Shadow)
+        {
+            try
+            {
+                container = new PortalContainerValue(await JS.InvokeAsync<IJSObjectReference>("blazixFixtureDom.createOpenShadowRoot", shadowHost));
+                StateHasChanged();
+            }
+            catch (JSDisconnectedException)
+            {
+                // The circuit went while the page was set up.
+            }
+        }
+
+        await base.OnAfterRenderAsync(firstRender);
+    }
+
+    private static SnapPointValue ParseSnap(string value) =>
+        double.TryParse(value, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out double number)
+            ? new SnapPointValue(number)
+            : new SnapPointValue(value);
+
+    private static string SnapText(SnapPointValue? value) => value is not { } held
+        ? "null"
+        : held.TryGetValue(out double number) ? number.ToString("R", System.Globalization.CultureInfo.InvariantCulture) : held.Value?.ToString() ?? "null";
+
+    private SnapPointValue? QueryValue(string name) => Query(name) is { } value && value != "null" ? ParseSnap(value) : (SnapPointValue?)null;
+
+    // Base UI's controlled open state: a close is followed unless the case rejects it or cancels it.
+    private void RecordSnapOpenChange(ValueChangeEventArgs<bool> args)
+    {
+        RecordOpenChange(args);
+        if (!args.Details.IsCanceled && QueryFlag("alwaysOpen") != true)
+        {
+            snapOpen = args.Value;
+        }
+    }
+
+    private void SnapTo() => snapPoint = QueryValue("snapTo");
+
+    private void RecordSnapPointChange(ValueChangeEventArgs<SnapPointValue?> args)
+    {
+        snapChanges.Add($"{SnapText(args.Value)}:{args.Details.Reason.ToLiteral()}");
+        if (QueryFlag("cancelSnap") == true || (Query("cancelSnap") == "null" && args.Value is null))
+        {
+            args.Details.Cancel();
+        }
+        else
+        {
+            snapPoint = args.Value;
+        }
+    }
+
+    private void RecordComboboxChange(ValueChangeEventArgs<bool> args) =>
+        comboboxChanges.Add($"{(args.Value ? "true" : "false")}:{args.Details.Reason.ToString().ToLowerInvariant()}");
+
+    // In the shadow case the Viewport renders only once the container arrives.
+    private async Task ViewportAttachedAsync()
+    {
+        if (viewport is null && Shadow)
+        {
+            await viewportRendered.Task;
+        }
+
+        await (viewport?.GestureAttached ?? Task.CompletedTask);
+    }
+}

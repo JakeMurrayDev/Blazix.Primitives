@@ -1,0 +1,16 @@
+@namespace Blazix.Primitives.Fixtures.Client.DrawerFixtures
+
+@*
+    Calls `Rendered` after its first render (M6 track 8b slice 5, added 2026-11-21): placed inside a part that mounts in a
+    later batch than its fixture (a portaled popup), it tells the fixture the part's reference is set without a render of
+    the fixture itself.
+*@
+
+@code {
+    /// <summary>Gets or sets the callback run after the first render.</summary>
+    [Parameter, EditorRequired]
+    public Func<Task> Rendered { get; set; } = null!;
+
+    /// <inheritdoc />
+    protected override Task OnAfterRenderAsync(bool firstRender) => firstRender ? Rendered() : Task.CompletedTask;
+}

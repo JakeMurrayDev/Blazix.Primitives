@@ -63,6 +63,16 @@ namespace Blazix.Primitives.Interop;
 [JsonSerializable(typeof(ComboboxKeyReport))]
 [JsonSerializable(typeof(ComboboxLinkPress))]
 [JsonSerializable(typeof(TabsOptions))]
+[JsonSerializable(typeof(DrawerOptions))]
+[JsonSerializable(typeof(DrawerSwipingChange))]
+[JsonSerializable(typeof(DrawerDismissRequest))]
+// M6 track 8b slice 3 (issue 279), 2026-11-20: the Drawer's numbered snap point request, as DrawerDismissRequest above
+// (design point 10 (a), chosen by the user 2026-11-19).
+[JsonSerializable(typeof(DrawerSnapPointRequest))]
+// M6 track 8b slice 3 (issue 279), 2026-11-21: the Popup's measured height (DRW-STA-10).
+[JsonSerializable(typeof(DrawerPopupHeightChange))]
+// M6 track 8b slice 4 (issue 279), 2026-11-21: the SwipeArea's open request (DRW-PTR-28).
+[JsonSerializable(typeof(DrawerOpenRequest))]
 [JsonSerializable(typeof(TabsSelection))]
 [JsonSerializable(typeof(TabsTabEvent))]
 [JsonSerializable(typeof(TabsDirectionChange))]

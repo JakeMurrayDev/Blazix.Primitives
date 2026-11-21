@@ -62,6 +62,7 @@
     <BlazixJsEntry Include="js/select.ts" Out="js/select" />
     <BlazixJsEntry Include="js/scroll-area.ts" Out="js/scroll-area" />
     <BlazixJsEntry Include="js/slider.ts" Out="js/slider" />
+    <BlazixJsEntry Include="js/drawer.ts" Out="js/drawer" />
     <BlazixJsEntry Include="js/number-field.ts" Out="js/number-field" />
     <BlazixJsEntry Include="js/toast.ts" Out="js/toast" />
     <BlazixJsEntry Include="js/otp-field.ts" Out="js/otp-field" />

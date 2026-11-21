@@ -72,6 +72,9 @@ public sealed class DrawerBackdrop : PartBase<DrawerBackdropState>
     private IDialogRootContext? Context { get; set; }
 
     [CascadingParameter]
+    private DrawerRootContext? Drawer { get; set; }
+
+    [CascadingParameter]
     private PopupPortalContext? Portal { get; set; }
 
     // DLG-API-19
@@ -131,11 +134,21 @@ public sealed class DrawerBackdrop : PartBase<DrawerBackdropState>
     }
 
     /// <inheritdoc />
-    protected override Task OnAfterRenderAsync(bool firstRender) => behavior!.OnAfterRenderAsync(Enabled, Element, Id, Portal);
+    protected override Task OnAfterRenderAsync(bool firstRender)
+    {
+        // M6 track 8b: the Viewport's drawer handle writes data-swiping, data-swipe-dismiss and the progress on this element.
+        Drawer?.SetBackdropElement(Enabled ? Element : null);
+        return behavior!.OnAfterRenderAsync(Enabled, Element, Id, Portal);
+    }
 
     /// <inheritdoc />
     protected override void Dispose(bool disposing)
     {
+        if (disposing && Element is { } element && string.Equals(Drawer?.BackdropElement?.Id, element.Id, StringComparison.Ordinal))
+        {
+            Drawer!.SetBackdropElement(null);
+        }
+
         if (disposing && behavior is not null)
         {
             _ = behavior.DisposeAsync().AsTask();

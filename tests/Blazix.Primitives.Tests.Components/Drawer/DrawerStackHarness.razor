@@ -1,0 +1,48 @@
+@namespace Blazix.Primitives.Tests.Components
+@* M6 track 8b slice 3: a Provider with an Indent around an open parent drawer whose popup holds a nested drawer controlled by
+   ChildOpen, each with a Viewport. WithProvider false drops the Provider (the Indent stays, inactive). *@
+@if (WithProvider)
+{
+    <DrawerProvider>
+        @Tree
+    </DrawerProvider>
+}
+else
+{
+    @Tree
+}
+
+@code {
+    /// <summary>Gets or sets a value indicating whether the tree is under a Provider.</summary>
+    [Parameter]
+    public bool WithProvider { get; set; } = true;
+
+    /// <summary>Gets or sets a value indicating whether the nested drawer is open.</summary>
+    [Parameter]
+    public bool ChildOpen { get; set; } = true;
+
+    /// <summary>Gets the parent root.</summary>
+    public DrawerRoot<NoPayload>? Parent { get; private set; }
+
+    /// <summary>Gets the nested root.</summary>
+    public DrawerRoot<NoPayload>? Child { get; private set; }
+
+    private RenderFragment Tree => @<text>
+        <DrawerIndent data-testid="indent" />
+        <DrawerRoot TPayload="NoPayload" @ref="Parent" DefaultOpen="true" Modal="false">
+            <DrawerPortal>
+                <DrawerViewport data-testid="parent-viewport">
+                    <DrawerPopup data-testid="parent-popup">
+                        <DrawerRoot TPayload="NoPayload" @ref="Child" Open="ChildOpen" Modal="false">
+                            <DrawerPortal>
+                                <DrawerViewport data-testid="child-viewport">
+                                    <DrawerPopup data-testid="child-popup">Child drawer</DrawerPopup>
+                                </DrawerViewport>
+                            </DrawerPortal>
+                        </DrawerRoot>
+                    </DrawerPopup>
+                </DrawerViewport>
+            </DrawerPortal>
+        </DrawerRoot>
+    </text>;
+}

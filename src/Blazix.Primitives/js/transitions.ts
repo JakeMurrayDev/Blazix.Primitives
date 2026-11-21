@@ -881,6 +881,7 @@ export interface TransitionsOptions extends TwinOptions {
 const attachedHandle = Symbol('blazix.transitions.handle');
 const announcedRetain = Symbol('blazix.transitions.retain');
 const retainChanged = Symbol('blazix.transitions.retainChanged');
+const endingForcer = Symbol('blazix.transitions.endingForcer');
 
 interface AttachedElement extends HTMLElement {
   [attachedHandle]?: TwinHandle;
@@ -888,6 +889,8 @@ interface AttachedElement extends HTMLElement {
   [announcedRetain]?: boolean;
   /** The attached handle's re-arm of its exit watcher, which an announcement calls. */
   [retainChanged]?: () => void;
+  /** The attached handle's switch of its forced `data-ending-style`, which `forceEnding` calls. */
+  [endingForcer]?: (forced: boolean) => void;
 }
 
 /**
@@ -909,6 +912,20 @@ export function retainExit(element: Element | null, value: boolean, captureId?: 
   }
   target[announcedRetain] = value;
   target[retainChanged]?.();
+}
+
+// DRW-PTR-12 (DrawerViewport.tsx:184-187,458); ADR 04 Amendments 2026-11-18, decision 21 (a): granted to session D (M6
+// track 8b), chosen by the user. Base UI's Drawer sets the attribute itself at a swipe release; here the `drawer` module
+// asks the one writer. A call with `forced` false is Base UI's `clearSwipeRelease` (a canceled dismissal).
+/**
+ * Shows `data-ending-style` on an attached element ahead of its status, or stops showing it. A forced ending lasts
+ * until it is switched off, or until a written ending status gives way to another status, as a renderer that rendered
+ * the attribute would take it off. Does nothing on an element the module has not attached.
+ * @param element The element.
+ * @param forced Whether the attribute is forced on; `true` by default.
+ */
+export function forceEnding(element: Element, forced = true): void {
+  (element as AttachedElement)[endingForcer]?.(forced);
 }
 
 /**
@@ -989,10 +1006,22 @@ export function attach(
     }
   };
 
+  // `forceEnding`: the forced attribute, and whether the last written status was a real ending (its end clears the
+  // forced attribute).
+  let endingForced = false;
+  let endingWritten = false;
+
   const writeAttributes = (state: TransitionState) => {
     const shown = shownStatus(state.status);
+    const ending = shown === 'ending';
+    if (ending) {
+      endingWritten = true;
+    } else if (endingWritten) {
+      endingWritten = false;
+      endingForced = false;
+    }
     // A hidden-until-found element keeps its collapsed starting styles while hidden, so a reveal starts from them.
-    attributes.write(shown === 'starting' || (options.hiddenUntilFound && isHidden(state)), shown === 'ending');
+    attributes.write(shown === 'starting' || (options.hiddenUntilFound && isHidden(state)), ending || endingForced);
     writeStartingTransition(shown === 'starting');
   };
 
@@ -1200,6 +1229,7 @@ export function attach(
       disposed = true;
       delete element[attachedHandle];
       delete element[retainChanged];
+      delete element[endingForcer];
       transitionLayer?.clear();
       machine.dispose();
       closeController?.abort();
@@ -1213,6 +1243,12 @@ export function attach(
       stopObserving = null;
       hiddenController.dispose();
     },
+  };
+  element[endingForcer] = (forced) => {
+    if (!disposed) {
+      endingForced = forced;
+      writeAttributes(machine);
+    }
   };
   element[attachedHandle] = handle;
   return handle;

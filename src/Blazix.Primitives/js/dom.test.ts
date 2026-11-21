@@ -1590,6 +1590,136 @@ describe('styleWriter', () => {
     expect(element.style.getPropertyValue('--anchor-width')).toBe('72px');
     expect(element.style.getPropertyPriority('opacity')).toBe('important');
   });
+
+  // ADR 04 Amendments 2026-11-18, design point 2 (b) of the Drawer track (settled by the orchestrator 2026-11-18; granted
+  // to session D, M6 track 8b): C# renders a Drawer Popup's `--nested-drawers` in the commit path, so a re-render
+  // rewrites the `style` attribute the writer composes. A writer that opts in (`absorbForeignWrites`) absorbs the
+  // foreign write before paint.
+  describe('a foreign write', () => {
+    const flushObservers = () => new Promise<void>((resolve) => setTimeout(resolve, 0));
+
+    it('a foreign write restores the bands', async () => {
+      const element = document.createElement('div');
+      document.body.appendChild(element);
+      const writer = styleWriter(element);
+      writer.absorbForeignWrites();
+      writer.setConsumer('color: red');
+      writer.layer('transitions').set('transition', 'none');
+      writer.layer('component').set('--nested-drawers', '2');
+
+      element.setAttribute('style', 'color: blue; --nested-drawers: 1');
+      await flushObservers();
+
+      expect(element.style.getPropertyValue('color')).toBe('blue');
+      expect(element.style.getPropertyValue('transition')).toBe('none');
+      expect(element.style.getPropertyValue('--nested-drawers')).toBe('2');
+      element.remove();
+    });
+
+    it('a self write is ignored', async () => {
+      const element = document.createElement('div');
+      document.body.appendChild(element);
+      const writer = styleWriter(element);
+      writer.absorbForeignWrites();
+      writer.setConsumer('color: red');
+      writer.layer('component').set('height', '50px');
+      await flushObservers();
+
+      // Had the writer's own write been taken as the consumer's text, the consumer band would now hold the height.
+      writer.layer('component').remove('height');
+      expect(element.style.getPropertyValue('height')).toBe('');
+      expect(element.style.getPropertyValue('color')).toBe('red');
+      element.remove();
+    });
+
+    it('the consumer band holds the rendered declarations', async () => {
+      const element = document.createElement('div');
+      document.body.appendChild(element);
+      const writer = styleWriter(element);
+      writer.absorbForeignWrites();
+      writer.setConsumer('color: red');
+      writer.layer('component').set('--drawer-frontmost-height', '120px');
+
+      element.setAttribute('style', 'color: red; --nested-drawers: 1');
+      await flushObservers();
+      writer.layer('component').set('--nested-drawers', '3');
+      expect(element.style.getPropertyValue('--nested-drawers')).toBe('3');
+
+      // Removing the component value hands the property back to the rendered one; a value only a band held goes.
+      writer.layer('component').remove('--nested-drawers');
+      expect(element.style.getPropertyValue('--nested-drawers')).toBe('1');
+      writer.layer('component').remove('--drawer-frontmost-height');
+      expect(element.style.getPropertyValue('--drawer-frontmost-height')).toBe('');
+      element.remove();
+    });
+
+    // Select's measurement (select.ts `unsetTransformStyles`, SEL-POS-19) forces three declarations around a read and
+    // restores them in the same task, while its placement writes a band in between.
+    it('port: declarations added and restored inside one task are not absorbed, though the writer writes in between', async () => {
+      const element = document.createElement('div');
+      document.body.appendChild(element);
+      const writer = styleWriter(element);
+      writer.absorbForeignWrites();
+      writer.layer('aligned').set('position', 'relative');
+
+      element.style.setProperty('transform', 'none', 'important');
+      writer.layer('aligned').set('height', '100%');
+      element.style.removeProperty('transform');
+      await flushObservers();
+
+      writer.layer('aligned').clear();
+      expect(element.style.getPropertyValue('position')).toBe('');
+      expect(element.style.getPropertyValue('height')).toBe('');
+      expect(element.style.getPropertyValue('transform')).toBe('');
+      element.remove();
+    });
+
+    // popup.ts `override` (usePopupAutoResize.ts:175-182) writes a declaration directly for a measurement and restores
+    // it in a later task. A writer that has opted in takes the override, and the bands present with it, as the
+    // consumer's; a writer that has not opted in never does.
+    it('port: only an opted-in writer takes a direct override restored in a later task as the consumer style', async () => {
+      const overrideAcrossTasks = async (optIn: boolean) => {
+        const element = document.createElement('div');
+        document.body.appendChild(element);
+        const writer = styleWriter(element);
+        if (optIn) {
+          writer.absorbForeignWrites();
+        }
+        writer.layer('positioning').set('transform', 'translate(10px, 20px)');
+
+        element.style.setProperty('width', 'max-content');
+        await flushObservers();
+        writer.layer('positioning').set('top', '20px');
+        element.style.removeProperty('width');
+        await flushObservers();
+
+        writer.layer('positioning').clear();
+        const left = element.style.getPropertyValue('transform');
+        element.remove();
+        return left;
+      };
+
+      expect(await overrideAcrossTasks(true)).toBe('translate(10px, 20px)');
+      expect(await overrideAcrossTasks(false)).toBe('');
+    });
+
+    it('port: a foreign write is absorbed before the writer next writes, even before its observer runs', () => {
+      const element = document.createElement('div');
+      document.body.appendChild(element);
+      const writer = styleWriter(element);
+      writer.absorbForeignWrites();
+      writer.setConsumer('color: red');
+      writer.layer('component').set('--nested-drawers', '2');
+
+      element.setAttribute('style', 'color: blue; --nested-drawers: 1');
+      writer.layer('transitions').set('transition', 'none');
+
+      expect(element.style.getPropertyValue('color')).toBe('blue');
+      expect(element.style.getPropertyValue('transition')).toBe('none');
+      expect(element.style.getPropertyValue('--nested-drawers')).toBe('2');
+      element.remove();
+    });
+  });
 });
 
 // CMP-ALG-03 (design point 6 (a) of M5 track 1, settled by the orchestrator 2026-11-04): the visibility predicates live in

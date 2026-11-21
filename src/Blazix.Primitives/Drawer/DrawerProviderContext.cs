@@ -9,8 +9,13 @@ namespace Blazix.Primitives;
 /// <summary>The open drawers under a <see cref="DrawerProvider"/>.</summary>
 internal sealed class DrawerProviderContext
 {
+    private static int s_count;
     private readonly HashSet<object> openRoots = new(ReferenceEqualityComparer.Instance);
     private readonly List<Action> listeners = [];
+
+    // M6 track 8b slice 3 (2026-11-21): the `drawer` module keys the visual state (DRW-STA-15) by this token.
+    /// <summary>Gets the token the provider's visual state is known by in the browser.</summary>
+    public string Token { get; } = "blazix-drawer-provider-" + Interlocked.Increment(ref s_count).ToString(System.Globalization.CultureInfo.InvariantCulture);
 
     /// <summary>Gets a value indicating whether any drawer under the provider is open.</summary>
     public bool Active => openRoots.Count > 0;

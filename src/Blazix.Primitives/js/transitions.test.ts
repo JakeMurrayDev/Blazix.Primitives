@@ -15,6 +15,7 @@ import {
   createAnimationsWatcher,
   createTransitionMachine,
   evaluateTransition,
+  forceEnding,
   getFiniteAnimations,
   requestFrame,
   resetFrameScheduler,
@@ -999,6 +1000,72 @@ describe('attach', () => {
     update(handle, { open: false, keepMounted: true, hiddenWhenUnmounted: true, unmountRequests: 1 });
     expect(element.hasAttribute(ENDING_STYLE)).toBe(false);
     expect(element.hasAttribute('hidden')).toBe(true);
+  });
+
+  // DRW-PTR-12 (DrawerViewport.tsx:184-187,458): the swipe release sets `data-ending-style` before the close request,
+  // and a canceled dismissal takes it off; the module stays its one writer (ADR 04 Amendments 2026-11-18, decision 21
+  // (a)).
+  // The exits below are held with `retainExit`, so each close stays in its ending phase while the titles look at it.
+  const held = { keepMounted: true, hiddenWhenUnmounted: true };
+
+  it('port: forceEnding sets data-ending-style on an attached open element at once, and the close that follows keeps it', async () => {
+    const fake = createFakeTwin();
+    const element = createElement();
+    const handle = attachTo(element, fake, { open: true, mounted: true, ...held });
+    runFrame();
+    expect(element.hasAttribute(ENDING_STYLE)).toBe(false);
+
+    forceEnding(element);
+    expect(element.hasAttribute(ENDING_STYLE)).toBe(true);
+
+    retainExit(element, true);
+    update(handle, { open: false, ...held });
+    runFrame();
+    runFrame();
+    await flushTasks();
+    expect(element.hasAttribute(ENDING_STYLE)).toBe(true);
+  });
+
+  it('port: forceEnding(element, false) takes a forced data-ending-style off, and leaves a real ending one', () => {
+    const fake = createFakeTwin();
+    const element = createElement();
+    const handle = attachTo(element, fake, { open: true, mounted: true, ...held });
+    runFrame();
+
+    forceEnding(element);
+    forceEnding(element, false);
+    expect(element.hasAttribute(ENDING_STYLE)).toBe(false);
+
+    forceEnding(element);
+    retainExit(element, true);
+    update(handle, { open: false, ...held });
+    forceEnding(element, false);
+    expect(element.hasAttribute(ENDING_STYLE)).toBe(true);
+  });
+
+  it('port: an open status written after a forced ending takes data-ending-style off, and the next close writes it again', () => {
+    const fake = createFakeTwin();
+    const element = createElement();
+    const handle = attachTo(element, fake, { open: true, mounted: true, ...held });
+    runFrame();
+
+    forceEnding(element);
+    retainExit(element, true);
+    update(handle, { open: false, ...held });
+    // A reopen inside the exit shows its real ending status for that pass; the next frame moves it on.
+    update(handle, { open: true, mounted: true, ...held });
+    runFrame();
+    expect(element.hasAttribute(ENDING_STYLE)).toBe(false);
+
+    retainExit(element, true);
+    update(handle, { open: false, mounted: true, ...held });
+    expect(element.hasAttribute(ENDING_STYLE)).toBe(true);
+  });
+
+  it('port: forceEnding does nothing on an element the module has not attached', () => {
+    const element = createElement();
+    forceEnding(element);
+    expect(element.hasAttribute(ENDING_STYLE)).toBe(false);
   });
 
   it('port: a retainExit announced before the attach reaches the handle that attaches', async () => {
