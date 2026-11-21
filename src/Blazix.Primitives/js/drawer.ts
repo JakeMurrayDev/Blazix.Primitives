@@ -90,13 +90,16 @@ export interface DrawerOptions extends TwinOptions {
   canceledSnap?: number;
   /** The token of the Provider the drawer or the Indent is under, or `null` without one. */
   provider?: string | null;
-  /** The Root's frontmost height in pixels (DRW-STA-11), or 0 before any measurement. */
+  // DRW-STA-11.
+  /** The Root's frontmost height in pixels, or 0 before any measurement. */
   frontmostHeight?: number;
-  /** Whether the drawer is nested in another drawer, whose popup follows its drag (DRW-PTR-16, PTR-17). */
+  // DRW-PTR-16, PTR-17.
+  /** Whether the drawer is nested in another drawer, whose popup follows its drag. */
   hasParent?: boolean;
   /** The indexes among the references of the enclosing drawers' popups, the nearest first. */
   ancestorPopups?: number[] | null;
-  /** The popup role: whether a nested drawer is present, open or animating out (DRW-STA-12). */
+  // DRW-STA-12.
+  /** The popup role: whether a nested drawer is present, open or animating out. */
   hasNestedDrawer?: boolean;
   /** The popup role: whether the popup is animating out. */
   ending?: boolean;
@@ -276,14 +279,30 @@ export function resolveActiveSnapPointOffset(
   return closest.offset;
 }
 
-// DRW-DOM-12's snap point exception (useDrawerSnapPoints.ts:21-28): past fully open, the movement is damped.
-function getSnapPointSwipeMovement(baseOffset: number, movement: number): number {
+// DRW-STA-09, DRW-DOM-12's snap point exception (useDrawerSnapPoints.ts:21-28): past fully open, the movement is damped.
+/**
+ * The drag movement applied to a snap point's offset: the raw movement until the offset would pass the fully open edge,
+ * then square-root damped past it.
+ * @param baseOffset The snap point's offset.
+ * @param movement The drag's movement along the drawer's axis.
+ * @returns The movement to apply.
+ */
+export function getSnapPointSwipeMovement(baseOffset: number, movement: number): number {
   const nextOffset = baseOffset + movement;
   return nextOffset >= 0 ? movement : -Math.sqrt(-nextOffset) - baseOffset;
 }
 
-// The index of the value nearest `target`; the first wins on ties.
-function closestIndex(values: readonly number[], target: number): number {
+// DRW-STA-09 (useDrawerSnapPoints.ts:69-82).
+/**
+ * The index of the value nearest `target`; the first wins on ties.
+ * @param values The values.
+ * @param target The value to match.
+ * @returns The index, or -1 when there are no values.
+ */
+export function closestSnapPointIndex(values: readonly number[], target: number): number {
+  if (values.length === 0) {
+    return -1;
+  }
   let best = 0;
   for (let index = 1; index < values.length; index += 1) {
     if (Math.abs(values[index]! - target) < Math.abs(values[best]! - target)) {
@@ -1486,8 +1505,8 @@ function attachViewport(
     if (options.snapToSequentialPoints) {
       const ordered = [...state.resolved].sort((a, b) => a.offset - b.offset);
       const offsets = ordered.map((entry) => entry.offset);
-      const currentIndex = closestIndex(offsets, current);
-      let chosen = ordered[closestIndex(offsets, target)]!;
+      const currentIndex = closestSnapPointIndex(offsets, current);
+      let chosen = ordered[closestSnapPointIndex(offsets, target)]!;
       let effective = target;
       if (dragDirection !== 0 && Math.sign(velocity) === dragDirection && Math.abs(velocity) >= FAST_SWIPE_VELOCITY) {
         const adjacent = clamp(currentIndex + dragDirection, 0, ordered.length - 1);
@@ -1504,7 +1523,7 @@ function attachViewport(
       }
       return Math.abs(effective - popupHeight) < Math.abs(effective - chosen.offset) ? close(chosen) : settle(chosen);
     }
-    const nearest = state.resolved[closestIndex(state.resolved.map((entry) => entry.offset), target)]!;
+    const nearest = state.resolved[closestSnapPointIndex(state.resolved.map((entry) => entry.offset), target)]!;
     if (velocity >= FAST_SWIPE_VELOCITY && dragDelta > 0) {
       return close(nearest);
     }
