@@ -3195,7 +3195,8 @@ test.describe('<Drawer.Root /> CloseWatcher', () => {
     await settle(fixture);
     expect(await watcherActive(page)).toBe(true);
 
-    await page.getByTestId('unmount').click();
+    // Base UI calls `unmount()`; the modal drawer covers the page's button, so it is clicked in the page.
+    await page.getByTestId('unmount').evaluate((element) => (element as HTMLElement).click());
     await expect.poll(() => watcherActive(page)).toBe(false);
   });
 });
