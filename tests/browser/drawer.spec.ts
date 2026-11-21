@@ -1,5 +1,5 @@
-import { expect, pointOf, swipeOnTimeline, test, testWithTouch, touchDrag, type Page, type RenderMode } from './helpers';
-import type { Locator } from '@playwright/test';
+import { expect, Fixture, fixtureUrl, pointOf, swipeOnTimeline, test, testWithTouch, touchDrag, type Page, type RenderMode } from './helpers';
+import type { Locator, Route } from '@playwright/test';
 import { gotoPopupFixture, pressControl, settle } from './suites/popupFixture';
 
 // The [L4] rows of docs/components/drawer.md (DRW), both render modes, Server first (ADR 04 §6). Titles are Base UI's
@@ -2983,5 +2983,58 @@ test.describe('<Drawer.Root /> and <Drawer.Viewport /> snap point resets and res
 
     expect(await styleOf(backdrop, '--drawer-swipe-progress')).toBe('1');
     await expect(page.getByTestId('popup')).not.toHaveAttribute('data-swiping');
+  });
+});
+
+// The attach order of the Popup's two handle sets (M6 track 8b slice 5, issue 279, added 2026-11-21, chosen by the user
+// 2026-11-21; the standing rule of CI run 40461905812): the Popup's own `drawer` handle starts beside the Dialog popup
+// behaviour's handles, not behind them, so a nested drawer's height reaches its parent while js/popup.js (the behaviour's
+// Popup role, which js/drawer.js does not import) is still loading, and the Popup role's stopped arrow keys follow once
+// the module arrives. Behind the behaviour (the order before the change), the frontmost height stays unset while stalled.
+test.describe('<Drawer.Popup /> attach order', () => {
+  async function stall(page: Page, module: string): Promise<{ hits: () => number; release: () => Promise<void> }> {
+    const held: Route[] = [];
+    let hits = 0;
+    let released = false;
+    // WebAssembly requests the fingerprinted URL (`<module>.<hash>.js`).
+    await page.route(new RegExp(`/js/${module}(\\.[\\w-]+)?\\.js(\\?.*)?$`), (route) => {
+      hits += 1;
+      return released ? route.continue() : void held.push(route);
+    });
+    return {
+      hits: () => hits,
+      release: async () => {
+        released = true;
+        for (const route of held.splice(0)) {
+          await route.continue();
+        }
+      },
+    };
+  }
+
+  test('port: with js/popup.js stalled a nested drawer open from the start reports its height to its parent, and its popup stops the arrow keys once the module arrives', async ({ page, mode }) => {
+    const stalled = await stall(page, 'popup');
+    await page.goto(`${fixtureUrl(mode, 'drawer-stack')}?case=nested`, { waitUntil: 'commit' });
+    await page.locator(Fixture.started).waitFor({ state: 'attached' });
+    await expect.poll(stalled.hits).toBeGreaterThan(0);
+    const parent = page.getByTestId('parent-popup');
+    const child = page.getByTestId('child-popup');
+    // Whether an ArrowDown dispatched on the nested popup bubbles past it to the document.
+    const arrowBubbles = () => child.evaluate((element) => {
+      let reached = false;
+      const listener = () => (reached = true);
+      document.addEventListener('keydown', listener);
+      element.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowDown', bubbles: true, cancelable: true }));
+      document.removeEventListener('keydown', listener);
+      return reached;
+    });
+
+    await expect.poll(() => styleOf(parent, '--drawer-frontmost-height')).toBe('200px');
+    expect(await arrowBubbles()).toBe(true);
+
+    await stalled.release();
+    await expect.poll(arrowBubbles).toBe(false);
+    await expect(page.locator(Fixture.container('drawer-stack'))).toHaveAttribute('data-attached', 'true');
+    expect(await styleOf(parent, '--drawer-frontmost-height')).toBe('200px');
   });
 });

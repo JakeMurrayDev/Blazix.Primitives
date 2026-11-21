@@ -138,6 +138,12 @@ test.describe('Drawer: ADR 01 relaxation rows', () => {
     if (mode === 'server') {
       expect(timed.ms).toBeGreaterThanOrEqual(legsFloor(delay, 4));
     }
+    // The chain is eight legs since the Popup's drawer handle starts beside the Dialog popup behaviour (chosen by the user
+    // 2026-11-21, ADR 01's amendment of 2026-11-21): at 150 ms the sixteen legs it took behind the behaviour cannot fit under
+    // their own floor, and eight legs leave the runner over a second of its own time.
+    if (mode === 'server' && delay === 150) {
+      expect(timed.ms).toBeLessThan(legsFloor(delay, 16));
+    }
   });
 
   // DRW-PTR-17, STA-12, DOM-04: a nested drawer's swiping reaches its parent's `data-nested-drawer-swiping` (RND-STA-01).
