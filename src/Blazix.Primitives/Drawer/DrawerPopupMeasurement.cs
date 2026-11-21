@@ -144,8 +144,23 @@ internal sealed class DrawerPopupMeasurement : IAsyncDisposable
 
     // DRW-DIS-01 on Server (design point D1 (a), chosen by the user 2026-11-21): the module kept the watcher by preventing
     // the cancelable event, and the close runs a round trip later; the handle destroys the watcher once the drawer closes.
-    private Task CloseFromWatcherAsync(DrawerCloseWatcherRequest request) =>
-        root.Open ? root.RequestOpenAsync(false, new OpenChangeEventDetails(EventReason.CloseWatcher, request.Event)) : Task.CompletedTask;
+    // A request the browser did not let be prevented cannot be canceled (EVD-EVT-10; design point D2 (a), chosen by the user
+    // 2026-11-21): the browser has destroyed the watcher, and the close always proceeds.
+    private Task CloseFromWatcherAsync(DrawerCloseWatcherRequest request)
+    {
+        if (!root.Open)
+        {
+            return Task.CompletedTask;
+        }
+
+        OpenChangeEventDetails details = new(EventReason.CloseWatcher, request.Event);
+        if (!request.Cancelable)
+        {
+            details.IgnoreCancel();
+        }
+
+        return root.RequestOpenAsync(false, details);
+    }
 
     // DRW-DIS-01 on WebAssembly: the close-watcher point, inside the `cancel` event; a canceled close keeps the watcher.
     private DecisionPolicy DecideCloseWatcher(EventSnapshot snapshot)
