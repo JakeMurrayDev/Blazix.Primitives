@@ -404,6 +404,25 @@ describe('<Drawer.VirtualKeyboardProvider /> (drawer module keyboard role)', () 
     await waitFor(() => expect(inset(drawer.viewport)).toBe('0px'));
   });
 
+  // DRW-DOM-23 on the port (M6 track 8c, added 2026-11-21): C# renders the Viewport's `style`, and a Blazor re-render
+  // rewrites the whole attribute; the inset is a `component` band of the Viewport's style writer, which absorbs the
+  // foreign write before paint (ADR 04 Amendments 2026-11-18, the Drawer's design point 2 (b)).
+  it('port: keeps the keyboard inset across a re-render of the viewport style attribute', async () => {
+    mockWindowInnerHeight(800);
+    const visualViewport = mockVisualViewport(800);
+    const drawer = mount(`<div>${INPUT}</div>`);
+    const input = drawer.get('input');
+
+    input.focus();
+    visualViewport.resize(500);
+    await waitFor(() => expect(inset(drawer.viewport)).toBe('300px'));
+
+    drawer.viewport.setAttribute('style', 'position: fixed; inset: 0px;');
+
+    await waitFor(() => expect(inset(drawer.viewport)).toBe('300px'));
+    expect(drawer.viewport.style.getPropertyValue('position')).toBe('fixed');
+  });
+
   it('captures focusin targets through a shadow root', async () => {
     mockWindowInnerHeight(800);
     const visualViewport = mockVisualViewport(800);
