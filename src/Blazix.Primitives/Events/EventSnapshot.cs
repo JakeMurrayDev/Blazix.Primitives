@@ -19,6 +19,7 @@ namespace Blazix.Primitives;
 /// <item><term><c>buttons</c></term><description><see cref="Buttons"/>, <c>MouseEvent.buttons</c>.</description></item>
 /// <item><term><c>target</c></term><description><see cref="Target"/>, an object with <c>id</c> and <c>tagName</c>, or <see langword="null"/>.</description></item>
 /// <item><term><c>defaultPrevented</c></term><description><see cref="DefaultPrevented"/>.</description></item>
+/// <item><term><c>cancelable</c></term><description><see cref="Cancelable"/>, <c>event.cancelable</c>.</description></item>
 /// <item><term><c>timeStamp</c></term><description><see cref="TimeStamp"/>, in milliseconds as <c>event.timeStamp</c>.</description></item>
 /// </list>
 /// <para>
@@ -125,6 +126,17 @@ public sealed record EventSnapshot
     /// <value><see langword="true"/> if <c>event.defaultPrevented</c> was set; otherwise, <see langword="false"/>.</value>
     [JsonPropertyName("defaultPrevented")]
     public bool DefaultPrevented { get; init; }
+
+    // M6 track 8c (issue 279), design point D3 (b), chosen by the user 2026-11-21: DRW-DIS-01 reads it.
+    /// <summary>
+    /// Gets or sets a value indicating whether the native event's default action could be prevented, <c>event.cancelable</c>.
+    /// </summary>
+    /// <value>
+    /// <see langword="true"/> if the event was cancelable; otherwise, <see langword="false"/>, which is also the value of the
+    /// placeholder and of a snapshot built from Blazor's event arguments, which carry no such flag.
+    /// </value>
+    [JsonPropertyName("cancelable")]
+    public bool Cancelable { get; init; }
 
     /// <summary>
     /// Gets or sets the time at which the native event was created, <c>event.timeStamp</c>.
