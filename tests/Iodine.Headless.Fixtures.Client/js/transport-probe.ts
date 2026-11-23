@@ -39,7 +39,7 @@ async function assemblyExports(): Promise<RuntimeExports> {
 
 function probeExports(root: RuntimeExports): { Report(json: string): void; Decide(point: string, json: string): string } {
   let node: unknown = root;
-  for (const key of ['Iodine', 'Primitives', 'Fixtures', 'Client', 'Interactions', 'TransportProbeExports']) {
+  for (const key of ['Iodine', 'Headless', 'Fixtures', 'Client', 'Interactions', 'TransportProbeExports']) {
     node = (node as RuntimeExports)[key];
   }
   return node as { Report(json: string): void; Decide(point: string, json: string): string };
