@@ -15,7 +15,7 @@ import { gotoPopupFixture, settle } from './suites/popupFixture';
 async function stall(page: Page, module: string): Promise<() => Promise<void>> {
   const held: Route[] = [];
   let released = false;
-  const url = new RegExp(`/_content/Iodine\\.Primitives/js/${module}(\\.[a-z0-9]+)?\\.js$`);
+  const url = new RegExp(`/_content/Iodine\\.Headless/js/${module}(\\.[a-z0-9]+)?\\.js$`);
   await page.route(url, (route) => (released ? route.continue() : held.push(route)));
   return async () => {
     released = true;

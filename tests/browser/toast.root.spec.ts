@@ -312,7 +312,7 @@ test.describe('Toast.Root', () => {
   test('port: a stalled transitions module holds the removal, never the measurement or the swipe', async ({ page, mode }) => {
     let release!: () => void;
     const held = new Promise<void>((resolve) => (release = resolve));
-    await page.route(/\/_content\/Iodine\.Primitives\/js\/transitions(\.[a-z0-9]+)?\.js$/, async (route) => {
+    await page.route(/\/_content\/Iodine\.Headless\/js\/transitions(\.[a-z0-9]+)?\.js$/, async (route) => {
       await held;
       await route.continue();
     });

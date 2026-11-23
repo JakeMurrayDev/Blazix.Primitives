@@ -1201,7 +1201,7 @@ test.describe('attach order', () => {
     const held: Route[] = [];
     let hits = 0;
     let released = false;
-    await page.route(new RegExp(`/_content/Iodine\\.Primitives/js/${module}(\\.[0-9a-z]+)?\\.js$`), (route) => {
+    await page.route(new RegExp(`/_content/Iodine\\.Headless/js/${module}(\\.[0-9a-z]+)?\\.js$`), (route) => {
       hits += 1;
       return released ? route.continue() : held.push(route);
     });

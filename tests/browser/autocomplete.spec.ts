@@ -506,7 +506,7 @@ test.describe('<Autocomplete.Root /> attach order', () => {
     const held: Route[] = [];
     let heldCount = 0;
     let released = false;
-    const url = new RegExp(`/_content/Iodine\\.Primitives/js/${module}(\\.[a-z0-9]+)?\\.js$`);
+    const url = new RegExp(`/_content/Iodine\\.Headless/js/${module}(\\.[a-z0-9]+)?\\.js$`);
     await page.route(url, (route) => {
       if (released) {
         return route.continue();

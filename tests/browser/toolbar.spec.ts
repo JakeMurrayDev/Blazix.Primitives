@@ -1004,7 +1004,7 @@ test.describe('<Toolbar.Button />', () => {
       // asserts it was hit, so the stall is real on both modes (issue 133).
       test('port: a disabled toggle substituted into the first toolbar button keeps the initial tab stop when the button handles attach last', async ({ page, mode }) => {
         let stalled = 0;
-        await page.route(/\/_content\/Iodine\.Primitives\/js\/button(\.[0-9a-z]+)?\.js$/, (route) => {
+        await page.route(/\/_content\/Iodine\.Headless\/js\/button(\.[0-9a-z]+)?\.js$/, (route) => {
           stalled += 1;
           setTimeout(() => void route.continue(), 1000);
         });
