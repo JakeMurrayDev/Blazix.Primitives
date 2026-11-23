@@ -1,9 +1,9 @@
-using Blazix.Primitives.Rendering;
+using Iodine.Headless.Rendering;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Rendering;
 using Microsoft.Extensions.Logging;
 
-namespace Blazix.Primitives.Tests.Components;
+namespace Iodine.Headless.Tests.Components;
 
 /// <summary>
 /// A test-only popup root (settled by the orchestrator 2026-10-27, plan §Settled "Test-only hosts"): renders no element and

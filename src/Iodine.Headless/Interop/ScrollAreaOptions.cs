@@ -1,4 +1,4 @@
-namespace Blazix.Primitives.Interop;
+namespace Iodine.Headless.Interop;
 
 // ADR 04 Amendments 2026-11-18 (the `scroll-area` scope cell); design points 3 (a), 6 (a) and 7 (a) of the ScrollArea
 // track: one handle per part, each told its part literal, the root element among its references and, for a scrollbar or a

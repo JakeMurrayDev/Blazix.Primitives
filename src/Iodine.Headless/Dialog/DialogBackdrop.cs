@@ -1,9 +1,9 @@
-using Blazix.Primitives.Rendering;
+using Iodine.Headless.Rendering;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Rendering;
 using Microsoft.JSInterop;
 
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // DLG §3.4 state object (dialog/backdrop/DialogBackdrop.tsx:28-31). TransitionStatus is mirrored (ADR 04 §2).
 /// <summary>Represents the state of a dialog's backdrop, which the part exposes as data attributes and passes to its class and style functions.</summary>

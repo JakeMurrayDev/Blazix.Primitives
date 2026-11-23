@@ -2,13 +2,13 @@ using System.Text.Json;
 using Microsoft.Extensions.Time.Testing;
 using Microsoft.JSInterop;
 
-namespace Blazix.Primitives.Fixtures.Client.Harness;
+namespace Iodine.Headless.Fixtures.Client.Harness;
 
 /// <summary>
 /// The per-page harness state (ADR 06 §2 as amended 2026-10-20): a scoped service, so one per Server circuit and
 /// one per WebAssembly app instance. It owns the fake <see cref="TimeProvider"/> and the captured diagnostics,
 /// and is reached from the tests through the token the fixture container renders as <c>data-session</c>:
-/// the page hook <c>window.blazixFixture</c> calls the <c>[JSInvokable]</c> methods on the renderer's dispatcher.
+/// the page hook <c>window.iodineFixture</c> calls the <c>[JSInvokable]</c> methods on the renderer's dispatcher.
 /// </summary>
 public sealed class FixtureSession : IDisposable
 {

@@ -1,12 +1,12 @@
 using AngleSharp.Dom;
-using Blazix.Primitives.Interop;
+using Iodine.Headless.Interop;
 using Bunit;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Web;
 using Microsoft.Extensions.DependencyInjection;
 
-// Family tests use the project's root namespace (tests/Blazix.Primitives.Tests.Components/CONTEXT.md).
-namespace Blazix.Primitives.Tests.Components;
+// Family tests use the project's root namespace (tests/Iodine.Headless.Tests.Components/CONTEXT.md).
+namespace Iodine.Headless.Tests.Components;
 
 /// <summary>
 /// L2: ContextMenu's <c>[L2]</c> rows and the port titles of its <c>none</c> rows (the brief's Tests first), in bUnit's loose
@@ -26,7 +26,7 @@ public sealed class ContextMenuTests : BunitContext
     public ContextMenuTests()
     {
         JSInterop.Mode = JSRuntimeMode.Loose;
-        Services.AddBlazixPrimitives();
+        Services.AddIodineHeadless();
     }
 
     [Fact(DisplayName = "throws when rendered outside ContextMenu.Root")]
@@ -36,7 +36,7 @@ public sealed class ContextMenuTests : BunitContext
     {
         InvalidOperationException error = Assert.Throws<InvalidOperationException>(() => Render<ContextMenuHost>(p => p.Add(x => x.Case, "trigger-alone")));
 
-        Assert.Equal("Blazix: The `ContextMenuRoot` context is missing. ContextMenu parts must be placed within `<ContextMenuRoot>`.", error.Message);
+        Assert.Equal("Iodine: The `ContextMenuRoot` context is missing. ContextMenu parts must be placed within `<ContextMenuRoot>`.", error.Message);
     }
 
     [Fact(DisplayName = "port: a positioner outside ContextMenuPortal throws the portal error")]
@@ -45,7 +45,7 @@ public sealed class ContextMenuTests : BunitContext
     {
         InvalidOperationException error = Assert.Throws<InvalidOperationException>(() => Render<ContextMenuHost>(p => p.Add(x => x.Case, "positioner-outside-portal")));
 
-        Assert.Equal("Blazix: `<ContextMenuPortal>` is missing.", error.Message);
+        Assert.Equal("Iodine: `<ContextMenuPortal>` is missing.", error.Message);
     }
 
     [Fact(DisplayName = "adds open state attributes")]

@@ -3,7 +3,7 @@ using Bunit;
 using Microsoft.AspNetCore.Components;
 
 // Family tests use the project's root namespace.
-namespace Blazix.Primitives.Tests.Components;
+namespace Iodine.Headless.Tests.Components;
 
 // ComboboxRoot.test.tsx's `aria attributes` titles cited at L2. The list navigation writes `aria-activedescendant` and the
 // items' `data-highlighted` in the browser (composite.js) and reports the highlight, which C# mirrors as the store's

@@ -1,7 +1,7 @@
 using Bunit;
 using Microsoft.AspNetCore.Components;
 
-namespace Blazix.Primitives.Tests.Components;
+namespace Iodine.Headless.Tests.Components;
 
 /// <summary>
 /// The items' flags (M3 track 1, E3; ADR 04 Amendments 2026-10-26, chosen by the user): each item's registration carries

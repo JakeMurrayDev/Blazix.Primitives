@@ -1,11 +1,11 @@
 using System.Text;
 using System.Text.Encodings.Web;
 using System.Text.Json;
-using Blazix.Primitives.Interop;
+using Iodine.Headless.Interop;
 using Bunit;
 using Microsoft.AspNetCore.Components;
 
-namespace Blazix.Primitives.Tests.Components;
+namespace Iodine.Headless.Tests.Components;
 
 /// <summary>
 /// The registry's M5 half in C# (M5 track 1, issue 159, Deliverable 2; ADR 04 Amendments 2026-11-03 (1), chosen by the user):
@@ -84,7 +84,7 @@ public sealed class CompositeRegistrationFieldsTests : IDisposable
         // The options travel as a JSON string inside the interop call's JSON, so the wire adds one level of escaping; the
         // module reports the ids the same way (`twin.report` passes `JSON.stringify(payload)` as the argument). On Server
         // the circuit's MessagePack protocol carries that JSON as raw bytes.
-        string report = JsonSerializer.Serialize(new CompositeItemsChange(ids), BlazixJsonContext.Default.CompositeItemsChange);
+        string report = JsonSerializer.Serialize(new CompositeItemsChange(ids), IodineJsonContext.Default.CompositeItemsChange);
         int updateBytes = Encoding.UTF8.GetByteCount(update);
         int updateWire = Encoding.UTF8.GetByteCount(JsonSerializer.Serialize(update, s_interop));
         int reportBytes = Encoding.UTF8.GetByteCount(report);
@@ -112,7 +112,7 @@ public sealed class CompositeRegistrationFieldsTests : IDisposable
             .AddChildContent(Many(5000, labelled: false, removeLast: false)));
         string[] ids = CompositeTestContext.RenderedItemIds(cut);
 
-        string whole = JsonSerializer.Serialize(new CompositeItemsChange(ids), BlazixJsonContext.Default.CompositeItemsChange);
+        string whole = JsonSerializer.Serialize(new CompositeItemsChange(ids), IodineJsonContext.Default.CompositeItemsChange);
         Assert.True(Encoding.UTF8.GetByteCount(JsonSerializer.Serialize(whole, s_javaScriptStringify)) > receiveLimit);
 
         List<string> parts = [];

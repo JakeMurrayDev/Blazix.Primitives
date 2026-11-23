@@ -4,7 +4,7 @@ using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Rendering;
 
 // The namespace is the project's root: a namespace named after the family would hide the parts' types.
-namespace Blazix.Primitives.Tests.Components;
+namespace Iodine.Headless.Tests.Components;
 
 // Design point 11 of 6b, chosen by the user 2026-11-19 ("Re-sync on change only", issue 277): the input re-derives its
 // display text only when Value, Format or Culture changed, or after one of the field's own requests (NUM-STA-06). Base UI's

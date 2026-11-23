@@ -1,13 +1,13 @@
 using AngleSharp.Dom;
-using Blazix.Primitives.Interop;
-using Blazix.Primitives.Rendering;
+using Iodine.Headless.Interop;
+using Iodine.Headless.Rendering;
 using Bunit;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Web;
 using ErrorEventArgs = Microsoft.AspNetCore.Components.Web.ErrorEventArgs;
 
 // The namespace is the project's root: a namespace named after the family would hide the parts' types.
-namespace Blazix.Primitives.Tests.Components;
+namespace Iodine.Headless.Tests.Components;
 
 /// <summary>
 /// <c>AvatarImage.test.tsx</c> at L2. Base UI's tests replace the detached image or read the rendered one; here the
@@ -638,8 +638,8 @@ public sealed class AvatarImageTests : IDisposable
         InvalidOperationException image = Assert.Throws<InvalidOperationException>(() => interop.Context.Render<AvatarImage>());
         InvalidOperationException fallback = Assert.Throws<InvalidOperationException>(() => interop.Context.Render<AvatarFallback>());
 
-        Assert.Equal("Blazix: `AvatarImage` must be placed within an `AvatarRoot`. The avatar parts read the image loading status from the root.", image.Message);
-        Assert.StartsWith("Blazix: `AvatarFallback` must be placed within an `AvatarRoot`.", fallback.Message, StringComparison.Ordinal);
+        Assert.Equal("Iodine: `AvatarImage` must be placed within an `AvatarRoot`. The avatar parts read the image loading status from the root.", image.Message);
+        Assert.StartsWith("Iodine: `AvatarFallback` must be placed within an `AvatarRoot`.", fallback.Message, StringComparison.Ordinal);
     }
 
     // Port's own title: AVA-EDGE-04 is untested in Base UI (§16 Q5).

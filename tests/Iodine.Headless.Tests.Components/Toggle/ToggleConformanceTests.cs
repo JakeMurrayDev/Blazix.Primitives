@@ -1,10 +1,10 @@
-using Blazix.Primitives.Rendering;
-using Blazix.Primitives.Tests.Components.Rendering.Conformance;
+using Iodine.Headless.Rendering;
+using Iodine.Headless.Tests.Components.Rendering.Conformance;
 using Bunit;
 using Microsoft.AspNetCore.Components;
 
 // Family tests use the project's root namespace: a `Toggle` namespace would hide the `Toggle` type.
-namespace Blazix.Primitives.Tests.Components;
+namespace Iodine.Headless.Tests.Components;
 
 // Toggle.test.tsx: describeConformance(<Toggle />, () => ({ refInstanceof: window.HTMLButtonElement,
 // testRenderPropWith: 'button', button: true })). TGL-DOM-07, TGL-API-06, TGL-API-07, TGL-API-08, TGL-DOM-01, TGL-DOM-04,

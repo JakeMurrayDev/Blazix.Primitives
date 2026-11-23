@@ -1,9 +1,9 @@
 using Microsoft.Extensions.Logging;
 
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // OTP-EDGE-02..05 (Base UI's `warn`, UTL-EDGE-11/12: each message once per page). The seen set is a scoped service (one per
-// Server circuit, one per WebAssembly application), registered by `AddBlazixPrimitives()` like ButtonDevelopmentLog, never a
+// Server circuit, one per WebAssembly application), registered by `AddIodineHeadless()` like ButtonDevelopmentLog, never a
 // static, which on Server would be one per process (chosen by the user 2026-10-26, M3 plan §Settled). M6 track 7, issue
 // 278: granted by the orchestrator 2026-11-19 (option (a)).
 /// <summary>Writes the development warnings of one-time code fields, each text once per session.</summary>

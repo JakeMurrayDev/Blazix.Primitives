@@ -1,10 +1,10 @@
 using AngleSharp.Dom;
 using Bunit;
 using Microsoft.AspNetCore.Components;
-using static Blazix.Primitives.Tests.Components.SliderTestContext;
+using static Iodine.Headless.Tests.Components.SliderTestContext;
 
 // The namespace is the project's root: a namespace named after the family would hide the parts' types.
-namespace Blazix.Primitives.Tests.Components;
+namespace Iodine.Headless.Tests.Components;
 
 // SliderValue.test.tsx and SliderLabel.test.tsx, the [L2] rows: the output's text, `for` and aria-live; the label's id.
 /// <summary>The slider value and label parts.</summary>

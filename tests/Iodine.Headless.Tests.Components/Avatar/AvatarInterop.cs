@@ -1,12 +1,12 @@
 using System.Text.Json;
-using Blazix.Primitives.Interop;
+using Iodine.Headless.Interop;
 using Bunit;
 using Microsoft.AspNetCore.Components;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Time.Testing;
 using Microsoft.JSInterop;
 
-namespace Blazix.Primitives.Tests.Components;
+namespace Iodine.Headless.Tests.Components;
 
 /// <summary>
 /// The Avatar tests' bUnit context: the <c>dom</c> and <c>transitions</c> modules mocked as the twin contract tests mock
@@ -16,12 +16,12 @@ namespace Blazix.Primitives.Tests.Components;
 /// </summary>
 internal sealed class AvatarInterop : IDisposable
 {
-    public const string DomModulePath = "./_content/Blazix.Primitives/js/dom.js";
-    public const string TransitionsModulePath = "./_content/Blazix.Primitives/js/transitions.js";
+    public const string DomModulePath = "./_content/Iodine.Headless/js/dom.js";
+    public const string TransitionsModulePath = "./_content/Iodine.Headless/js/transitions.js";
 
     public AvatarInterop()
     {
-        Context.Services.AddBlazixPrimitives();
+        Context.Services.AddIodineHeadless();
         Context.Services.AddSingleton<TimeProvider>(Clock);
         DomModule = Context.JSInterop.SetupModule(DomModulePath);
         DomHandle = SetupHandle(DomModule);

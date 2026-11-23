@@ -11,11 +11,11 @@
     from the captured diagnostics (ADR 06 §2; first needed by the Collapsible warnings, COL-EDGE-02/03).
   -->
   <ItemGroup>
-    <RuntimeHostConfigurationOption Include="Blazix.Primitives.DevelopmentWarnings" Value="true" />
+    <RuntimeHostConfigurationOption Include="Iodine.Headless.DevelopmentWarnings" Value="true" />
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\Blazix.Primitives.Fixtures.Client\Blazix.Primitives.Fixtures.Client.csproj" />
+    <ProjectReference Include="..\Iodine.Headless.Fixtures.Client\Iodine.Headless.Fixtures.Client.csproj" />
     <PackageReference Include="Microsoft.AspNetCore.Components.WebAssembly.Server" />
   </ItemGroup>
 

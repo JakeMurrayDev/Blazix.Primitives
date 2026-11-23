@@ -1,6 +1,6 @@
 using Microsoft.AspNetCore.Components;
 
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // NUM-STR-03, NUM-STR-05, NUM-STR-06, NUM-EDGE-02; number-field/scrub-area/NumberFieldScrubAreaContext.ts. What one scrub
 // area shares with its cursor: its own scrubbing state (several areas per root, each with its own), whether the pointer can
@@ -30,9 +30,9 @@ internal sealed class NumberFieldScrubAreaContext
     /// <exception cref="InvalidOperationException"><paramref name="context"/> is <see langword="null"/>.</exception>
     public static NumberFieldScrubAreaContext Require(NumberFieldScrubAreaContext? context)
     {
-        // NUM-EDGE-02, in every build; Base UI's words with the `Blazix: ` prefix (the AlertDialog and Select precedent).
+        // NUM-EDGE-02, in every build; Base UI's words with the `Iodine: ` prefix (the AlertDialog and Select precedent).
         return context ?? throw new InvalidOperationException(
-            "Blazix: `NumberFieldScrubAreaContext` is missing. NumberFieldScrubArea parts must be placed within `<NumberFieldScrubArea>`.");
+            "Iodine: `NumberFieldScrubAreaContext` is missing. NumberFieldScrubArea parts must be placed within `<NumberFieldScrubArea>`.");
     }
 
     /// <summary>Sets the listener the cursor renders from, or <see langword="null"/> to remove it.</summary>

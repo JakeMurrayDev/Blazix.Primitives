@@ -1,10 +1,10 @@
-using Blazix.Primitives.Interop;
-using Blazix.Primitives.Rendering;
+using Iodine.Headless.Interop;
+using Iodine.Headless.Rendering;
 using Microsoft.AspNetCore.Components;
 using Microsoft.JSInterop;
 using Microsoft.AspNetCore.Components.Rendering;
 
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // SCR §3.4 (ScrollArea.Scrollbar.State): the Root's fields with `scrolling` replaced by this axis's flag, plus `hovering` and
 // `orientation` (SCR-STA-03); ADR 08 Amendments 2026-11-18 (one record per part). Scrolling and Hovering are written by the

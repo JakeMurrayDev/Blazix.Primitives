@@ -1,7 +1,7 @@
 using Bunit;
 using Microsoft.AspNetCore.Components;
 
-namespace Blazix.Primitives.Tests.Components;
+namespace Iodine.Headless.Tests.Components;
 
 /// <summary>
 /// <see cref="DirectionProvider"/> at L2 (shared-utilities.md §4.15.1): Base UI's DirectionProvider.test.tsx titles through

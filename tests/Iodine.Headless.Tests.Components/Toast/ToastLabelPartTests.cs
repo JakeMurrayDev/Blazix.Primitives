@@ -2,7 +2,7 @@ using AngleSharp.Dom;
 using Bunit;
 using Microsoft.AspNetCore.Components;
 
-namespace Blazix.Primitives.Tests.Components;
+namespace Iodine.Headless.Tests.Components;
 
 /// <summary>
 /// Title and Description at L2: <c>toast/utils/useToastLabelPart.test.tsx</c>, which runs each title for both parts
@@ -23,7 +23,7 @@ public sealed class ToastLabelPartTests : IDisposable
     {
         InvalidOperationException error = Assert.Throws<InvalidOperationException>(() => test.Context.Render<ToastProvider<NoPayload>>(p => p.AddChildContent<ToastTitle>()));
 
-        Assert.Equal("Blazix: `ToastRootContext` is missing. Toast parts must be used within `<ToastRoot>`.", error.Message);
+        Assert.Equal("Iodine: `ToastRootContext` is missing. Toast parts must be used within `<ToastRoot>`.", error.Message);
     }
 
     [Fact(DisplayName = "<Toast.Title /> renders the toast title by default")]
@@ -164,7 +164,7 @@ public sealed class ToastLabelPartTests : IDisposable
     {
         InvalidOperationException error = Assert.Throws<InvalidOperationException>(() => test.Context.Render<ToastProvider<NoPayload>>(p => p.AddChildContent<ToastDescription>()));
 
-        Assert.Equal("Blazix: `ToastRootContext` is missing. Toast parts must be used within `<ToastRoot>`.", error.Message);
+        Assert.Equal("Iodine: `ToastRootContext` is missing. Toast parts must be used within `<ToastRoot>`.", error.Message);
     }
 
     [Fact(DisplayName = "<Toast.Description /> renders the toast description by default")]

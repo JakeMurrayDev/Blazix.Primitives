@@ -1,4 +1,4 @@
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // EVD §3.7 (`direction`), NUM-EVT-03; ADR 08 Amendments 2026-11-18 (chosen by the user 2026-11-18): `Direction` after
 // SliderChangeEventDetails.ActiveThumbIndex, an int? that is -1 or 1, null for a change with no direction.
@@ -18,7 +18,7 @@ public class NumberFieldChangeEventDetails : ChangeEventDetails
     {
         if (direction is not (null or 1 or -1))
         {
-            throw new ArgumentOutOfRangeException(nameof(direction), "Blazix: `direction` must be `1`, `-1` or `null`.");
+            throw new ArgumentOutOfRangeException(nameof(direction), "Iodine: `direction` must be `1`, `-1` or `null`.");
         }
 
         Direction = direction;

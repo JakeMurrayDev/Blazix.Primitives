@@ -3,7 +3,7 @@ using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.Diagnostics;
 using Microsoft.CodeAnalysis.Operations;
 
-namespace Blazix.Primitives.Analyzers;
+namespace Iodine.Headless.Analyzers;
 
 // ADR 05 §1; ADR 02 decision 4; ADR 16 rule 9
 /// <summary>
@@ -19,15 +19,15 @@ namespace Blazix.Primitives.Analyzers;
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
 public sealed class FixedCascadeAnalyzer : DiagnosticAnalyzer
 {
-    /// <summary>Represents the id of the diagnostic this analyzer reports, <c>BLZX2001</c>.</summary>
-    public const string DiagnosticId = "BLZX2001";
+    /// <summary>Represents the id of the diagnostic this analyzer reports, <c>IOD2001</c>.</summary>
+    public const string DiagnosticId = "IOD2001";
 
     // ADR 16 rule 9
     private static readonly DiagnosticDescriptor s_rule = new(
         DiagnosticId,
         "A library cascade must be fixed",
-        "Blazix: `CascadingValue<{0}>` is rendered without `IsFixed` set to `true`; library cascades are fixed and change reaches parts by subscription",
-        "Blazix.Primitives",
+        "Iodine: `CascadingValue<{0}>` is rendered without `IsFixed` set to `true`; library cascades are fixed and change reaches parts by subscription",
+        "Iodine.Headless",
         DiagnosticSeverity.Error,
         isEnabledByDefault: true,
         description: "A CascadingValue whose value changes re-renders every subscriber, so the library cascades only fixed values (IsFixed set to true) and parts subscribe to the store or context they need.");

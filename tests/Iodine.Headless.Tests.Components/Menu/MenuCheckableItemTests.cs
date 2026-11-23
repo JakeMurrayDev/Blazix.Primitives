@@ -3,8 +3,8 @@ using Bunit;
 using Microsoft.AspNetCore.Components.Web;
 using Microsoft.Extensions.DependencyInjection;
 
-// Family tests use the project's root namespace (tests/Blazix.Primitives.Tests.Components/CONTEXT.md).
-namespace Blazix.Primitives.Tests.Components;
+// Family tests use the project's root namespace (tests/Iodine.Headless.Tests.Components/CONTEXT.md).
+namespace Iodine.Headless.Tests.Components;
 
 /// <summary>
 /// L2: <c>MenuCheckboxItem.test.tsx</c>'s titles over <see cref="MenuCheckableHost"/> (MNU-API-34, API-41, API-42, STA-14,
@@ -15,7 +15,7 @@ public sealed class MenuCheckboxItemTests : BunitContext
     public MenuCheckboxItemTests()
     {
         JSInterop.Mode = JSRuntimeMode.Loose;
-        Services.AddBlazixPrimitives();
+        Services.AddIodineHeadless();
     }
 
     [Theory(DisplayName = "adds the state and ARIA attributes when checked=$checked")]
@@ -144,7 +144,7 @@ public sealed class MenuRadioItemTests : BunitContext
     public MenuRadioItemTests()
     {
         JSInterop.Mode = JSRuntimeMode.Loose;
-        Services.AddBlazixPrimitives();
+        Services.AddIodineHeadless();
     }
 
     [Fact(DisplayName = "throws when rendered outside Menu.RadioGroup")]
@@ -154,7 +154,7 @@ public sealed class MenuRadioItemTests : BunitContext
     {
         InvalidOperationException error = Assert.Throws<InvalidOperationException>(() => Render<MenuCheckableHost>(p => p.Add(x => x.Kind, "radio-outside")));
 
-        Assert.Equal("Blazix: The `MenuRadioGroup` context is missing. MenuRadioGroup parts must be placed within `<MenuRadioGroup>`.", error.Message);
+        Assert.Equal("Iodine: The `MenuRadioGroup` context is missing. MenuRadioGroup parts must be placed within `<MenuRadioGroup>`.", error.Message);
     }
 
     [Fact(DisplayName = "adds the state and ARIA attributes when selected")]

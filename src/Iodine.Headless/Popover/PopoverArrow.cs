@@ -1,7 +1,7 @@
-using Blazix.Primitives.Rendering;
+using Iodine.Headless.Rendering;
 using Microsoft.AspNetCore.Components;
 
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // POP-STA-13, §3.6 state object (popover/arrow/PopoverArrow.tsx:26-31, 43-60). Side, Align and Uncentered are the
 // `positioning` module's from the Positioner's attach (ADR 04 §2, Amendments 2026-10-27): mirrored.
@@ -127,7 +127,7 @@ public sealed class PopoverArrow : PartBase<PopoverArrowState>
     {
         // POP-EDGE-04: thrown in every build.
         return context ?? throw new InvalidOperationException(
-            "Blazix: The `PopoverPositioner` context is missing. `PopoverPositioner` parts must be placed within `<PopoverPositioner>`.");
+            "Iodine: The `PopoverPositioner` context is missing. `PopoverPositioner` parts must be placed within `<PopoverPositioner>`.");
     }
 
     // A part renders on a mirror change only when its state record changed (track 2's rule).

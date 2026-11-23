@@ -1,8 +1,8 @@
 using System.Text.Json;
-using Blazix.Primitives.Interop;
+using Iodine.Headless.Interop;
 using Microsoft.JSInterop;
 
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // ADR 04 Amendments 2026-11-04 (design point 4, settled by the orchestrator 2026-11-04; MNU-A11Y-01), M5 track 2: the
 // platform hints C# renders with, read once per circuit or runtime from the `interactions` module's readPlatformFlags.
@@ -12,7 +12,7 @@ namespace Blazix.Primitives;
 /// <summary>Holds the platform hints the browser reports, read once per circuit or runtime.</summary>
 internal sealed class PlatformFlags
 {
-    private const string ModulePath = "./_content/Blazix.Primitives/js/interactions.js";
+    private const string ModulePath = "./_content/Iodine.Headless/js/interactions.js";
 
     private Task? reading;
 
@@ -46,7 +46,7 @@ internal sealed class PlatformFlags
             await using (module.ConfigureAwait(false))
             {
                 string json = await module.InvokeAsync<string>("readPlatformFlags");
-                PlatformFlagsPayload? flags = JsonSerializer.Deserialize(json, BlazixJsonContext.Default.PlatformFlagsPayload);
+                PlatformFlagsPayload? flags = JsonSerializer.Deserialize(json, IodineJsonContext.Default.PlatformFlagsPayload);
                 VoiceOver = flags?.VoiceOver ?? false;
                 Mac = flags?.Mac ?? false;
                 Ios = flags?.Ios ?? false;

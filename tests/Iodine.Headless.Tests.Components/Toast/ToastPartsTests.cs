@@ -3,7 +3,7 @@ using Bunit;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Web;
 
-namespace Blazix.Primitives.Tests.Components;
+namespace Iodine.Headless.Tests.Components;
 
 /// <summary>
 /// <c>toast/utils/isRenderableNode.test.ts</c> restated over the port's content, a string or a fragment (TST-DOM-16; the
@@ -320,7 +320,7 @@ public sealed class ToastPartsTests : IDisposable
     {
         InvalidOperationException error = Assert.Throws<InvalidOperationException>(() => test.Context.Render<ToastViewport<NoPayload>>());
 
-        Assert.Equal("Blazix: `ToastProviderContext` is missing. Toast parts must be used within `<ToastProvider>`.", error.Message);
+        Assert.Equal("Iodine: `ToastProviderContext` is missing. Toast parts must be used within `<ToastProvider>`.", error.Message);
     }
 
     [Fact(DisplayName = "port: the viewport renders its region and live-region attributes, each overridable by the consumer")]

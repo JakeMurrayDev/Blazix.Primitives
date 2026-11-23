@@ -1,10 +1,10 @@
-using Blazix.Primitives.Rendering;
+using Iodine.Headless.Rendering;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Web;
 using Microsoft.Extensions.Logging;
 using Microsoft.JSInterop;
 
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // CMB §3.24, STA-13 (combobox/item/ComboboxItem.tsx): Highlighted is the list handle's data-highlighted from attach (ADR 04 Amendments 2026-11-03 (2)): mirrored.
 /// <summary>Represents the state of a combobox item, which the part exposes as data attributes and passes to its class and style functions.</summary>

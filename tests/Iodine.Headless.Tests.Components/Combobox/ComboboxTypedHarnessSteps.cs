@@ -1,9 +1,9 @@
 using AngleSharp.Dom;
-using Blazix.Primitives.Interop;
+using Iodine.Headless.Interop;
 using Bunit;
 using Microsoft.JSInterop;
 
-namespace Blazix.Primitives.Tests.Components;
+namespace Iodine.Headless.Tests.Components;
 
 // The steps a Combobox title takes on a ComboboxTypedHarness, as the modules report them on Server (the twins' [JSInvokable]
 // callbacks), and the queries Base UI's titles make by role and name (getByRole('option', { name })).

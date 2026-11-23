@@ -1,4 +1,4 @@
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // MNU-API-05, MNU-EVT-10/11 (menu/root/MenuRoot.tsx:580-622, 934-944; Menu.Root.HighlightEventDetails, MenuRoot.spec.tsx
 // "no `index`"). ADR 08 Amendments 2026-11-03 (4) (chosen by the user 2026-11-03): Menu's OnItemHighlighted carries the

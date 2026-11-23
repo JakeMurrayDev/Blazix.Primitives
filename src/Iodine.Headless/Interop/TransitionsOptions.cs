@@ -1,6 +1,6 @@
 using System.Text.Json.Serialization;
 
-namespace Blazix.Primitives.Interop;
+namespace Iodine.Headless.Interop;
 
 // ADR 04 §1 (transitions row), §2 (every animated part: data-starting-style, data-ending-style; the convergent write)
 // and Amendments 2026-10-18 (handover at attach); TRN-ALG-01, TRN §6.1 (machine options per consumer), TRN-API-01..03,

@@ -1,11 +1,11 @@
-using Blazix.Primitives.Interop;
-using Blazix.Primitives.Rendering;
-using Blazix.Primitives.Utilities;
+using Iodine.Headless.Interop;
+using Iodine.Headless.Rendering;
+using Iodine.Headless.Utilities;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Web;
 using Microsoft.JSInterop;
 
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // Base UI's NumberField.Input (number-field/input/NumberFieldInput.tsx:114-130); the contract is docs/components/number-field.md
 // §3.6 and §5.3. A text input (NUM-DOM-08, NUM-ARIA-01): the labelable control id (NUM-DOM-09), the display text, the

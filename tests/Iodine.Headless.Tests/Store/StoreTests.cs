@@ -1,6 +1,6 @@
-using Blazix.Primitives.Store;
+using Iodine.Headless.Store;
 
-namespace Blazix.Primitives.Tests.Store;
+namespace Iodine.Headless.Tests.Store;
 
 /// <summary>
 /// <c>packages/utils/src/store/Store.test.ts</c> (UTL-STA-07..14, UTL-ALG-03). <c>Store.create(state)</c> is

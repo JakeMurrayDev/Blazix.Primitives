@@ -1,7 +1,7 @@
 using Bunit;
 using Microsoft.Extensions.DependencyInjection;
 
-namespace Blazix.Primitives.Tests.Components.Rendering;
+namespace Iodine.Headless.Tests.Components.Rendering;
 
 /// <summary>
 /// ADR 16 rule 7 at L2: the steady-state render of a part (nothing changed, every merge memoised) measured around
@@ -21,7 +21,7 @@ public sealed class AllocationBudgetTests : IDisposable
 
     public AllocationBudgetTests()
     {
-        context.Services.AddBlazixPrimitives();
+        context.Services.AddIodineHeadless();
     }
 
     /// <inheritdoc />

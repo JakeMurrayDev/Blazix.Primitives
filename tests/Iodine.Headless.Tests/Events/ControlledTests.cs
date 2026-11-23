@@ -1,8 +1,8 @@
 using System.Numerics;
-using Blazix.Primitives.Tests.TestSupport;
+using Iodine.Headless.Tests.TestSupport;
 using Microsoft.AspNetCore.Components;
 
-namespace Blazix.Primitives.Tests.Events;
+namespace Iodine.Headless.Tests.Events;
 
 /// <summary>
 /// <c>packages/utils/src/useControlled.test.tsx</c> (UTL-STA-01..06, EVD-STA-01..05, EVD-ALG-08, EVD-EDGE-01..03) and the
@@ -267,12 +267,12 @@ public sealed class ControlledTests
         component.SetProps();
         try
         {
-            AppContext.SetSwitch("Blazix.Primitives.DevelopmentWarnings", false);
+            AppContext.SetSwitch("Iodine.Headless.DevelopmentWarnings", false);
             component.SetProps(("Value", 1));
         }
         finally
         {
-            AppContext.SetSwitch("Blazix.Primitives.DevelopmentWarnings", true);
+            AppContext.SetSwitch("Iodine.Headless.DevelopmentWarnings", true);
         }
 
         Assert.Empty(component.Logger.Messages);

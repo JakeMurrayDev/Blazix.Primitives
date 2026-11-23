@@ -1,4 +1,4 @@
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // FFI §2 (form scope), FFI-STR-04, FFI-API-04, FFI-EVT-03/04, FFI-FOC-03; FRM-STR-01, FRM-STA-02..05, FRM-EVT-06;
 // form/Form.tsx:34-39,71-84,143-169, internals/form-context/FormContext.ts. The form side of the contract track 1 declared in

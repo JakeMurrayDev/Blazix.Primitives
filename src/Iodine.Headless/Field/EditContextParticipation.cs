@@ -1,7 +1,7 @@
 using System.Linq.Expressions;
 using Microsoft.AspNetCore.Components.Forms;
 
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // ADR 05 Amendments 2026-10-22 (chosen by the user; verification item 5, issue 76): a form control inside a cascaded
 // EditContext, with Blazor's expression parameter (`ValueExpression`, `CheckedExpression`), builds its FieldIdentifier once

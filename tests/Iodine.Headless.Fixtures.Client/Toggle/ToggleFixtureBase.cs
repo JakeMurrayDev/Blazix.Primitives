@@ -1,7 +1,7 @@
-using Blazix.Primitives.Fixtures.Client.CompositeFixtures;
+using Iodine.Headless.Fixtures.Client.CompositeFixtures;
 using Microsoft.AspNetCore.Components;
 
-namespace Blazix.Primitives.Fixtures.Client.ToggleFixtures;
+namespace Iodine.Headless.Fixtures.Client.ToggleFixtures;
 
 /// <summary>
 /// The base of the Toggle and ToggleGroup fixtures: renders <c>data-attached</c> once every tracked toggle has its button

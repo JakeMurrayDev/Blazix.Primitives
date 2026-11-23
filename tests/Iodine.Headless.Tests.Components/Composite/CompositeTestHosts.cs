@@ -1,12 +1,12 @@
 using System.Text.Json;
-using Blazix.Primitives.Interop;
+using Iodine.Headless.Interop;
 using Bunit;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Rendering;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.JSInterop;
 
-namespace Blazix.Primitives.Tests.Components;
+namespace Iodine.Headless.Tests.Components;
 
 /// <summary>
 /// A bUnit context with the <c>composite</c> module mocked: the attach, update and dispose calls are recorded and the
@@ -14,11 +14,11 @@ namespace Blazix.Primitives.Tests.Components;
 /// </summary>
 internal sealed class CompositeTestContext : IDisposable
 {
-    public const string ModulePath = "./_content/Blazix.Primitives/js/composite.js";
+    public const string ModulePath = "./_content/Iodine.Headless/js/composite.js";
 
     public CompositeTestContext()
     {
-        Context.Services.AddBlazixPrimitives();
+        Context.Services.AddIodineHeadless();
         Module = Context.JSInterop.SetupModule(ModulePath);
         Handle = Module.SetupModule("attach", _ => true);
         Handle.SetupVoid("update", _ => true).SetVoidResult();

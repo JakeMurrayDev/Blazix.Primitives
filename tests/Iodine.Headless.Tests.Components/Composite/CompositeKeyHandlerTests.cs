@@ -1,10 +1,10 @@
 using System.Text.Json;
-using Blazix.Primitives.Interop;
+using Iodine.Headless.Interop;
 using Bunit;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Web;
 
-namespace Blazix.Primitives.Tests.Components;
+namespace Iodine.Headless.Tests.Components;
 
 /// <summary>
 /// Option (i) of ADR 04's note of 2026-10-22, chosen by the user 2026-10-23: the consumer's C# <c>onkeydown</c> on the focused item and
@@ -85,7 +85,7 @@ public sealed class CompositeKeyHandlerTests : IDisposable
             .AddUnmatched("onkeydown", RootHandler(veto: true))
             .AddChildContent(Items(itemHandler: false)));
         string first = cut.FindAll("[data-item]")[0].Id!;
-        EventSnapshot snapshot = JsonSerializer.Deserialize(KeyDownJson("ArrowDown", first), BlazixJsonContext.Default.EventSnapshot)!;
+        EventSnapshot snapshot = JsonSerializer.Deserialize(KeyDownJson("ArrowDown", first), IodineJsonContext.Default.EventSnapshot)!;
 
         Assert.Equal(DecisionPolicy.Stop, cut.Instance.Behavior.DecideKeyDownOnce(snapshot));
         Assert.Equal("stop", host.Twin.Decide(CompositeTwin.NavigatePoint, KeyDownJson("ArrowDown", first)));
@@ -100,7 +100,7 @@ public sealed class CompositeKeyHandlerTests : IDisposable
             .AddUnmatched("onkeydown", RootHandler(veto: true))
             .AddChildContent(Items(itemHandler: false)));
         string first = cut.FindAll("[data-item]")[0].Id!;
-        EventSnapshot snapshot = JsonSerializer.Deserialize(KeyDownJson("ArrowDown", first), BlazixJsonContext.Default.EventSnapshot)!;
+        EventSnapshot snapshot = JsonSerializer.Deserialize(KeyDownJson("ArrowDown", first), IodineJsonContext.Default.EventSnapshot)!;
         Assert.Equal(DecisionPolicy.Stop, cut.Instance.Behavior.DecideKeyDownOnce(snapshot));
 
         string later = KeyDownJson("ArrowDown", first).Replace("\"timeStamp\":3", "\"timeStamp\":4", StringComparison.Ordinal);

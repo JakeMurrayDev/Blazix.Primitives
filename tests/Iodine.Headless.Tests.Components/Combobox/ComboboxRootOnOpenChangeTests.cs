@@ -2,7 +2,7 @@ using Bunit;
 using Microsoft.AspNetCore.Components;
 
 // Family tests use the project's root namespace.
-namespace Blazix.Primitives.Tests.Components;
+namespace Iodine.Headless.Tests.Components;
 
 // CMB-API-07 and EVT-01 at L2 (ComboboxRoot.test.tsx, describe "prop: onOpenChange"): the callback reports the open of a press
 // of the input and the close of an outside press, both the `interactions` module's reports.

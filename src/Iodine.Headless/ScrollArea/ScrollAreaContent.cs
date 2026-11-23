@@ -1,9 +1,9 @@
-using Blazix.Primitives.Interop;
-using Blazix.Primitives.Rendering;
+using Iodine.Headless.Interop;
+using Iodine.Headless.Rendering;
 using Microsoft.AspNetCore.Components;
 using Microsoft.JSInterop;
 
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // SCR §3.3: the Root's state object unchanged (SCR-STA-02); ADR 08 Amendments 2026-11-18 (one record per part).
 /// <summary>Represents the state of a scroll area content, which the part exposes as data attributes and passes to its class and style functions.</summary>

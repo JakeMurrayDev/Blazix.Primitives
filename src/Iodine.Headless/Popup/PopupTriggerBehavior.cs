@@ -1,8 +1,8 @@
-using Blazix.Primitives.Rendering;
-using Blazix.Primitives.Store;
+using Iodine.Headless.Rendering;
+using Iodine.Headless.Store;
 using Microsoft.AspNetCore.Components;
 
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // The trigger half of Base UI's popup layer (usePopupHandleStore, useTriggerRegistration, useTriggerDataForwarding;
 // PSH-STR-02/05/06, PSH-API-08, PSH-STA-26..30, PSH-ALG-04/05, PSH-ARIA-01..04, PSH-EDGE-01), composed by every popup
@@ -65,7 +65,7 @@ internal sealed class PopupTriggerBehavior<TStore, TState, TPayload> : IDisposab
 
     /// <summary>Gets the store the trigger reads: the handle's, else its root's.</summary>
     /// <exception cref="InvalidOperationException">The store is read before the trigger's first parameter set.</exception>
-    public TStore Store => store ?? throw new InvalidOperationException("Blazix: a popup trigger's store is resolved at its first parameter set.");
+    public TStore Store => store ?? throw new InvalidOperationException("Iodine: a popup trigger's store is resolved at its first parameter set.");
 
     /// <summary>Gets the trigger id, the id the trigger renders.</summary>
     public string? TriggerId => id;
@@ -196,7 +196,7 @@ internal sealed class PopupTriggerBehavior<TStore, TState, TPayload> : IDisposab
         }
 
         return handle.Store as TStore
-            ?? throw new InvalidOperationException($"Blazix: the `Handle` of `{partName}` belongs to another popup family.");
+            ?? throw new InvalidOperationException($"Iodine: the `Handle` of `{partName}` belongs to another popup family.");
     }
 
     private void UseStore(TStore next)

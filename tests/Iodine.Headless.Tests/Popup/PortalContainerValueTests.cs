@@ -2,7 +2,7 @@ using Microsoft.AspNetCore.Components;
 using Microsoft.JSInterop;
 
 // Family tests use the project's root namespace.
-namespace Blazix.Primitives.Tests;
+namespace Iodine.Headless.Tests;
 
 /// <summary>
 /// <see cref="PortalContainerValue"/> at L1: the portal's <c>container</c> (FLT-API-13, PSH §6.1) as a hand-written union

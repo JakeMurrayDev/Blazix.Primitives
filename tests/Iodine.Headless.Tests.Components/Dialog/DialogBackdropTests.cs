@@ -1,6 +1,6 @@
 using Bunit;
 
-namespace Blazix.Primitives.Tests.Components;
+namespace Iodine.Headless.Tests.Components;
 
 /// <summary>
 /// The <c>[L2]</c> titles of <c>DialogBackdrop.test.tsx</c>: the role (DLG-ARIA-08) and the nested rule with

@@ -1,7 +1,7 @@
 using Bunit;
 using Microsoft.Extensions.DependencyInjection;
 
-namespace Blazix.Primitives.Tests.Components;
+namespace Iodine.Headless.Tests.Components;
 
 /// <summary>
 /// ADR 16 rule 7 for Menubar (M5 track 8's brief, Tests first, L2): a flag flip, a bar menu reported open and then closed
@@ -22,7 +22,7 @@ public sealed class MenubarAllocationBudgetTests : IDisposable
     public MenubarAllocationBudgetTests()
     {
         context.JSInterop.Mode = JSRuntimeMode.Loose;
-        context.Services.AddBlazixPrimitives();
+        context.Services.AddIodineHeadless();
     }
 
     /// <inheritdoc />

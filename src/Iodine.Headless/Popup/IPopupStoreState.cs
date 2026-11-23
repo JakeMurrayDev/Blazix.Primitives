@@ -1,9 +1,9 @@
-using Blazix.Primitives.Store;
+using Iodine.Headless.Store;
 
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // ADR 05 Amendments 2026-10-27 (chosen by the user 2026-10-27): a family's store record holds the shared state as one
-// member, and the shared algorithms are generic over this interface, so BLZX1010 (no derived records), ADR 05 §1's one
+// member, and the shared algorithms are generic over this interface, so IOD1010 (no derived records), ADR 05 §1's one
 // subscription per part and the generated ShallowEquals stand.
 /// <summary>Defines a popup family's store record: the shared popup state it holds and how to replace it.</summary>
 /// <typeparam name="TSelf">The type of the family's store record.</typeparam>

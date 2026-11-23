@@ -1,12 +1,12 @@
 using System.Linq.Expressions;
-using Blazix.Primitives.Rendering;
+using Iodine.Headless.Rendering;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Forms;
 using Microsoft.AspNetCore.Components.Web;
 using Microsoft.Extensions.Logging;
 using Microsoft.JSInterop;
 
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // FLD-STA-03; field/control/FieldControl.tsx:65-68,202.
 /// <summary>Represents the state of a field control, which the part exposes as data attributes and passes to its class and style functions.</summary>

@@ -1,12 +1,12 @@
 using AngleSharp.Dom;
-using Blazix.Primitives.Interop;
+using Iodine.Headless.Interop;
 using Bunit;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Web;
-using static Blazix.Primitives.Tests.Components.RadioGroupFieldHost;
+using static Iodine.Headless.Tests.Components.RadioGroupFieldHost;
 
 // The namespace is the project's root: a namespace named after the family would hide the parts' types.
-namespace Blazix.Primitives.Tests.Components;
+namespace Iodine.Headless.Tests.Components;
 
 // RadioGroup.test.tsx's Field, Field.Label, Field.Description, validation-mode and Form titles at L2 (issue 84), with the
 // Radio-owned rows of radio.md §13. The group is its field's control (RDG §8); each radio's hidden input is one of the

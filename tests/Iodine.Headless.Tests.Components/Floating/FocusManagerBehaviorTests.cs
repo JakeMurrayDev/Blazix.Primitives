@@ -1,12 +1,12 @@
 using AngleSharp.Dom;
-using Blazix.Primitives.Interop;
-using Blazix.Primitives.Utilities;
+using Iodine.Headless.Interop;
+using Iodine.Headless.Utilities;
 using Bunit;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Rendering;
 using Microsoft.JSInterop;
 
-namespace Blazix.Primitives.Tests.Components;
+namespace Iodine.Headless.Tests.Components;
 
 // Two titles are allocation budgets (ADR 16 rule 7), so the class runs in the non-parallel budgets collection (issue 112).
 /// <summary>
@@ -20,8 +20,8 @@ namespace Blazix.Primitives.Tests.Components;
 [Collection(AllocationBudgetsCollection.Name)]
 public sealed class FocusManagerBehaviorTests : IDisposable
 {
-    private const string ModulePath = "./_content/Blazix.Primitives/js/focus-manager.js";
-    private const string PortalModulePath = "./_content/Blazix.Primitives/js/portal.js";
+    private const string ModulePath = "./_content/Iodine.Headless/js/focus-manager.js";
+    private const string PortalModulePath = "./_content/Iodine.Headless/js/portal.js";
 
     private const string FocusOutJson = """
         {"kind":"FocusEvent","type":"focusout","key":null,"code":null,"altKey":false,"ctrlKey":false,
@@ -396,7 +396,7 @@ public sealed class FocusManagerBehaviorTests : IDisposable
             }
 
             Attaches++;
-            return ValueTask.FromException<TValue>(new JSException("Blazix: no element for the reference"));
+            return ValueTask.FromException<TValue>(new JSException("Iodine: no element for the reference"));
         }
     }
 #pragma warning restore BL0016

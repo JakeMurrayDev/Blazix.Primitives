@@ -693,9 +693,9 @@ const physicalSides: Record<Side, (isRtl: boolean) => PhysicalSide> = {
 
 // A symbol on the element, not a module registry: a repeated attach of the same element returns the live handle, and
 // the exports below find it.
-const attachedHandle = Symbol('blazix.positioning.handle');
+const attachedHandle = Symbol('iodine.positioning.handle');
 // An aligned request made before the element's handle attached (setAligned), applied at attach.
-const pendingAligned = Symbol('blazix.positioning.pendingAligned');
+const pendingAligned = Symbol('iodine.positioning.pendingAligned');
 
 interface PositioningHandle extends TwinHandle {
   placement(): RenderedPlacement;

@@ -1,4 +1,4 @@
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // FFI-API-02, FLD-API-05, FRM-API-01; form/Form.tsx:181 (`Form.ValidationMode`). ADR 08 Amendments 2026-10-22: one
 // shared enum, since Field and Form share the literal set; declared beside its first consumer, FieldRoot.

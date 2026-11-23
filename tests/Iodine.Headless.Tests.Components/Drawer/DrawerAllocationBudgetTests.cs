@@ -1,8 +1,8 @@
-using Blazix.Primitives.Interop;
+using Iodine.Headless.Interop;
 using Bunit;
 using Microsoft.JSInterop;
 
-namespace Blazix.Primitives.Tests.Components;
+namespace Iodine.Headless.Tests.Components;
 
 /// <summary>
 /// ADR 16 rule 7 for Drawer (decision 26 (a) of the M6 plan, chosen by the user 2026-11-18): the re-render of an open
@@ -31,7 +31,7 @@ public sealed class DrawerAllocationBudgetTests : IDisposable
 
     public DrawerAllocationBudgetTests()
     {
-        drawerModule = test.Context.JSInterop.SetupModule("./_content/Blazix.Primitives/js/drawer.js");
+        drawerModule = test.Context.JSInterop.SetupModule("./_content/Iodine.Headless/js/drawer.js");
         drawerHandle = drawerModule.SetupModule("attach", _ => true);
         drawerHandle.SetupVoid("update", _ => true).SetVoidResult();
         drawerHandle.SetupVoid("dispose", _ => true).SetVoidResult();

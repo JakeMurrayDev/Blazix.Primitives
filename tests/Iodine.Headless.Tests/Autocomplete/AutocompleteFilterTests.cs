@@ -1,7 +1,7 @@
 using System.Globalization;
 
 // Family tests use the project's root namespace.
-namespace Blazix.Primitives.Tests;
+namespace Iodine.Headless.Tests;
 
 // AUT-API-19 (autocomplete/index.parts.ts:24, combobox/root/utils/useFilter.ts:12, internals/filter.ts:6-83) and AUT-API-10's
 // collator (Test: none in autocomplete/; the brief's L1 proposal, M5 track 11): Autocomplete.useFilter is the shared collator

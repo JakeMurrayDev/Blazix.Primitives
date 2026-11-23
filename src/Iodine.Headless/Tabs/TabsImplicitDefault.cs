@@ -1,6 +1,6 @@
 using System.Runtime.CompilerServices;
 
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // TAB-API-02, TAB-STA-08; tabs/root/TabsRoot.tsx:30 (`defaultValue = 0`). ADR 08 Amendments 2026-10-26 (chosen by the
 // user 2026-10-26): while a Root has neither Value nor DefaultValue it holds an implicit default that is not a TValue,

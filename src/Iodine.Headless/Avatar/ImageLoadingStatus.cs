@@ -1,4 +1,4 @@
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // AVA §3.4; avatar/root/AvatarRoot.tsx:44. ADR 08 §3 (Enums row; Amendments 2026-10-21): the PascalCase of Base UI's
 // literals, no sentinel member. Declared beside its first consumer, the Avatar family.

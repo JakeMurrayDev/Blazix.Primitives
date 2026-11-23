@@ -1,10 +1,10 @@
-using Blazix.Primitives.Interop;
+using Iodine.Headless.Interop;
 using Bunit;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 
 // Family tests use the project's root namespace.
-namespace Blazix.Primitives.Tests.Components;
+namespace Iodine.Headless.Tests.Components;
 
 // M5 track 11 (issue 196): the brief's proposed layers for AUT-STA-10 and AUT-EDGE-01 (Test: none): the query is not frozen
 // on close in None mode, and the port's text diagnostics (ADR 05 Amendments 2026-10-18 item 1, the row's port clause).

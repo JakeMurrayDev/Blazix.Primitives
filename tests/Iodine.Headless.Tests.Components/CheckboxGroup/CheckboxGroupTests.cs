@@ -5,7 +5,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 
 // The namespace is the project's root: a namespace named after the family would hide the parts' types.
-namespace Blazix.Primitives.Tests.Components;
+namespace Iodine.Headless.Tests.Components;
 
 // CheckboxGroup.test.tsx and useCheckboxGroupParent.test.tsx, the rows that render neither Field nor Form (issue 82), and
 // the group rows of checkbox.md (CHK-STR-04, CHK-API-05, CHK-STA-07/08/12, CHK-DOM-07/16, CHK-EVT-09, CHK-ARIA-12,
@@ -908,7 +908,7 @@ public sealed class CheckboxGroupTests : IDisposable
                 .AddChildContent<CheckboxRoot>(b => b.Add(x => x.Value, "x").AddUnmatched("data-testid", "x"))));
 
         CheckboxRoot box = cut.FindComponent<CheckboxRoot>().Instance;
-        Blazix.Primitives.Interop.ButtonTwin twin = ((Microsoft.JSInterop.DotNetObjectReference<Blazix.Primitives.Interop.ButtonTwin>)test.ButtonModule.Invocations["attach"].Last(i => Equals(i.Arguments[0], box.Element)).Arguments[2]!).Value;
+        Iodine.Headless.Interop.ButtonTwin twin = ((Microsoft.JSInterop.DotNetObjectReference<Iodine.Headless.Interop.ButtonTwin>)test.ButtonModule.Invocations["attach"].Last(i => Equals(i.Arguments[0], box.Element)).Arguments[2]!).Value;
         await cut.InvokeAsync(() => twin.OnToggle($$"""{"checked":true,"event":{{CheckboxTestContext.InputClickJson()}}}"""));
 
         Assert.Equal(["x"], Joined(inner));

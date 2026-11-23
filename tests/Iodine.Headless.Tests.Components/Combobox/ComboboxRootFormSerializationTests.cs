@@ -1,7 +1,7 @@
 using Bunit;
 
 // Family tests use the project's root namespace.
-namespace Blazix.Primitives.Tests.Components;
+namespace Iodine.Headless.Tests.Components;
 
 // CMB-API-33, DOM-18 and DOM-19 at L2 (ComboboxRoot.test.tsx, describe "Form > serialization for object values"): the hidden
 // inputs carry an object value's form text. The port never reads an object's `value` member (ADR 16 rule 1; shared-utilities

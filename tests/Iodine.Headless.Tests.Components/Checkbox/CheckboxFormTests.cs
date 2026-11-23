@@ -1,8 +1,8 @@
-using Blazix.Primitives.Interop;
+using Iodine.Headless.Interop;
 using Bunit;
 
 // The namespace is the project's root: a namespace named after the family would hide the parts' types.
-namespace Blazix.Primitives.Tests.Components;
+namespace Iodine.Headless.Tests.Components;
 
 // CheckboxRoot.test.tsx's Form titles (CHK-FRM-08, CHK-FRM-12, CHK-FRM-13, CHK-FOC-06, CHK-API-10), with Form and
 // Field.Error on main. A submission is the module's report of the state it read from every enrolled hidden input.

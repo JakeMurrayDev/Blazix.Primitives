@@ -5,7 +5,7 @@
     The one route of the demo pages: /{mode}/{family}. The page is static (the navigation); the family's demo is an
     interactive island whose render mode comes from the segment, prerendered.
 *@
-<PageTitle>@(entry?.Title ?? "Not found") · @ModeName · Blazix.Primitives</PageTitle>
+<PageTitle>@(entry?.Title ?? "Not found") · @ModeName · Iodine.Headless</PageTitle>
 
 @if (entry is null || renderMode is null)
 {

@@ -1,7 +1,7 @@
-using Blazix.Primitives.Rendering;
+using Iodine.Headless.Rendering;
 
 // Family tests use the project's root namespace: a `Button` namespace would hide the `Button` type.
-namespace Blazix.Primitives.Tests;
+namespace Iodine.Headless.Tests;
 
 /// <summary>
 /// UBT-ALG-03 at L1 (docs/architecture/button-behavior.md §5): the attribute matrix of the button mechanism on the C#

@@ -42,7 +42,7 @@ const {
 type OpenReport = import('./context-menu').ContextMenuOpenReport;
 type PressReport = import('./context-menu').ContextMenuPress;
 
-const RELEASE_KEY = 'blazix.interactions.menuRelease';
+const RELEASE_KEY = 'iodine.interactions.menuRelease';
 const ROOT_ID = 'base-ui-root-1';
 
 interface ReleaseSlot {

@@ -1,5 +1,5 @@
 // Family tests use the project's root namespace.
-namespace Blazix.Primitives.Tests;
+namespace Iodine.Headless.Tests;
 
 /// <summary>
 /// The popup store's selectors at L1 (utils/popups/store.test.ts, titles verbatim): <c>isOpenedByTrigger</c> reads the

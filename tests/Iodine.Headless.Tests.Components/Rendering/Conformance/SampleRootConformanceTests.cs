@@ -1,8 +1,8 @@
-using Blazix.Primitives.Rendering;
+using Iodine.Headless.Rendering;
 using Bunit;
 using Microsoft.AspNetCore.Components;
 
-namespace Blazix.Primitives.Tests.Components.Rendering.Conformance;
+namespace Iodine.Headless.Tests.Components.Rendering.Conformance;
 
 /// <summary>The conformance suite on <see cref="SampleRoot"/> (issue 31): the first run of RND-DOM-36..49 at L2.</summary>
 public sealed class SampleRootConformanceTests : PartConformanceTests<SampleRoot>

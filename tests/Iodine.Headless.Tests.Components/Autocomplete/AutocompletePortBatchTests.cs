@@ -1,10 +1,10 @@
-using Blazix.Primitives.Interop;
+using Iodine.Headless.Interop;
 using Bunit;
 using Microsoft.AspNetCore.Components;
 using Microsoft.JSInterop;
 
 // Family tests use the project's root namespace.
-namespace Blazix.Primitives.Tests.Components;
+namespace Iodine.Headless.Tests.Components;
 
 // M5 track 11 (issue 196): AutocompleteRoot.test.tsx titles the port-coverage count listed as not ported (2026-11-12): the
 // filter in Inline and Both modes, the completion against a controlled value and read-only, and the Field titles. L2 asserts

@@ -1,4 +1,4 @@
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // FLT-FOC-10 (FloatingFocusManager.tsx:50-77, getEventType): the close interaction type, classified in C# from the close
 // event's snapshot and the type the `focus-manager` module last recorded (design point 6 of the focus-manager track,

@@ -1,4 +1,4 @@
-namespace Blazix.Primitives.Tests.Components;
+namespace Iodine.Headless.Tests.Components;
 
 /// <summary>One radio a <see cref="RadioGroupFieldHost"/> renders.</summary>
 public sealed class HostRadio(string testId, string? value = null)

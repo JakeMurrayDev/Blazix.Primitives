@@ -1,9 +1,9 @@
-using Blazix.Primitives.Rendering;
-using Blazix.Primitives.Tests.Components.Rendering.Conformance;
+using Iodine.Headless.Rendering;
+using Iodine.Headless.Tests.Components.Rendering.Conformance;
 using Bunit;
 using Microsoft.AspNetCore.Components;
 
-namespace Blazix.Primitives.Tests.Components;
+namespace Iodine.Headless.Tests.Components;
 
 // RND-STR-10 (SelectItemIndicator.test.tsx: describeConformance, a `span`): the conformance suite on the test-only indicator,
 // selected so that it renders.

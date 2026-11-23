@@ -1,6 +1,6 @@
-using Blazix.Primitives.Interop;
+using Iodine.Headless.Interop;
 
-namespace Blazix.Primitives.Tests;
+namespace Iodine.Headless.Tests;
 
 // The validation service at L1 (FFI-ALG-01/03/14, FFI-FRM-01..16, FFI-API-01/03): FieldRoot.test.tsx's titles over the
 // C# field scope, with the browser's native state as a stand-in payload (the form module's report) and FakeTimeProvider

@@ -1,7 +1,7 @@
 using Bunit;
 
 // Family tests use the project's root namespace.
-namespace Blazix.Primitives.Tests.Components;
+namespace Iodine.Headless.Tests.Components;
 
 // ComboboxRoot.test.tsx's `manual unmount lifecycle` titles at L2 (batch A), CMB-API-36's @ref actions (CloseAsync, Unmount;
 // ADR 08 Amendments 2026-10-27). Base UI's `Popup` is the host with the consumer's open state (ControlOpen): the root is

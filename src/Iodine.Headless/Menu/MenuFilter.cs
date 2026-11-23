@@ -1,7 +1,7 @@
 using System.Globalization;
-using Blazix.Primitives.Utilities;
+using Iodine.Headless.Utilities;
 
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // MNU-API-67 (menu/index.parts.ts:28, internals/filter.ts:6-84): Base UI's Menu.useFilter, the shared getFilter. M5 track
 // 12's design point 4 (a), settled by the orchestrator 2026-11-11: a value over the shared collator filter (UTL-I18N-08..13), track 10's

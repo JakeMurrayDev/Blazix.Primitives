@@ -2,7 +2,7 @@ using System.Diagnostics.CodeAnalysis;
 using System.Runtime.CompilerServices;
 using Microsoft.AspNetCore.Components;
 
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // ADR 05 §4 (hand-written [Union] structs with the non-boxing access pattern; Duration is the model); ADR 08 §3 (Union
 // types row, which names AnchorValue) and Amendments 2026-10-27: an element, an element id and a virtual rect, no function
@@ -58,9 +58,9 @@ public readonly struct AnchorValue : IUnion, IEquatable<AnchorValue>
     /// <value><see langword="true"/> if a value is held; otherwise, <see langword="false"/>. The default instance holds no value.</value>
     public bool HasValue => kind != AnchorKind.None;
 
-    // BLZX2005: IUnion requires an object-typed Value, so reading it boxes the element case; the library reads the cases
+    // IOD2005: IUnion requires an object-typed Value, so reading it boxes the element case; the library reads the cases
     // through TryGetValue instead.
-#pragma warning disable BLZX2005
+#pragma warning disable IOD2005
     /// <inheritdoc />
     /// <remarks>Reading it boxes an element.</remarks>
     public object? Value => kind switch
@@ -69,7 +69,7 @@ public readonly struct AnchorValue : IUnion, IEquatable<AnchorValue>
         AnchorKind.Id or AnchorKind.Virtual => reference,
         _ => null,
     };
-#pragma warning restore BLZX2005
+#pragma warning restore IOD2005
 
     /// <summary>Converts an element to an <see cref="AnchorValue"/> that holds it.</summary>
     /// <param name="value">The element.</param>

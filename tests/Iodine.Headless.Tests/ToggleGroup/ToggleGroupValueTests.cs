@@ -1,4 +1,4 @@
-namespace Blazix.Primitives.Tests;
+namespace Iodine.Headless.Tests;
 
 // The [L1] rows of docs/components/toggle-group.md (issue 102): TGG-STA-03 and TGG-STA-04 over the pure value rules
 // (toggle-group §4; toggle-group/ToggleGroup.tsx:61-71), titles verbatim from ToggleGroup.test.tsx. Each title replays the

@@ -1,7 +1,7 @@
 using Microsoft.AspNetCore.Components;
 
 // Family tests use the project's root namespace.
-namespace Blazix.Primitives.Tests.Components;
+namespace Iodine.Headless.Tests.Components;
 
 // AutocompleteRoot reads RendererInfo.IsInteractive (design point 8 (a) of M5 track 11), which bUnit requires a test to set:
 // the Autocomplete tests render as an interactive Server renderer, over the Combobox test context's faked modules.

@@ -1,9 +1,9 @@
-using Blazix.Primitives.Rendering;
+using Iodine.Headless.Rendering;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Web;
 using Microsoft.JSInterop;
 
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // TLB-STA-01; toolbar/root/ToolbarRoot.tsx:56,88-91. ADR 08 §3: the state record is sealed, partial and [PartState]; the
 // default projection gives data-disabled and data-orientation, which is always present (TLB-DOM-01).
@@ -94,8 +94,8 @@ public sealed class ToolbarRoot : PartBase<ToolbarRootState>
     // TLB-API-02; ADR 08 Amendments 2026-10-26 (non-nullable, the family default Horizontal, chosen by the user)
     /// <summary>Gets or sets the axis of the arrow keys that move focus between the toolbar's items.</summary>
     /// <value>
-    /// <see cref="Blazix.Primitives.Orientation.Horizontal"/>, the default, for the left and right arrows (swapped in a
-    /// right-to-left <see cref="DirectionProvider"/>); <see cref="Blazix.Primitives.Orientation.Vertical"/> for the up and
+    /// <see cref="Iodine.Headless.Orientation.Horizontal"/>, the default, for the left and right arrows (swapped in a
+    /// right-to-left <see cref="DirectionProvider"/>); <see cref="Iodine.Headless.Orientation.Vertical"/> for the up and
     /// down arrows. Reflected in <c>aria-orientation</c> and <c>data-orientation</c>, and in every part's state.
     /// </value>
     [Parameter]
@@ -118,7 +118,7 @@ public sealed class ToolbarRoot : PartBase<ToolbarRootState>
     /// <inheritdoc />
     protected override bool UsesGeneratedId => RenderFunction is not null;
 
-    // For the fixtures (tests/Blazix.Primitives.Fixtures.Client): completes once the composite behavior is attached, so a
+    // For the fixtures (tests/Iodine.Headless.Fixtures.Client): completes once the composite behavior is attached, so a
     // browser test can wait for its listeners before it presses a key.
     /// <summary>Gets a task that completes when the toolbar's composite behavior is attached to its element.</summary>
     /// <value>A task that completes after the first interactive render has attached it.</value>

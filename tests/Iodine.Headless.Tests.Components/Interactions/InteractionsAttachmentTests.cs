@@ -1,8 +1,8 @@
 using System.Text.Json;
-using Blazix.Primitives.Rendering;
+using Iodine.Headless.Rendering;
 using Microsoft.JSInterop;
 
-namespace Blazix.Primitives.Tests.Components;
+namespace Iodine.Headless.Tests.Components;
 
 // The runtime here is a test double, not interop: the analyzer reads its members as JS interop calls.
 #pragma warning disable BL0016

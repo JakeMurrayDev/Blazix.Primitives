@@ -1,4 +1,4 @@
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // PRG-API-10: Base UI's `children` function receives (formattedValue | 'indeterminate', value). The port's template
 // parameter ProgressValue.ValueContent receives this record (ADR 08 §3: the argument record's name is the port's, as

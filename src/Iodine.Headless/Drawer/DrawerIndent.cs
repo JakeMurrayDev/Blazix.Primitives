@@ -1,9 +1,9 @@
-using Blazix.Primitives.Interop;
-using Blazix.Primitives.Rendering;
+using Iodine.Headless.Interop;
+using Iodine.Headless.Rendering;
 using Microsoft.AspNetCore.Components;
 using Microsoft.JSInterop;
 
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // DRW §3.3 (drawer/indent/DrawerIndent.tsx:71-73): the indent's state object.
 /// <summary>Represents the state of a drawer indent, which the part exposes as data attributes and passes to its class and style functions.</summary>

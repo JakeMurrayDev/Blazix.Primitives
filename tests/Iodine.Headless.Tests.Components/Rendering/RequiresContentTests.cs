@@ -1,10 +1,10 @@
-using Blazix.Primitives.Rendering;
+using Iodine.Headless.Rendering;
 using Bunit;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Rendering;
 using Microsoft.Extensions.DependencyInjection;
 
-namespace Blazix.Primitives.Tests.Components;
+namespace Iodine.Headless.Tests.Components;
 
 /// <summary>
 /// The pipeline's opt-in "renders only with content" gate (ADR 02 Amendments 2026-11-18, Toast DP11, settled by the
@@ -19,7 +19,7 @@ public sealed class RequiresContentTests : IDisposable
 
     public RequiresContentTests()
     {
-        context.Services.AddBlazixPrimitives();
+        context.Services.AddIodineHeadless();
     }
 
     public void Dispose() => context.Dispose();

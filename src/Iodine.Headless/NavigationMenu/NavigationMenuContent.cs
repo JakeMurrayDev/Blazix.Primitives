@@ -1,12 +1,12 @@
-using Blazix.Primitives.Interop;
-using Blazix.Primitives.Rendering;
-using Blazix.Primitives.Store;
+using Iodine.Headless.Interop;
+using Iodine.Headless.Rendering;
+using Iodine.Headless.Store;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Rendering;
 using Microsoft.AspNetCore.Components.Web;
 using Microsoft.JSInterop;
 
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // NAV-STA-16, §3.6 state object (navigation-menu/content/NavigationMenuContent.tsx:97-101, 182-195). TransitionStatus is the
 // Content's own, the `transitions` module's (ADR 04 §2): mirrored. ActivationDirection is C#'s (design point 4, sent

@@ -1,6 +1,6 @@
 using Microsoft.Extensions.Logging;
 
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // PSH-ALG-06 (popupHandle.ts:43-63): what a handle needs of the stores it points at, whatever their family record: the
 // effective open state, the trigger registry, the open-change request and the payload write of openWithPayload.

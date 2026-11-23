@@ -2,11 +2,11 @@ using Bunit;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.JSInterop;
 
-namespace Blazix.Primitives.Tests.Components;
+namespace Iodine.Headless.Tests.Components;
 
 /// <summary>
 /// The platform flags at L2 (ADR 04 Amendments 2026-11-04, design point 4, settled by the orchestrator 2026-11-04;
-/// MNU-A11Y-01): a scoped service <c>AddBlazixPrimitives()</c> registers, which reads the VoiceOver hint and macOS once per
+/// MNU-A11Y-01): a scoped service <c>AddIodineHeadless()</c> registers, which reads the VoiceOver hint and macOS once per
 /// circuit or runtime from the <c>interactions</c> module's <c>readPlatformFlags</c> export, and reads <see langword="null"/>
 /// until then (the non-VoiceOver, non-macOS default of prerender and the first render).
 /// </summary>
@@ -16,7 +16,7 @@ public sealed class PlatformFlagsTests : IDisposable
 
     public PlatformFlagsTests()
     {
-        context.Services.AddBlazixPrimitives();
+        context.Services.AddIodineHeadless();
     }
 
     /// <inheritdoc />

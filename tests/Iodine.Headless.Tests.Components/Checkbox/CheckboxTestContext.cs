@@ -1,12 +1,12 @@
 using System.Text.Json;
-using Blazix.Primitives.Interop;
+using Iodine.Headless.Interop;
 using Bunit;
 using Microsoft.AspNetCore.Components;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.JSInterop;
 
-namespace Blazix.Primitives.Tests.Components;
+namespace Iodine.Headless.Tests.Components;
 
 /// <summary>
 /// The bUnit context of the Checkbox tests: the library's services, a captured logger, and bUnit's JS interop mock standing
@@ -19,16 +19,16 @@ namespace Blazix.Primitives.Tests.Components;
 /// </summary>
 public sealed class CheckboxTestContext : IDisposable
 {
-    public const string ButtonModulePath = "./_content/Blazix.Primitives/js/button.js";
-    public const string DomModulePath = "./_content/Blazix.Primitives/js/dom.js";
-    public const string TransitionsModulePath = "./_content/Blazix.Primitives/js/transitions.js";
-    public const string FormModulePath = "./_content/Blazix.Primitives/js/form.js";
+    public const string ButtonModulePath = "./_content/Iodine.Headless/js/button.js";
+    public const string DomModulePath = "./_content/Iodine.Headless/js/dom.js";
+    public const string TransitionsModulePath = "./_content/Iodine.Headless/js/transitions.js";
+    public const string FormModulePath = "./_content/Iodine.Headless/js/form.js";
 
     private int answeredRevision;
 
     public CheckboxTestContext()
     {
-        Context.Services.AddBlazixPrimitives();
+        Context.Services.AddIodineHeadless();
         Context.Services.AddSingleton<ILogger<CheckboxRoot>>(Logger);
         ButtonModule = Context.JSInterop.SetupModule(ButtonModulePath);
         ButtonHandle = SetupHandle(ButtonModule);
@@ -133,7 +133,7 @@ public sealed class CheckboxTestContext : IDisposable
         where TComponent : IComponent
     {
         ButtonTwin target = ButtonTwin(twin);
-        return cut.InvokeAsync(() => target.Decide(Blazix.Primitives.Interop.ButtonTwin.TogglePoint, InputClickJson()));
+        return cut.InvokeAsync(() => target.Decide(Iodine.Headless.Interop.ButtonTwin.TogglePoint, InputClickJson()));
     }
 
     /// <summary>Asks the activation decision of a root click as the module does on WebAssembly.</summary>
@@ -141,7 +141,7 @@ public sealed class CheckboxTestContext : IDisposable
         where TComponent : IComponent
     {
         ButtonTwin target = ButtonTwin();
-        return cut.InvokeAsync(() => target.Decide(Blazix.Primitives.Interop.ButtonTwin.ActivatePoint, RootClickJson()));
+        return cut.InvokeAsync(() => target.Decide(Iodine.Headless.Interop.ButtonTwin.ActivatePoint, RootClickJson()));
     }
 
     /// <summary>Reports a transition status change of the last attached indicator, as the <c>transitions</c> module does.</summary>
@@ -163,7 +163,7 @@ public sealed class CheckboxTestContext : IDisposable
     /// <summary>The <see cref="FormTwin"/> of the box attached last (a field label's twin is skipped).</summary>
     internal FormTwin FormTwin() =>
         ((DotNetObjectReference<FormTwin>)FormModule.Invocations["attach"]
-            .Last(i => JsonSerializer.Deserialize((string)i.Arguments[1]!, BlazixJsonContext.Default.FormOptions)!.Control is not null)
+            .Last(i => JsonSerializer.Deserialize((string)i.Arguments[1]!, IodineJsonContext.Default.FormOptions)!.Control is not null)
             .Arguments[2]!).Value;
 
     /// <summary>
@@ -235,7 +235,7 @@ public sealed class CheckboxTestContext : IDisposable
         where TComponent : IComponent
     {
         JSRuntimeInvocation attach = FormModule.Invocations["attach"]
-            .Last(i => JsonSerializer.Deserialize((string)i.Arguments[1]!, BlazixJsonContext.Default.FormOptions)!.Submit is not null);
+            .Last(i => JsonSerializer.Deserialize((string)i.Arguments[1]!, IodineJsonContext.Default.FormOptions)!.Submit is not null);
         FormTwin twin = ((DotNetObjectReference<FormTwin>)attach.Arguments[2]!).Value;
         FormControlState[] controls =
         [
@@ -251,9 +251,9 @@ public sealed class CheckboxTestContext : IDisposable
             Event = new EventSnapshot { Kind = EventKind.Event, Type = "submit", DefaultPrevented = true, Target = new EventTargetInfo { TagName = "FORM" } },
             Controls = controls,
         };
-        string json = JsonSerializer.Serialize(request, BlazixJsonContext.Default.FormSubmitRequest);
+        string json = JsonSerializer.Serialize(request, IodineJsonContext.Default.FormSubmitRequest);
         string answer = await cut.InvokeAsync(() => twin.OnSubmitRequest(json));
-        return JsonSerializer.Deserialize(answer, BlazixJsonContext.Default.FormSubmitAnswer)!;
+        return JsonSerializer.Deserialize(answer, IodineJsonContext.Default.FormSubmitAnswer)!;
     }
 
     /// <summary>Reports the native label the hidden input's handle discovered, as the module does.</summary>
@@ -261,7 +261,7 @@ public sealed class CheckboxTestContext : IDisposable
         where TComponent : IComponent
     {
         FormTwin twin = FormTwin();
-        string json = JsonSerializer.Serialize(new FormControlReport { Type = "label", Value = labelId }, BlazixJsonContext.Default.FormControlReport);
+        string json = JsonSerializer.Serialize(new FormControlReport { Type = "label", Value = labelId }, IodineJsonContext.Default.FormControlReport);
         return cut.InvokeAsync(() => twin.OnControlReport(json));
     }
 
@@ -273,7 +273,7 @@ public sealed class CheckboxTestContext : IDisposable
     }
 
     private static FormControlOptions Parse(string json) =>
-        JsonSerializer.Deserialize(json, BlazixJsonContext.Default.FormOptions)!.Control ?? new FormControlOptions();
+        JsonSerializer.Deserialize(json, IodineJsonContext.Default.FormOptions)!.Control ?? new FormControlOptions();
 
     private static EventSnapshot BlurSnapshot() =>
         new() { Kind = EventKind.FocusEvent, Type = "blur", Target = new EventTargetInfo { TagName = "SPAN" } };
@@ -288,7 +288,7 @@ public sealed class CheckboxTestContext : IDisposable
             Event = snapshot,
             Revision = revision,
         };
-        string json = JsonSerializer.Serialize(report, BlazixJsonContext.Default.FormControlReport);
+        string json = JsonSerializer.Serialize(report, IodineJsonContext.Default.FormControlReport);
         return cut.InvokeAsync(() => twin.OnControlReport(json));
     }
 

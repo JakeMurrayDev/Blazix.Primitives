@@ -1,4 +1,4 @@
-namespace Blazix.Primitives.Tests.Lints;
+namespace Iodine.Headless.Tests.Lints;
 
 /// <summary>
 /// The code's ownership registry (ADR 04 section 2, ADR 11 section 5): every attribute, data attribute and CSS variable
@@ -13,7 +13,7 @@ namespace Blazix.Primitives.Tests.Lints;
 internal static class OwnershipRegistry
 {
     /// <summary>Gets the entries written by hand.</summary>
-    /// <value>The registry; entries for a family without a folder under <c>src/Blazix.Primitives/</c> are ignored.</value>
+    /// <value>The registry; entries for a family without a folder under <c>src/Iodine.Headless/</c> are ignored.</value>
     public static IReadOnlyList<RegistryEntry> Declared { get; } =
     [
         // avatar.md §5.2 (ADR 04 §2 and Amendments 2026-10-18): the transitions module writes the Image's transition

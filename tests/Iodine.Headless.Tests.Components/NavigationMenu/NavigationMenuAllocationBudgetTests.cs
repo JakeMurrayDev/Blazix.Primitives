@@ -1,10 +1,10 @@
-using Blazix.Primitives.Interop;
-using Blazix.Primitives.Rendering;
+using Iodine.Headless.Interop;
+using Iodine.Headless.Rendering;
 using Bunit;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Rendering;
 
-namespace Blazix.Primitives.Tests.Components;
+namespace Iodine.Headless.Tests.Components;
 
 /// <summary>
 /// ADR 16 rules 2 and 7 for NavigationMenu: the parts a hover switch renders, counted through their class functions, and a

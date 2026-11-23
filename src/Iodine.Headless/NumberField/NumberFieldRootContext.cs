@@ -1,6 +1,6 @@
 using Microsoft.AspNetCore.Components;
 
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // NUM-STR-02, NUM-EDGE-01; number-field/root/NumberFieldRootContext.ts. The context the root cascades fixed (ADR 16 rule 9; the
 // Switch precedent): the parts read the root's state and call its requests through it, and re-render from its listeners, so
@@ -33,9 +33,9 @@ internal sealed class NumberFieldRootContext
     /// <exception cref="InvalidOperationException"><paramref name="context"/> is <see langword="null"/>.</exception>
     public static NumberFieldRootContext Require(NumberFieldRootContext? context)
     {
-        // NUM-EDGE-01, in every build; Base UI's words with the `Blazix: ` prefix (the AlertDialog and Select precedent).
+        // NUM-EDGE-01, in every build; Base UI's words with the `Iodine: ` prefix (the AlertDialog and Select precedent).
         return context ?? throw new InvalidOperationException(
-            "Blazix: `NumberFieldRootContext` is missing. NumberField parts must be placed within `<NumberFieldRoot>`.");
+            "Iodine: `NumberFieldRootContext` is missing. NumberField parts must be placed within `<NumberFieldRoot>`.");
     }
 
     /// <summary>Takes the root's new state and notifies the parts.</summary>

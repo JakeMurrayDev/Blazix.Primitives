@@ -1,4 +1,4 @@
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // TRN §3.3 and TRN-STA-01 (the unset status is a null value); ADR 08 §3 (Enums row, its own example), placed beside
 // its first consumer, TransitionsTwin, with the shared namespace like Events/.

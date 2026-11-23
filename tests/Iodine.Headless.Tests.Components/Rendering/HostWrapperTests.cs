@@ -1,12 +1,12 @@
 using AngleSharp.Dom;
-using Blazix.Primitives.Rendering;
-using Blazix.Primitives.Tests.Components.Rendering.Consumers;
+using Iodine.Headless.Rendering;
+using Iodine.Headless.Tests.Components.Rendering.Consumers;
 using Bunit;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Rendering;
 using Microsoft.Extensions.DependencyInjection;
 
-namespace Blazix.Primitives.Tests.Components.Rendering;
+namespace Iodine.Headless.Tests.Components.Rendering;
 
 /// <summary>
 /// The opt-in host wrapper (ADR 02 Amendments 2026-10-27, settled by the orchestrator 2026-10-27; M4 track 1): a part that
@@ -21,7 +21,7 @@ public sealed class HostWrapperTests : IDisposable
 
     public HostWrapperTests()
     {
-        context.Services.AddBlazixPrimitives();
+        context.Services.AddIodineHeadless();
     }
 
     /// <inheritdoc />

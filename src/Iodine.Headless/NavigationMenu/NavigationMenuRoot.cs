@@ -1,11 +1,11 @@
-using Blazix.Primitives.Interop;
-using Blazix.Primitives.Rendering;
-using Blazix.Primitives.Store;
+using Iodine.Headless.Interop;
+using Iodine.Headless.Rendering;
+using Iodine.Headless.Store;
 using Microsoft.AspNetCore.Components;
 using Microsoft.Extensions.Logging;
 using Microsoft.JSInterop;
 
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // NAV-STA-16, §3.1 state object (navigation-menu/root/NavigationMenuRoot.tsx:351-354): the default mapping only, so
 // `data-open` and `data-nested` (NAV-DOM-01, §16 Q2).
@@ -155,8 +155,8 @@ public sealed class NavigationMenuRoot<TValue> : PartBase<NavigationMenuRootStat
     // NAV-API-08; ADR 08 Amendments 2026-10-26 (non-nullable, the family default).
     /// <summary>Gets or sets the axis of the top-level list.</summary>
     /// <value>
-    /// <see cref="Primitives.Orientation.Horizontal"/>, the default: the left and right arrow keys move between the
-    /// triggers and the down arrow opens one; or <see cref="Primitives.Orientation.Vertical"/>.
+    /// <see cref="Headless.Orientation.Horizontal"/>, the default: the left and right arrow keys move between the
+    /// triggers and the down arrow opens one; or <see cref="Headless.Orientation.Vertical"/>.
     /// </value>
     [Parameter]
     public Orientation Orientation { get; set; } = Orientation.Horizontal;
@@ -196,7 +196,7 @@ public sealed class NavigationMenuRoot<TValue> : PartBase<NavigationMenuRootStat
             if (default(TValue) is not null)
             {
                 throw new InvalidOperationException(
-                    "Blazix: `NavigationMenuRoot` needs a `TValue` that can be `null`, which means closed: use a reference type such as `string` or a nullable value type such as `int?`.");
+                    "Iodine: `NavigationMenuRoot` needs a `TValue` that can be `null`, which means closed: use a reference type such as `string` or a nullable value type such as `int?`.");
             }
 
             valueState = new Controlled<TValue?>("NavigationMenu", "value", Logger);

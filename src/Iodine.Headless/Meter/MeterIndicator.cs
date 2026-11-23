@@ -1,7 +1,7 @@
-using Blazix.Primitives.Rendering;
+using Iodine.Headless.Rendering;
 using Microsoft.AspNetCore.Components;
 
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // Base UI's Meter.Indicator (meter/indicator/MeterIndicator.tsx); the contract is docs/components/meter.md. MTR-DOM-03: the
 // inline style is present for every value; MTR-DOM-04: the consumer's style wins key by key (the pipeline's style merge, with

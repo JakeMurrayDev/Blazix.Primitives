@@ -1,4 +1,4 @@
-namespace Blazix.Primitives.Utilities;
+namespace Iodine.Headless.Utilities;
 
 // UTL-I18N-05, NUM-I18N-07: the part types of Intl.NumberFormat.prototype.formatToParts that the port's formatter emits.
 /// <summary>Specifies the kind of a piece of formatted number text.</summary>

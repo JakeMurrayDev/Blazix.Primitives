@@ -1,12 +1,12 @@
 using AngleSharp.Dom;
-using Blazix.Primitives.Interop;
-using Blazix.Primitives.Rendering;
+using Iodine.Headless.Interop;
+using Iodine.Headless.Rendering;
 using Bunit;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Rendering;
 using Microsoft.JSInterop;
 
-namespace Blazix.Primitives.Tests.Components;
+namespace Iodine.Headless.Tests.Components;
 
 /// <summary>
 /// L2: <c>NavigationMenuRoot.test.tsx</c>'s, <c>NavigationMenuTrigger.test.tsx</c>'s, <c>NavigationMenuLink.test.tsx</c>'s and
@@ -27,7 +27,7 @@ public sealed class NavigationMenuRootTests : IDisposable
     [Trait("Requirement", "NAV-ARIA-07")]
     public void Does_not_apply_aria_orientation_to_the_top_level_list_or_root_element()
     {
-        IRenderedComponent<NavigationMenuHarness> cut = test.Render(p => p.Add(x => x.Orientation, Blazix.Primitives.Orientation.Vertical));
+        IRenderedComponent<NavigationMenuHarness> cut = test.Render(p => p.Add(x => x.Orientation, Iodine.Headless.Orientation.Vertical));
 
         IElement root = cut.Find("[data-testid=\"root\"]");
         IElement list = cut.Find("[data-testid=\"list\"]");
@@ -194,7 +194,7 @@ public sealed class NavigationMenuRootTests : IDisposable
     {
         InvalidOperationException error = Assert.Throws<InvalidOperationException>(() => test.Context.Render<NavigationMenuRoot<int>>());
 
-        Assert.StartsWith("Blazix: `NavigationMenuRoot` needs a `TValue` that can be `null`", error.Message, StringComparison.Ordinal);
+        Assert.StartsWith("Iodine: `NavigationMenuRoot` needs a `TValue` that can be `null`", error.Message, StringComparison.Ordinal);
     }
 
     [Fact(DisplayName = "handles focus and positioner height (items without value take distinct generated identities)")]
@@ -244,7 +244,7 @@ public sealed class NavigationMenuRootTests : IDisposable
             builder.CloseComponent();
         }))));
 
-        Assert.StartsWith("Blazix: A `NavigationMenuItem` without a `Value` is identified by a generated id", error.Message, StringComparison.Ordinal);
+        Assert.StartsWith("Iodine: A `NavigationMenuItem` without a `Value` is identified by a generated id", error.Message, StringComparison.Ordinal);
     }
 
     [Fact(DisplayName = "adds popup-open data attributes to the active icon")]
@@ -721,7 +721,7 @@ public sealed class NavigationMenuRootTests : IDisposable
     [Trait("Requirement", "NAV-DOM-15")]
     public async Task A_content_that_mounts_again_attaches_its_transitions_handle_to_its_new_element()
     {
-        BunitJSModuleInterop transitions = test.Context.JSInterop.SetupModule("./_content/Blazix.Primitives/js/transitions.js");
+        BunitJSModuleInterop transitions = test.Context.JSInterop.SetupModule("./_content/Iodine.Headless/js/transitions.js");
         transitions.SetupModule("attach", _ => true);
         IRenderedComponent<NavigationMenuHarness> cut = test.Render();
         await test.PressAsync(cut, "trigger-item-1", open: true);
@@ -862,7 +862,7 @@ public sealed class NavigationMenuRootTests : IDisposable
     {
         InvalidOperationException error = Assert.Throws<InvalidOperationException>(() => test.Context.Render<NavigationMenuList>());
 
-        Assert.Equal("Blazix: The `NavigationMenuRoot` context is missing. Navigation Menu parts must be placed within `<NavigationMenuRoot>`.", error.Message);
+        Assert.Equal("Iodine: The `NavigationMenuRoot` context is missing. Navigation Menu parts must be placed within `<NavigationMenuRoot>`.", error.Message);
     }
 
     [Fact(DisplayName = "throws a descriptive error when rendered outside <NavigationMenu.Item>")]
@@ -876,7 +876,7 @@ public sealed class NavigationMenuRootTests : IDisposable
             builder.CloseComponent();
         }))));
 
-        Assert.Equal("Blazix: `NavigationMenuItem` parts must be used within a `<NavigationMenuItem>`.", error.Message);
+        Assert.Equal("Iodine: `NavigationMenuItem` parts must be used within a `<NavigationMenuItem>`.", error.Message);
     }
 
     [Fact(DisplayName = "throws a descriptive error when rendered outside <NavigationMenu.Portal>")]
@@ -890,7 +890,7 @@ public sealed class NavigationMenuRootTests : IDisposable
             builder.CloseComponent();
         }))));
 
-        Assert.Equal("Blazix: `<NavigationMenuPortal>` is missing.", error.Message);
+        Assert.Equal("Iodine: `<NavigationMenuPortal>` is missing.", error.Message);
     }
 
     [Fact(DisplayName = "throws a descriptive error when rendered outside <NavigationMenu.Positioner>")]
@@ -904,7 +904,7 @@ public sealed class NavigationMenuRootTests : IDisposable
             builder.CloseComponent();
         }))));
 
-        Assert.Equal("Blazix: The `NavigationMenuPositioner` context is missing. `NavigationMenuPositioner` parts must be placed within `<NavigationMenuPositioner>`.", error.Message);
+        Assert.Equal("Iodine: The `NavigationMenuPositioner` context is missing. `NavigationMenuPositioner` parts must be placed within `<NavigationMenuPositioner>`.", error.Message);
     }
 
     [Fact(DisplayName = "render callback receives href")]
@@ -1067,7 +1067,7 @@ public sealed class NavigationMenuRootTests : IDisposable
                     runtime.Attached.Add(((ElementReference)args![0]!).Id);
                     if (runtime.Attached.Count == 1)
                     {
-                        throw new JSException("Blazix: no element for the reference");
+                        throw new JSException("Iodine: no element for the reference");
                     }
                 }
 

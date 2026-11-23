@@ -1,8 +1,8 @@
-using Blazix.Primitives.Interop;
+using Iodine.Headless.Interop;
 using Microsoft.AspNetCore.Components;
 using Microsoft.JSInterop;
 
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // The PopupModuleAttachment shape for the `select` module (ADR 04 §1's `select` row): one SelectTwin per part, attached
 // after the render that created the part's element and after the portal's move; an unchanged options record sends nothing

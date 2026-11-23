@@ -1,6 +1,6 @@
-using Blazix.Primitives.Rendering;
+using Iodine.Headless.Rendering;
 
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // CHK-DOM-02/03/06; checkbox/utils/getCheckboxStateAttributesMapping.ts (checked, then the field validity mapping). Base UI
 // builds the mapping per state, so the `checked` projection can see `indeterminate`; a port projection sees one field, so

@@ -1,10 +1,10 @@
 using System.Text.Json;
-using Blazix.Primitives.Interop;
+using Iodine.Headless.Interop;
 using Bunit;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.JSInterop;
 
-namespace Blazix.Primitives.Tests.Components;
+namespace Iodine.Headless.Tests.Components;
 
 /// <summary>
 /// The bUnit context of the Tooltip tests: the library's services, bUnit's JS interop mock in loose mode for the
@@ -14,7 +14,7 @@ namespace Blazix.Primitives.Tests.Components;
 /// </summary>
 internal sealed class TooltipTestContext : IDisposable
 {
-    public const string InteractionsModulePath = "./_content/Blazix.Primitives/js/interactions.js";
+    public const string InteractionsModulePath = "./_content/Iodine.Headless/js/interactions.js";
 
     public const string MouseJson = """
         {"kind":"MouseEvent","type":"mousemove","key":null,"code":null,"altKey":false,"ctrlKey":false,
@@ -30,7 +30,7 @@ internal sealed class TooltipTestContext : IDisposable
 
     public TooltipTestContext()
     {
-        Context.Services.AddBlazixPrimitives();
+        Context.Services.AddIodineHeadless();
         Context.JSInterop.Mode = JSRuntimeMode.Loose;
         Interactions = Context.JSInterop.SetupModule(InteractionsModulePath);
         InteractionsHandle = Interactions.SetupModule("attach", _ => true);

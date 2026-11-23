@@ -2,7 +2,7 @@ using Bunit;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Rendering;
 
-namespace Blazix.Primitives.Tests.Components;
+namespace Iodine.Headless.Tests.Components;
 
 /// <summary>Proves the L2 runner works: a component renders through a <see cref="BunitContext"/>.</summary>
 public sealed class BunitHarnessTests

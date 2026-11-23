@@ -10,7 +10,7 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 
 // Family tests use the project's root namespace.
-namespace Blazix.Primitives.Tests.Components;
+namespace Iodine.Headless.Tests.Components;
 
 // createItems.test.tsx's `integration` block at L2, the titles combobox.md cites (CMB-API-12..15, API-22, API-66, API-68,
 // STA-19, STA-20, STA-28, PTR-05, EVT-11, EDGE-02, EDGE-04..06, EDGE-08, EDGE-12). The port's shapes (design point 2, ADR 08

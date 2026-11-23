@@ -1,8 +1,8 @@
-using Blazix.Primitives.Rendering;
+using Iodine.Headless.Rendering;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Rendering;
 
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // Base UI's Meter.Value (meter/value/MeterValue.tsx); the contract is docs/components/meter.md. MTR-API-10: Base UI's
 // `children` function is the template ValueContent; MTR-API-11: a plain ChildContent is discarded (this part replaces it

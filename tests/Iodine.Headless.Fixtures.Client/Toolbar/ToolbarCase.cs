@@ -1,6 +1,6 @@
 using Microsoft.AspNetCore.Components.Web;
 
-namespace Blazix.Primitives.Fixtures.Client.ToolbarFixtures;
+namespace Iodine.Headless.Fixtures.Client.ToolbarFixtures;
 
 /// <summary>
 /// The record of one case of the Toolbar fixtures, as the specs read it: the consumer's clicks, key presses, pointer and

@@ -1,7 +1,7 @@
 using System.Text.Json.Serialization;
-using Blazix.Primitives.Fixtures.Client.Probe;
+using Iodine.Headless.Fixtures.Client.Probe;
 
-namespace Blazix.Primitives.Fixtures.Client.Harness;
+namespace Iodine.Headless.Fixtures.Client.Harness;
 
 /// <summary>The fixtures' own JSON context: the probe twin's records and the diagnostics payload.</summary>
 [JsonSourceGenerationOptions(PropertyNamingPolicy = JsonKnownNamingPolicy.CamelCase, DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull)]

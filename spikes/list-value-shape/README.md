@@ -1,7 +1,7 @@
 # List value-shape probe (M5 track 4)
 
 Throwaway probe for ADR 08 Amendments 2026-11-03 (1), run by M5 track 4 on 2026-11-04
-([issue 162](https://github.com/JakeMurrayDev/Blazix.Primitives/issues/162)) before the value layer and the wave-2 roots
+([issue 162](https://github.com/JakeMurrayDev/Iodine.Headless/issues/162)) before the value layer and the wave-2 roots
 are shaped. It is the issue-116 kind (`spikes/payload-generic/`) and is excluded from the solution. SDK
 11.0.100-rc.2.26504.105 (`global.json`), the SDK's own Razor source generator, `Microsoft.AspNetCore.App` 11.0.0-rc.2 as a
 framework reference.

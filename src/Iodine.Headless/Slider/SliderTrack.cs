@@ -1,8 +1,8 @@
-using Blazix.Primitives.Rendering;
-using Blazix.Primitives.Store;
+using Iodine.Headless.Rendering;
+using Iodine.Headless.Store;
 using Microsoft.AspNetCore.Components;
 
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // SLD §3.5: the Root's state object (slider/track/SliderTrack.tsx:40).
 /// <summary>Represents the state of a slider track, which the part exposes as data attributes and passes to its class and style functions.</summary>

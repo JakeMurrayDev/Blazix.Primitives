@@ -1,9 +1,9 @@
-using Blazix.Primitives.Rendering;
+using Iodine.Headless.Rendering;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Rendering;
 using Microsoft.JSInterop;
 
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // Base UI's Tooltip.Provider (tooltip/provider/TooltipProvider.tsx; TIP-STR-01, TIP-API-01..03, TIP-STA-14). Renders no
 // element (the DirectionProvider precedent): it draws a provider token (PartIdGenerator, never rendered), cascades its
@@ -58,7 +58,7 @@ public sealed class TooltipProvider : ComponentBase, IAsyncDisposable
     [Parameter]
     public RenderFragment? ChildContent { get; set; }
 
-    // For the fixtures (tests/Blazix.Primitives.Fixtures.Client): the group exists before a hover reads it.
+    // For the fixtures (tests/Iodine.Headless.Fixtures.Client): the group exists before a hover reads it.
     /// <summary>Gets a task that completes when the provider's delay group is attached.</summary>
     internal Task TwinAttached => behavior?.TwinAttached ?? Task.CompletedTask;
 

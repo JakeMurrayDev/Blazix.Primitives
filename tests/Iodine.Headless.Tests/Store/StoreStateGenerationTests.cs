@@ -1,7 +1,7 @@
-using Blazix.Primitives.Store;
+using Iodine.Headless.Store;
 using Microsoft.AspNetCore.Components;
 
-namespace Blazix.Primitives.Tests.Store;
+namespace Iodine.Headless.Tests.Store;
 
 /// <summary>
 /// The generated <c>Copy</c> and <c>ShallowEquals</c> of a <c>[StoreState]</c> record (ADR 05 §1; UTL-STA-11/12) agree

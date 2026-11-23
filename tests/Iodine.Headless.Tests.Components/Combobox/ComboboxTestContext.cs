@@ -1,10 +1,10 @@
 using System.Globalization;
-using Blazix.Primitives.Interop;
+using Iodine.Headless.Interop;
 using Bunit;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.JSInterop;
 
-namespace Blazix.Primitives.Tests.Components;
+namespace Iodine.Headless.Tests.Components;
 
 /// <summary>
 /// A bUnit context for the Combobox tests: the library's services, every module loose, and the <c>combobox</c>,
@@ -13,13 +13,13 @@ namespace Blazix.Primitives.Tests.Components;
 /// </summary>
 internal sealed class ComboboxTestContext : IDisposable
 {
-    public const string ComboboxPath = "./_content/Blazix.Primitives/js/combobox.js";
+    public const string ComboboxPath = "./_content/Iodine.Headless/js/combobox.js";
 
-    public const string InteractionsPath = "./_content/Blazix.Primitives/js/interactions.js";
+    public const string InteractionsPath = "./_content/Iodine.Headless/js/interactions.js";
 
-    public const string CompositePath = "./_content/Blazix.Primitives/js/composite.js";
+    public const string CompositePath = "./_content/Iodine.Headless/js/composite.js";
 
-    public const string FormPath = "./_content/Blazix.Primitives/js/form.js";
+    public const string FormPath = "./_content/Iodine.Headless/js/form.js";
 
     private const string InputMarker = "\"part\":\"input\"";
 
@@ -43,7 +43,7 @@ internal sealed class ComboboxTestContext : IDisposable
 
     public ComboboxTestContext()
     {
-        Context.Services.AddBlazixPrimitives();
+        Context.Services.AddIodineHeadless();
         Context.JSInterop.Mode = JSRuntimeMode.Loose;
         Combobox = Context.JSInterop.SetupModule(ComboboxPath);
         ComboboxHandle = Combobox.SetupModule("attach", _ => true);

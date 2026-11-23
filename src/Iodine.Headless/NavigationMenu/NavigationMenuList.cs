@@ -1,11 +1,11 @@
-using Blazix.Primitives.Interop;
-using Blazix.Primitives.Rendering;
-using Blazix.Primitives.Store;
+using Iodine.Headless.Interop;
+using Iodine.Headless.Rendering;
+using Iodine.Headless.Store;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Web;
 using Microsoft.JSInterop;
 
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // NAV-STA-16, §3.2 state object (navigation-menu/list/NavigationMenuList.tsx:68-70, 136-142): the default mapping only.
 /// <summary>Represents the state of a navigation menu list, which the part exposes as data attributes and passes to its class and style functions.</summary>

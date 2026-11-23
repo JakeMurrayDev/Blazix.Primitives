@@ -1,4 +1,4 @@
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // OTP-DOM-02..05; otp-field/root/OTPFieldRootDataAttributes.ts, in its order.
 /// <summary>Provides the names of the data attributes a one-time code field renders.</summary>

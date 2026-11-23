@@ -1,4 +1,4 @@
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // FFI-STA-03, FFI §3.2 (`Field.ValidityData.state`); field/root/FieldRoot.tsx:215-228,
 // internals/field-constants/constants.ts:4-16. ADR 08 Amendments 2026-10-22 (the name is proposed there and refined by a

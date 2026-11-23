@@ -1,4 +1,4 @@
-namespace Blazix.Primitives.Fixtures.Client.CollapsibleFixtures;
+namespace Iodine.Headless.Fixtures.Client.CollapsibleFixtures;
 
 /// <summary>
 /// The record of one case's <c>OnOpenChange</c> calls, which <see cref="CollapsibleCaseFrame"/> renders as data

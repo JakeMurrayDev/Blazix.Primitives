@@ -1,6 +1,6 @@
-using Blazix.Primitives.Rendering;
+using Iodine.Headless.Rendering;
 
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // The C# half of a family's Arrow part (FLT-DOM-09/10; ADR 04 §2's Arrow row and Amendments 2026-10-27). The Arrow has no
 // handle of its own (design point 6 of the positioning track, settled by the orchestrator 2026-10-27): it publishes its id
@@ -45,7 +45,7 @@ internal sealed class PositionerArrowBehavior : IDisposable
     /// <summary>Gets the placement the positioner's browser-side behavior last rendered.</summary>
     /// <value>The positioner's mirror.</value>
     /// <exception cref="InvalidOperationException">No positioner context was set.</exception>
-    public PositionerMirror Mirror => context?.Mirror ?? throw new InvalidOperationException("Blazix: an arrow needs a positioner.");
+    public PositionerMirror Mirror => context?.Mirror ?? throw new InvalidOperationException("Iodine: an arrow needs a positioner.");
 
     /// <summary>Gets the id of the arrow's element, which the browser-side behavior finds it by.</summary>
     /// <value>The id rendered on the element, or <see langword="null"/> before the first render.</value>

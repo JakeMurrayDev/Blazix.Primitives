@@ -1,7 +1,7 @@
 using System.Globalization;
-using Blazix.Primitives.Utilities;
+using Iodine.Headless.Utilities;
 
-namespace Blazix.Primitives.Tests;
+namespace Iodine.Headless.Tests;
 
 // ADR 08 Amendments 2026-11-18 (decision 10 (a), chosen by the user 2026-11-18): NumberFieldRoot.Format takes a .NET numeric
 // format string as a shorthand for the options record. The standard strings N, F, P and E with their precision, and the
@@ -65,6 +65,6 @@ public sealed class NumberFormatShorthandTests
         Assert.Equal(new NumberFormatOptions { MinimumFractionDigits = 2, MaximumFractionDigits = 2 }, (NumberFormatOptions)"N2");
 
         ArgumentException error = Assert.Throws<ArgumentException>(() => (NumberFormatOptions)format);
-        Assert.StartsWith("Blazix: ", error.Message, StringComparison.Ordinal);
+        Assert.StartsWith("Iodine: ", error.Message, StringComparison.Ordinal);
     }
 }

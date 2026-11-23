@@ -1,4 +1,4 @@
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // MNU-API-63..66, MNU-EDGE-07 (menu/store/MenuHandle.ts); ADR 08 §3 and Amendments 2026-10-27 (chosen by the user
 // 2026-10-27): Menu.createHandle() is `new MenuHandle<TPayload>()`. An anchored menu throws when opened by an id no trigger

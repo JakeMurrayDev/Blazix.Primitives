@@ -1,11 +1,11 @@
 using Microsoft.JSInterop;
 using AngleSharp.Dom;
-using Blazix.Primitives.Utilities;
+using Iodine.Headless.Utilities;
 using Bunit;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Rendering;
 
-namespace Blazix.Primitives.Tests.Components;
+namespace Iodine.Headless.Tests.Components;
 
 /// <summary>
 /// The portal's markup at L2 over the test-only portal (FloatingPortal.test.tsx and FloatingFocusManager.test.tsx titles
@@ -16,7 +16,7 @@ namespace Blazix.Primitives.Tests.Components;
 /// </summary>
 public sealed class PopupPortalTests : IDisposable
 {
-    private const string ModulePath = "./_content/Blazix.Primitives/js/portal.js";
+    private const string ModulePath = "./_content/Iodine.Headless/js/portal.js";
 
     private readonly PopupTestContext test = new();
     private readonly BunitJSModuleInterop module;
@@ -316,7 +316,7 @@ public sealed class PopupPortalTests : IDisposable
             }
 
             Attaches++;
-            return ValueTask.FromException<TValue>(new JSException("Blazix: no element for the reference"));
+            return ValueTask.FromException<TValue>(new JSException("Iodine: no element for the reference"));
         }
     }
 #pragma warning restore BL0016

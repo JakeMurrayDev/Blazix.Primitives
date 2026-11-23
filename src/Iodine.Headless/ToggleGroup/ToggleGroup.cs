@@ -1,10 +1,10 @@
-using Blazix.Primitives.Rendering;
+using Iodine.Headless.Rendering;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Web;
 using Microsoft.Extensions.Logging;
 using Microsoft.JSInterop;
 
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // TGG-STA-01; toggle-group/ToggleGroup.tsx:83,131-147. ADR 08 §3: the state record is sealed, partial and [PartState]; the
 // default projection gives data-disabled, data-multiple and data-orientation, which is always present (TGG-DOM-02).
@@ -156,8 +156,8 @@ public sealed class ToggleGroup : PartBase<ToggleGroupState>
     // TGG-API-05; ADR 08 Amendments 2026-10-26 (non-nullable, the family default Horizontal)
     /// <summary>Gets or sets the axis of the arrow keys that move focus between the toggles.</summary>
     /// <value>
-    /// <see cref="Blazix.Primitives.Orientation.Horizontal"/>, the default, for the left and right arrows (swapped in a
-    /// right-to-left <see cref="DirectionProvider"/>); <see cref="Blazix.Primitives.Orientation.Vertical"/> for the up and
+    /// <see cref="Iodine.Headless.Orientation.Horizontal"/>, the default, for the left and right arrows (swapped in a
+    /// right-to-left <see cref="DirectionProvider"/>); <see cref="Iodine.Headless.Orientation.Vertical"/> for the up and
     /// down arrows. Reflected in <c>data-orientation</c>.
     /// </value>
     [Parameter]
@@ -189,7 +189,7 @@ public sealed class ToggleGroup : PartBase<ToggleGroupState>
     /// <inheritdoc />
     protected override bool UsesGeneratedId => RenderFunction is not null;
 
-    // For the fixtures (tests/Blazix.Primitives.Fixtures.Client): completes once the composite behavior is attached, so a
+    // For the fixtures (tests/Iodine.Headless.Fixtures.Client): completes once the composite behavior is attached, so a
     // browser test can wait for its listeners before it presses a key.
     /// <summary>Gets a task that completes when the group's composite behavior is attached to its element.</summary>
     /// <value>A task that completes after the first interactive render has attached it; completed inside a toolbar, which owns the composite behavior.</value>

@@ -1,4 +1,4 @@
-namespace Blazix.Primitives.Interop;
+namespace Iodine.Headless.Interop;
 
 // ADR 04 §1 (the `otp-field` component module), Amendments 2026-11-18 (the scope, `edit`, variant (ii)) and 2026-11-19 (the
 // design points of M6 track 7, chosen by the user 2026-11-19); issue 278. One handle on the Root element (design point 6 (a)):

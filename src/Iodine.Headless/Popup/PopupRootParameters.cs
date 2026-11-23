@@ -1,6 +1,6 @@
 using Microsoft.AspNetCore.Components;
 
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // PSH §3.2 and ADR 08 Amendments 2026-10-27 (the shared Root parameters): what every family's Root hands its
 // PopupRootBehavior after its parameters are assigned. Open and TriggerId are read from the ParameterView by the behavior,

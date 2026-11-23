@@ -1,6 +1,6 @@
-using Blazix.Primitives.Store;
+using Iodine.Headless.Store;
 
-namespace Blazix.Primitives.Tests.Collapsible;
+namespace Iodine.Headless.Tests.Collapsible;
 
 /// <summary>
 /// COL-STA-08's <c>[L1]</c> row: <c>CollapsiblePanel.test.tsx</c> "does not unmount the panel when true", on the panel's

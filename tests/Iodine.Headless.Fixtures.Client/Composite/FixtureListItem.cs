@@ -1,10 +1,10 @@
-using Blazix.Primitives.Rendering;
+using Iodine.Headless.Rendering;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Web;
 using Microsoft.Extensions.Logging;
 using Microsoft.JSInterop;
 
-namespace Blazix.Primitives.Fixtures.Client.CompositeFixtures;
+namespace Iodine.Headless.Fixtures.Client.CompositeFixtures;
 
 /// <summary>The state of <see cref="FixtureListItem"/>: the Highlighted mirror, whose attribute the module writes.</summary>
 /// <param name="Disabled">Whether the item is disabled.</param>
@@ -16,7 +16,7 @@ public sealed partial record FixtureListItemState(bool Disabled, bool Selected, 
 /// <summary>
 /// The test-only list item at L4 (M5 track 1, issue 159, Deliverable 12): a <c>div</c> with the item's role
 /// (<c>menuitem</c> or <c>option</c>) composing <see cref="CompositeItemBehavior"/> (the registration, <c>tabindex="-1"</c>
-/// until the module writes it, the Highlighted mirror) and <see cref="global::Blazix.Primitives.ButtonBehavior"/> in composite, non-native mode
+/// until the module writes it, the Highlighted mirror) and <see cref="global::Iodine.Headless.ButtonBehavior"/> in composite, non-native mode
 /// (focusable when disabled, as Base UI's items are), so the <c>button</c> module activates the item: Enter and Space
 /// dispatch a click, a Space while typing is skipped (the list handle prevents it). The part's own <c>onclick</c> runs
 /// after the consumer's: while enabled it activates the item through the host (the value, then the close with
@@ -30,7 +30,7 @@ public sealed class FixtureListItem : PartBase<FixtureListItemState>
     private readonly EventCallback onKeyDown;
     private readonly EventCallback onKeyUp;
     private readonly EventCallback onClick;
-    private global::Blazix.Primitives.ButtonBehavior? button;
+    private global::Iodine.Headless.ButtonBehavior? button;
     private CompositeItemBehavior? item;
     private FixtureListItemState? state;
 
@@ -94,7 +94,7 @@ public sealed class FixtureListItem : PartBase<FixtureListItemState>
 
     protected override void OnInitialized()
     {
-        button = new global::Blazix.Primitives.ButtonBehavior(JSRuntime, Logger, DevelopmentLog, IdGenerator, StateHasChanged, DispatchExceptionAsync, onKeyDown, onKeyUp);
+        button = new global::Iodine.Headless.ButtonBehavior(JSRuntime, Logger, DevelopmentLog, IdGenerator, StateHasChanged, DispatchExceptionAsync, onKeyDown, onKeyUp);
         item = new CompositeItemBehavior(RootContext, nameof(FixtureListItem), onKeyDown, StateHasChanged);
         base.OnInitialized();
     }

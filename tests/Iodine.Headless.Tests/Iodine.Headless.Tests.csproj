@@ -18,9 +18,9 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\..\src\Blazix.Primitives\Blazix.Primitives.csproj" />
+    <ProjectReference Include="..\..\src\Iodine.Headless\Iodine.Headless.csproj" />
     <!-- The generators run on this project's own state records ([PartState], [StoreState]), as they do in a consumer's project. -->
-    <ProjectReference Include="..\..\src\Blazix.Primitives.Generators\Blazix.Primitives.Generators.csproj"
+    <ProjectReference Include="..\..\src\Iodine.Headless.Generators\Iodine.Headless.Generators.csproj"
                       OutputItemType="Analyzer" ReferenceOutputAssembly="false" PrivateAssets="all" />
   </ItemGroup>
 

@@ -2,7 +2,7 @@ using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Rendering;
 using Microsoft.JSInterop;
 
-namespace Blazix.Primitives.Fixtures.Client.ScrollLockFixtures;
+namespace Iodine.Headless.Fixtures.Client.ScrollLockFixtures;
 
 /// <summary>
 /// The test-only scroll lock at L4 for the <c>scroll-lock-*</c> fixtures: a <c>div</c> whose document is locked while

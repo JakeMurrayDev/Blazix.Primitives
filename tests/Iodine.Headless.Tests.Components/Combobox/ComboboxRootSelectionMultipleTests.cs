@@ -4,7 +4,7 @@ using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Rendering;
 
 // Family tests use the project's root namespace.
-namespace Blazix.Primitives.Tests.Components;
+namespace Iodine.Headless.Tests.Components;
 
 // ComboboxRoot.test.tsx's `selection behavior > multiple` titles at L2 (batch A). As in the single titles, the highlight is
 // the store's ActiveIndex (Base UI's ActiveIndexProbe) and the selected index its SelectedIndex (SelectedIndexProbe); the

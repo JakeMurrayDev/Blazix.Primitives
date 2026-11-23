@@ -1,7 +1,7 @@
-using Blazix.Primitives.Rendering;
+using Iodine.Headless.Rendering;
 using Microsoft.AspNetCore.Components;
 
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // FST-STA-02; fieldset/legend/FieldsetLegend.tsx:37-42. ADR 08 §3: sealed, partial, [PartState].
 /// <summary>Represents the state of a fieldset legend, which the part exposes as data attributes and passes to its class and style functions.</summary>
@@ -21,7 +21,7 @@ public static class FieldsetLegendDataAttributes
 // FST-API-04, FST-EDGE-04: the id is the consumer's verbatim (even empty) or a generated one. FST-DOM-07, FST-EDGE-03,
 // FFI-ARIA-08: it publishes the id to the root's slot while its parameters are set, inside the render batch that creates
 // or updates it (ADR 01 Amendments 2026-10-22), and withdraws it only while it is still the tracked id. FST-ARIA-02: a
-// div, no role or aria attribute. FST-STR-02, FST-EDGE-01: outside a FieldsetRoot it throws (`Blazix: ` wording).
+// div, no role or aria attribute. FST-STR-02, FST-EDGE-01: outside a FieldsetRoot it throws (`Iodine: ` wording).
 /// <summary>
 /// Represents the caption of a fieldset: Base UI's <c>Fieldset.Legend</c>, rendered as a <c>div</c>. It belongs inside a
 /// <see cref="FieldsetRoot"/>, which references its id from <c>aria-labelledby</c>.

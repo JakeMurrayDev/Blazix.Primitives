@@ -1,6 +1,6 @@
 using Microsoft.AspNetCore.Components;
 
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // PSH §2 "trigger registry"; settled by the orchestrator 2026-10-27 under ADR 01 Amendments 2026-10-22 (registration by
 // id at parameter set): Base UI keys the registry by DOM element identity; the port registers at parameter set, before an

@@ -1,10 +1,10 @@
 using AngleSharp.Dom;
-using Blazix.Primitives.Rendering;
+using Iodine.Headless.Rendering;
 using Bunit;
 using Microsoft.AspNetCore.Components;
 using Microsoft.Extensions.DependencyInjection;
 
-namespace Blazix.Primitives.Tests.Components.Rendering;
+namespace Iodine.Headless.Tests.Components.Rendering;
 
 /// <summary>The public pipeline (RND §3.2, RND-STR-08/09, RND-API-07, RND-STA-02/03, RND-DOM-10), with the titles of <c>use-render/useRender.test.tsx</c>.</summary>
 public sealed class RenderElementTests : IDisposable
@@ -13,7 +13,7 @@ public sealed class RenderElementTests : IDisposable
 
     public RenderElementTests()
     {
-        context.Services.AddBlazixPrimitives();
+        context.Services.AddIodineHeadless();
     }
 
     /// <inheritdoc />
@@ -211,7 +211,7 @@ public sealed class RenderElementTests : IDisposable
     public void An_element_whose_state_type_has_fields_requires_a_State()
     {
         InvalidOperationException missing = Assert.Throws<InvalidOperationException>(() => context.Render<RenderElement<ActiveIndexState>>());
-        Assert.StartsWith("Blazix: ", missing.Message, StringComparison.Ordinal);
+        Assert.StartsWith("Iodine: ", missing.Message, StringComparison.Ordinal);
         Assert.Contains("`State`", missing.Message, StringComparison.Ordinal);
 
         Assert.Throws<InvalidOperationException>(() => context.Render<RenderElement<ActiveIndexState>>(p => p.Add(x => x.State, null!)));

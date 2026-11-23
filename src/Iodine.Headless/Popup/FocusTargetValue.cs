@@ -1,7 +1,7 @@
 using System.Runtime.CompilerServices;
 using Microsoft.AspNetCore.Components;
 
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // ADR 08 Amendments 2026-10-27 (written by M4 track 1 in Popup/, settled by the orchestrator 2026-10-27; ADR 04
 // Amendments 2026-10-27, focus targets): the value form of Base UI's `initialFocus` and `finalFocus` (PSH-FOC-02/04):
@@ -58,9 +58,9 @@ public readonly struct FocusTargetValue : IUnion
     /// <value><see langword="true"/> if a value is held; otherwise, <see langword="false"/>. The default instance holds no value.</value>
     public bool HasValue => kind != TargetKind.None;
 
-    // BLZX2005: IUnion requires an object-typed Value, so reading it boxes the struct cases; the library reads the cases
+    // IOD2005: IUnion requires an object-typed Value, so reading it boxes the struct cases; the library reads the cases
     // through TryGetValue instead.
-#pragma warning disable BLZX2005
+#pragma warning disable IOD2005
     /// <inheritdoc />
     /// <remarks>Reading it boxes a boolean or an element.</remarks>
     public object? Value => kind switch
@@ -70,7 +70,7 @@ public readonly struct FocusTargetValue : IUnion
         TargetKind.Id => id,
         _ => null,
     };
-#pragma warning restore BLZX2005
+#pragma warning restore IOD2005
 
     /// <summary>Converts a boolean to a <see cref="FocusTargetValue"/> that holds it.</summary>
     /// <param name="value"><see langword="true"/> for the default target; <see langword="false"/> to leave focus where it is.</param>

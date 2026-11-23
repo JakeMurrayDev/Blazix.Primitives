@@ -2,7 +2,7 @@ using System.Globalization;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Rendering;
 
-namespace Blazix.Primitives.Tests.Components;
+namespace Iodine.Headless.Tests.Components;
 
 /// <summary>What a test's popover tree holds: the Root's parameters (only the supplied ones are passed) and the parts.</summary>
 internal sealed record PopoverSpec

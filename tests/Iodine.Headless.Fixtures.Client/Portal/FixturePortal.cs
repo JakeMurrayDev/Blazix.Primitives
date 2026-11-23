@@ -1,9 +1,9 @@
-using Blazix.Primitives.Rendering;
+using Iodine.Headless.Rendering;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Rendering;
 using Microsoft.JSInterop;
 
-namespace Blazix.Primitives.Fixtures.Client.PortalFixtures;
+namespace Iodine.Headless.Fixtures.Client.PortalFixtures;
 
 /// <summary>
 /// The test-only portal at L4 (FloatingPortal and FloatingPortalLite over <see cref="PopupPortalBehavior"/>; the counterpart

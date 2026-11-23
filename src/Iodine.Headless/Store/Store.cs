@@ -1,4 +1,4 @@
-namespace Blazix.Primitives.Store;
+namespace Iodine.Headless.Store;
 
 // UTL §4.2.1; ADR 05 §1; UTL-ALG-03
 /// <summary>

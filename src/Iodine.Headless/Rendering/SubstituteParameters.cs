@@ -3,7 +3,7 @@ using System.Diagnostics.CodeAnalysis;
 using System.Reflection;
 using Microsoft.AspNetCore.Components;
 
-namespace Blazix.Primitives.Rendering;
+namespace Iodine.Headless.Rendering;
 
 // ADR 02 decision 1, design point 14.8 of M3 track 4 (settled by the orchestrator 2026-10-27): a substitute whose root is a
 // component receives the part's merged attributes as parameters, and its own parameters keep the objects Razor passed. An

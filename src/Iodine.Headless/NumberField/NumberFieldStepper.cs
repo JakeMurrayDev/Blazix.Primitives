@@ -1,9 +1,9 @@
-using Blazix.Primitives.Rendering;
+using Iodine.Headless.Rendering;
 using Microsoft.AspNetCore.Components;
 using Microsoft.Extensions.Logging;
 using Microsoft.JSInterop;
 
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // NUM §3.5/§3.7, NUM-STA-20, NUM-DOM-10/17, NUM-ARIA-05..08; number-field/root/useNumberFieldStepperButton.ts. The one
 // stepper behaviour NumberFieldIncrement and NumberFieldDecrement compose (ADR 16 rule 10), over ButtonBehavior with

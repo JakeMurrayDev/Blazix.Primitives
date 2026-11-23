@@ -1,7 +1,7 @@
 using Microsoft.AspNetCore.Components;
 using Microsoft.Extensions.Logging;
 
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // Base UI's PopoverStore (popover/store/PopoverStore.ts), over the shared PopupStore (ADR 05 Amendments 2026-10-27). Its
 // own steps of the open-change sequence (PopoverStore.setOpen, POP §16 Q11):

@@ -1,4 +1,4 @@
-namespace Blazix.Primitives.Tests.Components;
+namespace Iodine.Headless.Tests.Components;
 
 /// <summary>
 /// The collection of the classes that turn the development warnings switch off (as a production app has it), run with

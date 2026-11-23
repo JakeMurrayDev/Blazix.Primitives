@@ -3,7 +3,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 
 // The namespace is the project's root: a namespace named after the family would hide the parts' types.
-namespace Blazix.Primitives.Tests.Components;
+namespace Iodine.Headless.Tests.Components;
 
 /// <summary>
 /// Detached triggers and the handle at L2 (PreviewCardRoot.detached-triggers.test.tsx; the detached-triggers suite's titles
@@ -51,7 +51,7 @@ public sealed class PreviewCardDetachedTriggersTests : IDisposable
         InvalidOperationException error = Assert.Throws<InvalidOperationException>(() => cut.InvokeAsync(() => handle.OpenAsync("missing")).GetAwaiter().GetResult());
 
         Assert.Equal(
-            "Blazix: `PreviewCardHandle.OpenAsync()` was called with the trigger id \"missing\", but no matching trigger is registered with this handle. An anchored popup cannot open without a trigger to anchor to. Pass the id of a mounted `PreviewCardTrigger` that has this handle set on its `Handle` parameter.",
+            "Iodine: `PreviewCardHandle.OpenAsync()` was called with the trigger id \"missing\", but no matching trigger is registered with this handle. An anchored popup cannot open without a trigger to anchor to. Pass the id of a mounted `PreviewCardTrigger` that has this handle set on its `Handle` parameter.",
             error.Message);
         Assert.False(handle.IsOpen);
     }
@@ -93,7 +93,7 @@ public sealed class PreviewCardDetachedTriggersTests : IDisposable
         host.Context.Render<PreviewCardDetachedHost>(p => p.Add(x => x.Handle, handle));
         host.Context.Render<PreviewCardDetachedHost>(p => p.Add(x => x.Handle, handle).Add(x => x.ShowTrigger1, false).Add(x => x.ShowTrigger2, false));
 
-        Assert.Contains(logs.Messages, message => message.StartsWith("Blazix: A handle is attached to more than one mounted root at the same time.", StringComparison.Ordinal));
+        Assert.Contains(logs.Messages, message => message.StartsWith("Iodine: A handle is attached to more than one mounted root at the same time.", StringComparison.Ordinal));
     }
 
     [Fact(DisplayName = "sets the payload of the active trigger and renders content based on it")]

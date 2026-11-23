@@ -1,4 +1,4 @@
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // TAB-DOM-02/07/18/22, TAB-STA-15; tabs/tab/TabsTab.tsx:215 (Tabs.Tab.ActivationDirection). The literal is what the part
 // renders as data-activation-direction under the handover and what the `tabs` module reports (ADR 04 Amendments
@@ -20,7 +20,7 @@ internal static class TabsLiterals
             TabsActivationDirection.Down => "down",
             TabsActivationDirection.None => "none",
             // The value is formatted as an integer: passing the enum as the actual value would box it.
-            _ => throw new ArgumentOutOfRangeException(nameof(direction), $"Blazix: `{(int)direction}` is not a member of `TabsActivationDirection`."),
+            _ => throw new ArgumentOutOfRangeException(nameof(direction), $"Iodine: `{(int)direction}` is not a member of `TabsActivationDirection`."),
         };
     }
 

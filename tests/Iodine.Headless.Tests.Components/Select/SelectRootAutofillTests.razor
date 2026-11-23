@@ -1,8 +1,8 @@
-@namespace Blazix.Primitives.Tests.Components
+@namespace Iodine.Headless.Tests.Components
 @inherits SelectTestBase
 @using System.Text.Json
 @using AngleSharp.Dom
-@using Blazix.Primitives.Interop
+@using Iodine.Headless.Interop
 @using Bunit
 @using Microsoft.JSInterop
 @*
@@ -33,7 +33,7 @@
     private async Task AutofillAsync(IRenderedComponent<SelectHost> cut, string text)
     {
         JSRuntimeInvocation attach = Form.Invocations["attach"]
-            .Last(invocation => JsonSerializer.Deserialize((string)invocation.Arguments[1]!, BlazixJsonContext.Default.FormOptions)!.Control is { ReportAutofill: true });
+            .Last(invocation => JsonSerializer.Deserialize((string)invocation.Arguments[1]!, IodineJsonContext.Default.FormOptions)!.Control is { ReportAutofill: true });
         FormTwin twin = ((DotNetObjectReference<FormTwin>)attach.Arguments[2]!).Value;
         string json = "{\"text\":\"" + JsonEncodedText.Encode(text).ToString() + "\",\"defaultPrevented\":false,\"event\":{\"kind\":\"Event\",\"type\":\"change\",\"isTrusted\":true}}";
         await cut.InvokeAsync(() => twin.OnAutofill(json));

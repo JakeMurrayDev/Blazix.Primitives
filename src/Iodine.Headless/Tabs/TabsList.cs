@@ -1,10 +1,10 @@
-using Blazix.Primitives.Interop;
-using Blazix.Primitives.Rendering;
+using Iodine.Headless.Interop;
+using Iodine.Headless.Rendering;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Web;
 using Microsoft.JSInterop;
 
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // TAB-STA-20; tabs/list/TabsList.tsx:84-87 (the Root's two fields). The direction is mirrored (ADR 04 Amendments 2026-10-26).
 /// <summary>Represents the state of a tab list, which the part exposes as data attributes and passes to its class and style functions.</summary>
@@ -121,7 +121,7 @@ public sealed class TabsList : PartBase<TabsListState>
     /// <inheritdoc />
     protected override bool UsesGeneratedId => RenderFunction is not null;
 
-    // For the fixtures (tests/Blazix.Primitives.Fixtures.Client): a browser test waits for both twins' listeners.
+    // For the fixtures (tests/Iodine.Headless.Fixtures.Client): a browser test waits for both twins' listeners.
     /// <summary>Gets a task that completes when the list's composite and tabs behaviors are attached to its element.</summary>
     /// <value>A task that completes after the first interactive render has attached them.</value>
     internal Task TwinAttached => Task.WhenAll(composite!.TwinAttached, tabsAttachedSource.Task);

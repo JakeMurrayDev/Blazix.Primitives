@@ -1,10 +1,10 @@
-using Blazix.Primitives.Rendering;
-using Blazix.Primitives.Tests.Components.Rendering.Conformance;
+using Iodine.Headless.Rendering;
+using Iodine.Headless.Tests.Components.Rendering.Conformance;
 using Bunit;
 using Microsoft.AspNetCore.Components;
 
 // The namespace is the project's root: a namespace named after the family would hide the part's type.
-namespace Blazix.Primitives.Tests.Components;
+namespace Iodine.Headless.Tests.Components;
 
 // Form.test.tsx: describeConformance(<Form />, () => ({ refInstanceof: window.HTMLFormElement, render })). FRM-DOM-04,
 // FRM-API-07/08, FRM-STA-01, FRM-DOM-02, FRM-EDGE-06.

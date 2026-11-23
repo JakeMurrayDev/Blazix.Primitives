@@ -1,6 +1,6 @@
 using Microsoft.AspNetCore.Components.Web;
 
-namespace Blazix.Primitives.Fixtures.Client.TabsFixtures;
+namespace Iodine.Headless.Fixtures.Client.TabsFixtures;
 
 /// <summary>
 /// The record of one case of the Tabs fixtures: every <c>OnValueChange</c> with its value, reason, activation direction and

@@ -3,7 +3,7 @@ import { center, gotoCombobox } from './combobox.helpers';
 
 // CMB-FRM-05's "prop: validationMode=onSubmit" (ComboboxRoot.test.tsx, describe 'Field'; M5 track 10, issue 174; ported by
 // session S): Base UI's title verbatim, at L4 on both render modes, on the `combobox-form` fixture
-// (tests/Blazix.Primitives.Fixtures.Client/Combobox/L4/ComboboxFormL4Fixture.razor). Its steps are keyboard navigation through
+// (tests/Iodine.Headless.Fixtures.Client/Combobox/L4/ComboboxFormL4Fixture.razor). Its steps are keyboard navigation through
 // the list and the Clear's focus return, which bUnit cannot drive.
 
 test.describe('<Combobox.Root />', () => {

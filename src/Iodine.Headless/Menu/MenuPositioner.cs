@@ -1,10 +1,10 @@
-using Blazix.Primitives.Rendering;
+using Iodine.Headless.Rendering;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Rendering;
 using Microsoft.Extensions.Logging;
 using Microsoft.JSInterop;
 
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // MNU §3.5 state object (menu/positioner/MenuPositioner.tsx:224-231). Side, Align and AnchorHidden are the `positioning`
 // module's from attach (ADR 04 §2): mirrored. Nested and Instant are C#'s (MNU §16 Q3: projected generically).
@@ -116,15 +116,15 @@ public sealed class MenuPositioner : PartBase<MenuPositionerState>
 
     // MNU-API-28
     /// <summary>Gets or sets the CSS position the positioner uses.</summary>
-    /// <value><see cref="Blazix.Primitives.PositionMethod.Absolute"/> when <see langword="null"/>, the default.</value>
+    /// <value><see cref="Iodine.Headless.PositionMethod.Absolute"/> when <see langword="null"/>, the default.</value>
     [Parameter]
     public PositionMethod? PositionMethod { get; set; }
 
     // MNU-API-26
     /// <summary>Gets or sets the side of the anchor the menu is placed against.</summary>
     /// <value>
-    /// <see langword="null"/>, the default, for <see cref="Blazix.Primitives.Side.Bottom"/>, or
-    /// <see cref="Blazix.Primitives.Side.InlineEnd"/> for a submenu.
+    /// <see langword="null"/>, the default, for <see cref="Iodine.Headless.Side.Bottom"/>, or
+    /// <see cref="Iodine.Headless.Side.InlineEnd"/> for a submenu.
     /// </value>
     [Parameter]
     public Side? Side { get; set; }
@@ -138,8 +138,8 @@ public sealed class MenuPositioner : PartBase<MenuPositionerState>
     // MNU-API-26
     /// <summary>Gets or sets how the menu is aligned against the anchor on the other axis.</summary>
     /// <value>
-    /// <see langword="null"/>, the default, for <see cref="Blazix.Primitives.Align.Center"/>, or
-    /// <see cref="Blazix.Primitives.Align.Start"/> for a submenu.
+    /// <see langword="null"/>, the default, for <see cref="Iodine.Headless.Align.Center"/>, or
+    /// <see cref="Iodine.Headless.Align.Start"/> for a submenu.
     /// </value>
     [Parameter]
     public Align? Align { get; set; }

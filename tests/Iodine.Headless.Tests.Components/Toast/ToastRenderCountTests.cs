@@ -1,6 +1,6 @@
 using Bunit;
 
-namespace Blazix.Primitives.Tests.Components;
+namespace Iodine.Headless.Tests.Components;
 
 /// <summary>
 /// Render counts of the toast parts, counted through their class functions (the standing render-count rule; issue 110).

@@ -3,7 +3,7 @@ using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Rendering;
 
 // Family tests use the project's root namespace.
-namespace Blazix.Primitives.Tests.Components;
+namespace Iodine.Headless.Tests.Components;
 
 // CMB §3.10 at L2 (ComboboxValue.test.tsx's titles whose items carry no labels of their own): the content's order, the
 // placeholder, the labels in both modes, and the templates. Base UI's one `children` prop is the port's ChildContent beside a
@@ -178,7 +178,7 @@ public sealed class ComboboxValueTests : IDisposable
             new() { ["Multiple"] = true },
             ("ValueContent", (RenderFragment<string>)(value => builder => builder.AddContent(0, value)))));
 
-        Assert.StartsWith("Blazix: ", error.Message, StringComparison.Ordinal);
+        Assert.StartsWith("Iodine: ", error.Message, StringComparison.Ordinal);
         Assert.Contains("ValuesContent", error.Message, StringComparison.Ordinal);
     }
 
@@ -190,7 +190,7 @@ public sealed class ComboboxValueTests : IDisposable
             new(),
             ("ValuesContent", (RenderFragment<IReadOnlyList<string>>)(values => builder => builder.AddContent(0, values.Count)))));
 
-        Assert.StartsWith("Blazix: ", error.Message, StringComparison.Ordinal);
+        Assert.StartsWith("Iodine: ", error.Message, StringComparison.Ordinal);
         Assert.Contains("ValueContent", error.Message, StringComparison.Ordinal);
     }
 
@@ -206,7 +206,7 @@ public sealed class ComboboxValueTests : IDisposable
 
         InvalidOperationException error = Assert.Throws<InvalidOperationException>(() => test.Context.Render<ComboboxHarness>(p => p.Add(x => x.Extra, extra)));
 
-        Assert.StartsWith("Blazix: `ComboboxValue` has a value type that differs from its `<ComboboxRoot>`'s.", error.Message, StringComparison.Ordinal);
+        Assert.StartsWith("Iodine: `ComboboxValue` has a value type that differs from its `<ComboboxRoot>`'s.", error.Message, StringComparison.Ordinal);
     }
 
     private static RenderFragment Text(string text) => builder => builder.AddContent(0, text);

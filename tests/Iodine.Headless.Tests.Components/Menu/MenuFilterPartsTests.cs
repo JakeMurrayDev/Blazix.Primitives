@@ -1,8 +1,8 @@
 using Bunit;
 using Microsoft.Extensions.DependencyInjection;
 
-// Family tests use the project's root namespace (tests/Blazix.Primitives.Tests.Components/CONTEXT.md).
-namespace Blazix.Primitives.Tests.Components;
+// Family tests use the project's root namespace (tests/Iodine.Headless.Tests.Components/CONTEXT.md).
+namespace Iodine.Headless.Tests.Components;
 
 /// <summary>
 /// L2: the filter parts' placement (MNU-STR-15, EDGE-04; M5 track 12), <c>MenuFilterParts.test.tsx</c>'s and
@@ -14,7 +14,7 @@ public sealed class MenuFilterPartsTests : BunitContext
     public MenuFilterPartsTests()
     {
         JSInterop.Mode = JSRuntimeMode.Loose;
-        Services.AddBlazixPrimitives();
+        Services.AddIodineHeadless();
     }
 
     [Theory(DisplayName = "throws when <Menu.%s> is rendered without a filter provider")]
@@ -38,7 +38,7 @@ public sealed class MenuFilterPartsTests : BunitContext
     {
         InvalidOperationException error = Assert.Throws<InvalidOperationException>(() => Render<MenuPartsHost>(p => p.Add(x => x.Case, "trigger-alone")));
 
-        Assert.Equal("Blazix: `<MenuTrigger>` must be either used within a `<MenuRoot>` component or provided with a handle.", error.Message);
+        Assert.Equal("Iodine: `<MenuTrigger>` must be either used within a `<MenuRoot>` component or provided with a handle.", error.Message);
     }
 
     [Fact(DisplayName = "throws when a filter part is rendered in a plain menu")]
@@ -77,7 +77,7 @@ public sealed class MenuFilterPartsTests : BunitContext
     }
 
     private static string Message(string part) =>
-        $"Blazix: `<Menu{part}>` must be placed in a menu wrapped in `<MenuFilterProvider>`. It reads the filter query and the "
+        $"Iodine: `<Menu{part}>` must be placed in a menu wrapped in `<MenuFilterProvider>`. It reads the filter query and the "
         + "matching items from the provider, which a plain menu does not have. Wrap the `<MenuRoot>` or `<MenuSubmenuRoot>` it "
         + "belongs to in `<MenuFilterProvider>`.";
 }

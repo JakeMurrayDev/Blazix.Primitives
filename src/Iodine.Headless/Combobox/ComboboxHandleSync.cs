@@ -1,6 +1,6 @@
-using Blazix.Primitives.Interop;
+using Iodine.Headless.Interop;
 
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // A part's after-render sync can run again while its first attach still awaits the module: the twin's attach is idempotent
 // per element and hands back the in-flight handle without the newer options, so a sync that recorded them as sent lost

@@ -1,8 +1,8 @@
 using AngleSharp.Dom;
 using Bunit;
 
-// Family tests use the project's root namespace (tests/Blazix.Primitives.Tests.Components/CONTEXT.md).
-namespace Blazix.Primitives.Tests.Components;
+// Family tests use the project's root namespace (tests/Iodine.Headless.Tests.Components/CONTEXT.md).
+namespace Iodine.Headless.Tests.Components;
 
 /// <summary><c>DrawerContent.test.tsx</c>'s title outside its conformance suite (DRW-DOM-24, DRW-STR-06), titles verbatim.</summary>
 public sealed class DrawerContentTests : IDisposable

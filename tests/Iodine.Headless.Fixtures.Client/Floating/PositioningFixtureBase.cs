@@ -1,6 +1,6 @@
 using Microsoft.AspNetCore.Components;
 
-namespace Blazix.Primitives.Fixtures.Client.FloatingFixtures;
+namespace Iodine.Headless.Fixtures.Client.FloatingFixtures;
 
 /// <summary>
 /// The base of the <c>positioning-*</c> fixtures (tests/browser/positioning.spec.ts and the positioner conformance suite,

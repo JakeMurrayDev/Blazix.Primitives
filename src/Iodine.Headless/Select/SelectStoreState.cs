@@ -1,7 +1,7 @@
-using Blazix.Primitives.Interop;
-using Blazix.Primitives.Store;
+using Iodine.Headless.Interop;
+using Iodine.Headless.Store;
 
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // SEL §4 (select/store.ts:11-60); ADR 05 Amendments 2026-11-03, 2026-11-04 (the open lifecycle as one member, track 2) and
 // 2026-10-27's payload rule: the value is not a member, it lives in SelectStore<TValue>'s non-reactive context with

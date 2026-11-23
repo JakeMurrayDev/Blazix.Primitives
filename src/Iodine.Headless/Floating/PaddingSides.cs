@@ -1,4 +1,4 @@
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // ADR 08 Amendments 2026-10-27 (CollisionPaddingValue's sides record, named by M4 track 2); Base UI's
 // `Partial<{ top, right, bottom, left }>`, a missing side being 0 (FLT-API-08).

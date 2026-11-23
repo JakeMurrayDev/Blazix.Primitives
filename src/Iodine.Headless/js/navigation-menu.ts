@@ -291,7 +291,7 @@ interface Menu {
   flush(): void;
 }
 
-const menuKey = Symbol('blazix.navigationMenu');
+const menuKey = Symbol('iodine.navigationMenu');
 
 interface MenuElement extends HTMLElement {
   [menuKey]?: MenuState;
@@ -1705,7 +1705,7 @@ function attachViewport(element: HTMLElement, initial: NavigationMenuOptions, me
 // The twin-facing entry
 // ---------------------------------------------------------------------------------------------------------------
 
-const attachedHandle = Symbol('blazix.navigationMenu.handle');
+const attachedHandle = Symbol('iodine.navigationMenu.handle');
 
 interface AttachedElement extends HTMLElement {
   [attachedHandle]?: TwinHandle;

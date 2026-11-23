@@ -1,6 +1,6 @@
 using Bunit;
 
-namespace Blazix.Primitives.Tests.Components;
+namespace Iodine.Headless.Tests.Components;
 
 /// <summary>
 /// ADR 16 rule 7 for the positioner's behavior: the least of five re-renders of <see cref="TestPositioner"/> with unchanged inputs,

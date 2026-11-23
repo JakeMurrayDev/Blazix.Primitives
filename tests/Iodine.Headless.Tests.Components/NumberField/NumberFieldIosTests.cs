@@ -3,7 +3,7 @@ using Bunit;
 using Microsoft.AspNetCore.Components;
 
 // The namespace is the project's root: a namespace named after the family would hide the parts' types.
-namespace Blazix.Primitives.Tests.Components;
+namespace Iodine.Headless.Tests.Components;
 
 // NumberFieldRoot.iOS.test.tsx (3 titles), NUM-STA-19, over a stubbed `readPlatformFlags` that reports iOS (Base UI mocks
 // `platform.os.ios`; issue 277 design point 4 (a), settled by the orchestrator 2026-11-18). The flag reaches C# after the

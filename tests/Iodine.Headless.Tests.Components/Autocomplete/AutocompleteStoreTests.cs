@@ -1,7 +1,7 @@
 using Bunit;
 
 // Family tests use the project's root namespace.
-namespace Blazix.Primitives.Tests.Components;
+namespace Iodine.Headless.Tests.Components;
 
 // M6 track 11 (issue 257 (1)): combobox/store.test.tsx's two characterization titles, restated at L2 (ADR 13 §3). Base UI pins
 // React mechanics the port does not have (a ref callback during the first commit; `store.subscribe` over a synchronization

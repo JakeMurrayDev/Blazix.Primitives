@@ -1,4 +1,4 @@
-namespace Blazix.Primitives.Rendering;
+namespace Iodine.Headless.Rendering;
 
 // ADR 04 §2
 /// <summary>

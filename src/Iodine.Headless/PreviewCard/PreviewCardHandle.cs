@@ -1,4 +1,4 @@
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // PRV §3.9, PRV-API-21..23 (preview-card/store/PreviewCardHandle.ts); ADR 08 Amendments 2026-10-27 (chosen by the user
 // 2026-10-27: a family handle created with `new`). The fallback store is the inert preview card store (PSH-STA-37); an

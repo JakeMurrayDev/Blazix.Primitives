@@ -1,10 +1,10 @@
 using AngleSharp.Dom;
 using Bunit;
 using Microsoft.AspNetCore.Components;
-using static Blazix.Primitives.Tests.Components.TabsTestContext;
+using static Iodine.Headless.Tests.Components.TabsTestContext;
 
 // The namespace is the project's root: a namespace named after the family would hide the parts' types.
-namespace Blazix.Primitives.Tests.Components;
+namespace Iodine.Headless.Tests.Components;
 
 // TabsPanel.test.tsx, the [L2] rows (issue 104), and the Panel's C# half of the transition machine over TransitionsTwin
 // (TAB §9; the transitions themselves are L4). A panel's exit reaches C# as the `transitions` module's report
@@ -26,14 +26,14 @@ public sealed class TabsPanelTests : IDisposable
     {
         InvalidOperationException error = Assert.Throws<InvalidOperationException>(() => Context.Render(KeptPanel("1")));
 
-        Assert.Equal("Blazix: The `TabsRoot` context is missing. Tabs parts must be placed within `<TabsRoot>`.", error.Message);
+        Assert.Equal("Iodine: The `TabsRoot` context is missing. Tabs parts must be placed within `<TabsRoot>`.", error.Message);
     }
 
     [Fact(DisplayName = "port: a list or an indicator outside a root throws the root's error")]
     [Trait("Requirement", "TAB-EDGE-01")]
     public void Port_a_list_or_an_indicator_outside_a_root_throws_the_roots_error()
     {
-        const string message = "Blazix: The `TabsRoot` context is missing. Tabs parts must be placed within `<TabsRoot>`.";
+        const string message = "Iodine: The `TabsRoot` context is missing. Tabs parts must be placed within `<TabsRoot>`.";
         Assert.Equal(message, Assert.Throws<InvalidOperationException>(() => Context.Render<TabsList>()).Message);
         Assert.Equal(message, Assert.Throws<InvalidOperationException>(() => Context.Render<TabsIndicator>()).Message);
     }

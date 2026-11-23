@@ -1,8 +1,8 @@
-using Blazix.Primitives.Fixtures.Client.PopupFixtures;
+using Iodine.Headless.Fixtures.Client.PopupFixtures;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Rendering;
 
-namespace Blazix.Primitives.Fixtures.Client.CompositeFixtures;
+namespace Iodine.Headless.Fixtures.Client.CompositeFixtures;
 
 /// <summary>
 /// What the list host's parts share: the popup store, the list, the selectable value and how the popup was last opened.

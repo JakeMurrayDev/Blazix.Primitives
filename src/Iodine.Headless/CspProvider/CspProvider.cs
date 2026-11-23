@@ -1,7 +1,7 @@
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Rendering;
 
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // Base UI's CSPProvider (csp-provider/CSPProvider.tsx); the contract is shared-utilities.md §4.12 (UTL-DOM-32..36) and UTL §10's
 // item "CspProvider in the port" (ADR 09 Amendments 2026-10-22: a family folder without CONTEXT.md, the DirectionProvider

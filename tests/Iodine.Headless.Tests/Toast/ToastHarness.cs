@@ -1,7 +1,7 @@
 using Microsoft.Extensions.Time.Testing;
 
 // Family tests use the project's root namespace: a `Toast` namespace would read as a family type.
-namespace Blazix.Primitives.Tests;
+namespace Iodine.Headless.Tests;
 
 // The toast store, a manager and one provider link at L1 (ADR 06 §1: C# timers under a FakeTimeProvider; no renderer).
 // The link's invoke runs the work inline, as a Provider's InvokeAsync does on its renderer's context.

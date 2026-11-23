@@ -17,11 +17,11 @@
 
   <!-- The library's development warnings are on in a Debug build, as a consumer's app would have them. -->
   <ItemGroup Condition="'$(Configuration)' == 'Debug'">
-    <RuntimeHostConfigurationOption Include="Blazix.Primitives.DevelopmentWarnings" Value="true" />
+    <RuntimeHostConfigurationOption Include="Iodine.Headless.DevelopmentWarnings" Value="true" />
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\..\src\Blazix.Primitives\Blazix.Primitives.csproj" />
+    <ProjectReference Include="..\..\src\Iodine.Headless\Iodine.Headless.csproj" />
   </ItemGroup>
 
   <!--

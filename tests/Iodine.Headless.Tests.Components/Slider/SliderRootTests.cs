@@ -3,10 +3,10 @@ using System.Text.Json;
 using AngleSharp.Dom;
 using Bunit;
 using Microsoft.AspNetCore.Components;
-using static Blazix.Primitives.Tests.Components.SliderTestContext;
+using static Iodine.Headless.Tests.Components.SliderTestContext;
 
 // The namespace is the project's root: a namespace named after the family would hide the parts' types.
-namespace Blazix.Primitives.Tests.Components;
+namespace Iodine.Headless.Tests.Components;
 
 // SliderRoot.test.tsx, the [L2] rows (docs/components/slider.md): what C# renders, and the C# half of every request the
 // `slider` module reports (ADR 06 §1: the module's reports are driven by hand). The keys, the pointer arithmetic and the
@@ -28,7 +28,7 @@ public sealed class SliderRootTests : IDisposable
     {
         InvalidOperationException error = Assert.Throws<InvalidOperationException>(() => Context.Render<SliderControl>());
 
-        Assert.Equal("Blazix: `SliderRootContext` is missing. Slider parts must be placed within `<SliderRoot>`.", error.Message);
+        Assert.Equal("Iodine: `SliderRootContext` is missing. Slider parts must be placed within `<SliderRoot>`.", error.Message);
     }
 
     [Fact(DisplayName = "port: rejects a value of each triple")]
@@ -38,7 +38,7 @@ public sealed class SliderRootTests : IDisposable
         InvalidOperationException error = Assert.Throws<InvalidOperationException>(() =>
             Context.Render<SliderRoot>(p => p.Add(x => x.Value, 10).Add(x => x.Values, new double[] { 10, 20 })));
 
-        Assert.StartsWith("Blazix: `SliderRoot` received `Value` and `Values`.", error.Message, StringComparison.Ordinal);
+        Assert.StartsWith("Iodine: `SliderRoot` received `Value` and `Values`.", error.Message, StringComparison.Ordinal);
         Assert.EndsWith("`OnValuesChange` for a list.", error.Message, StringComparison.Ordinal);
     }
 
@@ -64,7 +64,7 @@ public sealed class SliderRootTests : IDisposable
     [Trait("Requirement", "SLD-ARIA-10")]
     public void Sets_the_data_orientation_attribute()
     {
-        IRenderedComponent<SliderRoot> cut = Context.Render<SliderRoot>(p => p.Add(x => x.Orientation, Primitives.Orientation.Vertical).AddChildContent(Anatomy()));
+        IRenderedComponent<SliderRoot> cut = Context.Render<SliderRoot>(p => p.Add(x => x.Orientation, Headless.Orientation.Vertical).AddChildContent(Anatomy()));
 
         IElement root = cut.Find("[role=group]");
         Assert.Equal("vertical", root.GetAttribute("data-orientation"));
@@ -151,7 +151,7 @@ public sealed class SliderRootTests : IDisposable
     [Trait("Requirement", "SLD-API-08")]
     public void Sets_the_aria_orientation_attribute()
     {
-        IRenderedComponent<SliderRoot> cut = Context.Render<SliderRoot>(p => p.Add(x => x.Orientation, Primitives.Orientation.Vertical).AddChildContent(Anatomy()));
+        IRenderedComponent<SliderRoot> cut = Context.Render<SliderRoot>(p => p.Add(x => x.Orientation, Headless.Orientation.Vertical).AddChildContent(Anatomy()));
 
         Assert.Equal("vertical", Inputs(cut)[0].GetAttribute("aria-orientation"));
     }
@@ -162,7 +162,7 @@ public sealed class SliderRootTests : IDisposable
     [Trait("Requirement", "SLD-I18N-03")]
     public void Port_does_not_set_the_orientation_via_appearance()
     {
-        IRenderedComponent<SliderRoot> cut = Context.Render<SliderRoot>(p => p.Add(x => x.Orientation, Primitives.Orientation.Vertical).AddChildContent(Anatomy()));
+        IRenderedComponent<SliderRoot> cut = Context.Render<SliderRoot>(p => p.Add(x => x.Orientation, Headless.Orientation.Vertical).AddChildContent(Anatomy()));
 
         string style = Inputs(cut)[0].GetAttribute("style")!;
         Assert.Contains("writing-mode: vertical-lr", style, StringComparison.Ordinal);

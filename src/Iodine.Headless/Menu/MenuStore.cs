@@ -1,6 +1,6 @@
 using Microsoft.Extensions.Logging;
 
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // Base UI's MenuStore (menu/store/MenuStore.ts) over the shared PopupStore (ADR 05 Amendments 2026-10-27; plan §Settled),
 // with MenuRoot's own open-change sequence (MenuRoot.tsx:341-445, MNU §4.1):

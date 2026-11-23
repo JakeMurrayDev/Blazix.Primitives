@@ -1,10 +1,10 @@
-using Blazix.Primitives.Interop;
-using Blazix.Primitives.Rendering;
+using Iodine.Headless.Interop;
+using Iodine.Headless.Rendering;
 using Bunit;
 using Microsoft.Extensions.Logging;
 using Microsoft.JSInterop;
 
-namespace Blazix.Primitives.Tests.Components;
+namespace Iodine.Headless.Tests.Components;
 
 /// <summary>
 /// The Collapsible panel pieces under Accordion's names and rules (M3 track 6, edit (c); ADR 04 Amendments 2026-10-26 for
@@ -15,7 +15,7 @@ namespace Blazix.Primitives.Tests.Components;
 /// </summary>
 public sealed class AccordionPanelBehaviorTests : IDisposable
 {
-    private const string CollapsibleModulePath = "./_content/Blazix.Primitives/js/collapsible.js";
+    private const string CollapsibleModulePath = "./_content/Iodine.Headless/js/collapsible.js";
 
     private readonly BunitContext context = new();
     private readonly BunitJSModuleInterop module;
@@ -85,10 +85,10 @@ public sealed class AccordionPanelBehaviorTests : IDisposable
         (LogLevel level, string message) = Assert.Single(logger.Entries);
         Assert.Equal(LogLevel.Error, level);
         Assert.Equal(
-            "Blazix: The `KeepMounted` parameter set to `false` on an `AccordionPanel` is ignored when `HiddenUntilFound` is enabled on the panel or root, since the panel must remain mounted while closed.",
+            "Iodine: The `KeepMounted` parameter set to `false` on an `AccordionPanel` is ignored when `HiddenUntilFound` is enabled on the panel or root, since the panel must remain mounted while closed.",
             message);
         Assert.Equal(
-            "Blazix: The `KeepMounted` parameter set to `false` on `AccordionRoot` is ignored when `HiddenUntilFound` is enabled, since panels must remain mounted while closed.",
+            "Iodine: The `KeepMounted` parameter set to `false` on `AccordionRoot` is ignored when `HiddenUntilFound` is enabled, since panels must remain mounted while closed.",
             CollapsibleDevelopmentLog.AccordionRootKeepMountedIgnoredMessage);
     }
 

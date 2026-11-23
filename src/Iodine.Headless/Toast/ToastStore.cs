@@ -1,6 +1,6 @@
-using Blazix.Primitives.Store;
+using Iodine.Headless.Store;
 
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // DP3 (i) of the Toast track (chosen by the user 2026-11-19): a close's focus hand-off.
 /// <summary>The focus hand-off a close computed.</summary>

@@ -1,4 +1,4 @@
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // MNU-EVT-10/11, MNU-STA-10 (menu/root/MenuRoot.tsx:580-622; menu/store/MenuStore.ts:224-240): OnItemHighlighted's reason
 // bookkeeping, fed by the list handle's mirror (ListNavigationBehavior.HighlightChanged, track 1). A report is made when the

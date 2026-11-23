@@ -1,12 +1,12 @@
-using Blazix.Primitives.Interop;
-using Blazix.Primitives.Rendering;
-using Blazix.Primitives.Store;
+using Iodine.Headless.Interop;
+using Iodine.Headless.Rendering;
+using Iodine.Headless.Store;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Rendering;
 using Microsoft.Extensions.Logging;
 using Microsoft.JSInterop;
 
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // Base UI's PreviewCard.Root (preview-card/root/PreviewCardRoot.tsx); the contract is docs/components/preview-card.md §3.1
 // and §4, in TooltipRoot's shape (M4 track 6).
@@ -129,7 +129,7 @@ public sealed class PreviewCardRoot<TPayload> : ComponentBase, IAsyncDisposable
     /// <summary>Gets the store.</summary>
     internal PreviewCardStore<TPayload> Store => behavior.Store;
 
-    // For the fixtures (tests/Blazix.Primitives.Fixtures.Client).
+    // For the fixtures (tests/Iodine.Headless.Fixtures.Client).
     /// <summary>Gets a task that completes when the session handle is attached.</summary>
     internal Task SessionAttached => session?.TwinAttached ?? Task.CompletedTask;
 

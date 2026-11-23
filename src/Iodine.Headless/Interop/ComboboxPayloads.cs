@@ -1,4 +1,4 @@
-namespace Blazix.Primitives.Interop;
+namespace Iodine.Headless.Interop;
 
 // ADR 04 Amendments 2026-11-03 (4): the `combobox` module's reports (names track 10's, refined at L3 by a dated line). A
 // module-owned event reaches C# as a twin report carrying JavaScript's snapshot (ADR 04 Amendments 2026-10-18 item 1).

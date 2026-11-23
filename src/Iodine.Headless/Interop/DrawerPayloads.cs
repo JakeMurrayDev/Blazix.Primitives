@@ -1,4 +1,4 @@
-namespace Blazix.Primitives.Interop;
+namespace Iodine.Headless.Interop;
 
 // DRW-DOM-07, DOM-20 (the Popup's and Backdrop's data-swiping, written by the module and mirrored by C#).
 /// <summary>The payload of a change of whether the drawer's popup is being swiped.</summary>

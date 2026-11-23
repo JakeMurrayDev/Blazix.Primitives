@@ -1,9 +1,9 @@
-using Blazix.Primitives.Interop;
-using Blazix.Primitives.Rendering;
-using Blazix.Primitives.Store;
+using Iodine.Headless.Interop;
+using Iodine.Headless.Rendering;
+using Iodine.Headless.Store;
 using Microsoft.AspNetCore.Components;
 
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // combobox/input-group/ComboboxInputGroup.tsx (CMB §3.3, §5.3): role="group", the pressable trigger mapping plus
 // data-popup-side, data-list-empty, data-placeholder and the field validity (combobox/utils/stateAttributesMapping.ts). Its
@@ -38,7 +38,7 @@ internal sealed class ComboboxInputGroupBehavior : IAsyncDisposable
     }
 
     /// <summary>Gets the root's store.</summary>
-    public ComboboxStore Store => store ?? throw new InvalidOperationException($"Blazix: `{services.Family}InputGroup` is used before its first render.");
+    public ComboboxStore Store => store ?? throw new InvalidOperationException($"Iodine: `{services.Family}InputGroup` is used before its first render.");
 
     /// <summary>Gets the field's state the group projects, with the root's disabled state.</summary>
     public FieldStateSnapshot Field => (fieldScope?.State ?? FieldStateSnapshot.Default) with { Disabled = Store.State.Disabled };

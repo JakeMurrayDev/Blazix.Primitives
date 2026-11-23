@@ -1,12 +1,12 @@
-using Blazix.Primitives.Interop;
-using Blazix.Primitives.Rendering;
+using Iodine.Headless.Interop;
+using Iodine.Headless.Rendering;
 using Bunit;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Rendering;
 using Microsoft.JSInterop;
 
 // Family tests use the project's root namespace.
-namespace Blazix.Primitives.Tests.Components;
+namespace Iodine.Headless.Tests.Components;
 
 // CMB-FRM-01 at L2 (ComboboxRoot.test.tsx, describe "Form"): a Form's submission carries the combobox's stringified value
 // under the field's name, and an Input rendered as the field-aware Input submits, outside the popup with the field's name and
@@ -106,12 +106,12 @@ public sealed class ComboboxRootFormTests : IDisposable
             .Add(x => x.ErrorMatch, (MatchValue)ValidityFlag.ValueMissing)
             .Add(x => x.ErrorText, "required")
             .Add(x => x.Content, (RenderFragment)Content));
-        FormControlOptions control = System.Text.Json.JsonSerializer.Deserialize(LastFormControlOptions(), BlazixJsonContext.Default.FormOptions)!.Control!;
+        FormControlOptions control = System.Text.Json.JsonSerializer.Deserialize(LastFormControlOptions(), IodineJsonContext.Default.FormOptions)!.Control!;
         Assert.NotNull(control.FormId);
         Assert.True(control.Revision > 1);
 
         FormControlReport report = new() { Type = "sync", Validity = new NativeValidity { Valid = false, ValueMissing = true, WillValidate = true, Eligible = true }, Revision = control.Revision };
-        string json = System.Text.Json.JsonSerializer.Serialize(report, BlazixJsonContext.Default.FormControlReport);
+        string json = System.Text.Json.JsonSerializer.Serialize(report, IodineJsonContext.Default.FormControlReport);
         await cut.InvokeAsync(() => HiddenControlTwin().OnControlReport(json));
         FormSubmitAnswer answer = await test.SubmitAsync(cut);
 

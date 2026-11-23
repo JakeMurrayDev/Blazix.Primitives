@@ -1,10 +1,10 @@
-using Blazix.Primitives.Rendering;
-using Blazix.Primitives.Store;
+using Iodine.Headless.Rendering;
+using Iodine.Headless.Store;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Rendering;
 using Microsoft.JSInterop;
 
-namespace Blazix.Primitives.Fixtures.Client.PopupFixtures;
+namespace Iodine.Headless.Fixtures.Client.PopupFixtures;
 
 /// <summary>
 /// The test-only popup portal at L4: a family Portal's shape over <see cref="PopupPortalBehavior"/>, rendered while the

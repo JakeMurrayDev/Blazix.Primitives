@@ -4,7 +4,7 @@ using Microsoft.AspNetCore.Components;
 using Microsoft.Extensions.DependencyInjection;
 
 // The namespace is the project's root: a namespace named after the family would hide the parts' types.
-namespace Blazix.Primitives.Tests.Components;
+namespace Iodine.Headless.Tests.Components;
 
 /// <summary>
 /// ADR 16 rule 7 at L2 for <see cref="MeterRoot"/>: the steady-state re-render with unchanged <c>Value</c>, <c>Format</c>
@@ -25,7 +25,7 @@ public sealed class MeterAllocationBudgetTests : IDisposable
 
     public MeterAllocationBudgetTests()
     {
-        context.Services.AddBlazixPrimitives();
+        context.Services.AddIodineHeadless();
     }
 
     /// <inheritdoc />

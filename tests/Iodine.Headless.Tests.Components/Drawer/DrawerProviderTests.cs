@@ -1,8 +1,8 @@
 using AngleSharp.Dom;
 using Bunit;
 
-// Family tests use the project's root namespace (tests/Blazix.Primitives.Tests.Components/CONTEXT.md).
-namespace Blazix.Primitives.Tests.Components;
+// Family tests use the project's root namespace (tests/Iodine.Headless.Tests.Components/CONTEXT.md).
+namespace Iodine.Headless.Tests.Components;
 
 /// <summary>
 /// <c>DrawerProvider.test.tsx</c>, <c>DrawerIndent.test.tsx</c> and <c>DrawerIndentBackground.test.tsx</c> (titles verbatim)

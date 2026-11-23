@@ -2,7 +2,7 @@ using System.Globalization;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Web;
 
-namespace Blazix.Primitives.Fixtures.Client.PopupFixtures;
+namespace Iodine.Headless.Fixtures.Client.PopupFixtures;
 
 /// <summary>
 /// The base of every fixture the shared popup suites run on (tests/browser/suites/; ADR 06 Amendments 2026-10-27, design

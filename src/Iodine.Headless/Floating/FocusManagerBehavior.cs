@@ -1,10 +1,10 @@
-using Blazix.Primitives.Interop;
-using Blazix.Primitives.Utilities;
+using Iodine.Headless.Interop;
+using Iodine.Headless.Utilities;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Rendering;
 using Microsoft.JSInterop;
 
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // The C# half of FloatingFocusManager a family's Popup part composes (FLT §4.8; design point 6 of the focus-manager track,
 // settled by the orchestrator 2026-10-27: Floating/, composed into the part as ButtonBehavior is, never a nested

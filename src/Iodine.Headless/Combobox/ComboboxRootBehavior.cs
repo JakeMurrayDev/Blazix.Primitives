@@ -1,14 +1,14 @@
-using Blazix.Primitives.Interop;
-using Blazix.Primitives.Rendering;
-using Blazix.Primitives.Store;
-using Blazix.Primitives.Utilities;
+using Iodine.Headless.Interop;
+using Iodine.Headless.Rendering;
+using Iodine.Headless.Store;
+using Iodine.Headless.Utilities;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Forms;
 using Microsoft.AspNetCore.Components.Rendering;
 using Microsoft.Extensions.Logging;
 using Microsoft.JSInterop;
 
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // The root half every combobox-family root composes (combobox/root/AriaCombobox.tsx, configured by ComboboxRoot.tsx and
 // AutocompleteRoot.tsx; ADR 08 Amendments 2026-11-03 (3), the AlertDialog shape: ComboboxRoot<TValue> and track 11's
@@ -92,7 +92,7 @@ internal sealed class ComboboxRootBehavior<TValue> : IAsyncDisposable
     public bool Interactive { get; set; } = true;
 
     /// <summary>Gets the list navigation the list's handles join.</summary>
-    public ListNavigationBehavior List => list ?? throw new InvalidOperationException($"Blazix: the list navigation of `<{root.Store.Family}Root>` is created at its first parameter set.");
+    public ListNavigationBehavior List => list ?? throw new InvalidOperationException($"Iodine: the list navigation of `<{root.Store.Family}Root>` is created at its first parameter set.");
 
     /// <summary>Renders the store's fixed cascade around the child content, then the hidden input or inputs.</summary>
     /// <param name="builder">The root's render tree builder.</param>

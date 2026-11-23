@@ -1,6 +1,6 @@
 using System.Collections;
 
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // TST-STA-01, TST-STA-02 (createToastMetadata, store.ts:46-68): the list newest first, with each toast's DOM index,
 // visible index (-1 while ending) and vertical offset (the heights before it) derived once per list write. A record

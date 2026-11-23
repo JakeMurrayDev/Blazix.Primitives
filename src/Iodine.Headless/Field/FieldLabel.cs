@@ -1,11 +1,11 @@
-using Blazix.Primitives.Interop;
-using Blazix.Primitives.Rendering;
+using Iodine.Headless.Interop;
+using Iodine.Headless.Rendering;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Web;
 using Microsoft.Extensions.Logging;
 using Microsoft.JSInterop;
 
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // FLD-STA-02; field/label/FieldLabel.tsx:37-40,88.
 /// <summary>Represents the state of a field label, which the part exposes as data attributes and passes to its class and style functions.</summary>
@@ -72,12 +72,12 @@ public sealed class FieldLabel : PartBase<FieldLabelState>
 
     // FFI-EDGE-02 in the port's words.
     private const string NativeMismatchMessage =
-        "Blazix: `<FieldLabel>` expected a `<label>` element because the `NativeLabel` parameter is `true`. "
+        "Iodine: `<FieldLabel>` expected a `<label>` element because the `NativeLabel` parameter is `true`. "
         + "Rendering a non-`<label>` disables native label association, so `for` will not work. "
         + "Use a real `<label>` in the `Render` parameter, or set `NativeLabel` to `false`.";
 
     private const string NonNativeMismatchMessage =
-        "Blazix: `<FieldLabel>` expected a non-`<label>` element because the `NativeLabel` parameter is `false`. "
+        "Iodine: `<FieldLabel>` expected a non-`<label>` element because the `NativeLabel` parameter is `false`. "
         + "Rendering a `<label>` assumes native label behavior while the label is treated as non-native, which can cause unexpected pointer behavior. "
         + "Use a non-`<label>` in the `Render` parameter, or set `NativeLabel` to `true`.";
 

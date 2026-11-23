@@ -1,7 +1,7 @@
-using Blazix.Primitives.Rendering;
+using Iodine.Headless.Rendering;
 using Microsoft.AspNetCore.Components;
 
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // TLB-STA-01; toolbar/separator/ToolbarSeparator.tsx:25 (Separator's state). ADR 08 §3: the state record is sealed, partial
 // and [PartState]; the default projection gives data-orientation (TLB-DOM-10).
@@ -47,7 +47,7 @@ public sealed class ToolbarSeparator : PartBase<ToolbarSeparatorState>
 
     // TLB-API-17. `Orientation` names the nullable parameter here, so the enum's members are qualified.
     private Orientation EffectiveOrientation => Orientation
-        ?? (toolbar!.Orientation == Blazix.Primitives.Orientation.Vertical ? Blazix.Primitives.Orientation.Horizontal : Blazix.Primitives.Orientation.Vertical);
+        ?? (toolbar!.Orientation == Iodine.Headless.Orientation.Vertical ? Iodine.Headless.Orientation.Horizontal : Iodine.Headless.Orientation.Vertical);
 
     [CascadingParameter]
     private ToolbarRootContext? ToolbarContext { get; set; }
@@ -56,8 +56,8 @@ public sealed class ToolbarSeparator : PartBase<ToolbarSeparatorState>
     /// <summary>Gets or sets the orientation of the separator.</summary>
     /// <value>
     /// The orientation, reflected in <c>aria-orientation</c> and <c>data-orientation</c>; <see langword="null"/>, the
-    /// default, for the orientation perpendicular to the toolbar's: <see cref="Blazix.Primitives.Orientation.Vertical"/> in
-    /// a horizontal toolbar and <see cref="Blazix.Primitives.Orientation.Horizontal"/> in a vertical one.
+    /// default, for the orientation perpendicular to the toolbar's: <see cref="Iodine.Headless.Orientation.Vertical"/> in
+    /// a horizontal toolbar and <see cref="Iodine.Headless.Orientation.Horizontal"/> in a vertical one.
     /// </value>
     [Parameter]
     public Orientation? Orientation { get; set; }

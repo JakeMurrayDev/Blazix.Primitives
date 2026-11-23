@@ -1,6 +1,6 @@
 using System.Net;
 
-namespace Blazix.Primitives.Rendering;
+namespace Iodine.Headless.Rendering;
 
 // ADR 02 decision 1
 /// <summary>Provides a reader for the single root element of a static markup block.</summary>

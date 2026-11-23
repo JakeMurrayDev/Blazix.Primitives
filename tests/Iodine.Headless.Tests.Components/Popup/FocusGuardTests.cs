@@ -2,7 +2,7 @@ using Bunit;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Rendering;
 
-namespace Blazix.Primitives.Tests.Components.Popup;
+namespace Iodine.Headless.Tests.Components.Popup;
 
 /// <summary>
 /// L2 titles of the focus guard renderer shared by the portal, the navigation menu's viewport and the toast viewport

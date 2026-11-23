@@ -1,13 +1,13 @@
 using System.Globalization;
 using System.Text.Json;
 using AngleSharp.Dom;
-using Blazix.Primitives.Interop;
+using Iodine.Headless.Interop;
 using Bunit;
 using Microsoft.AspNetCore.Components;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.JSInterop;
 
-namespace Blazix.Primitives.Tests.Components;
+namespace Iodine.Headless.Tests.Components;
 
 /// <summary>
 /// The bUnit context of the Slider tests: the library's services and bUnit's JS interop mock standing in for the
@@ -19,10 +19,10 @@ namespace Blazix.Primitives.Tests.Components;
 /// </summary>
 public sealed class SliderTestContext : IDisposable
 {
-    public const string SliderModulePath = "./_content/Blazix.Primitives/js/slider.js";
-    public const string CompositeModulePath = "./_content/Blazix.Primitives/js/composite.js";
-    public const string FormModulePath = "./_content/Blazix.Primitives/js/form.js";
-    public const string TransitionsModulePath = "./_content/Blazix.Primitives/js/transitions.js";
+    public const string SliderModulePath = "./_content/Iodine.Headless/js/slider.js";
+    public const string CompositeModulePath = "./_content/Iodine.Headless/js/composite.js";
+    public const string FormModulePath = "./_content/Iodine.Headless/js/form.js";
+    public const string TransitionsModulePath = "./_content/Iodine.Headless/js/transitions.js";
 
     public static readonly CultureInfo EnUs = CultureInfo.GetCultureInfo("en-US");
 
@@ -30,7 +30,7 @@ public sealed class SliderTestContext : IDisposable
 
     public SliderTestContext()
     {
-        Context.Services.AddBlazixPrimitives();
+        Context.Services.AddIodineHeadless();
         SliderModule = Context.JSInterop.SetupModule(SliderModulePath);
         SliderHandle = SetupHandle(SliderModule);
         CompositeModule = Context.JSInterop.SetupModule(CompositeModulePath);
@@ -157,7 +157,7 @@ public sealed class SliderTestContext : IDisposable
         where TComponent : IComponent
     {
         JSRuntimeInvocation attach = FormModule.Invocations["attach"]
-            .Last(i => JsonSerializer.Deserialize((string)i.Arguments[1]!, BlazixJsonContext.Default.FormOptions)!.Submit is not null);
+            .Last(i => JsonSerializer.Deserialize((string)i.Arguments[1]!, IodineJsonContext.Default.FormOptions)!.Submit is not null);
         FormTwin twin = ((DotNetObjectReference<FormTwin>)attach.Arguments[2]!).Value;
         FormSubmitRequest request = new()
         {
@@ -169,9 +169,9 @@ public sealed class SliderTestContext : IDisposable
                 Validity = NativeValidity.Default,
             })],
         };
-        string json = JsonSerializer.Serialize(request, BlazixJsonContext.Default.FormSubmitRequest);
+        string json = JsonSerializer.Serialize(request, IodineJsonContext.Default.FormSubmitRequest);
         string answer = await cut.InvokeAsync(() => twin.OnSubmitRequest(json));
-        return JsonSerializer.Deserialize(answer, BlazixJsonContext.Default.FormSubmitAnswer)!;
+        return JsonSerializer.Deserialize(answer, IodineJsonContext.Default.FormSubmitAnswer)!;
     }
 
     /// <summary>Completes the exit of the last attached transitions handle (a field error's), as the module does.</summary>

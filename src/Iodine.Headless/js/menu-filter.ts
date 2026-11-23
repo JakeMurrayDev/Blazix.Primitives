@@ -166,7 +166,7 @@ export function getMenuFilterKeyAction(event: MenuFilterKey, context: MenuFilter
   return hasValue ? 'edit' : 'navigate';
 }
 
-const handleKey = Symbol('blazix.menu-filter.handle');
+const handleKey = Symbol('iodine.menu-filter.handle');
 
 /** The decision point asked before the module handles a key: the consumer's onKeyDown veto (design point 6 (a)). */
 export const NAVIGATE_POINT = 'navigate';

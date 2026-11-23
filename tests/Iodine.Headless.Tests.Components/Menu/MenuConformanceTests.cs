@@ -1,10 +1,10 @@
-using Blazix.Primitives.Rendering;
-using Blazix.Primitives.Tests.Components.Rendering.Conformance;
+using Iodine.Headless.Rendering;
+using Iodine.Headless.Tests.Components.Rendering.Conformance;
 using Bunit;
 using Microsoft.AspNetCore.Components;
 
-// Family tests use the project's root namespace (tests/Blazix.Primitives.Tests.Components/CONTEXT.md).
-namespace Blazix.Primitives.Tests.Components;
+// Family tests use the project's root namespace (tests/Iodine.Headless.Tests.Components/CONTEXT.md).
+namespace Iodine.Headless.Tests.Components;
 
 /// <summary>MNU-STR-02, MNU-API-17: <c>MenuTrigger.test.tsx</c>'s conformance suite inside a root (describeConformance).</summary>
 public sealed class MenuTriggerConformanceTests : PartConformanceTests<MenuTrigger<NoPayload>>

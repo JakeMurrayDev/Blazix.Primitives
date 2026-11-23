@@ -1,9 +1,9 @@
 using Bunit;
 using Microsoft.AspNetCore.Components;
-using static Blazix.Primitives.Tests.Components.SliderTestContext;
+using static Iodine.Headless.Tests.Components.SliderTestContext;
 
 // The namespace is the project's root: a namespace named after the family would hide the parts' types.
-namespace Blazix.Primitives.Tests.Components;
+namespace Iodine.Headless.Tests.Components;
 
 // SliderRoot.test.tsx's Form and Field › prop: validate titles at [L2] (SLD §8): the module's value requests and the
 // `form` module's submit request are driven by hand (SliderTestContext); a field error's exit ends with the

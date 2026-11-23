@@ -1,10 +1,10 @@
-using Blazix.Primitives.Rendering;
-using Blazix.Primitives.Tests.Components.Rendering.Conformance;
+using Iodine.Headless.Rendering;
+using Iodine.Headless.Tests.Components.Rendering.Conformance;
 using Bunit;
 using Microsoft.AspNetCore.Components;
 
 // The namespace is the project's root: a namespace named after the family would hide the parts' types.
-namespace Blazix.Primitives.Tests.Components;
+namespace Iodine.Headless.Tests.Components;
 
 // RadioGroup.test.tsx: describeConformance(<RadioGroup />, () => ({ refInstanceof: window.HTMLDivElement })). RDG-DOM-07,
 // RDG-API-11, RDG-STR-03 (a group with no radio renders its element).

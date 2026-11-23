@@ -1,7 +1,7 @@
-using Blazix.Primitives.Store;
+using Iodine.Headless.Store;
 using Microsoft.Extensions.Logging;
 
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // PRV §4.1 (preview-card/store/PreviewCardStore.ts:22-30, 107-142); ADR 05 Amendments 2026-10-27 (the composed store
 // record, chosen by the user 2026-10-27). Left out of C# state (issue 122): the hovered-line record, the `interactions`

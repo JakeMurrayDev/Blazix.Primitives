@@ -1,4 +1,4 @@
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // UTL-ARIA-01 (internals/resolvePopupLabel.ts), the port of resolvePopupLabel in Menu's folder, its only user (M5 track 6's
 // brief): a popup or list with no accessible name of its own is labelled by its active trigger; the trigger's rendered id is

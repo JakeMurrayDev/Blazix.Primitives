@@ -3,7 +3,7 @@ using System.Globalization;
 using Bunit;
 using Microsoft.Extensions.DependencyInjection;
 
-namespace Blazix.Primitives.Tests.Components;
+namespace Iodine.Headless.Tests.Components;
 
 /// <summary>
 /// The list part measurement of ADR 14 (issues 5, 28, 25): the time and the allocation of one render of a menu's items, per
@@ -18,7 +18,7 @@ public sealed class MenuListMeasureTests : IDisposable
     public MenuListMeasureTests()
     {
         context.JSInterop.Mode = JSRuntimeMode.Loose;
-        context.Services.AddBlazixPrimitives();
+        context.Services.AddIodineHeadless();
     }
 
     /// <inheritdoc />

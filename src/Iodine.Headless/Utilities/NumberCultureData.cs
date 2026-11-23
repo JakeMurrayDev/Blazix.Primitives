@@ -1,7 +1,7 @@
 using System.Collections.Concurrent;
 using System.Globalization;
 
-namespace Blazix.Primitives.Utilities;
+namespace Iodine.Headless.Utilities;
 
 // UTL-I18N-05, NUM-I18N-01, NUM-I18N-12; ADR 01 decision 2 as amended (equivalent to Intl.NumberFormat, not byte-identical) and
 // ADR 08 Amendments 2026-11-18. The locale data Intl reads from CLDR and NumberFormatInfo does not carry: the symbol of a
@@ -94,7 +94,7 @@ internal static class NumberCultureData
             NumberFormatUnit.Kilobyte => "kB",
             NumberFormatUnit.Megabyte => "MB",
             NumberFormatUnit.Gigabyte => "GB",
-            _ => throw new ArgumentOutOfRangeException(nameof(unit), "Blazix: the unit has no text."),
+            _ => throw new ArgumentOutOfRangeException(nameof(unit), "Iodine: the unit has no text."),
         };
 
         bool temperature = unit is NumberFormatUnit.Celsius or NumberFormatUnit.Fahrenheit;

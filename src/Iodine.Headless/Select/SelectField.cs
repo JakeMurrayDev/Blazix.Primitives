@@ -1,8 +1,8 @@
-using Blazix.Primitives.Interop;
+using Iodine.Headless.Interop;
 using Microsoft.AspNetCore.Components;
 using Microsoft.JSInterop;
 
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // SEL §8, FFI §6.3 rows `Select.Root`/`Select` (field-and-form-infrastructure.md), composed from Field/ (never edited;
 // the brief's Deliverable 3), the CheckableFieldBehavior pattern for a control whose form value sits on a hidden input:

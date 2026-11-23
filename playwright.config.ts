@@ -26,10 +26,10 @@ export default defineConfig<Options>({
     // The host sets BASE_UI_ANIMATIONS_DISABLED by default (ADR 06 §2); the switch itself is the transitions module (M1).
   },
   webServer: {
-    command: 'dotnet run --project tests/Blazix.Primitives.Fixtures --no-launch-profile',
+    command: 'dotnet run --project tests/Iodine.Headless.Fixtures --no-launch-profile',
     url: `${host}/_fixture/ready`,
     reuseExistingServer: !inCi,
-    timeout: Number(process.env.BLAZIX_WEBSERVER_TIMEOUT ?? 240_000),
+    timeout: Number(process.env.IODINE_WEBSERVER_TIMEOUT ?? 240_000),
     stdout: 'ignore',
     stderr: 'pipe',
     env: {

@@ -1,5 +1,5 @@
-@namespace Blazix.Primitives.Tests.Components
-@using Blazix.Primitives
+@namespace Iodine.Headless.Tests.Components
+@using Iodine.Headless
 
 @*
     The ScrollArea tests' host: a root with a viewport and its content, a vertical and a horizontal scrollbar with their
@@ -14,7 +14,7 @@
     </ScrollAreaScrollbar>
     @if (Horizontal)
     {
-        <ScrollAreaScrollbar Orientation="Blazix.Primitives.Orientation.Horizontal" KeepMounted="@KeepMounted" data-testid="scrollbar-x">
+        <ScrollAreaScrollbar Orientation="Iodine.Headless.Orientation.Horizontal" KeepMounted="@KeepMounted" data-testid="scrollbar-x">
             <ScrollAreaThumb data-testid="thumb-x" />
         </ScrollAreaScrollbar>
     }

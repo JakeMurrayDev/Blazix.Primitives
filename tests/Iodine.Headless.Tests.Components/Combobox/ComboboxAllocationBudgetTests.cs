@@ -1,8 +1,8 @@
-using Blazix.Primitives.Interop;
+using Iodine.Headless.Interop;
 using Bunit;
 
 // Family tests use the project's root namespace.
-namespace Blazix.Primitives.Tests.Components;
+namespace Iodine.Headless.Tests.Components;
 
 // ADR 16 rule 7 for Combobox (M5 track 10; the brief's L2 plan and Deliverable 14), each the least of five runs after a
 // warm-up, measured around bUnit's synchronous render on the test thread: a re-render of an open root with unchanged

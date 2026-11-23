@@ -1,11 +1,11 @@
-using Blazix.Primitives.Interop;
-using Blazix.Primitives.Rendering;
-using Blazix.Primitives.Store;
+using Iodine.Headless.Interop;
+using Iodine.Headless.Rendering;
+using Iodine.Headless.Store;
 using Microsoft.AspNetCore.Components;
 using Microsoft.Extensions.Logging;
 using Microsoft.JSInterop;
 
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // MNU-API-41/42, MNU-EVT-08 (menu/checkbox-item/MenuCheckboxItem.tsx:26-29, 112, 165-200): the checked state is held by the
 // part, above its element (Controlled<bool>, fixed at the first parameter set), toggled by the item's activation; the

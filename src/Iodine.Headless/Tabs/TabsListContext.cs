@@ -1,7 +1,7 @@
-using Blazix.Primitives.Interop;
+using Iodine.Headless.Interop;
 using Microsoft.AspNetCore.Components;
 
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // TAB §11 (TabsListContext); tabs/list/TabsListContext.ts. The List's registry of its Tabs by element id: the `tabs`
 // module reports an activation, or a click or focus it did not activate, by the Tab's id (ADR 04 Amendments 2026-10-26;
@@ -64,7 +64,7 @@ internal sealed class TabsListContext
     {
         // TAB-EDGE-02: thrown in every build (ADR 02 Amendments 2026-10-20), the RadioIndicator rewrite as precedent.
         return context ?? throw new InvalidOperationException(
-            "Blazix: The `TabsList` context is missing. `TabsTab` and `TabsIndicator` must be placed within `<TabsList>`.");
+            "Iodine: The `TabsList` context is missing. `TabsTab` and `TabsIndicator` must be placed within `<TabsList>`.");
     }
 
     /// <summary>Adds a tab to the registry.</summary>

@@ -2,7 +2,7 @@ using System.Reflection;
 using Microsoft.AspNetCore.Components;
 
 // Family tests use the project's root namespace.
-namespace Blazix.Primitives.Tests;
+namespace Iodine.Headless.Tests;
 
 /// <summary>
 /// The preview card store at L1 (preview-card/store/PreviewCardStore.ts; PRV §4.1): its initial values (PRV-STA-01), the

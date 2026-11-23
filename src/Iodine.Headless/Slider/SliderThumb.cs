@@ -1,10 +1,10 @@
-using Blazix.Primitives.Rendering;
-using Blazix.Primitives.Store;
-using Blazix.Primitives.Utilities;
+using Iodine.Headless.Rendering;
+using Iodine.Headless.Store;
+using Iodine.Headless.Utilities;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Rendering;
 
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // SLD §3.7: the Root's state object, extended with nothing (slider/thumb/SliderThumb.tsx:505).
 /// <summary>Represents the state of a slider thumb, which the part exposes as data attributes and passes to its class and style functions.</summary>

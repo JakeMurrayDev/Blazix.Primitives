@@ -1,12 +1,12 @@
 using AngleSharp.Dom;
-using Blazix.Primitives.Rendering;
+using Iodine.Headless.Rendering;
 using Bunit;
 using Microsoft.AspNetCore.Components;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 
-// Family tests use the project's root namespace (tests/Blazix.Primitives.Tests.Components/CONTEXT.md).
-namespace Blazix.Primitives.Tests.Components;
+// Family tests use the project's root namespace (tests/Iodine.Headless.Tests.Components/CONTEXT.md).
+namespace Iodine.Headless.Tests.Components;
 
 /// <summary>
 /// The <c>[L2]</c> titles of <c>DrawerPopup.test.tsx</c> that need nothing of the <c>drawer</c> module (titles verbatim;
@@ -18,7 +18,7 @@ namespace Blazix.Primitives.Tests.Components;
 /// </summary>
 public sealed class DrawerPopupTests : IDisposable
 {
-    private const string ViewportWarning = "Blazix: `<DrawerPopup>` expected to be rendered within `<DrawerViewport>`. Omitting the viewport disables drawer swipe handling and touch scroll locking. Wrap `<DrawerPopup>` in `<DrawerViewport>`.";
+    private const string ViewportWarning = "Iodine: `<DrawerPopup>` expected to be rendered within `<DrawerViewport>`. Omitting the viewport disables drawer swipe handling and touch scroll locking. Wrap `<DrawerPopup>` in `<DrawerViewport>`.";
 
     private readonly DialogTestContext test = new();
     private readonly CapturingLogger<DrawerPopup> popupLogger = new();

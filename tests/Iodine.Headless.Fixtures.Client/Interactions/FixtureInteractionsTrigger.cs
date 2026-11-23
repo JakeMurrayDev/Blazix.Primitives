@@ -1,12 +1,12 @@
-using Blazix.Primitives.Interop;
-using Blazix.Primitives.Rendering;
+using Iodine.Headless.Interop;
+using Iodine.Headless.Rendering;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Web;
 using Microsoft.Extensions.Logging;
 using Microsoft.JSInterop;
-using ButtonMechanism = Blazix.Primitives.ButtonBehavior;
+using ButtonMechanism = Iodine.Headless.ButtonBehavior;
 
-namespace Blazix.Primitives.Fixtures.Client.Interactions;
+namespace Iodine.Headless.Fixtures.Client.Interactions;
 
 /// <summary>
 /// A test-only popup trigger (M4 track 3): a <c>button</c> carrying two handles, the <c>button</c> module's

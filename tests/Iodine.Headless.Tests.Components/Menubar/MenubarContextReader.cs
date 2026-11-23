@@ -1,7 +1,7 @@
 using Microsoft.AspNetCore.Components;
 
-// Family tests use the project's root namespace (tests/Blazix.Primitives.Tests.Components/CONTEXT.md).
-namespace Blazix.Primitives.Tests.Components;
+// Family tests use the project's root namespace (tests/Iodine.Headless.Tests.Components/CONTEXT.md).
+namespace Iodine.Headless.Tests.Components;
 
 /// <summary>
 /// A test-only consumer of the bar context in its required mode (MBR-EDGE-01; Menubar.test.tsx:34-48 reaches the message

@@ -1,10 +1,10 @@
-using Blazix.Primitives.Rendering;
-using Blazix.Primitives.Store;
-using Blazix.Primitives.Utilities;
+using Iodine.Headless.Rendering;
+using Iodine.Headless.Store;
+using Iodine.Headless.Utilities;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Rendering;
 
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // SEL-STA-16 (select/value/SelectValue.tsx:42-45, 70-79); design point 4 (a), settled by the orchestrator 2026-11-04:
 // the value is in the state, never projected (SEL-DOM-08; the Accordion precedent, ADR 08 Amendments 2026-10-26), as
@@ -127,12 +127,12 @@ public sealed class SelectValue<TValue> : PartBase<SelectValueState<TValue>>
         // the root's parameters are.
         if (multiple!.Value && ValueContent is not null)
         {
-            throw new InvalidOperationException("Blazix: `SelectValue` received `ValueContent` while the root's `Multiple` is true. Use `ValuesContent` in multiple mode.");
+            throw new InvalidOperationException("Iodine: `SelectValue` received `ValueContent` while the root's `Multiple` is true. Use `ValuesContent` in multiple mode.");
         }
 
         if (!multiple.Value && ValuesContent is not null)
         {
-            throw new InvalidOperationException("Blazix: `SelectValue` received `ValuesContent` while the root's `Multiple` is false. Use `ValueContent` for one value.");
+            throw new InvalidOperationException("Iodine: `SelectValue` received `ValuesContent` while the root's `Multiple` is false. Use `ValueContent` for one value.");
         }
     }
 

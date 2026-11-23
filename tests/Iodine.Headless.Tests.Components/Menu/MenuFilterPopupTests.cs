@@ -2,8 +2,8 @@ using AngleSharp.Dom;
 using Bunit;
 using Microsoft.Extensions.DependencyInjection;
 
-// Family tests use the project's root namespace (tests/Blazix.Primitives.Tests.Components/CONTEXT.md).
-namespace Blazix.Primitives.Tests.Components;
+// Family tests use the project's root namespace (tests/Iodine.Headless.Tests.Components/CONTEXT.md).
+namespace Iodine.Headless.Tests.Components;
 
 /// <summary>
 /// L2: the Popup of a filterable menu (MNU-ARIA-06; M5 track 12), over <see cref="MenuFilterInputHost"/>. The trigger's
@@ -14,14 +14,14 @@ public sealed class MenuFilterPopupTests : BunitContext
     public MenuFilterPopupTests()
     {
         JSInterop.Mode = JSRuntimeMode.Loose;
-        Services.AddBlazixPrimitives();
+        Services.AddIodineHeadless();
     }
 
     [Theory(DisplayName = "port: a filterable menu's popup is a dialog labelled by its trigger, and its list keeps the menu semantics")]
-    [InlineData(Blazix.Primitives.Orientation.Vertical)]
-    [InlineData(Blazix.Primitives.Orientation.Horizontal)]
+    [InlineData(Iodine.Headless.Orientation.Vertical)]
+    [InlineData(Iodine.Headless.Orientation.Horizontal)]
     [Trait("Requirement", "MNU-ARIA-06")]
-    public void The_popup_is_a_dialog(Blazix.Primitives.Orientation orientation)
+    public void The_popup_is_a_dialog(Iodine.Headless.Orientation orientation)
     {
         IRenderedComponent<MenuFilterInputHost> cut = Render<MenuFilterInputHost>(p => p.Add(x => x.Orientation, orientation));
         IElement trigger = cut.Find("button");
@@ -34,14 +34,14 @@ public sealed class MenuFilterPopupTests : BunitContext
 
         IElement list = Assert.Single(popup.QuerySelectorAll("[role=menu]"));
         Assert.Equal(trigger.Id, list.GetAttribute("aria-labelledby"));
-        Assert.Equal(orientation == Blazix.Primitives.Orientation.Horizontal ? "horizontal" : null, list.GetAttribute("aria-orientation"));
+        Assert.Equal(orientation == Iodine.Headless.Orientation.Horizontal ? "horizontal" : null, list.GetAttribute("aria-orientation"));
     }
 
     [Fact(DisplayName = "enables lazy flipping for a filter menu")]
     [Trait("Requirement", "MNU-POS-05")]
     public void Positioner_enables_lazy_flipping_for_a_filter_menu()
     {
-        BunitJSModuleInterop positioning = JSInterop.SetupModule("./_content/Blazix.Primitives/js/positioning.js");
+        BunitJSModuleInterop positioning = JSInterop.SetupModule("./_content/Iodine.Headless/js/positioning.js");
         positioning.SetupModule("attach", _ => true);
 
         Render<MenuFilterInputHost>();

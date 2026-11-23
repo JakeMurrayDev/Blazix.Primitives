@@ -1,7 +1,7 @@
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Rendering;
 
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // Base UI's DirectionProvider (direction-provider/DirectionProvider.tsx); the contract is shared-utilities.md §3.1 and
 // §4.15.1 (ADR 09 Amendments 2026-10-22: a family folder without CONTEXT.md). A single-part component (ADR 08 §1) with no

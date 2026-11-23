@@ -2,7 +2,7 @@ using AngleSharp.Dom;
 using Bunit;
 
 // Family tests use the project's root namespace.
-namespace Blazix.Primitives.Tests.Components;
+namespace Iodine.Headless.Tests.Components;
 
 // ComboboxRoot.test.tsx's `prop: disabled` titles cited at L2. A disabled trigger asks the `interactions` module for no
 // press, so its click reaches C# as nothing; a disabled input receives no typing in the browser, and a typed change the

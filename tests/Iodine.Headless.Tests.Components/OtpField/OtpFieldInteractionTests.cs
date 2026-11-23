@@ -1,9 +1,9 @@
-using Blazix.Primitives.Interop;
+using Iodine.Headless.Interop;
 using Bunit;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Web;
 
-namespace Blazix.Primitives.Tests.Components;
+namespace Iodine.Headless.Tests.Components;
 
 // L2 (ADR 06 §1) for the C# half of OtpField's interactions (issue 278, M6 track 7): the module's edit, focus and blur reports
 // over a fake twin, turned into Base UI's requests (OTPFieldRoot.tsx:228-266 `setValue`, OTPFieldInput.tsx:101-133

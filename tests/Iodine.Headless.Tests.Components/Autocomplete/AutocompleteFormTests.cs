@@ -1,10 +1,10 @@
 using AngleSharp.Dom;
-using Blazix.Primitives.Interop;
+using Iodine.Headless.Interop;
 using Bunit;
 using Microsoft.AspNetCore.Components;
 
 // Family tests use the project's root namespace.
-namespace Blazix.Primitives.Tests.Components;
+namespace Iodine.Headless.Tests.Components;
 
 // M5 track 11 (issue 196): Autocomplete's form value, Clear, placeholder and selection titles at L2 over the engine's None
 // paths (AUT-DOM-01, 02, 05, API-13, 14, STA-01..03, EDGE-02; AutocompleteRoot.test.tsx, AutocompleteItem.test.tsx,

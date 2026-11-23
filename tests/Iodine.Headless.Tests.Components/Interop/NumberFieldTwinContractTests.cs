@@ -1,9 +1,9 @@
 using System.Text.Json;
-using Blazix.Primitives.Interop;
+using Iodine.Headless.Interop;
 using Bunit;
 using Microsoft.JSInterop;
 
-namespace Blazix.Primitives.Tests.Components.Interop;
+namespace Iodine.Headless.Tests.Components.Interop;
 
 /// <summary>
 /// Twin contract tests of the <c>number-field</c> module, 6a's surface (ADR 06 §1, L2; issue 277, design points 1, 2 and 7,
@@ -24,7 +24,7 @@ public sealed class NumberFieldTwinContractTests
     public async Task Attach_imports_the_module_and_sends_the_text_and_the_echoed_revision()
     {
         using BunitContext context = new();
-        BunitJSModuleInterop module = context.JSInterop.SetupModule("./_content/Blazix.Primitives/js/number-field.js");
+        BunitJSModuleInterop module = context.JSInterop.SetupModule("./_content/Iodine.Headless/js/number-field.js");
         BunitJSModuleInterop handle = module.SetupModule("attach", _ => true);
         handle.SetupVoid("update", _ => true).SetVoidResult();
         handle.SetupVoid("dispose", _ => true).SetVoidResult();
@@ -86,7 +86,7 @@ public sealed class NumberFieldTwinContractTests
     public async Task The_input_roles_options_are_sent_with_the_text()
     {
         using BunitContext context = new();
-        BunitJSModuleInterop module = context.JSInterop.SetupModule("./_content/Blazix.Primitives/js/number-field.js");
+        BunitJSModuleInterop module = context.JSInterop.SetupModule("./_content/Iodine.Headless/js/number-field.js");
         BunitJSModuleInterop handle = module.SetupModule("attach", _ => true);
         handle.SetupVoid("update", _ => true).SetVoidResult();
         handle.SetupVoid("dispose", _ => true).SetVoidResult();

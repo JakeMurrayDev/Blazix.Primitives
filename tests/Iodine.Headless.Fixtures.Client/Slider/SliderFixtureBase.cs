@@ -1,6 +1,6 @@
 using Microsoft.AspNetCore.Components;
 
-namespace Blazix.Primitives.Fixtures.Client.SliderFixtures;
+namespace Iodine.Headless.Fixtures.Client.SliderFixtures;
 
 /// <summary>
 /// The base of the Slider fixtures: renders <c>data-attached</c> once every tracked root has its <c>slider</c> twin attached

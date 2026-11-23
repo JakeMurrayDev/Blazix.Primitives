@@ -1,9 +1,9 @@
-using Blazix.Primitives.Interop;
+using Iodine.Headless.Interop;
 using Bunit;
 using Microsoft.AspNetCore.Components;
-using Scenario = Blazix.Primitives.Tests.Components.FormSubmitScenarios.SubmitScenario;
+using Scenario = Iodine.Headless.Tests.Components.FormSubmitScenarios.SubmitScenario;
 
-namespace Blazix.Primitives.Tests.Components;
+namespace Iodine.Headless.Tests.Components;
 
 /// <summary>
 /// The submission pipeline at L2 (FRM-EVT-01, FFI-ALG-05): the <c>Form.test.tsx</c> titles that render only Form, Fieldset

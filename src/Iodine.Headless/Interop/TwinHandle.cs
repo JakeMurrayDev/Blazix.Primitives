@@ -2,7 +2,7 @@ using System.Text.Json;
 using System.Text.Json.Serialization.Metadata;
 using Microsoft.JSInterop;
 
-namespace Blazix.Primitives.Interop;
+namespace Iodine.Headless.Interop;
 
 /// <summary>
 /// The handle of one attached element: the JavaScript object the module returned from <c>attach</c>, with

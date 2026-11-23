@@ -1,6 +1,6 @@
 using Microsoft.AspNetCore.Components;
 
-namespace Blazix.Primitives.Tests.Components;
+namespace Iodine.Headless.Tests.Components;
 
 /// <summary>One box a <see cref="CheckboxGroupHost"/> renders, with the record of its own change callback.</summary>
 public sealed class GroupBox(string testId)

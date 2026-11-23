@@ -3,10 +3,10 @@ using AngleSharp.Dom;
 using Bunit;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Web;
-using static Blazix.Primitives.Tests.Components.SliderTestContext;
+using static Iodine.Headless.Tests.Components.SliderTestContext;
 
 // The namespace is the project's root: a namespace named after the family would hide the parts' types.
-namespace Blazix.Primitives.Tests.Components;
+namespace Iodine.Headless.Tests.Components;
 
 // SliderThumb.test.tsx, the [L2] rows: the thumb element, its nested input and what C# renders under the handover. The
 // positions, keys and focus are the module's (L3, L4).
@@ -59,7 +59,7 @@ public sealed class SliderThumbTests : IDisposable
     [Trait("Requirement", "SLD-STR-02")]
     public void Renders_the_nested_input_when_using_the_long_form_render_prop()
     {
-        RenderFragment<Blazix.Primitives.Rendering.RenderProps<SliderThumbState>> render = props => builder =>
+        RenderFragment<Iodine.Headless.Rendering.RenderProps<SliderThumbState>> render = props => builder =>
         {
             builder.OpenElement(0, "span");
             builder.AddMultipleAttributes(1, props.Attributes);
@@ -292,7 +292,7 @@ public sealed class SliderThumbTests : IDisposable
         Assert.True(test.LastOptions.GetProperty("keyHandlers").GetBoolean());
 
         string inputId = Inputs(cut)[0].Id!;
-        string? verdict = await cut.InvokeAsync(() => test.SliderTwin().Decide(Blazix.Primitives.Interop.SliderTwin.KeyPoint, KeyJson("ArrowRight", inputId)));
+        string? verdict = await cut.InvokeAsync(() => test.SliderTwin().Decide(Iodine.Headless.Interop.SliderTwin.KeyPoint, KeyJson("ArrowRight", inputId)));
 
         Assert.Equal("stop", verdict);
     }

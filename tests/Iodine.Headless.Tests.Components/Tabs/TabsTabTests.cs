@@ -1,13 +1,13 @@
 using AngleSharp.Dom;
-using Blazix.Primitives.Interop;
-using Blazix.Primitives.Rendering;
+using Iodine.Headless.Interop;
+using Iodine.Headless.Rendering;
 using Bunit;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Web;
-using static Blazix.Primitives.Tests.Components.TabsTestContext;
+using static Iodine.Headless.Tests.Components.TabsTestContext;
 
 // The namespace is the project's root: a namespace named after the family would hide the parts' types.
-namespace Blazix.Primitives.Tests.Components;
+namespace Iodine.Headless.Tests.Components;
 
 // TabsTab.test.tsx, the [L2] rows and the Tab's C# reactions to the `tabs` module (issue 104): its element, ids and ARIA,
 // the button mechanism in composite mode, the composite item, and the activation the module hands over (DecideSelectAsync,
@@ -30,7 +30,7 @@ public sealed class TabsTabTests : IDisposable
         InvalidOperationException error = Assert.Throws<InvalidOperationException>(() =>
             Context.Render<TabsRoot<string>>(p => p.AddChildContent(Tab("1"))));
 
-        Assert.Equal("Blazix: The `TabsList` context is missing. `TabsTab` and `TabsIndicator` must be placed within `<TabsList>`.", error.Message);
+        Assert.Equal("Iodine: The `TabsList` context is missing. `TabsTab` and `TabsIndicator` must be placed within `<TabsList>`.", error.Message);
     }
 
     [Fact(DisplayName = "port: a tab outside a root throws the root's error first")]
@@ -40,7 +40,7 @@ public sealed class TabsTabTests : IDisposable
     {
         InvalidOperationException error = Assert.Throws<InvalidOperationException>(() => Context.Render(Tab("1")));
 
-        Assert.Equal("Blazix: The `TabsRoot` context is missing. Tabs parts must be placed within `<TabsRoot>`.", error.Message);
+        Assert.Equal("Iodine: The `TabsRoot` context is missing. Tabs parts must be placed within `<TabsRoot>`.", error.Message);
     }
 
     [Fact(DisplayName = "port: a tab whose TValue differs from its root's throws")]
@@ -50,7 +50,7 @@ public sealed class TabsTabTests : IDisposable
         InvalidOperationException error = Assert.Throws<InvalidOperationException>(() =>
             Context.Render<TabsRoot<int?>>(p => p.Add(x => x.Value, 1).AddChildContent(List(Tab(1)))));
 
-        Assert.StartsWith("Blazix: A `TabsTab` must have the `TValue` of its `TabsRoot`.", error.Message, StringComparison.Ordinal);
+        Assert.StartsWith("Iodine: A `TabsTab` must have the `TValue` of its `TabsRoot`.", error.Message, StringComparison.Ordinal);
     }
 
     [Fact(DisplayName = "port: a native tab is a button of type button with aria-disabled and never the disabled attribute")]

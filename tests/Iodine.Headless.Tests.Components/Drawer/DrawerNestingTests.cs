@@ -2,8 +2,8 @@ using AngleSharp.Dom;
 using Bunit;
 using Microsoft.AspNetCore.Components.Web;
 
-// Family tests use the project's root namespace (tests/Blazix.Primitives.Tests.Components/CONTEXT.md).
-namespace Blazix.Primitives.Tests.Components;
+// Family tests use the project's root namespace (tests/Iodine.Headless.Tests.Components/CONTEXT.md).
+namespace Iodine.Headless.Tests.Components;
 
 /// <summary>
 /// The nested-drawer titles of <c>DrawerPopup.test.tsx</c> (titles verbatim; DRW-STA-18, STR-10, DOM-03, DOM-08, DOM-22),

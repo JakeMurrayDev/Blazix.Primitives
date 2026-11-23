@@ -1,6 +1,6 @@
 using System.Text;
 
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // OTP-STA-04..08, OTP-API-08, OTP-EDGE-07, OTP-EDGE-12 (otp-field/utils/otp.ts; issue 278, M6 track 7): the value helpers C#
 // owns (decision 7 (a), Q-OTP-1 (c)). One consumer, so the family folder.

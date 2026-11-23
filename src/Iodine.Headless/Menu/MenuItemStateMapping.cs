@@ -1,6 +1,6 @@
-using Blazix.Primitives.Rendering;
+using Iodine.Headless.Rendering;
 
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // menu/utils/stateAttributesMapping.ts:5-17 (`itemMapping`, MNU §5): a checkbox or radio item's, and its indicator's,
 // Checked is data-checked or data-unchecked, exactly one of them; the transition status is the `transitions` module's (ADR 04

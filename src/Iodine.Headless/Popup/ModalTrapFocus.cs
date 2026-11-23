@@ -1,4 +1,4 @@
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // ADR 08 §3 (boolean-or-literal props, Amendments 2026-10-27): Base UI's `modal="trap-focus"` literal, the named case of
 // ModalValue.

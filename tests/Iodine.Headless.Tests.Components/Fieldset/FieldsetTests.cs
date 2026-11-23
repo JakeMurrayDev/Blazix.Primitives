@@ -1,10 +1,10 @@
 using AngleSharp.Dom;
-using Blazix.Primitives.Rendering;
+using Iodine.Headless.Rendering;
 using Bunit;
 using Microsoft.AspNetCore.Components;
-using Scenario = Blazix.Primitives.Tests.Components.FieldsetScenarios.FieldsetScenario;
+using Scenario = Iodine.Headless.Tests.Components.FieldsetScenarios.FieldsetScenario;
 
-namespace Blazix.Primitives.Tests.Components;
+namespace Iodine.Headless.Tests.Components;
 
 /// <summary>
 /// The <c>[L2]</c> titles of <c>FieldsetRoot.test.tsx</c>, <c>FieldsetLegend.test.tsx</c> and <c>useRegisteredLabelId.test.tsx</c>,
@@ -167,7 +167,7 @@ public sealed class FieldsetTests : IDisposable
     {
         InvalidOperationException error = Assert.Throws<InvalidOperationException>(() => Context.Render<FieldsetLegend>());
 
-        Assert.Equal("Blazix: The `FieldsetRoot` context is missing. Fieldset parts must be placed within `<FieldsetRoot>`.", error.Message);
+        Assert.Equal("Iodine: The `FieldsetRoot` context is missing. Fieldset parts must be placed within `<FieldsetRoot>`.", error.Message);
     }
 
     // The server-markup half (the prerendered root carries no aria-labelledby) is the fieldset-prerender fixture (L4).

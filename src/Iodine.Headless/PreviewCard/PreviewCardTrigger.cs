@@ -1,10 +1,10 @@
-using Blazix.Primitives.Interop;
-using Blazix.Primitives.Rendering;
-using Blazix.Primitives.Store;
+using Iodine.Headless.Interop;
+using Iodine.Headless.Rendering;
+using Iodine.Headless.Store;
 using Microsoft.AspNetCore.Components;
 using Microsoft.JSInterop;
 
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // PRV §3.2 (preview-card/trigger/PreviewCardTrigger.tsx:152-157); PRV-STA-04.
 /// <summary>Represents the state of a preview card trigger, which the part exposes as data attributes and passes to its class and style functions.</summary>
@@ -115,7 +115,7 @@ public sealed class PreviewCardTrigger<TPayload> : PartBase<PreviewCardTriggerSt
     /// <inheritdoc />
     protected override StateAttributesMapping<PreviewCardTriggerState>? StateAttributesMapping => s_mapping;
 
-    // For the fixtures (tests/Blazix.Primitives.Fixtures.Client).
+    // For the fixtures (tests/Iodine.Headless.Fixtures.Client).
     /// <summary>Gets a task that completes when the trigger's interactions handle is attached, or at once while no root is attached to its handle.</summary>
     internal Task TwinAttached => interactions is null || popup.Store.SessionToken is null ? Task.CompletedTask : interactions.TwinAttached;
 
@@ -139,7 +139,7 @@ public sealed class PreviewCardTrigger<TPayload> : PartBase<PreviewCardTriggerSt
     protected override void OnParametersSet()
     {
         // PRV-EDGE-02 (PreviewCardTrigger.tsx), in every build.
-        popup.Apply(CascadedStore, Handle, Id, Element, payloadSupplied, Payload, "Blazix: `<PreviewCardTrigger>` must be either used within a `<PreviewCardRoot>` component or provided with a handle.");
+        popup.Apply(CascadedStore, Handle, Id, Element, payloadSupplied, Payload, "Iodine: `<PreviewCardTrigger>` must be either used within a `<PreviewCardRoot>` component or provided with a handle.");
         interactions!.SetConsumerAttributes(AdditionalAttributes);
     }
 

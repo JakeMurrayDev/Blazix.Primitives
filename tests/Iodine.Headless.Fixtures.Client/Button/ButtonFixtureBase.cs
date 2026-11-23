@@ -1,6 +1,6 @@
 using Microsoft.AspNetCore.Components;
 
-namespace Blazix.Primitives.Fixtures.Client.ButtonFixtures;
+namespace Iodine.Headless.Fixtures.Client.ButtonFixtures;
 
 /// <summary>
 /// The base of the Button fixtures: renders <c>data-attached</c> once every listed Button has its behavior attached

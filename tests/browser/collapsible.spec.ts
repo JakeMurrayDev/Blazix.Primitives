@@ -370,7 +370,7 @@ test.describe('<Collapsible.Panel />', () => {
     await expect(content).toHaveAttribute('hidden', 'until-found');
     const diagnostics = await readDiagnostics(page, mode, fixture);
     expect(diagnostics.map((entry) => entry.message)).toContain(
-      'Blazix: The `KeepMounted` parameter set to `false` on `CollapsiblePanel` is ignored when `HiddenUntilFound` is enabled, since the panel must remain mounted while closed.',
+      'Iodine: The `KeepMounted` parameter set to `false` on `CollapsiblePanel` is ignored when `HiddenUntilFound` is enabled, since the panel must remain mounted while closed.',
     );
   });
 
@@ -479,7 +479,7 @@ test.describe('<Collapsible.Panel />', () => {
       await settle(fixture);
       const diagnostics = await readDiagnostics(page, mode, fixture);
       expect(diagnostics.map((entry) => entry.message)).toContain(
-        'Blazix: CSS transitions and CSS animations both detected on a collapsible or accordion panel. Only one of either animation type should be used.',
+        'Iodine: CSS transitions and CSS animations both detected on a collapsible or accordion panel. Only one of either animation type should be used.',
       );
       void container;
     });

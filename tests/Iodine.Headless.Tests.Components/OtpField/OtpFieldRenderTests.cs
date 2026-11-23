@@ -2,7 +2,7 @@ using AngleSharp.Dom;
 using Bunit;
 using Microsoft.AspNetCore.Components;
 
-namespace Blazix.Primitives.Tests.Components;
+namespace Iodine.Headless.Tests.Components;
 
 // OTPFieldRoot.test.tsx and OTPFieldInput.test.tsx, the titles of what the parts render (issue 278, M6 track 7): the value
 // split across the slots, the hidden input, the slot attributes, the labels and the development warnings. A first render in
@@ -606,7 +606,7 @@ public sealed class OtpFieldRenderTests : IDisposable
     {
         InvalidOperationException error = Assert.Throws<InvalidOperationException>(() => Context.Render<OtpFieldInput>());
 
-        Assert.Equal("Blazix: `OtpFieldRootContext` is missing. OtpField parts must be placed within `<OtpFieldRoot>`.", error.Message);
+        Assert.Equal("Iodine: `OtpFieldRootContext` is missing. OtpField parts must be placed within `<OtpFieldRoot>`.", error.Message);
     }
 
     [Fact(DisplayName = "renders one textbox per slot")]
@@ -624,7 +624,7 @@ public sealed class OtpFieldRenderTests : IDisposable
         Context.Render<OtpFieldRoot>(p => p.Add(r => r.Length, 6).AddChildContent(OtpFieldTestContext.Slots(5)));
 
         string message = Assert.Single(host.RootLogger.Entries).Message;
-        Assert.Contains("Blazix: `<OtpFieldRoot>` `Length` must match the number of rendered `<OtpFieldInput />` parts.", message, StringComparison.Ordinal);
+        Assert.Contains("Iodine: `<OtpFieldRoot>` `Length` must match the number of rendered `<OtpFieldInput />` parts.", message, StringComparison.Ordinal);
         Assert.Contains("Received `Length=6` but rendered 5 inputs.", message, StringComparison.Ordinal);
     }
 
@@ -649,7 +649,7 @@ public sealed class OtpFieldRenderTests : IDisposable
     {
         Context.Render<OtpFieldRoot>(p => p.Add(r => r.Length, length));
 
-        Assert.Contains($"Blazix: `<OtpFieldRoot>` `Length` must be a positive integer. Received `Length={length}`.", Assert.Single(host.RootLogger.Entries).Message, StringComparison.Ordinal);
+        Assert.Contains($"Iodine: `<OtpFieldRoot>` `Length` must be a positive integer. Received `Length={length}`.", Assert.Single(host.RootLogger.Entries).Message, StringComparison.Ordinal);
     }
 
     // UTL-EDGE-11/12: Base UI's `warn` writes each text once per page; the port's set is the scoped OtpFieldDevelopmentLog

@@ -1,4 +1,4 @@
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // FFI-API-01, FLD-API-04; field/root/useFieldValidation.ts:331-332 (empty results and empty entries are valid). ADR 08
 // Amendments 2026-10-22: convertible from string and string[], null meaning valid; the constructor over a sequence is a

@@ -1,7 +1,7 @@
-using Blazix.Primitives.Interop;
+using Iodine.Headless.Interop;
 using Microsoft.JSInterop;
 
-namespace Blazix.Primitives.Tests.Components.Interop;
+namespace Iodine.Headless.Tests.Components.Interop;
 
 // The runtime here is a test double, not interop: the analyzer reads its members as JS interop calls.
 #pragma warning disable BL0016
@@ -22,7 +22,7 @@ public sealed class TwinAttachDisposalTests
 
         Task<TwinHandle<TestTwinOptions>> attaching = twin.AttachAsync("base-ui-1", new TestTwinOptions()).AsTask();
         ValueTask disposing = twin.DisposeAsync();
-        runtime.FailAttach(new JSException("Blazix: no element for the reference"));
+        runtime.FailAttach(new JSException("Iodine: no element for the reference"));
 
         TwinHandle<TestTwinOptions> handle = await attaching;
         await disposing;

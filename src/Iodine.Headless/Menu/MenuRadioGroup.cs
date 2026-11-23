@@ -1,8 +1,8 @@
-using Blazix.Primitives.Rendering;
+using Iodine.Headless.Rendering;
 using Microsoft.AspNetCore.Components;
 using Microsoft.Extensions.Logging;
 
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // MNU §3.13 state object (menu/radio-group/MenuRadioGroup.tsx:51-55): Disabled, projected generically (MNU-DOM-29).
 /// <summary>Represents the state of a menu radio group, which the part exposes as data attributes and passes to its class and style functions.</summary>

@@ -1,7 +1,7 @@
 using System.Globalization;
-using Blazix.Primitives.Utilities;
+using Iodine.Headless.Utilities;
 
-namespace Blazix.Primitives.Tests.ListValues;
+namespace Iodine.Headless.Tests.ListValues;
 
 // ADR 16 rule 7 (the least of five runs): the collator filter's three predicates over 1,000 item texts per query allocate
 // nothing on CoreCLR once warm (UTL-I18N-09..11; the windows are spans). The WebAssembly interpreter is measured by the

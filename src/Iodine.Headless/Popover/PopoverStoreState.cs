@@ -1,7 +1,7 @@
-using Blazix.Primitives.Interop;
-using Blazix.Primitives.Store;
+using Iodine.Headless.Interop;
+using Iodine.Headless.Store;
 
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // POP §4.2 (popover/store/PopoverStore.ts:22-44, 204-245); ADR 05 Amendments 2026-10-27 (chosen by the user
 // 2026-10-27): the shared popup state is one member, the Popover fields beside it, named after Base UI's. Left out:

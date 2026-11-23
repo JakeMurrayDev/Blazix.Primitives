@@ -1,4 +1,4 @@
-namespace Blazix.Primitives.Interop;
+namespace Iodine.Headless.Interop;
 
 // ADR 04 §1 (the `navigation-menu` component module) and Amendments 2026-10-18 and 2026-11-03 (4) (chosen by the user
 // 2026-11-03): one handle per part that owns a NavigationMenuTwin, joined to its Root's menu through the Root element,

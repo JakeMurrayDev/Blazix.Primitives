@@ -1,7 +1,7 @@
 using System.Globalization;
-using Blazix.Primitives.Utilities;
+using Iodine.Headless.Utilities;
 
-namespace Blazix.Primitives.Tests;
+namespace Iodine.Headless.Tests;
 
 // NUM-I18N-01, NUM-I18N-07, NUM-I18N-13, UTL-I18N-05..07: port titles for the formatter, each expectation the text
 // Intl.NumberFormat writes in a browser (Chromium, ICU 74), except where a comment names the accepted equivalence (ADR 01
@@ -100,7 +100,7 @@ public sealed class NumberFormatterTests
     public void Rejects_options_Intl_NumberFormat_rejects()
     {
         Assert.Equal("1.5", Format("en-US", 1.5, new() { MaximumFractionDigits = 1 }));
-        Assert.StartsWith("Blazix: ", Assert.Throws<ArgumentException>(() => Format("en-US", 1, new() { Style = NumberFormatStyle.Currency })).Message, StringComparison.Ordinal);
+        Assert.StartsWith("Iodine: ", Assert.Throws<ArgumentException>(() => Format("en-US", 1, new() { Style = NumberFormatStyle.Currency })).Message, StringComparison.Ordinal);
         Assert.Throws<ArgumentException>(() => Format("en-US", 1, new() { RoundingIncrement = 3 }));
         Assert.Throws<ArgumentException>(() => Format("en-US", 1, new() { RoundingIncrement = 5, MaximumSignificantDigits = 2 }));
         Assert.Throws<ArgumentException>(() => Format("en-US", 1, new() { MinimumFractionDigits = 3, MaximumFractionDigits = 1 }));

@@ -1,11 +1,11 @@
 using AngleSharp.Dom;
-using Blazix.Primitives.Interop;
+using Iodine.Headless.Interop;
 using Bunit;
 using Microsoft.JSInterop;
 using Microsoft.AspNetCore.Components;
-using Scenario = Blazix.Primitives.Tests.Components.FormNumberFieldScenarios.NumberFieldScenario;
+using Scenario = Iodine.Headless.Tests.Components.FormNumberFieldScenarios.NumberFieldScenario;
 
-namespace Blazix.Primitives.Tests.Components;
+namespace Iodine.Headless.Tests.Components;
 
 // FRM-API-03, FRM-API-05, FRM-EVT-03, FRM-EVT-04 and FRM-FRM-11: the NumberField halves of Form.test.tsx's titles, open to
 // M6 by form.md's port notes of 2026-10-23 (ADR 13 Amendments 2026-10-22); M6 track 6, issue 277, PR 6a. A native submission
@@ -13,8 +13,8 @@ namespace Blazix.Primitives.Tests.Components;
 /// <summary>The Form titles that render NumberField.</summary>
 public sealed class FormNumberFieldTests : IDisposable
 {
-    private const string InteractionsModulePath = "./_content/Blazix.Primitives/js/interactions.js";
-    private const string ButtonModulePath = "./_content/Blazix.Primitives/js/button.js";
+    private const string InteractionsModulePath = "./_content/Iodine.Headless/js/interactions.js";
+    private const string ButtonModulePath = "./_content/Iodine.Headless/js/button.js";
 
     private readonly FieldTestContext host = new();
 

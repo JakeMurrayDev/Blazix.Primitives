@@ -2,7 +2,7 @@ using Bunit;
 using Microsoft.AspNetCore.Components;
 
 // Family tests use the project's root namespace.
-namespace Blazix.Primitives.Tests.Components;
+namespace Iodine.Headless.Tests.Components;
 
 // ComboboxRoot.test.tsx, describe "coverage edge cases", at L2: a canceled open, a close after a cleared query, the multiple
 // inline query cleared on close, a controlled null in multiple mode, the inline initial selected index (the test's

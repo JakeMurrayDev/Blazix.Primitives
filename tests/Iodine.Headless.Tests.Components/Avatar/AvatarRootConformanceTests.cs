@@ -1,10 +1,10 @@
-using Blazix.Primitives.Rendering;
-using Blazix.Primitives.Tests.Components.Rendering.Conformance;
+using Iodine.Headless.Rendering;
+using Iodine.Headless.Tests.Components.Rendering.Conformance;
 using Bunit;
 using Microsoft.AspNetCore.Components;
 
 // The namespace is the project's root: a namespace named after the family would hide the parts' types.
-namespace Blazix.Primitives.Tests.Components;
+namespace Iodine.Headless.Tests.Components;
 
 // AvatarRoot.test.tsx: describeConformance(<Avatar.Root />, () => ({ render, refInstanceof: window.HTMLSpanElement })).
 // AVA-STR-01, AVA-API-01, AVA-DOM-08, AVA-DOM-11 (RND-DOM-36..48; RND-DOM-49 does not apply, no NativeButton).

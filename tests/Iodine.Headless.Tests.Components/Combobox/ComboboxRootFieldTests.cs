@@ -7,7 +7,7 @@ using Microsoft.Extensions.Logging;
 using Microsoft.JSInterop;
 
 // Family tests use the project's root namespace.
-namespace Blazix.Primitives.Tests.Components;
+namespace Iodine.Headless.Tests.Components;
 
 // CMB §8 at L2 (ComboboxRoot.test.tsx, describe "Field"): with the input inside the popup the trigger is the labelled and
 // validated control and the input gets no field state; the label's press focuses the trigger without opening (the `form`
@@ -171,7 +171,7 @@ public sealed class ComboboxRootFieldTests : IDisposable
             builder.CloseComponent();
         })));
 
-        Assert.Single(logger.Entries, entry => entry.Message.StartsWith("Blazix: `<ComboboxLabel>` labels `<ComboboxTrigger>` only.", StringComparison.Ordinal));
+        Assert.Single(logger.Entries, entry => entry.Message.StartsWith("Iodine: `<ComboboxLabel>` labels `<ComboboxTrigger>` only.", StringComparison.Ordinal));
         Assert.False(cut.Find("[data-testid=input]").HasAttribute("aria-labelledby"));
     }
 

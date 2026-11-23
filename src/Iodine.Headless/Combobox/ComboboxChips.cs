@@ -1,10 +1,10 @@
-using Blazix.Primitives.Rendering;
+using Iodine.Headless.Rendering;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Web;
 using Microsoft.Extensions.Logging;
 using Microsoft.JSInterop;
 
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // Base UI's Combobox.Chips (combobox/chips/ComboboxChips.tsx; CMB §3.4). Over ComboboxChipsBehavior; no state of its own.
 /// <summary>Represents the container of a multiple combobox's chips, Base UI's <c>Combobox.Chips</c>, rendered as a <c>div</c>.</summary>

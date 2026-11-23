@@ -1,14 +1,14 @@
-using Blazix.Primitives.Interop;
-using Blazix.Primitives.Rendering;
+using Iodine.Headless.Interop;
+using Iodine.Headless.Rendering;
 using System.Linq.Expressions;
 using AngleSharp.Dom;
 using Bunit;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Forms;
-using static Blazix.Primitives.Tests.Components.CheckboxGroupFieldHost;
+using static Iodine.Headless.Tests.Components.CheckboxGroupFieldHost;
 
 // The namespace is the project's root: a namespace named after the family would hide the parts' types.
-namespace Blazix.Primitives.Tests.Components;
+namespace Iodine.Headless.Tests.Components;
 
 // CheckboxGroup.test.tsx's Field, Field.Label and Field.Description titles that render no Form (issue 82), and the
 // checkbox.md rows a group finishes (CHK-STA-10's group title, CHK-FRM-19..21, CHK-DOM-15, CHK-ARIA-07/10/11). The group

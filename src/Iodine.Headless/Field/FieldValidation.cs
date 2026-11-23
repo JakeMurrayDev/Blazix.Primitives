@@ -1,6 +1,6 @@
-using Blazix.Primitives.Interop;
+using Iodine.Headless.Interop;
 
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // FFI §2 (validation service), FFI-ALG-01 (commit), FFI-ALG-02 (native state read; the browser's half is the form module's
 // and arrives in each input's State), FFI-ALG-03 (change), FFI-ALG-04 (representative input), FFI-ALG-14 (publish),

@@ -1,7 +1,7 @@
-using Blazix.Primitives.Rendering;
+using Iodine.Headless.Rendering;
 using Microsoft.AspNetCore.Components.Web;
 
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // FLD-API-14, FLD-PTR-04, FLD-EVT-09, FLD-KEY-04 (EVD-API-11): a consumer handler runs before the part's own logic and may
 // veto it with PreventPartHandler(). The part declines the handler (ForwardsConsumerHandler, ADR 02 Amendments 2026-10-21)

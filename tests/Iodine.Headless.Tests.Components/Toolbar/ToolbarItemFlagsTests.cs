@@ -4,7 +4,7 @@ using Bunit;
 using Microsoft.AspNetCore.Components;
 
 // The namespace is the project's root: a namespace named after the family would hide the parts' types.
-namespace Blazix.Primitives.Tests.Components;
+namespace Iodine.Headless.Tests.Components;
 
 // M3 track 1's E3 on the toolbar (TLB-STA-02, TLB-STA-03, TLB-STA-06): each item sends its disabled and
 // focusableWhenDisabled flags, and the composite module derives the disabled indices from them. The navigation they cause is

@@ -1,9 +1,9 @@
-using Blazix.Primitives.Interop;
-using Blazix.Primitives.Store;
+using Iodine.Headless.Interop;
+using Iodine.Headless.Store;
 using Microsoft.AspNetCore.Components;
 using Microsoft.Extensions.Logging;
 
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // DLG §4.2 (dialog/store/DialogStore.ts), ADR 05 Amendments 2026-10-27 (chosen by the user 2026-10-27): the store every
 // dialog-family root owns, over the shared popup store, and the context its non-generic parts and a nested root read.

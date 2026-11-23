@@ -1,7 +1,7 @@
 using Bunit;
 
 // Family tests use the project's root namespace.
-namespace Blazix.Primitives.Tests.Components;
+namespace Iodine.Headless.Tests.Components;
 
 // ComboboxRoot.test.tsx's `keyboard interaction` titles cited at L2. The arrow keys and Enter's click are the modules': the
 // list navigation reports the highlight it moved (CompositeTwin.OnListHighlight), and Enter is the input handle's keydown

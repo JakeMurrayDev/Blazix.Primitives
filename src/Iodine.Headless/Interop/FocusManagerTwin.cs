@@ -1,6 +1,6 @@
 using Microsoft.JSInterop;
 
-namespace Blazix.Primitives.Interop;
+namespace Iodine.Headless.Interop;
 
 // ADR 04 §1 (the `focus-manager` row: initial focus, modal trap, focus-out close, focus restoration, return focus,
 // outside marking, tabbable queries) and Amendments 2026-10-27 (chosen by the user 2026-10-27): one handle per focus-
@@ -14,7 +14,7 @@ namespace Blazix.Primitives.Interop;
 /// </summary>
 /// <param name="jsRuntime">The runtime of the part's circuit or WebAssembly application.</param>
 internal sealed class FocusManagerTwin(IJSRuntime jsRuntime)
-    : TwinBase<FocusManagerTwin, FocusManagerOptions>(jsRuntime, LibraryModule("focus-manager"), BlazixJsonContext.Default.FocusManagerOptions)
+    : TwinBase<FocusManagerTwin, FocusManagerOptions>(jsRuntime, LibraryModule("focus-manager"), IodineJsonContext.Default.FocusManagerOptions)
 {
     /// <summary>Represents the restoration literal that restores no focus.</summary>
     public const string RestoreNone = "none";
@@ -39,7 +39,7 @@ internal sealed class FocusManagerTwin(IJSRuntime jsRuntime)
     [JSInvokable]
     public void OnFocusOutClose(string payloadJson)
     {
-        FocusOutCloseRequest request = Deserialize(payloadJson, BlazixJsonContext.Default.FocusOutCloseRequest);
+        FocusOutCloseRequest request = Deserialize(payloadJson, IodineJsonContext.Default.FocusOutCloseRequest);
         FocusOutCloseRequested?.Invoke(request);
     }
 
@@ -49,7 +49,7 @@ internal sealed class FocusManagerTwin(IJSRuntime jsRuntime)
     [JSInvokable]
     public void OnInteractionTypeChange(string payloadJson)
     {
-        InteractionTypeChange change = Deserialize(payloadJson, BlazixJsonContext.Default.InteractionTypeChange);
+        InteractionTypeChange change = Deserialize(payloadJson, IodineJsonContext.Default.InteractionTypeChange);
         InteractionTypeChanged?.Invoke(change.Type);
     }
 

@@ -1,11 +1,11 @@
 using System.Globalization;
 using AngleSharp.Dom;
-using Blazix.Primitives.Interop;
+using Iodine.Headless.Interop;
 using Bunit;
 using Microsoft.AspNetCore.Components;
 
 // The namespace is the project's root: a namespace named after the family would hide the parts' types.
-namespace Blazix.Primitives.Tests.Components;
+namespace Iodine.Headless.Tests.Components;
 
 // NumberFieldRoot.test.tsx's "Field" and "Form" rows that need no typed text and no blur (issue 277, 6a): the field's
 // disabled state, label and description, the filled state at first render, and the control registration. The rows that type

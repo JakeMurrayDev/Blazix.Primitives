@@ -3,17 +3,17 @@
 The shape every library part takes (ADR 02 decision 4, ADR 08 §5, ADR 16). Members follow the eleven-group order:
 constants, fields, private properties, parameter properties, public properties, internal properties, lifecycle
 methods, dispose, public methods, internal methods, private methods. Private instance fields carry no prefix,
-private static fields are `s_camelCase`, constants are PascalCase. The build checks the order (BLZX2003, with the
-placements of `src/Blazix.Primitives.Analyzers/CONTEXT.md`: constructors after the fields, protected members with the
+private static fields are `s_camelCase`, constants are PascalCase. The build checks the order (IOD2003, with the
+placements of `src/Iodine.Headless.Analyzers/CONTEXT.md`: constructors after the fields, protected members with the
 public ones, `BuildRenderTree` with the lifecycle methods, nested types last) and the `/// <inheritdoc />` on every
-override (BLZX2007).
+override (IOD2007).
 
 ```csharp
-using Blazix.Primitives.Rendering;
+using Iodine.Headless.Rendering;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Web;
 
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // ADR 08 §3: the state record is sealed, partial and [PartState]; the generator projects it to data-* attributes.
 /// <summary>Represents the state of a switch root, which the part exposes as data attributes.</summary>
@@ -126,4 +126,4 @@ element through `ChildContent` (an indicator), after it as its siblings through 
 of Switch, Checkbox and Radio, which label activation needs outside the root; ADR 02 Amendments 2026-10-22), or before
 it as its siblings through `BuildBeforeElement` (a popup's leading focus guards; ADR 02 Amendments 2026-10-27). Both
 number their frames from 0: the pipeline wraps each call in a region of its own and skips it while `Enabled` is false.
-`src/Blazix.Primitives/Rendering/CONTEXT.md`'s human check says which siblings belong there.
+`src/Iodine.Headless/Rendering/CONTEXT.md`'s human check says which siblings belong there.

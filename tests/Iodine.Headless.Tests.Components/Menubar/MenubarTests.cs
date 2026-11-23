@@ -3,8 +3,8 @@ using AngleSharp.Dom;
 using Bunit;
 using Microsoft.Extensions.DependencyInjection;
 
-// Family tests use the project's root namespace (tests/Blazix.Primitives.Tests.Components/CONTEXT.md).
-namespace Blazix.Primitives.Tests.Components;
+// Family tests use the project's root namespace (tests/Iodine.Headless.Tests.Components/CONTEXT.md).
+namespace Iodine.Headless.Tests.Components;
 
 /// <summary>
 /// L2: the <c>Menubar</c> part (MBR §3.1, §4, §5.1; M5 track 8, issue 195): its element, attributes and state, and the
@@ -15,7 +15,7 @@ public sealed class MenubarTests : BunitContext
     public MenubarTests()
     {
         JSInterop.Mode = JSRuntimeMode.Loose;
-        Services.AddBlazixPrimitives();
+        Services.AddIodineHeadless();
     }
 
     [Fact(DisplayName = "throws when the menubar context is missing")]
@@ -24,7 +24,7 @@ public sealed class MenubarTests : BunitContext
     {
         InvalidOperationException error = Assert.Throws<InvalidOperationException>(() => Render<MenubarContextReader>());
 
-        Assert.Equal("Blazix: The `Menubar` context is missing. Menubar parts must be placed within `<Menubar>`.", error.Message);
+        Assert.Equal("Iodine: The `Menubar` context is missing. Menubar parts must be placed within `<Menubar>`.", error.Message);
     }
 
     [Fact(DisplayName = "port: Menubar renders a div with role menubar, its id, aria-orientation and its state attributes")]
@@ -55,7 +55,7 @@ public sealed class MenubarTests : BunitContext
     [Trait("Requirement", "MBR-DOM-02")]
     public void A_vertical_non_modal_menubar_renders_its_attributes()
     {
-        IRenderedComponent<MenubarHost> cut = Render<MenubarHost>(p => p.Add(x => x.Orientation, Blazix.Primitives.Orientation.Vertical).Add(x => x.Modal, false));
+        IRenderedComponent<MenubarHost> cut = Render<MenubarHost>(p => p.Add(x => x.Orientation, Iodine.Headless.Orientation.Vertical).Add(x => x.Modal, false));
 
         IElement bar = cut.Find("[role=\"menubar\"]");
         Assert.Equal("vertical", bar.GetAttribute("aria-orientation"));
@@ -87,7 +87,7 @@ public sealed class MenubarTests : BunitContext
             return null;
         }));
 
-        Assert.Equal(new MenubarState(Blazix.Primitives.Orientation.Horizontal, false, false), seen);
+        Assert.Equal(new MenubarState(Iodine.Headless.Orientation.Horizontal, false, false), seen);
     }
 
     // MBR-STR-03 (Menubar.tsx:79, FloatingTree): the bar draws an elementless session and cascades its token, so each bar

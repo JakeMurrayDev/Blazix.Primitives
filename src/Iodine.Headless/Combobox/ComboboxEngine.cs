@@ -1,8 +1,8 @@
-using Blazix.Primitives.Rendering;
+using Iodine.Headless.Rendering;
 using Microsoft.Extensions.Logging;
 using Microsoft.JSInterop;
 
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // The engine's configuration (combobox/root/AriaCombobox.tsx, the internal engine ComboboxRoot.tsx and AutocompleteRoot.tsx
 // configure; CMB §3.1, §16 Q4; ADR 08 Amendments 2026-11-03 (3): Combobox is written as behaviours plus thin parts and

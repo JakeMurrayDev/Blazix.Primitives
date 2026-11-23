@@ -1,4 +1,4 @@
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // MNU-STA-04, MNU-ANI-07; menu/store/MenuStore.ts:43 (`'dismiss' | 'click' | 'group' | 'trigger-change'`). ADR 08
 // Amendments 2026-10-27's per-family instant enums (the PopoverInstantType precedent): an enum beside its first consumer,

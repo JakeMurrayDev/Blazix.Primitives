@@ -1,4 +1,4 @@
-namespace Blazix.Primitives.Interop;
+namespace Iodine.Headless.Interop;
 
 // ADR 04 §1 (the `context-menu` component module) and Amendments 2026-10-18 and 2026-11-03 (4) (chosen by the user
 // 2026-11-03); design points 1-3 of M5 track 7. Two handles per context menu, joined through the menu's interactions

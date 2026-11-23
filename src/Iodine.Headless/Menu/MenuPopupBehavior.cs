@@ -1,12 +1,12 @@
-using Blazix.Primitives.Interop;
-using Blazix.Primitives.Rendering;
+using Iodine.Headless.Interop;
+using Iodine.Headless.Rendering;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Rendering;
 using Microsoft.AspNetCore.Components.Web;
 using Microsoft.Extensions.Logging;
 using Microsoft.JSInterop;
 
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // Base UI's Menu.Popup (menu/popup/MenuPopup.tsx) as one internal behaviour (the DialogPopupBehavior form; ADR 08
 // Amendments 2026-11-03 (3)): ContextMenuPopup (track 7) is a shell over it. It configures the modules and re-implements
@@ -276,7 +276,7 @@ internal sealed class MenuPopupBehavior : IAsyncDisposable
         if (!warnedFinalFocus && finalFocus is not null && finalFocusResolver is not null && DevelopmentWarnings.IsEnabled)
         {
             warnedFinalFocus = true;
-            DevelopmentWarnings.Write(logger, $"Blazix: `{familyName}Popup` received both `FinalFocus` and `FinalFocusResolver`; the resolver is used.");
+            DevelopmentWarnings.Write(logger, $"Iodine: `{familyName}Popup` received both `FinalFocus` and `FinalFocusResolver`; the resolver is used.");
         }
 
         focus.SetInputs(FocusInputs());
@@ -346,7 +346,7 @@ internal sealed class MenuPopupBehavior : IAsyncDisposable
         consumerStyle = attributes.TryGetValue(MergeProps.StyleAttribute, out AttributeValue merged) && merged.TryGetValue(out string text) && text.Length > 0 ? text : null;
         if (frozenStyle is null)
         {
-            string? own = status!.Value == Primitives.TransitionStatus.Starting ? StartingStyle : null;
+            string? own = status!.Value == Headless.TransitionStatus.Starting ? StartingStyle : null;
             string? style = own is null ? consumerStyle : consumerStyle is null ? own : own + "; " + consumerStyle;
             if (style is null)
             {

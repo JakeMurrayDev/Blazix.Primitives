@@ -1,6 +1,6 @@
 using Microsoft.JSInterop;
 
-namespace Blazix.Primitives.Interop;
+namespace Iodine.Headless.Interop;
 
 // ADR 04 §1 (the `number-field` component module) and §3 (decision points; Amendments 2026-11-18, the names chosen by the
 // user 2026-11-18: `input-focus` and `input-blur`, fallback run); issue 277, design points 1 (a), 2 (b) and 7 (a), settled
@@ -12,7 +12,7 @@ namespace Blazix.Primitives.Interop;
 /// </summary>
 /// <param name="jsRuntime">The runtime of the part's circuit or WebAssembly application.</param>
 internal sealed class NumberFieldTwin(IJSRuntime jsRuntime)
-    : TwinBase<NumberFieldTwin, NumberFieldOptions>(jsRuntime, LibraryModule("number-field"), BlazixJsonContext.Default.NumberFieldOptions)
+    : TwinBase<NumberFieldTwin, NumberFieldOptions>(jsRuntime, LibraryModule("number-field"), IodineJsonContext.Default.NumberFieldOptions)
 {
     /// <summary>Represents the name of the decision point the module asks about before it reports a focus.</summary>
     public const string InputFocusPoint = "input-focus";
@@ -76,7 +76,7 @@ internal sealed class NumberFieldTwin(IJSRuntime jsRuntime)
     [JSInvokable]
     public void OnInputFocus(string payloadJson)
     {
-        NumberFieldFocusReport report = Deserialize(payloadJson, BlazixJsonContext.Default.NumberFieldFocusReport);
+        NumberFieldFocusReport report = Deserialize(payloadJson, IodineJsonContext.Default.NumberFieldFocusReport);
         InputFocused?.Invoke(report.Event);
     }
 
@@ -86,7 +86,7 @@ internal sealed class NumberFieldTwin(IJSRuntime jsRuntime)
     [JSInvokable]
     public void OnInputBlur(string payloadJson)
     {
-        NumberFieldBlurReport report = Deserialize(payloadJson, BlazixJsonContext.Default.NumberFieldBlurReport);
+        NumberFieldBlurReport report = Deserialize(payloadJson, IodineJsonContext.Default.NumberFieldBlurReport);
         InputBlurred?.Invoke(report);
     }
 
@@ -94,31 +94,31 @@ internal sealed class NumberFieldTwin(IJSRuntime jsRuntime)
     /// <param name="payloadJson">The JSON of a <see cref="NumberFieldKeyStepReport"/>.</param>
     /// <exception cref="System.Text.Json.JsonException">The payload is not valid.</exception>
     [JSInvokable]
-    public void OnKeyStep(string payloadJson) => KeyStepped?.Invoke(Deserialize(payloadJson, BlazixJsonContext.Default.NumberFieldKeyStepReport));
+    public void OnKeyStep(string payloadJson) => KeyStepped?.Invoke(Deserialize(payloadJson, IodineJsonContext.Default.NumberFieldKeyStepReport));
 
     /// <summary>Receives an allowed edit of the visible input.</summary>
     /// <param name="payloadJson">The JSON of a <see cref="NumberFieldChangeReport"/>.</param>
     /// <exception cref="System.Text.Json.JsonException">The payload is not valid.</exception>
     [JSInvokable]
-    public void OnInputChange(string payloadJson) => InputChanged?.Invoke(Deserialize(payloadJson, BlazixJsonContext.Default.NumberFieldChangeReport));
+    public void OnInputChange(string payloadJson) => InputChanged?.Invoke(Deserialize(payloadJson, IodineJsonContext.Default.NumberFieldChangeReport));
 
     /// <summary>Receives a paste into the visible input.</summary>
     /// <param name="payloadJson">The JSON of a <see cref="NumberFieldPasteReport"/>.</param>
     /// <exception cref="System.Text.Json.JsonException">The payload is not valid.</exception>
     [JSInvokable]
-    public void OnInputPaste(string payloadJson) => InputPasted?.Invoke(Deserialize(payloadJson, BlazixJsonContext.Default.NumberFieldPasteReport));
+    public void OnInputPaste(string payloadJson) => InputPasted?.Invoke(Deserialize(payloadJson, IodineJsonContext.Default.NumberFieldPasteReport));
 
     /// <summary>Receives a wheel step of the focused input.</summary>
     /// <param name="payloadJson">The JSON of a <see cref="NumberFieldWheelReport"/>.</param>
     /// <exception cref="System.Text.Json.JsonException">The payload is not valid.</exception>
     [JSInvokable]
-    public void OnWheelStep(string payloadJson) => WheelStepped?.Invoke(Deserialize(payloadJson, BlazixJsonContext.Default.NumberFieldWheelReport));
+    public void OnWheelStep(string payloadJson) => WheelStepped?.Invoke(Deserialize(payloadJson, IodineJsonContext.Default.NumberFieldWheelReport));
 
     /// <summary>Receives a browser autofill of the hidden input.</summary>
     /// <param name="payloadJson">The JSON of a <see cref="NumberFieldAutofillReport"/>.</param>
     /// <exception cref="System.Text.Json.JsonException">The payload is not valid.</exception>
     [JSInvokable]
-    public void OnAutofill(string payloadJson) => Autofilled?.Invoke(Deserialize(payloadJson, BlazixJsonContext.Default.NumberFieldAutofillReport));
+    public void OnAutofill(string payloadJson) => Autofilled?.Invoke(Deserialize(payloadJson, IodineJsonContext.Default.NumberFieldAutofillReport));
 
     /// <inheritdoc />
     protected override DecisionPolicy OnDecide(string point, EventSnapshot snapshot)

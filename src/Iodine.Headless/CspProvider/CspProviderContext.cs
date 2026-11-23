@@ -1,6 +1,6 @@
 using Microsoft.AspNetCore.Components;
 
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // UTL-DOM-32..35 (shared-utilities.md §4.12), internals/csp-context/CSPContext.tsx. Cascaded fixed by CspProvider (ADR 16
 // rule 9): a change reaches the readers through the listeners below, never through the cascade. Without a provider the

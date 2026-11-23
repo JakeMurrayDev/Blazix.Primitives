@@ -5,7 +5,7 @@ using Microsoft.AspNetCore.Components;
 using Microsoft.Extensions.DependencyInjection;
 
 // The namespace is the project's root: a namespace named after the family would hide the parts' types.
-namespace Blazix.Primitives.Tests.Components;
+namespace Iodine.Headless.Tests.Components;
 
 // MeterValue.test.tsx. Base UI's `children` function is the template parameter ValueContent (ADR 08 Amendments
 // 2026-10-20: named for what it renders, used with Context); its argument is MeterValueArguments(FormattedValue, Value).
@@ -19,7 +19,7 @@ public sealed class MeterValueTests : IDisposable
 
     public MeterValueTests()
     {
-        context.Services.AddBlazixPrimitives();
+        context.Services.AddIodineHeadless();
     }
 
     /// <inheritdoc />
@@ -167,6 +167,6 @@ public sealed class MeterValueTests : IDisposable
     {
         InvalidOperationException error = Assert.Throws<InvalidOperationException>(() => context.Render<MeterValue>());
 
-        Assert.Equal("Blazix: The `MeterRoot` context is missing. Meter parts must be placed within `<MeterRoot>`.", error.Message);
+        Assert.Equal("Iodine: The `MeterRoot` context is missing. Meter parts must be placed within `<MeterRoot>`.", error.Message);
     }
 }

@@ -1,6 +1,6 @@
-using Blazix.Primitives.Rendering;
+using Iodine.Headless.Rendering;
 
-namespace Blazix.Primitives.Tests.Rendering;
+namespace Iodine.Headless.Tests.Rendering;
 
 /// <summary>
 /// The generated state projection (RND-ALG-07, RND-DOM-01..07), with the titles of

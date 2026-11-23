@@ -3,7 +3,7 @@ using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Rendering;
 using Microsoft.Extensions.Logging;
 
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // Base UI's Menu.FilterProvider (menu/filter-provider/MenuFilterProvider.tsx); the contract is docs/components/menu.md
 // §3.21 (MNU-STR-14, API-54..58, I18N-03). Filter's shape is track 10's DP3 (d) (settled by the orchestrator 2026-11-04):

@@ -1,10 +1,10 @@
-using Blazix.Primitives.Rendering;
+using Iodine.Headless.Rendering;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Web;
 using Microsoft.Extensions.Logging;
 using Microsoft.JSInterop;
 
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // The close button every dialog family composes (dialog/close/DialogClose.tsx; ADR 08 Amendments 2026-10-27): ButtonBehavior
 // plus the part's own C# onclick, the CollapsibleTrigger shape (ADR 04 §1 gives `interactions` press-to-toggle only, and a

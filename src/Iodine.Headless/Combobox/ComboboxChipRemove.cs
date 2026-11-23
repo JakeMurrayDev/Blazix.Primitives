@@ -1,10 +1,10 @@
-using Blazix.Primitives.Rendering;
+using Iodine.Headless.Rendering;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Web;
 using Microsoft.Extensions.Logging;
 using Microsoft.JSInterop;
 
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // CMB §3.6, STA-04 (combobox/chip-remove/ComboboxChipRemove.tsx).
 /// <summary>Represents the state of a combobox chip remove button, which the part exposes as data attributes and passes to its class and style functions.</summary>

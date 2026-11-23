@@ -3,7 +3,7 @@ using AngleSharp.Dom;
 using Bunit;
 using Microsoft.AspNetCore.Components;
 
-namespace Blazix.Primitives.Tests.Components;
+namespace Iodine.Headless.Tests.Components;
 
 // ToolbarInput.test.tsx's "rendering NumberField" titles at L2 (TLB-API-12, TLB-API-14, TLB-DOM-07, TLB-ARIA-04; their
 // re-cited NumberField clauses, toolbar.md 2026-10-27 and 2026-11-03); M6 track 6, issue 277, PR 6a. The keyboard halves
@@ -12,7 +12,7 @@ namespace Blazix.Primitives.Tests.Components;
 /// <summary>A toolbar input substituted by a number field's input.</summary>
 public sealed class ToolbarNumberFieldTests : IDisposable
 {
-    private const string InteractionsModulePath = "./_content/Blazix.Primitives/js/interactions.js";
+    private const string InteractionsModulePath = "./_content/Iodine.Headless/js/interactions.js";
 
     private readonly ToolbarTestContext test = new();
 

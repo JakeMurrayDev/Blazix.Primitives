@@ -1,6 +1,6 @@
-using Blazix.Primitives.Utilities;
+using Iodine.Headless.Utilities;
 
-namespace Blazix.Primitives.Tests;
+namespace Iodine.Headless.Tests;
 
 // FFI-ARIA-08 and MTR-STA-03 (meter/label/MeterLabel.tsx through useRegisteredLabelId): a label publishes its id to its scope
 // and withdraws it only while the scope still holds that same id, so an older label's cleanup never clears a newer one's.

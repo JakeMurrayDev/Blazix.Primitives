@@ -1,4 +1,4 @@
-namespace Blazix.Primitives.Interop;
+namespace Iodine.Headless.Interop;
 
 // ADR 04 §1 (the `tabs` component module), §2 (the Tabs.Indicator row) and Amendments 2026-10-26 (chosen by the user
 // 2026-10-26): one handle on the List (the activation and its `select` decision point, the pressing state of

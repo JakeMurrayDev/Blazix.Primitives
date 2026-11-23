@@ -1,11 +1,11 @@
 using AngleSharp.Dom;
-using Blazix.Primitives.Rendering;
+using Iodine.Headless.Rendering;
 using Bunit;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Rendering;
 using Microsoft.Extensions.DependencyInjection;
 
-namespace Blazix.Primitives.Tests.Components.Rendering.Conformance;
+namespace Iodine.Headless.Tests.Components.Rendering.Conformance;
 
 /// <summary>
 /// The conformance suite every part runs (RND-DOM-36..49; <c>test/describeConformance.tsx</c> and
@@ -22,7 +22,7 @@ public abstract class PartConformanceTests<TPart> : IDisposable
     protected PartConformanceTests()
     {
         Context = new BunitContext();
-        Context.Services.AddBlazixPrimitives();
+        Context.Services.AddIodineHeadless();
     }
 
     protected BunitContext Context { get; }

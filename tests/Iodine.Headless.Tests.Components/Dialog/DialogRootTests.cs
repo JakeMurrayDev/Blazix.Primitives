@@ -3,7 +3,7 @@ using AngleSharp.Dom;
 using Bunit;
 using Microsoft.AspNetCore.Components;
 
-namespace Blazix.Primitives.Tests.Components;
+namespace Iodine.Headless.Tests.Components;
 
 /// <summary>
 /// The <c>[L2]</c> titles of <c>DialogRoot.test.tsx</c> that bUnit observes: the labels (DLG-DOM-23, STA-09, ARIA-05..07),

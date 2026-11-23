@@ -1,9 +1,9 @@
-using Blazix.Primitives.Rendering;
+using Iodine.Headless.Rendering;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Rendering;
 using Microsoft.JSInterop;
 
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // MNU §3.15 state object (menu/radio-item-indicator/MenuRadioItemIndicator.tsx). TransitionStatus is the indicator's
 // own transitions handle's (on `checked`, MNU-ANI-13): mirrored.

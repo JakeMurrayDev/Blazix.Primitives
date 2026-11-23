@@ -1,4 +1,4 @@
-namespace Blazix.Primitives.Tests;
+namespace Iodine.Headless.Tests;
 
 /// <summary>
 /// L1: the enums of floating positioning (ADR 08 Amendments 2026-10-27) and the literals the <c>positioning</c> module
@@ -28,14 +28,14 @@ public sealed class FloatingLiteralsTests
         Assert.Equal(["start", "end", "none"], Enum.GetValues<FallbackAxisSide>().Select(FloatingLiterals.ToLiteral));
     }
 
-    [Fact(DisplayName = "a value outside an enum is reported with the Blazix prefix")]
-    public void A_value_outside_an_enum_is_reported_with_the_Blazix_prefix()
+    [Fact(DisplayName = "a value outside an enum is reported with the Iodine prefix")]
+    public void A_value_outside_an_enum_is_reported_with_the_Iodine_prefix()
     {
         ArgumentOutOfRangeException side = Assert.Throws<ArgumentOutOfRangeException>(() => FloatingLiterals.ToLiteral((Side)42));
         ArgumentOutOfRangeException align = Assert.Throws<ArgumentOutOfRangeException>(() => FloatingLiterals.ToLiteral((Align)42));
 
-        Assert.StartsWith("Blazix: `42` is not a member of `Side`.", side.Message, StringComparison.Ordinal);
-        Assert.StartsWith("Blazix: `42` is not a member of `Align`.", align.Message, StringComparison.Ordinal);
+        Assert.StartsWith("Iodine: `42` is not a member of `Side`.", side.Message, StringComparison.Ordinal);
+        Assert.StartsWith("Iodine: `42` is not a member of `Align`.", align.Message, StringComparison.Ordinal);
     }
 
     [Fact(DisplayName = "a collision avoidance compares by value and leaves every axis to the default when empty")]

@@ -1,4 +1,4 @@
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // DLG §3.10 (dialog/store/DialogHandle.ts), ADR 08 Amendments 2026-10-27 (chosen by the user 2026-10-27: a per-family handle
 // created with `new`): the shared handle with the Dialog family's OpenWithPayloadAsync (PSH-STA-39, DLG-API-25). Dialog

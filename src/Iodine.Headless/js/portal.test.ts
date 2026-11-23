@@ -246,7 +246,7 @@ describe('the move, the restore and the cleanup', () => {
     expect(attachTarget(null, ['9'])).toBe(floating);
 
     handle.dispose();
-    expect(() => attachTarget(null, ['9'])).toThrow('Blazix: ');
+    expect(() => attachTarget(null, ['9'])).toThrow('Iodine: ');
   });
 
   it('port: a repeated attach of the same node returns the live handle', () => {

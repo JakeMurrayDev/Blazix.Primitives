@@ -1,7 +1,7 @@
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Rendering;
 
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // Base UI's Drawer.Provider (drawer/provider/DrawerProvider.tsx); the contract is docs/components/drawer.md (§3.1, §4.3;
 // DRW-API-14, DRW-STA-14, DRW-STR-08). It renders no element, only the fixed cascade of its context (the DirectionProvider

@@ -1,8 +1,8 @@
-using Blazix.Primitives.Interop;
+using Iodine.Headless.Interop;
 using Bunit;
 
 // Family tests use the project's root namespace.
-namespace Blazix.Primitives.Tests.Components;
+namespace Iodine.Headless.Tests.Components;
 
 // M5 track 11 (issue 196): the closed Escape over None mode's internal value (AUT-KEY-07, STA-08; ComboboxInput.tsx:351-364).
 // The engine keeps the last activated item's value; the closed Escape stops when it is set and the root is not inline, then

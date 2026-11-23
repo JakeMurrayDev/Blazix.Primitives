@@ -1,6 +1,6 @@
 using Microsoft.AspNetCore.Components.Web;
 
-namespace Blazix.Primitives.Fixtures.Client.RadioFixtures;
+namespace Iodine.Headless.Fixtures.Client.RadioFixtures;
 
 /// <summary>
 /// The record of one case of the Radio and RadioGroup fixtures: every <c>OnValueChange</c> with its value, event and

@@ -1,7 +1,7 @@
-using Blazix.Primitives.Rendering;
+using Iodine.Headless.Rendering;
 using Microsoft.AspNetCore.Components;
 
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // Base UI's Drawer.Content (drawer/content/DrawerContent.tsx:14-26); the contract is docs/components/drawer.md (§3.12;
 // DRW-STR-06, DOM-24, API-13). It requires a drawer root (DLG-EDGE-02's message under the Drawer name) and marks its subtree

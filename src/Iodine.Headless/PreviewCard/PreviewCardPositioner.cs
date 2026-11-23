@@ -1,10 +1,10 @@
-using Blazix.Primitives.Interop;
-using Blazix.Primitives.Rendering;
+using Iodine.Headless.Interop;
+using Iodine.Headless.Rendering;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Rendering;
 using Microsoft.JSInterop;
 
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // PRV §3.5, PRV-STA-05 (preview-card/positioner/PreviewCardPositioner.tsx:88-94); ADR 08 Amendments 2026-10-27 ("State
 // records"): the placement is mirrored from the `positioning` module's report (RND-STA-01 row of ADR 01).
@@ -78,7 +78,7 @@ internal sealed class PreviewCardPositionerContext(PositionerContext positioner)
 {
     // PRV-EDGE-04, with the port's prefix and code quoting (issue 122).
     /// <summary>The message thrown when a preview card arrow is placed outside a <c>PreviewCardPositioner</c>.</summary>
-    internal const string MissingMessage = "Blazix: `PreviewCardPositionerContext` is missing. `PreviewCardPositioner` parts must be placed within `<PreviewCardPositioner>`.";
+    internal const string MissingMessage = "Iodine: `PreviewCardPositionerContext` is missing. `PreviewCardPositioner` parts must be placed within `<PreviewCardPositioner>`.";
 
     /// <summary>Gets the positioning context the arrow's behavior registers with.</summary>
     public PositionerContext Positioner { get; } = positioner;
@@ -148,12 +148,12 @@ public sealed class PreviewCardPositioner : PartBase<PreviewCardPositionerState>
     public AnchorValue? Anchor { get; set; }
 
     /// <summary>Gets or sets the CSS position the positioner uses.</summary>
-    /// <value>The position method, or <see langword="null"/> (the default) for <see cref="Blazix.Primitives.PositionMethod.Absolute"/>.</value>
+    /// <value>The position method, or <see langword="null"/> (the default) for <see cref="Iodine.Headless.PositionMethod.Absolute"/>.</value>
     [Parameter]
     public PositionMethod? PositionMethod { get; set; }
 
     /// <summary>Gets or sets the side of the anchor the popup is placed on.</summary>
-    /// <value>The side, or <see langword="null"/> (the default) for <see cref="Blazix.Primitives.Side.Bottom"/>.</value>
+    /// <value>The side, or <see langword="null"/> (the default) for <see cref="Iodine.Headless.Side.Bottom"/>.</value>
     [Parameter]
     public Side? Side { get; set; }
 
@@ -163,7 +163,7 @@ public sealed class PreviewCardPositioner : PartBase<PreviewCardPositionerState>
     public OffsetValue? SideOffset { get; set; }
 
     /// <summary>Gets or sets how the popup is aligned against the anchor.</summary>
-    /// <value>The alignment, or <see langword="null"/> (the default) for <see cref="Blazix.Primitives.Align.Center"/>.</value>
+    /// <value>The alignment, or <see langword="null"/> (the default) for <see cref="Iodine.Headless.Align.Center"/>.</value>
     [Parameter]
     public Align? Align { get; set; }
 
@@ -234,7 +234,7 @@ public sealed class PreviewCardPositioner : PartBase<PreviewCardPositionerState>
     /// <inheritdoc />
     protected override bool UsesGeneratedId => RenderFunction is not null;
 
-    // For the fixtures (tests/Blazix.Primitives.Fixtures.Client).
+    // For the fixtures (tests/Iodine.Headless.Fixtures.Client).
     /// <summary>Gets a task that completes when the positioner's positioning handle is attached.</summary>
     internal Task TwinAttached => behavior?.TwinAttached ?? Task.CompletedTask;
 
@@ -287,7 +287,7 @@ public sealed class PreviewCardPositioner : PartBase<PreviewCardPositionerState>
         {
             Anchor = Anchor,
             PositionMethod = PositionMethod,
-            Side = Side ?? Blazix.Primitives.Side.Bottom,
+            Side = Side ?? Iodine.Headless.Side.Bottom,
             SideOffset = SideOffset,
             Align = Align,
             AlignOffset = AlignOffset,

@@ -1,4 +1,4 @@
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // ADR 08 Amendments 2026-11-18, the Swipe line: the one place SwipeDirection meets the `swipe` module's literals
 // (js/swipe.ts's `SwipeDirection`), the InteractionTypeLiterals and FloatingLiterals shape; an out-of-range member throws,

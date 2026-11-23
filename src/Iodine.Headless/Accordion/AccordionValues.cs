@@ -1,6 +1,6 @@
-using Blazix.Primitives.Store;
+using Iodine.Headless.Store;
 
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // Base UI's value algorithm: handleValueChange (accordion/root/AccordionRoot.tsx:67-89) and the membership test
 // openValues.includes(value) (accordion/item/AccordionItem.tsx:48-54). ACC-STA-04 (SameValueZero membership), ACC-STA-05
@@ -13,7 +13,7 @@ internal static class AccordionValues
 {
     // ACC-API-10, ACC-EDGE-09 (the R7 pattern: a part-misuse error in every build).
     internal const string MissingValueMessage =
-        "Blazix: An `AccordionItem` without a `Value` is identified by a generated id, which needs a `TValue` of `string`. "
+        "Iodine: An `AccordionItem` without a `Value` is identified by a generated id, which needs a `TValue` of `string`. "
         + "Give the item a `Value`, or set `TValue=\"string\"` on the `AccordionRoot`.";
 
     /// <summary>Returns the shared empty value, which a root without a default value starts from.</summary>

@@ -1,7 +1,7 @@
 using Microsoft.AspNetCore.Components;
 
-// Family tests use the project's root namespace (tests/Blazix.Primitives.Tests.Components/CONTEXT.md).
-namespace Blazix.Primitives.Tests.Components;
+// Family tests use the project's root namespace (tests/Iodine.Headless.Tests.Components/CONTEXT.md).
+namespace Iodine.Headless.Tests.Components;
 
 /// <summary>
 /// A test-only menu parent (MNU-STR-19, the brief's "proven at L2 on test-only parents"): what <c>Menubar</c> (track 8) and
@@ -26,7 +26,7 @@ internal sealed class MenuTestParent(MenuParentKind kind) : IMenuParentContext
     public string? RootId => null;
 
     /// <inheritdoc />
-    public Blazix.Primitives.Orientation Orientation { get; init; } = Blazix.Primitives.Orientation.Horizontal;
+    public Iodine.Headless.Orientation Orientation { get; init; } = Iodine.Headless.Orientation.Horizontal;
 
     /// <inheritdoc />
     public bool HasSubmenuOpen => false;

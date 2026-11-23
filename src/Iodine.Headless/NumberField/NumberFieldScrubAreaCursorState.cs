@@ -1,6 +1,6 @@
-using Blazix.Primitives.Rendering;
+using Iodine.Headless.Rendering;
 
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // NUM-STA-01, NUM-STA-02; number-field/root/NumberFieldRoot.tsx:426-437. ADR 08 §3: one record per part (the
 // Tabs precedent), the root's fields; `Value` and `InputValue` produce no data attribute

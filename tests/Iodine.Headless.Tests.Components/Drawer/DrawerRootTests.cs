@@ -5,8 +5,8 @@ using Microsoft.AspNetCore.Components.Web;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 
-// Family tests use the project's root namespace (tests/Blazix.Primitives.Tests.Components/CONTEXT.md).
-namespace Blazix.Primitives.Tests.Components;
+// Family tests use the project's root namespace (tests/Iodine.Headless.Tests.Components/CONTEXT.md).
+namespace Iodine.Headless.Tests.Components;
 
 /// <summary>
 /// The <c>[L2]</c> titles of <c>DrawerRoot.test.tsx</c> that need only the root, its triggers, its Close and its handle
@@ -17,7 +17,7 @@ namespace Blazix.Primitives.Tests.Components;
 /// </summary>
 public sealed class DrawerRootTests : IDisposable
 {
-    private const string MissingRoot = "Blazix: The `DrawerRoot` context is missing. Drawer parts must be placed within `<DrawerRoot>`.";
+    private const string MissingRoot = "Iodine: The `DrawerRoot` context is missing. Drawer parts must be placed within `<DrawerRoot>`.";
 
     private readonly DialogTestContext test = new();
     private readonly CapturingLogger<DrawerRoot<int?>> numberLogger = new();

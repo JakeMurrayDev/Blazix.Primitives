@@ -1,9 +1,9 @@
-using Blazix.Primitives.Rendering;
+using Iodine.Headless.Rendering;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Rendering;
 using Microsoft.JSInterop;
 
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // POP-EDGE-03 (popover/portal/PopoverPortalContext.ts:6-12): what the Positioner reads from its Portal.
 /// <summary>The state a popover portal shares with its positioner.</summary>
@@ -19,7 +19,7 @@ internal sealed class PopoverPortalContext
     public static PopoverPortalContext Require(PopoverPortalContext? context)
     {
         // POP-EDGE-03: thrown in every build.
-        return context ?? throw new InvalidOperationException("Blazix: `<PopoverPortal>` is missing.");
+        return context ?? throw new InvalidOperationException("Iodine: `<PopoverPortal>` is missing.");
     }
 }
 

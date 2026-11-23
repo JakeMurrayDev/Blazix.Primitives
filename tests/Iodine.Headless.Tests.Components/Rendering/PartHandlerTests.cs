@@ -1,5 +1,5 @@
 using AngleSharp.Dom;
-using Blazix.Primitives.Rendering;
+using Iodine.Headless.Rendering;
 using Bunit;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Rendering;
@@ -7,7 +7,7 @@ using Microsoft.AspNetCore.Components.RenderTree;
 using Microsoft.AspNetCore.Components.Web;
 using Microsoft.Extensions.DependencyInjection;
 
-namespace Blazix.Primitives.Tests.Components.Rendering;
+namespace Iodine.Headless.Tests.Components.Rendering;
 
 /// <summary>
 /// The handler chain and veto on a rendered part (RND-EVT-02/03/04, ADR 02 decision 3), the directive-key diagnostic
@@ -20,7 +20,7 @@ public sealed class PartHandlerTests : IDisposable
 
     public PartHandlerTests()
     {
-        context.Services.AddBlazixPrimitives();
+        context.Services.AddIodineHeadless();
     }
 
     /// <inheritdoc />

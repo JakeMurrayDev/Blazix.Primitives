@@ -1,10 +1,10 @@
-using Blazix.Primitives.Interop;
-using Blazix.Primitives.Rendering;
+using Iodine.Headless.Interop;
+using Iodine.Headless.Rendering;
 using Microsoft.AspNetCore.Components;
 using Microsoft.Extensions.Logging;
 using Microsoft.JSInterop;
 
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // CMB §3.13, STA-08 (combobox/backdrop/ComboboxBackdrop.tsx): the popup transition mapping; the status mirrored.
 /// <summary>Represents the state of a combobox backdrop, which the part exposes as data attributes and passes to its class and style functions.</summary>

@@ -1,10 +1,10 @@
-using Blazix.Primitives.Interop;
-using Blazix.Primitives.Rendering;
+using Iodine.Headless.Interop;
+using Iodine.Headless.Rendering;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Web;
 using Microsoft.JSInterop;
 
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // NAV-STA-16, §3.7 state object (navigation-menu/link/NavigationMenuLink.tsx:37-39).
 /// <summary>Represents the state of a navigation menu link, which the part exposes as data attributes and passes to its class and style functions.</summary>

@@ -1,10 +1,10 @@
-using Blazix.Primitives.Rendering;
-using Blazix.Primitives.Utilities;
+using Iodine.Headless.Rendering;
+using Iodine.Headless.Utilities;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Rendering;
 using Microsoft.JSInterop;
 
-namespace Blazix.Primitives.Fixtures.Client.ListValuesFixtures;
+namespace Iodine.Headless.Fixtures.Client.ListValuesFixtures;
 
 /// <summary>The state of <see cref="FixtureItemIndicator"/>, the shape a family shell's state record takes.</summary>
 /// <param name="Selected">Whether the item is selected; rendered as <c>data-selected</c>.</param>
@@ -15,7 +15,7 @@ public sealed partial record FixtureItemIndicatorState(
     [property: MirroredField] TransitionStatus? TransitionStatus);
 
 /// <summary>
-/// The fixtures' copy of the test-only item indicator (tests/Blazix.Primitives.Tests.Components/ListValues/TestItemIndicator.cs; RND-STR-10, API-12): a <c>span</c> over <see cref="ItemIndicatorBehavior"/>, as the sealed
+/// The fixtures' copy of the test-only item indicator (tests/Iodine.Headless.Tests.Components/ListValues/TestItemIndicator.cs; RND-STR-10, API-12): a <c>span</c> over <see cref="ItemIndicatorBehavior"/>, as the sealed
 /// <c>Select.ItemIndicator</c> and <c>Combobox.ItemIndicator</c> shells compose it in wave 2. <see cref="Selected"/> stands
 /// in for the family item's selection, which a shell reads from its item context.
 /// </summary>

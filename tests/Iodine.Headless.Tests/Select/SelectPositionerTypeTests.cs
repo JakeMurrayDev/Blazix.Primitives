@@ -2,7 +2,7 @@ using System.Reflection;
 using Microsoft.AspNetCore.Components;
 
 // Family tests use the project's root namespace.
-namespace Blazix.Primitives.Tests;
+namespace Iodine.Headless.Tests;
 
 /// <summary>
 /// The Select's type-level check at L1 (select/positioner/SelectPositioner.spec.tsx; SEL-API-36): the positioner takes no

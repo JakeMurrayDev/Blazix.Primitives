@@ -1,9 +1,9 @@
-using Blazix.Primitives.Rendering;
-using Blazix.Primitives.Store;
+using Iodine.Headless.Rendering;
+using Iodine.Headless.Store;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Rendering;
 
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // SEL-STA-22 (select/arrow/SelectArrow.tsx:28-33, 49-66): Side, Align and Uncentered are the `positioning` module's from
 // attach (ADR 04 §2): mirrored. Side is never `none` here: the arrow renders nothing while aligned (SEL-STR-09).

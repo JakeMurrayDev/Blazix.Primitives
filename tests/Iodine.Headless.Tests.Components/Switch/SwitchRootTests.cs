@@ -1,12 +1,12 @@
 using AngleSharp.Dom;
-using Blazix.Primitives.Rendering;
+using Iodine.Headless.Rendering;
 using Bunit;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Web;
 using Microsoft.Extensions.Logging;
 
 // The namespace is the project's root: a namespace named after the family would hide the parts' types.
-namespace Blazix.Primitives.Tests.Components;
+namespace Iodine.Headless.Tests.Components;
 
 // SwitchRoot.test.tsx, the rows that render neither Field nor Form (issue 80). A click reaches C# through the `button`
 // module: on Server as the OnToggle report (ToggleAsync), on WebAssembly as the toggle decision (DecideToggleAsync); the

@@ -1,6 +1,6 @@
-using Blazix.Primitives.Rendering;
+using Iodine.Headless.Rendering;
 
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // D11 (TRN-STA-03; ADR 04 Amendments 2026-10-18 and 2026-10-21, the handover for a newly rendered element; settled by the
 // orchestrator 2026-11-10): a popup part's `transitions` handle attaches after the render that created its element, and

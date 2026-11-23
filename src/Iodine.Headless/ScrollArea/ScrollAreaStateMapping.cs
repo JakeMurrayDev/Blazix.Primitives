@@ -1,6 +1,6 @@
-using Blazix.Primitives.Rendering;
+using Iodine.Headless.Rendering;
 
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // SCR §5 preamble, RND-DOM-06/07; scroll-area/root/stateAttributes.ts:5-15 (scrollAreaStateAttributesMapping): the six
 // overflow fields to their hyphenated names, each empty when true and absent when false; `cornerHidden` to nothing, which

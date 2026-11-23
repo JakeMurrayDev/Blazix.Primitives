@@ -74,7 +74,7 @@ describe('attachTarget', () => {
     expect(attachTarget(null)).toBeNull();
     expect(attachTarget('attached')).toBe(element);
     expect(attachTarget(element)).toBe(element);
-    expect(() => attachTarget('missing')).toThrow('Blazix: ');
+    expect(() => attachTarget('missing')).toThrow('Iodine: ');
     element.remove();
   });
 });
@@ -98,7 +98,7 @@ describe('elements inside a shadow root', () => {
     expect(resolveReference([null], 0, [null, '7'])).toBe(element);
 
     unregister();
-    expect(() => attachTarget(null, ['7'])).toThrow('Blazix: ');
+    expect(() => attachTarget(null, ['7'])).toThrow('Iodine: ');
     expect(resolveReference([null], 0, [null, '7'])).toBeNull();
     host.remove();
   });

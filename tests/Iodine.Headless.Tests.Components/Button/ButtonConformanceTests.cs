@@ -1,10 +1,10 @@
-using Blazix.Primitives.Rendering;
-using Blazix.Primitives.Tests.Components.Rendering.Conformance;
+using Iodine.Headless.Rendering;
+using Iodine.Headless.Tests.Components.Rendering.Conformance;
 using Bunit;
 using Microsoft.AspNetCore.Components;
 
 // Family tests use the project's root namespace: a `Button` namespace would hide the `Button` type.
-namespace Blazix.Primitives.Tests.Components;
+namespace Iodine.Headless.Tests.Components;
 
 /// <summary>
 /// BTN-DOM-06, BTN-API-04, BTN-STR-01: <c>Button.test.tsx</c>'s conformance suite "Base UI component API" with

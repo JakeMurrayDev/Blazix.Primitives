@@ -1,7 +1,7 @@
-using Blazix.Primitives.Rendering;
+using Iodine.Headless.Rendering;
 using Microsoft.AspNetCore.Components;
 
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // TIP §3.7 (tooltip/arrow/TooltipArrow.tsx:28-34, 46-67); ADR 08 Amendments 2026-10-27 ("State records"): the placement and
 // `uncentered` are written by the `positioning` module from the Positioner's attach (FLT-DOM-09; RND-STA-01 row).

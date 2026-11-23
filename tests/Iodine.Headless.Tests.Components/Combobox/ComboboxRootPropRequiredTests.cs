@@ -2,7 +2,7 @@ using AngleSharp.Dom;
 using Bunit;
 
 // Family tests use the project's root namespace.
-namespace Blazix.Primitives.Tests.Components;
+namespace Iodine.Headless.Tests.Components;
 
 // ComboboxRoot.test.tsx's `prop: required` titles cited at L2. getByRole('textbox', { hidden: true }) is the hidden
 // validation input, the one hidden input that is not of type `hidden`.

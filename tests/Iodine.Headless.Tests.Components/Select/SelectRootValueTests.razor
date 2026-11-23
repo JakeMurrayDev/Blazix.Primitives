@@ -1,4 +1,4 @@
-@namespace Blazix.Primitives.Tests.Components
+@namespace Iodine.Headless.Tests.Components
 @inherits SelectTestBase
 @using AngleSharp.Dom
 @using Bunit
@@ -32,7 +32,7 @@
     [Trait("Requirement", "SEL-DOM-46")]
     public void Exposes_the_orientation_attribute_rendered_by_Separator()
     {
-        cut = RenderSelect(@<SelectSeparator Orientation="Blazix.Primitives.Orientation.Vertical" />);
+        cut = RenderSelect(@<SelectSeparator Orientation="Iodine.Headless.Orientation.Vertical" />);
 
         IElement separator = cut.Find("[role=\"presentation\"]");
         Assert.Equal("vertical", separator.GetAttribute("data-orientation"));

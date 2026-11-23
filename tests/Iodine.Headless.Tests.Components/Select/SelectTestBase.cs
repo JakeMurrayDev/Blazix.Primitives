@@ -1,13 +1,13 @@
 using System.Globalization;
 using System.Text;
 using AngleSharp.Dom;
-using Blazix.Primitives.Interop;
+using Iodine.Headless.Interop;
 using Bunit;
 using Microsoft.AspNetCore.Components;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.JSInterop;
 
-namespace Blazix.Primitives.Tests.Components;
+namespace Iodine.Headless.Tests.Components;
 
 /// <summary>
 /// The base of the Select tests (M5 track 9), written as Razor test classes so each Base UI tree reads as markup: the
@@ -20,15 +20,15 @@ namespace Blazix.Primitives.Tests.Components;
 /// </summary>
 public abstract class SelectTestBase : BunitContext
 {
-    public const string InteractionsPath = "./_content/Blazix.Primitives/js/interactions.js";
+    public const string InteractionsPath = "./_content/Iodine.Headless/js/interactions.js";
 
-    public const string CompositePath = "./_content/Blazix.Primitives/js/composite.js";
+    public const string CompositePath = "./_content/Iodine.Headless/js/composite.js";
 
-    public const string SelectPath = "./_content/Blazix.Primitives/js/select.js";
+    public const string SelectPath = "./_content/Iodine.Headless/js/select.js";
 
-    public const string FormPath = "./_content/Blazix.Primitives/js/form.js";
+    public const string FormPath = "./_content/Iodine.Headless/js/form.js";
 
-    public const string PositioningPath = "./_content/Blazix.Primitives/js/positioning.js";
+    public const string PositioningPath = "./_content/Iodine.Headless/js/positioning.js";
 
     private const string ClickTemplate = """
         {"kind":"PointerEvent","type":"click","key":null,"code":null,"altKey":false,"ctrlKey":false,
@@ -44,7 +44,7 @@ public abstract class SelectTestBase : BunitContext
 
     protected SelectTestBase()
     {
-        Services.AddBlazixPrimitives();
+        Services.AddIodineHeadless();
         JSInterop.Mode = JSRuntimeMode.Loose;
         Interactions = JSInterop.SetupModule(InteractionsPath);
         InteractionsHandle = SetupHandle(Interactions);

@@ -1,9 +1,9 @@
-using Blazix.Primitives.Interop;
+using Iodine.Headless.Interop;
 using Bunit;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.JSInterop;
 
-namespace Blazix.Primitives.Tests.Components;
+namespace Iodine.Headless.Tests.Components;
 
 /// <summary>
 /// The bUnit context of the NavigationMenu tests: the library's services, every module loose, the <c>interactions</c> and
@@ -12,9 +12,9 @@ namespace Blazix.Primitives.Tests.Components;
 /// </summary>
 internal sealed class NavigationMenuTestContext : IDisposable
 {
-    public const string InteractionsPath = "./_content/Blazix.Primitives/js/interactions.js";
+    public const string InteractionsPath = "./_content/Iodine.Headless/js/interactions.js";
 
-    public const string NavigationMenuPath = "./_content/Blazix.Primitives/js/navigation-menu.js";
+    public const string NavigationMenuPath = "./_content/Iodine.Headless/js/navigation-menu.js";
 
     public const string MouseEnter = """
         {"kind":"MouseEvent","type":"mouseenter","key":null,"code":null,"altKey":false,"ctrlKey":false,
@@ -30,7 +30,7 @@ internal sealed class NavigationMenuTestContext : IDisposable
 
     public NavigationMenuTestContext()
     {
-        Context.Services.AddBlazixPrimitives();
+        Context.Services.AddIodineHeadless();
         Context.JSInterop.Mode = JSRuntimeMode.Loose;
         Interactions = Context.JSInterop.SetupModule(InteractionsPath);
         InteractionsHandle = Interactions.SetupModule("attach", _ => true);

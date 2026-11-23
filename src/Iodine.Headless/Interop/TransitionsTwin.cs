@@ -1,7 +1,7 @@
 using Microsoft.AspNetCore.Components;
 using Microsoft.JSInterop;
 
-namespace Blazix.Primitives.Interop;
+namespace Iodine.Headless.Interop;
 
 // ADR 04 §1 (transitions row), §2 (mirrored transitionStatus, the convergent hidden), §3 (one message per state
 // change; the reveal decision point, fallback run, and its Server answer: Amendments 2026-10-21); ADR 01 relaxation table
@@ -13,7 +13,7 @@ namespace Blazix.Primitives.Interop;
 /// </summary>
 /// <param name="jsRuntime">The runtime of the part's circuit or WebAssembly application.</param>
 internal sealed class TransitionsTwin(IJSRuntime jsRuntime)
-    : TwinBase<TransitionsTwin, TransitionsOptions>(jsRuntime, LibraryModule("transitions"), BlazixJsonContext.Default.TransitionsOptions)
+    : TwinBase<TransitionsTwin, TransitionsOptions>(jsRuntime, LibraryModule("transitions"), IodineJsonContext.Default.TransitionsOptions)
 {
     /// <summary>Represents the name of the decision point the module asks about when <c>beforematch</c> reveals the element.</summary>
     public const string RevealPoint = "reveal";
@@ -53,7 +53,7 @@ internal sealed class TransitionsTwin(IJSRuntime jsRuntime)
     [JSInvokable]
     public void OnStatusChange(string payloadJson)
     {
-        TransitionStatusChange change = Deserialize(payloadJson, BlazixJsonContext.Default.TransitionStatusChange);
+        TransitionStatusChange change = Deserialize(payloadJson, IodineJsonContext.Default.TransitionStatusChange);
         StatusChanged?.Invoke(change);
     }
 
@@ -63,7 +63,7 @@ internal sealed class TransitionsTwin(IJSRuntime jsRuntime)
     [JSInvokable]
     public void OnTransitionComplete(string payloadJson)
     {
-        TransitionCompletion completion = Deserialize(payloadJson, BlazixJsonContext.Default.TransitionCompletion);
+        TransitionCompletion completion = Deserialize(payloadJson, IodineJsonContext.Default.TransitionCompletion);
         TransitionCompleted?.Invoke(completion.Open);
     }
 
@@ -74,7 +74,7 @@ internal sealed class TransitionsTwin(IJSRuntime jsRuntime)
     [JSInvokable]
     public async Task<bool> OnRevealRequest(string payloadJson)
     {
-        RevealRequest request = Deserialize(payloadJson, BlazixJsonContext.Default.RevealRequest);
+        RevealRequest request = Deserialize(payloadJson, IodineJsonContext.Default.RevealRequest);
         return RevealRequestHandler is { } handler && await handler(request.Event).ConfigureAwait(false);
     }
 

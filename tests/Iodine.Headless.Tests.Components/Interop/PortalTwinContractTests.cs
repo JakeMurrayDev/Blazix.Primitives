@@ -1,9 +1,9 @@
-using Blazix.Primitives.Interop;
+using Iodine.Headless.Interop;
 using Bunit;
 using Microsoft.AspNetCore.Components;
 using Microsoft.JSInterop;
 
-namespace Blazix.Primitives.Tests.Components.Interop;
+namespace Iodine.Headless.Tests.Components.Interop;
 
 /// <summary>
 /// Twin contract tests of the <c>portal</c> module (ADR 06 §1, L2; ADR 04 Amendments 2026-10-27, decision 5): its options
@@ -14,7 +14,7 @@ namespace Blazix.Primitives.Tests.Components.Interop;
 /// </summary>
 public sealed class PortalTwinContractTests
 {
-    private const string ModulePath = "./_content/Blazix.Primitives/js/portal.js";
+    private const string ModulePath = "./_content/Iodine.Headless/js/portal.js";
 
     [Fact]
     [Trait("Requirement", "FLT-API-13")]

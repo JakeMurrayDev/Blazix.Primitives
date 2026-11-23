@@ -1,11 +1,11 @@
-using Blazix.Primitives.Interop;
+using Iodine.Headless.Interop;
 using Bunit;
 using Microsoft.AspNetCore.Components;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.JSInterop;
 
-namespace Blazix.Primitives.Tests.Components;
+namespace Iodine.Headless.Tests.Components;
 
 /// <summary>The Accordion test files' scenarios (one per Base UI test's markup).</summary>
 public enum AccordionScenario
@@ -39,13 +39,13 @@ public enum AccordionScenario
 /// </summary>
 public sealed class AccordionTestContext : IDisposable
 {
-    public const string CollapsibleModulePath = "./_content/Blazix.Primitives/js/collapsible.js";
-    public const string ButtonModulePath = "./_content/Blazix.Primitives/js/button.js";
-    public const string CompositeModulePath = "./_content/Blazix.Primitives/js/composite.js";
+    public const string CollapsibleModulePath = "./_content/Iodine.Headless/js/collapsible.js";
+    public const string ButtonModulePath = "./_content/Iodine.Headless/js/button.js";
+    public const string CompositeModulePath = "./_content/Iodine.Headless/js/composite.js";
 
     public AccordionTestContext()
     {
-        Context.Services.AddBlazixPrimitives();
+        Context.Services.AddIodineHeadless();
         Context.Services.AddSingleton<ILogger<AccordionRoot<int>>>(RootLogger);
         Context.Services.AddSingleton<ILogger<AccordionPanel<int>>>(PanelLogger);
         Context.JSInterop.Mode = JSRuntimeMode.Loose;

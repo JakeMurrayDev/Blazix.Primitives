@@ -1,4 +1,4 @@
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // ADR 08 §3 (data attributes row): mirrors Base UI's separator/SeparatorDataAttributes.ts.
 /// <summary>Defines the names of the data attributes that <see cref="Separator"/> renders.</summary>

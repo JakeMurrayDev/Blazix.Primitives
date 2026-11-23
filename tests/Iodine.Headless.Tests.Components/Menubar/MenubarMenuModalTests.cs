@@ -2,8 +2,8 @@ using Bunit;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 
-// Family tests use the project's root namespace (tests/Blazix.Primitives.Tests.Components/CONTEXT.md).
-namespace Blazix.Primitives.Tests.Components;
+// Family tests use the project's root namespace (tests/Iodine.Headless.Tests.Components/CONTEXT.md).
+namespace Iodine.Headless.Tests.Components;
 
 /// <summary>
 /// L2: a bar menu's <c>Modal</c> (MBR-API-07, EDGE-02; MenuRoot.tsx:207-213). A Root whose parent is a Menubar is a nested
@@ -12,14 +12,14 @@ namespace Blazix.Primitives.Tests.Components;
 /// </summary>
 public sealed class MenubarMenuModalTests : BunitContext
 {
-    private const string Warning = "Blazix: The `Modal` parameter is not supported on nested menus. It will be ignored.";
+    private const string Warning = "Iodine: The `Modal` parameter is not supported on nested menus. It will be ignored.";
 
     private readonly CapturingLogger<MenuRoot<NoPayload>> logger = new();
 
     public MenubarMenuModalTests()
     {
         JSInterop.Mode = JSRuntimeMode.Loose;
-        Services.AddBlazixPrimitives();
+        Services.AddIodineHeadless();
         Services.AddSingleton<ILogger<MenuRoot<NoPayload>>>(logger);
     }
 

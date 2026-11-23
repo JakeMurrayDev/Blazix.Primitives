@@ -1,5 +1,5 @@
 // Family tests use the project's root namespace.
-namespace Blazix.Primitives.Tests;
+namespace Iodine.Headless.Tests;
 
 /// <summary>
 /// The tooltip's millisecond fallbacks at L1 (TIP-API-01..03, TIP-API-15/16; tooltip/utils/constants.ts:1,

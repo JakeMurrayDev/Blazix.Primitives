@@ -1,9 +1,9 @@
-using Blazix.Primitives.Interop;
-using Blazix.Primitives.Store;
+using Iodine.Headless.Interop;
+using Iodine.Headless.Store;
 using Microsoft.Extensions.Logging;
 
 // Family tests use the project's root namespace.
-namespace Blazix.Primitives.Tests;
+namespace Iodine.Headless.Tests;
 
 /// <summary>
 /// A test-only store record built on the open lifecycle alone (ADR 05 Amendments 2026-11-03): the lifecycle as its one

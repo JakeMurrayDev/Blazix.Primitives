@@ -1,7 +1,7 @@
 using Bunit;
 using Microsoft.AspNetCore.Components;
 
-namespace Blazix.Primitives.Tests.Components;
+namespace Iodine.Headless.Tests.Components;
 
 /// <summary>
 /// ADR 16 rule 7 for OtpField (issue 278, M6 track 7; decision 26 (a), chosen by the user 2026-11-18): a re-render of a root
@@ -119,7 +119,7 @@ public sealed class OtpFieldAllocationBudgetTests : IDisposable
     // Alternates slot 2 between two digits, so every edit changes the value; each report carries the next revision.
     private sealed class OtpFieldInteropProbe(OtpFieldTestContext test, IRenderedComponent<OtpFieldRoot> cut)
     {
-        private readonly Blazix.Primitives.Interop.OtpFieldTwin twin = test.OtpTwin();
+        private readonly Iodine.Headless.Interop.OtpFieldTwin twin = test.OtpTwin();
         private readonly string[] reports = [.. Enumerable.Range(1, 64).Select(r => OtpFieldTestContext.EditJson(2, "input", r % 2 == 0 ? "3" : "4", r))];
 
         public int Revision { get; private set; }

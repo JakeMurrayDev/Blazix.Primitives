@@ -1,8 +1,8 @@
 using System.Text.Json.Serialization;
-using Blazix.Primitives.Interop;
+using Iodine.Headless.Interop;
 using Microsoft.JSInterop;
 
-namespace Blazix.Primitives.Tests.Components.Interop;
+namespace Iodine.Headless.Tests.Components.Interop;
 
 /// <summary>The options record of the test twin: the shared style string plus one field of its own.</summary>
 internal sealed record TestTwinOptions : TwinOptions
@@ -28,7 +28,7 @@ internal sealed partial class TestTwinJsonContext : JsonSerializerContext;
 /// </summary>
 internal sealed class TestTwin(IJSRuntime jsRuntime) : TwinBase<TestTwin, TestTwinOptions>(jsRuntime, ModulePath, TestTwinJsonContext.Default.TestTwinOptions)
 {
-    public const string ModulePath = "./_content/Blazix.Primitives/js/test-twin.js";
+    public const string ModulePath = "./_content/Iodine.Headless/js/test-twin.js";
 
     public List<(string Point, EventSnapshot Event)> Decisions { get; } = [];
 

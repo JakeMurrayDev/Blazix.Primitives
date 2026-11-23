@@ -4,7 +4,7 @@ using Microsoft.AspNetCore.Components;
 using Microsoft.Extensions.DependencyInjection;
 
 // The namespace is the project's root: a namespace named after the family would hide the parts' types.
-namespace Blazix.Primitives.Tests.Components;
+namespace Iodine.Headless.Tests.Components;
 
 /// <summary>
 /// ADR 16 rule 7 at L2 for <see cref="ProgressRoot"/>: the steady-state re-render with unchanged parameters (the derived
@@ -24,7 +24,7 @@ public sealed class ProgressAllocationBudgetTests : IDisposable
 
     public ProgressAllocationBudgetTests()
     {
-        context.Services.AddBlazixPrimitives();
+        context.Services.AddIodineHeadless();
     }
 
     /// <inheritdoc />

@@ -1,6 +1,6 @@
 using Microsoft.AspNetCore.Components.Web;
 
-namespace Blazix.Primitives.Tests.Events;
+namespace Iodine.Headless.Tests.Events;
 
 /// <summary>
 /// The snapshot C# builds from Blazor's event arguments (ADR 04 §3, Amendments 2026-10-21): the

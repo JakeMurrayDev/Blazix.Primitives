@@ -1,8 +1,8 @@
-using Blazix.Primitives.Rendering;
-using Blazix.Primitives.Store;
+using Iodine.Headless.Rendering;
+using Iodine.Headless.Store;
 using Microsoft.AspNetCore.Components;
 
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // SLD §3.6: the Root's state object (slider/indicator/SliderIndicator.tsx:93).
 /// <summary>Represents the state of a slider indicator, which the part exposes as data attributes and passes to its class and style functions.</summary>

@@ -1,11 +1,11 @@
 using System.Globalization;
-using Blazix.Primitives.Rendering;
+using Iodine.Headless.Rendering;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Rendering;
 using Microsoft.Extensions.Logging;
 using Microsoft.JSInterop;
 
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // DRW §3.11, DRW-STA-01 (drawer/popup/DrawerPopup.tsx:310-319): the popup's state object. TransitionStatus and Swiping are
 // mirrored (ADR 04 §2): the `drawer` and `transitions` modules write data-swiping and the transition attributes (8b).
@@ -255,7 +255,7 @@ public sealed class DrawerPopup : PartBase<DrawerPopupState>
             warnedViewport = true;
             DevelopmentWarnings.Write(
                 Logger,
-                "Blazix: `<DrawerPopup>` expected to be rendered within `<DrawerViewport>`. Omitting the viewport disables drawer swipe handling and touch scroll locking. Wrap `<DrawerPopup>` in `<DrawerViewport>`.");
+                "Iodine: `<DrawerPopup>` expected to be rendered within `<DrawerViewport>`. Omitting the viewport disables drawer swipe handling and touch scroll locking. Wrap `<DrawerPopup>` in `<DrawerViewport>`.");
         }
 
         // M6 track 8b: the Viewport's drawer handle writes the swipe attributes and styles on this element.

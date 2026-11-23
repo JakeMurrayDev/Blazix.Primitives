@@ -1,11 +1,11 @@
-using Blazix.Primitives.Rendering;
+using Iodine.Headless.Rendering;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Rendering;
 using Microsoft.AspNetCore.Components.Web;
 using Microsoft.Extensions.Logging;
 using Microsoft.JSInterop;
 
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // CMB §3.7, STA-05 (combobox/input/ComboboxInput.tsx): the field state (the default inside the popup), the popup and list flags.
 /// <summary>Represents the state of a combobox input, which the part exposes as data attributes and passes to its class and style functions.</summary>

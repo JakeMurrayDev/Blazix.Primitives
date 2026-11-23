@@ -1,12 +1,12 @@
-using Blazix.Primitives.Interop;
-using Blazix.Primitives.Rendering;
-using Blazix.Primitives.Store;
+using Iodine.Headless.Interop;
+using Iodine.Headless.Rendering;
+using Iodine.Headless.Store;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Rendering;
 using Microsoft.Extensions.Logging;
 using Microsoft.JSInterop;
 
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // Base UI's Tooltip.Root (tooltip/root/TooltipRoot.tsx); the contract is docs/components/tooltip.md §3.2 and §4.
 // - The store, its handle attachment and its render-batch boundary are PopupRootBehavior's (M4 track 1). The root renders
@@ -146,7 +146,7 @@ public sealed class TooltipRoot<TPayload> : ComponentBase, IAsyncDisposable
     /// <summary>Gets the store.</summary>
     internal TooltipStore<TPayload> Store => behavior.Store;
 
-    // For the fixtures (tests/Blazix.Primitives.Fixtures.Client).
+    // For the fixtures (tests/Iodine.Headless.Fixtures.Client).
     /// <summary>Gets a task that completes when the session handle is attached.</summary>
     internal Task SessionAttached => session?.TwinAttached ?? Task.CompletedTask;
 

@@ -1,4 +1,4 @@
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // TAB-STA-20, TAB-DOM-24; tabs/tab/TabsTab.tsx:217-222 (Tabs.Tab.Position). ADR 08 §1/§3 (companion types). Design
 // point 2 of the Tabs track (a record class, mirrored once per change of the measurement) was settled by the

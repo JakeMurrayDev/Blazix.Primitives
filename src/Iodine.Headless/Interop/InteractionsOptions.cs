@@ -1,6 +1,6 @@
 using System.Text.Json.Serialization;
 
-namespace Blazix.Primitives.Interop;
+namespace Iodine.Headless.Interop;
 
 // ADR 04 §1 (the interactions row) and Amendments 2026-10-27 (decision 3: the token form and the session; the relay;
 // press; Prevent; the hover timers and the delay group; Dialog's outsidePress predicates; chosen by the user

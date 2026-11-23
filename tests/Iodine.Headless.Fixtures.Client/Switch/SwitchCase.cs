@@ -1,6 +1,6 @@
 using Microsoft.AspNetCore.Components.Web;
 
-namespace Blazix.Primitives.Fixtures.Client.SwitchFixtures;
+namespace Iodine.Headless.Fixtures.Client.SwitchFixtures;
 
 /// <summary>
 /// The record of one case of the Switch fixtures: every <c>OnCheckedChange</c> with its value and modifier keys, the

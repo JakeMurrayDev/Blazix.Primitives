@@ -1,4 +1,4 @@
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // PSH-FOC-08; utils/closePart.tsx:12-37 (useClosePartCount, useClosePartRegistration). The Popup cascades it fixed (ADR 16
 // rule 9); every Close inside the Popup registers once and unregisters when it leaves, and the count never goes below 0.

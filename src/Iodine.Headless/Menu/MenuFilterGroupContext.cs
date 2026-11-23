@@ -1,7 +1,7 @@
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Rendering;
 
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // MNU-STA-24, DOM-20 (filter-dropdown/group/useFilterDropdownGroup.ts:12-64, menu/filter-root/MenuFilterGroup.tsx): what a
 // Menu.Group or Menu.RadioGroup of a filterable menu cascades to its subtree. Its items and nested groups register as

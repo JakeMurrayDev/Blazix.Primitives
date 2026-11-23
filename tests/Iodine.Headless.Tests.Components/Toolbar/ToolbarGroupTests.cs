@@ -1,10 +1,10 @@
 using AngleSharp.Dom;
 using Bunit;
-using LibraryOrientation = Blazix.Primitives.Orientation;
+using LibraryOrientation = Iodine.Headless.Orientation;
 
 // The namespace is the project's root: a namespace named after the family would hide the parts' types. `Orientation` is
 // aliased because SampleRoot.cs declares a test-local `Orientation` in this namespace that would shadow the library's.
-namespace Blazix.Primitives.Tests.Components;
+namespace Iodine.Headless.Tests.Components;
 
 // ToolbarGroup.test.tsx's [L2] titles verbatim and port titles (marked as such).
 /// <summary>The toolbar group: a structural <c>role="group"</c> that contributes its disabled state.</summary>

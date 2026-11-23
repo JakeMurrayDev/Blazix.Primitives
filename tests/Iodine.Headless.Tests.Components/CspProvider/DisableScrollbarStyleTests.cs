@@ -1,9 +1,9 @@
-using Blazix.Primitives.Utilities;
+using Iodine.Headless.Utilities;
 using Bunit;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Rendering;
 
-namespace Blazix.Primitives.Tests.Components;
+namespace Iodine.Headless.Tests.Components;
 
 /// <summary>
 /// The scrollbar style emitter at L2 (UTL-DOM-32, DOM-33): CSPProvider.test.tsx's titles on a test-only emitting part, as

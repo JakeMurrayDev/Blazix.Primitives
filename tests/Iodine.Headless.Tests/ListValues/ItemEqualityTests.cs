@@ -1,7 +1,7 @@
 using System.Collections;
-using Blazix.Primitives.Utilities;
+using Iodine.Headless.Utilities;
 
-namespace Blazix.Primitives.Tests.ListValues;
+namespace Iodine.Headless.Tests.ListValues;
 
 // UTL-ALG-06 (internals/itemEquality.ts, ADR 08 Amendments 2026-11-03 (2)): itemEquality.test.ts's 15 titles verbatim on the
 // port's view, a span of ItemSlot<TValue> in rendered order whose absent slot stands for Base UI's `undefined` item and an

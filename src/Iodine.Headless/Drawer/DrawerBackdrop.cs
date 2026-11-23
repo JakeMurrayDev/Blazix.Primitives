@@ -1,9 +1,9 @@
-using Blazix.Primitives.Rendering;
+using Iodine.Headless.Rendering;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Rendering;
 using Microsoft.JSInterop;
 
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // DRW §3.9: Drawer.Backdrop's state object (drawer/backdrop/DrawerBackdrop.tsx:30-33), DRW-STA-01.
 // TransitionStatus is mirrored (ADR 04 §2).

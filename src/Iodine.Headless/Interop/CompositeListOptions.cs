@@ -1,6 +1,6 @@
 using System.Text.Json.Serialization;
 
-namespace Blazix.Primitives.Interop;
+namespace Iodine.Headless.Interop;
 
 // ADR 04 Amendments 2026-11-03 (1), (2) and (3) (chosen by the user 2026-11-03): list navigation in the `composite`
 // module, a list handle with role records on `attach`, one CompositeTwin per handle joined through the interactions

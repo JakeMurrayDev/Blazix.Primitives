@@ -1,7 +1,7 @@
 using System.Globalization;
 using Microsoft.AspNetCore.Components;
 
-namespace Blazix.Primitives.Fixtures.Client.ToastFixtures;
+namespace Iodine.Headless.Fixtures.Client.ToastFixtures;
 
 /// <summary>
 /// The base of the Toast fixtures (issue 280, Deliverable 12: readiness markers, no sleeps). It reads the page's query

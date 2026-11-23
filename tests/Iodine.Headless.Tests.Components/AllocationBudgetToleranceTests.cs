@@ -1,6 +1,6 @@
 using Xunit.Sdk;
 
-namespace Blazix.Primitives.Tests.Components;
+namespace Iodine.Headless.Tests.Components;
 
 // ADR 16 Amendments 2026-11-19 (issue 304; chosen by the user 2026-11-19, "256 B tolerance"): a budget passes when its
 // figure is at most its pin plus 256 B; the failure message prints the figure, the pin and the tolerance.

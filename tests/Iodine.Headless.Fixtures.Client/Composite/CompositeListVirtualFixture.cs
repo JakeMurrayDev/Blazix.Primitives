@@ -1,4 +1,4 @@
-namespace Blazix.Primitives.Fixtures.Client.CompositeFixtures;
+namespace Iodine.Headless.Fixtures.Client.CompositeFixtures;
 
 /// <summary>
 /// The <c>composite-list-virtual</c> fixture (tests/browser/composite-list.spec.ts; M5 track 1, issue 159): the

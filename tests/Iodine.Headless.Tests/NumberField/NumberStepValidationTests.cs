@@ -1,7 +1,7 @@
 using System.Globalization;
-using Blazix.Primitives.Utilities;
+using Iodine.Headless.Utilities;
 
-namespace Blazix.Primitives.Tests;
+namespace Iodine.Headless.Tests;
 
 // NUM-STA-07..12: Base UI's `number-field/utils/validate.test.ts` (73 titles), verbatim over the C# step pipeline. ADR 01
 // Amendments 2026-10-20: the nine rounding modes and the rounding increment are one C# helper, tested with these titles. A

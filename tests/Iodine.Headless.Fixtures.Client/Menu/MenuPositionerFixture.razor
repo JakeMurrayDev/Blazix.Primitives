@@ -1,6 +1,6 @@
-@namespace Blazix.Primitives.Fixtures.Client.MenuFixtures
-@using Blazix.Primitives
-@using Blazix.Primitives.Fixtures.Client.PopupFixtures
+@namespace Iodine.Headless.Fixtures.Client.MenuFixtures
+@using Iodine.Headless
+@using Iodine.Headless.Fixtures.Client.PopupFixtures
 @inherits PopupSuiteFixtureBase
 
 @*
@@ -145,18 +145,18 @@
             int number = Case[^1] - '0';
             OffsetOverride keyed = number switch
             {
-                1 => new OffsetOverride(Primitives.Side.Right, null, Constant: 5),
-                2 => new OffsetOverride(null, Primitives.Align.End, Constant: 5),
-                3 => new OffsetOverride(Primitives.Side.InlineEnd, null, Constant: 5),
-                _ => new OffsetOverride(Primitives.Side.InlineStart, null, Constant: 5),
+                1 => new OffsetOverride(Headless.Side.Right, null, Constant: 5),
+                2 => new OffsetOverride(null, Headless.Align.End, Constant: 5),
+                3 => new OffsetOverride(Headless.Side.InlineEnd, null, Constant: 5),
+                _ => new OffsetOverride(Headless.Side.InlineStart, null, Constant: 5),
             };
             OffsetValue offset = new Offset { Overrides = [keyed] };
             (side, align, direction) = number switch
             {
-                1 => (Primitives.Side.Left, (Align?)null, TextDirection.Ltr),
-                2 => (Primitives.Side.Right, Primitives.Align.Start, TextDirection.Ltr),
-                3 => (Primitives.Side.InlineStart, null, TextDirection.Ltr),
-                _ => (Primitives.Side.InlineStart, null, TextDirection.Rtl),
+                1 => (Headless.Side.Left, (Align?)null, TextDirection.Ltr),
+                2 => (Headless.Side.Right, Headless.Align.Start, TextDirection.Ltr),
+                3 => (Headless.Side.InlineStart, null, TextDirection.Ltr),
+                _ => (Headless.Side.InlineStart, null, TextDirection.Rtl),
             };
             sideOffset = sideCase ? offset : null;
             alignOffset = sideCase ? null : offset;

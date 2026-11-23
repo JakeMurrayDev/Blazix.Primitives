@@ -1,7 +1,7 @@
 using System.Globalization;
-using Blazix.Primitives.Utilities;
+using Iodine.Headless.Utilities;
 
-namespace Blazix.Primitives.Tests;
+namespace Iodine.Headless.Tests;
 
 // MTR-ARIA-04, MTR-I18N-01..03 and (for Progress) PRG-I18N-01..03 under ADR 01 decision 2 as amended 2026-10-18: .NET
 // globalization, output equivalent and not byte-identical to Intl.NumberFormat. ADR 08 Amendments 2026-10-21: Format is a

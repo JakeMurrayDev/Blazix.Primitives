@@ -1,7 +1,7 @@
 using Bunit;
-using Scenario = Blazix.Primitives.Tests.Components.FieldNumberFieldScenarios.NumberFieldScenario;
+using Scenario = Iodine.Headless.Tests.Components.FieldNumberFieldScenarios.NumberFieldScenario;
 
-namespace Blazix.Primitives.Tests.Components;
+namespace Iodine.Headless.Tests.Components;
 
 // The NumberField clauses of FieldRoot.test.tsx's titles, open to M6 by field.md's notes of 2026-11-18 (ADR 12 Amendments
 // 2026-11-18, the M6 plan's decision 25 (a); ADR 13 Amendments 2026-10-22); M6 track 6, issue 277, PR 6a. The
@@ -10,7 +10,7 @@ namespace Blazix.Primitives.Tests.Components;
 /// <summary>The Field titles that render NumberField.</summary>
 public sealed class FieldNumberFieldTests : IDisposable
 {
-    private const string InteractionsModulePath = "./_content/Blazix.Primitives/js/interactions.js";
+    private const string InteractionsModulePath = "./_content/Iodine.Headless/js/interactions.js";
 
     private readonly FieldTestContext host = new();
 

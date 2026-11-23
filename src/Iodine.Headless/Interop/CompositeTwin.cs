@@ -1,6 +1,6 @@
 using Microsoft.JSInterop;
 
-namespace Blazix.Primitives.Interop;
+namespace Iodine.Headless.Interop;
 
 // ADR 04 §1 (composite row), §3 (decision points: the consumer's onKeyDown veto against composite key handling, EVD-EVT-26,
 // and the focus-driven selection, ADR 04 Amendments 2026-10-20, both with fallback run; their names navigate and select were
@@ -14,7 +14,7 @@ namespace Blazix.Primitives.Interop;
 /// </summary>
 /// <param name="jsRuntime">The runtime of the part's circuit or WebAssembly application.</param>
 internal sealed class CompositeTwin(IJSRuntime jsRuntime)
-    : TwinBase<CompositeTwin, CompositeOptions>(jsRuntime, LibraryModule("composite"), BlazixJsonContext.Default.CompositeOptions)
+    : TwinBase<CompositeTwin, CompositeOptions>(jsRuntime, LibraryModule("composite"), IodineJsonContext.Default.CompositeOptions)
 {
     /// <summary>Represents the name of the decision point the module asks about before it handles a navigation key.</summary>
     public const string NavigatePoint = "navigate";
@@ -91,7 +91,7 @@ internal sealed class CompositeTwin(IJSRuntime jsRuntime)
     [JSInvokable]
     public void OnHighlightChange(string payloadJson)
     {
-        CompositeHighlightChange change = Deserialize(payloadJson, BlazixJsonContext.Default.CompositeHighlightChange);
+        CompositeHighlightChange change = Deserialize(payloadJson, IodineJsonContext.Default.CompositeHighlightChange);
         HighlightChanged?.Invoke(change.Index);
     }
 
@@ -101,7 +101,7 @@ internal sealed class CompositeTwin(IJSRuntime jsRuntime)
     [JSInvokable]
     public void OnFocusLeave(string payloadJson)
     {
-        CompositeFocusLeave leave = Deserialize(payloadJson, BlazixJsonContext.Default.CompositeFocusLeave);
+        CompositeFocusLeave leave = Deserialize(payloadJson, IodineJsonContext.Default.CompositeFocusLeave);
         FocusLeft?.Invoke(leave.Event);
     }
 
@@ -111,7 +111,7 @@ internal sealed class CompositeTwin(IJSRuntime jsRuntime)
     [JSInvokable]
     public void OnKeyHandled(string payloadJson)
     {
-        CompositeKeyHandled handled = Deserialize(payloadJson, BlazixJsonContext.Default.CompositeKeyHandled);
+        CompositeKeyHandled handled = Deserialize(payloadJson, IodineJsonContext.Default.CompositeKeyHandled);
         KeyHandled?.Invoke(handled.Event);
     }
 
@@ -121,7 +121,7 @@ internal sealed class CompositeTwin(IJSRuntime jsRuntime)
     [JSInvokable]
     public void OnItemsChange(string payloadJson)
     {
-        CompositeItemsChange change = Deserialize(payloadJson, BlazixJsonContext.Default.CompositeItemsChange);
+        CompositeItemsChange change = Deserialize(payloadJson, IodineJsonContext.Default.CompositeItemsChange);
         if (change.Parts is not { } parts)
         {
             ItemsChanged?.Invoke(change.Ids);
@@ -159,7 +159,7 @@ internal sealed class CompositeTwin(IJSRuntime jsRuntime)
     [JSInvokable]
     public void OnListHighlight(string payloadJson)
     {
-        CompositeListHighlight highlight = Deserialize(payloadJson, BlazixJsonContext.Default.CompositeListHighlight);
+        CompositeListHighlight highlight = Deserialize(payloadJson, IodineJsonContext.Default.CompositeListHighlight);
         ListHighlightChanged?.Invoke(highlight);
     }
 
@@ -169,7 +169,7 @@ internal sealed class CompositeTwin(IJSRuntime jsRuntime)
     [JSInvokable]
     public void OnListOpenRequest(string payloadJson)
     {
-        CompositeListOpenRequest request = Deserialize(payloadJson, BlazixJsonContext.Default.CompositeListOpenRequest);
+        CompositeListOpenRequest request = Deserialize(payloadJson, IodineJsonContext.Default.CompositeListOpenRequest);
         ListOpenRequested?.Invoke(request);
     }
 
@@ -179,7 +179,7 @@ internal sealed class CompositeTwin(IJSRuntime jsRuntime)
     [JSInvokable]
     public void OnListMatch(string payloadJson)
     {
-        CompositeListMatch match = Deserialize(payloadJson, BlazixJsonContext.Default.CompositeListMatch);
+        CompositeListMatch match = Deserialize(payloadJson, IodineJsonContext.Default.CompositeListMatch);
         ListMatched?.Invoke(match);
     }
 

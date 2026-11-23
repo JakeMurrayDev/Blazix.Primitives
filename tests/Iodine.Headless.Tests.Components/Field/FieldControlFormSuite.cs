@@ -1,8 +1,8 @@
 using Bunit;
 using Microsoft.AspNetCore.Components;
-using Scenario = Blazix.Primitives.Tests.Components.FieldFormScenarios.FormScenario;
+using Scenario = Iodine.Headless.Tests.Components.FieldFormScenarios.FormScenario;
 
-namespace Blazix.Primitives.Tests.Components;
+namespace Iodine.Headless.Tests.Components;
 
 /// <summary>
 /// <c>FieldControl.test.tsx</c>'s <c>[L2]</c> titles that render <c>Form</c> or <c>Field.Error</c> (PR 1c), run over a

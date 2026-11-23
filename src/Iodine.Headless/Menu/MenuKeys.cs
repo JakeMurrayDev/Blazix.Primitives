@@ -1,4 +1,4 @@
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // The one keydown gate of a part that carries two keyboard behaviors on one element (the ToolbarButton rule): Enter and
 // Space reach the button behavior, whose `activate` decision may have run the consumer's handler for them; every other key

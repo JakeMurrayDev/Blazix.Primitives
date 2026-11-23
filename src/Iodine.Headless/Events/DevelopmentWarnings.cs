@@ -1,7 +1,7 @@
 using System.Diagnostics.CodeAnalysis;
 using Microsoft.Extensions.Logging;
 
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // ADR 05 §3; EVD-EDGE-01/02, UTL-EDGE-25
 /// <summary>
@@ -10,7 +10,7 @@ namespace Blazix.Primitives;
 /// </summary>
 /// <remarks>
 /// Warnings are off unless the app turns on the <see cref="SwitchName"/> runtime switch, with <see cref="AppContext.SetSwitch(string, bool)"/>
-/// or with <c>&lt;RuntimeHostConfigurationOption Include="Blazix.Primitives.DevelopmentWarnings" Value="true" /&gt;</c> in a
+/// or with <c>&lt;RuntimeHostConfigurationOption Include="Iodine.Headless.DevelopmentWarnings" Value="true" /&gt;</c> in a
 /// Debug build. They are written to the logger the part was given, at <see cref="LogLevel.Error"/>, as Base UI writes them
 /// to <c>console.error</c>.
 /// </remarks>
@@ -19,7 +19,7 @@ internal static partial class DevelopmentWarnings
     /// <summary>
     /// Represents the name of the runtime switch that turns development warnings on.
     /// </summary>
-    internal const string SwitchName = "Blazix.Primitives.DevelopmentWarnings";
+    internal const string SwitchName = "Iodine.Headless.DevelopmentWarnings";
 
     /// <summary>
     /// Gets a value indicating whether development warnings are written.

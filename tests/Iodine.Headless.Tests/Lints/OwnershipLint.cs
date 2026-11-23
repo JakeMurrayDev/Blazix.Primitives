@@ -1,13 +1,13 @@
 using System.Reflection;
 using System.Text.RegularExpressions;
-using Blazix.Primitives.Rendering;
+using Iodine.Headless.Rendering;
 
-namespace Blazix.Primitives.Tests.Lints;
+namespace Iodine.Headless.Tests.Lints;
 
 /// <summary>
 /// The ownership lint (ADR 11 section 5): the <c>Writer</c> column of the component documents against the code's
 /// ownership registry. A <c>JS</c> or <c>C# → JS</c> row needs a registry entry for the same family, part and attribute;
-/// an entry needs a row that says the same. A family with no folder under <c>src/Blazix.Primitives/</c> is skipped.
+/// an entry needs a row that says the same. A family with no folder under <c>src/Iodine.Headless/</c> is skipped.
 /// </summary>
 internal static partial class OwnershipLint
 {
@@ -17,7 +17,7 @@ internal static partial class OwnershipLint
     /// <summary>Compares the documents with the registry.</summary>
     /// <param name="documents">The reader's result for each document, by family (the document stem).</param>
     /// <param name="registry">The registry entries.</param>
-    /// <param name="hasFolder">Whether a family has a folder under <c>src/Blazix.Primitives/</c>.</param>
+    /// <param name="hasFolder">Whether a family has a folder under <c>src/Iodine.Headless/</c>.</param>
     /// <param name="mirroredFields">The <c>Type.Property</c> of every <c>[MirroredField]</c> state property in the library.</param>
     /// <returns>The families checked and skipped, and one message per mismatch.</returns>
     public static OwnershipReport Check(

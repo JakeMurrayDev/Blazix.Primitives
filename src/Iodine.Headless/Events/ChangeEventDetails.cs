@@ -1,4 +1,4 @@
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // EVD §3.1, ADR 05 §3; glossary "Details"; EVD-EVT-04/09; EVD-API-06
 /// <summary>

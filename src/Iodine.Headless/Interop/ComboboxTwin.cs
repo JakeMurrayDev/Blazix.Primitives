@@ -1,6 +1,6 @@
 using Microsoft.JSInterop;
 
-namespace Blazix.Primitives.Interop;
+namespace Iodine.Headless.Interop;
 
 // ADR 04 §1 (the `combobox` component module, written by track 10 under Amendments 2026-11-03 (4)), §3 (the `clear` and
 // `remove` points of Amendments 2026-11-03 (3): the closed Escape's clear, fallback "stop when there is something to clear
@@ -12,7 +12,7 @@ namespace Blazix.Primitives.Interop;
 /// </summary>
 /// <param name="jsRuntime">The runtime of the part's circuit or WebAssembly application.</param>
 internal sealed class ComboboxTwin(IJSRuntime jsRuntime)
-    : TwinBase<ComboboxTwin, ComboboxOptions>(jsRuntime, LibraryModule("combobox"), BlazixJsonContext.Default.ComboboxOptions)
+    : TwinBase<ComboboxTwin, ComboboxOptions>(jsRuntime, LibraryModule("combobox"), IodineJsonContext.Default.ComboboxOptions)
 {
     /// <summary>Represents the decision point the module asks before the closed Escape clears.</summary>
     public const string ClearPoint = "clear";
@@ -99,67 +99,67 @@ internal sealed class ComboboxTwin(IJSRuntime jsRuntime)
     /// <summary>Receives a classified change of the input text.</summary>
     /// <param name="payloadJson">The JSON of a <see cref="ComboboxInputChange"/>.</param>
     [JSInvokable]
-    public void OnInputChange(string payloadJson) => InputChanged?.Invoke(Deserialize(payloadJson, BlazixJsonContext.Default.ComboboxInputChange));
+    public void OnInputChange(string payloadJson) => InputChanged?.Invoke(Deserialize(payloadJson, IodineJsonContext.Default.ComboboxInputChange));
 
     /// <summary>Receives a clear the module started.</summary>
     /// <param name="payloadJson">The JSON of a <see cref="ComboboxRequest"/>.</param>
     [JSInvokable]
-    public void OnClear(string payloadJson) => ClearRequested?.Invoke(Deserialize(payloadJson, BlazixJsonContext.Default.ComboboxRequest));
+    public void OnClear(string payloadJson) => ClearRequested?.Invoke(Deserialize(payloadJson, IodineJsonContext.Default.ComboboxRequest));
 
     /// <summary>Receives a removal the module started.</summary>
     /// <param name="payloadJson">The JSON of a <see cref="ComboboxRequest"/>.</param>
     [JSInvokable]
-    public void OnRemove(string payloadJson) => RemoveRequested?.Invoke(Deserialize(payloadJson, BlazixJsonContext.Default.ComboboxRequest));
+    public void OnRemove(string payloadJson) => RemoveRequested?.Invoke(Deserialize(payloadJson, IodineJsonContext.Default.ComboboxRequest));
 
     /// <summary>Receives the end of a trigger press outside its bounds.</summary>
     /// <param name="payloadJson">The JSON of an <see cref="EventSnapshot"/>.</param>
     [JSInvokable]
-    public void OnCancelOpen(string payloadJson) => OpenCanceled?.Invoke(Deserialize(payloadJson, BlazixJsonContext.Default.EventSnapshot));
+    public void OnCancelOpen(string payloadJson) => OpenCanceled?.Invoke(Deserialize(payloadJson, IodineJsonContext.Default.EventSnapshot));
 
     /// <summary>Receives a press of the internal dismiss button beside the handle's element.</summary>
     /// <param name="payloadJson">The JSON of an <see cref="EventSnapshot"/>.</param>
     [JSInvokable]
-    public void OnDismiss(string payloadJson) => DismissPressed?.Invoke(Deserialize(payloadJson, BlazixJsonContext.Default.EventSnapshot));
+    public void OnDismiss(string payloadJson) => DismissPressed?.Invoke(Deserialize(payloadJson, IodineJsonContext.Default.EventSnapshot));
 
     /// <summary>Receives the keydown Enter's synthetic click on the highlighted item is attributed to.</summary>
     /// <param name="payloadJson">The JSON of a <see cref="ComboboxKeyReport"/>.</param>
     [JSInvokable]
-    public void OnSelectionEvent(string payloadJson) => SelectionEventReported?.Invoke(Deserialize(payloadJson, BlazixJsonContext.Default.ComboboxKeyReport).Event);
+    public void OnSelectionEvent(string payloadJson) => SelectionEventReported?.Invoke(Deserialize(payloadJson, IodineJsonContext.Default.ComboboxKeyReport).Event);
 
     /// <summary>Receives a press inside a link of an item before its click is dispatched, and its end after it.</summary>
     /// <param name="payloadJson">The JSON of a <see cref="ComboboxLinkPress"/>.</param>
     [JSInvokable]
-    public void OnItemLinkPress(string payloadJson) => ItemLinkPressed?.Invoke(Deserialize(payloadJson, BlazixJsonContext.Default.ComboboxLinkPress).Href);
+    public void OnItemLinkPress(string payloadJson) => ItemLinkPressed?.Invoke(Deserialize(payloadJson, IodineJsonContext.Default.ComboboxLinkPress).Href);
 
     /// <summary>Receives Enter on an open list without a highlight.</summary>
     /// <param name="payloadJson">The JSON of a <see cref="ComboboxKeyReport"/>.</param>
     [JSInvokable]
-    public void OnEnterClose(string payloadJson) => EnterCloseRequested?.Invoke(Deserialize(payloadJson, BlazixJsonContext.Default.ComboboxKeyReport).Event ?? EventSnapshot.CreatePlaceholder());
+    public void OnEnterClose(string payloadJson) => EnterCloseRequested?.Invoke(Deserialize(payloadJson, IodineJsonContext.Default.ComboboxKeyReport).Event ?? EventSnapshot.CreatePlaceholder());
 
     /// <summary>Receives a press on the input group or the chips that focused the input.</summary>
     /// <param name="payloadJson">The JSON of an <see cref="EventSnapshot"/>.</param>
     [JSInvokable]
-    public void OnInputPress(string payloadJson) => InputPressed?.Invoke(Deserialize(payloadJson, BlazixJsonContext.Default.EventSnapshot));
+    public void OnInputPress(string payloadJson) => InputPressed?.Invoke(Deserialize(payloadJson, IodineJsonContext.Default.EventSnapshot));
 
     /// <summary>Receives ArrowDown or ArrowUp on a chip or on the trigger.</summary>
     /// <param name="payloadJson">The JSON of an <see cref="EventSnapshot"/>.</param>
     [JSInvokable]
-    public void OnOpenRequest(string payloadJson) => OpenRequested?.Invoke(Deserialize(payloadJson, BlazixJsonContext.Default.EventSnapshot));
+    public void OnOpenRequest(string payloadJson) => OpenRequested?.Invoke(Deserialize(payloadJson, IodineJsonContext.Default.EventSnapshot));
 
     /// <summary>Receives a key the input's handle handled and stopped without a synchronous decision, for the consumer's <c>onKeyDown</c>.</summary>
     /// <param name="payloadJson">The JSON of an <see cref="EventSnapshot"/>.</param>
     [JSInvokable]
-    public void OnKeyHandled(string payloadJson) => KeyHandled?.Invoke(Deserialize(payloadJson, BlazixJsonContext.Default.EventSnapshot));
+    public void OnKeyHandled(string payloadJson) => KeyHandled?.Invoke(Deserialize(payloadJson, IodineJsonContext.Default.EventSnapshot));
 
     /// <summary>Receives the trigger's loss of focus to an element outside the popup.</summary>
     /// <param name="payloadJson">The JSON of an <see cref="EventSnapshot"/>.</param>
     [JSInvokable]
-    public void OnBlur(string payloadJson) => Blurred?.Invoke(Deserialize(payloadJson, BlazixJsonContext.Default.EventSnapshot));
+    public void OnBlur(string payloadJson) => Blurred?.Invoke(Deserialize(payloadJson, IodineJsonContext.Default.EventSnapshot));
 
     /// <summary>Receives a chip's keydown or mousedown, which C# did not decide inside the dispatch.</summary>
     /// <param name="payloadJson">The JSON of an <see cref="EventSnapshot"/>.</param>
     [JSInvokable]
-    public void OnChipEvent(string payloadJson) => ChipEventReported?.Invoke(Deserialize(payloadJson, BlazixJsonContext.Default.EventSnapshot));
+    public void OnChipEvent(string payloadJson) => ChipEventReported?.Invoke(Deserialize(payloadJson, IodineJsonContext.Default.EventSnapshot));
 
     /// <inheritdoc />
     /// <remarks>

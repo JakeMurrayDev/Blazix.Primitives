@@ -2,7 +2,7 @@ using AngleSharp.Dom;
 using Bunit;
 using Microsoft.Extensions.DependencyInjection;
 
-namespace Blazix.Primitives.Tests.Components;
+namespace Iodine.Headless.Tests.Components;
 
 // MNU-STR-14 (M5 track 12, issue 197): ContextMenu.SubmenuRoot is Menu.SubmenuRoot (context-menu/index.parts.ts), so a
 // MenuFilterProvider around it makes the submenu filterable, as around MenuSubmenuRoot.
@@ -13,7 +13,7 @@ public sealed class ContextMenuFilterTests : BunitContext
     public ContextMenuFilterTests()
     {
         JSInterop.Mode = JSRuntimeMode.Loose;
-        Services.AddBlazixPrimitives();
+        Services.AddIodineHeadless();
     }
 
     [Fact(DisplayName = "port: a context menu's submenu consumes its filter provider: its popup is a dialog holding the input and the list")]

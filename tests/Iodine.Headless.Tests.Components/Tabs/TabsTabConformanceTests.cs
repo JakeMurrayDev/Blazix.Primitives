@@ -1,10 +1,10 @@
-using Blazix.Primitives.Rendering;
-using Blazix.Primitives.Tests.Components.Rendering.Conformance;
+using Iodine.Headless.Rendering;
+using Iodine.Headless.Tests.Components.Rendering.Conformance;
 using Bunit;
 using Microsoft.AspNetCore.Components;
 
 // The namespace is the project's root: a namespace named after the family would hide the parts' types.
-namespace Blazix.Primitives.Tests.Components;
+namespace Iodine.Headless.Tests.Components;
 
 // TabsTab.test.tsx: describeConformance(<Tabs.Tab value="1" />, () => ({ refInstanceof: window.HTMLButtonElement,
 // testRenderPropWith: 'button', button: true, render inside <Tabs.Root><Tabs.List> })). TAB-STR-03, TAB-API-09 (the

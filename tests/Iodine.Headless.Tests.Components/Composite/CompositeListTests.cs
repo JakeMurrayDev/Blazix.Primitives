@@ -2,7 +2,7 @@ using System.Text.Json;
 using Bunit;
 using Microsoft.AspNetCore.Components;
 
-namespace Blazix.Primitives.Tests.Components;
+namespace Iodine.Headless.Tests.Components;
 
 /// <summary>
 /// The registration-only list (M3 track 1, E1; ADR 04 Amendments 2026-10-26, chosen by the user): a root-less

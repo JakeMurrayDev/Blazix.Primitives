@@ -1,4 +1,4 @@
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // OTP-DOM-17, OTP-DOM-18; otp-field/input/OTPFieldInputDataAttributes.ts, in its order, then `data-length`, which the state
 // projects and Base UI's namespace omits (§16 item 1, replicated).

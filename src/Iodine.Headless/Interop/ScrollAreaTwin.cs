@@ -1,6 +1,6 @@
 using Microsoft.JSInterop;
 
-namespace Blazix.Primitives.Interop;
+namespace Iodine.Headless.Interop;
 
 // ADR 04 §1 (the `scroll-area` component module), §2 (the ScrollArea rows as corrected 2026-11-18) and Amendments
 // 2026-11-18: the module measures on every viewport scroll and resize, runs the thumb drag, the track press and the wheel
@@ -14,7 +14,7 @@ namespace Blazix.Primitives.Interop;
 /// </summary>
 /// <param name="jsRuntime">The runtime of the part's circuit or WebAssembly application.</param>
 internal sealed class ScrollAreaTwin(IJSRuntime jsRuntime)
-    : TwinBase<ScrollAreaTwin, ScrollAreaOptions>(jsRuntime, LibraryModule("scroll-area"), BlazixJsonContext.Default.ScrollAreaOptions)
+    : TwinBase<ScrollAreaTwin, ScrollAreaOptions>(jsRuntime, LibraryModule("scroll-area"), IodineJsonContext.Default.ScrollAreaOptions)
 {
     /// <summary>Represents the part literal of a root's handle.</summary>
     public const string RootPart = "root";
@@ -49,7 +49,7 @@ internal sealed class ScrollAreaTwin(IJSRuntime jsRuntime)
     [JSInvokable]
     public void OnOverflow(string payloadJson)
     {
-        OverflowReported?.Invoke(Deserialize(payloadJson, BlazixJsonContext.Default.ScrollAreaOverflowReport));
+        OverflowReported?.Invoke(Deserialize(payloadJson, IodineJsonContext.Default.ScrollAreaOverflowReport));
     }
 
     /// <summary>Receives a change of the scrolling flags.</summary>
@@ -58,7 +58,7 @@ internal sealed class ScrollAreaTwin(IJSRuntime jsRuntime)
     [JSInvokable]
     public void OnScrolling(string payloadJson)
     {
-        ScrollingReported?.Invoke(Deserialize(payloadJson, BlazixJsonContext.Default.ScrollAreaScrollingReport));
+        ScrollingReported?.Invoke(Deserialize(payloadJson, IodineJsonContext.Default.ScrollAreaScrollingReport));
     }
 
     /// <summary>Receives a change of the hovering flag.</summary>
@@ -67,7 +67,7 @@ internal sealed class ScrollAreaTwin(IJSRuntime jsRuntime)
     [JSInvokable]
     public void OnHovering(string payloadJson)
     {
-        HoveringReported?.Invoke(Deserialize(payloadJson, BlazixJsonContext.Default.ScrollAreaHoverReport));
+        HoveringReported?.Invoke(Deserialize(payloadJson, IodineJsonContext.Default.ScrollAreaHoverReport));
     }
 
     /// <inheritdoc />

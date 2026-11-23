@@ -1,13 +1,13 @@
-@namespace Blazix.Primitives.Fixtures.Client.OtpFieldFixtures
-@using Blazix.Primitives
+@namespace Iodine.Headless.Fixtures.Client.OtpFieldFixtures
+@using Iodine.Headless
 @inherits OtpFieldFixtureBase
 
 @*
     The `otp-field-autosubmit` fixture (tests/browser/otp-field.form.spec.ts; OTP-API-12, OTP-EVT-13, OTP-EVT-14,
     OTP-FRM-07, OTP-FRM-13). Six slots `slot-{i}` in every case. A native form records each submit's `otp` value in
     `window.otpSubmits` and prevents it. `?case=`:
-    `default` (a native form, no AutoSubmit), `named` (a native form, Name otp, Required, AutoSubmit), `blazix` (a Form whose
-    OnSubmit counts into data-submits and prevents the native submit, a FieldRoot named otp, AutoSubmit), `blazix-invalid` (as `blazix` with a Validate
+    `default` (a native form, no AutoSubmit), `named` (a native form, Name otp, Required, AutoSubmit), `iodine` (a Form whose
+    OnSubmit counts into data-submits and prevents the native submit, a FieldRoot named otp, AutoSubmit), `iodine-invalid` (as `iodine` with a Validate
     that answers "Invalid OTP" and a FieldError `error`), `first-invalid` (a Form with an `email` FieldRoot whose Validate
     answers "Required", its FieldLabel, FieldControl and FieldError, then a FieldRoot otp with AutoSubmit), `external`
     (a native form `verification-form` before the field, which names it in Form; Name otp; AutoSubmit) and `not-form`
@@ -29,10 +29,10 @@
                 <button type="submit">Submit</button>
             </form>
             break;
-        case "blazix":
-        case "blazix-invalid":
+        case "iodine":
+        case "iodine-invalid":
             <Form OnSubmit="Submitted">
-                <FieldRoot Name="otp" Validate="@(fixtureCase == "blazix-invalid" ? Invalid : null)">
+                <FieldRoot Name="otp" Validate="@(fixtureCase == "iodine-invalid" ? Invalid : null)">
                     <OtpFieldRoot @ref="Root" Length="6" AutoSubmit="true" data-testid="root">@Slots</OtpFieldRoot>
                     <FieldError data-testid="error" />
                 </FieldRoot>

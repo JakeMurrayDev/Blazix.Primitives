@@ -1,11 +1,11 @@
-using Blazix.Primitives.Interop;
-using Blazix.Primitives.Rendering;
+using Iodine.Headless.Interop;
+using Iodine.Headless.Rendering;
 using Bunit;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Forms;
-using Scenario = Blazix.Primitives.Tests.Components.FieldErrorScenarios.ErrorScenario;
+using Scenario = Iodine.Headless.Tests.Components.FieldErrorScenarios.ErrorScenario;
 
-namespace Blazix.Primitives.Tests.Components;
+namespace Iodine.Headless.Tests.Components;
 
 /// <summary>
 /// The <c>[L2]</c> titles of <c>FieldError.test.tsx</c> (PR 1c), and port titles for what Base UI leaves untested: the

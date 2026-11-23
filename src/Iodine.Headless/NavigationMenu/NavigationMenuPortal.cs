@@ -1,10 +1,10 @@
-using Blazix.Primitives.Rendering;
-using Blazix.Primitives.Store;
+using Iodine.Headless.Rendering;
+using Iodine.Headless.Store;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Rendering;
 using Microsoft.JSInterop;
 
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // NAV-EDGE-03 (navigation-menu/portal/NavigationMenuPortalContext.ts): what the Positioner reads from its Portal.
 internal sealed class NavigationMenuPortalContext
@@ -14,7 +14,7 @@ internal sealed class NavigationMenuPortalContext
     public static NavigationMenuPortalContext Require(NavigationMenuPortalContext? context)
     {
         // NAV-EDGE-03: thrown in every build.
-        return context ?? throw new InvalidOperationException("Blazix: `<NavigationMenuPortal>` is missing.");
+        return context ?? throw new InvalidOperationException("Iodine: `<NavigationMenuPortal>` is missing.");
     }
 }
 

@@ -1,6 +1,6 @@
 using System.Text.Json.Serialization;
 
-namespace Blazix.Primitives.Interop;
+namespace Iodine.Headless.Interop;
 
 // ADR 04 §1 (the collapsible component module, placement rule of 2026-10-18; Amendments 2026-10-21), §2 (Collapsible.Panel:
 // hidden="until-found", the measured size variables; every animated part: data-starting-style, data-ending-style) and

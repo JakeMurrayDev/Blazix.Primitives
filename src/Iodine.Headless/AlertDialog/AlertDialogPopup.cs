@@ -1,10 +1,10 @@
-using Blazix.Primitives.Rendering;
+using Iodine.Headless.Rendering;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Rendering;
 using Microsoft.Extensions.Logging;
 using Microsoft.JSInterop;
 
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // ADL §3.3: Dialog.Popup's state object (DLG §3.6, dialog/popup/DialogPopup.tsx:64-69) under its AlertDialog name.
 // TransitionStatus is mirrored (ADR 04 §2).

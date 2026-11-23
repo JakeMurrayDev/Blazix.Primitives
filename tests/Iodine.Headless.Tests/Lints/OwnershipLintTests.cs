@@ -1,12 +1,12 @@
 using System.Reflection;
-using Blazix.Primitives.Rendering;
-using Blazix.Primitives.Tests.TestSupport;
+using Iodine.Headless.Rendering;
+using Iodine.Headless.Tests.TestSupport;
 
-namespace Blazix.Primitives.Tests.Lints;
+namespace Iodine.Headless.Tests.Lints;
 
 // ADR 11 section 5: the documents' Writer column against the code's ownership registry. A JS or C# → JS row without a
 // registry entry fails; a registry entry whose row says C#, disagrees with its row, or has no row fails. A family with
-// no folder under src/Blazix.Primitives/ is skipped and counted, so the lint is green while the family set is empty.
+// no folder under src/Iodine.Headless/ is skipped and counted, so the lint is green while the family set is empty.
 public sealed class OwnershipLintTests
 {
     private static WriterRow Row(string family, string section, string attribute, Writer writer, int line = 1) =>
@@ -224,7 +224,7 @@ public sealed class OwnershipLintTests
     [Fact]
     public void The_documents_and_the_ownership_registry_agree()
     {
-        string src = Path.Combine(RepositoryRoot.Find(), "src", "Blazix.Primitives");
+        string src = Path.Combine(RepositoryRoot.Find(), "src", "Iodine.Headless");
         Dictionary<string, DocumentParse> documents = RealDocuments();
 
         OwnershipReport report = OwnershipLint.Check(
@@ -234,7 +234,7 @@ public sealed class OwnershipLintTests
             OwnershipLint.MirroredFields(typeof(PartStateAttribute).Assembly));
 
         string summary =
-            $"ownership lint: {report.Checked.Count} of {documents.Count} families have a folder and were checked ({report.JsRows} JS-owned rows); {report.Skipped.Count} skipped: no folder under src/Blazix.Primitives/ yet";
+            $"ownership lint: {report.Checked.Count} of {documents.Count} families have a folder and were checked ({report.JsRows} JS-owned rows); {report.Skipped.Count} skipped: no folder under src/Iodine.Headless/ yet";
         TestContext.Current.TestOutputHelper?.WriteLine(summary);
         Assert.Empty(report.Violations);
         Assert.Equal(documents.Count, report.Checked.Count + report.Skipped.Count);

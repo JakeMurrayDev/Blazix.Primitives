@@ -1,5 +1,5 @@
 // Family tests use the project's root namespace (a test namespace is never named like a part).
-namespace Blazix.Primitives.Tests;
+namespace Iodine.Headless.Tests;
 
 /// <summary>L1: the items a menu's root counts for the popup's initial focus.</summary>
 public sealed class MenuItemRegistryTests

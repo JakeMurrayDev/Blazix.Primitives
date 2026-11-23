@@ -1,10 +1,10 @@
-using Blazix.Primitives.Rendering;
+using Iodine.Headless.Rendering;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Web;
 using Microsoft.Extensions.Logging;
 using Microsoft.JSInterop;
 
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // MNU §3.9 state object (menu/item/MenuItem.tsx:59-62). Highlighted is the list handle's (ADR 04 Amendments 2026-11-03
 // (2), chosen by the user): mirrored, so C# never projects data-highlighted.

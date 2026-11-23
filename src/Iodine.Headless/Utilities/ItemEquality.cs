@@ -1,7 +1,7 @@
 using System.Runtime.CompilerServices;
-using Blazix.Primitives.Store;
+using Iodine.Headless.Store;
 
-namespace Blazix.Primitives.Utilities;
+namespace Iodine.Headless.Utilities;
 
 // UTL-ALG-06 (internals/itemEquality.ts), ADR 08 Amendments 2026-11-03 (2): the item equality of Select, Combobox,
 // Autocomplete and Menu's filter mode. The default comparer is Object.is (Equality.Is); IsItemEqualToValue is consulted only

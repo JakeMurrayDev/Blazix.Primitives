@@ -1,4 +1,4 @@
-// The JS initializer, built to wwwroot/Blazix.Primitives.lib.module.js. Importing `platform` computes the
+// The JS initializer, built to wwwroot/Iodine.Headless.lib.module.js. Importing `platform` computes the
 // flags once per page; the modules share the same chunk, so no module recomputes them. Custom event
 // types are registered here as they appear (none yet).
 import { platform } from './platform';

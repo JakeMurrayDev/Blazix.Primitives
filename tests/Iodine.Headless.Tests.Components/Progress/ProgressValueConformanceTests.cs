@@ -1,10 +1,10 @@
-using Blazix.Primitives.Rendering;
-using Blazix.Primitives.Tests.Components.Rendering.Conformance;
+using Iodine.Headless.Rendering;
+using Iodine.Headless.Tests.Components.Rendering.Conformance;
 using Bunit;
 using Microsoft.AspNetCore.Components;
 
 // The namespace is the project's root: a namespace named after the family would hide the parts' types.
-namespace Blazix.Primitives.Tests.Components;
+namespace Iodine.Headless.Tests.Components;
 
 // ProgressValue.test.tsx: describeConformance(<Progress.Value />, () => ({ render: inside <Progress.Root value={40}>, refInstanceof: window.HTMLSpanElement })). PRG-DOM-10, PRG-API-08, PRG-API-13.
 // RND-DOM-49 does not apply (no NativeButton).

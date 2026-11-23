@@ -1,6 +1,6 @@
 using System.Globalization;
 
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // UTL-EDGE-10 (generateId, packages/utils/src/generateId.ts:1-5): `${prefix}-${r}-${n}`, `r` four base-36 characters of
 // Math.random().toString(36).slice(2, 6), `n` a process-wide counter incremented before use. Toast ids are its only

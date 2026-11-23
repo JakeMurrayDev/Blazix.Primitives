@@ -1,6 +1,6 @@
 using Microsoft.AspNetCore.Components;
 
-namespace Blazix.Primitives.Rendering;
+namespace Iodine.Headless.Rendering;
 
 // RND-STR-04, ADR 02 decision 1; RND §2.1 rows 1–4
 /// <summary>

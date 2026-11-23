@@ -5,7 +5,7 @@ using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Rendering;
 
 // The namespace is the project's root: a namespace named after the family would hide the parts' types.
-namespace Blazix.Primitives.Tests.Components;
+namespace Iodine.Headless.Tests.Components;
 
 // 6b's scrub role at L2 (issue 277): the ScrubArea and ScrubAreaCursor parts over the `number-field` module's scrub
 // reports (ADR 06 §1). NumberFieldScrubAreaCursor.test.tsx's titles drive the start, lock and end reports where Base UI
@@ -203,7 +203,7 @@ public sealed class NumberFieldScrubAreaTests : IDisposable
         }));
 
         Assert.Equal(
-            "Blazix: `NumberFieldScrubAreaContext` is missing. NumberFieldScrubArea parts must be placed within `<NumberFieldScrubArea>`.",
+            "Iodine: `NumberFieldScrubAreaContext` is missing. NumberFieldScrubArea parts must be placed within `<NumberFieldScrubArea>`.",
             error.Message);
     }
 

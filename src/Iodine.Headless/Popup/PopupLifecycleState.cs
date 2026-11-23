@@ -1,6 +1,6 @@
-using Blazix.Primitives.Interop;
+using Iodine.Headless.Interop;
 
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // FLT-STR-11 (useFloatingRootContext.ts:24-77, FloatingRootStore.ts:106-135), the store-independent open lifecycle extracted
 // from PopupStoreState<TPayload> (ADR 05 Amendments 2026-11-03, chosen by the user 2026-11-03; M5 track 2 design point 1,
@@ -81,7 +81,7 @@ internal readonly struct PopupLifecycleState : IEquatable<PopupLifecycleState>
 
     // PSH-STA-05, TRN-STA-14.
     /// <summary>Gets the derived transition status: starting while effectively open and not yet mounted, else the stored one.</summary>
-    public TransitionStatus? DerivedTransitionStatus => EffectiveOpen && !Mounted ? Primitives.TransitionStatus.Starting : TransitionStatus;
+    public TransitionStatus? DerivedTransitionStatus => EffectiveOpen && !Mounted ? Headless.TransitionStatus.Starting : TransitionStatus;
 
     /// <summary>Determines whether two lifecycle states are equal member by member.</summary>
     /// <param name="left">The first state.</param>

@@ -1,9 +1,9 @@
 using System.Reflection;
-using Blazix.Primitives.Rendering;
+using Iodine.Headless.Rendering;
 using Microsoft.AspNetCore.Components;
 
 // Family tests use the project's root namespace.
-namespace Blazix.Primitives.Tests;
+namespace Iodine.Headless.Tests;
 
 // AUT-API-21, STA-01..03, STR-01 (autocomplete/index.ts:1-90, index.parts.ts; autocomplete/item/AutocompleteItemDataAttributes.ts;
 // the brief's L1 restatements, M5 track 11): Autocomplete's own records and attribute classes, the AlertDialog precedent, so a
@@ -25,7 +25,7 @@ public sealed class AutocompletePublicSurfaceTests
     public void The_shells_are_public_and_sealed_with_their_own_records()
     {
         Assembly assembly = typeof(AutocompleteFilter).Assembly;
-        Type[] parts = [.. s_parts.Select(name => assembly.GetType("Blazix.Primitives." + name, throwOnError: true)!)];
+        Type[] parts = [.. s_parts.Select(name => assembly.GetType("Iodine.Headless." + name, throwOnError: true)!)];
 
         Assert.All(parts, part => Assert.True(part.IsPublic && part.IsSealed, part.Name));
         Assert.All(

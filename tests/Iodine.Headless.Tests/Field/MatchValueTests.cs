@@ -1,5 +1,5 @@
 // Family tests use the project's root namespace.
-namespace Blazix.Primitives.Tests;
+namespace Iodine.Headless.Tests;
 
 /// <summary>
 /// <see cref="MatchValue"/> at L1: a hand-written union of <see langword="bool"/> and <see cref="ValidityFlag"/> (ADR 05

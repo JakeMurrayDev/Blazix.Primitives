@@ -1,8 +1,8 @@
-using Blazix.Primitives.Rendering;
+using Iodine.Headless.Rendering;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Rendering;
 
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // FLD-STA-05; field/item/FieldItem.tsx:29-32,50.
 /// <summary>Represents the state of a field item, which the part exposes as data attributes and passes to its class and style functions.</summary>

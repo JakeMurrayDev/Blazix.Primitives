@@ -2,7 +2,7 @@ using System.Runtime.CompilerServices;
 using Microsoft.AspNetCore.Components;
 using Microsoft.JSInterop;
 
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // ADR 04 Amendments 2026-10-27, decision 5 (chosen by the user 2026-10-27); ADR 05 §4 (Duration is the model); ADR 08
 // Amendments 2026-10-27. Base UI's `container?: HTMLElement | ShadowRoot | RefObject | null` (FLT-API-13, PSH §6.1):
@@ -80,9 +80,9 @@ public readonly struct PortalContainerValue : IUnion
     /// <value><see langword="true"/> if a value is held; otherwise, <see langword="false"/>. The default instance holds no value.</value>
     public bool HasValue => kind != ContainerKind.None;
 
-    // BLZX2005: IUnion requires an object-typed Value, so reading it boxes the struct cases; the library reads the cases
+    // IOD2005: IUnion requires an object-typed Value, so reading it boxes the struct cases; the library reads the cases
     // through TryGetValue and IsPending instead.
-#pragma warning disable BLZX2005
+#pragma warning disable IOD2005
     /// <inheritdoc />
     /// <remarks>Reading it boxes an element or the pending case.</remarks>
     public object? Value => kind switch
@@ -93,7 +93,7 @@ public readonly struct PortalContainerValue : IUnion
         ContainerKind.Pending => default(PortalContainerPending),
         _ => null,
     };
-#pragma warning restore BLZX2005
+#pragma warning restore IOD2005
 
     /// <summary>Gets a value indicating whether this instance holds the pending case.</summary>
     /// <value><see langword="true"/> if this instance is <see cref="Pending"/>; otherwise, <see langword="false"/>.</value>

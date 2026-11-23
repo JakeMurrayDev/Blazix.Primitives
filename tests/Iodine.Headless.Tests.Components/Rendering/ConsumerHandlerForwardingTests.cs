@@ -1,10 +1,10 @@
-using Blazix.Primitives.Rendering;
+using Iodine.Headless.Rendering;
 using Bunit;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Web;
 using Microsoft.Extensions.DependencyInjection;
 
-namespace Blazix.Primitives.Tests.Components.Rendering;
+namespace Iodine.Headless.Tests.Components.Rendering;
 
 /// <summary>
 /// The part's say over the consumer's handlers (ADR 02 Amendments 2026-10-21): a part declines a consumer handler by
@@ -17,7 +17,7 @@ public sealed class ConsumerHandlerForwardingTests : IDisposable
 
     public ConsumerHandlerForwardingTests()
     {
-        context.Services.AddBlazixPrimitives();
+        context.Services.AddIodineHeadless();
     }
 
     /// <inheritdoc />

@@ -1,6 +1,6 @@
 using System.Text.Json.Serialization;
 
-namespace Blazix.Primitives.Interop;
+namespace Iodine.Headless.Interop;
 
 // ADR 04 §1 (the `focus-manager` row) and Amendments 2026-10-27 (chosen by the user 2026-10-27): the module reads the
 // open state from the applied batch through the element matching OpenSelector, never from these options after attach;

@@ -1,4 +1,4 @@
-namespace Blazix.Primitives.Interop;
+namespace Iodine.Headless.Interop;
 
 // ADR 04 Amendments 2026-10-27 (decision 3: every request a handle makes; the decision point press; chosen by the user
 // 2026-10-27); the payload names are design point 6 of M4 track 3 (accepted by the orchestrator 2026-10-27).
@@ -62,7 +62,7 @@ internal static class InteractionsLiterals
             // Menu's sibling close and drag-release cancel (M5 track 6).
             "sibling-open" => EventReason.SiblingOpen,
             "cancel-open" => EventReason.CancelOpen,
-            _ => throw new ArgumentOutOfRangeException(nameof(literal), $"Blazix: `{literal}` is not a reason the `interactions` module reports."),
+            _ => throw new ArgumentOutOfRangeException(nameof(literal), $"Iodine: `{literal}` is not a reason the `interactions` module reports."),
         };
     }
 }

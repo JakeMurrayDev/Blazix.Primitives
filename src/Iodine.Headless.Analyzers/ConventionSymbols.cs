@@ -1,6 +1,6 @@
 using Microsoft.CodeAnalysis;
 
-namespace Blazix.Primitives.Analyzers;
+namespace Iodine.Headless.Analyzers;
 
 /// <summary>
 /// Provides the symbol tests the convention analyzers share.

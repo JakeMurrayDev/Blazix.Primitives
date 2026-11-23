@@ -1,4 +1,4 @@
-@namespace Blazix.Primitives.Tests.Components
+@namespace Iodine.Headless.Tests.Components
 @inherits SelectTestBase
 @using Bunit
 @using Microsoft.Extensions.DependencyInjection
@@ -77,7 +77,7 @@
 
     private BunitJSModuleInterop SetUpTransitions()
     {
-        BunitJSModuleInterop transitions = JSInterop.SetupModule("./_content/Blazix.Primitives/js/transitions.js");
+        BunitJSModuleInterop transitions = JSInterop.SetupModule("./_content/Iodine.Headless/js/transitions.js");
         BunitJSModuleInterop handle = transitions.SetupModule("attach", _ => true);
         handle.SetupVoid("update", _ => true).SetVoidResult();
         return handle;

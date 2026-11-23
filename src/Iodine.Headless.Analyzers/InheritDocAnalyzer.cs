@@ -4,7 +4,7 @@ using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using Microsoft.CodeAnalysis.Diagnostics;
 
-namespace Blazix.Primitives.Analyzers;
+namespace Iodine.Headless.Analyzers;
 
 // ADR 08 §5, Amendments 2026-10-20 (documentation comments on overriding and implementing members; the clarification of
 // issue 42 that allows <exception> beside <remarks>)
@@ -21,15 +21,15 @@ namespace Blazix.Primitives.Analyzers;
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
 public sealed class InheritDocAnalyzer : DiagnosticAnalyzer
 {
-    /// <summary>Represents the id of the diagnostic this analyzer reports, <c>BLZX2007</c>.</summary>
-    public const string DiagnosticId = "BLZX2007";
+    /// <summary>Represents the id of the diagnostic this analyzer reports, <c>IOD2007</c>.</summary>
+    public const string DiagnosticId = "IOD2007";
 
     // ADR 08 Amendments 2026-10-20
     private static readonly DiagnosticDescriptor s_rule = new(
         DiagnosticId,
         "An overriding or implementing member inherits its documentation",
-        "Blazix: `{0}` overrides or implements an inherited member, so its documentation comment is `<inheritdoc />` with at most `<remarks>` and `<exception>` added; {1}",
-        "Blazix.Primitives",
+        "Iodine: `{0}` overrides or implements an inherited member, so its documentation comment is `<inheritdoc />` with at most `<remarks>` and `<exception>` added; {1}",
+        "Iodine.Headless",
         DiagnosticSeverity.Error,
         isEnabledByDefault: true,
         description: "A member that overrides a base member or implements an interface member, implicitly or explicitly, inherits the documentation of the member it overrides or implements. Its comment is `/// <inheritdoc />`, optionally with `<remarks>` for added behavior and `<exception>` for added exceptions; `<summary>`, `<param>`, `<returns>`, `<value>` and every other element restate the contract and are rejected.");

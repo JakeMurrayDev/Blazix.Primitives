@@ -1,8 +1,8 @@
-using Blazix.Primitives.Analyzers;
+using Iodine.Headless.Analyzers;
 using Microsoft.CodeAnalysis.CSharp.Testing;
 using Microsoft.CodeAnalysis.Testing;
 
-namespace Blazix.Primitives.Tests.Generators.Analyzers;
+namespace Iodine.Headless.Tests.Generators.Analyzers;
 
 /// <summary>
 /// The member-order analyzer (ADR 08 §5): members appear as constants, fields, constructors, private properties, parameter
@@ -416,9 +416,9 @@ public sealed class MemberOrderAnalyzerTests
             {
                 public void Focus() { }
 
-            #pragma warning disable BLZX2003 // a field kept beside the method that owns it
+            #pragma warning disable IOD2003 // a field kept beside the method that owns it
                 private int count;
-            #pragma warning restore BLZX2003
+            #pragma warning restore IOD2003
 
                 private int {|#0:depth|};
             }

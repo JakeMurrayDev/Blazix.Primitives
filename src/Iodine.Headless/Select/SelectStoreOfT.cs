@@ -1,10 +1,10 @@
-using Blazix.Primitives.Interop;
-using Blazix.Primitives.Store;
-using Blazix.Primitives.Utilities;
+using Iodine.Headless.Interop;
+using Iodine.Headless.Store;
+using Iodine.Headless.Utilities;
 using Microsoft.AspNetCore.Components;
 using Microsoft.Extensions.Logging;
 
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // SEL §4, §7 for a select whose values are TValue. The value is the store's non-reactive context (ADR 05 Amendments
 // 2026-10-27's payload rule): two Controlled<T> (the single triple and the multiple triple, ADR 08 Amendments 2026-11-03 (1)),

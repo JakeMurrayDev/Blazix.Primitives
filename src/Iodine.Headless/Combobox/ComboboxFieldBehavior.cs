@@ -1,8 +1,8 @@
-using Blazix.Primitives.Interop;
-using Blazix.Primitives.Utilities;
+using Iodine.Headless.Interop;
+using Iodine.Headless.Utilities;
 using Microsoft.AspNetCore.Components.Forms;
 
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // The root's Field and Form half (AriaCombobox.tsx:146-160, 584-591, 1243-1323; CMB §8; FFI-ALG-06, FFI-ALG-12,
 // FFI-STA-04/05, FFI-FRM-26; ADR 05 Amendments 2026-10-22 for the EditContext). After each render of the root: its explicit

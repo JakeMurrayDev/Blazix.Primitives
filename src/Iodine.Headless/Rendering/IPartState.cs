@@ -1,4 +1,4 @@
-namespace Blazix.Primitives.Rendering;
+namespace Iodine.Headless.Rendering;
 
 // RND-ALG-07, ADR 02 as amended by ADR 05
 /// <summary>

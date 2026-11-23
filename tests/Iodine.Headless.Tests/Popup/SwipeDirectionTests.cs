@@ -1,5 +1,5 @@
 // Family tests use the project's root namespace.
-namespace Blazix.Primitives.Tests;
+namespace Iodine.Headless.Tests;
 
 /// <summary>
 /// <see cref="SwipeDirection"/> at L1: Base UI's <c>'up' | 'down' | 'left' | 'right'</c> (PSH §4.7.5; ADR 08 Amendments

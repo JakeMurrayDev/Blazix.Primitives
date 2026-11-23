@@ -1,9 +1,9 @@
-using Blazix.Primitives.Rendering;
-using Blazix.Primitives.Utilities;
+using Iodine.Headless.Rendering;
+using Iodine.Headless.Utilities;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Rendering;
 
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // SEL §11 (SelectGroupContext); select/group/SelectGroupContext.ts. The group's label id, which its GroupLabel publishes
 // and withdraws with FFI-ARIA-08's semantics (an older label's withdrawal never clears a newer id; LabelIdSlot).
@@ -21,7 +21,7 @@ internal sealed class SelectGroupContext
     {
         // SEL-EDGE-01, SEL-STR-05.
         return context ?? throw new InvalidOperationException(
-            "Blazix: `SelectGroupContext` is missing. SelectGroup parts must be placed within `<SelectGroup>`.");
+            "Iodine: `SelectGroupContext` is missing. SelectGroup parts must be placed within `<SelectGroup>`.");
     }
 }
 

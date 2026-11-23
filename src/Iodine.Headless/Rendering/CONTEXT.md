@@ -1,4 +1,4 @@
-# src/Blazix.Primitives/Rendering
+# src/Iodine.Headless/Rendering
 
 The rendering pipeline every part renders through (ADR 02 as amended by ADRs 04, 05, 08 and 16): the attribute merge, the frame rewrite, the part base class, the public `useRender` component, the generated-id source and the state-projection contract the generator implements.
 
@@ -6,7 +6,7 @@ The rendering pipeline every part renders through (ADR 02 as amended by ADRs 04,
 
 - `docs/architecture/rendering-and-composition.md` (RND): §2.1 precedence, §3.2 the `useRender` parameters, §4.9 the conformance obligations, §5 the algorithms.
 - Decision records 02 (pipeline, substitution, merge, veto, ids), 04 Amendments 2026-10-18 (no event directives on parts), 05 §4 (no boxing; `AttributeValue`), 08 (names, member order), 16 (rules 2, 3, 5, 7, 8, 10).
-- Blazor's `RenderTreeBuilder` and `RenderTreeFrame` (the public `GetFrames()`), `EventCallback`, `IHandleEvent`; the `[PartState]` generator (`../../Blazix.Primitives.Generators`) for `IPartState<TSelf>`.
+- Blazor's `RenderTreeBuilder` and `RenderTreeFrame` (the public `GetFrames()`), `EventCallback`, `IHandleEvent`; the `[PartState]` generator (`../../Iodine.Headless.Generators`) for `IPartState<TSelf>`.
 
 ## Job
 
@@ -20,7 +20,7 @@ The rendering pipeline every part renders through (ADR 02 as amended by ADRs 04,
 | `PartBase.cs`, `PartBase.template.md` | the base class of every part and the contributor template in the eleven-group member order (ADR 08 §5) |
 | `RenderElement.cs`, `RenderProps.cs` | the public `useRender` (RND §3.2) over the same function; what a substitute callback receives |
 | `IPartState.cs`, `StateAttributesMapping.cs`, `StateAttributeWriter.cs`, `StateDataAttribute.cs`, `PartStateAttribute.cs`, `MirroredFieldAttribute.cs`, `NotProjectedAttribute.cs`, `EmptyState.cs` | the projection contract the generator implements per `[PartState]` record, the custom-mapping hook (RND-DOM-06..09), the JS-owned exclusion (ADR 04 §2), the never-projected state field of any type (ADR 02 Amendments 2026-10-26; Accordion's value array) |
-| `PartIdGenerator.cs` | the scoped `base-ui-<n>` source registered by `AddBlazixPrimitives()` (ADR 02 decision 5) |
+| `PartIdGenerator.cs` | the scoped `base-ui-<n>` source registered by `AddIodineHeadless()` (ADR 02 decision 5) |
 
 Rules the folder keeps: handlers are `EventCallback` fields created once through `CreateHandler` (rule 2); every pipeline frame uses a literal sequence number and re-emitted substitute frames keep theirs inside a region (rule 3); class and style merges are memoised on input identity (rule 5); a part re-renders only on its own `StateHasChanged` (rule 8); the library never introduces a component instance beyond the one per part (rule 10). Three errors throw in every build, because they are programming errors a release must not hide: both `Render` and `RenderFunction` supplied, a `Render` root that is neither an element nor a component (RND-EDGE-03), and a Blazor event directive on a part or substitute (ADR 04).
 
@@ -28,8 +28,8 @@ Known limits, stated once: a consumer handler is invoked the way Blazor invokes 
 
 ## Outputs
 
-- `Blazix.Primitives.Rendering` (public): `PartBase<TState>`, `RenderElement<TState>`, `RenderProps<TState>`, `MergeProps`, `AttributeList`, `AttributeValue`, `StateAttributesMapping<TState>`, `PartIdGenerator`, the attributes; `Blazix.Primitives`: `PreventPartHandler()` / `PartHandlerPrevented()` (in `../Events/`).
-- Tested at L1 (`tests/Blazix.Primitives.Tests/Rendering`) and L2 (`tests/Blazix.Primitives.Tests.Components/Rendering`, the conformance suite on `SampleRoot`).
+- `Iodine.Headless.Rendering` (public): `PartBase<TState>`, `RenderElement<TState>`, `RenderProps<TState>`, `MergeProps`, `AttributeList`, `AttributeValue`, `StateAttributesMapping<TState>`, `PartIdGenerator`, the attributes; `Iodine.Headless`: `PreventPartHandler()` / `PartHandlerPrevented()` (in `../Events/`).
+- Tested at L1 (`tests/Iodine.Headless.Tests/Rendering`) and L2 (`tests/Iodine.Headless.Tests.Components/Rendering`, the conformance suite on `SampleRoot`).
 
 ## Human check
 
@@ -41,7 +41,7 @@ Known limits, stated once: a consumer handler is invoked the way Blazor invokes 
 - A part's `BuildBeforeElement` renders only the siblings its document places before the element (a popup's leading focus guard, FLT-DOM-14; the trigger guards of a family that places them), numbers them with literals from 0, and renders nothing that belongs inside the element; `BeforeElementTests` and `RenderPipelineSequenceTests` pin the region and its literal.
 
 - A new part derives from `PartBase<TState>`, creates its handlers once, adds them from `AddPartAttributes`, and names no parameter `Class` or `Style`.
-- Nothing here reflects; `BL0006` is suppressed only where the frame rewrite reads frames, and `BLZX2002` only where a sequence number is not ours to choose (`Reemit`, `AttributeValue.EmitTo`), each with the ADR citation.
+- Nothing here reflects; `BL0006` is suppressed only where the frame rewrite reads frames, and `IOD2002` only where a sequence number is not ours to choose (`Reemit`, `AttributeValue.EmitTo`), each with the ADR citation.
 - The allocation budgets in both test projects only tighten.
-- A root whose scope a substituted root must see (`FieldRoot`, `FieldItem`, `FieldsetRoot`) overrides `BuildRenderTree` and wraps its whole output in one fixed `CascadingValue` whose `ChildContent` is the base render, a delegate cached once. The scope then reaches a component given through `Render`/`RenderFunction` and its descendants (FST-STR-01, FST-DOM-09). The contexts are plain classes with listener lists (ADR 05 §1), notified in registration order (`Field/ChangeListeners.cs`), and the sequence numbers are literals (`BLZX2002`). Settled by the orchestrator 2026-10-22 under ADR 05 §1 and ADR 16 rule 9 (M2 track 1, DP1).
-- A sequence number the pipeline emits is one of the named literals in `RenderPipeline`, never a counter or a calculation (a repeated capture repeats its literal); each variable section sits in its own region, and a re-emitted consumer frame keeps its own number inside it (ADR 16 rule 3). `BLZX2002` (`../../Blazix.Primitives.Analyzers`) fails the build on a sequence number that is not a constant expression, and `RenderPipelineSequenceTests` asserts what is emitted; Microsoft's `ASP0006` does not run on this project (it ships with `Microsoft.AspNetCore.App`) and would reject named constants.
+- A root whose scope a substituted root must see (`FieldRoot`, `FieldItem`, `FieldsetRoot`) overrides `BuildRenderTree` and wraps its whole output in one fixed `CascadingValue` whose `ChildContent` is the base render, a delegate cached once. The scope then reaches a component given through `Render`/`RenderFunction` and its descendants (FST-STR-01, FST-DOM-09). The contexts are plain classes with listener lists (ADR 05 §1), notified in registration order (`Field/ChangeListeners.cs`), and the sequence numbers are literals (`IOD2002`). Settled by the orchestrator 2026-10-22 under ADR 05 §1 and ADR 16 rule 9 (M2 track 1, DP1).
+- A sequence number the pipeline emits is one of the named literals in `RenderPipeline`, never a counter or a calculation (a repeated capture repeats its literal); each variable section sits in its own region, and a re-emitted consumer frame keeps its own number inside it (ADR 16 rule 3). `IOD2002` (`../../Iodine.Headless.Analyzers`) fails the build on a sequence number that is not a constant expression, and `RenderPipelineSequenceTests` asserts what is emitted; Microsoft's `ASP0006` does not run on this project (it ships with `Microsoft.AspNetCore.App`) and would reject named constants.

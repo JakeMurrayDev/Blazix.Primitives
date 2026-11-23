@@ -1,5 +1,5 @@
 using AngleSharp.Dom;
-using Blazix.Primitives.Interop;
+using Iodine.Headless.Interop;
 using Bunit;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Rendering;
@@ -7,7 +7,7 @@ using Microsoft.AspNetCore.Components.Web;
 using Microsoft.JSInterop;
 
 // Family tests use the project's root namespace.
-namespace Blazix.Primitives.Tests.Components;
+namespace Iodine.Headless.Tests.Components;
 
 // CMB §3.7 at L2: the input's own handlers. The `composite` list handle declines the consumer's onkeydown and runs it from the
 // part's own handler, once per event (a decision on WebAssembly runs it inside the dispatch instead).
@@ -203,7 +203,7 @@ public sealed class ComboboxInputTests : IDisposable
 
         InvalidOperationException error = Assert.Throws<InvalidOperationException>(() => test.Context.Render(foreign.Context.Cascade(harness)));
 
-        Assert.Equal("Blazix: `<ComboboxPopup>` and `<ComboboxArrow>` must be used within the `<ComboboxPositioner>` component.", error.Message);
+        Assert.Equal("Iodine: `<ComboboxPopup>` and `<ComboboxArrow>` must be used within the `<ComboboxPositioner>` component.", error.Message);
     }
 
     [Fact(DisplayName = "port: an inline input keeps its field's state")]

@@ -1,7 +1,7 @@
 using Bunit;
 
 // Family tests use the project's root namespace.
-namespace Blazix.Primitives.Tests.Components;
+namespace Iodine.Headless.Tests.Components;
 
 // ComboboxRoot.test.tsx's `prop: multiple` titles cited at L2 (the `skipIf(isJSDOM)` close-animation titles are L4). Typing
 // is the `combobox` module's typed change (one report for user.type's whole text), a press of the input or the trigger is

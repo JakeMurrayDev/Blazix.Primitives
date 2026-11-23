@@ -1,4 +1,4 @@
-namespace Blazix.Primitives.Fixtures.Client.AccordionFixtures;
+namespace Iodine.Headless.Fixtures.Client.AccordionFixtures;
 
 /// <summary>
 /// The record of one case's callbacks, which <see cref="AccordionCaseFrame"/> renders as data attributes: the item

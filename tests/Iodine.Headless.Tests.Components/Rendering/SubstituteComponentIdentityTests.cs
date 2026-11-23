@@ -4,7 +4,7 @@ using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Rendering;
 using Microsoft.Extensions.DependencyInjection;
 
-namespace Blazix.Primitives.Tests.Components.Rendering;
+namespace Iodine.Headless.Tests.Components.Rendering;
 
 /// <summary>
 /// ADR 02, second verification item (issue 4): the frame re-emitter preserves <c>@key</c> and <c>@ref</c> semantics
@@ -16,7 +16,7 @@ public sealed class SubstituteComponentIdentityTests : IDisposable
 
     public SubstituteComponentIdentityTests()
     {
-        context.Services.AddBlazixPrimitives();
+        context.Services.AddIodineHeadless();
     }
 
     /// <inheritdoc />

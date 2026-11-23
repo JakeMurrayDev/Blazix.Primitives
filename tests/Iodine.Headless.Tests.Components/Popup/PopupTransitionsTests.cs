@@ -1,7 +1,7 @@
 using Bunit;
 using Microsoft.AspNetCore.Components;
 
-namespace Blazix.Primitives.Tests.Components;
+namespace Iodine.Headless.Tests.Components;
 
 /// <summary>
 /// The transitions plumbing at L2 on the popup host (TRN-API-04, TRN-STA-06, TRN-EVT-03, TRN-ANI-18; PSH-STA-44/45): the
@@ -10,7 +10,7 @@ namespace Blazix.Primitives.Tests.Components;
 /// </summary>
 public sealed class PopupTransitionsTests : IDisposable
 {
-    private const string ModulePath = "./_content/Blazix.Primitives/js/transitions.js";
+    private const string ModulePath = "./_content/Iodine.Headless/js/transitions.js";
 
     private readonly PopupTestContext test = new();
     private readonly BunitJSModuleInterop handle;

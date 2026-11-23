@@ -8,7 +8,7 @@
 | Docs page | `docs/src/app/(docs)/react/components/meter/page.mdx` |
 | Prefix | `MTR` |
 | Status | implemented |
-| Revised | 2026-11-19 |
+| Revised | 2026-11-23 |
 | Builds on | none |
 | Derived by | none |
 | Depends on | [rendering-and-composition](../architecture/rendering-and-composition.md), [field-and-form-infrastructure](../architecture/field-and-form-infrastructure.md) (label-id publication only), [shared-utilities](../architecture/shared-utilities.md) |
@@ -338,7 +338,7 @@ Meter emits no warnings and no dev-only diagnostics of its own.
 
 - **MTR-EDGE-01** — MUST. Rendering `Meter.Indicator`, `Meter.Value` or `Meter.Label` outside a `Meter.Root` MUST throw an error with the message `Base UI: MeterRootContext is missing. Meter parts must be placed within <Meter.Root>.` (thrown in all builds).
   Source: `meter/root/MeterRootContext.ts:16-25`. Test: [L2] `MeterLabel.test.tsx` "throws a descriptive error when rendered outside <Meter.Root>".
-  Port note 2026-10-21: the message is ``Blazix: The `MeterRoot` context is missing. Meter parts must be placed within `<MeterRoot>`.`` (the port's words under ADR 08 Amendments 2026-10-20: it starts `Blazix: ` and quotes code in backticks); the error is an `InvalidOperationException` thrown in every build.
+  Port note 2026-10-21: the message is ``Iodine: The `MeterRoot` context is missing. Meter parts must be placed within `<MeterRoot>`.`` (the port's words under ADR 08 Amendments 2026-10-20: it starts `Iodine: ` and quotes code in backticks); the error is an `InvalidOperationException` thrown in every build.
 - **MTR-EDGE-02** — MUST. With `value = NaN`: `aria-valuenow` MUST be `min`, the percentage `0`, the Indicator width `0%`, and the default formatted value the formatted `0` percent (or `min` formatted with `format`).
   Source: `meter/root/MeterRoot.tsx:38-40`. Test: [L2] `MeterRoot.test.tsx` "normalizes aria attributes when value is NaN".
 - **MTR-EDGE-03** — MUST. With `min === max`: when `value === min` the percentage MUST be `0` (the `0/0` NaN case) and `aria-valuenow` MUST be `min`; when `value` differs, the percentage follows MTR-ALG-01 (`±∞` clamped to `100`/`0`) and `aria-valuenow` is `min` (= `max`).
@@ -503,5 +503,7 @@ Non-normative.
     - **Parts and state (MTR-STA-01, MTR-STR-03; ADR 02 Amendments 2026-10-20).** The five parts are `MeterRoot`, `MeterLabel`, `MeterTrack`, `MeterIndicator` and `MeterValue` over `PartBase<EmptyState>`. `MeterTrack` reads no context and renders anywhere (§16 item 3 stays a decision for Progress).
     - **Label and `Enabled` (MTR-STA-03).** A `MeterLabel` with `Enabled="false"` renders no element and publishes no id; a root whose consumer supplies its own `aria-labelledby` ignores the published id (MTR-ARIA-06).
     - **Sharing (MTR-STA-02; ADR 16 rule 9).** Root, Indicator and Value read one computation in an internal fixed-cascade context; a change reaches the Indicator and the Value through the context's listeners, never through the cascade.
-    - **Helpers (MTR-ALG-01..03, MTR-DOM-01; UTL-EDGE-14, UTL-DOM-31, UTL-DOM-37, UTL-DOM-13, FFI-ARIA-08).** Percentage, clamp, number serialization, the `visuallyHidden` declarations, the formatting and the label-id slot are in `src/Blazix.Primitives/Utilities/` (folder contract `CONTEXT.md`), reused by Progress; the NVDA span is rendered inline by the root.
+    - **Helpers (MTR-ALG-01..03, MTR-DOM-01; UTL-EDGE-14, UTL-DOM-31, UTL-DOM-37, UTL-DOM-13, FFI-ARIA-08).** Percentage, clamp, number serialization, the `visuallyHidden` declarations, the formatting and the label-id slot are in `src/Iodine.Headless/Utilities/` (folder contract `CONTEXT.md`), reused by Progress; the NVDA span is rendered inline by the root.
     - **Tests.** MTR-ALG-01 and MTR-ALG-02 are tested at L1 on those helpers, the rest at L2 (bUnit) with the browser clause of MTR-DOM-03 at L4 on both render modes; the steady-state render of the root is an allocation budget (ADR 16 rule 7).
+
+**Identity rename (2026-11-23, [ADR 17](../decisions/17-product-name-and-package-identity.md)).** Every `Blazix.Primitives` in this document now reads `Iodine.Headless`, the `Blazix: ` message prefix reads `Iodine: `, every other `Blazix`, `blazix` or `BLZX` name reads its `Iodine`, `iodine` or `IOD` form, and links point to `JakeMurrayDev/Iodine.Headless`. No requirement's meaning, level or test changed.

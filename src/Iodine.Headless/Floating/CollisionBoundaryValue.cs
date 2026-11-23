@@ -2,7 +2,7 @@ using System.Diagnostics.CodeAnalysis;
 using System.Runtime.CompilerServices;
 using Microsoft.AspNetCore.Components;
 
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // ADR 05 §4 (hand-written [Union] structs; Duration is the model); ADR 08 Amendments 2026-10-27: the clipping
 // ancestors, an element, a list of elements and a rect. Base UI's `collisionBoundary: 'clipping-ancestors' | Element |
@@ -74,9 +74,9 @@ public readonly struct CollisionBoundaryValue : IUnion, IEquatable<CollisionBoun
     /// <value><see langword="true"/> for the clipping ancestors; otherwise, <see langword="false"/>.</value>
     public bool IsClippingAncestors => kind == BoundaryKind.ClippingAncestors;
 
-    // BLZX2005: IUnion requires an object-typed Value, so reading it boxes the element case; the library reads the cases
+    // IOD2005: IUnion requires an object-typed Value, so reading it boxes the element case; the library reads the cases
     // through TryGetValue instead.
-#pragma warning disable BLZX2005
+#pragma warning disable IOD2005
     /// <inheritdoc />
     /// <remarks>Reading it boxes an element. For <see cref="ClippingAncestors"/> it is the string <c>clipping-ancestors</c>.</remarks>
     public object? Value => kind switch
@@ -86,7 +86,7 @@ public readonly struct CollisionBoundaryValue : IUnion, IEquatable<CollisionBoun
         BoundaryKind.Elements or BoundaryKind.Rect => reference,
         _ => null,
     };
-#pragma warning restore BLZX2005
+#pragma warning restore IOD2005
 
     /// <summary>Converts an element to a <see cref="CollisionBoundaryValue"/> that holds it.</summary>
     /// <param name="value">The element.</param>

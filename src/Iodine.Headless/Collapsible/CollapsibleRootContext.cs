@@ -1,9 +1,9 @@
-using Blazix.Primitives.Interop;
-using Blazix.Primitives.Store;
+using Iodine.Headless.Interop;
+using Iodine.Headless.Store;
 using Microsoft.AspNetCore.Components;
 using Microsoft.Extensions.Logging;
 
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // The reactive half of Base UI's useCollapsibleRoot (collapsible/root/useCollapsibleRoot.ts) with useTransitionStatus's
 // render-time evaluation (TRN-ALG-01 init and evaluation step through TransitionStatusRules, ADR 01 Amendments

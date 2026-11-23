@@ -1,7 +1,7 @@
-using Blazix.Primitives.Rendering;
+using Iodine.Headless.Rendering;
 using Microsoft.AspNetCore.Components;
 
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // Base UI's Menu.GroupLabel (menu/group-label/MenuGroupLabel.tsx); the contract is docs/components/menu.md §3.16 (MNU-API-48,
 // DOM-19, ARIA-11). A shell over MenuGroupLabelBehavior, which ContextMenu's group label composes too.

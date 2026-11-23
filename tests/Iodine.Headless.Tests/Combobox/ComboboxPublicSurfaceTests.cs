@@ -1,6 +1,6 @@
-using Blazix.Primitives.Rendering;
+using Iodine.Headless.Rendering;
 
-namespace Blazix.Primitives.Tests;
+namespace Iodine.Headless.Tests;
 
 // CMB-API-69 (combobox/index.ts, index.parts.ts; `Test: none (type-level)`, Deliverable 10's L1 proposal; PR 193 delta review
 // B1 (d)): every public part has a public state record, which is what Base UI's `Combobox.<Part>.State` exports, and the

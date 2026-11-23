@@ -1,5 +1,5 @@
 {
-  "name": "blazix-primitives",
+  "name": "iodine-headless",
   "private": true,
   "type": "module",
   "description": "The repository's one Node toolchain (ADR 09 §4): TypeScript sources build with esbuild, L3 runs on vitest, L4 on Playwright, the sample application's styles build with Tailwind.",
@@ -7,7 +7,7 @@
     "node": ">=24"
   },
   "scripts": {
-    "build:js": "node src/Blazix.Primitives/js/build.mjs --root src/Blazix.Primitives --outdir wwwroot --clean wwwroot --configuration Debug --entry js/initializer.ts=Blazix.Primitives.lib.module",
+    "build:js": "node src/Iodine.Headless/js/build.mjs --root src/Iodine.Headless --outdir wwwroot --clean wwwroot --configuration Debug --entry js/initializer.ts=Iodine.Headless.lib.module",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test:js": "vitest run --passWithNoTests",
     "test:browser": "playwright test"

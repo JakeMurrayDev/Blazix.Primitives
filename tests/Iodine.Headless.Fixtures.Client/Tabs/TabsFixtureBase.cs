@@ -1,6 +1,6 @@
 using Microsoft.AspNetCore.Components;
 
-namespace Blazix.Primitives.Fixtures.Client.TabsFixtures;
+namespace Iodine.Headless.Fixtures.Client.TabsFixtures;
 
 /// <summary>
 /// The base of the Tabs fixtures: renders <c>data-attached</c> once every tracked list has its composite and tabs twins

@@ -3,7 +3,7 @@ using AngleSharp.Dom;
 using Bunit;
 
 // The namespace is the project's root: a namespace named after the family would hide the parts' types.
-namespace Blazix.Primitives.Tests.Components;
+namespace Iodine.Headless.Tests.Components;
 
 // useNumberFieldStepperButton.test.tsx's describe.each over NumberField.Increment and NumberField.Decrement, the rows that
 // need no typed text: one derived class per case. A press reaches C# through the `button` module's hold reports

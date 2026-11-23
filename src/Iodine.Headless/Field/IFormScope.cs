@@ -1,4 +1,4 @@
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // FFI §2 (form scope), FFI-STR-04/05, FFI-API-04, FFI-EVT-03; internals/form-context/FormContext.ts. The field side of the
 // form-scope contract: what a field and its control read from the enclosing form. Form (M2 track 2, Form/) implements it
@@ -47,7 +47,7 @@ internal interface IFormScope
 // internals/form-context/FormContext.ts:33-46, internals/field-register-control/useFieldControlRegistration.ts:71,113. Base
 // UI's default form context holds one `fields` map that every field outside a Form registers in, so a validator's form
 // values name every such field. The port keeps one per runtime: a scoped service (per circuit on Server, per application
-// on WebAssembly), never static, which would share values across users. Registered by AddBlazixPrimitives.
+// on WebAssembly), never static, which would share values across users. Registered by AddIodineHeadless.
 /// <summary>
 /// The form scope outside a form: the registry of the runtime's fields outside a form, no error,
 /// <see cref="ValidationMode.OnSubmit"/>, no submission.

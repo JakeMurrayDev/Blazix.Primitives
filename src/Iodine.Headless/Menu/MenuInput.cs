@@ -1,10 +1,10 @@
-using Blazix.Primitives.Interop;
-using Blazix.Primitives.Rendering;
+using Iodine.Headless.Interop;
+using Iodine.Headless.Rendering;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Web;
 using Microsoft.JSInterop;
 
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // MNU §3.22 state object (filter-dropdown/input/FilterDropdownInput.tsx:55-57,141-147; MNU-STA-22). Highlighted depends on
 // focus-visible and keyboard modality, both known only when the event happens: the menu-filter module writes

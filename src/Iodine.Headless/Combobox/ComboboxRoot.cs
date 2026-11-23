@@ -1,14 +1,14 @@
 using System.Globalization;
 using System.Linq.Expressions;
-using Blazix.Primitives.Rendering;
-using Blazix.Primitives.Utilities;
+using Iodine.Headless.Rendering;
+using Iodine.Headless.Utilities;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Forms;
 using Microsoft.AspNetCore.Components.Rendering;
 using Microsoft.Extensions.Logging;
 using Microsoft.JSInterop;
 
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // Base UI's Combobox.Root (combobox/root/ComboboxRoot.tsx; CMB §3.1): a sealed thin part over ComboboxRootBehavior, the
 // engine in single or multiple mode (ADR 08 Amendments 2026-11-03 (1)-(3)). The value triples are the probe's (ADR 08
@@ -60,7 +60,7 @@ public sealed class ComboboxRoot<TValue> : ComponentBase, IAsyncDisposable
     private IJSRuntime JSRuntime { get; set; } = null!;
 
     // Created at the first parameter set, once the services are injected.
-    private ComboboxRootBehavior<TValue> Behavior => behavior ?? throw new InvalidOperationException("Blazix: `ComboboxRoot` is used before its first parameter set.");
+    private ComboboxRootBehavior<TValue> Behavior => behavior ?? throw new InvalidOperationException("Iodine: `ComboboxRoot` is used before its first parameter set.");
 
     [CascadingParameter]
     private IFloatingNodeContext? FloatingParent { get; set; }

@@ -1,9 +1,9 @@
-using Blazix.Primitives.Interop;
-using Blazix.Primitives.Rendering;
+using Iodine.Headless.Interop;
+using Iodine.Headless.Rendering;
 using Microsoft.AspNetCore.Components;
 using Microsoft.JSInterop;
 
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // DLG §9, TRN-ALG-01 (ADR 04 §2): the `transitions` handle of the Backdrop, the Viewport and the Popup, which write their
 // own data-starting-style and data-ending-style from attach on (C# renders the initial status under the handover). Each

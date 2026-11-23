@@ -1,4 +1,4 @@
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // ADR 08 Amendments 2026-10-27 (a record of three nullable enums); Base UI's `CollisionAvoidance = SideFlipMode |
 // SideShiftMode` (internals/useAnchorPositioning.ts:76-127), read as `side || 'flip'`, `align || 'flip'` and
@@ -18,7 +18,7 @@ namespace Blazix.Primitives;
 /// </param>
 /// <param name="FallbackAxisSide">
 /// Whether the popup falls back to the perpendicular axis when neither side on its preferred axis fits, and which logical
-/// side it prefers there; when <see langword="null"/>, <see cref="global::Blazix.Primitives.FallbackAxisSide.End"/>.
+/// side it prefers there; when <see langword="null"/>, <see cref="global::Iodine.Headless.FallbackAxisSide.End"/>.
 /// </param>
 /// <remarks>A positioner part whose own <c>CollisionAvoidance</c> parameter is <see langword="null"/> applies its component's default.</remarks>
 public sealed record CollisionAvoidance(CollisionAvoidanceMode? Side = null, CollisionAvoidanceMode? Align = null, FallbackAxisSide? FallbackAxisSide = null);

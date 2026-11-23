@@ -1,11 +1,11 @@
 using System.Globalization;
-using Blazix.Primitives.Interop;
+using Iodine.Headless.Interop;
 using Bunit;
 using Microsoft.AspNetCore.Components;
-using static Blazix.Primitives.Tests.Components.SliderTestContext;
+using static Iodine.Headless.Tests.Components.SliderTestContext;
 
 // The namespace is the project's root: a namespace named after the family would hide the parts' types.
-namespace Blazix.Primitives.Tests.Components;
+namespace Iodine.Headless.Tests.Components;
 
 /// <summary>
 /// ADR 16 rule 7 for Slider (decision 26 of the M6 plan): a value step on an uncontrolled root without consumer callbacks,

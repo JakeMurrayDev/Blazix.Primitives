@@ -2,12 +2,12 @@ using System.Globalization;
 using System.Runtime.CompilerServices;
 using System.Text.RegularExpressions;
 using AngleSharp.Dom;
-using Blazix.Primitives.Interop;
+using Iodine.Headless.Interop;
 using Bunit;
 using Microsoft.AspNetCore.Components;
 using Microsoft.JSInterop;
 
-namespace Blazix.Primitives.Tests.Components;
+namespace Iodine.Headless.Tests.Components;
 
 // The steps a ComboboxRoot.test.tsx title takes on any of the Combobox hosts, as the modules report them on Server (the twins'
 // [JSInvokable] callbacks), and the queries its assertions make.
@@ -170,16 +170,16 @@ internal static class ComboboxRootBatchCSteps
         where T : IComponent
     {
         JSRuntimeInvocation attach = test.Form.Invocations["attach"]
-            .Last(invocation => invocation.Arguments[1] is string json && System.Text.Json.JsonSerializer.Deserialize(json, BlazixJsonContext.Default.FormOptions)!.Submit is not null);
+            .Last(invocation => invocation.Arguments[1] is string json && System.Text.Json.JsonSerializer.Deserialize(json, IodineJsonContext.Default.FormOptions)!.Submit is not null);
         FormTwin twin = ((DotNetObjectReference<FormTwin>)attach.Arguments[2]!).Value;
         FormSubmitRequest request = new()
         {
             Event = new EventSnapshot { Kind = EventKind.Event, Type = "submit", DefaultPrevented = true, Target = new EventTargetInfo { TagName = "FORM" } },
             Controls = controls,
         };
-        string payload = System.Text.Json.JsonSerializer.Serialize(request, BlazixJsonContext.Default.FormSubmitRequest);
+        string payload = System.Text.Json.JsonSerializer.Serialize(request, IodineJsonContext.Default.FormSubmitRequest);
         string answer = await cut.InvokeAsync(() => twin.OnSubmitRequest(payload));
-        return System.Text.Json.JsonSerializer.Deserialize(answer, BlazixJsonContext.Default.FormSubmitAnswer)!;
+        return System.Text.Json.JsonSerializer.Deserialize(answer, IodineJsonContext.Default.FormSubmitAnswer)!;
     }
 
     /// <summary>Requests a close through the popup's session, as the module reports an outside press or Escape.</summary>

@@ -1,4 +1,4 @@
-@namespace Blazix.Primitives.Tests.Components
+@namespace Iodine.Headless.Tests.Components
 @* The general Menu tree of the L2 ports: a Root (controlled when `Open` is set, else `DefaultOpen`), an optional Trigger,
    `BeforePortal` content, then Portal > Positioner > Popup with `PopupContent`. `NoPositioner` renders the Popup directly
    under the Root. The Root's open changes are recorded. *@
@@ -40,7 +40,7 @@
     public bool? Modal { get; set; }
 
     [Parameter]
-    public Blazix.Primitives.Orientation Orientation { get; set; } = Blazix.Primitives.Orientation.Vertical;
+    public Iodine.Headless.Orientation Orientation { get; set; } = Iodine.Headless.Orientation.Vertical;
 
     [Parameter]
     public bool LoopFocus { get; set; } = true;

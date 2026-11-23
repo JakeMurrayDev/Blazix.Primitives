@@ -1,5 +1,5 @@
 // Family tests use the project's root namespace.
-namespace Blazix.Primitives.Tests;
+namespace Iodine.Headless.Tests;
 
 /// <summary>
 /// <see cref="Duration"/> at L1: a hand-written union of milliseconds and <see cref="TimeSpan"/> (ADR 05 §4) that

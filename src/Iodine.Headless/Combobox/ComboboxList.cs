@@ -1,11 +1,11 @@
-using Blazix.Primitives.Rendering;
+using Iodine.Headless.Rendering;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Rendering;
 using Microsoft.AspNetCore.Components.Web;
 using Microsoft.Extensions.Logging;
 using Microsoft.JSInterop;
 
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // CMB §3.19, STA-12 (combobox/list/ComboboxList.tsx).
 /// <summary>Represents the state of a combobox list, which the part exposes as data attributes and passes to its class and style functions.</summary>

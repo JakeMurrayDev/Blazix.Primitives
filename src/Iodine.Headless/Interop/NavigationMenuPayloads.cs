@@ -1,4 +1,4 @@
-namespace Blazix.Primitives.Interop;
+namespace Iodine.Headless.Interop;
 
 // NAV-PTR-18, NAV-STA-06; design point 4 of M5 track 5 (a report with no veto, sent 2026-11-04, the user's): a Trigger's
 // mouseenter, click or open key. Reason is the request's literal (`trigger-hover`, `trigger-press`, `list-navigation`),
@@ -39,7 +39,7 @@ internal static class NavigationMenuLiterals
             "trigger-hover" => EventReason.TriggerHover,
             "trigger-press" => EventReason.TriggerPress,
             "list-navigation" => EventReason.ListNavigation,
-            _ => throw new ArgumentOutOfRangeException(nameof(literal), $"Blazix: `{literal}` is not a reason the `navigation-menu` module reports."),
+            _ => throw new ArgumentOutOfRangeException(nameof(literal), $"Iodine: `{literal}` is not a reason the `navigation-menu` module reports."),
         };
     }
 }

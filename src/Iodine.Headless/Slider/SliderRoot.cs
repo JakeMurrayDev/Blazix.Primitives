@@ -1,16 +1,16 @@
 using System.Globalization;
 using System.Linq.Expressions;
-using Blazix.Primitives.Interop;
-using Blazix.Primitives.Rendering;
-using Blazix.Primitives.Store;
-using Blazix.Primitives.Utilities;
+using Iodine.Headless.Interop;
+using Iodine.Headless.Rendering;
+using Iodine.Headless.Store;
+using Iodine.Headless.Utilities;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Forms;
 using Microsoft.AspNetCore.Components.Web;
 using Microsoft.Extensions.Logging;
 using Microsoft.JSInterop;
 
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // SLD §3.1's state object (slider/root/SliderRoot.tsx:274-299,406-446): the field's flags with the slider's fields on top,
 // the same fourteen fields on every part (SLD-STA-05). The six numeric and list fields are never projected (SLD-DOM-02).
@@ -305,7 +305,7 @@ public sealed class SliderRoot : PartBase<SliderRootState>
 
     // SLD-API-08.
     /// <summary>Gets or sets the axis of the slider.</summary>
-    /// <value><see cref="Primitives.Orientation.Horizontal"/>, the default, or <see cref="Primitives.Orientation.Vertical"/>.</value>
+    /// <value><see cref="Headless.Orientation.Horizontal"/>, the default, or <see cref="Headless.Orientation.Vertical"/>.</value>
     [Parameter]
     public Orientation Orientation { get; set; } = Orientation.Horizontal;
 
@@ -359,7 +359,7 @@ public sealed class SliderRoot : PartBase<SliderRootState>
     /// <inheritdoc />
     protected override StateAttributesMapping<SliderRootState>? StateAttributesMapping => s_mapping;
 
-    // For the fixtures (tests/Blazix.Primitives.Fixtures.Client): a browser test waits for the module before it presses.
+    // For the fixtures (tests/Iodine.Headless.Fixtures.Client): a browser test waits for the module before it presses.
     /// <summary>Gets a task that completes when the slider's browser-side behavior is first attached.</summary>
     /// <value>A task that completes after the first interactive render that showed the element.</value>
     internal Task TwinAttached => attachedSource.Task;
@@ -404,7 +404,7 @@ public sealed class SliderRoot : PartBase<SliderRootState>
         if (Min >= Max && !warnedRange && DevelopmentWarnings.IsEnabled)
         {
             warnedRange = true;
-            DevelopmentWarnings.Write(Logger, "Blazix: Slider `max` must be greater than `min`.");
+            DevelopmentWarnings.Write(Logger, "Iodine: Slider `max` must be greater than `min`.");
         }
 
         if (range)
@@ -1118,10 +1118,10 @@ public sealed class SliderRoot : PartBase<SliderRootState>
 
         boxedVersion = s.ValueVersion;
 
-        // BLZX2005: the field's registration and validator take the value as an object; boxed once per committed value.
-#pragma warning disable BLZX2005
+        // IOD2005: the field's registration and validator take the value as an object; boxed once per committed value.
+#pragma warning disable IOD2005
         boxedFieldValue = s.Range ? s.Values : s.Values.Count > 0 ? s.Values[0] : Min;
-#pragma warning restore BLZX2005
+#pragma warning restore IOD2005
         return boxedFieldValue;
     }
 

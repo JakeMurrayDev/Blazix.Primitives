@@ -1,8 +1,8 @@
-using Blazix.Primitives.Rendering;
+using Iodine.Headless.Rendering;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Rendering;
 
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 /// <summary>Represents the state of a progress value, which the part passes to its class and style functions and projects as a status data attribute.</summary>
 /// <param name="Status">The status derived from the value.</param>

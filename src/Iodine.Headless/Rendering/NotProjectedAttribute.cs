@@ -1,4 +1,4 @@
-namespace Blazix.Primitives.Rendering;
+namespace Iodine.Headless.Rendering;
 
 // ADR 02 Amendments 2026-10-26 (a never-projected state field; the first use is Accordion's value array, ACC-STA-01..03).
 /// <summary>

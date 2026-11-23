@@ -1,4 +1,4 @@
-namespace Blazix.Primitives.Interop;
+namespace Iodine.Headless.Interop;
 
 // MNU-EVT-16, EVT-19, KEY-31: an edit of the Input's text the user made, reported at `input` outside a composition and at
 // `compositionend` (filter-dropdown/input/FilterDropdownInput.tsx:45-53, 58-103). Reason is `input-change` or `input-clear`.

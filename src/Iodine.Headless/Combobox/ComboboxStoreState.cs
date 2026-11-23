@@ -1,6 +1,6 @@
-using Blazix.Primitives.Store;
+using Iodine.Headless.Store;
 
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // CMB §4.1 (combobox/store.ts:10-71): the engine's state that is not a value, so every non-generic part reads it (ADR 05
 // Amendments 2026-11-03: the open lifecycle as one positional member, the record composing it). The selected value or

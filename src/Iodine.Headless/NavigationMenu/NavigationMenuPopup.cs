@@ -1,10 +1,10 @@
-using Blazix.Primitives.Interop;
-using Blazix.Primitives.Rendering;
-using Blazix.Primitives.Store;
+using Iodine.Headless.Interop;
+using Iodine.Headless.Rendering;
+using Iodine.Headless.Store;
 using Microsoft.AspNetCore.Components;
 using Microsoft.JSInterop;
 
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // NAV-STA-16, §3.11 state object (navigation-menu/popup/NavigationMenuPopup.tsx:32-38). TransitionStatus is the
 // `transitions` module's (ADR 04 §2): mirrored. Side, Align and AnchorHidden are C#-rendered from the Positioner's mirror

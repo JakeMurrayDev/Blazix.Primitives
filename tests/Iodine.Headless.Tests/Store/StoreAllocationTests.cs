@@ -1,7 +1,7 @@
-using Blazix.Primitives.Store;
+using Iodine.Headless.Store;
 using Microsoft.AspNetCore.Components;
 
-namespace Blazix.Primitives.Tests.Store;
+namespace Iodine.Headless.Tests.Store;
 
 /// <summary>
 /// The store notification budget of ADR 16 rule 7: <c>GC.GetAllocatedBytesForCurrentThread()</c> around a write that

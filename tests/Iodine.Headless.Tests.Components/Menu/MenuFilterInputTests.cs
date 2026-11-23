@@ -2,8 +2,8 @@ using AngleSharp.Dom;
 using Bunit;
 using Microsoft.Extensions.DependencyInjection;
 
-// Family tests use the project's root namespace (tests/Blazix.Primitives.Tests.Components/CONTEXT.md).
-namespace Blazix.Primitives.Tests.Components;
+// Family tests use the project's root namespace (tests/Iodine.Headless.Tests.Components/CONTEXT.md).
+namespace Iodine.Headless.Tests.Components;
 
 /// <summary>
 /// L2: <see cref="MenuInput"/>'s own element, C#'s render before the <c>menu-filter</c> handle attaches (MNU-API-59, DOM-21;
@@ -14,7 +14,7 @@ public sealed class MenuFilterInputTests : BunitContext
     public MenuFilterInputTests()
     {
         JSInterop.Mode = JSRuntimeMode.Loose;
-        Services.AddBlazixPrimitives();
+        Services.AddIodineHeadless();
     }
 
     [Fact(DisplayName = "uses the id passed to Menu.Input")]

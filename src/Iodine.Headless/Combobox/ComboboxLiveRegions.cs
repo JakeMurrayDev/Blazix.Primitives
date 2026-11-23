@@ -1,10 +1,10 @@
-using Blazix.Primitives.Rendering;
+using Iodine.Headless.Rendering;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Rendering;
 using Microsoft.Extensions.Logging;
 using Microsoft.JSInterop;
 
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // Base UI's Combobox.Status (combobox/status/ComboboxStatus.tsx; CMB §3.17, ARIA-13): a polite live region, a sealed thin part
 // over ComboboxLiveRegionBehavior.

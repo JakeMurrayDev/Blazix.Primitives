@@ -1,6 +1,6 @@
-@namespace Blazix.Primitives.Fixtures.Client.DialogFixtures
-@using Blazix.Primitives
-@using Blazix.Primitives.Fixtures.Client.PopupFixtures
+@namespace Iodine.Headless.Fixtures.Client.DialogFixtures
+@using Iodine.Headless
+@using Iodine.Headless.Fixtures.Client.PopupFixtures
 @using Microsoft.JSInterop
 @inherits PopupSuiteFixtureBase
 @inject IJSRuntime JS
@@ -9,7 +9,7 @@
     The `dialog-shadow` fixture (tests/browser/dialog.spec.ts): DialogRoot.test.tsx's "closed shadow root" describe. Base UI
     renders its whole tree into a closed shadow root; Blazor renders components into the document only, so here the roots
     render in the page and their portals move into a closed shadow root a page script creates on `[data-shadow-host]`
-    after the first render and hands C# as an IJSObjectReference (`blazixFixtureDom.lastClosedShadowRoot`).
+    after the first render and hands C# as an IJSObjectReference (`iodineFixtureDom.lastClosedShadowRoot`).
     - `kind=modal|non-modal`: the nested dialog (with a Backdrop when modal), inside an initially open outer dialog of the
       same modality (with a Backdrop when modal); the outer popup is `outer`, the nested trigger `open-nested`, the nested
       popup `nested` and its Close `close-nested` (a nested root's Backdrop renders only with `ForceRender`, so a modal
@@ -102,7 +102,7 @@
             if (firstRender)
             {
                 // The shadow root's host exists only after the first render.
-                shadowRoot = await JS.InvokeAsync<IJSObjectReference>("blazixFixtureDom.createClosedShadowRoot", shadowHost);
+                shadowRoot = await JS.InvokeAsync<IJSObjectReference>("iodineFixtureDom.createClosedShadowRoot", shadowHost);
                 StateHasChanged();
                 return;
             }

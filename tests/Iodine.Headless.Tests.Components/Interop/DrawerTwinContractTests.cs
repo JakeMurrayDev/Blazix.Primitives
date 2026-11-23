@@ -1,8 +1,8 @@
-using Blazix.Primitives.Interop;
+using Iodine.Headless.Interop;
 using Bunit;
 using Microsoft.JSInterop;
 
-namespace Blazix.Primitives.Tests.Components.Interop;
+namespace Iodine.Headless.Tests.Components.Interop;
 
 /// <summary>
 /// Twin contract tests of the <c>drawer</c> module (ADR 06 §1, L2; M6 track 8b, issue 279): bUnit's JS interop mock
@@ -11,7 +11,7 @@ namespace Blazix.Primitives.Tests.Components.Interop;
 /// </summary>
 public sealed class DrawerTwinContractTests
 {
-    private const string ModulePath = "./_content/Blazix.Primitives/js/drawer.js";
+    private const string ModulePath = "./_content/Iodine.Headless/js/drawer.js";
 
     private const string ReleaseJson = """
         {"kind":"PointerEvent","type":"pointerup","key":null,"code":null,"altKey":false,"ctrlKey":false,
@@ -45,14 +45,14 @@ public sealed class DrawerTwinContractTests
             SnapToSequentialPoints = true,
             AnsweredSnap = 4,
             CanceledSnap = 2,
-            Provider = "blazix-drawer-provider-7",
+            Provider = "iodine-drawer-provider-7",
             FrontmostHeight = 240.5,
             HasParent = true,
             AncestorPopups = [2, 3],
             HasNestedDrawer = true,
             Ending = true,
             Disabled = true,
-            SessionToken = "blazix-session-3",
+            SessionToken = "iodine-session-3",
             PopupId = "base-ui-9",
             AnsweredOpen = 5,
             Keyboard = true,
@@ -72,7 +72,7 @@ public sealed class DrawerTwinContractTests
 
         JSRuntimeInvocation update = Assert.Single(handle.Invocations["update"]);
         Assert.Equal(
-            """{"role":"viewport","open":true,"mounted":true,"nested":true,"nestedOpenDrawerCount":2,"swipeDirection":"right","answeredDismiss":3,"snapPoints":[0.5,"200px"],"activeSnapPoint":"200px","snapToSequentialPoints":true,"answeredSnap":4,"canceledSnap":2,"provider":"blazix-drawer-provider-7","frontmostHeight":240.5,"hasParent":true,"ancestorPopups":[2,3],"hasNestedDrawer":true,"ending":true,"disabled":true,"sessionToken":"blazix-session-3","popupId":"base-ui-9","answeredOpen":5,"keyboard":true,"modal":true,"nestedOpenDialogCount":1,"popup":0,"backdrop":1}""",
+            """{"role":"viewport","open":true,"mounted":true,"nested":true,"nestedOpenDrawerCount":2,"swipeDirection":"right","answeredDismiss":3,"snapPoints":[0.5,"200px"],"activeSnapPoint":"200px","snapToSequentialPoints":true,"answeredSnap":4,"canceledSnap":2,"provider":"iodine-drawer-provider-7","frontmostHeight":240.5,"hasParent":true,"ancestorPopups":[2,3],"hasNestedDrawer":true,"ending":true,"disabled":true,"sessionToken":"iodine-session-3","popupId":"base-ui-9","answeredOpen":5,"keyboard":true,"modal":true,"nestedOpenDialogCount":1,"popup":0,"backdrop":1}""",
             update.Arguments[0]);
     }
 

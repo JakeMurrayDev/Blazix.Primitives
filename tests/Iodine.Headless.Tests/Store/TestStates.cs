@@ -1,7 +1,7 @@
-using Blazix.Primitives.Store;
+using Iodine.Headless.Store;
 using Microsoft.AspNetCore.Components;
 
-namespace Blazix.Primitives.Tests.Store;
+namespace Iodine.Headless.Tests.Store;
 
 /// <summary><c>type State = { value: number; label: string }</c> of <c>Store.test.ts</c> and <c>ReactStore.test.tsx</c>.</summary>
 [StoreState]

@@ -197,7 +197,7 @@ function warnOnce(message: string): void {
 }
 
 // The input handle's revision counter, on the input element, so a scrub step takes the next revision of the same line.
-const inputRevision = Symbol('blazix.numberField.inputRevision');
+const inputRevision = Symbol('iodine.numberField.inputRevision');
 type RevisionedInput = HTMLInputElement & { [inputRevision]?: () => number };
 
 /**
@@ -380,7 +380,7 @@ export function attach(
       pasted = event.clipboardData?.getData('text/plain') ?? '';
     } catch {
       if (gate.developmentChecks === true) {
-        warnOnce('Blazix: <NumberFieldInput> could not read clipboard text during paste handling. ');
+        warnOnce('Iodine: <NumberFieldInput> could not read clipboard text during paste handling. ');
       }
       return;
     }
@@ -539,7 +539,7 @@ function syncValueAttribute(element: HTMLInputElement): void {
 
 // Several handles may hold one hidden input (an input part replaced while the old one disposes): the accessor is installed
 // by the first and removed by the last, counted on the element.
-const mirrorCount = Symbol('blazix.numberField.valueMirror');
+const mirrorCount = Symbol('iodine.numberField.valueMirror');
 type MirroredInput = HTMLInputElement & { [mirrorCount]?: number };
 
 function mirrorValueAttribute(element: MirroredInput): () => void {
@@ -583,8 +583,8 @@ interface ScrubState {
   setCursor(cursor: HTMLElement | null): void;
 }
 
-const scrubState = Symbol('blazix.numberField.scrub');
-const pendingCursor = Symbol('blazix.numberField.pendingCursor');
+const scrubState = Symbol('iodine.numberField.scrub');
+const pendingCursor = Symbol('iodine.numberField.pendingCursor');
 type ScrubElement = HTMLElement & { [scrubState]?: ScrubState; [pendingCursor]?: HTMLElement | null };
 
 // NumberFieldScrubArea.tsx:76-81 (NUM-DOM-13): the cursor keeps the OS cursor's size under pinch-zoom.

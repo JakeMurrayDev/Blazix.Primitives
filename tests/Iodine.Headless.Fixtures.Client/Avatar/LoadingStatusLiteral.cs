@@ -1,6 +1,6 @@
-using Blazix.Primitives;
+using Iodine.Headless;
 
-namespace Blazix.Primitives.Fixtures.Client.AvatarFixtures;
+namespace Iodine.Headless.Fixtures.Client.AvatarFixtures;
 
 /// <summary>Writes an <see cref="ImageLoadingStatus"/> as Base UI's literal, the form the specs compare.</summary>
 internal static class LoadingStatusLiteral

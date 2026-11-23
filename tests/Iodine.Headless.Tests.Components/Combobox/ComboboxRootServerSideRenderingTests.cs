@@ -6,7 +6,7 @@ using Microsoft.AspNetCore.Components.Web.HtmlRendering;
 using Microsoft.Extensions.Logging.Abstractions;
 
 // Family tests use the project's root namespace.
-namespace Blazix.Primitives.Tests.Components;
+namespace Iodine.Headless.Tests.Components;
 
 // ComboboxRoot.test.tsx's `server-side rendering` titles at L2 (batch A). Base UI's renderToString: HtmlRenderer renders the
 // HTML a prerender does and runs no OnAfterRender, so no module attaches.

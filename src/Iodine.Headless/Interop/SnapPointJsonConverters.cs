@@ -1,7 +1,7 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
 
-namespace Blazix.Primitives.Interop;
+namespace Iodine.Headless.Interop;
 
 // DRW-API-02; M6 track 8b slice 3 (2026-11-20): the module receives each snap point as the consumer wrote it, a JSON
 // number or string, and resolves it itself (js/drawer.ts, DRW-STA-05).

@@ -1,9 +1,9 @@
-using Blazix.Primitives.Rendering;
+using Iodine.Headless.Rendering;
 using Bunit;
 using Microsoft.AspNetCore.Components;
 using Microsoft.Extensions.Logging;
 
-namespace Blazix.Primitives.Tests.Components;
+namespace Iodine.Headless.Tests.Components;
 
 /// <summary>
 /// The <c>[L2]</c> rows of docs/components/collapsible.md that <c>CollapsiblePanel.test.tsx</c> covers: <c>keepMounted</c> and
@@ -170,7 +170,7 @@ public sealed class CollapsiblePanelTests : IDisposable
         (LogLevel level, string message) = Assert.Single(host.PanelLogger.Entries);
         Assert.Equal(LogLevel.Error, level);
         Assert.Equal(
-            "Blazix: The `KeepMounted` parameter set to `false` on `CollapsiblePanel` is ignored when `HiddenUntilFound` is enabled, since the panel must remain mounted while closed.",
+            "Iodine: The `KeepMounted` parameter set to `false` on `CollapsiblePanel` is ignored when `HiddenUntilFound` is enabled, since the panel must remain mounted while closed.",
             message);
         // The panel stays in the document, hidden; the module writes the `until-found` literal (L4).
         Assert.Contains(PanelContent, cut.Markup, StringComparison.Ordinal);

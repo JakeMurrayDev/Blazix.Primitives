@@ -1,7 +1,7 @@
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Rendering;
 
-namespace Blazix.Primitives.Fixtures.Client.MenuFixtures;
+namespace Iodine.Headless.Fixtures.Client.MenuFixtures;
 
 /// <summary>
 /// Renders nothing at first and its content in the render after it mounted: the port of MenuRoot.test.tsx's

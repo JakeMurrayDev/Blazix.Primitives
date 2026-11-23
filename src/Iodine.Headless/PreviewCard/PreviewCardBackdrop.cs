@@ -1,9 +1,9 @@
-using Blazix.Primitives.Interop;
-using Blazix.Primitives.Rendering;
+using Iodine.Headless.Interop;
+using Iodine.Headless.Rendering;
 using Microsoft.AspNetCore.Components;
 using Microsoft.JSInterop;
 
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // PRV-STA-08 (preview-card/backdrop/PreviewCardBackdrop.tsx:26-29). TransitionStatus is the `transitions` module's (ADR 04
 // §2): mirrored.

@@ -1,7 +1,7 @@
 using Bunit;
 
 // Family tests use the project's root namespace.
-namespace Blazix.Primitives.Tests.Components;
+namespace Iodine.Headless.Tests.Components;
 
 // M5 track 11 (issue 196): AutocompleteRoot.test.tsx's manual unmount lifecycle titles at L2 (AUT-ANI-01, EVT-03, API-05's
 // actions), the five that Combobox ports at L2 (ComboboxRootManualUnmountLifecycleTests, ComboboxContextTitlesTests); the

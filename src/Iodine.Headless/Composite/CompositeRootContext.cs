@@ -1,10 +1,10 @@
 using Microsoft.AspNetCore.Components;
 
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // CMP §6.3 and §6.6 (CompositeRootContext with CompositeListContext: the root provides the item registry), CMP-STR-01:
 // every item registers with the nearest root. Cascaded fixed inside the root's element by the part (ADR 16 rule 9,
-// BLZX2001); an item reaches the root through these methods, never through a re-cascade. CMP-STR-02 and CMP-EDGE-01: an
+// IOD2001); an item reaches the root through these methods, never through a re-cascade. CMP-STR-02 and CMP-EDGE-01: an
 // item without a root is an error (an internal guard: no M2 public part reaches it; Radio registers only inside a group).
 /// <summary>The registry a composite root shares with the items rendered inside it.</summary>
 internal sealed class CompositeRootContext
@@ -30,7 +30,7 @@ internal sealed class CompositeRootContext
     public static CompositeRootContext Require(CompositeRootContext? context, string part)
     {
         return context ?? throw new InvalidOperationException(
-            $"Blazix: `{part}` must be placed within a composite root. A composite item registers with the nearest root, which owns its tab stop.");
+            $"Iodine: `{part}` must be placed within a composite root. A composite item registers with the nearest root, which owns its tab stop.");
     }
 
     /// <summary>Adds an item to the root's registry.</summary>

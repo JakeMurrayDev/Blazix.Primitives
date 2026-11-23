@@ -1,10 +1,10 @@
 using System.Text.Json;
-using Blazix.Primitives.Interop;
+using Iodine.Headless.Interop;
 using Bunit;
 using Microsoft.AspNetCore.Components;
 using Microsoft.JSInterop;
 
-namespace Blazix.Primitives.Tests.Components.Interop;
+namespace Iodine.Headless.Tests.Components.Interop;
 
 /// <summary>
 /// Twin contract tests of the <c>navigation-menu</c> module (ADR 06 §1, L2; ADR 04 Amendments 2026-11-03 (4)): bUnit's JS
@@ -13,7 +13,7 @@ namespace Blazix.Primitives.Tests.Components.Interop;
 /// </summary>
 public sealed class NavigationMenuTwinContractTests
 {
-    private const string ModulePath = "./_content/Blazix.Primitives/js/navigation-menu.js";
+    private const string ModulePath = "./_content/Iodine.Headless/js/navigation-menu.js";
 
     private const string MouseEnterJson = """
         {"kind":"MouseEvent","type":"mouseenter","key":null,"code":null,"altKey":false,"ctrlKey":false,
@@ -145,10 +145,10 @@ public sealed class NavigationMenuTwinContractTests
     {
         Assert.Equal(
             """{"reason":"list-navigation","direction":"down"}""",
-            JsonSerializer.Serialize(new NavigationMenuActivation("list-navigation", "down", null), BlazixJsonContext.Default.NavigationMenuActivation));
-        Assert.Equal("""{"inert":true}""", JsonSerializer.Serialize(new NavigationMenuViewportInertChange(true), BlazixJsonContext.Default.NavigationMenuViewportInertChange));
-        Assert.Equal("{}", JsonSerializer.Serialize(new NavigationMenuFocusOut(null), BlazixJsonContext.Default.NavigationMenuFocusOut));
-        Assert.Equal("""{"part":"root"}""", JsonSerializer.Serialize(new NavigationMenuOptions(), BlazixJsonContext.Default.NavigationMenuOptions));
+            JsonSerializer.Serialize(new NavigationMenuActivation("list-navigation", "down", null), IodineJsonContext.Default.NavigationMenuActivation));
+        Assert.Equal("""{"inert":true}""", JsonSerializer.Serialize(new NavigationMenuViewportInertChange(true), IodineJsonContext.Default.NavigationMenuViewportInertChange));
+        Assert.Equal("{}", JsonSerializer.Serialize(new NavigationMenuFocusOut(null), IodineJsonContext.Default.NavigationMenuFocusOut));
+        Assert.Equal("""{"part":"root"}""", JsonSerializer.Serialize(new NavigationMenuOptions(), IodineJsonContext.Default.NavigationMenuOptions));
     }
 
     /// <summary>A runtime the callback tests never reach: they call the twin's methods directly.</summary>

@@ -1,9 +1,9 @@
 using System.Text.Json;
-using Blazix.Primitives.Interop;
+using Iodine.Headless.Interop;
 using Bunit;
 using Microsoft.JSInterop;
 
-namespace Blazix.Primitives.Tests.Components.Interop;
+namespace Iodine.Headless.Tests.Components.Interop;
 
 /// <summary>
 /// Twin contract tests of the <c>select</c> module (ADR 06 §1, L2; ADR 04 §1's <c>select</c> row, M5 track 9): bUnit's JS
@@ -12,7 +12,7 @@ namespace Blazix.Primitives.Tests.Components.Interop;
 /// </summary>
 public sealed class SelectTwinContractTests
 {
-    private const string ModulePath = "./_content/Blazix.Primitives/js/select.js";
+    private const string ModulePath = "./_content/Iodine.Headless/js/select.js";
 
     private const string ClickJson = """
         {"kind":"PointerEvent","type":"click","key":null,"code":null,"altKey":false,"ctrlKey":false,
@@ -158,12 +158,12 @@ public sealed class SelectTwinContractTests
     [Trait("Requirement", "SEL-POS-07")]
     public void Every_payload_round_trips_through_the_source_generated_context()
     {
-        Assert.Equal("""{"itemId":"i"}""", JsonSerializer.Serialize(new SelectActivation("i"), BlazixJsonContext.Default.SelectActivation));
-        Assert.Equal("""{"aligned":true}""", JsonSerializer.Serialize(new SelectAlignedChange(true), BlazixJsonContext.Default.SelectAlignedChange));
-        Assert.Equal("""{"up":false,"down":true}""", JsonSerializer.Serialize(new SelectArrowsVisibility(false, true), BlazixJsonContext.Default.SelectArrowsVisibility));
-        Assert.Equal("""{"intoPopup":false}""", JsonSerializer.Serialize(new SelectTriggerBlur(false), BlazixJsonContext.Default.SelectTriggerBlur));
+        Assert.Equal("""{"itemId":"i"}""", JsonSerializer.Serialize(new SelectActivation("i"), IodineJsonContext.Default.SelectActivation));
+        Assert.Equal("""{"aligned":true}""", JsonSerializer.Serialize(new SelectAlignedChange(true), IodineJsonContext.Default.SelectAlignedChange));
+        Assert.Equal("""{"up":false,"down":true}""", JsonSerializer.Serialize(new SelectArrowsVisibility(false, true), IodineJsonContext.Default.SelectArrowsVisibility));
+        Assert.Equal("""{"intoPopup":false}""", JsonSerializer.Serialize(new SelectTriggerBlur(false), IodineJsonContext.Default.SelectTriggerBlur));
         SelectArrowsVisibility arrows = new(true, true);
-        Assert.Equal(arrows, JsonSerializer.Deserialize(JsonSerializer.Serialize(arrows, BlazixJsonContext.Default.SelectArrowsVisibility), BlazixJsonContext.Default.SelectArrowsVisibility));
+        Assert.Equal(arrows, JsonSerializer.Deserialize(JsonSerializer.Serialize(arrows, IodineJsonContext.Default.SelectArrowsVisibility), IodineJsonContext.Default.SelectArrowsVisibility));
     }
 
     /// <summary>A runtime the callback tests never reach: they call the twin's methods directly.</summary>

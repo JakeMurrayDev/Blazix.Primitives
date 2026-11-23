@@ -1,6 +1,6 @@
 using Microsoft.AspNetCore.Components;
 
-namespace Blazix.Primitives.Fixtures.Client.CheckboxFixtures;
+namespace Iodine.Headless.Fixtures.Client.CheckboxFixtures;
 
 /// <summary>
 /// The base of the Checkbox fixtures: renders <c>data-attached</c> once every listed box has its root and hidden-input

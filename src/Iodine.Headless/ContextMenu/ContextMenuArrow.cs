@@ -1,7 +1,7 @@
-using Blazix.Primitives.Rendering;
+using Iodine.Headless.Rendering;
 using Microsoft.AspNetCore.Components;
 
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // MNU §3.8 state object (menu/arrow/MenuArrow.tsx). Side, Align and Uncentered are the `positioning` module's: mirrored.
 /// <summary>Represents the state of a context menu arrow, which the part exposes as data attributes and passes to its class and style functions.</summary>

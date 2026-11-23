@@ -1,4 +1,4 @@
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // POP-STA-07, POP-ANI-07; popover/store/PopoverStore.ts:24 (`'dismiss' | 'click' | 'focus' | 'trigger-change'`). ADR 08
 // Amendments 2026-10-27: the family's instant type is an enum beside its first consumer, named in ADR 08 §3's companion

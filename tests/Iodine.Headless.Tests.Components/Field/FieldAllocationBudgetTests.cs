@@ -1,8 +1,8 @@
 using System.Text.Json;
-using Blazix.Primitives.Interop;
+using Iodine.Headless.Interop;
 using Bunit;
 
-namespace Blazix.Primitives.Tests.Components;
+namespace Iodine.Headless.Tests.Components;
 
 /// <summary>
 /// ADR 16 rule 7 for the field: a keystroke on an uncontrolled control after the first, from the form module's report to
@@ -53,5 +53,5 @@ public sealed class FieldAllocationBudgetTests : IDisposable
             Validity = NativeValidity.Default,
             Event = new EventSnapshot { Kind = EventKind.InputEvent, Type = "input", Target = new EventTargetInfo { TagName = "INPUT" } },
         },
-        BlazixJsonContext.Default.FormControlReport);
+        IodineJsonContext.Default.FormControlReport);
 }

@@ -1,4 +1,4 @@
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // NUM-API-12, NUM-I18N-01; ADR 08 Amendments 2026-11-18 (decision 10 (a), chosen by the user 2026-11-18): the options record
 // of NumberFieldRoot.Format, limited to what NUM's rows and the pinned tests use. The members mirror Intl.NumberFormatOptions

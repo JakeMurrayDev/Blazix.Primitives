@@ -1,10 +1,10 @@
-using Blazix.Primitives.Rendering;
+using Iodine.Headless.Rendering;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Rendering;
 using Microsoft.Extensions.Logging;
 using Microsoft.JSInterop;
 
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // DRW §3.4 (drawer/root/DrawerRoot.tsx), decision 20 (a) of the M6 plan (chosen by the user 2026-11-18; ADR 08 Amendments
 // 2026-11-18): the Dialog root routine in drawer mode (useRenderDialogRoot('drawer')), a sealed part over
@@ -55,7 +55,7 @@ public sealed class DrawerRoot<TPayload> : ComponentBase, IAsyncDisposable
     private EventCallback<ValueChangeEventArgs<bool>> openChangeWrapper;
 
     // Created at the first parameter set, once the services are injected.
-    private DialogRootBehavior<TPayload> Behavior => behavior ?? throw new InvalidOperationException("Blazix: `DrawerRoot` is used before its first parameter set.");
+    private DialogRootBehavior<TPayload> Behavior => behavior ?? throw new InvalidOperationException("Iodine: `DrawerRoot` is used before its first parameter set.");
 
     [Inject]
     private PartIdGenerator IdGenerator { get; set; } = null!;
@@ -147,7 +147,7 @@ public sealed class DrawerRoot<TPayload> : ComponentBase, IAsyncDisposable
     // DRW-API-01
     /// <summary>Gets or sets the direction that dismisses the drawer.</summary>
     /// <value>
-    /// <see langword="null"/>, the default, for <see cref="Primitives.SwipeDirection.Down"/>. It also sets the axis of the
+    /// <see langword="null"/>, the default, for <see cref="Headless.SwipeDirection.Down"/>. It also sets the axis of the
     /// gesture and, opposite, the direction a <see cref="DrawerSwipeArea"/> opens the drawer by default.
     /// </value>
     [Parameter]
@@ -220,7 +220,7 @@ public sealed class DrawerRoot<TPayload> : ComponentBase, IAsyncDisposable
     internal DialogStore<TPayload> Store => Behavior.Store;
 
     // For the tests and the parts: the Drawer-only state.
-    internal DrawerRootContext DrawerContext => drawer ?? throw new InvalidOperationException("Blazix: `DrawerRoot` is used before its first parameter set.");
+    internal DrawerRootContext DrawerContext => drawer ?? throw new InvalidOperationException("Iodine: `DrawerRoot` is used before its first parameter set.");
 
     /// <inheritdoc />
     public override Task SetParametersAsync(ParameterView parameters)
@@ -249,7 +249,7 @@ public sealed class DrawerRoot<TPayload> : ComponentBase, IAsyncDisposable
     protected override void OnParametersSet()
     {
         snapPointState!.Update(snapPointSupplied, SnapPoint, defaultValueSupplied: true, ResolvedDefaultSnapPoint());
-        drawer!.SetSwipeDirection(SwipeDirection ?? Primitives.SwipeDirection.Down);
+        drawer!.SetSwipeDirection(SwipeDirection ?? Headless.SwipeDirection.Down);
         drawer.SetSnapSettings(ActiveSnapPoint(), SnapPoints, SnapToSequentialPoints);
         Behavior.ApplyParameters(
             new PopupRootParameters<TPayload>(DefaultOpen, DefaultTriggerId, Handle, openChangeWrapper, OpenChanged, OnOpenChangeComplete, CloseOnActiveTriggerUnmount: false, ChildContent, PayloadContent),

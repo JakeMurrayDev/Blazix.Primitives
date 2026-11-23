@@ -1,9 +1,9 @@
-using Blazix.Primitives.Rendering;
+using Iodine.Headless.Rendering;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Web;
 using Microsoft.JSInterop;
 
-namespace Blazix.Primitives.Fixtures.Client.CompositeFixtures;
+namespace Iodine.Headless.Fixtures.Client.CompositeFixtures;
 
 /// <summary>
 /// The test-only list element at L4 (M5 track 1, issue 159, Deliverable 12): a <c>div</c> with the list's role

@@ -1,10 +1,10 @@
-using Blazix.Primitives.Interop;
-using Blazix.Primitives.Rendering;
-using Blazix.Primitives.Store;
+using Iodine.Headless.Interop;
+using Iodine.Headless.Rendering;
+using Iodine.Headless.Store;
 using Microsoft.AspNetCore.Components;
 using Microsoft.JSInterop;
 
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // NAV-STA-16, §3.10 state object (navigation-menu/positioner/NavigationMenuPositioner.tsx:133-139). Side, Align and
 // AnchorHidden are the `positioning` module's from attach (ADR 04 §2): mirrored. Instant is C#'s (design point 6, settled
@@ -137,12 +137,12 @@ public sealed class NavigationMenuPositioner : PartBase<NavigationMenuPositioner
     public AnchorValue? Anchor { get; set; }
 
     /// <summary>Gets or sets the CSS position the positioner uses.</summary>
-    /// <value><see cref="Primitives.PositionMethod.Absolute"/> when <see langword="null"/>, the default.</value>
+    /// <value><see cref="Headless.PositionMethod.Absolute"/> when <see langword="null"/>, the default.</value>
     [Parameter]
     public PositionMethod? PositionMethod { get; set; }
 
     /// <summary>Gets or sets the side of the anchor the popup is placed on.</summary>
-    /// <value><see cref="Primitives.Side.Bottom"/> when <see langword="null"/>, the default.</value>
+    /// <value><see cref="Headless.Side.Bottom"/> when <see langword="null"/>, the default.</value>
     [Parameter]
     public Side? Side { get; set; }
 
@@ -152,7 +152,7 @@ public sealed class NavigationMenuPositioner : PartBase<NavigationMenuPositioner
     public OffsetValue? SideOffset { get; set; }
 
     /// <summary>Gets or sets the alignment of the popup against the anchor.</summary>
-    /// <value><see cref="Primitives.Align.Center"/> when <see langword="null"/>, the default.</value>
+    /// <value><see cref="Headless.Align.Center"/> when <see langword="null"/>, the default.</value>
     [Parameter]
     public Align? Align { get; set; }
 
@@ -619,7 +619,7 @@ public sealed class NavigationMenuArrow : PartBase<NavigationMenuArrowState>
     {
         // NAV-EDGE-04: thrown in every build.
         return context ?? throw new InvalidOperationException(
-            "Blazix: The `NavigationMenuPositioner` context is missing. `NavigationMenuPositioner` parts must be placed within `<NavigationMenuPositioner>`.");
+            "Iodine: The `NavigationMenuPositioner` context is missing. `NavigationMenuPositioner` parts must be placed within `<NavigationMenuPositioner>`.");
     }
 
     // A part renders on a mirror change only when its state record changed (track 2's rule).

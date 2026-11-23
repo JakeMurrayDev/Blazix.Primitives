@@ -1,7 +1,7 @@
 using System.Globalization;
 using Microsoft.AspNetCore.Components;
 
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // MNU §4.4, STA-15..21, STA-23, STA-24 (filter-dropdown/root/FilterDropdownRoot.tsx:86-196, filter-dropdown/store.ts:9-17,
 // menu/filter-root/MenuFilterList.tsx:101-123): the C# filter of one filterable menu (plan decision 10, ADR 01 :199). The
@@ -730,7 +730,7 @@ internal sealed class MenuFilterRootContext
         {
             DevelopmentWarnings.Write(
                 logger,
-                "Blazix: A filterable menu opened without a `<MenuInput>`. Render the input inside `<MenuPopup>`, or drop `<MenuFilterProvider>` for a menu that does not filter.");
+                "Iodine: A filterable menu opened without a `<MenuInput>`. Render the input inside `<MenuPopup>`, or drop `<MenuFilterProvider>` for a menu that does not filter.");
         }
     }
 

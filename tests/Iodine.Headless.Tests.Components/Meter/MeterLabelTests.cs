@@ -4,7 +4,7 @@ using Microsoft.AspNetCore.Components;
 using Microsoft.Extensions.DependencyInjection;
 
 // The namespace is the project's root: a namespace named after the family would hide the parts' types.
-namespace Blazix.Primitives.Tests.Components;
+namespace Iodine.Headless.Tests.Components;
 
 // MeterLabel.test.tsx. The Root is the label's scope (MTR-STA-03, FFI-ARIA-08): the label publishes its id to the root and
 // withdraws it only while the root still holds that id. The port publishes while the label initializes and when its id
@@ -17,7 +17,7 @@ public sealed class MeterLabelTests : IDisposable
 
     public MeterLabelTests()
     {
-        context.Services.AddBlazixPrimitives();
+        context.Services.AddIodineHeadless();
     }
 
     /// <inheritdoc />
@@ -53,7 +53,7 @@ public sealed class MeterLabelTests : IDisposable
     {
         InvalidOperationException error = Assert.Throws<InvalidOperationException>(() => context.Render<MeterLabel>());
 
-        Assert.Equal("Blazix: The `MeterRoot` context is missing. Meter parts must be placed within `<MeterRoot>`.", error.Message);
+        Assert.Equal("Iodine: The `MeterRoot` context is missing. Meter parts must be placed within `<MeterRoot>`.", error.Message);
     }
 
     [Fact(DisplayName = "draws a generated id when the consumer supplies none")]

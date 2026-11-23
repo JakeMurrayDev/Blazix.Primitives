@@ -1,5 +1,5 @@
-using Blazix.Primitives.Interop;
-using Blazix.Primitives.Rendering;
+using Iodine.Headless.Interop;
+using Iodine.Headless.Rendering;
 using Bunit;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Web;
@@ -7,7 +7,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.JSInterop;
 
-namespace Blazix.Primitives.Tests.Components;
+namespace Iodine.Headless.Tests.Components;
 
 /// <summary>
 /// Button's twin contract (ADR 06 §1, L2): the one <see cref="ButtonTwin"/> per part, its <c>attach</c>, <c>update</c>
@@ -17,15 +17,15 @@ namespace Blazix.Primitives.Tests.Components;
 /// </summary>
 public sealed class ButtonTwinWiringTests : IDisposable
 {
-    private const string ModulePath = "./_content/Blazix.Primitives/js/button.js";
+    private const string ModulePath = "./_content/Iodine.Headless/js/button.js";
 
     private const string NativeMismatchMessage =
-        "Blazix: A component that acts as a button expected a native `<button>` because the `NativeButton` parameter is `true`. "
+        "Iodine: A component that acts as a button expected a native `<button>` because the `NativeButton` parameter is `true`. "
         + "Rendering a non-`<button>` removes native button semantics, which can impact forms and accessibility. "
         + "Use a real `<button>` in the `Render` parameter, or set `NativeButton` to `false`.";
 
     private const string NonNativeMismatchMessage =
-        "Blazix: A component that acts as a button expected a non-`<button>` because the `NativeButton` parameter is `false`. "
+        "Iodine: A component that acts as a button expected a non-`<button>` because the `NativeButton` parameter is `false`. "
         + "Rendering a `<button>` keeps native behavior while the library applies non-native attributes and handlers, which can add "
         + "unintended extra attributes (such as `role` or `aria-disabled`). "
         + "Use a non-`<button>` in the `Render` parameter, or set `NativeButton` to `true`.";
@@ -37,7 +37,7 @@ public sealed class ButtonTwinWiringTests : IDisposable
 
     public ButtonTwinWiringTests()
     {
-        context.Services.AddBlazixPrimitives();
+        context.Services.AddIodineHeadless();
         context.Services.AddSingleton<ILogger<Button>>(logger);
         module = context.JSInterop.SetupModule(ModulePath);
         handle = module.SetupModule("attach", _ => true);
@@ -177,7 +177,7 @@ public sealed class ButtonTwinWiringTests : IDisposable
     {
         CapturingLogger<Button> otherLogger = new();
         using BunitContext otherSession = new();
-        otherSession.Services.AddBlazixPrimitives();
+        otherSession.Services.AddIodineHeadless();
         otherSession.Services.AddSingleton<ILogger<Button>>(otherLogger);
         BunitJSModuleInterop otherModule = otherSession.JSInterop.SetupModule(ModulePath);
         otherModule.SetupModule("attach", _ => true);

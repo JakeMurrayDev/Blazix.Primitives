@@ -1,8 +1,8 @@
-using Blazix.Primitives.Rendering;
+using Iodine.Headless.Rendering;
 using Microsoft.AspNetCore.Components;
 using Microsoft.JSInterop;
 
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // The backdrop every dialog family composes (dialog/backdrop/DialogBackdrop.tsx; ADR 08 Amendments 2026-10-27):
 // - rendered while its root is in the tree unless nested without ForceRender (DLG-STR-05, API-19), hidden while unmounted

@@ -1,7 +1,7 @@
 using Microsoft.AspNetCore.Components;
 
 // Family tests use the project's root namespace.
-namespace Blazix.Primitives.Tests;
+namespace Iodine.Headless.Tests;
 
 /// <summary>
 /// DRW-EVT-02's type-level row (<c>DrawerRoot.spec.tsx</c>) at L1. TypeScript narrows a swipe change's event to

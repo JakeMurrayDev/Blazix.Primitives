@@ -1,8 +1,8 @@
 using Bunit;
 using Microsoft.AspNetCore.Components;
-using Scenario = Blazix.Primitives.Tests.Components.FormScenarios.FormScenario;
+using Scenario = Iodine.Headless.Tests.Components.FormScenarios.FormScenario;
 
-namespace Blazix.Primitives.Tests.Components;
+namespace Iodine.Headless.Tests.Components;
 
 /// <summary>
 /// The <c>[L2]</c> titles of <c>Form.test.tsx</c> that need no submission and no <c>Field.Error</c>, and port titles for the
@@ -98,7 +98,7 @@ public sealed class FormTests : IDisposable
     {
         InvalidOperationException error = Assert.Throws<InvalidOperationException>(() => Context.Render<FormOnSubmitBinding>());
 
-        Assert.Contains("Unable to set property 'onsubmit' on object of type 'Blazix.Primitives.Form'", error.Message, StringComparison.Ordinal);
+        Assert.Contains("Unable to set property 'onsubmit' on object of type 'Iodine.Headless.Form'", error.Message, StringComparison.Ordinal);
     }
 
     [Fact(DisplayName = "marks the field named in Errors invalid, and a new instance replaces the errors")]

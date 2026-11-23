@@ -1,7 +1,7 @@
-using Blazix.Primitives.Interop;
+using Iodine.Headless.Interop;
 using Bunit;
 
-namespace Blazix.Primitives.Tests.Components;
+namespace Iodine.Headless.Tests.Components;
 
 /// <summary>
 /// ADR 16 rules 7 and 8 for the open lifecycle on the standalone test host: a re-render of the root with unchanged

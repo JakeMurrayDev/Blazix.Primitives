@@ -3138,7 +3138,7 @@ describe('FloatingFocusManager', () => {
       // The list's open focus moved focus from `elsewhere` (a programmatic open) to its first item before the attach.
       elsewhere.focus();
       const listed = open();
-      listed.data['blazix.composite.openFocus'] = { element: listed.one, origin: elsewhere };
+      listed.data['iodine.composite.openFocus'] = { element: listed.one, origin: elsewhere };
       listed.one.focus();
       const late = attachManager(listed.floating, { ...options, sessionToken: listed.popup.token });
       await settle();
@@ -3154,7 +3154,7 @@ describe('FloatingFocusManager', () => {
       const switched = open();
       const manager = attachManager(switched.floating, { ...options, sessionToken: switched.popup.token });
       await settle();
-      switched.data['blazix.composite.openFocus'] = { element: switched.one, origin: elsewhere };
+      switched.data['iodine.composite.openFocus'] = { element: switched.one, origin: elsewhere };
       switched.one.focus();
       manager.update({ ...options, sessionToken: switched.popup.token, domReferenceId: 'second' });
       await settle();
@@ -3170,7 +3170,7 @@ describe('FloatingFocusManager', () => {
       // records the author's element, and the return is lost when the popup leaves the document.
       elsewhere.focus();
       const authored = open();
-      authored.data['blazix.composite.openFocus'] = { element: authored.one, origin: elsewhere };
+      authored.data['iodine.composite.openFocus'] = { element: authored.one, origin: elsewhere };
       authored.two.focus();
       const author = attachManager(authored.floating, { ...options, sessionToken: authored.popup.token });
       await settle();

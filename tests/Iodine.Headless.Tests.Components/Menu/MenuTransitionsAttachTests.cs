@@ -2,8 +2,8 @@ using Bunit;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.JSInterop;
 
-// Family tests use the project's root namespace (tests/Blazix.Primitives.Tests.Components/CONTEXT.md).
-namespace Blazix.Primitives.Tests.Components;
+// Family tests use the project's root namespace (tests/Iodine.Headless.Tests.Components/CONTEXT.md).
+namespace Iodine.Headless.Tests.Components;
 
 /// <summary>
 /// L2, issue 226 (issue 213's Menu half): what only a transitions update carries, the popup's style and an unmount request,
@@ -17,7 +17,7 @@ public sealed class MenuTransitionsAttachTests : BunitContext
     public MenuTransitionsAttachTests()
     {
         JSInterop.Mode = JSRuntimeMode.Loose;
-        Services.AddBlazixPrimitives();
+        Services.AddIodineHeadless();
     }
 
     // The held runtime is a test double, not interop: the analyzer reads its members as JS interop calls.
@@ -77,7 +77,7 @@ public sealed class MenuTransitionsAttachTests : BunitContext
 
     private BunitJSModuleInterop SetUpTransitions()
     {
-        BunitJSModuleInterop transitions = JSInterop.SetupModule("./_content/Blazix.Primitives/js/transitions.js");
+        BunitJSModuleInterop transitions = JSInterop.SetupModule("./_content/Iodine.Headless/js/transitions.js");
         BunitJSModuleInterop handle = transitions.SetupModule("attach", _ => true);
         handle.SetupVoid("update", _ => true).SetVoidResult();
         return handle;

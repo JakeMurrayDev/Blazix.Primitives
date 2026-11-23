@@ -1,4 +1,4 @@
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // ADR 04 §2 (the Positioner's data-side, data-align, data-anchor-hidden; the Arrow's data-uncentered) and ADR 08
 // Amendments 2026-10-27 (the families' [MirroredField] Side, Align, AnchorHidden and Uncentered): the values the

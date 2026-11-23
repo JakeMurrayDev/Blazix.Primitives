@@ -1,7 +1,7 @@
-using Blazix.Primitives.Rendering;
+using Iodine.Headless.Rendering;
 using Microsoft.AspNetCore.Components;
 
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // Base UI's Dialog.Description (DLG §3.8 (dialog/description/DialogDescription.tsx)); the contract is docs/components/dialog.md (§5.6, §5.8). A thin part over
 // DialogLabelBehavior, which the AlertDialog family shares (ADR 08 Amendments 2026-10-27). Its id, given or generated, is

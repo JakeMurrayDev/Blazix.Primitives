@@ -1,4 +1,4 @@
-namespace Blazix.Primitives.Interop;
+namespace Iodine.Headless.Interop;
 
 // ADR 04 §2 (every Positioner's data-side, data-align, data-anchor-hidden; every Arrow's data-uncentered) and
 // Amendments 2026-10-27: one report per change of the four mirrored values, never one per positioning pass (§3, ADR 16

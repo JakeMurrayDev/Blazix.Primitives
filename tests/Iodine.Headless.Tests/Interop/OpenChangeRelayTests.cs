@@ -1,7 +1,7 @@
 using System.Text.Json;
-using Blazix.Primitives.Interop;
+using Iodine.Headless.Interop;
 
-namespace Blazix.Primitives.Tests.Interop;
+namespace Iodine.Headless.Tests.Interop;
 
 /// <summary>
 /// L1: the relay of a committed open change (ADR 04 Amendments 2026-10-27, the open-change relay; the record is track 1's,
@@ -21,7 +21,7 @@ public sealed class OpenChangeRelayTests
 
         Assert.Equal(
             """{"revision":3,"reason":"trigger-press","eventKind":"PointerEvent","eventType":"click","pointerType":"mouse","triggerId":"base-ui-5"}""",
-            JsonSerializer.Serialize(relay, BlazixJsonContext.Default.OpenChangeRelay));
+            JsonSerializer.Serialize(relay, IodineJsonContext.Default.OpenChangeRelay));
     }
 
     [Fact]
@@ -31,7 +31,7 @@ public sealed class OpenChangeRelayTests
 
         Assert.Equal(
             """{"revision":4,"reason":"imperative-action","eventKind":"Event","eventType":"base-ui"}""",
-            JsonSerializer.Serialize(relay, BlazixJsonContext.Default.OpenChangeRelay));
+            JsonSerializer.Serialize(relay, IodineJsonContext.Default.OpenChangeRelay));
     }
 
     [Fact]
@@ -42,6 +42,6 @@ public sealed class OpenChangeRelayTests
 
         Assert.Equal(
             """{"revision":6,"reason":"trigger-press","eventKind":"Event","eventType":"base-ui","triggerId":"base-ui-5","coalescedCloseRevision":5,"coalescedCloseReason":"escape-key"}""",
-            JsonSerializer.Serialize(relay, BlazixJsonContext.Default.OpenChangeRelay));
+            JsonSerializer.Serialize(relay, IodineJsonContext.Default.OpenChangeRelay));
     }
 }

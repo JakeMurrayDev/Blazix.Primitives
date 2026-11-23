@@ -1,9 +1,9 @@
-using Blazix.Primitives.Interop;
-using Blazix.Primitives.Rendering;
+using Iodine.Headless.Interop;
+using Iodine.Headless.Rendering;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Web;
 
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // ADR 04 Amendments 2026-11-10 (design point 6, chosen by the user): the consumer's onmousedown on the Chips and the
 // InputGroup runs before the press (handleInputPress.ts:9), and its PreventPartHandler() skips it. The part declines the

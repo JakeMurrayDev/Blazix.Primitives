@@ -1,8 +1,8 @@
-using Blazix.Primitives.Rendering;
+using Iodine.Headless.Rendering;
 using Microsoft.AspNetCore.Components;
 using Microsoft.JSInterop;
 
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // Base UI's Toast.Portal (toast/portal/ToastPortal.tsx:13-28); TST-STR-09, TST-API-17, TST-DOM-20. The lite portal of
 // PSH-STR-11 (PopupPortalBehavior with Lite: no outside guards, no aria-owns owner, FLT-DOM-11): the node

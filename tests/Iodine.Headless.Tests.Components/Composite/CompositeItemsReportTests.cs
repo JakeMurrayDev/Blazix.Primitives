@@ -1,9 +1,9 @@
-using Blazix.Primitives.Interop;
+using Iodine.Headless.Interop;
 using Bunit;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.JSInterop;
 
-namespace Blazix.Primitives.Tests.Components;
+namespace Iodine.Headless.Tests.Components;
 
 /// <summary>
 /// The items report (M3 track 1, E2; ADR 04 Amendments 2026-10-26, chosen by the user): with <c>ReportItems</c> the
@@ -72,7 +72,7 @@ public sealed class CompositeItemsReportTests : IDisposable
     public void Applies_a_report_that_arrives_before_attach_returns()
     {
         using BunitContext context = new();
-        context.Services.AddBlazixPrimitives();
+        context.Services.AddIodineHeadless();
         BunitJSModuleInterop module = context.JSInterop.SetupModule(CompositeTestContext.ModulePath);
         string[]? reported = null;
         BunitJSModuleInterop handle = module.SetupModule("attach", invocation =>
@@ -107,7 +107,7 @@ public sealed class CompositeItemsReportTests : IDisposable
     public void A_report_during_an_update_sends_no_second_update()
     {
         using BunitContext context = new();
-        context.Services.AddBlazixPrimitives();
+        context.Services.AddIodineHeadless();
         BunitJSModuleInterop module = context.JSInterop.SetupModule(CompositeTestContext.ModulePath);
         BunitJSModuleInterop handle = module.SetupModule("attach", _ => true);
         CompositeTwin? twin = null;

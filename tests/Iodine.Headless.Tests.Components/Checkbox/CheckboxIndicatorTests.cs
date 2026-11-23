@@ -1,9 +1,9 @@
 using AngleSharp.Dom;
-using Blazix.Primitives.Interop;
+using Iodine.Headless.Interop;
 using Bunit;
 
 // The namespace is the project's root: a namespace named after the family would hide the parts' types.
-namespace Blazix.Primitives.Tests.Components;
+namespace Iodine.Headless.Tests.Components;
 
 // CheckboxIndicator.test.tsx, the rows C# observes (issue 81): when the element is rendered, what C# renders at its
 // creation (the handover of data-starting-style, ADR 04 Amendments 2026-10-18), the twin's options, and the mirror of the
@@ -28,7 +28,7 @@ public sealed class CheckboxIndicatorTests : IDisposable
     {
         InvalidOperationException error = Assert.Throws<InvalidOperationException>(() => Context.Render<CheckboxIndicator>());
 
-        Assert.Equal("Blazix: The `CheckboxRoot` context is missing. Checkbox parts must be placed within `<CheckboxRoot>`.", error.Message);
+        Assert.Equal("Iodine: The `CheckboxRoot` context is missing. Checkbox parts must be placed within `<CheckboxRoot>`.", error.Message);
     }
 
     [Fact(DisplayName = "should not render indicator by default")]

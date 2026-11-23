@@ -1,6 +1,6 @@
-using Blazix.Primitives.Rendering;
+using Iodine.Headless.Rendering;
 
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // Base UI's Menu.GroupLabel (menu/group-label/MenuGroupLabel.tsx; MNU-API-48, DOM-19, ARIA-11): its id, given or
 // generated, labels the enclosing group while it is mounted; aria-hidden="true" by default, which a consumer's attribute

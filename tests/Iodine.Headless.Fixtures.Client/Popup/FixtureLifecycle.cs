@@ -1,12 +1,12 @@
-using Blazix.Primitives.Interop;
-using Blazix.Primitives.Rendering;
-using Blazix.Primitives.Store;
+using Iodine.Headless.Interop;
+using Iodine.Headless.Rendering;
+using Iodine.Headless.Store;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Rendering;
 using Microsoft.Extensions.Logging;
 using Microsoft.JSInterop;
 
-namespace Blazix.Primitives.Fixtures.Client.PopupFixtures;
+namespace Iodine.Headless.Fixtures.Client.PopupFixtures;
 
 /// <summary>
 /// The standalone host's store record at L4 (M5 track 2, brief deliverable 1), the counterpart of the L2 project's

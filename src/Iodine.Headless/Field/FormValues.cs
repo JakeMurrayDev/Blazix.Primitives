@@ -1,7 +1,7 @@
 using System.Collections;
 using System.Diagnostics.CodeAnalysis;
 
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // FFI-API-07, FFI-EVT-05, FRM-EVT-04; form/Form.tsx:128-135 and field/root/useFieldValidation.ts:293-298 (the values
 // object). ADR 08 Amendments 2026-10-22: read-only, typed accessors over the one object? collection; the accessor set is
@@ -48,7 +48,7 @@ public sealed class FormValues : IReadOnlyDictionary<string, object?>
     /// <remarks>Names are compared ordinally.</remarks>
     /// <exception cref="ArgumentNullException"><paramref name="key"/> is <see langword="null"/>.</exception>
     /// <exception cref="KeyNotFoundException">No field has that name.</exception>
-    public object? this[string key] => TryGetValue(key, out object? value) ? value : throw new KeyNotFoundException($"Blazix: no field is named `{key}`.");
+    public object? this[string key] => TryGetValue(key, out object? value) ? value : throw new KeyNotFoundException($"Iodine: no field is named `{key}`.");
 
     /// <inheritdoc />
     /// <remarks>Names are compared ordinally.</remarks>

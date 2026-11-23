@@ -1,9 +1,9 @@
-using Blazix.Primitives.Rendering;
+using Iodine.Headless.Rendering;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Rendering;
 using Microsoft.JSInterop;
 
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // Base UI's Menu.Portal (menu/portal/MenuPortal.tsx); the contract is docs/components/menu.md §3.3 (MNU-STR-04, STR-18,
 // API-24/25, DOM-26, ARIA-18). A thin shell over MenuPortalBehavior, the PopoverPortal shape: the node renders while

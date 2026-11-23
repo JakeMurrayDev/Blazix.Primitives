@@ -1,8 +1,8 @@
-using Blazix.Primitives.Utilities;
+using Iodine.Headless.Utilities;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Rendering;
 
-namespace Blazix.Primitives.Tests.Components;
+namespace Iodine.Headless.Tests.Components;
 
 /// <summary>
 /// A test-only root whose single and list parameters are exclusive, with no <c>Multiple</c> flag (ADR 08 Amendments

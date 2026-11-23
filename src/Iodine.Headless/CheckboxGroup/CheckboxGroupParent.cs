@@ -1,4 +1,4 @@
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // checkbox-group §4 (the parent toggle algorithm) and §8's registries; checkbox-group/useCheckboxGroupParent.ts. Pure C#
 // with no Blazor reference (L1). Identities are opaque strings in ordinal dictionaries (CKG-EDGE-04).

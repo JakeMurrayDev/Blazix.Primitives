@@ -1,10 +1,10 @@
-using Blazix.Primitives.Rendering;
+using Iodine.Headless.Rendering;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Rendering;
 using Microsoft.Extensions.Logging;
 using Microsoft.JSInterop;
 
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // CMB §3.14, STA-09 (combobox/positioner/ComboboxPositioner.tsx): Side, Align and AnchorHidden are the `positioning` module's from attach (ADR 04 §2): mirrored.
 /// <summary>Represents the state of a combobox positioner, which the part exposes as data attributes and passes to its class and style functions.</summary>

@@ -1,4 +1,4 @@
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // PRG §3.6 (Base UI's `Progress.Status`, alias ProgressStatus; progress/root/ProgressRoot.tsx:106). ADR 08 §3 Enums row:
 // family-prefixed because it is one family's, members are the PascalCase of the literals, no sentinel. The generator's

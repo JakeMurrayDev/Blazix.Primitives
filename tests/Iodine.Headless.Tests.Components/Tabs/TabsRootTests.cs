@@ -1,13 +1,13 @@
-using Blazix.Primitives.Interop;
+using Iodine.Headless.Interop;
 using System.Text.RegularExpressions;
 using AngleSharp.Dom;
 using Bunit;
 using Microsoft.AspNetCore.Components;
-using static Blazix.Primitives.Tests.Components.TabsTestContext;
-using LibraryOrientation = Blazix.Primitives.Orientation;
+using static Iodine.Headless.Tests.Components.TabsTestContext;
+using LibraryOrientation = Iodine.Headless.Orientation;
 
 // The namespace is the project's root: a namespace named after the family would hide the parts' types.
-namespace Blazix.Primitives.Tests.Components;
+namespace Iodine.Headless.Tests.Components;
 
 // TabsRoot.test.tsx, the [L2] rows that need no composite extension of track 1 (issue 104 deliverable 9): the element,
 // the value, the panel registry and aria-controls, the orientation. A click reaches C# as the `tabs` module's report

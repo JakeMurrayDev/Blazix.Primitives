@@ -1,11 +1,11 @@
 // Family tests use the project's root namespace: a `Toast` namespace would read as a family type.
-namespace Blazix.Primitives.Tests;
+namespace Iodine.Headless.Tests;
 
 /// <summary>
 /// The store behaviour behind <c>toast/useToastManager.test.tsx</c> at L1 (TST §4; ADR 06 §1). Base UI's file runs only
 /// under JSDOM with a rendered Provider; the titles its <c>[L1]</c> rows cite are kept verbatim here and drive the manager
 /// and its provider link without a renderer (ADR 13 §3; the dated notes on the rows). What they assert about rendered
-/// text, attributes and removal is the L2 titles' (<c>tests/Blazix.Primitives.Tests.Components/Toast/</c>).
+/// text, attributes and removal is the L2 titles' (<c>tests/Iodine.Headless.Tests.Components/Toast/</c>).
 /// </summary>
 public sealed class ToastManagerStateTests
 {

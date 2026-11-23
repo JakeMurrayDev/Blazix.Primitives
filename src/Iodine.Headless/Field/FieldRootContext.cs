@@ -1,4 +1,4 @@
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // FFI §2 (field scope), FFI-STR-01, FFI-STA-01..11, FFI-API-02/05, FFI-ALG-12 (registration), FFI-ALG-13 (focus ownership),
 // FFI-ALG-14 (publish, through FieldValidation), FFI-FRM-17..21, FFI-FRM-25..27; field/root/FieldRoot.tsx,

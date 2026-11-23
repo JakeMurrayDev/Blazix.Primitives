@@ -1,4 +1,4 @@
-namespace Blazix.Primitives.Interop;
+namespace Iodine.Headless.Interop;
 
 // ADR 04 §1 (the `number-field` component module) and Amendments 2026-11-18; issue 277, design points 2 (b) and 7 (a),
 // settled by the orchestrator 2026-11-18: 6a's options, the visible input's text and the echoed revision. 6b adds the gate's

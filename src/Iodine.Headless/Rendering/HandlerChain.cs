@@ -1,6 +1,6 @@
 using Microsoft.AspNetCore.Components;
 
-namespace Blazix.Primitives.Rendering;
+namespace Iodine.Headless.Rendering;
 
 // RND-ALG-04 as settled by ADR 02 decision 3
 /// <summary>Provides the chain that runs attribute handlers in precedence order, stopping when a handler vetoes the rest.</summary>

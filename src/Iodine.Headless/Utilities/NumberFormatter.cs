@@ -3,7 +3,7 @@ using System.Globalization;
 using System.Numerics;
 using System.Text;
 
-namespace Blazix.Primitives.Utilities;
+namespace Iodine.Headless.Utilities;
 
 // UTL-I18N-05..07, NUM-I18N-01, NUM-I18N-07, NUM-I18N-13; ADR 01 decision 2 as amended (equivalent to Intl.NumberFormat, not
 // byte-identical) and ADR 08 Amendments 2026-11-18 (decision 10 (a): the formatter over NumberFormatInfo with the rounding helper).
@@ -81,7 +81,7 @@ internal sealed class NumberFormatter
         {
             string code = options.Currency is { Length: 3 } c && IsAsciiLetters(c)
                 ? c.ToUpperInvariant()
-                : throw new ArgumentException($"Blazix: `NumberFormatOptions.Currency` must be a three-letter ISO 4217 code when `Style` is `{nameof(NumberFormatStyle.Currency)}`; it is `{options.Currency ?? "null"}`.", nameof(options));
+                : throw new ArgumentException($"Iodine: `NumberFormatOptions.Currency` must be a three-letter ISO 4217 code when `Style` is `{nameof(NumberFormatStyle.Currency)}`; it is `{options.Currency ?? "null"}`.", nameof(options));
             currencyDigits = NumberCultureData.CurrencyDigits(code);
             currencyText = NumberCultureData.CurrencyText(culture, code, options.CurrencyDisplay);
             currencyName = options.CurrencyDisplay == NumberFormatCurrencyDisplay.Name;
@@ -89,7 +89,7 @@ internal sealed class NumberFormatter
         else if (style == NumberFormatStyle.Unit)
         {
             NumberFormatUnit unit = options.Unit
-                ?? throw new ArgumentException($"Blazix: `NumberFormatOptions.Unit` is required when `Style` is `{nameof(NumberFormatStyle.Unit)}`.", nameof(options));
+                ?? throw new ArgumentException($"Iodine: `NumberFormatOptions.Unit` is required when `Style` is `{nameof(NumberFormatStyle.Unit)}`.", nameof(options));
             if (unit != NumberFormatUnit.Percent)
             {
                 (unitSeparator, unitText) = NumberCultureData.UnitText(culture, unit);
@@ -109,7 +109,7 @@ internal sealed class NumberFormatter
         roundingIncrement = options.RoundingIncrement ?? 1;
         if (Array.IndexOf(s_roundingIncrements, roundingIncrement) < 0)
         {
-            throw new ArgumentException($"Blazix: `NumberFormatOptions.RoundingIncrement` must be one of 1, 2, 5, 10, 20, 25, 50, 100, 200, 250, 500, 1000, 2000, 2500 and 5000; it is `{roundingIncrement}`.", nameof(options));
+            throw new ArgumentException($"Iodine: `NumberFormatOptions.RoundingIncrement` must be one of 1, 2, 5, 10, 20, 25, 50, 100, 200, 250, 500, 1000, 2000, 2500 and 5000; it is `{roundingIncrement}`.", nameof(options));
         }
 
         if (roundingIncrement != 1)
@@ -163,7 +163,7 @@ internal sealed class NumberFormatter
                 }
                 else if (minimum > maximum)
                 {
-                    throw new ArgumentException($"Blazix: `NumberFormatOptions.MinimumFractionDigits` ({minimum}) is greater than `MaximumFractionDigits` ({maximum}).", nameof(options));
+                    throw new ArgumentException($"Iodine: `NumberFormatOptions.MinimumFractionDigits` ({minimum}) is greater than `MaximumFractionDigits` ({maximum}).", nameof(options));
                 }
 
                 minimumFractionDigits = minimum.Value;
@@ -197,12 +197,12 @@ internal sealed class NumberFormatter
         {
             if (roundingType != RoundingType.FractionDigits)
             {
-                throw new ArgumentException("Blazix: `NumberFormatOptions.RoundingIncrement` other than 1 cannot be combined with significant digits.", nameof(options));
+                throw new ArgumentException("Iodine: `NumberFormatOptions.RoundingIncrement` other than 1 cannot be combined with significant digits.", nameof(options));
             }
 
             if (maximumFractionDigits != minimumFractionDigits)
             {
-                throw new ArgumentException("Blazix: `NumberFormatOptions.RoundingIncrement` other than 1 requires equal `MinimumFractionDigits` and `MaximumFractionDigits`.", nameof(options));
+                throw new ArgumentException("Iodine: `NumberFormatOptions.RoundingIncrement` other than 1 requires equal `MinimumFractionDigits` and `MaximumFractionDigits`.", nameof(options));
             }
         }
     }
@@ -329,7 +329,7 @@ internal sealed class NumberFormatter
     {
         if (value is int v && (v < minimum || v > maximum))
         {
-            throw new ArgumentException($"Blazix: `NumberFormatOptions.{name}` must be between {minimum} and {maximum}; it is `{v}`.", "options");
+            throw new ArgumentException($"Iodine: `NumberFormatOptions.{name}` must be between {minimum} and {maximum}; it is `{v}`.", "options");
         }
     }
 

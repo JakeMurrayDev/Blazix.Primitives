@@ -1,11 +1,11 @@
-using Blazix.Primitives.Rendering;
-using Blazix.Primitives.Tests.Components.Rendering.Conformance;
+using Iodine.Headless.Rendering;
+using Iodine.Headless.Tests.Components.Rendering.Conformance;
 using Bunit;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Rendering;
 
-// Family tests use the project's root namespace (tests/Blazix.Primitives.Tests.Components/CONTEXT.md).
-namespace Blazix.Primitives.Tests.Components;
+// Family tests use the project's root namespace (tests/Iodine.Headless.Tests.Components/CONTEXT.md).
+namespace Iodine.Headless.Tests.Components;
 
 /// <summary>SEL-DOM-55, SEL-DOM-01, SEL-API-25, SEL-API-27: <c>SelectTrigger.test.tsx</c>'s conformance suite inside <c>Root open</c> (<c>refInstanceof: HTMLButtonElement</c>, <c>button: true</c>, so the substitution titles render a <c>div</c> with <c>NativeButton="false"</c>).</summary>
 public sealed class SelectTriggerConformanceTests : PartConformanceTests<SelectTrigger<string>>

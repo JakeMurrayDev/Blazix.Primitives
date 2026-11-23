@@ -1,11 +1,11 @@
-using Blazix.Primitives.Rendering;
-using Blazix.Primitives.Store;
-using Blazix.Primitives.Utilities;
+using Iodine.Headless.Rendering;
+using Iodine.Headless.Store;
+using Iodine.Headless.Utilities;
 using Microsoft.AspNetCore.Components;
 using Microsoft.Extensions.Logging;
 using Microsoft.JSInterop;
 
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // TAB-STA-20; tabs/root/TabsRoot.tsx:332-335,411-420. ADR 04 Amendments 2026-10-26 (chosen by the user 2026-10-26): the
 // `tabs` module writes data-activation-direction from attach, so the direction is a mirrored field (RND-STA-01 row of
@@ -146,8 +146,8 @@ public sealed class TabsRoot<TValue> : PartBase<TabsRootState>
     // TAB-API-04; ADR 08 Amendments 2026-10-26 (non-nullable, default Horizontal).
     /// <summary>Gets or sets the axis along which the tabs are laid out.</summary>
     /// <value>
-    /// <see cref="Primitives.Orientation.Horizontal"/>, the default, for the left and right arrow keys; or
-    /// <see cref="Primitives.Orientation.Vertical"/> for the up and down arrow keys.
+    /// <see cref="Headless.Orientation.Horizontal"/>, the default, for the left and right arrow keys; or
+    /// <see cref="Headless.Orientation.Vertical"/> for the up and down arrow keys.
     /// </value>
     [Parameter]
     public Orientation Orientation { get; set; } = Orientation.Horizontal;

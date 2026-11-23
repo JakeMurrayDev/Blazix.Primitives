@@ -1,9 +1,9 @@
-using Blazix.Primitives.Interop;
+using Iodine.Headless.Interop;
 using Bunit;
 using Microsoft.JSInterop;
 
 // Family tests use the project's root namespace.
-namespace Blazix.Primitives.Tests.Components;
+namespace Iodine.Headless.Tests.Components;
 
 // CMB-EVT-11 at L2 (ComboboxRoot.test.tsx's and createItems.test.tsx's autofill titles): the hidden input's autofilled
 // `change`, which the `form` module reports (FormTwin.OnAutofill), selects the item whose serialized value or label matches

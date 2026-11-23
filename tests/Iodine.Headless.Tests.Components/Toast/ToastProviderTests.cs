@@ -1,7 +1,7 @@
 using Bunit;
 using Microsoft.AspNetCore.Components;
 
-namespace Blazix.Primitives.Tests.Components;
+namespace Iodine.Headless.Tests.Components;
 
 /// <summary>
 /// The toast provider at L2 (TST §3.1, TST §3.2): <c>ToastProvider.test.tsx</c>'s titles, the provider-level titles of

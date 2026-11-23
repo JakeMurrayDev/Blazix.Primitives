@@ -1,10 +1,10 @@
-using Blazix.Primitives.Rendering;
+using Iodine.Headless.Rendering;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Rendering;
 using Microsoft.Extensions.Logging;
 using Microsoft.JSInterop;
 
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // CTX-STA-02 (context-menu/positioner/ContextMenuPositioner.tsx:10): Menu.Positioner's state object. Side, Align and
 // AnchorHidden are the `positioning` module's from attach (ADR 04 §2): mirrored. Nested and Instant are C#'s. Design point 5
@@ -127,8 +127,8 @@ public sealed class ContextMenuPositioner : PartBase<ContextMenuPositionerState>
     // CTX-API-07
     /// <summary>Gets or sets the side of the anchor the menu is placed against.</summary>
     /// <value>
-    /// <see langword="null"/>, the default, for <see cref="Blazix.Primitives.Side.Bottom"/>, or
-    /// <see cref="Blazix.Primitives.Side.InlineEnd"/> for a submenu.
+    /// <see langword="null"/>, the default, for <see cref="Iodine.Headless.Side.Bottom"/>, or
+    /// <see cref="Iodine.Headless.Side.InlineEnd"/> for a submenu.
     /// </value>
     [Parameter]
     public Side? Side { get; set; }
@@ -137,14 +137,14 @@ public sealed class ContextMenuPositioner : PartBase<ContextMenuPositionerState>
     /// <summary>Gets or sets the distance between the anchor and the menu.</summary>
     /// <value>
     /// A number of pixels or a function of the placement; <see langword="null"/>, the default, for -5 at the root when no
-    /// <see cref="Side"/> is given and the alignment is not <see cref="Blazix.Primitives.Align.Center"/>, otherwise 0.
+    /// <see cref="Side"/> is given and the alignment is not <see cref="Iodine.Headless.Align.Center"/>, otherwise 0.
     /// </value>
     [Parameter]
     public OffsetValue? SideOffset { get; set; }
 
     // CTX-API-08
     /// <summary>Gets or sets how the menu is aligned against the anchor on the other axis.</summary>
-    /// <value><see langword="null"/>, the default, for <see cref="Blazix.Primitives.Align.Start"/>.</value>
+    /// <value><see langword="null"/>, the default, for <see cref="Iodine.Headless.Align.Start"/>.</value>
     [Parameter]
     public Align? Align { get; set; }
 
@@ -152,7 +152,7 @@ public sealed class ContextMenuPositioner : PartBase<ContextMenuPositionerState>
     /// <summary>Gets or sets the offset along the alignment axis.</summary>
     /// <value>
     /// A number of pixels or a function of the placement; <see langword="null"/>, the default, for 2 at the root when no
-    /// <see cref="Side"/> is given and the alignment is not <see cref="Blazix.Primitives.Align.Center"/>, otherwise 0.
+    /// <see cref="Side"/> is given and the alignment is not <see cref="Iodine.Headless.Align.Center"/>, otherwise 0.
     /// </value>
     [Parameter]
     public OffsetValue? AlignOffset { get; set; }

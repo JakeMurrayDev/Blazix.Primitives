@@ -1,8 +1,8 @@
-using Blazix.Primitives.Interop;
+using Iodine.Headless.Interop;
 using Microsoft.AspNetCore.Components;
 using Microsoft.JSInterop;
 
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // The SelectModuleAttachment shape for the `menu-filter` module (ADR 04 §1's `menu-filter` row, M5 track 12's design point
 // 1 (a)): one MenuFilterTwin per part, attached after the render that created the part's element and after the portal's

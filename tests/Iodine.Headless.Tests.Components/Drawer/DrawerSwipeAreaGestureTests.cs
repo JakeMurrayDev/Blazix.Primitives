@@ -1,10 +1,10 @@
-using Blazix.Primitives.Interop;
+using Iodine.Headless.Interop;
 using Bunit;
 using Microsoft.AspNetCore.Components;
 using Microsoft.JSInterop;
 
-// Family tests use the project's root namespace (tests/Blazix.Primitives.Tests.Components/CONTEXT.md).
-namespace Blazix.Primitives.Tests.Components;
+// Family tests use the project's root namespace (tests/Iodine.Headless.Tests.Components/CONTEXT.md).
+namespace Iodine.Headless.Tests.Components;
 
 /// <summary>
 /// M6 track 8b slice 4 (issue 279): the C# half of the SwipeArea's opening gesture. The area attaches the `drawer` module
@@ -27,7 +27,7 @@ public sealed class DrawerSwipeAreaGestureTests : IDisposable
 
     public DrawerSwipeAreaGestureTests()
     {
-        drawerModule = test.Context.JSInterop.SetupModule("./_content/Blazix.Primitives/js/drawer.js");
+        drawerModule = test.Context.JSInterop.SetupModule("./_content/Iodine.Headless/js/drawer.js");
         BunitJSModuleInterop handle = drawerModule.SetupModule("attach", _ => true);
         handle.SetupVoid("update", _ => true).SetVoidResult();
         handle.SetupVoid("dispose", _ => true).SetVoidResult();

@@ -1,4 +1,4 @@
-using Blazix.Primitives.Interop;
+using Iodine.Headless.Interop;
 using Bunit;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Rendering;
@@ -6,7 +6,7 @@ using Microsoft.AspNetCore.Components.Web;
 using Microsoft.JSInterop;
 
 // Family tests use the project's root namespace.
-namespace Blazix.Primitives.Tests.Components;
+namespace Iodine.Headless.Tests.Components;
 
 // CMB §3.13 and §12 at L2 (ComboboxItem.test.tsx). Each part's own renders are counted by a RenderCounter in its content: it
 // renders exactly when the part renders, where bUnit's RenderCount also counts the renders of the parts inside.
@@ -100,7 +100,7 @@ public sealed class ComboboxItemTests : IDisposable
         InvalidOperationException error = Assert.Throws<InvalidOperationException>(() => test.Context.Render<ComboboxIntHarness>(p => p
             .Add(x => x.RootParameters, new Dictionary<string, object?> { ["DefaultOpen"] = true, ["Multiple"] = true })));
 
-        Assert.StartsWith("Blazix: A `ComboboxItem` without a `Value` stands for `null`", error.Message, StringComparison.Ordinal);
+        Assert.StartsWith("Iodine: A `ComboboxItem` without a `Value` stands for `null`", error.Message, StringComparison.Ordinal);
     }
 
     // CMB-PTR-05 (AriaCombobox.tsx:885-892): a press inside an `<a href>` is the link's. The `combobox` module reports it

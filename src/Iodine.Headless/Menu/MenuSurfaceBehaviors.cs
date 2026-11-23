@@ -1,11 +1,11 @@
 using System.Globalization;
-using Blazix.Primitives.Interop;
-using Blazix.Primitives.Rendering;
+using Iodine.Headless.Interop;
+using Iodine.Headless.Rendering;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Rendering;
 using Microsoft.JSInterop;
 
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // Base UI's Menu.Backdrop (menu/backdrop/MenuBackdrop.tsx), the PopoverBackdrop form: role="presentation", hidden while
 // unmounted, `user-select: none`, `pointer-events: none` after a hover open (MNU-DOM-10), its transitions handle, and its

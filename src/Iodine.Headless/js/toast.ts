@@ -238,7 +238,7 @@ function setFlag(element: Element, name: string, value: string | null): void {
 
 // The handover (ADR 04 Amendments 2026-10-18): C# froze the rendered style at the attach; from here the writer composes the
 // consumer's merged string with the module's bands.
-const takenOver = Symbol('blazix.toast.takenOver');
+const takenOver = Symbol('iodine.toast.takenOver');
 
 function takeOver(element: HTMLElement, style: string | null | undefined): void {
   const marked = element as unknown as Record<symbol, boolean>;
@@ -254,7 +254,7 @@ function isGuard(element: unknown): element is HTMLElement {
 }
 
 // The Root's measurement, published on its element so the Content's handle finds it without a module-level registry.
-const rootMeasure = Symbol('blazix.toast.measure');
+const rootMeasure = Symbol('iodine.toast.measure');
 
 interface MeasuredRoot extends HTMLElement {
   [rootMeasure]?: () => void;

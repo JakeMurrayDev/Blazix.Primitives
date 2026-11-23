@@ -1,8 +1,8 @@
-using Blazix.Primitives.Interop;
+using Iodine.Headless.Interop;
 using Bunit;
 using Microsoft.JSInterop;
 
-namespace Blazix.Primitives.Tests.Components.Interop;
+namespace Iodine.Headless.Tests.Components.Interop;
 
 /// <summary>
 /// Twin contract tests of the <c>interactions</c> module (ADR 06 §1, L2; ADR 04 Amendments 2026-10-27): bUnit's JS
@@ -11,7 +11,7 @@ namespace Blazix.Primitives.Tests.Components.Interop;
 /// </summary>
 public sealed class InteractionsTwinContractTests
 {
-    private const string ModulePath = "./_content/Blazix.Primitives/js/interactions.js";
+    private const string ModulePath = "./_content/Iodine.Headless/js/interactions.js";
 
     private const string ClickJson = """
         {"kind":"PointerEvent","type":"click","key":null,"code":null,"altKey":false,"ctrlKey":false,
@@ -317,8 +317,8 @@ public sealed class InteractionsTwinContractTests
     [Trait("Requirement", "PRV-STA-13")]
     public void The_sessions_mounted_input_is_written_only_when_true()
     {
-        string closed = System.Text.Json.JsonSerializer.Serialize(new InteractionsOptions { Session = new InteractionsSessionOptions() }, BlazixJsonContext.Default.InteractionsOptions);
-        string mounted = System.Text.Json.JsonSerializer.Serialize(new InteractionsOptions { Session = new InteractionsSessionOptions { Mounted = true } }, BlazixJsonContext.Default.InteractionsOptions);
+        string closed = System.Text.Json.JsonSerializer.Serialize(new InteractionsOptions { Session = new InteractionsSessionOptions() }, IodineJsonContext.Default.InteractionsOptions);
+        string mounted = System.Text.Json.JsonSerializer.Serialize(new InteractionsOptions { Session = new InteractionsSessionOptions { Mounted = true } }, IodineJsonContext.Default.InteractionsOptions);
 
         Assert.DoesNotContain("mounted", closed, StringComparison.Ordinal);
         Assert.Contains("\"mounted\":true", mounted, StringComparison.Ordinal);
@@ -345,12 +345,12 @@ public sealed class InteractionsTwinContractTests
             },
         };
 
-        string json = System.Text.Json.JsonSerializer.Serialize(options, BlazixJsonContext.Default.InteractionsOptions);
+        string json = System.Text.Json.JsonSerializer.Serialize(options, IodineJsonContext.Default.InteractionsOptions);
 
         Assert.Contains("\"pointerEventsScopeSelector\":\"ul\"", json, StringComparison.Ordinal);
         Assert.Contains("\"blockPointerEventsOnEnter\":true", json, StringComparison.Ordinal);
         Assert.Contains("\"inlineCloseContext\":{\"floatingId\":\"viewport-1\",\"nodeToken\":\"base-ui-3\"}", json, StringComparison.Ordinal);
-        string dismiss = System.Text.Json.JsonSerializer.Serialize(new InteractionsOptions { Session = new InteractionsSessionOptions { Dismiss = new InteractionsDismissOptions { OutsidePressExemptSelector = "[data-trigger]" } } }, BlazixJsonContext.Default.InteractionsOptions);
+        string dismiss = System.Text.Json.JsonSerializer.Serialize(new InteractionsOptions { Session = new InteractionsSessionOptions { Dismiss = new InteractionsDismissOptions { OutsidePressExemptSelector = "[data-trigger]" } } }, IodineJsonContext.Default.InteractionsOptions);
         Assert.Contains("\"outsidePressExemptSelector\":\"[data-trigger]\"", dismiss, StringComparison.Ordinal);
         Assert.NotEqual(new InteractionsDismissOptions { OutsidePressExemptSelector = "a" }, new InteractionsDismissOptions { OutsidePressExemptSelector = "b" });
     }
@@ -363,7 +363,7 @@ public sealed class InteractionsTwinContractTests
     {
         InteractionsDismissOptions dismiss = new() { OutsidePressExemptIds = ["clear", "chips"] };
 
-        string json = System.Text.Json.JsonSerializer.Serialize(new InteractionsOptions { Session = new InteractionsSessionOptions { Dismiss = dismiss } }, BlazixJsonContext.Default.InteractionsOptions);
+        string json = System.Text.Json.JsonSerializer.Serialize(new InteractionsOptions { Session = new InteractionsSessionOptions { Dismiss = dismiss } }, IodineJsonContext.Default.InteractionsOptions);
 
         Assert.Contains("\"outsidePressExemptIds\":[\"clear\",\"chips\"]", json, StringComparison.Ordinal);
         InteractionsDismissOptions same = new() { OutsidePressExemptIds = new List<string> { "clear", "chips" } };
@@ -380,8 +380,8 @@ public sealed class InteractionsTwinContractTests
     [Trait("Requirement", "CTX-DIS-01")]
     public void The_outside_press_grace_is_written_in_milliseconds_by_its_module_name_0_is_not_sent_and_a_change_is_a_changed_dismissal()
     {
-        string json = System.Text.Json.JsonSerializer.Serialize(new InteractionsOptions { Session = new InteractionsSessionOptions { Dismiss = new InteractionsDismissOptions { OutsidePressGrace = 500 } } }, BlazixJsonContext.Default.InteractionsOptions);
-        string zero = System.Text.Json.JsonSerializer.Serialize(new InteractionsOptions { Session = new InteractionsSessionOptions { Dismiss = new InteractionsDismissOptions { OutsidePressGrace = 0 } } }, BlazixJsonContext.Default.InteractionsOptions);
+        string json = System.Text.Json.JsonSerializer.Serialize(new InteractionsOptions { Session = new InteractionsSessionOptions { Dismiss = new InteractionsDismissOptions { OutsidePressGrace = 500 } } }, IodineJsonContext.Default.InteractionsOptions);
+        string zero = System.Text.Json.JsonSerializer.Serialize(new InteractionsOptions { Session = new InteractionsSessionOptions { Dismiss = new InteractionsDismissOptions { OutsidePressGrace = 0 } } }, IodineJsonContext.Default.InteractionsOptions);
 
         Assert.Contains("\"outsidePressGrace\":500", json, StringComparison.Ordinal);
         Assert.DoesNotContain("outsidePressGrace", zero, StringComparison.Ordinal);
@@ -395,8 +395,8 @@ public sealed class InteractionsTwinContractTests
     [Trait("Requirement", "PSH-ALG-20")]
     public void The_mixed_toggles_mousedown_action_is_written_by_its_module_name_and_a_change_is_a_changed_click()
     {
-        string json = System.Text.Json.JsonSerializer.Serialize(new InteractionsOptions { Trigger = new InteractionsTriggerOptions { Click = new InteractionsClickOptions { MouseDownAction = "open" } } }, BlazixJsonContext.Default.InteractionsOptions);
-        string unset = System.Text.Json.JsonSerializer.Serialize(new InteractionsOptions { Trigger = new InteractionsTriggerOptions { Click = new InteractionsClickOptions() } }, BlazixJsonContext.Default.InteractionsOptions);
+        string json = System.Text.Json.JsonSerializer.Serialize(new InteractionsOptions { Trigger = new InteractionsTriggerOptions { Click = new InteractionsClickOptions { MouseDownAction = "open" } } }, IodineJsonContext.Default.InteractionsOptions);
+        string unset = System.Text.Json.JsonSerializer.Serialize(new InteractionsOptions { Trigger = new InteractionsTriggerOptions { Click = new InteractionsClickOptions() } }, IodineJsonContext.Default.InteractionsOptions);
 
         Assert.Contains("\"mouseDownAction\":\"open\"", json, StringComparison.Ordinal);
         Assert.DoesNotContain("mouseDownAction", unset, StringComparison.Ordinal);
@@ -525,7 +525,7 @@ public sealed class InteractionsTwinContractTests
         Assert.NotEqual(new InteractionsMenuTriggerOptions { KeepArmedWhenClosed = true }, new InteractionsMenuTriggerOptions());
     }
 
-    private static string Serialize(InteractionsOptions options) => System.Text.Json.JsonSerializer.Serialize(options, BlazixJsonContext.Default.InteractionsOptions);
+    private static string Serialize(InteractionsOptions options) => System.Text.Json.JsonSerializer.Serialize(options, IodineJsonContext.Default.InteractionsOptions);
 
     private static (BunitJSModuleInterop Module, BunitJSModuleInterop Handle) Setup(BunitContext context)
     {

@@ -1,6 +1,6 @@
-@namespace Blazix.Primitives.Fixtures.Client.DialogFixtures
-@using Blazix.Primitives
-@using Blazix.Primitives.Fixtures.Client.PopupFixtures
+@namespace Iodine.Headless.Fixtures.Client.DialogFixtures
+@using Iodine.Headless
+@using Iodine.Headless.Fixtures.Client.PopupFixtures
 @using Microsoft.JSInterop
 @inherits PopupSuiteFixtureBase
 @inject IJSRuntime JS
@@ -22,7 +22,7 @@
       confines its fixed internal backdrop, so the first dialog's backdrop stays uncovered elsewhere (DLG-STA-07's gate);
     - `container=shadow`: the portal renders nothing (a pending container) until a page script creates a closed shadow
       root on `[data-shadow-host]` after the first render and hands it to C# as an IJSObjectReference
-      (`blazixFixtureDom.lastClosedShadowRoot` in the page);
+      (`iodineFixtureDom.lastClosedShadowRoot` in the page);
     - `case=remove-on-pointerdown`: the popup's first child `remove` removes itself on `pointerdown`;
       `case=prevented-pointerdown`: the popup holds `prevented`, on which the test prevents `pointerdown` and `mousedown`
       at the element, as NumberField's scrub area does in its own handler (DLG-PTR-17's re-citation);
@@ -232,7 +232,7 @@
         {
             try
             {
-                container = new PortalContainerValue(await JS.InvokeAsync<IJSObjectReference>("blazixFixtureDom.createClosedShadowRoot", shadowHost));
+                container = new PortalContainerValue(await JS.InvokeAsync<IJSObjectReference>("iodineFixtureDom.createClosedShadowRoot", shadowHost));
                 StateHasChanged();
             }
             catch (JSDisconnectedException)

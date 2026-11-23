@@ -4,7 +4,7 @@ using Microsoft.AspNetCore.Components.Rendering;
 using Microsoft.JSInterop;
 
 // Family tests use the project's root namespace.
-namespace Blazix.Primitives.Tests.Components;
+namespace Iodine.Headless.Tests.Components;
 
 // CMB-API-34 at L2 (ComboboxRoot.test.tsx, describe "prop: isItemEqualToValue"): the comparator decides the selected state
 // and the toggle of object values, takes the item first, and is never called with a missing value. The values are a

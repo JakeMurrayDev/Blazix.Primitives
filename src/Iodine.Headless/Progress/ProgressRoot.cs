@@ -1,8 +1,8 @@
 using System.Globalization;
-using Blazix.Primitives.Rendering;
+using Iodine.Headless.Rendering;
 using Microsoft.AspNetCore.Components;
 
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // PRG-STA-01: the state of every part is `{ status }`; five records (ADR 08 §3 "State record: <Part>State"), one projection
 // (ProgressStatusMapping). The default projection would write data-status; PRG-DOM-02 maps the field away.

@@ -1,8 +1,8 @@
-using Blazix.Primitives.Store;
-using Blazix.Primitives.Utilities;
+using Iodine.Headless.Store;
+using Iodine.Headless.Utilities;
 using Microsoft.AspNetCore.Components;
 
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // RDG §11 (the RadioGroupContext a Radio.Root reads); radio-group/RadioGroupContext.ts. Design point R3 (settled by the
 // orchestrator 2026-10-23; ADR 05 §1, ADR 16 rule 9): a plain listener list cascaded fixed (ADR 16 rule 9), the Switch,

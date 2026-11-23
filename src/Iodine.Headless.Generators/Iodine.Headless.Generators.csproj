@@ -1,7 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <!-- The [PartState] projection and [StoreState] Copy/ShallowEquals generators and their consumer-facing diagnostics (ADR 09 §1).
-       Packed into the library's package as an analyzer asset (see src/Blazix.Primitives). -->
+       Packed into the library's package as an analyzer asset (see src/Iodine.Headless). -->
   <PropertyGroup>
     <TargetFramework>netstandard2.0</TargetFramework>
     <!-- netstandard2.0 defaults to C# 7.3; Nullable and the rest of the style need a current language. -->
@@ -20,10 +20,10 @@
     The boxing rule is off here: it guards the library at run time, and the generator runs inside the compiler.
   -->
   <PropertyGroup>
-    <NoWarn>$(NoWarn);BLZX2005</NoWarn>
+    <NoWarn>$(NoWarn);IOD2005</NoWarn>
   </PropertyGroup>
   <ItemGroup>
-    <ProjectReference Include="..\Blazix.Primitives.Analyzers\Blazix.Primitives.Analyzers.csproj"
+    <ProjectReference Include="..\Iodine.Headless.Analyzers\Iodine.Headless.Analyzers.csproj"
                       OutputItemType="Analyzer" ReferenceOutputAssembly="false" PrivateAssets="all" />
   </ItemGroup>
 

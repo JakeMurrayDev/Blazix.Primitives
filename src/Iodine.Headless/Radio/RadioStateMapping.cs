@@ -1,6 +1,6 @@
-using Blazix.Primitives.Rendering;
+using Iodine.Headless.Rendering;
 
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // RAD-DOM-03, RAD-DOM-06, RAD-DOM-15; radio/utils/stateAttributesMapping.ts (checked, then the field validity mapping; the
 // transition status is the transitions module's to write). One hand-written mapping serves both parts (the Progress

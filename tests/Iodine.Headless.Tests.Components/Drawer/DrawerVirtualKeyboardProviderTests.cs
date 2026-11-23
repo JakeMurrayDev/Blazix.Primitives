@@ -2,7 +2,7 @@ using Bunit;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Rendering;
 
-namespace Blazix.Primitives.Tests.Components;
+namespace Iodine.Headless.Tests.Components;
 
 // M6 track 8c (issue 279): the C# half of Drawer.VirtualKeyboardProvider. The provider renders no element and registers on
 // its Root's drawer context; the Viewport tells its `drawer` handle whether one is present, whether the Root is modal (true
@@ -16,7 +16,7 @@ public sealed class DrawerVirtualKeyboardProviderTests : IDisposable
 
     public DrawerVirtualKeyboardProviderTests()
     {
-        drawerModule = test.Context.JSInterop.SetupModule("./_content/Blazix.Primitives/js/drawer.js");
+        drawerModule = test.Context.JSInterop.SetupModule("./_content/Iodine.Headless/js/drawer.js");
         drawerHandle = drawerModule.SetupModule("attach", _ => true);
         drawerHandle.SetupVoid("update", _ => true).SetVoidResult();
         drawerHandle.SetupVoid("dispose", _ => true).SetVoidResult();

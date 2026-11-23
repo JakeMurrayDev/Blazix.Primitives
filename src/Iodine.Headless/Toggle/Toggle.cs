@@ -1,10 +1,10 @@
-using Blazix.Primitives.Rendering;
+using Iodine.Headless.Rendering;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Web;
 using Microsoft.Extensions.Logging;
 using Microsoft.JSInterop;
 
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // TGL-STA-01; toggle/Toggle.tsx:73-76,145-154. ADR 08 §3: the state record is sealed, partial and [PartState]; the default
 // projection gives data-pressed and data-disabled (TGL §11: no custom mapping).
@@ -196,7 +196,7 @@ public sealed class Toggle : PartBase<ToggleState>
     /// <inheritdoc />
     protected override bool UsesGeneratedId => GroupContext is not null || RenderFunction is not null;
 
-    // For the fixtures (tests/Blazix.Primitives.Fixtures.Client): completes once the twin is attached, so a browser test
+    // For the fixtures (tests/Iodine.Headless.Fixtures.Client): completes once the twin is attached, so a browser test
     // can wait for the module's listeners before it clicks or presses keys.
     /// <summary>Gets a task that completes when the toggle's behavior is attached to its element.</summary>
     /// <value>A task that completes after the first interactive render has attached the behavior.</value>

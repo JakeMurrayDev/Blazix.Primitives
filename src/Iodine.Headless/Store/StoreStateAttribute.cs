@@ -1,4 +1,4 @@
-namespace Blazix.Primitives.Store;
+namespace Iodine.Headless.Store;
 
 // ADR 05 §1, ADR 16 rule 1; ADR 08 §1 (beside IStoreState in the store's namespace) and §3
 /// <summary>Marks a store's state record so that the generator writes its <see cref="IStoreState{TSelf}"/> members.</summary>

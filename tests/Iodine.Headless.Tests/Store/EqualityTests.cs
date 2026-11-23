@@ -1,6 +1,6 @@
-using Blazix.Primitives.Store;
+using Iodine.Headless.Store;
 
-namespace Blazix.Primitives.Tests.Store;
+namespace Iodine.Headless.Tests.Store;
 
 /// <summary>
 /// ADR 05 §1's <c>Is&lt;T&gt;</c> against <c>Object.is</c> (UTL §8.2): value types and strings by value, every other

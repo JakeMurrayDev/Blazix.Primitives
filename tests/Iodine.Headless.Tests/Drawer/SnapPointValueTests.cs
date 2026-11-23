@@ -1,5 +1,5 @@
 // Family tests use the project's root namespace, never one named like a part.
-namespace Blazix.Primitives.Tests;
+namespace Iodine.Headless.Tests;
 
 /// <summary>
 /// <c>SnapPointValue</c> at L1 (ADR 08 Amendments 2026-11-18, decision 20 (a) and the probe's outcome): Base UI's

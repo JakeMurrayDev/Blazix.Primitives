@@ -1,6 +1,6 @@
 using Microsoft.AspNetCore.Components;
 
-namespace Blazix.Primitives.Fixtures.Client.FieldFixtures;
+namespace Iodine.Headless.Fixtures.Client.FieldFixtures;
 
 /// <summary>
 /// The base of the Field, Fieldset, Input and Form fixtures (tests/browser/field.spec.ts, fieldset.spec.ts, input.spec.ts, form.spec.ts):

@@ -2,7 +2,7 @@ using Bunit;
 using Microsoft.AspNetCore.Components;
 
 // Family tests use the project's root namespace.
-namespace Blazix.Primitives.Tests.Components;
+namespace Iodine.Headless.Tests.Components;
 
 // ComboboxRoot.test.tsx's `input value synchronization` titles cited at L2. A parameter set re-derives the input text, so
 // these titles pass empty callbacks for the ones they do not observe (an EventCallback renders its receiver, which sets

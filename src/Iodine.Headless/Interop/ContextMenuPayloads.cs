@@ -1,4 +1,4 @@
-namespace Blazix.Primitives.Interop;
+namespace Iodine.Headless.Interop;
 
 // CTX-PTR-01, CTX-PTR-06, CTX-EVT-02, CTX-EVT-04 (ContextMenuTrigger.tsx:56-81): an open request at a point. PointerType is
 // `mouse` for a right click (the `contextmenu` event) and `touch` for a long press (the `touchstart` event); the module

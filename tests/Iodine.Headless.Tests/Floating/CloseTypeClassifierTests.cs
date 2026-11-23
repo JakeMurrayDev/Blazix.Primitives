@@ -1,5 +1,5 @@
 // Family tests use the project's root namespace.
-namespace Blazix.Primitives.Tests;
+namespace Iodine.Headless.Tests;
 
 /// <summary>
 /// <see cref="CloseTypeClassifier"/> at L1: FloatingFocusManager.tsx's <c>getEventType</c> over the close event's

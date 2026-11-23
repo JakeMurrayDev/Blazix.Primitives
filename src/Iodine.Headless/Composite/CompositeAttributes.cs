@@ -1,4 +1,4 @@
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // CMP §6.11 ACTIVE_COMPOSITE_ITEM (internals/composite/constants.ts:1), CMP-DOM-02: a component writes it on the item that
 // takes the initial tab stop (Radio, RAD-DOM-02; Tabs in M3) and the composite module only reads it (CMP-STA-23/27).

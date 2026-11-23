@@ -1,12 +1,12 @@
 using System.Globalization;
-using Blazix.Primitives.Interop;
-using Blazix.Primitives.Rendering;
+using Iodine.Headless.Interop;
+using Iodine.Headless.Rendering;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Web;
 using Microsoft.Extensions.Logging;
 using Microsoft.JSInterop;
 
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // Base UI's OTPField.Input (otp-field/input/OTPFieldInput.tsx); the contract is docs/components/otp-field.md §3.2 and §5.2
 // (issue 278, M6 track 7).
@@ -412,7 +412,7 @@ public sealed class OtpFieldInput : PartBase<OtpFieldInputState>
         // field has no name, which the development warning says once.
         if (report.Value is null && Index == 0 && ConsumerAttribute(AriaLabel) is not null)
         {
-            DevelopmentLog.Report(Logger, "Blazix: `<OtpFieldInput>` ignores `aria-label` on the first input. Use a `<label>` or `<FieldLabel>` to label the one-time code field.");
+            DevelopmentLog.Report(Logger, "Iodine: `<OtpFieldInput>` ignores `aria-label` on the first input. Use a `<label>` or `<FieldLabel>` to label the one-time code field.");
         }
     }
 

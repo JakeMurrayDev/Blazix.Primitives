@@ -1,7 +1,7 @@
 using AngleSharp.Dom;
 using Bunit;
 
-namespace Blazix.Primitives.Tests.Components;
+namespace Iodine.Headless.Tests.Components;
 
 /// <summary>
 /// The toast root at L2 (TST §3.4, §5.2): the C#-rendered attributes, the id-based lookups of

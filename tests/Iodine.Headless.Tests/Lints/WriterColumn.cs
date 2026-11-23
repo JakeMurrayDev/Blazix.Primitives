@@ -1,7 +1,7 @@
 using System.Text;
 using System.Text.RegularExpressions;
 
-namespace Blazix.Primitives.Tests.Lints;
+namespace Iodine.Headless.Tests.Lints;
 
 /// <summary>
 /// Reads the <c>Writer</c> column of a component document: every table whose last column is headed <c>Writer</c>

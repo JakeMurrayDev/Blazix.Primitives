@@ -1,6 +1,6 @@
 using System.Text;
 
-namespace Blazix.Primitives.Rendering;
+namespace Iodine.Headless.Rendering;
 
 // ADR 02 decision 2; RND-DOM-16
 /// <summary>Provides the parsing, merging and serialization of inline style strings as lists of declarations.</summary>

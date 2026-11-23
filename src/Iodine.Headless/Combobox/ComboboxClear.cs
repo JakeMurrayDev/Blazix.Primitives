@@ -1,11 +1,11 @@
-using Blazix.Primitives.Rendering;
+using Iodine.Headless.Rendering;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Rendering;
 using Microsoft.AspNetCore.Components.Web;
 using Microsoft.Extensions.Logging;
 using Microsoft.JSInterop;
 
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // CMB §3.8, STA-06 (combobox/clear/ComboboxClear.tsx): the plain trigger mapping (§16 Q8 replicated), the visibility and its transition (mirrored, ANI-04).
 /// <summary>Represents the state of a combobox clear button, which the part exposes as data attributes and passes to its class and style functions.</summary>

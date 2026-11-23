@@ -1,7 +1,7 @@
-using Blazix.Primitives.Rendering;
+using Iodine.Headless.Rendering;
 using Microsoft.AspNetCore.Components;
 
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // FLD-STA-04; field/description/FieldDescription.tsx:31-34,58.
 /// <summary>Represents the state of a field description, which the part exposes as data attributes and passes to its class and style functions.</summary>

@@ -1,8 +1,8 @@
-using Blazix.Primitives.Store;
+using Iodine.Headless.Store;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Rendering;
 
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // Base UI's Autocomplete.Value (autocomplete/value/AutocompleteValue.tsx:11-26; AUT-API-18, STR-04's Value clause): the engine's
 // current input text, the displayed text including an active inline completion (AriaCombobox.tsx:1714). Its one `children`

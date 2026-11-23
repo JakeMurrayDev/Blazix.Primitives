@@ -1,4 +1,4 @@
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // TIP §3.9, TIP-API-23 (tooltip/store/TooltipHandle.ts:13-55); ADR 08 Amendments 2026-10-27 (chosen by the user
 // 2026-10-27: a family handle created with `new`). The fallback store is the inert tooltip store (createNullTooltipStore,

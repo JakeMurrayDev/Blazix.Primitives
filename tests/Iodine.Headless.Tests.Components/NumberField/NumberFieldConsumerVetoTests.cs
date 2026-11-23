@@ -4,7 +4,7 @@ using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Web;
 
 // The namespace is the project's root: a namespace named after the family would hide the parts' types.
-namespace Blazix.Primitives.Tests.Components;
+namespace Iodine.Headless.Tests.Components;
 
 // The input's consumer handlers through the decision points on WebAssembly (issue 277, 6b; design point 1 (a); NUM-KEY-11,
 // NUM-EVT-14, NUM-API-25). The module decides a keydown at the input's root node and a blur in the target phase, while

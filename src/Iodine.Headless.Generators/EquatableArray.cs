@@ -1,7 +1,7 @@
 using System.Collections;
 using System.Collections.Immutable;
 
-namespace Blazix.Primitives.Generators;
+namespace Iodine.Headless.Generators;
 
 /// <summary>Represents an immutable array with element-wise equality.</summary>
 /// <typeparam name="T">The type of the elements in the array.</typeparam>

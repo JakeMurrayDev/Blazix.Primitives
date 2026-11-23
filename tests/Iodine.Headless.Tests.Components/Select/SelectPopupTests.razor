@@ -1,4 +1,4 @@
-@namespace Blazix.Primitives.Tests.Components
+@namespace Iodine.Headless.Tests.Components
 @inherits SelectTestBase
 @using AngleSharp.Dom
 @using Bunit
@@ -10,7 +10,7 @@
 *@
 
 @code {
-    private const string PopupPath = "./_content/Blazix.Primitives/js/popup.js";
+    private const string PopupPath = "./_content/Iodine.Headless/js/popup.js";
 
     private BunitJSModuleInterop SetUpPopupModule()
     {
@@ -30,7 +30,7 @@
             <SelectPopup />
         </SelectRoot>));
 
-        Assert.Equal("Blazix: `SelectPositionerContext` is missing. SelectPositioner parts must be placed within `<SelectPositioner>`.", error.Message);
+        Assert.Equal("Iodine: `SelectPositionerContext` is missing. SelectPositioner parts must be placed within `<SelectPositioner>`.", error.Message);
     }
 
     // The trigger is a Toolbar.Button's substitute and the popup is rendered inline, inside the toolbar's subtree. Opening

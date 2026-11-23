@@ -1,6 +1,6 @@
-using Blazix.Primitives.Rendering;
+using Iodine.Headless.Rendering;
 
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // FFI-DOM-01, FLD-DOM-03; internals/field-constants/constants.ts:34-44 (`fieldValidityMapping`). The generated projection
 // writes a bool? only when it is true; the field's verdict writes data-valid for true, data-invalid for false and nothing

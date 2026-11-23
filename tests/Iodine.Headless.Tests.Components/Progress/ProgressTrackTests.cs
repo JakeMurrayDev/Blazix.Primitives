@@ -3,7 +3,7 @@ using Bunit;
 using Microsoft.Extensions.DependencyInjection;
 
 // The namespace is the project's root: a namespace named after the family would hide the parts' types.
-namespace Blazix.Primitives.Tests.Components;
+namespace Iodine.Headless.Tests.Components;
 
 // ProgressTrack.test.tsx has only the conformance suite (ProgressTrackConformanceTests); these are the port's own tests for
 // the rows that cite no Base UI test (PRG-STR-02 for the track, PRG-STR-03) and for the track outside a root, which
@@ -15,7 +15,7 @@ public sealed class ProgressTrackTests : IDisposable
 
     public ProgressTrackTests()
     {
-        context.Services.AddBlazixPrimitives();
+        context.Services.AddIodineHeadless();
     }
 
     /// <inheritdoc />
@@ -47,6 +47,6 @@ public sealed class ProgressTrackTests : IDisposable
     {
         InvalidOperationException error = Assert.Throws<InvalidOperationException>(() => context.Render<ProgressTrack>());
 
-        Assert.Equal("Blazix: The `ProgressRoot` context is missing. Progress parts must be placed within `<ProgressRoot>`.", error.Message);
+        Assert.Equal("Iodine: The `ProgressRoot` context is missing. Progress parts must be placed within `<ProgressRoot>`.", error.Message);
     }
 }

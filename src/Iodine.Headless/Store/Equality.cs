@@ -1,6 +1,6 @@
 using System.Runtime.CompilerServices;
 
-namespace Blazix.Primitives.Store;
+namespace Iodine.Headless.Store;
 
 // ADR 05 §1 (Is<T>)
 /// <summary>

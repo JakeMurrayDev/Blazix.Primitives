@@ -5,7 +5,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 
 // Family tests use the project's root namespace.
-namespace Blazix.Primitives.Tests.Components;
+namespace Iodine.Headless.Tests.Components;
 
 // CMB §3.1, §4 at L2 (ComboboxRoot.test.tsx's titles whose assertions are what C# renders and sends): the ARIA the input
 // renders, the initial input text, the controlled values and the selection's request sequence. A typed change reaches the
@@ -190,7 +190,7 @@ public sealed class ComboboxRootTests : IDisposable
     {
         InvalidOperationException error = Assert.Throws<InvalidOperationException>(() => test.Context.Render<ComboboxInput>());
 
-        Assert.Equal("Blazix: `ComboboxRootContext` is missing. Combobox parts must be placed within `<ComboboxRoot>`.", error.Message);
+        Assert.Equal("Iodine: `ComboboxRootContext` is missing. Combobox parts must be placed within `<ComboboxRoot>`.", error.Message);
     }
 
     [Fact(DisplayName = "port: the item of a default value renders selected on the first render")]
@@ -321,7 +321,7 @@ public sealed class ComboboxRootTests : IDisposable
         cut.Instance.OnOpen = args => trigger = args.Details.Trigger?.Id;
         string dismissId = cut.Instance.Root!.Store.State.ElementIds.StartDismiss!;
 
-        await cut.InvokeAsync(() => test.TwinOf(Blazix.Primitives.Interop.ComboboxTwin.InputPart).OnDismiss(ComboboxTestContext.Click));
+        await cut.InvokeAsync(() => test.TwinOf(Iodine.Headless.Interop.ComboboxTwin.InputPart).OnDismiss(ComboboxTestContext.Click));
 
         Assert.Equal(EventReason.ClosePress, Assert.Single(cut.Instance.OpenChanges).Reason);
         Assert.Equal(dismissId, trigger);

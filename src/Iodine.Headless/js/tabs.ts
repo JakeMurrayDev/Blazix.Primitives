@@ -316,8 +316,8 @@ function sameMeasurement(a: IndicatorMeasurement | null, b: IndicatorMeasurement
 
 // Symbols on the elements, not a module registry: a repeated attach of the same element returns the live handle, and a
 // part finds its List by walking up to the element that carries a List's handle.
-const listHandle = Symbol('blazix.tabs.list');
-const indicatorHandle = Symbol('blazix.tabs.indicator');
+const listHandle = Symbol('iodine.tabs.list');
+const indicatorHandle = Symbol('iodine.tabs.indicator');
 
 interface ListController {
   readonly element: HTMLElement;

@@ -1,7 +1,7 @@
-using Blazix.Primitives.Rendering;
+using Iodine.Headless.Rendering;
 using Microsoft.AspNetCore.Components;
 
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // TST §3.12 state object (toast/arrow/ToastArrow.tsx:22-26); TST-STA-26. Written by the `positioning` module from the
 // Positioner's attach (FLT-DOM-09; the RND-STA-01 row), as TooltipArrowState.

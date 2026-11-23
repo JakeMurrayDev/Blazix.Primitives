@@ -1,12 +1,12 @@
 using AngleSharp.Dom;
-using Blazix.Primitives.Interop;
+using Iodine.Headless.Interop;
 using Bunit;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Rendering;
 using Microsoft.JSInterop;
 
 // Family tests use the project's root namespace.
-namespace Blazix.Primitives.Tests.Components;
+namespace Iodine.Headless.Tests.Components;
 
 // ComboboxRoot.test.tsx's `selection behavior > single` titles at L2 (batch A; the twelve `skipIf(isJSDOM)` titles are L4).
 // The highlight is the store's: Base UI's ActiveIndexProbe and SelectedIndexProbe read `activeIndex` and `selectedIndex`, as

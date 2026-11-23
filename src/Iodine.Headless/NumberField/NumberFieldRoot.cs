@@ -1,15 +1,15 @@
 using System.Globalization;
 using System.Linq.Expressions;
-using Blazix.Primitives.Rendering;
-using Blazix.Primitives.Store;
-using Blazix.Primitives.Utilities;
+using Iodine.Headless.Rendering;
+using Iodine.Headless.Store;
+using Iodine.Headless.Utilities;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Forms;
 using Microsoft.AspNetCore.Components.Rendering;
 using Microsoft.Extensions.Logging;
 using Microsoft.JSInterop;
 
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // Base UI's NumberField.Root (number-field/root/NumberFieldRoot.tsx); the contract is docs/components/number-field.md.
 // - The element is a div with the state attributes only (NUM §5.1); after it the part renders the visually hidden
@@ -682,10 +682,10 @@ public sealed class NumberFieldRoot : PartBase<NumberFieldRootState>
 
         if (onBlurMode)
         {
-            // BLZX2005: the validation commit takes the value in an object slot, once per blur (the RadioGroup precedent).
-#pragma warning disable BLZX2005
+            // IOD2005: the validation commit takes the value in an object slot, once per blur (the RadioGroup precedent).
+#pragma warning disable IOD2005
             await fieldHalf.CommitAsync(committedValue is double number ? number : null).ConfigureAwait(true);
-#pragma warning restore BLZX2005
+#pragma warning restore IOD2005
         }
 
         if (shouldCommit)
@@ -902,10 +902,10 @@ public sealed class NumberFieldRoot : PartBase<NumberFieldRootState>
 
         // NumberFieldRoot.tsx:519: validate the stored (clamped) value, or the autofilled one when nothing was stored.
         double? validated = LastChangedValue ?? value;
-        // BLZX2005: the validation takes the value in an object slot, once per autofill (the RadioGroup precedent).
-#pragma warning disable BLZX2005
+        // IOD2005: the validation takes the value in an object slot, once per autofill (the RadioGroup precedent).
+#pragma warning disable IOD2005
         fieldHalf.ValidateChange(validated is double number ? number : null);
-#pragma warning restore BLZX2005
+#pragma warning restore IOD2005
     }
 
     /// <summary>Sets the text the visible input shows.</summary>
@@ -990,11 +990,11 @@ public sealed class NumberFieldRoot : PartBase<NumberFieldRootState>
             valueVersion++;
             versionedValue = current;
 
-            // BLZX2005: FieldControlRegistration.Value and FieldValidationArguments.Value are object slots; the boxing
+            // IOD2005: FieldControlRegistration.Value and FieldValidationArguments.Value are object slots; the boxing
             // happens once per committed value here, the RadioGroup precedent (ADR 05 Amendments 2026-10-22, 2026-11-18).
-#pragma warning disable BLZX2005
+#pragma warning disable IOD2005
             boxedValue = current is double number ? number : null;
-#pragma warning restore BLZX2005
+#pragma warning restore IOD2005
         }
 
         // NUM-STA-06: while sync is allowed the text is the formatted value after every update of the field's own.

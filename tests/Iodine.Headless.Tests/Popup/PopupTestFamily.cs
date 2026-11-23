@@ -1,13 +1,13 @@
-using Blazix.Primitives.Interop;
-using Blazix.Primitives.Store;
+using Iodine.Headless.Interop;
+using Iodine.Headless.Store;
 using Microsoft.Extensions.Logging;
 
 // Family tests use the project's root namespace.
-namespace Blazix.Primitives.Tests;
+namespace Iodine.Headless.Tests;
 
 /// <summary>
 /// A test-only popup family's store record (ADR 05 Amendments 2026-10-27): the shared state as its one popup member, plus
-/// a family field the open-change sequence writes, which proves the shape with no derived record (BLZX1010 stays).
+/// a family field the open-change sequence writes, which proves the shape with no derived record (IOD1010 stays).
 /// </summary>
 [StoreState]
 internal sealed partial record TestFamilyStoreState<TPayload>(PopupStoreState<TPayload> Popup, string? LastReason)

@@ -1,9 +1,9 @@
-using Blazix.Primitives.Rendering;
+using Iodine.Headless.Rendering;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Rendering;
 using Microsoft.Extensions.Logging;
 
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // ACC-STA-02, §3.2 state object; accordion/item/AccordionItem.tsx:87-96. The header and trigger render the same fields in their
 // own records (ADR 08 §3: one record per part). The value is the Root's, never projected (ADR 02 Amendments 2026-10-26).
@@ -198,9 +198,9 @@ public sealed class AccordionItem<TValue> : PartBase<AccordionItemState<TValue>>
         base.Dispose(disposing);
     }
 
-    // ACC-EDGE-02 (the PRG-EDGE-01 precedent: `Blazix: ` for `Base UI: `, the part names for the context names).
+    // ACC-EDGE-02 (the PRG-EDGE-01 precedent: `Iodine: ` for `Base UI: `, the part names for the context names).
     internal static InvalidOperationException MissingItem() =>
-        new("Blazix: The `AccordionItem` context is missing. Accordion parts must be placed within `<AccordionItem>`.");
+        new("Iodine: The `AccordionItem` context is missing. Accordion parts must be placed within `<AccordionItem>`.");
 
     private void BuildItemCascade(RenderTreeBuilder builder)
     {

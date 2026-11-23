@@ -100,10 +100,10 @@ export interface ComboboxInputChange {
   event: unknown;
 }
 
-const handleKey = Symbol('blazix.combobox.handle');
+const handleKey = Symbol('iodine.combobox.handle');
 
 // The chips container's handle keeps its chips' ids, in order, on its element, where the input's handle reads them.
-const chipIdsKey = Symbol('blazix.combobox.chipIds');
+const chipIdsKey = Symbol('iodine.combobox.chipIds');
 
 interface ComboboxElement extends HTMLElement {
   [handleKey]?: TwinHandle;

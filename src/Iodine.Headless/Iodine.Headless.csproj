@@ -1,14 +1,14 @@
 <Project Sdk="Microsoft.NET.Sdk.Razor">
 
   <PropertyGroup>
-    <RootNamespace>Blazix.Primitives</RootNamespace>
-    <PackageId>Blazix.Primitives</PackageId>
+    <RootNamespace>Iodine.Headless</RootNamespace>
+    <PackageId>Iodine.Headless</PackageId>
     <Description>Unofficial Blazor port of MUI Base UI v1.9.0: headless, accessible primitives for Blazor Server and WebAssembly.</Description>
     <Authors>Jake Alexander Murray</Authors>
     <Copyright>Copyright (c) 2026 Jake Alexander Murray</Copyright>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
     <PackageTags>blazor;headless;primitives;accessibility;base-ui</PackageTags>
-    <RepositoryUrl>https://github.com/JakeMurrayDev/Blazix.Primitives</RepositoryUrl>
+    <RepositoryUrl>https://github.com/JakeMurrayDev/Iodine.Headless</RepositoryUrl>
     <RepositoryType>git</RepositoryType>
   </PropertyGroup>
 
@@ -26,77 +26,77 @@
     the twins are internal (ADR 08 §1), so the L2 twin contract tests and the fixture probe twin derive from the base.
   -->
   <ItemGroup>
-    <InternalsVisibleTo Include="Blazix.Primitives.Tests" />
-    <InternalsVisibleTo Include="Blazix.Primitives.Tests.Components" />
-    <InternalsVisibleTo Include="Blazix.Primitives.Fixtures.Client" />
+    <InternalsVisibleTo Include="Iodine.Headless.Tests" />
+    <InternalsVisibleTo Include="Iodine.Headless.Tests.Components" />
+    <InternalsVisibleTo Include="Iodine.Headless.Fixtures.Client" />
   </ItemGroup>
 
   <!--
     The JavaScript build (ADR 04 §4). esbuild emits the initializer and one ESM entry per module of ADR 04 §1 into
-    wwwroot/, which is build output and ignored by git. `node` is needed at build time only; `-p:BlazixSkipJsBuild=true`
+    wwwroot/, which is build output and ignored by git. `node` is needed at build time only; `-p:IodineSkipJsBuild=true`
     skips the step and requires the outputs to be present (the packaging path, ADR 04 verification item 4).
     One entry per module of ADR 04 §1; `js/CONTEXT.md` has the rules for adding one.
   -->
   <PropertyGroup>
-    <BlazixJsBuildScript>$(MSBuildProjectDirectory)/js/build.mjs</BlazixJsBuildScript>
+    <IodineJsBuildScript>$(MSBuildProjectDirectory)/js/build.mjs</IodineJsBuildScript>
   </PropertyGroup>
   <ItemGroup>
-    <BlazixJsEntry Include="js/initializer.ts" Out="Blazix.Primitives.lib.module" />
-    <BlazixJsEntry Include="js/dom.ts" Out="js/dom" />
-    <BlazixJsEntry Include="js/button.ts" Out="js/button" />
-    <BlazixJsEntry Include="js/transitions.ts" Out="js/transitions" />
-    <BlazixJsEntry Include="js/collapsible.ts" Out="js/collapsible" />
-    <BlazixJsEntry Include="js/composite.ts" Out="js/composite" />
-    <BlazixJsEntry Include="js/form.ts" Out="js/form" />
-    <BlazixJsEntry Include="js/tabs.ts" Out="js/tabs" />
-    <BlazixJsEntry Include="js/scroll-lock.ts" Out="js/scroll-lock" />
-    <BlazixJsEntry Include="js/portal.ts" Out="js/portal" />
-    <BlazixJsEntry Include="js/positioning.ts" Out="js/positioning" />
-    <BlazixJsEntry Include="js/popup.ts" Out="js/popup" />
-    <BlazixJsEntry Include="js/interactions.ts" Out="js/interactions" />
-    <BlazixJsEntry Include="js/focus-manager.ts" Out="js/focus-manager" />
-    <BlazixJsEntry Include="js/navigation-menu.ts" Out="js/navigation-menu" />
-    <BlazixJsEntry Include="js/combobox.ts" Out="js/combobox" />
-    <BlazixJsEntry Include="js/context-menu.ts" Out="js/context-menu" />
-    <BlazixJsEntry Include="js/menu-filter.ts" Out="js/menu-filter" />
-    <BlazixJsEntry Include="js/select.ts" Out="js/select" />
-    <BlazixJsEntry Include="js/scroll-area.ts" Out="js/scroll-area" />
-    <BlazixJsEntry Include="js/slider.ts" Out="js/slider" />
-    <BlazixJsEntry Include="js/drawer.ts" Out="js/drawer" />
-    <BlazixJsEntry Include="js/number-field.ts" Out="js/number-field" />
-    <BlazixJsEntry Include="js/toast.ts" Out="js/toast" />
-    <BlazixJsEntry Include="js/otp-field.ts" Out="js/otp-field" />
-    <BlazixJsOutput Include="@(BlazixJsEntry->'wwwroot/%(Out).js')" />
+    <IodineJsEntry Include="js/initializer.ts" Out="Iodine.Headless.lib.module" />
+    <IodineJsEntry Include="js/dom.ts" Out="js/dom" />
+    <IodineJsEntry Include="js/button.ts" Out="js/button" />
+    <IodineJsEntry Include="js/transitions.ts" Out="js/transitions" />
+    <IodineJsEntry Include="js/collapsible.ts" Out="js/collapsible" />
+    <IodineJsEntry Include="js/composite.ts" Out="js/composite" />
+    <IodineJsEntry Include="js/form.ts" Out="js/form" />
+    <IodineJsEntry Include="js/tabs.ts" Out="js/tabs" />
+    <IodineJsEntry Include="js/scroll-lock.ts" Out="js/scroll-lock" />
+    <IodineJsEntry Include="js/portal.ts" Out="js/portal" />
+    <IodineJsEntry Include="js/positioning.ts" Out="js/positioning" />
+    <IodineJsEntry Include="js/popup.ts" Out="js/popup" />
+    <IodineJsEntry Include="js/interactions.ts" Out="js/interactions" />
+    <IodineJsEntry Include="js/focus-manager.ts" Out="js/focus-manager" />
+    <IodineJsEntry Include="js/navigation-menu.ts" Out="js/navigation-menu" />
+    <IodineJsEntry Include="js/combobox.ts" Out="js/combobox" />
+    <IodineJsEntry Include="js/context-menu.ts" Out="js/context-menu" />
+    <IodineJsEntry Include="js/menu-filter.ts" Out="js/menu-filter" />
+    <IodineJsEntry Include="js/select.ts" Out="js/select" />
+    <IodineJsEntry Include="js/scroll-area.ts" Out="js/scroll-area" />
+    <IodineJsEntry Include="js/slider.ts" Out="js/slider" />
+    <IodineJsEntry Include="js/drawer.ts" Out="js/drawer" />
+    <IodineJsEntry Include="js/number-field.ts" Out="js/number-field" />
+    <IodineJsEntry Include="js/toast.ts" Out="js/toast" />
+    <IodineJsEntry Include="js/otp-field.ts" Out="js/otp-field" />
+    <IodineJsOutput Include="@(IodineJsEntry->'wwwroot/%(Out).js')" />
   </ItemGroup>
 
   <!-- Runs on every build (about 0.1 s): outputs differ per configuration and a timestamp check cannot tell them apart. -->
   <!-- The manifest path is set inside the targets: IntermediateOutputPath is defined by the SDK after the project body. -->
-  <Target Name="BlazixJsPaths">
+  <Target Name="IodineJsPaths">
     <PropertyGroup>
-      <BlazixJsManifest>$(IntermediateOutputPath)blazix-js.manifest.txt</BlazixJsManifest>
+      <IodineJsManifest>$(IntermediateOutputPath)iodine-js.manifest.txt</IodineJsManifest>
     </PropertyGroup>
   </Target>
 
-  <Target Name="BlazixBuildJs" DependsOnTargets="BlazixJsPaths" Condition="'$(BlazixSkipJsBuild)' != 'true' and '$(DesignTimeBuild)' != 'true'">
-    <Exec Command="node &quot;$(BlazixJsBuildScript)&quot; --root &quot;$(MSBuildProjectDirectory)&quot; --outdir wwwroot --clean wwwroot --configuration $(Configuration) --manifest &quot;$(BlazixJsManifest)&quot; @(BlazixJsEntry->'--entry &quot;%(Identity)=%(Out)&quot;', ' ')" />
+  <Target Name="IodineBuildJs" DependsOnTargets="IodineJsPaths" Condition="'$(IodineSkipJsBuild)' != 'true' and '$(DesignTimeBuild)' != 'true'">
+    <Exec Command="node &quot;$(IodineJsBuildScript)&quot; --root &quot;$(MSBuildProjectDirectory)&quot; --outdir wwwroot --clean wwwroot --configuration $(Configuration) --manifest &quot;$(IodineJsManifest)&quot; @(IodineJsEntry->'--entry &quot;%(Identity)=%(Out)&quot;', ' ')" />
   </Target>
 
   <!-- Runs before the static web assets pipeline enumerates wwwroot, so files generated by this build are packed too. -->
-  <Target Name="BlazixRegisterJs" BeforeTargets="ResolveProjectStaticWebAssets" DependsOnTargets="BlazixJsPaths;BlazixBuildJs" Condition="'$(DesignTimeBuild)' != 'true'">
-    <Error Condition="!Exists('%(BlazixJsOutput.Identity)')"
-           Text="The JavaScript build output '%(BlazixJsOutput.Identity)' is missing. Run the build with node on PATH, or set BlazixSkipJsBuild=true only with prebuilt outputs in wwwroot/." />
+  <Target Name="IodineRegisterJs" BeforeTargets="ResolveProjectStaticWebAssets" DependsOnTargets="IodineJsPaths;IodineBuildJs" Condition="'$(DesignTimeBuild)' != 'true'">
+    <Error Condition="!Exists('%(IodineJsOutput.Identity)')"
+           Text="The JavaScript build output '%(IodineJsOutput.Identity)' is missing. Run the build with node on PATH, or set IodineSkipJsBuild=true only with prebuilt outputs in wwwroot/." />
     <!--
       The whole folder is generated: drop the evaluated items whose file the clean removed (a stale sourcemap from the
       other configuration) and register exactly what esbuild wrote. No globs here: an in-target Include glob is served
       from MSBuild's cached directory listing and a Remove glob is matched against the disk, so neither sees the
-      deletion. Without a manifest (BlazixSkipJsBuild) the evaluated items stand.
+      deletion. Without a manifest (IodineSkipJsBuild) the evaluated items stand.
     -->
-    <ReadLinesFromFile File="$(BlazixJsManifest)" Condition="Exists('$(BlazixJsManifest)')">
-      <Output TaskParameter="Lines" ItemName="_BlazixJsFile" />
+    <ReadLinesFromFile File="$(IodineJsManifest)" Condition="Exists('$(IodineJsManifest)')">
+      <Output TaskParameter="Lines" ItemName="_IodineJsFile" />
     </ReadLinesFromFile>
-    <ItemGroup Condition="'@(_BlazixJsFile)' != ''">
+    <ItemGroup Condition="'@(_IodineJsFile)' != ''">
       <Content Remove="@(Content)" Condition="!Exists('%(Content.FullPath)')" />
-      <Content Include="@(_BlazixJsFile)" Exclude="@(Content)" />
+      <Content Include="@(_IodineJsFile)" Exclude="@(Content)" />
     </ItemGroup>
   </Target>
 
@@ -110,15 +110,15 @@
 
   <!-- The generator and the analyzers run inside the library's own compilation; neither becomes a package dependency. -->
   <ItemGroup>
-    <ProjectReference Include="..\Blazix.Primitives.Generators\Blazix.Primitives.Generators.csproj"
+    <ProjectReference Include="..\Iodine.Headless.Generators\Iodine.Headless.Generators.csproj"
                       OutputItemType="Analyzer" ReferenceOutputAssembly="false" PrivateAssets="all" />
-    <ProjectReference Include="..\Blazix.Primitives.Analyzers\Blazix.Primitives.Analyzers.csproj"
+    <ProjectReference Include="..\Iodine.Headless.Analyzers\Iodine.Headless.Analyzers.csproj"
                       OutputItemType="Analyzer" ReferenceOutputAssembly="false" PrivateAssets="all" />
   </ItemGroup>
 
   <!-- The generator ships to consumers as an analyzer asset; the analyzers project does not (ADR 10 §1). -->
   <ItemGroup>
-    <None Include="..\Blazix.Primitives.Generators\bin\$(Configuration)\netstandard2.0\Blazix.Primitives.Generators.dll"
+    <None Include="..\Iodine.Headless.Generators\bin\$(Configuration)\netstandard2.0\Iodine.Headless.Generators.dll"
           Pack="true" PackagePath="analyzers/dotnet/cs" Visible="false" />
   </ItemGroup>
 

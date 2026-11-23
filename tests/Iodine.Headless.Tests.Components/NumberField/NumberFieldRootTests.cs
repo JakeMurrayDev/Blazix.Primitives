@@ -1,11 +1,11 @@
 using System.Globalization;
 using AngleSharp.Dom;
-using Blazix.Primitives.Utilities;
+using Iodine.Headless.Utilities;
 using Bunit;
 using Microsoft.AspNetCore.Components;
 
 // The namespace is the project's root: a namespace named after the family would hide the parts' types.
-namespace Blazix.Primitives.Tests.Components;
+namespace Iodine.Headless.Tests.Components;
 
 // NumberFieldRoot.test.tsx, the rows that need no typed text and no field (issue 277, 6a). Base UI's `NumberField` wrapper
 // renders a Group with the Input, both steppers and a ScrubArea; the ScrubArea is 6b's, so the wrapper here has the rest. A
@@ -471,7 +471,7 @@ public sealed class NumberFieldRootTests : IDisposable
     {
         InvalidOperationException error = Assert.Throws<InvalidOperationException>(() => test.Context.Render<NumberFieldInput>());
 
-        Assert.Equal("Blazix: `NumberFieldRootContext` is missing. NumberField parts must be placed within `<NumberFieldRoot>`.", error.Message);
+        Assert.Equal("Iodine: `NumberFieldRootContext` is missing. NumberField parts must be placed within `<NumberFieldRoot>`.", error.Message);
         Assert.Throws<InvalidOperationException>(() => test.Context.Render<NumberFieldGroup>());
         Assert.Throws<InvalidOperationException>(() => test.Context.Render<NumberFieldIncrement>());
         Assert.Throws<InvalidOperationException>(() => test.Context.Render<NumberFieldDecrement>());
@@ -583,9 +583,9 @@ public sealed class NumberFieldRootTests : IDisposable
                 }));
                 b.CloseComponent();
             })));
-        Blazix.Primitives.Interop.ButtonTwin twin = test.ButtonTwin(cut.FindComponent<NumberFieldIncrement>().Instance);
+        Iodine.Headless.Interop.ButtonTwin twin = test.ButtonTwin(cut.FindComponent<NumberFieldIncrement>().Instance);
 
-        string verdict = await cut.InvokeAsync(() => twin.Decide(Blazix.Primitives.Interop.ButtonTwin.HoldStartPoint, NumberFieldTestContext.EventJson("pointerdown")));
+        string verdict = await cut.InvokeAsync(() => twin.Decide(Iodine.Headless.Interop.ButtonTwin.HoldStartPoint, NumberFieldTestContext.EventJson("pointerdown")));
         await cut.Find("button").TriggerEventAsync("onpointerdown", new Microsoft.AspNetCore.Components.Web.PointerEventArgs { Type = "pointerdown" });
 
         Assert.Equal("stop", verdict);

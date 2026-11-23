@@ -2,7 +2,7 @@ using AngleSharp.Dom;
 using Bunit;
 
 // The namespace is the project's root: a namespace named after the family would hide the parts' types.
-namespace Blazix.Primitives.Tests.Components;
+namespace Iodine.Headless.Tests.Components;
 
 /// <summary>
 /// L2 titles of the toast positioner and arrow (TST-STR-10, TST-STR-11, TST-POS-01, TST-POS-02, TST-ARIA-08, TST-ARIA-09,
@@ -23,7 +23,7 @@ public sealed class ToastPositionerTests : IDisposable
         InvalidOperationException error = Assert.Throws<InvalidOperationException>(() =>
             test.Context.Render<ToastPositioner<NoPayload>>(p => p.Add(x => x.Toast, new ToastObject { Id = "t" })));
 
-        Assert.Equal("Blazix: `ToastProviderContext` is missing. Toast parts must be used within `<ToastProvider>`.", error.Message);
+        Assert.Equal("Iodine: `ToastProviderContext` is missing. Toast parts must be used within `<ToastProvider>`.", error.Message);
     }
 
     [Fact(DisplayName = "throws a descriptive error when rendered outside <Toast.Positioner>")]
@@ -33,7 +33,7 @@ public sealed class ToastPositionerTests : IDisposable
     {
         InvalidOperationException error = Assert.Throws<InvalidOperationException>(() => test.Context.Render<ToastArrow>());
 
-        Assert.Equal("Blazix: `ToastPositionerContext` is missing. `ToastPositioner` parts must be placed within `<ToastPositioner>`.", error.Message);
+        Assert.Equal("Iodine: `ToastPositionerContext` is missing. `ToastPositioner` parts must be placed within `<ToastPositioner>`.", error.Message);
     }
 
     [Fact(DisplayName = "lets positioner props override the ones carried on the toast")]

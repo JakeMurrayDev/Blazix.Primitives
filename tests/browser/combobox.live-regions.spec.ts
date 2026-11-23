@@ -5,7 +5,7 @@ import { pressControl, settle } from './suites/popupFixture';
 
 // CMB-ARIA-13's titles (ComboboxStatus.test.tsx, ComboboxStatus.iOS.test.tsx and ComboboxEmpty.test.tsx's a11y blocks; M5
 // track 10, issue 174; ported by session S): Base UI's titles verbatim, at L4 on both render modes, on the
-// `combobox-live-regions` fixture (tests/Blazix.Primitives.Fixtures.Client/Combobox/L4/ComboboxLiveRegionsL4Fixture.razor).
+// `combobox-live-regions` fixture (tests/Iodine.Headless.Fixtures.Client/Combobox/L4/ComboboxLiveRegionsL4Fixture.razor).
 // The initial live-region text mutation is the `dom` module's (`markLiveRegion`, UTL-A11Y-01..04), which bUnit cannot see.
 // Base UI's fake clock becomes an init script that holds the module's 200 ms reset until a title runs it, so `tick` is
 // Base UI's `clock.tick(INITIAL_LIVE_REGION_TEXT_MUTATION_RESET_DELAY)`; a reset that is never run cannot restore the text.

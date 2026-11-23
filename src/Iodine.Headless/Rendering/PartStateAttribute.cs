@@ -1,4 +1,4 @@
-namespace Blazix.Primitives.Rendering;
+namespace Iodine.Headless.Rendering;
 
 // RND-ALG-07; ADR 08 §3
 /// <summary>Marks a part's state record so that the generator implements <see cref="IPartState{TSelf}"/> on it.</summary>

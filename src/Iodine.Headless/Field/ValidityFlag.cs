@@ -1,4 +1,4 @@
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // FLD-API-30, FLD §3.6 (the eleven `keyof ValidityState` literals `match` accepts); field/error/FieldError.tsx:153.
 // FLD §16 item 3 (followed, PR 1c): Valid is one of the names, so a FieldError matching it renders while the field is

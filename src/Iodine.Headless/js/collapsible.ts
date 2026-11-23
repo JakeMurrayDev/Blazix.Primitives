@@ -648,7 +648,7 @@ function createMissingSession(initialOptions: CollapsibleOptions, host: SessionH
 // ---------------------------------------------------------------------------------------------------------------
 
 // A symbol on the element, not a module registry: a repeated attach of the same element returns the live handle.
-const attachedHandle = Symbol('blazix.collapsible.handle');
+const attachedHandle = Symbol('iodine.collapsible.handle');
 
 interface AttachedElement extends HTMLElement {
   [attachedHandle]?: TwinHandle;

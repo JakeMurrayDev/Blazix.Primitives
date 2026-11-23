@@ -1,7 +1,7 @@
-using Blazix.Primitives.Rendering;
+using Iodine.Headless.Rendering;
 using Microsoft.AspNetCore.Components;
 
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // AUT-STR-02, STR-05 (M5 track 11; decision 12, ADR 08 Amendments 2026-11-03 (3)): the Autocomplete parts of this file
 // are Combobox's, as sealed shells over the same internal behaviours with the family `Autocomplete`; the comments below
@@ -27,12 +27,12 @@ public static class AutocompleteSeparatorDataAttributes
 /// <summary>Represents a separator between an autocomplete's items, Base UI's <c>Autocomplete.Separator</c>, rendered as a <c>div</c>.</summary>
 public sealed class AutocompleteSeparator : PartBase<AutocompleteSeparatorState>
 {
-    private AutocompleteSeparatorState state = new(Primitives.Orientation.Horizontal);
+    private AutocompleteSeparatorState state = new(Headless.Orientation.Horizontal);
 
     /// <summary>Gets or sets the separator's orientation.</summary>
     /// <value>The default is <see cref="Orientation.Horizontal"/>.</value>
     [Parameter]
-    public Orientation Orientation { get; set; } = Primitives.Orientation.Horizontal;
+    public Orientation Orientation { get; set; } = Headless.Orientation.Horizontal;
 
     /// <inheritdoc />
     protected override string DefaultTagName => "div";

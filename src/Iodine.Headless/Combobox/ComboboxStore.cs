@@ -1,11 +1,11 @@
 using System.Globalization;
-using Blazix.Primitives.Interop;
-using Blazix.Primitives.Store;
-using Blazix.Primitives.Utilities;
+using Iodine.Headless.Interop;
+using Iodine.Headless.Store;
+using Iodine.Headless.Utilities;
 using Microsoft.AspNetCore.Components;
 using Microsoft.Extensions.Logging;
 
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // CMB §4 (combobox/store.ts; AriaCombobox.tsx's commands setOpen, setInputValue, setSelectedValue, setIndices,
 // handleSelection, forceMount). ADR 05 Amendments 2026-11-03: the store derives from the open lifecycle; RunConsumerStepAsync
@@ -470,7 +470,7 @@ internal sealed class ComboboxStore<TValue> : ComboboxStore
     private bool UsesCollection => State.HasItems || inputs.FilteredItems is not null || inputs.FilteredItemGroups is not null;
 
     /// <inheritdoc />
-    public override ListNavigationContext ListNavigation => listNavigation ?? throw new InvalidOperationException($"Blazix: the list navigation of `<{Family}Root>` is created at its first parameter set.");
+    public override ListNavigationContext ListNavigation => listNavigation ?? throw new InvalidOperationException($"Iodine: the list navigation of `<{Family}Root>` is created at its first parameter set.");
 
     /// <inheritdoc />
     public override IReadOnlyList<string?> FilteredLabels => filteredLabels;
@@ -1764,7 +1764,7 @@ internal sealed class ComboboxStore<TValue> : ComboboxStore
         {
             DevelopmentWarnings.Write(logger, string.Create(
                 CultureInfo.InvariantCulture,
-                $"Blazix: Two items passed to `ComboboxItems.Create()` derived the value {duplicate}, so selection and label resolution cannot tell them apart: the first item wins the label and every item carrying the value renders as selected. Return a unique value from `getValue`."));
+                $"Iodine: Two items passed to `ComboboxItems.Create()` derived the value {duplicate}, so selection and label resolution cannot tell them apart: the first item wins the label and every item carrying the value renders as selected. Return a unique value from `getValue`."));
         }
     }
 

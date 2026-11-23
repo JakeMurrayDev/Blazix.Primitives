@@ -1,7 +1,7 @@
 using Bunit;
 
 // Family tests use the project's root namespace.
-namespace Blazix.Primitives.Tests.Components;
+namespace Iodine.Headless.Tests.Components;
 
 // ADR 16 rule 7 for Autocomplete (M5 track 11; the brief's L2 plan, PR 245's final review fix 1): the least of five runs
 // after a warm-up, around bUnit's synchronous render on the test thread: an unchanged Root re-render sends nothing to any

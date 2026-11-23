@@ -1,6 +1,6 @@
 using System.Text.Json.Serialization;
 
-namespace Blazix.Primitives.Interop;
+namespace Iodine.Headless.Interop;
 
 // ADR 04 §1 (the `positioning` mechanism module), ADR 03 and ADR 04 Amendments 2026-10-27 (chosen by the user
 // 2026-10-27): the options of one Positioner's handle. Values never cross as elements inside the JSON: the Arrow and an

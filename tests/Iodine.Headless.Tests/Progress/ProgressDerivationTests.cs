@@ -1,7 +1,7 @@
 using System.Globalization;
 
 // Family tests use the project's root namespace.
-namespace Blazix.Primitives.Tests;
+namespace Iodine.Headless.Tests;
 
 // progress/root/ProgressRoot.test.tsx, the clauses PRG-ALG-01 and PRG-ALG-02 cite at L1: the derivation of a progress root
 // (status, percentage, clamped value, formatted value, attribute text) over the shared helpers of Utilities/ (Meter's

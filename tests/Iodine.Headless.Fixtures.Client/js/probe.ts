@@ -1,6 +1,6 @@
 // The probe module: the harness canary of issue 33 (deliverable 6). Test-only; it ships with the fixtures, not the
 // library, and exercises every edge of the twin contract (ADR 04 §3) the way a real module would.
-import { decide } from '../../../src/Blazix.Primitives/js/decide';
+import { decide } from '../../../src/Iodine.Headless/js/decide';
 import {
   applyConsumerStyle,
   createTwinChannel,
@@ -9,7 +9,7 @@ import {
   type DotNetTwin,
   type TwinHandle,
   type TwinOptions,
-} from '../../../src/Blazix.Primitives/js/twin';
+} from '../../../src/Iodine.Headless/js/twin';
 
 interface ProbeOptions extends TwinOptions {
   label: string;

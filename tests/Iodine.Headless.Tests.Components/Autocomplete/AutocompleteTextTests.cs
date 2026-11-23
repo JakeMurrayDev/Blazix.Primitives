@@ -1,8 +1,8 @@
-using Blazix.Primitives.Interop;
+using Iodine.Headless.Interop;
 using Bunit;
 
 // Family tests use the project's root namespace.
-namespace Blazix.Primitives.Tests.Components;
+namespace Iodine.Headless.Tests.Components;
 
 // M5 track 11 (issue 196): Autocomplete's text at L2 (AUT-STA-04..09). The Root owns the committed text and gives the engine
 // the displayed text at every parameter set (design point 1 (i), settled by the orchestrator 2026-11-12: the engine always

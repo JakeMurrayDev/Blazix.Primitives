@@ -1,10 +1,10 @@
-using Blazix.Primitives.Interop;
-using Blazix.Primitives.Rendering;
-using Blazix.Primitives.Store;
+using Iodine.Headless.Interop;
+using Iodine.Headless.Rendering;
+using Iodine.Headless.Store;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Web;
 
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // combobox/clear/ComboboxClear.tsx (CMB §3.8): a native button by default, tabindex="-1", "x" by default, rendered iff kept
 // mounted or mounted; Visible (the input text in no-selection mode, else a selected value) drives a TransitionsTwin with
@@ -83,7 +83,7 @@ internal sealed class ComboboxClearBehavior : IAsyncDisposable
     }
 
     /// <summary>Gets the root's store.</summary>
-    public ComboboxStore Store => store ?? throw new InvalidOperationException($"Blazix: `{services.Family}Clear` is used before its first render.");
+    public ComboboxStore Store => store ?? throw new InvalidOperationException($"Iodine: `{services.Family}Clear` is used before its first render.");
 
     /// <summary>Gets a value indicating whether there is something to clear.</summary>
     public bool Visible => visible;
@@ -195,7 +195,7 @@ internal sealed class ComboboxClearBehavior : IAsyncDisposable
         attributes.Set("onclick", onClick);
 
         // The handover value of an element created visible: the module owns the attribute from attach on.
-        if (renderedStatus == Blazix.Primitives.TransitionStatus.Starting)
+        if (renderedStatus == Iodine.Headless.TransitionStatus.Starting)
         {
             attributes.Set(ComboboxClearDataAttributes.StartingStyle, string.Empty);
         }

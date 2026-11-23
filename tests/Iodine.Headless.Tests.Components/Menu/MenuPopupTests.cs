@@ -1,11 +1,11 @@
 using AngleSharp.Dom;
-using Blazix.Primitives.Rendering;
+using Iodine.Headless.Rendering;
 using Bunit;
 using Microsoft.AspNetCore.Components;
 using Microsoft.Extensions.DependencyInjection;
 
-// Family tests use the project's root namespace (tests/Blazix.Primitives.Tests.Components/CONTEXT.md).
-namespace Blazix.Primitives.Tests.Components;
+// Family tests use the project's root namespace (tests/Iodine.Headless.Tests.Components/CONTEXT.md).
+namespace Iodine.Headless.Tests.Components;
 
 /// <summary>L2: <c>MenuPopup.test.tsx</c>'s L2 titles over <see cref="MenuTreeHost"/> (MNU-STR-05, EDGE-03, ARIA-04, ARIA-19).</summary>
 public sealed class MenuPopupTests : BunitContext
@@ -13,7 +13,7 @@ public sealed class MenuPopupTests : BunitContext
     public MenuPopupTests()
     {
         JSInterop.Mode = JSRuntimeMode.Loose;
-        Services.AddBlazixPrimitives();
+        Services.AddIodineHeadless();
     }
 
     [Fact(DisplayName = "throws when rendered outside Menu.Positioner")]
@@ -23,7 +23,7 @@ public sealed class MenuPopupTests : BunitContext
     {
         InvalidOperationException error = Assert.Throws<InvalidOperationException>(() => Render<MenuTreeHost>(p => p.Add(x => x.NoPositioner, true)));
 
-        Assert.Equal("Blazix: The `MenuPositioner` context is missing. MenuPositioner parts must be placed within `<MenuPositioner>`.", error.Message);
+        Assert.Equal("Iodine: The `MenuPositioner` context is missing. MenuPositioner parts must be placed within `<MenuPositioner>`.", error.Message);
     }
 
     [Fact(DisplayName = "uses an aria-label instead of the trigger label")]

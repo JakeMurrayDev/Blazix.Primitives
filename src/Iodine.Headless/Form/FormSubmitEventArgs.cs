@@ -1,4 +1,4 @@
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // FRM-API-03/04, FRM-EVT-02..04/07 (ADR 08 Amendments 2026-10-22): the argument of Form.OnSubmit and Form.OnFormSubmit.
 // Details is a GenericEventDetails (no cancel, no propagation control) whose Event is the module's snapshot of the native

@@ -1,8 +1,8 @@
-using Blazix.Primitives.Interop;
+using Iodine.Headless.Interop;
 using Microsoft.AspNetCore.Components;
 using Microsoft.Extensions.Logging;
 
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // SEL §4 (select/store.ts, SelectRoot.tsx:136-195); ADR 05 Amendments 2026-11-03 and 2026-11-04 (the open lifecycle,
 // track 2: PopupLifecycleStore over a record holding PopupLifecycleState). The non-generic base is what the non-generic
@@ -82,9 +82,9 @@ internal abstract class SelectStore : PopupLifecycleStore<SelectStoreState>, IFl
     public static SelectStore Require(SelectStore? store)
     {
         // SEL-EDGE-01, SEL-STR-02: thrown in every build (ADR 02 Amendments 2026-10-20), Base UI's wording with the
-        // `Blazix: ` prefix and backticks (the M5 plan §Settled).
+        // `Iodine: ` prefix and backticks (the M5 plan §Settled).
         return store ?? throw new InvalidOperationException(
-            "Blazix: `SelectRootContext` is missing. Select parts must be placed within `<SelectRoot>`.");
+            "Iodine: `SelectRootContext` is missing. Select parts must be placed within `<SelectRoot>`.");
     }
 
     // SEL-STA-09, SEL-FOC-11, SEL-FRM-18: set once, never cleared.

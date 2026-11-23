@@ -4,7 +4,7 @@ using Microsoft.AspNetCore.Components;
 using Microsoft.Extensions.DependencyInjection;
 
 // The namespace is the project's root: a namespace named after the family would hide the parts' types.
-namespace Blazix.Primitives.Tests.Components;
+namespace Iodine.Headless.Tests.Components;
 
 // ProgressLabel.test.tsx. The Root is the label's scope (PRG-STA-05, FFI-ARIA-08): the label publishes its id to the root and
 // withdraws it only while the root still holds that id. The port publishes while the label's parameters are set, so the
@@ -17,7 +17,7 @@ public sealed class ProgressLabelTests : IDisposable
 
     public ProgressLabelTests()
     {
-        context.Services.AddBlazixPrimitives();
+        context.Services.AddIodineHeadless();
     }
 
     /// <inheritdoc />
@@ -53,7 +53,7 @@ public sealed class ProgressLabelTests : IDisposable
     {
         InvalidOperationException error = Assert.Throws<InvalidOperationException>(() => context.Render<ProgressLabel>());
 
-        Assert.Equal("Blazix: The `ProgressRoot` context is missing. Progress parts must be placed within `<ProgressRoot>`.", error.Message);
+        Assert.Equal("Iodine: The `ProgressRoot` context is missing. Progress parts must be placed within `<ProgressRoot>`.", error.Message);
     }
 
     [Fact(DisplayName = "draws a generated id when the consumer supplies none")]

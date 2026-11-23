@@ -118,7 +118,7 @@ test.describe('item indicator', () => {
 
 test.describe('collation', () => {
   // UTL-I18N-09..11 and ADR 01 decision 2's note of 2026-11-04: a subset of the L1 collation table
-  // (tests/Blazix.Primitives.Tests/ListValues/Data/collation-table.json) run by the collator filter in the page's runtime, as
+  // (tests/Iodine.Headless.Tests/ListValues/Data/collation-table.json) run by the collator filter in the page's runtime, as
   // `contains,startsWith,endsWith`. The expected answers are the L1 table's, Intl.Collator's.
   const subset: Record<string, string> = {
     'en-US|Résumé|resume': 'true,true,true',
@@ -149,7 +149,7 @@ test.describe('collation', () => {
 
 test.describe('allocation', () => {
   // ADR 16 rule 7, ADR 05 Amendments 2026-10-20 (the M5 re-measure of Is<T> on the WebAssembly interpreter): the WebAssembly
-  // half of the item equality's and the collator filter's allocation probe (tests/Blazix.Primitives.Tests/ListValues/ holds
+  // half of the item equality's and the collator filter's allocation probe (tests/Iodine.Headless.Tests/ListValues/ holds
   // the CoreCLR half, 0 bytes for every type). A scenario is one operation over 300 items, `<type>/<operation>`; the filter's
   // round is its three predicates over 1,000 item texts.
   const operations = ['compare', 'find-single', 'find-multiple', 'includes', 'dirty'];

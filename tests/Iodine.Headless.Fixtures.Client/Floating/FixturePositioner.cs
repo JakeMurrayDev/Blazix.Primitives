@@ -1,8 +1,8 @@
-using Blazix.Primitives.Rendering;
+using Iodine.Headless.Rendering;
 using Microsoft.AspNetCore.Components;
 using Microsoft.JSInterop;
 
-namespace Blazix.Primitives.Fixtures.Client.FloatingFixtures;
+namespace Iodine.Headless.Fixtures.Client.FloatingFixtures;
 
 /// <summary>
 /// A test-only positioner for the <c>positioning-*</c> fixtures (tests/browser/positioning.spec.ts), the counterpart of

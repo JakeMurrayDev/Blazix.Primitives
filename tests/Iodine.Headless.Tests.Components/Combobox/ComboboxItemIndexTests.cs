@@ -5,7 +5,7 @@ using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Rendering;
 
 // Family tests use the project's root namespace.
-namespace Blazix.Primitives.Tests.Components;
+namespace Iodine.Headless.Tests.Components;
 
 // Base UI's ComboboxItem.test.tsx titles for an item's index (CMB-API-22, CMB-API-57, CMB-DOM-09, CMB-STA-33), at L2: the
 // item's index is the one its registration sends to the `composite` module, whose registry drops a negative index (no

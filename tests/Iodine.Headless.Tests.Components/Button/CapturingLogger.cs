@@ -1,6 +1,6 @@
 using Microsoft.Extensions.Logging;
 
-namespace Blazix.Primitives.Tests.Components;
+namespace Iodine.Headless.Tests.Components;
 
 /// <summary>The captured logger of ADR 06 §2 "Diagnostics" for one category: records every message written to it, in order.</summary>
 /// <typeparam name="TCategory">The type whose name is the logger's category.</typeparam>

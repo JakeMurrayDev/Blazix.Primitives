@@ -1,11 +1,11 @@
-using Blazix.Primitives.Store;
+using Iodine.Headless.Store;
 using Microsoft.Extensions.Logging;
 
-namespace Blazix.Primitives.Tests.Components;
+namespace Iodine.Headless.Tests.Components;
 
 /// <summary>
 /// The test-only popup family's store record (ADR 05 Amendments 2026-10-27): the shared state as its one popup member, so
-/// no derived record is needed (BLZX1010 stays).
+/// no derived record is needed (IOD1010 stays).
 /// </summary>
 [StoreState]
 internal sealed partial record TestPopupStoreState<TPayload>(PopupStoreState<TPayload> Popup)

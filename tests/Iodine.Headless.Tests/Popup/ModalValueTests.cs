@@ -1,5 +1,5 @@
 // Family tests use the project's root namespace.
-namespace Blazix.Primitives.Tests;
+namespace Iodine.Headless.Tests;
 
 /// <summary>
 /// <see cref="ModalValue"/> at L1: Base UI's <c>modal: boolean | 'trap-focus'</c> as a hand-written union (ADR 08 §3's

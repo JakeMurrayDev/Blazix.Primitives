@@ -1,14 +1,14 @@
 using AngleSharp.Dom;
-using Blazix.Primitives.Interop;
-using Blazix.Primitives.Rendering;
+using Iodine.Headless.Interop;
+using Iodine.Headless.Rendering;
 using Bunit;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Rendering;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.JSInterop;
 
-// Family tests use the project's root namespace (tests/Blazix.Primitives.Tests.Components/CONTEXT.md).
-namespace Blazix.Primitives.Tests.Components;
+// Family tests use the project's root namespace (tests/Iodine.Headless.Tests.Components/CONTEXT.md).
+namespace Iodine.Headless.Tests.Components;
 
 /// <summary>
 /// ADR 16 rule 2 for Menu's filter mode (M5 track 12, the final review's fix 6): which parts one filtering keystroke renders,
@@ -24,8 +24,8 @@ public sealed class MenuFilterRenderCountTests : BunitContext
     public MenuFilterRenderCountTests()
     {
         JSInterop.Mode = JSRuntimeMode.Loose;
-        Services.AddBlazixPrimitives();
-        module = JSInterop.SetupModule("./_content/Blazix.Primitives/js/menu-filter.js");
+        Services.AddIodineHeadless();
+        module = JSInterop.SetupModule("./_content/Iodine.Headless/js/menu-filter.js");
         module.SetupModule("attach", _ => true).SetupVoid("update", _ => true).SetVoidResult();
     }
 

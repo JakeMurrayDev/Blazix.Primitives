@@ -1,4 +1,4 @@
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // OTP-API-07, OTP-STA-05 (otp-field/utils/otp.ts:8-37): the family-prefixed enum of §3's Enums row (ADR 08 Amendments
 // 2026-11-18; issue 278, M6 track 7). `null` on the Root means numeric.

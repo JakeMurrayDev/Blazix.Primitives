@@ -1,4 +1,4 @@
-namespace Blazix.Primitives.Tests.Events;
+namespace Iodine.Headless.Tests.Events;
 
 /// <summary><c>getHighlightReason</c> (EVD-ALG-11).</summary>
 public sealed class HighlightReasonTests

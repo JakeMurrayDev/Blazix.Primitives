@@ -1,9 +1,9 @@
-using Blazix.Primitives.Analyzers;
+using Iodine.Headless.Analyzers;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Testing;
 using Microsoft.CodeAnalysis.Testing;
 
-namespace Blazix.Primitives.Tests.Generators.Analyzers;
+namespace Iodine.Headless.Tests.Generators.Analyzers;
 
 /// <summary>
 /// The nullable-union-parameter analyzer (ADR 05 and ADR 08, Amendments 2026-10-20): a <c>[Parameter]</c> or cascading
@@ -137,10 +137,10 @@ public sealed class NullableUnionParameterAnalyzerTests
 
             public sealed class Dialog : ComponentBase
             {
-            #pragma warning disable BLZX2006 // probing the default value on purpose
+            #pragma warning disable IOD2006 // probing the default value on purpose
                 [Parameter]
                 public ModalValue Probe { get; set; }
-            #pragma warning restore BLZX2006
+            #pragma warning restore IOD2006
 
                 [Parameter]
                 public ModalValue {|#0:Modal|} { get; set; }

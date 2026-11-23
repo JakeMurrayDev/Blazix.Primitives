@@ -1,12 +1,12 @@
 using AngleSharp.Dom;
-using Blazix.Primitives.Interop;
+using Iodine.Headless.Interop;
 using Bunit;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Rendering;
 using Microsoft.JSInterop;
 
 // Family tests use the project's root namespace.
-namespace Blazix.Primitives.Tests.Components;
+namespace Iodine.Headless.Tests.Components;
 
 // M5 track 11 (issue 196): Autocomplete inside a Field at L2 (AUT-FRM-01, 02, 03, 05, 07; AutocompleteRoot.test.tsx's Field
 // titles) over the engine's None paths: the Input is the field's control outside the popup, and the field's value is the

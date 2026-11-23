@@ -1,7 +1,7 @@
 using System.Collections;
-using Blazix.Primitives.Utilities;
+using Iodine.Headless.Utilities;
 
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // SEL-API-19 (select/root/SelectRoot.tsx:698-702, internals/resolveValueLabel.tsx:5-36); ADR 08 Amendments 2026-11-03 (2)
 // and (4): Base UI's `{ value, label }` item and its `{ items, ... }` group, typed, with `string` labels; shared by the

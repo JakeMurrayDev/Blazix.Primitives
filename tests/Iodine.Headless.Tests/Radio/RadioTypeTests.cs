@@ -1,7 +1,7 @@
 using System.Reflection;
 using Microsoft.AspNetCore.Components;
 
-namespace Blazix.Primitives.Tests.Radio;
+namespace Iodine.Headless.Tests.Radio;
 
 // RadioRoot.spec.tsx (RAD-API-01, RAD §3.3): the radio is generic over its value, so an explicit type argument constrains
 // Value at compile time (`<Radio.Root<'a' | 'b'> value="c" />` is the C# compiler's error); the two state records have

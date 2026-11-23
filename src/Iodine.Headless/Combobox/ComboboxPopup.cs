@@ -1,10 +1,10 @@
-using Blazix.Primitives.Rendering;
+using Iodine.Headless.Rendering;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Rendering;
 using Microsoft.Extensions.Logging;
 using Microsoft.JSInterop;
 
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // CMB §3.15, STA-10 (combobox/popup/ComboboxPopup.tsx): Side, Align and AnchorHidden read from the Positioner's mirror (rendered by C#, a dated Writer note), the status mirrored.
 /// <summary>Represents the state of a combobox popup, which the part exposes as data attributes and passes to its class and style functions.</summary>

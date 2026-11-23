@@ -1,7 +1,7 @@
 using System.Globalization;
-using Blazix.Primitives.Utilities;
+using Iodine.Headless.Utilities;
 
-namespace Blazix.Primitives.Tests;
+namespace Iodine.Headless.Tests;
 
 // NUM-KEY-07 and NUM-EVT-15: NumberFieldRoot.tsx's getAllowedNonNumericKeys (:152-206) and NumberFieldInput.tsx's character
 // test of a change (:247-258), which C# computes for the module's keydown gate and runs again on every text it is sent

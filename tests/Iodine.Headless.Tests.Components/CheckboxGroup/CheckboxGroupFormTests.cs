@@ -1,10 +1,10 @@
 using AngleSharp.Dom;
-using Blazix.Primitives.Interop;
+using Iodine.Headless.Interop;
 using Bunit;
 using Microsoft.AspNetCore.Components;
 
 // The namespace is the project's root: a namespace named after the family would hide the parts' types.
-namespace Blazix.Primitives.Tests.Components;
+namespace Iodine.Headless.Tests.Components;
 
 // FFI-FRM-04, FFI-FRM-24, CKG-FRM-05, CKG-FOC-02 at L2: the state the form module reads from each member's hidden input
 // in the submit task reaches that input's validation state (the input sink, settled by the orchestrator 2026-10-23), so

@@ -1,10 +1,10 @@
-using Blazix.Primitives.Interop;
-using Blazix.Primitives.Rendering;
+using Iodine.Headless.Interop;
+using Iodine.Headless.Rendering;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Rendering;
 using Microsoft.JSInterop;
 
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // Base UI's Menu.Empty (menu/empty/MenuEmpty.tsx, filter-dropdown/empty/FilterDropdownEmpty.tsx); the contract is
 // docs/components/menu.md §3.24 (MNU-API-61, DOM-23, ARIA-16, STA-23). It decides only after its first render, once the

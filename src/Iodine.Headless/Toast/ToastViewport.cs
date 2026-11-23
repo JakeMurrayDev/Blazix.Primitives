@@ -1,13 +1,13 @@
 using System.Globalization;
-using Blazix.Primitives.Interop;
-using Blazix.Primitives.Rendering;
-using Blazix.Primitives.Store;
-using Blazix.Primitives.Utilities;
+using Iodine.Headless.Interop;
+using Iodine.Headless.Rendering;
+using Iodine.Headless.Store;
+using Iodine.Headless.Utilities;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Rendering;
 using Microsoft.JSInterop;
 
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // TST §3.3 state object (toast/viewport/ToastViewport.tsx:235-237); TST-STA-26.
 /// <summary>Represents the state of a toast viewport, which the part exposes as data attributes.</summary>

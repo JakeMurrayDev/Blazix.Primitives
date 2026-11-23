@@ -1,8 +1,8 @@
-using Blazix.Primitives.Rendering;
+using Iodine.Headless.Rendering;
 using Microsoft.AspNetCore.Components;
 using Microsoft.JSInterop;
 
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // The viewport every dialog family composes (dialog/viewport/DialogViewport.tsx; ADR 08 Amendments 2026-10-27): inside the
 // portal (DLG-EDGE-03), rendered while the portal renders (DOM-11), hidden while unmounted (DOM-12), pointer-events: none

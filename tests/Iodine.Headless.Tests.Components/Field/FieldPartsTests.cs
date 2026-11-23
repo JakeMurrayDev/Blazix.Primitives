@@ -1,15 +1,15 @@
 using AngleSharp.Dom;
-using Blazix.Primitives.Interop;
-using Blazix.Primitives.Rendering;
+using Iodine.Headless.Interop;
+using Iodine.Headless.Rendering;
 using Bunit;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Web;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.JSInterop;
-using Scenario = Blazix.Primitives.Tests.Components.FieldScenarios.FieldScenario;
+using Scenario = Iodine.Headless.Tests.Components.FieldScenarios.FieldScenario;
 
-namespace Blazix.Primitives.Tests.Components;
+namespace Iodine.Headless.Tests.Components;
 
 /// <summary>
 /// The <c>[L2]</c> titles of <c>FieldLabel.test.tsx</c>, <c>FieldDescription.test.tsx</c> and <c>FieldItem.test.tsx</c>
@@ -194,7 +194,7 @@ public sealed class FieldPartsTests : IDisposable
 
         (LogLevel level, string message) = Assert.Single(logger.Entries);
         Assert.Equal(LogLevel.Error, level);
-        Assert.Contains("Blazix: `<FieldLabel>` expected a `<label>` element because the `NativeLabel` parameter is `true`.", message, StringComparison.Ordinal);
+        Assert.Contains("Iodine: `<FieldLabel>` expected a `<label>` element because the `NativeLabel` parameter is `true`.", message, StringComparison.Ordinal);
     }
 
     [Fact(DisplayName = "errors if nativeLabel=false but ref is a label")]
@@ -210,7 +210,7 @@ public sealed class FieldPartsTests : IDisposable
 
         (LogLevel level, string message) = Assert.Single(logger.Entries);
         Assert.Equal(LogLevel.Error, level);
-        Assert.Contains("Blazix: `<FieldLabel>` expected a non-`<label>` element because the `NativeLabel` parameter is `false`.", message, StringComparison.Ordinal);
+        Assert.Contains("Iodine: `<FieldLabel>` expected a non-`<label>` element because the `NativeLabel` parameter is `false`.", message, StringComparison.Ordinal);
     }
 
     // FieldRoot.react17.test.tsx mocks the owner-stack API away; the port has none, so the title asserts the message alone.
@@ -335,7 +335,7 @@ public sealed class FieldPartsTests : IDisposable
     [Trait("Requirement", "FFI-EDGE-01")]
     public void Throws_a_descriptive_error_when_a_field_part_is_rendered_outside_Field_Root()
     {
-        const string Message = "Blazix: The `FieldRoot` context is missing. Field parts must be placed within `<FieldRoot>`.";
+        const string Message = "Iodine: The `FieldRoot` context is missing. Field parts must be placed within `<FieldRoot>`.";
 
         Assert.Equal(Message, Assert.Throws<InvalidOperationException>(() => Context.Render<FieldLabel>()).Message);
         Assert.Equal(Message, Assert.Throws<InvalidOperationException>(() => Context.Render<FieldDescription>()).Message);
@@ -447,7 +447,7 @@ public sealed class FieldPartsTests : IDisposable
             }
 
             Attempts++;
-            return ValueTask.FromException<TValue>(new JSException($"Blazix: no element for id '{args?[0]}'"));
+            return ValueTask.FromException<TValue>(new JSException($"Iodine: no element for id '{args?[0]}'"));
         }
     }
 #pragma warning restore BL0016

@@ -1,7 +1,7 @@
 using Bunit;
 
 // Family tests use the project's root namespace.
-namespace Blazix.Primitives.Tests.Components;
+namespace Iodine.Headless.Tests.Components;
 
 // CMB-STA-26 at L2 (ComboboxRoot.test.tsx, describe "prop: autoHighlight > asynchronous items"): a typed query's pending
 // highlight waits for candidates and for a navigable list, and is discarded by the events Base UI names. The highlight is the

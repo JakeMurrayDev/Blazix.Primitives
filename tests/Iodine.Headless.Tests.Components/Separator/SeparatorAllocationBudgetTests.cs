@@ -1,10 +1,10 @@
 using Bunit;
 using Microsoft.AspNetCore.Components;
 using Microsoft.Extensions.DependencyInjection;
-using LibraryOrientation = Blazix.Primitives.Orientation;
+using LibraryOrientation = Iodine.Headless.Orientation;
 
 // The namespace is the project's root, not a `Separator` namespace (see SeparatorConformanceTests).
-namespace Blazix.Primitives.Tests.Components;
+namespace Iodine.Headless.Tests.Components;
 
 /// <summary>
 /// ADR 16 rule 7 at L2 for <see cref="Separator"/>: the steady-state re-render with unchanged parameters (the state record
@@ -23,7 +23,7 @@ public sealed class SeparatorAllocationBudgetTests : IDisposable
 
     public SeparatorAllocationBudgetTests()
     {
-        context.Services.AddBlazixPrimitives();
+        context.Services.AddIodineHeadless();
     }
 
     /// <inheritdoc />

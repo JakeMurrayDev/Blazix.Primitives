@@ -1,8 +1,8 @@
 using System.Collections;
-using Blazix.Primitives.Store;
-using Blazix.Primitives.Utilities;
+using Iodine.Headless.Store;
+using Iodine.Headless.Utilities;
 
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // Base UI's createItems (combobox/items/createItems.ts, itemCollection.ts; CMB-API-32, EDGE-12), in design point 2's shape
 // (settled by the orchestrator 2026-11-04): the collection is a list of the derived values, so it passes as the root's
@@ -72,7 +72,7 @@ public sealed class ComboboxItemCollection<TItem, TValue> : IReadOnlyList<TValue
     /// <returns>The first source item with that value.</returns>
     /// <exception cref="KeyNotFoundException">No source item has that value.</exception>
     public TItem Get(TValue value) =>
-        index.TryFind(value, null, out TItem? item) ? item! : throw new KeyNotFoundException($"Blazix: no item of the collection has the value `{value}`.");
+        index.TryFind(value, null, out TItem? item) ? item! : throw new KeyNotFoundException($"Iodine: no item of the collection has the value `{value}`.");
 
     /// <summary>Gets the source item whose value is <paramref name="value"/>, if any.</summary>
     /// <param name="value">The value.</param>
@@ -139,7 +139,7 @@ public sealed class ComboboxItemGroupCollection<TItem, TValue> : IReadOnlyList<C
     /// <returns>The first source item with that value.</returns>
     /// <exception cref="KeyNotFoundException">No source item has that value.</exception>
     public TItem Get(TValue value) =>
-        index.TryFind(value, null, out TItem? item) ? item! : throw new KeyNotFoundException($"Blazix: no item of the collection has the value `{value}`.");
+        index.TryFind(value, null, out TItem? item) ? item! : throw new KeyNotFoundException($"Iodine: no item of the collection has the value `{value}`.");
 
     /// <summary>Gets the source item whose value is <paramref name="value"/>, if any.</summary>
     /// <param name="value">The value.</param>

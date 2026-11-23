@@ -60,9 +60,9 @@ export const LONG_PRESS_DELAY = 500;
 
 // ContextMenuTrigger.tsx:144.
 const MOVE_THRESHOLD = 10;
-const ROOT_KEY = 'blazix.contextMenu';
+const ROOT_KEY = 'iodine.contextMenu';
 const ROOT_OWNER_SELECTOR = '[data-rootownerid]';
-const attachedHandle = Symbol('blazix.contextMenu.trigger');
+const attachedHandle = Symbol('iodine.contextMenu.trigger');
 
 /** The options of a handle: the Root's or a Trigger's. */
 export interface ContextMenuOptions extends TwinOptions {

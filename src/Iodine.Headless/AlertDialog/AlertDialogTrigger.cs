@@ -1,10 +1,10 @@
-using Blazix.Primitives.Rendering;
+using Iodine.Headless.Rendering;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Web;
 using Microsoft.Extensions.Logging;
 using Microsoft.JSInterop;
 
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // ADL §3.2: Dialog.Trigger's state object (DLG §3.2, dialog/trigger/DialogTrigger.tsx:76-79) under its AlertDialog name;
 // DLG-STA-12: Open is isOpenedByTrigger, not the alert dialog's open state.

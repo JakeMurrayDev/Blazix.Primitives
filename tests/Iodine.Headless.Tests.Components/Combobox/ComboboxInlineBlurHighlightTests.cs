@@ -1,8 +1,8 @@
-using Blazix.Primitives.Interop;
+using Iodine.Headless.Interop;
 using Bunit;
 
 // Family tests use the project's root namespace.
-namespace Blazix.Primitives.Tests.Components;
+namespace Iodine.Headless.Tests.Components;
 
 // CMB-STA-26 (AriaCombobox.tsx:1097-1114; design point 9 of M5 track 11, settled by the orchestrator 2026-11-12): a typed
 // highlight request is discarded once an inline input has lost the focus, unless the automatic highlight is always on, so

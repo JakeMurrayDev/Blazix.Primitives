@@ -64,12 +64,12 @@ public sealed class ListRoot<TValue> : ComponentBase
         bool multiple = parameters.TryGetValue<bool>(nameof(Multiple), out bool value) && value;
         if (multiple && singleSupplied is { } single)
         {
-            throw new InvalidOperationException($"Blazix: `ListRoot` received `{single}` while `Multiple` is true. In multiple mode, use `Values`, `ValuesChanged` (or `@bind-Values`), `DefaultValues` and `OnValuesChange`.");
+            throw new InvalidOperationException($"Iodine: `ListRoot` received `{single}` while `Multiple` is true. In multiple mode, use `Values`, `ValuesChanged` (or `@bind-Values`), `DefaultValues` and `OnValuesChange`.");
         }
 
         if (!multiple && multipleSupplied is { } many)
         {
-            throw new InvalidOperationException($"Blazix: `ListRoot` received `{many}` while `Multiple` is false. Set `Multiple=\"true\"`, or use `Value`, `ValueChanged` (or `@bind-Value`), `DefaultValue` and `OnValueChange` for one value.");
+            throw new InvalidOperationException($"Iodine: `ListRoot` received `{many}` while `Multiple` is false. Set `Multiple=\"true\"`, or use `Value`, `ValueChanged` (or `@bind-Value`), `DefaultValue` and `OnValueChange` for one value.");
         }
 
         return base.SetParametersAsync(parameters);

@@ -1,4 +1,4 @@
-namespace Blazix.Primitives.Tests;
+namespace Iodine.Headless.Tests;
 
 /// <summary>
 /// L1: <see cref="OffsetValue"/>, <see cref="Offset"/> and <see cref="OffsetOverride"/> (ADR 08 Amendments 2026-10-27;

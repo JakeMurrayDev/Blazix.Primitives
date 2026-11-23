@@ -1,10 +1,10 @@
-using Blazix.Primitives.Rendering;
+using Iodine.Headless.Rendering;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Web;
 using Microsoft.Extensions.Logging;
 using Microsoft.JSInterop;
 
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // Base UI's NumberField.Increment (number-field/increment/NumberFieldIncrement.tsx over root/useNumberFieldStepperButton.ts); the
 // contract is docs/components/number-field.md §3.7. One NumberFieldStepper composed (ADR 16 rule 10).
@@ -82,7 +82,7 @@ public sealed class NumberFieldIncrement : PartBase<NumberFieldIncrementState>
     /// <inheritdoc />
     protected override StateAttributesMapping<NumberFieldIncrementState>? StateAttributesMapping => s_mapping;
 
-    // For the fixtures (tests/Blazix.Primitives.Fixtures.Client): completes once the button mechanism is attached, so a browser
+    // For the fixtures (tests/Iodine.Headless.Fixtures.Client): completes once the button mechanism is attached, so a browser
     // test can wait for the module's listeners before it presses.
     /// <summary>Gets a task that completes when the button's behavior is attached to its element.</summary>
     /// <value>A task that completes after the first interactive render has attached it.</value>

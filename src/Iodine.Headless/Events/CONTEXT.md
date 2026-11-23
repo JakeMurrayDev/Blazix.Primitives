@@ -1,6 +1,6 @@
-# src/Blazix.Primitives/Events
+# src/Iodine.Headless/Events
 
-Event details, reasons and the controlled-value helper: what a part hands to a consumer's change callback and how a request runs. Namespace `Blazix.Primitives` (ADR 08 §1).
+Event details, reasons and the controlled-value helper: what a part hands to a consumer's change callback and how a request runs. Namespace `Iodine.Headless` (ADR 08 §1).
 
 ## Inputs
 
@@ -28,7 +28,7 @@ The public surface, with what each member does (requirement IDs follow for trace
 - `readonly record struct ValueChangeEventArgs<T>(T Value, ChangeEventDetails Details)`: the single argument of every `On<X>Change` callback.
   - Delivered through a receiverless `EventCallback` it allocates nothing.
   - Delivered through a component receiver it costs about 66 bytes per delivery: a 32-byte box plus Blazor's own dispatch.
-- `readonly record struct ValueCommittedEventArgs<T>(T Value, GenericEventDetails Details)`: the single argument of every `On<X>Committed` callback (Slider's and NumberField's `OnValueCommitted`), the twin of `ValueChangeEventArgs<T>`; its details are a notification's, never cancelable (M6 track 1, [issue 272](https://github.com/JakeMurrayDev/Blazix.Primitives/issues/272), 2026-11-18; ADR 08 Amendments 2026-11-18).
+- `readonly record struct ValueCommittedEventArgs<T>(T Value, GenericEventDetails Details)`: the single argument of every `On<X>Committed` callback (Slider's and NumberField's `OnValueCommitted`), the twin of `ValueChangeEventArgs<T>`; its details are a notification's, never cancelable (M6 track 1, [issue 272](https://github.com/JakeMurrayDev/Iodine.Headless/issues/272), 2026-11-18; ADR 08 Amendments 2026-11-18).
   - Delivered through a receiverless `EventCallback` it allocates nothing.
   - Delivered through a component receiver it costs 65,776 bytes per 1,000 deliveries (least of five, SDK 11.0.100), as `ValueChangeEventArgs<T>` does.
 - `EventTrigger(string? Id, ElementReference? Element)`: the element that started a request. `Element` is `null` when only JavaScript holds it.
@@ -76,12 +76,12 @@ The inverse, `snapshot.ToKeyboardEventArgs()`, is what a decision point hands a 
 
 ### Development warnings
 
-The library's one debug switch is the AppContext switch `Blazix.Primitives.DevelopmentWarnings` (internal `DevelopmentWarnings.IsEnabled`; `DevelopmentWarnings.Write(ILogger, string)` logs at `Error`). Any later development-only check, such as one of the pipeline's, should go through it. EVD-EDGE-01/02 (and the store's UTL-EDGE-25) go to the `ILogger` the part passes, at `Error`, only while the runtime switch `Blazix.Primitives.DevelopmentWarnings` is on (`AppContext.SetSwitch`, or `<RuntimeHostConfigurationOption Include="Blazix.Primitives.DevelopmentWarnings" Value="true" />` in a Debug build). Each distinct message is logged once per `Controlled<T>` instance. Base UI compares defaults by JSON serialisation; the port compares by `EqualityComparer<T>.Default`, then structurally for arrays and tuples, then item by item for sequences, never throwing.
+The library's one debug switch is the AppContext switch `Iodine.Headless.DevelopmentWarnings` (internal `DevelopmentWarnings.IsEnabled`; `DevelopmentWarnings.Write(ILogger, string)` logs at `Error`). Any later development-only check, such as one of the pipeline's, should go through it. EVD-EDGE-01/02 (and the store's UTL-EDGE-25) go to the `ILogger` the part passes, at `Error`, only while the runtime switch `Iodine.Headless.DevelopmentWarnings` is on (`AppContext.SetSwitch`, or `<RuntimeHostConfigurationOption Include="Iodine.Headless.DevelopmentWarnings" Value="true" />` in a Debug build). Each distinct message is logged once per `Controlled<T>` instance. Base UI compares defaults by JSON serialisation; the port compares by `EqualityComparer<T>.Default`, then structurally for arrays and tuples, then item by item for sequences, never throwing.
 
 ## Outputs
 
 - Types consumed by every family's change callbacks and by the twins that report native events.
-- Tested at L1 by `tests/Blazix.Primitives.Tests/Events/` (Base UI titles where a Base UI test exists).
+- Tested at L1 by `tests/Iodine.Headless.Tests/Events/` (Base UI titles where a Base UI test exists).
 
 ## Human check
 

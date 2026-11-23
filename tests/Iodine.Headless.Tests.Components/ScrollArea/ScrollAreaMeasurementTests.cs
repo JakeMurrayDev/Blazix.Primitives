@@ -2,7 +2,7 @@ using System.Text.Json;
 using AngleSharp.Dom;
 using Bunit;
 
-namespace Blazix.Primitives.Tests.Components;
+namespace Iodine.Headless.Tests.Components;
 
 /// <summary>
 /// What C# projects from the <c>scroll-area</c> module's reports (SCR §4.2-§4.4, §5; ADR 04 Amendments 2026-11-18: the
@@ -337,7 +337,7 @@ public sealed class ScrollAreaMeasurementTests : IDisposable
 
         Assert.True(scrollbar!.Scrolling);
         Assert.True(scrollbar.Hovering);
-        Assert.Equal(Primitives.Orientation.Vertical, scrollbar.Orientation);
+        Assert.Equal(Headless.Orientation.Vertical, scrollbar.Orientation);
         Assert.True(thumb!.Scrolling);
         Assert.Equal("hovering", cut.Find("[data-testid=scrollbar-y]").GetAttribute("class"));
         Assert.False(cut.Find("[data-testid=root]").HasAttribute("data-scrolling"));

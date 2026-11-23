@@ -1,7 +1,7 @@
 using System.Globalization;
-using Blazix.Primitives.Utilities;
+using Iodine.Headless.Utilities;
 
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // AUT-API-19 (autocomplete/index.parts.ts:24, combobox/root/utils/useFilter.ts:12, internals/filter.ts:6-83): Base UI's
 // Autocomplete.useFilter, the shared collator filter factory with no selection awareness, named by M5 track 11 (its dated

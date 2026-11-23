@@ -1,8 +1,8 @@
 using System.Globalization;
-using Blazix.Primitives.Utilities;
+using Iodine.Headless.Utilities;
 using Microsoft.AspNetCore.Components;
 
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // PRG-STA-01..05, PRG-STR-02, PRG-EDGE-01; progress/root/ProgressRootContext.tsx. Cascaded fixed by ProgressRoot (ADR 16
 // rule 9): a change reaches the label, the track, the indicator and the value through the listeners below, never through the
@@ -77,7 +77,7 @@ internal sealed class ProgressRootContext
     {
         // PRG-EDGE-01, in every build; the port's words.
         return context ?? throw new InvalidOperationException(
-            "Blazix: The `ProgressRoot` context is missing. Progress parts must be placed within `<ProgressRoot>`.");
+            "Iodine: The `ProgressRoot` context is missing. Progress parts must be placed within `<ProgressRoot>`.");
     }
 
     /// <summary>Recomputes the derived values from the root's parameters, and notifies the parts whose output changed.</summary>

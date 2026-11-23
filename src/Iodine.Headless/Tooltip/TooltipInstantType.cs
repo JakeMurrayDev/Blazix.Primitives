@@ -1,4 +1,4 @@
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // TIP §4.1 (instantType), TIP-STA-05/06/12; ADR 08 Amendments 2026-10-27 (the per-family instant enums, chosen by the user
 // 2026-10-27). Rendered by C# as data-instant (ADR 04 Amendments 2026-10-27; TIP §16 Q2's resolution), in Base UI's

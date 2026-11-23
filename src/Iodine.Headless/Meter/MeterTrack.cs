@@ -1,6 +1,6 @@
-using Blazix.Primitives.Rendering;
+using Iodine.Headless.Rendering;
 
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // Base UI's Meter.Track (meter/track/MeterTrack.tsx); the contract is docs/components/meter.md. MTR-STR-03: reads no context,
 // so it renders anywhere (docs §16 item 3 leaves requiring a root to a decision). MTR-STR-04: structural only, no built-in

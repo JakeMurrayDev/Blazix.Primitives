@@ -1,6 +1,6 @@
 using Microsoft.Extensions.Logging;
 
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // PSH §3.1, PSH-ALG-06 (utils/popups/popupHandle.ts, BasePopupHandle); ADR 08 Amendments 2026-10-27 (chosen by the user
 // 2026-10-27: PopupHandle<TPayload> with OpenAsync, CloseAsync and IsOpen; a <Family>Handle<TPayload> per family, created
@@ -88,7 +88,7 @@ public abstract class PopupHandle<TPayload>
         IPopupStore<TPayload>? store = attachedStore;
         if (store is null)
         {
-            Warn($"Blazix: `{componentName}Handle.OpenAsync()` was called while no root using this handle is mounted. The call was ignored; mount a root with this handle before opening it imperatively.");
+            Warn($"Iodine: `{componentName}Handle.OpenAsync()` was called while no root using this handle is mounted. The call was ignored; mount a root with this handle before opening it imperatively.");
             return Task.CompletedTask;
         }
 
@@ -108,10 +108,10 @@ public abstract class PopupHandle<TPayload>
                 if (throwOnMissingTrigger)
                 {
                     throw new InvalidOperationException(
-                        $"Blazix: `{componentName}Handle.OpenAsync()` was called with the trigger id \"{triggerId}\", but no matching trigger is registered with this handle. An anchored popup cannot open without a trigger to anchor to. Pass the id of a mounted `{componentName}Trigger` that has this handle set on its `Handle` parameter.");
+                        $"Iodine: `{componentName}Handle.OpenAsync()` was called with the trigger id \"{triggerId}\", but no matching trigger is registered with this handle. An anchored popup cannot open without a trigger to anchor to. Pass the id of a mounted `{componentName}Trigger` that has this handle set on its `Handle` parameter.");
                 }
 
-                Warn($"Blazix: `{componentName}Handle.OpenAsync()`: No trigger found with id \"{triggerId}\". The popup will open, but the trigger will not be associated with it.");
+                Warn($"Iodine: `{componentName}Handle.OpenAsync()`: No trigger found with id \"{triggerId}\". The popup will open, but the trigger will not be associated with it.");
             }
         }
 
@@ -131,7 +131,7 @@ public abstract class PopupHandle<TPayload>
         IPopupStore<TPayload>? store = attachedStore;
         if (store is null)
         {
-            Warn($"Blazix: `{componentName}Handle.CloseAsync()` was called while no root using this handle is mounted. The call was ignored.");
+            Warn($"Iodine: `{componentName}Handle.CloseAsync()` was called while no root using this handle is mounted. The call was ignored.");
             return Task.CompletedTask;
         }
 
@@ -179,7 +179,7 @@ public abstract class PopupHandle<TPayload>
         overlapCheckPending = false;
         if (attachedStores.Count > 1)
         {
-            Warn("Blazix: A handle is attached to more than one mounted root at the same time. The most recently mounted root takes over and the previous one stops being controlled by the handle. A handle should be used by a single root that stays mounted for the lifetime of the handle.");
+            Warn("Iodine: A handle is attached to more than one mounted root at the same time. The most recently mounted root takes over and the previous one stops being controlled by the handle. A handle should be used by a single root that stays mounted for the lifetime of the handle.");
         }
     }
 
@@ -193,7 +193,7 @@ public abstract class PopupHandle<TPayload>
         IPopupStore<TPayload>? store = attachedStore;
         if (store is null)
         {
-            Warn($"Blazix: `{componentName}Handle.OpenWithPayloadAsync()` was called while no root using this handle is mounted. The call and its payload were ignored; mount a root with this handle before opening it imperatively.");
+            Warn($"Iodine: `{componentName}Handle.OpenWithPayloadAsync()` was called while no root using this handle is mounted. The call and its payload were ignored; mount a root with this handle before opening it imperatively.");
             return Task.CompletedTask;
         }
 

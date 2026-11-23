@@ -1,10 +1,10 @@
-using Blazix.Primitives.Interop;
-using Blazix.Primitives.Rendering;
+using Iodine.Headless.Interop;
+using Iodine.Headless.Rendering;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Rendering;
 using Microsoft.JSInterop;
 
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // FLD-STA-06; field/error/FieldError.tsx:113-116,139-144. ADR 04 §2: the transition status is a mirrored field (JS writes
 // data-starting-style / data-ending-style); 'idle' is never produced (no idle state).
@@ -17,7 +17,7 @@ namespace Blazix.Primitives;
 /// <param name="Focused">A value indicating whether the field's control has focus; projected as <c>data-focused</c>.</param>
 /// <param name="TransitionStatus">
 /// The phase of the message's enter or exit transition, or <see langword="null"/> when it is not transitioning; never
-/// <see cref="Primitives.TransitionStatus.Idle"/>.
+/// <see cref="Headless.TransitionStatus.Idle"/>.
 /// </param>
 [PartState]
 public sealed partial record FieldErrorState(

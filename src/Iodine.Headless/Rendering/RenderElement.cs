@@ -1,7 +1,7 @@
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Rendering;
 
-namespace Blazix.Primitives.Rendering;
+namespace Iodine.Headless.Rendering;
 
 // RND §3.2, ADR 02 decision 4
 /// <summary>
@@ -113,7 +113,7 @@ public sealed class RenderElement<TState> : ComponentBase, IPartHost, IDisposabl
         else
         {
             throw new InvalidOperationException(
-                $"Blazix: `RenderElement<{typeof(TState).Name}>` needs a `State`. Only `RenderElement<EmptyState>` may omit it.");
+                $"Iodine: `RenderElement<{typeof(TState).Name}>` needs a `State`. Only `RenderElement<EmptyState>` may omit it.");
         }
     }
 

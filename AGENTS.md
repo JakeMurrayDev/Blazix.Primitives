@@ -1,4 +1,4 @@
-# Blazix.Primitives — entry file
+# Iodine.Headless — entry file
 
 Blazor port of MUI Base UI v1.9.0, built documentation-first. This file routes; it holds no content. The root `CONTEXT.md` is the project glossary; a `CONTEXT.md` inside a working folder is that folder's contract (inputs, job, outputs, human check).
 
@@ -15,23 +15,23 @@ Blazor port of MUI Base UI v1.9.0, built documentation-first. This file routes; 
 | QA history and open gaps | `docs/_qa-notes.md` |
 | Milestones and what is next | `docs/decisions/12-implementation-order-and-milestones.md` |
 | Verification items and their schedule | `docs/decisions/14-verification-plan.md` (one GitHub issue each, label `verification`) |
-| Try the ported families by hand | `samples/README.md` (`dotnet run --project samples/Blazix.Primitives.Demo`) |
+| Try the ported families by hand | `samples/README.md` (`dotnet run --project samples/Iodine.Headless.Demo`) |
 | Upstream Base UI releases | `docs/upstream/` (triage notes, policy in decision record 15) |
 
 ## Where code goes (from milestone M0, decision record 09)
 
 | Path | Role |
 |---|---|
-| `src/Blazix.Primitives/<Family>/` | the parts of one Base UI family; contract = `docs/components/<family>.md`; browser specs = `tests/browser/<family>.spec.ts` |
-| `src/Blazix.Primitives/{Rendering,Store,Events,Interop}/` | pipeline, store, event details, twins |
-| `src/Blazix.Primitives/Composite/` | the C# half of the composite mechanism (root and item behaviours); contract = `docs/architecture/composite-and-list-navigation.md` (decision record 09, amended 2026-10-22) |
-| `src/Blazix.Primitives/Popup/` | the C# half of the popup store and handles (the store record, the trigger registry, the handles, `ModalValue`, `InteractionType`, `PortalContainerValue`); contract = `docs/architecture/popup-store-and-handles.md` (decision record 09, amended 2026-10-22 and 2026-10-27) |
-| `src/Blazix.Primitives/Floating/` | the C# half of floating positioning (the Positioner and Arrow behaviours, `Side`, `Align`, `AnchorValue`, the collision and offset types); contract = `docs/architecture/floating-and-positioning.md` (decision record 09, amended 2026-10-27) |
-| `src/Blazix.Primitives/Utilities/` | cross-family helpers and the value-typed list families' shared internals (item equality, label resolution, the collator filter, the item-indicator and listbox-separator behaviours); contract = `docs/architecture/shared-utilities.md`, with `rendering-and-composition.md` §4.10 for the shared parts (decision record 09, amended 2026-10-21 and 2026-11-04) |
-| `src/Blazix.Primitives/js/` | TypeScript modules (one per decision-record-04 module) with their vitest tests beside them |
-| `src/Blazix.Primitives.Generators/`, `src/Blazix.Primitives.Analyzers/` | shipped generator; internal convention analyzers |
-| `tests/Blazix.Primitives.Tests*`, `tests/Blazix.Primitives.Fixtures*`, `tests/browser/` | L1, L2, generator tests; the fixture host; L4 specs |
-| `samples/Blazix.Primitives.Demo*` | the sample application: one page per ported family, `/server/<family>` and `/wasm/<family>`, for trying a milestone by hand; never packed; contract = `samples/CONTEXT.md`, decision record 09 (amended 2026-10-22) |
+| `src/Iodine.Headless/<Family>/` | the parts of one Base UI family; contract = `docs/components/<family>.md`; browser specs = `tests/browser/<family>.spec.ts` |
+| `src/Iodine.Headless/{Rendering,Store,Events,Interop}/` | pipeline, store, event details, twins |
+| `src/Iodine.Headless/Composite/` | the C# half of the composite mechanism (root and item behaviours); contract = `docs/architecture/composite-and-list-navigation.md` (decision record 09, amended 2026-10-22) |
+| `src/Iodine.Headless/Popup/` | the C# half of the popup store and handles (the store record, the trigger registry, the handles, `ModalValue`, `InteractionType`, `PortalContainerValue`); contract = `docs/architecture/popup-store-and-handles.md` (decision record 09, amended 2026-10-22 and 2026-10-27) |
+| `src/Iodine.Headless/Floating/` | the C# half of floating positioning (the Positioner and Arrow behaviours, `Side`, `Align`, `AnchorValue`, the collision and offset types); contract = `docs/architecture/floating-and-positioning.md` (decision record 09, amended 2026-10-27) |
+| `src/Iodine.Headless/Utilities/` | cross-family helpers and the value-typed list families' shared internals (item equality, label resolution, the collator filter, the item-indicator and listbox-separator behaviours); contract = `docs/architecture/shared-utilities.md`, with `rendering-and-composition.md` §4.10 for the shared parts (decision record 09, amended 2026-10-21 and 2026-11-04) |
+| `src/Iodine.Headless/js/` | TypeScript modules (one per decision-record-04 module) with their vitest tests beside them |
+| `src/Iodine.Headless.Generators/`, `src/Iodine.Headless.Analyzers/` | shipped generator; internal convention analyzers |
+| `tests/Iodine.Headless.Tests*`, `tests/Iodine.Headless.Fixtures*`, `tests/browser/` | L1, L2, generator tests; the fixture host; L4 specs |
+| `samples/Iodine.Headless.Demo*` | the sample application: one page per ported family, `/server/<family>` and `/wasm/<family>`, for trying a milestone by hand; never packed; contract = `samples/CONTEXT.md`, decision record 09 (amended 2026-10-22) |
 | `.github/` | CI: workflows, composite actions, the scripts they run (with their tests); contract = `.github/CONTEXT.md`, decision record 11 |
 | `spikes/` | throwaway verification probes, excluded from the solution |
 

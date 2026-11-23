@@ -1,10 +1,10 @@
-using Blazix.Primitives.Rendering;
+using Iodine.Headless.Rendering;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Web;
 using Microsoft.Extensions.Logging;
 using Microsoft.JSInterop;
 
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // Base UI's Popover.Close (popover/close/PopoverClose.tsx); the contract is docs/components/popover.md §3.11, §5.8.
 // - ButtonBehavior { Native = NativeButton, Disabled, FocusableWhenDisabled = false } (POP-API-24/25; §16 Q5 mirrored:

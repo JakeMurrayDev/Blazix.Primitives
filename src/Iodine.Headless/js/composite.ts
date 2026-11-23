@@ -1373,21 +1373,21 @@ export interface CompositeOptions extends TwinOptions {
 }
 
 // A symbol on the element, not a module registry: a repeated attach of the same element returns the live handle.
-const attachedHandle = Symbol('blazix.composite.handle');
+const attachedHandle = Symbol('iodine.composite.handle');
 
 // CMP-KEY-14 (M5 track 1, Deliverable 7; design point 3 (a), settled by the orchestrator 2026-11-04): a roving root
 // publishes its key resolution on its element, Base UI's `relayKeyboardEvent` (useCompositeRoot.ts:338), so no module
 // registry is needed (ADR 04 §3).
-const keyboardRelay = Symbol('blazix.composite.relay');
+const keyboardRelay = Symbol('iodine.composite.relay');
 
 // MNU-KEY-24 (M5 track 12, issue 197; granted by the orchestrator 2026-11-12): a list handle publishes its edge highlight on
 // its element, as a root publishes its relay, for the menu-filter Input's `enter-list` (useMenuFilterKeyDown.ts:155-167).
-const listEdgeHighlight = Symbol('blazix.composite.list-edge');
+const listEdgeHighlight = Symbol('iodine.composite.list-edge');
 
 // The orchestrator's 2026-11-12 grant, for MenuFilterSubmenuRoot's navigation: a list handle publishes, on its element,
 // a highlight of a given item and a move on from a given item through its own navigation.
-const listItemHighlight = Symbol('blazix.composite.list-item');
-const listMoveFrom = Symbol('blazix.composite.list-move-from');
+const listItemHighlight = Symbol('iodine.composite.list-item');
+const listMoveFrom = Symbol('iodine.composite.list-move-from');
 
 interface AttachedElement extends HTMLElement {
   [attachedHandle]?: TwinHandle;
@@ -2129,7 +2129,7 @@ function attachGroup(
 // ---------------------------------------------------------------------------------------------------------------
 
 /** The `dataRef` key that holds a list's shared state (the `interactions` session data a module owns by its key). */
-const LIST_STATE = 'blazix.composite.list';
+const LIST_STATE = 'iodine.composite.list';
 
 const TAB = 'Tab';
 const ESCAPE = 'Escape';
@@ -3529,18 +3529,18 @@ function itemPointerLeave(state: ListState, handle: ListHandle, event: PointerEv
 // attachList: a list handle in its role
 // ---------------------------------------------------------------------------------------------------------------
 
-// The development warnings of useListNavigation.ts:272-287 (CMP-EDGE-03..05), with the `Blazix: ` prefix.
+// The development warnings of useListNavigation.ts:272-287 (CMP-EDGE-03..05), with the `Iodine: ` prefix.
 function warnListOptions(list: CompositeListOptions): void {
   if (list.allowEscape) {
     if (!list.loopFocus) {
-      console.warn('Blazix: `useListNavigation` looping must be enabled to allow escaping.');
+      console.warn('Iodine: `useListNavigation` looping must be enabled to allow escaping.');
     }
     if (!list.virtual) {
-      console.warn('Blazix: `useListNavigation` must be virtual to allow escaping.');
+      console.warn('Iodine: `useListNavigation` must be virtual to allow escaping.');
     }
   }
   if (orientationOf(list) === 'vertical' && list.grid) {
-    console.warn('Blazix: In grid list navigation mode, the `orientation` should', 'be either "horizontal" or "both".');
+    console.warn('Iodine: In grid list navigation mode, the `orientation` should', 'be either "horizontal" or "both".');
   }
 }
 

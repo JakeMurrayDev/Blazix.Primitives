@@ -3,7 +3,7 @@ using Bunit;
 using Microsoft.AspNetCore.Components;
 
 // The namespace is the project's root: a namespace named after the family would hide the parts' types.
-namespace Blazix.Primitives.Tests.Components;
+namespace Iodine.Headless.Tests.Components;
 
 /// <summary>
 /// The preview card root at L2 (PreviewCardRoot.test.tsx, titles verbatim where Base UI has one): its open state controlled

@@ -1,7 +1,7 @@
 using System.Collections.Concurrent;
 
 // Family tests use the project's root namespace: a `Toast` namespace would read as a family type.
-namespace Blazix.Primitives.Tests;
+namespace Iodine.Headless.Tests;
 
 /// <summary>
 /// The port's own titles for the toast manager and store at L1: the timeout fallbacks of a <see cref="Duration"/>

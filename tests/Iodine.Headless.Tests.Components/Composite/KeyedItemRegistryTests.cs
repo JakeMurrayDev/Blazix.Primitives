@@ -2,7 +2,7 @@ using Bunit;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Rendering;
 
-namespace Blazix.Primitives.Tests.Components;
+namespace Iodine.Headless.Tests.Components;
 
 /// <summary>
 /// L2: the keyed registry (CMP §4.2.2, CMP-STA-19..21, CMP-ALG-30; M5 track 12's design point 3 (a)), Base UI's

@@ -1,6 +1,6 @@
 using Microsoft.JSInterop;
 
-namespace Blazix.Primitives.Interop;
+namespace Iodine.Headless.Interop;
 
 // ADR 04 §1 (the `context-menu` component module) and Amendments 2026-10-18 and 2026-11-03 (3), (4) (chosen by the user
 // 2026-11-03); design points 1-3 of M5 track 7. One twin per part that owns a handle: the Root (by token: the release's
@@ -9,7 +9,7 @@ namespace Blazix.Primitives.Interop;
 // (fallback `run`); on Server the same event arrives as a report before the open it may veto.
 /// <summary>Represents the C# half of the <c>context-menu</c> module.</summary>
 internal sealed class ContextMenuTwin(IJSRuntime jsRuntime)
-    : TwinBase<ContextMenuTwin, ContextMenuOptions>(jsRuntime, LibraryModule("context-menu"), BlazixJsonContext.Default.ContextMenuOptions)
+    : TwinBase<ContextMenuTwin, ContextMenuOptions>(jsRuntime, LibraryModule("context-menu"), IodineJsonContext.Default.ContextMenuOptions)
 {
     // ADR 04 Amendments 2026-11-03 (3).
     /// <summary>The decision point asked before the Trigger handles an event the consumer supplied a handler for.</summary>
@@ -45,7 +45,7 @@ internal sealed class ContextMenuTwin(IJSRuntime jsRuntime)
     [JSInvokable]
     public void OnOpen(string payloadJson)
     {
-        ContextMenuOpenRequest request = Deserialize(payloadJson, BlazixJsonContext.Default.ContextMenuOpenRequest);
+        ContextMenuOpenRequest request = Deserialize(payloadJson, IodineJsonContext.Default.ContextMenuOpenRequest);
         OpenRequested?.Invoke(request);
     }
 
@@ -54,7 +54,7 @@ internal sealed class ContextMenuTwin(IJSRuntime jsRuntime)
     [JSInvokable]
     public void OnCancelOpen(string payloadJson)
     {
-        ContextMenuCancelOpen request = Deserialize(payloadJson, BlazixJsonContext.Default.ContextMenuCancelOpen);
+        ContextMenuCancelOpen request = Deserialize(payloadJson, IodineJsonContext.Default.ContextMenuCancelOpen);
         CancelOpenRequested?.Invoke(request);
     }
 
@@ -63,7 +63,7 @@ internal sealed class ContextMenuTwin(IJSRuntime jsRuntime)
     [JSInvokable]
     public void OnPress(string payloadJson)
     {
-        ContextMenuPress press = Deserialize(payloadJson, BlazixJsonContext.Default.ContextMenuPress);
+        ContextMenuPress press = Deserialize(payloadJson, IodineJsonContext.Default.ContextMenuPress);
         Pressed?.Invoke(press);
     }
 
@@ -72,7 +72,7 @@ internal sealed class ContextMenuTwin(IJSRuntime jsRuntime)
     [JSInvokable]
     public void OnPressing(string payloadJson)
     {
-        pendingPress = Deserialize(payloadJson, BlazixJsonContext.Default.ContextMenuPress);
+        pendingPress = Deserialize(payloadJson, IodineJsonContext.Default.ContextMenuPress);
     }
 
     /// <inheritdoc />

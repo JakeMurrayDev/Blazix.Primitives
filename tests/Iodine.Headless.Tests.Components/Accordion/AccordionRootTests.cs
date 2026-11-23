@@ -3,7 +3,7 @@ using Bunit;
 using Microsoft.AspNetCore.Components.Web;
 using Microsoft.Extensions.Logging;
 
-namespace Blazix.Primitives.Tests.Components;
+namespace Iodine.Headless.Tests.Components;
 
 /// <summary>
 /// <c>AccordionRoot.test.tsx</c>'s <c>[L2]</c> titles (ACC §13), titles verbatim; where Base UI repeats a title under several
@@ -36,7 +36,7 @@ public sealed class AccordionRootTests : IDisposable
         (LogLevel level, string message) = Assert.Single(host.RootLogger.Entries);
         Assert.Equal(LogLevel.Error, level);
         Assert.Equal(
-            "Blazix: The `KeepMounted` parameter set to `false` on `AccordionRoot` is ignored when `HiddenUntilFound` is enabled, since panels must remain mounted while closed.",
+            "Iodine: The `KeepMounted` parameter set to `false` on `AccordionRoot` is ignored when `HiddenUntilFound` is enabled, since panels must remain mounted while closed.",
             message);
         // The closed panel stays in the document, hidden; the module writes the `until-found` literal (L4).
         Assert.True(Panel(cut).HasAttribute("hidden"));

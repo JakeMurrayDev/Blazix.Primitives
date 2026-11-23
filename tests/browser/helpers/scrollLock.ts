@@ -106,7 +106,7 @@ export async function releaseExternalLockWhenPending(page: Page): Promise<void> 
       page.evaluate(async (path) => {
         const module = (await import(path)) as { scrollLockCount: () => number };
         return module.scrollLockCount();
-      }, '/_content/Blazix.Primitives/js/scroll-lock.js'),
+      }, '/_content/Iodine.Headless/js/scroll-lock.js'),
     )
     .toBe(1);
   await page.evaluate(

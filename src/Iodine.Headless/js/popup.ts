@@ -204,7 +204,7 @@ interface RoleHandle {
 }
 
 // A symbol on the element, as every module's handle is kept: a repeated attach returns the live handle.
-const attachedHandle = Symbol('blazix.popup.handle');
+const attachedHandle = Symbol('iodine.popup.handle');
 
 interface AttachedElement extends HTMLElement {
   [attachedHandle]?: TwinHandle;

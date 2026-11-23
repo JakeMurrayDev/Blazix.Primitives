@@ -1,4 +1,4 @@
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // POP-API-26, POP-EDGE-05/06 (popover/store/PopoverHandle.ts:13-55); ADR 08 Amendments 2026-10-27 (chosen by the user
 // 2026-10-27): Popover.createHandle() is `new PopoverHandle<TPayload>()`. An anchored popover throws when opened by an id

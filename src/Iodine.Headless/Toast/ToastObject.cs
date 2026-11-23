@@ -1,6 +1,6 @@
 using Microsoft.AspNetCore.Components;
 
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // TST §3.2, the toast object (useToastManager.ts:26-107); TST-API-05, TST-API-11, TST-STA-09, TST-STA-27; ADR 08
 // Amendments 2026-11-18 (the Toast bullet, chosen by the user 2026-11-18: ToastObject<TData> with the non-generic default
@@ -235,8 +235,8 @@ public record ToastObject<TData>
 
     /// <summary>Gets the toast's enter or exit phase.</summary>
     /// <value>
-    /// <see cref="Blazix.Primitives.TransitionStatus.Starting"/> from the add until the toast is first measured,
-    /// <see cref="Blazix.Primitives.TransitionStatus.Ending"/> from the close until the toast is removed, and
+    /// <see cref="Iodine.Headless.TransitionStatus.Starting"/> from the add until the toast is first measured,
+    /// <see cref="Iodine.Headless.TransitionStatus.Ending"/> from the close until the toast is removed, and
     /// <see langword="null"/> otherwise.
     /// </value>
     public TransitionStatus? TransitionStatus { get; internal init; }

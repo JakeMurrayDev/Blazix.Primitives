@@ -35,7 +35,7 @@ describe('listing tests', () => {
     const json = JSON.stringify({
       testResults: [
         {
-          name: `${root}/src/Blazix.Primitives/js/dom.test.ts`,
+          name: `${root}/src/Iodine.Headless/js/dom.test.ts`,
           assertionResults: [
             { ancestorTitles: ['outer'], title: 'inner one', status: 'passed' },
             { ancestorTitles: [], title: 'allows it when a is b', status: 'passed' },
@@ -45,9 +45,9 @@ describe('listing tests', () => {
       ],
     });
     expect(parseVitestList(json, root)).toEqual([
-      'src/Blazix.Primitives/js/dom.test.ts::outer > inner one',
-      'src/Blazix.Primitives/js/dom.test.ts::allows it when a is b',
-      'src/Blazix.Primitives/js/dom.test.ts::allows it when c is d',
+      'src/Iodine.Headless/js/dom.test.ts::outer > inner one',
+      'src/Iodine.Headless/js/dom.test.ts::allows it when a is b',
+      'src/Iodine.Headless/js/dom.test.ts::allows it when c is d',
     ]);
   });
 
@@ -131,13 +131,13 @@ describe('added names', () => {
 
 describe('exempt tests', () => {
   it('lint tests verify the repository, not the base branch\'s src, so the check leaves them to their own planted-violation run', () => {
-    expect(isExempt('l1', 'Blazix.Primitives.Tests.Lints.OwnershipLintTests.Flags_a_js_row_without_an_entry')).toBe(true);
-    expect(isExempt('l3', 'src/Blazix.Primitives/js/module-graph.lint.test.ts::a mechanism module imports no component module')).toBe(true);
+    expect(isExempt('l1', 'Iodine.Headless.Tests.Lints.OwnershipLintTests.Flags_a_js_row_without_an_entry')).toBe(true);
+    expect(isExempt('l3', 'src/Iodine.Headless/js/module-graph.lint.test.ts::a mechanism module imports no component module')).toBe(true);
   });
 
   it('ordinary tests are not exempt', () => {
-    expect(isExempt('l1', 'Blazix.Primitives.Tests.Rendering.MergePropsTests.Merges')).toBe(false);
-    expect(isExempt('l3', 'src/Blazix.Primitives/js/dom.test.ts::reads the platform flags')).toBe(false);
+    expect(isExempt('l1', 'Iodine.Headless.Tests.Rendering.MergePropsTests.Merges')).toBe(false);
+    expect(isExempt('l3', 'src/Iodine.Headless/js/dom.test.ts::reads the platform flags')).toBe(false);
     expect(isExempt('l4', 'tests/browser/tabs.spec.ts::moves')).toBe(false);
   });
 });
@@ -164,7 +164,7 @@ describe('outcomes', () => {
     const json = JSON.stringify({
       testResults: [
         {
-          name: `${root}/src/Blazix.Primitives/js/dom.test.ts`,
+          name: `${root}/src/Iodine.Headless/js/dom.test.ts`,
           assertionResults: [
             { ancestorTitles: ['outer'], title: 'inner one', status: 'failed' },
             { ancestorTitles: [], title: 'top level', status: 'passed' },
@@ -174,9 +174,9 @@ describe('outcomes', () => {
       ],
     });
     expect(Object.fromEntries(vitestOutcomes(json, root))).toEqual({
-      'src/Blazix.Primitives/js/dom.test.ts::outer > inner one': 'failed',
-      'src/Blazix.Primitives/js/dom.test.ts::top level': 'passed',
-      'src/Blazix.Primitives/js/dom.test.ts::later': 'skipped',
+      'src/Iodine.Headless/js/dom.test.ts::outer > inner one': 'failed',
+      'src/Iodine.Headless/js/dom.test.ts::top level': 'passed',
+      'src/Iodine.Headless/js/dom.test.ts::later': 'skipped',
     });
   });
 
@@ -215,19 +215,19 @@ describe('a vitest file that does not load', () => {
   const report = JSON.stringify({
     testResults: [
       {
-        name: `${root}/src/Blazix.Primitives/js/dom.test.ts`,
+        name: `${root}/src/Iodine.Headless/js/dom.test.ts`,
         status: 'failed',
-        message: 'Failed to resolve import "./dom.js" from "src/Blazix.Primitives/js/dom.test.ts". Does the file exist?',
+        message: 'Failed to resolve import "./dom.js" from "src/Iodine.Headless/js/dom.test.ts". Does the file exist?',
         assertionResults: [],
       },
       {
-        name: `${root}/src/Blazix.Primitives/js/twin.test.ts`,
+        name: `${root}/src/Iodine.Headless/js/twin.test.ts`,
         status: 'passed',
         message: '',
         assertionResults: [{ ancestorTitles: [], title: 'attaches', status: 'passed' }],
       },
       {
-        name: `${root}/src/Blazix.Primitives/js/decide.test.ts`,
+        name: `${root}/src/Iodine.Headless/js/decide.test.ts`,
         status: 'failed',
         message: '',
         assertionResults: [{ ancestorTitles: [], title: 'falls back', status: 'failed' }],
@@ -236,38 +236,38 @@ describe('a vitest file that does not load', () => {
   });
 
   it('is a failed file with no per-test results; a file whose tests ran and failed is not one', () => {
-    expect(vitestFailedFiles(report, root)).toEqual(['src/Blazix.Primitives/js/dom.test.ts']);
+    expect(vitestFailedFiles(report, root)).toEqual(['src/Iodine.Headless/js/dom.test.ts']);
   });
 
   it('counts every added test of such a file as red, and says why', () => {
-    const added = ['src/Blazix.Primitives/js/dom.test.ts::reads the flags', 'src/Blazix.Primitives/js/dom.test.ts::outer > inner'];
-    const verdict = judge(added, new Map(), { failedFiles: ['src/Blazix.Primitives/js/dom.test.ts'] });
+    const added = ['src/Iodine.Headless/js/dom.test.ts::reads the flags', 'src/Iodine.Headless/js/dom.test.ts::outer > inner'];
+    const verdict = judge(added, new Map(), { failedFiles: ['src/Iodine.Headless/js/dom.test.ts'] });
     expect(verdict).toMatchObject({ red: added, unloadable: added, passed: [], notRun: [], ok: true });
   });
 
   it('still reports as not run a test whose file ran but which produced no result', () => {
-    const outcomes = new Map([['src/Blazix.Primitives/js/twin.test.ts::attaches', 'passed']]);
-    const added = ['src/Blazix.Primitives/js/dom.test.ts::reads the flags', 'src/Blazix.Primitives/js/twin.test.ts::filtered out'];
-    const verdict = judge(added, outcomes, { failedFiles: ['src/Blazix.Primitives/js/dom.test.ts'] });
-    expect(verdict.red).toEqual(['src/Blazix.Primitives/js/dom.test.ts::reads the flags']);
-    expect(verdict.notRun).toEqual(['src/Blazix.Primitives/js/twin.test.ts::filtered out']);
+    const outcomes = new Map([['src/Iodine.Headless/js/twin.test.ts::attaches', 'passed']]);
+    const added = ['src/Iodine.Headless/js/dom.test.ts::reads the flags', 'src/Iodine.Headless/js/twin.test.ts::filtered out'];
+    const verdict = judge(added, outcomes, { failedFiles: ['src/Iodine.Headless/js/dom.test.ts'] });
+    expect(verdict.red).toEqual(['src/Iodine.Headless/js/dom.test.ts::reads the flags']);
+    expect(verdict.notRun).toEqual(['src/Iodine.Headless/js/twin.test.ts::filtered out']);
     expect(verdict.ok).toBe(false);
   });
 
   it('fails when another added test of the layer passes, whatever the unloadable file says', () => {
-    const outcomes = new Map([['src/Blazix.Primitives/js/twin.test.ts::attaches', 'passed']]);
-    const added = ['src/Blazix.Primitives/js/dom.test.ts::reads the flags', 'src/Blazix.Primitives/js/twin.test.ts::attaches'];
-    expect(judge(added, outcomes, { failedFiles: ['src/Blazix.Primitives/js/dom.test.ts'] }).ok).toBe(false);
+    const outcomes = new Map([['src/Iodine.Headless/js/twin.test.ts::attaches', 'passed']]);
+    const added = ['src/Iodine.Headless/js/dom.test.ts::reads the flags', 'src/Iodine.Headless/js/twin.test.ts::attaches'];
+    expect(judge(added, outcomes, { failedFiles: ['src/Iodine.Headless/js/dom.test.ts'] }).ok).toBe(false);
   });
 
   it('is named in the summary', () => {
-    const added = ['src/Blazix.Primitives/js/dom.test.ts::a', 'src/Blazix.Primitives/js/dom.test.ts::b'];
-    const verdict = judge(added, new Map(), { failedFiles: ['src/Blazix.Primitives/js/dom.test.ts'] });
+    const added = ['src/Iodine.Headless/js/dom.test.ts::a', 'src/Iodine.Headless/js/dom.test.ts::b'];
+    const verdict = judge(added, new Map(), { failedFiles: ['src/Iodine.Headless/js/dom.test.ts'] });
     const { markdown, ok } = summarize([{ layer: 'l3', added, exempt: [], verdict }]);
     expect(ok).toBe(true);
     expect(markdown).toContain('| l3 | 2 | 2 | 0 |');
     expect(markdown).toContain('red (does not load)');
-    expect(markdown).toContain('`src/Blazix.Primitives/js/dom.test.ts` (2 tests)');
+    expect(markdown).toContain('`src/Iodine.Headless/js/dom.test.ts` (2 tests)');
   });
 
   // Issue 178 (ADR 11 Amendments 2026-11-19, design point 3 (a), chosen by the user): PR 170's composite-list.test.ts
@@ -276,8 +276,8 @@ describe('a vitest file that does not load', () => {
   // the base beside its test files; what still fails to load then is the subject itself.
   it("runs against the base with the pull request's test files and test-support harnesses put back", () => {
     expect(headPathspecsOnBase()).toEqual([
-      ':(glob)src/Blazix.Primitives/js/**/*.test.ts',
-      ':(glob)src/Blazix.Primitives/js/test-support/**',
+      ':(glob)src/Iodine.Headless/js/**/*.test.ts',
+      ':(glob)src/Iodine.Headless/js/test-support/**',
     ]);
   });
 });
@@ -421,7 +421,7 @@ describe('L3 coverage titles', () => {
   const report = JSON.stringify({
     testResults: [
       {
-        name: `${root}/src/Blazix.Primitives/js/button.test.ts`,
+        name: `${root}/src/Iodine.Headless/js/button.test.ts`,
         status: 'passed',
         assertionResults: [
           { ancestorTitles: ['button'], title: 'ported', status: 'passed', tags: ['coverage'] },
@@ -433,8 +433,8 @@ describe('L3 coverage titles', () => {
   });
 
   it('are the vitest tests tagged coverage, named as the listing names them', () => {
-    expect(vitestCoverage(report, root)).toEqual(['src/Blazix.Primitives/js/button.test.ts::button > ported']);
-    expect(parseVitestList(report, root)).toContain('src/Blazix.Primitives/js/button.test.ts::button > new behaviour');
+    expect(vitestCoverage(report, root)).toEqual(['src/Iodine.Headless/js/button.test.ts::button > ported']);
+    expect(parseVitestList(report, root)).toContain('src/Iodine.Headless/js/button.test.ts::button > new behaviour');
   });
 });
 
@@ -444,7 +444,7 @@ describe('coverage tags that are near misses', () => {
     const report = JSON.stringify({
       testResults: [
         {
-          name: `${root}/src/Blazix.Primitives/js/button.test.ts`,
+          name: `${root}/src/Iodine.Headless/js/button.test.ts`,
           status: 'passed',
           assertionResults: [
             { ancestorTitles: [], title: 'suffixed', status: 'passed', tags: ['coverage-x'] },
@@ -455,7 +455,7 @@ describe('coverage tags that are near misses', () => {
         },
       ],
     });
-    expect(vitestCoverage(report, root)).toEqual(['src/Blazix.Primitives/js/button.test.ts::marked']);
+    expect(vitestCoverage(report, root)).toEqual(['src/Iodine.Headless/js/button.test.ts::marked']);
   });
 
   it('do not mark a Playwright spec (@coverage-x, coverage-x, @xcoverage)', () => {

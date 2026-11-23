@@ -55,7 +55,7 @@ describe('<NumberFieldInput /> in the number-field module', () => {
       expect(pasteEvent.defaultPrevented).toBe(false);
       expect(fake.reported('OnInputPaste')).toEqual([]);
       expect(warn).toHaveBeenCalledTimes(1);
-      expect(String(warn.mock.calls[0]?.[0])).toContain('Blazix: <NumberFieldInput> could not read clipboard text during paste handling.');
+      expect(String(warn.mock.calls[0]?.[0])).toContain('Iodine: <NumberFieldInput> could not read clipboard text during paste handling.');
     } finally {
       warn.mockRestore();
     }

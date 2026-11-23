@@ -1,8 +1,8 @@
 using System.Globalization;
-using Blazix.Primitives.Fixtures.Client.PopupFixtures;
+using Iodine.Headless.Fixtures.Client.PopupFixtures;
 using Microsoft.AspNetCore.Components;
 
-namespace Blazix.Primitives.Fixtures.Client.NavigationMenuFixtures;
+namespace Iodine.Headless.Fixtures.Client.NavigationMenuFixtures;
 
 /// <summary>
 /// The base of the <c>navigation-menu-*</c> fixtures (M5 track 5; ADR 06 Amendments 2026-10-27): the popup suite base with

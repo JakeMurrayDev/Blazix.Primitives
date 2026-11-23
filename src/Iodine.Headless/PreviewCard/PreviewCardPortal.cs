@@ -1,9 +1,9 @@
-using Blazix.Primitives.Rendering;
+using Iodine.Headless.Rendering;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Rendering;
 using Microsoft.JSInterop;
 
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // preview-card/portal/PreviewCardPortalContext.ts:6-12 (PRV-EDGE-03): the Portal's keepMounted, which the Positioner reads.
 /// <summary>What a preview card portal gives the positioner inside it.</summary>
@@ -12,7 +12,7 @@ internal sealed record PreviewCardPortalContext(bool KeepMounted)
 {
     // PRV-EDGE-03, with the port's prefix and code quoting (issue 122).
     /// <summary>The message thrown when a preview card positioner is placed outside a <c>PreviewCardPortal</c>.</summary>
-    internal const string MissingMessage = "Blazix: `<PreviewCardPortal>` is missing.";
+    internal const string MissingMessage = "Iodine: `<PreviewCardPortal>` is missing.";
 
     /// <summary>Returns <paramref name="context"/>, or throws when the positioner is placed outside a preview card portal.</summary>
     /// <param name="context">The cascaded context.</param>

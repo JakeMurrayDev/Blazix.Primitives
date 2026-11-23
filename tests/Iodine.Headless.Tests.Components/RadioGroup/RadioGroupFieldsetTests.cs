@@ -1,10 +1,10 @@
 using AngleSharp.Dom;
-using Blazix.Primitives.Rendering;
+using Iodine.Headless.Rendering;
 using Bunit;
 using Microsoft.AspNetCore.Components;
 
 // The namespace is the project's root: a namespace named after the family would hide the parts' types.
-namespace Blazix.Primitives.Tests.Components;
+namespace Iodine.Headless.Tests.Components;
 
 // RadioGroup.test.tsx's Fieldset titles at L2 (issue 84; RDG-ARIA-05, RDG-STR-04, FST-FRM-03, FST-STR-01): the group's
 // aria-labelledby is the consumer's, else the field's label, else the nearest fieldset's legend, re-resolved as each mounts,

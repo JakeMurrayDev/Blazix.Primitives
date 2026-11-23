@@ -1,9 +1,9 @@
-using Blazix.Primitives.Interop;
-using Blazix.Primitives.Store;
+using Iodine.Headless.Interop;
+using Iodine.Headless.Store;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Rendering;
 
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // NAV §11 (NavigationMenuRootContext); navigation-menu/root/NavigationMenuRootContext.ts. The non-generic base every part
 // below the Root reads (the Tabs precedent of ADR 08 Amendments 2026-10-26): the store, the Root's options, the element
@@ -74,7 +74,7 @@ internal abstract class NavigationMenuRootContext
     {
         // NAV-EDGE-01: thrown in every build (ADR 02 Amendments 2026-10-20).
         return context ?? throw new InvalidOperationException(
-            "Blazix: The `NavigationMenuRoot` context is missing. Navigation Menu parts must be placed within `<NavigationMenuRoot>`.");
+            "Iodine: The `NavigationMenuRoot` context is missing. Navigation Menu parts must be placed within `<NavigationMenuRoot>`.");
     }
 
     /// <summary>Registers an Item of the root.</summary>
@@ -318,7 +318,7 @@ internal abstract class NavigationMenuItemContext
     {
         // NAV-EDGE-02: thrown in every build.
         return context ?? throw new InvalidOperationException(
-            "Blazix: `NavigationMenuItem` parts must be used within a `<NavigationMenuItem>`.");
+            "Iodine: `NavigationMenuItem` parts must be used within a `<NavigationMenuItem>`.");
     }
 
     /// <summary>Adds a listener that runs when the Item's active state flips.</summary>
@@ -405,7 +405,7 @@ internal sealed class NavigationMenuItemContext<TValue> : NavigationMenuItemCont
     protected override bool ComputeActive() => root.IsActive(Value);
 }
 
-// The cascades the Root and the Item render, fixed (BLZX2001), built once per content (the TabsRoot and Meter precedent).
+// The cascades the Root and the Item render, fixed (IOD2001), built once per content (the TabsRoot and Meter precedent).
 internal static class NavigationMenuCascades
 {
     public static RenderFragment Cascade<TContext>(TContext context, RenderFragment? content)

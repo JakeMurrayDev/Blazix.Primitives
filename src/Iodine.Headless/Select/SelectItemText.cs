@@ -1,10 +1,10 @@
-using Blazix.Primitives.Rendering;
-using Blazix.Primitives.Utilities;
+using Iodine.Headless.Rendering;
+using Iodine.Headless.Utilities;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Rendering;
 using Microsoft.JSInterop;
 
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // Base UI's Select.ItemText (select/item-text/SelectItemText.tsx); SEL-DOM-38, SEL-API-42: the item's text element, the
 // typeahead label's source (its id in the item's composite registration, CMP-STA-06) and the alignment reference of

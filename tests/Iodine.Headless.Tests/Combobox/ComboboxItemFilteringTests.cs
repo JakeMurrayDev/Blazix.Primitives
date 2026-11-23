@@ -1,8 +1,8 @@
 using System.Globalization;
-using Blazix.Primitives.Utilities;
+using Iodine.Headless.Utilities;
 
 // Family tests use the project's root namespace.
-namespace Blazix.Primitives.Tests;
+namespace Iodine.Headless.Tests;
 
 // CMB-STA-22 (the bypass, AriaCombobox.tsx:342-356) and CMB-STA-23 (the filtered-items derivation, :358-452) as pure C#
 // derivation tests ([L1], the brief's Tests first): each of Base UI's ComboboxRoot.test.tsx titles is restated as the

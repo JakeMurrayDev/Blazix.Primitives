@@ -1,12 +1,12 @@
 using System.Text.Json;
 using AngleSharp.Dom;
-using Blazix.Primitives.Interop;
+using Iodine.Headless.Interop;
 using Bunit;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Web;
 using Microsoft.JSInterop;
 
-namespace Blazix.Primitives.Tests.Components;
+namespace Iodine.Headless.Tests.Components;
 
 /// <summary>
 /// What the Field, Form and validation titles of <c>SelectRootFieldTests</c> need beyond <see cref="SelectTestBase"/>: the
@@ -20,7 +20,7 @@ internal static class SelectRootFieldSupport
 
     private const string TriggerPart = "\"part\":\"trigger\"";
 
-    private const string TransitionsPath = "./_content/Blazix.Primitives/js/transitions.js";
+    private const string TransitionsPath = "./_content/Iodine.Headless/js/transitions.js";
 
     /// <summary>Gets the options of the root's hidden input as the <c>form</c> module last received them, or <see langword="null"/>.</summary>
     public static FormControlOptions? InputOptions(this SelectTestBase test)
@@ -82,7 +82,7 @@ internal static class SelectRootFieldSupport
     public static async Task BlurTriggerAsync(this SelectTestBase test, IRenderedComponent<SelectHost> cut, bool intoPopup = false)
     {
         SelectTwin twin = test.SelectTwinOf(TriggerPart)!;
-        string json = JsonSerializer.Serialize(new SelectTriggerBlur(intoPopup), BlazixJsonContext.Default.SelectTriggerBlur);
+        string json = JsonSerializer.Serialize(new SelectTriggerBlur(intoPopup), IodineJsonContext.Default.SelectTriggerBlur);
         await cut.InvokeAsync(() => twin.OnTriggerBlur(json));
         await test.SettleFormAsync(cut);
     }
@@ -101,7 +101,7 @@ internal static class SelectRootFieldSupport
             }
 
             FormControlReport report = new() { Type = "sync", Validity = ValidityOf(cut, options), Revision = options.Revision };
-            string json = JsonSerializer.Serialize(report, BlazixJsonContext.Default.FormControlReport);
+            string json = JsonSerializer.Serialize(report, IodineJsonContext.Default.FormControlReport);
             FormTwin twin = test.InputTwin();
             await cut.InvokeAsync(() => twin.OnControlReport(json));
             await cut.InvokeAsync(static () => { });
@@ -115,7 +115,7 @@ internal static class SelectRootFieldSupport
     public static async Task<FormSubmitAnswer> SubmitFormAsync(this SelectTestBase test, IRenderedComponent<SelectHost> cut)
     {
         JSRuntimeInvocation attach = test.Form.Invocations["attach"]
-            .Last(i => JsonSerializer.Deserialize((string)i.Arguments[1]!, BlazixJsonContext.Default.FormOptions)!.Submit is not null);
+            .Last(i => JsonSerializer.Deserialize((string)i.Arguments[1]!, IodineJsonContext.Default.FormOptions)!.Submit is not null);
         FormTwin twin = ((DotNetObjectReference<FormTwin>)attach.Arguments[2]!).Value;
         FormControlOptions options = test.InputOptions()!;
         IElement input = cut.Find(HiddenInput);
@@ -124,9 +124,9 @@ internal static class SelectRootFieldSupport
             Event = new EventSnapshot { Kind = EventKind.Event, Type = "submit", DefaultPrevented = true, Target = new EventTargetInfo { TagName = "FORM" } },
             Controls = [new FormControlState { Id = input.GetAttribute("id") ?? string.Empty, Value = options.Value, Validity = ValidityOf(cut, options) }],
         };
-        string json = JsonSerializer.Serialize(request, BlazixJsonContext.Default.FormSubmitRequest);
+        string json = JsonSerializer.Serialize(request, IodineJsonContext.Default.FormSubmitRequest);
         string answer = await cut.InvokeAsync(() => twin.OnSubmitRequest(json));
-        return JsonSerializer.Deserialize(answer, BlazixJsonContext.Default.FormSubmitAnswer)!;
+        return JsonSerializer.Deserialize(answer, IodineJsonContext.Default.FormSubmitAnswer)!;
     }
 
     private static FormTwin InputTwin(this SelectTestBase test)
@@ -137,7 +137,7 @@ internal static class SelectRootFieldSupport
 
     // The root's hidden input is the control attached without event reports.
     private static FormControlOptions? ParseInput(string json) =>
-        JsonSerializer.Deserialize(json, BlazixJsonContext.Default.FormOptions)!.Control is { ReportEvents: false } control ? control : null;
+        JsonSerializer.Deserialize(json, IodineJsonContext.Default.FormOptions)!.Control is { ReportEvents: false } control ? control : null;
 
     private static NativeValidity ValidityOf(IRenderedComponent<SelectHost> cut, FormControlOptions options)
     {

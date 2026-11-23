@@ -1,11 +1,11 @@
-using Blazix.Primitives.Rendering;
+using Iodine.Headless.Rendering;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Rendering;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.JSInterop;
 
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // Base UI's Menu.SubmenuRoot (menu/submenu-root/MenuSubmenuRoot.tsx); the contract is docs/components/menu.md §3.17
 // (MNU-STR-11, STR-12, API-49). A separate menu with its own store (MNU-STR-12), a MenuStore<NoPayload> whose parent is the

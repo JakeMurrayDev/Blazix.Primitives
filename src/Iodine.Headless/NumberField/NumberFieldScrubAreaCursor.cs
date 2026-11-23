@@ -1,10 +1,10 @@
-using Blazix.Primitives.Interop;
-using Blazix.Primitives.Rendering;
+using Iodine.Headless.Interop;
+using Iodine.Headless.Rendering;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Rendering;
 using Microsoft.JSInterop;
 
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // Base UI's NumberField.ScrubAreaCursor (number-field/scrub-area-cursor/NumberFieldScrubAreaCursor.tsx); the contract is
 // docs/components/number-field.md §3.3 and §5. A `span` with `role="presentation"` and the inline `position: fixed; top: 0;

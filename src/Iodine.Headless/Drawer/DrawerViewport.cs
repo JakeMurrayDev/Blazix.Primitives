@@ -1,9 +1,9 @@
-using Blazix.Primitives.Interop;
-using Blazix.Primitives.Rendering;
+using Iodine.Headless.Interop;
+using Iodine.Headless.Rendering;
 using Microsoft.AspNetCore.Components;
 using Microsoft.JSInterop;
 
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // DRW §3.10, DRW-STA-01: Dialog.Viewport's state object (dialog/viewport/DialogViewport.tsx:35-40) under its Drawer name.
 // TransitionStatus is mirrored (ADR 04 §2). NestedDialogOpen is a field but never an attribute (DRW-DOM-22).

@@ -1,10 +1,10 @@
-using Blazix.Primitives.Rendering;
+using Iodine.Headless.Rendering;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Web;
 using Microsoft.Extensions.Logging;
 using Microsoft.JSInterop;
 
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // TLB-STA-01; toolbar/input/ToolbarInput.tsx:47-51,78-87. ADR 08 §3: the state record is sealed, partial and [PartState];
 // the default projection gives data-disabled, data-orientation and data-focusable (TLB-DOM-07).
@@ -133,7 +133,7 @@ public sealed class ToolbarInput : PartBase<ToolbarInputState>
     /// <inheritdoc />
     protected override bool UsesGeneratedId => true;
 
-    // For the fixtures (tests/Blazix.Primitives.Fixtures.Client): completes once the twin is attached, so a browser test
+    // For the fixtures (tests/Iodine.Headless.Fixtures.Client): completes once the twin is attached, so a browser test
     // can wait for the module's listeners before it clicks or presses keys.
     /// <summary>Gets a task that completes when the input's behavior is attached to its element.</summary>
     /// <value>A task that completes after the first interactive render has attached the behavior.</value>

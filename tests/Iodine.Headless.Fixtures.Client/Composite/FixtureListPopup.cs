@@ -1,10 +1,10 @@
-using Blazix.Primitives.Fixtures.Client.FocusManagerFixtures;
-using Blazix.Primitives.Fixtures.Client.PopupFixtures;
-using Blazix.Primitives.Store;
+using Iodine.Headless.Fixtures.Client.FocusManagerFixtures;
+using Iodine.Headless.Fixtures.Client.PopupFixtures;
+using Iodine.Headless.Store;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Rendering;
 
-namespace Blazix.Primitives.Fixtures.Client.CompositeFixtures;
+namespace Iodine.Headless.Fixtures.Client.CompositeFixtures;
 
 /// <summary>
 /// The test-only list popup at L4 (M5 track 1, issue 159, Deliverable 12), placed inside a

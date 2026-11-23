@@ -110,7 +110,7 @@ describe('the Floating UI wrapper', () => {
   });
 
   it('reads the wrapper as no module of its own (a scratch js/ folder)', () => {
-    const directory = mkdtempSync(join(tmpdir(), 'blazix-module-graph-'));
+    const directory = mkdtempSync(join(tmpdir(), 'iodine-module-graph-'));
     try {
       writeFileSync(join(directory, 'positioning.ts'), "export * from './floating-ui';\n");
       writeFileSync(join(directory, 'floating-ui.ts'), "export { computePosition } from '@floating-ui/dom';\n");
@@ -121,7 +121,7 @@ describe('the Floating UI wrapper', () => {
   });
 });
 
-describe('src/Blazix.Primitives/js', () => {
+describe('src/Iodine.Headless/js', () => {
   it('has no mechanism-to-component import, no component-to-component import, and names the kind of every module', () => {
     const directory = fileURLToPath(new URL('.', import.meta.url));
     expect(checkGraph(readModules(directory), moduleKinds)).toEqual([]);

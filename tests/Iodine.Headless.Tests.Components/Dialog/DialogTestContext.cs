@@ -1,10 +1,10 @@
-using Blazix.Primitives.Interop;
+using Iodine.Headless.Interop;
 using Bunit;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.JSInterop;
 
-namespace Blazix.Primitives.Tests.Components;
+namespace Iodine.Headless.Tests.Components;
 
 /// <summary>
 /// The bUnit context of the Dialog tests: the library's services, captured loggers, and bUnit's JS interop mock standing in
@@ -14,11 +14,11 @@ namespace Blazix.Primitives.Tests.Components;
 /// </summary>
 public sealed class DialogTestContext : IDisposable
 {
-    private const string Prefix = "./_content/Blazix.Primitives/js/";
+    private const string Prefix = "./_content/Iodine.Headless/js/";
 
     public DialogTestContext()
     {
-        Context.Services.AddBlazixPrimitives();
+        Context.Services.AddIodineHeadless();
         Context.Services.AddSingleton<ILogger<DialogRoot<NoPayload>>>(RootLogger);
         Context.Services.AddSingleton<ILogger<DialogPopup>>(PopupLogger);
         Context.JSInterop.Mode = JSRuntimeMode.Loose;

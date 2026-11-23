@@ -1,11 +1,11 @@
-using Blazix.Primitives.Rendering;
-using Blazix.Primitives.Tests.Components.Rendering.Consumers;
+using Iodine.Headless.Rendering;
+using Iodine.Headless.Tests.Components.Rendering.Consumers;
 using Bunit;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Rendering;
 using Microsoft.Extensions.DependencyInjection;
 
-namespace Blazix.Primitives.Tests.Components.Rendering;
+namespace Iodine.Headless.Tests.Components.Rendering;
 
 /// <summary>
 /// Content before the host element (ADR 02 Amendments 2026-10-27, M4 track 1): the pipeline calls the part's
@@ -19,7 +19,7 @@ public sealed class BeforeElementTests : IDisposable
 
     public BeforeElementTests()
     {
-        context.Services.AddBlazixPrimitives();
+        context.Services.AddIodineHeadless();
     }
 
     /// <inheritdoc />

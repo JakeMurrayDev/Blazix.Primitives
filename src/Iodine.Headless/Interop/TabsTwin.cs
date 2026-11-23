@@ -1,6 +1,6 @@
 using Microsoft.JSInterop;
 
-namespace Blazix.Primitives.Interop;
+namespace Iodine.Headless.Interop;
 
 // ADR 04 §1 (the `tabs` component module), §2 (the Tabs.Indicator row), §3 (decision points) and Amendments 2026-10-26
 // (chosen by the user 2026-10-26): the module listens for a Tab's click and focus, measures the two Tab rects and asks
@@ -15,7 +15,7 @@ namespace Blazix.Primitives.Interop;
 /// </summary>
 /// <param name="jsRuntime">The runtime of the part's circuit or WebAssembly application.</param>
 internal sealed class TabsTwin(IJSRuntime jsRuntime)
-    : TwinBase<TabsTwin, TabsOptions>(jsRuntime, LibraryModule("tabs"), BlazixJsonContext.Default.TabsOptions)
+    : TwinBase<TabsTwin, TabsOptions>(jsRuntime, LibraryModule("tabs"), IodineJsonContext.Default.TabsOptions)
 {
     /// <summary>Represents the name of the decision point the module asks about before it activates the tab a gesture points at.</summary>
     public const string SelectPoint = "select";
@@ -60,7 +60,7 @@ internal sealed class TabsTwin(IJSRuntime jsRuntime)
     [JSInvokable]
     public void OnSelecting(string payloadJson)
     {
-        pendingSelection = Deserialize(payloadJson, BlazixJsonContext.Default.TabsSelection);
+        pendingSelection = Deserialize(payloadJson, IodineJsonContext.Default.TabsSelection);
     }
 
     /// <summary>Receives an activation that was not decided inside the dispatch.</summary>
@@ -69,7 +69,7 @@ internal sealed class TabsTwin(IJSRuntime jsRuntime)
     [JSInvokable]
     public void OnSelect(string payloadJson)
     {
-        TabsSelection selection = Deserialize(payloadJson, BlazixJsonContext.Default.TabsSelection);
+        TabsSelection selection = Deserialize(payloadJson, IodineJsonContext.Default.TabsSelection);
         SelectionReported?.Invoke(selection);
     }
 
@@ -79,7 +79,7 @@ internal sealed class TabsTwin(IJSRuntime jsRuntime)
     [JSInvokable]
     public void OnTabEvent(string payloadJson)
     {
-        TabsTabEvent tabEvent = Deserialize(payloadJson, BlazixJsonContext.Default.TabsTabEvent);
+        TabsTabEvent tabEvent = Deserialize(payloadJson, IodineJsonContext.Default.TabsTabEvent);
         TabEventReported?.Invoke(tabEvent);
     }
 
@@ -89,7 +89,7 @@ internal sealed class TabsTwin(IJSRuntime jsRuntime)
     [JSInvokable]
     public void OnDirectionChange(string payloadJson)
     {
-        TabsDirectionChange change = Deserialize(payloadJson, BlazixJsonContext.Default.TabsDirectionChange);
+        TabsDirectionChange change = Deserialize(payloadJson, IodineJsonContext.Default.TabsDirectionChange);
         DirectionChanged?.Invoke(TabsLiterals.ParseDirection(change.Direction));
     }
 
@@ -99,7 +99,7 @@ internal sealed class TabsTwin(IJSRuntime jsRuntime)
     [JSInvokable]
     public void OnMeasure(string payloadJson)
     {
-        TabsIndicatorMeasurement measurement = Deserialize(payloadJson, BlazixJsonContext.Default.TabsIndicatorMeasurement);
+        TabsIndicatorMeasurement measurement = Deserialize(payloadJson, IodineJsonContext.Default.TabsIndicatorMeasurement);
         MeasurementChanged?.Invoke(measurement);
     }
 

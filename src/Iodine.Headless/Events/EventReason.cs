@@ -1,4 +1,4 @@
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // EVD §3.5; glossary "Reason"; ADR 05 §3, named by ADR 08 §4; EVD §4.3.7
 /// <summary>
@@ -174,7 +174,7 @@ public static class EventReasonExtensions
             EventReason.Swipe => "swipe",
             EventReason.WindowResize => "window-resize",
             // The value is formatted as an integer: passing the enum as the actual value would box it.
-            _ => throw new ArgumentOutOfRangeException(nameof(reason), $"Blazix: `{(int)reason}` is not a member of `EventReason`."),
+            _ => throw new ArgumentOutOfRangeException(nameof(reason), $"Iodine: `{(int)reason}` is not a member of `EventReason`."),
         };
     }
 }

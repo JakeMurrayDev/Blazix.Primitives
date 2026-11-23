@@ -1,8 +1,8 @@
 using System.Reflection;
-using Blazix.Primitives.Interop;
+using Iodine.Headless.Interop;
 using Microsoft.AspNetCore.Components;
 
-namespace Blazix.Primitives.Tests.Popover;
+namespace Iodine.Headless.Tests.Popover;
 
 /// <summary>
 /// L1: the Popover store's own steps (POP-STA-07's instant type, POP-STA-12's selectors, POP-EVT-06's back-filled close

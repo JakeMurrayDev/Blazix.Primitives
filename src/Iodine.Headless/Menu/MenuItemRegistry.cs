@@ -1,4 +1,4 @@
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // A menu's items by rendered id, which the popup's initial focus counts: a keyboard open of a list with items is
 // highlighted (MenuPopup.tsx:84-96). Each item registers itself, keyed by its behavior, so an id change replaces its entry.

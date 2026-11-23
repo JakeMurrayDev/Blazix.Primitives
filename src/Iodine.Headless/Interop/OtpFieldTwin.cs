@@ -1,6 +1,6 @@
 using Microsoft.JSInterop;
 
-namespace Blazix.Primitives.Interop;
+namespace Iodine.Headless.Interop;
 
 // ADR 04 §1 (the `otp-field` component module) and §3 (decision points; Amendments 2026-11-18, `edit` with fallback run;
 // Amendments 2026-11-19, design points 1 (a) and 2 (a), chosen by the user 2026-11-19: `key`, `press`, `focus` and `blur`,
@@ -12,7 +12,7 @@ namespace Blazix.Primitives.Interop;
 /// </summary>
 /// <param name="jsRuntime">The runtime of the part's circuit or WebAssembly application.</param>
 internal sealed class OtpFieldTwin(IJSRuntime jsRuntime)
-    : TwinBase<OtpFieldTwin, OtpFieldOptions>(jsRuntime, LibraryModule("otp-field"), BlazixJsonContext.Default.OtpFieldOptions)
+    : TwinBase<OtpFieldTwin, OtpFieldOptions>(jsRuntime, LibraryModule("otp-field"), IodineJsonContext.Default.OtpFieldOptions)
 {
     /// <summary>Represents the name of the decision point the module asks about before an edit runs.</summary>
     public const string EditPoint = "edit";
@@ -68,32 +68,32 @@ internal sealed class OtpFieldTwin(IJSRuntime jsRuntime)
     /// <param name="payloadJson">The JSON of an <see cref="OtpFieldEditReport"/>.</param>
     /// <exception cref="System.Text.Json.JsonException">The payload is not valid.</exception>
     [JSInvokable]
-    public void OnEdit(string payloadJson) => Edited?.Invoke(Deserialize(payloadJson, BlazixJsonContext.Default.OtpFieldEditReport));
+    public void OnEdit(string payloadJson) => Edited?.Invoke(Deserialize(payloadJson, IodineJsonContext.Default.OtpFieldEditReport));
 
     // Design point 2 (a): on WebAssembly the module hands the edit over synchronously, then asks `edit`, whose chain runs it.
     /// <summary>Receives the edit the module is about to ask the <c>edit</c> point about.</summary>
     /// <param name="payloadJson">The JSON of an <see cref="OtpFieldEditReport"/>.</param>
     /// <exception cref="System.Text.Json.JsonException">The payload is not valid.</exception>
     [JSInvokable]
-    public void OnEditHandover(string payloadJson) => PendingEdit = Deserialize(payloadJson, BlazixJsonContext.Default.OtpFieldEditReport);
+    public void OnEditHandover(string payloadJson) => PendingEdit = Deserialize(payloadJson, IodineJsonContext.Default.OtpFieldEditReport);
 
     /// <summary>Receives a focus of a slot.</summary>
     /// <param name="payloadJson">The JSON of an <see cref="OtpFieldFocusReport"/>.</param>
     /// <exception cref="System.Text.Json.JsonException">The payload is not valid.</exception>
     [JSInvokable]
-    public void OnFocus(string payloadJson) => SlotFocused?.Invoke(Deserialize(payloadJson, BlazixJsonContext.Default.OtpFieldFocusReport));
+    public void OnFocus(string payloadJson) => SlotFocused?.Invoke(Deserialize(payloadJson, IodineJsonContext.Default.OtpFieldFocusReport));
 
     /// <summary>Receives a blur of a slot.</summary>
     /// <param name="payloadJson">The JSON of an <see cref="OtpFieldBlurReport"/>.</param>
     /// <exception cref="System.Text.Json.JsonException">The payload is not valid.</exception>
     [JSInvokable]
-    public void OnBlur(string payloadJson) => SlotBlurred?.Invoke(Deserialize(payloadJson, BlazixJsonContext.Default.OtpFieldBlurReport));
+    public void OnBlur(string payloadJson) => SlotBlurred?.Invoke(Deserialize(payloadJson, IodineJsonContext.Default.OtpFieldBlurReport));
 
     /// <summary>Receives a paste whose clipboard text could not be read.</summary>
     /// <param name="payloadJson">The JSON of an <see cref="OtpFieldPasteUnreadableReport"/>.</param>
     /// <exception cref="System.Text.Json.JsonException">The payload is not valid.</exception>
     [JSInvokable]
-    public void OnPasteUnreadable(string payloadJson) => PasteUnreadable?.Invoke(Deserialize(payloadJson, BlazixJsonContext.Default.OtpFieldPasteUnreadableReport));
+    public void OnPasteUnreadable(string payloadJson) => PasteUnreadable?.Invoke(Deserialize(payloadJson, IodineJsonContext.Default.OtpFieldPasteUnreadableReport));
 
     /// <inheritdoc />
     protected override DecisionPolicy OnDecide(string point, EventSnapshot snapshot)

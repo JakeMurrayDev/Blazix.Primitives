@@ -1,6 +1,6 @@
 using Microsoft.AspNetCore.Components.Web;
 
-namespace Blazix.Primitives.Fixtures.Client.ToggleFixtures;
+namespace Iodine.Headless.Fixtures.Client.ToggleFixtures;
 
 /// <summary>
 /// The record of one case of the Toggle and ToggleGroup fixtures, as the specs read it: every toggle's

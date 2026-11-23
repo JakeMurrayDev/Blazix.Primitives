@@ -1,10 +1,10 @@
 using Microsoft.AspNetCore.Components;
 
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // ADR 04 Amendments 2026-10-27 (chosen by the user 2026-10-27): the Arrow publishes its id through the positioner's
 // context, and its mirror arrives in the Positioner's report. Cascaded fixed by the family's Positioner part (ADR 16 rule
-// 9, BLZX2001); a change of the mirror reaches the Arrow through the listeners, never through the cascade. One Arrow per
+// 9, IOD2001); a change of the mirror reaches the Arrow through the listeners, never through the cascade. One Arrow per
 // Positioner, the last registered winning (Base UI's single arrowRef).
 /// <summary>The state a positioner shares with the arrow rendered inside it.</summary>
 internal sealed class PositionerContext

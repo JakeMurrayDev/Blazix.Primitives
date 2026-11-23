@@ -1,4 +1,4 @@
-namespace Blazix.Primitives.Rendering;
+namespace Iodine.Headless.Rendering;
 
 // RND-STA-02
 /// <summary>

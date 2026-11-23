@@ -1,6 +1,6 @@
-using Blazix.Primitives.Rendering;
+using Iodine.Headless.Rendering;
 
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // The popup's and the swipe area's data-swipe-direction (drawer/popup/DrawerPopup.tsx, drawer/swipe-area/DrawerSwipeArea.tsx
 // stateAttributesMapping): the default projection would name the attribute data-swipedirection, so both parts map the field

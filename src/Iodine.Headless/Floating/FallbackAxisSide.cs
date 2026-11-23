@@ -1,4 +1,4 @@
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // ADR 08 §3 (Enums row: `None` is a Base UI literal, so the member exists) and Amendments 2026-10-27; Base UI's
 // `fallbackAxisSide` (`'start' | 'end' | 'none'`, internals/useAnchorPositioning.ts:76-125). FLT-POS-04.

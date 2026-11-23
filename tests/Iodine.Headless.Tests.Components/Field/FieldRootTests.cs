@@ -1,11 +1,11 @@
 using AngleSharp.Dom;
 using Microsoft.Extensions.DependencyInjection;
-using Blazix.Primitives.Interop;
+using Iodine.Headless.Interop;
 using Bunit;
 using Microsoft.AspNetCore.Components;
-using Scenario = Blazix.Primitives.Tests.Components.FieldScenarios.FieldScenario;
+using Scenario = Iodine.Headless.Tests.Components.FieldScenarios.FieldScenario;
 
-namespace Blazix.Primitives.Tests.Components;
+namespace Iodine.Headless.Tests.Components;
 
 /// <summary>
 /// The <c>[L2]</c> rows of docs/components/field.md and the field infrastructure that <c>FieldRoot.test.tsx</c>'s titles

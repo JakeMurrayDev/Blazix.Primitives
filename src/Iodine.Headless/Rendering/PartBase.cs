@@ -1,8 +1,8 @@
-using Blazix.Primitives.Store;
+using Iodine.Headless.Store;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Rendering;
 
-namespace Blazix.Primitives.Rendering;
+namespace Iodine.Headless.Rendering;
 
 // ADR 02 decision 4; glossary "Part base"; ADR 08 §5
 /// <summary>
@@ -401,7 +401,7 @@ public abstract class PartBase<TState> : ComponentBase, IPartHost, IDisposable
         if (selectorSubscription is not null)
         {
             throw new InvalidOperationException(
-                $"Blazix: `{GetType().Name}` already subscribed to a store. A part has one store subscription: add every selection to the subscription `SubscribeTo` returned.");
+                $"Iodine: `{GetType().Name}` already subscribed to a store. A part has one store subscription: add every selection to the subscription `SubscribeTo` returned.");
         }
 
         SelectorSubscription<TStoreState> subscription = new(store, StateHasChanged);

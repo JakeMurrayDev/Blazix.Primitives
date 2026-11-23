@@ -1,9 +1,9 @@
 using System.Text.Json;
-using Blazix.Primitives.Interop;
+using Iodine.Headless.Interop;
 using Bunit;
 using Microsoft.JSInterop;
 
-namespace Blazix.Primitives.Tests.Components.Interop;
+namespace Iodine.Headless.Tests.Components.Interop;
 
 /// <summary>
 /// Twin contract tests (ADR 06 §1, L2): bUnit's JS interop mock records what C# asked the module to do, and the
@@ -332,8 +332,8 @@ public sealed class TwinContractTests
     public void The_library_JSON_context_covers_the_event_snapshot()
     {
         EventSnapshot roundTrip = JsonSerializer.Deserialize(
-            JsonSerializer.Serialize(new EventSnapshot { Kind = EventKind.PointerEvent, Type = "pointerdown", PointerType = "mouse", Buttons = 1 }, BlazixJsonContext.Default.EventSnapshot),
-            BlazixJsonContext.Default.EventSnapshot)!;
+            JsonSerializer.Serialize(new EventSnapshot { Kind = EventKind.PointerEvent, Type = "pointerdown", PointerType = "mouse", Buttons = 1 }, IodineJsonContext.Default.EventSnapshot),
+            IodineJsonContext.Default.EventSnapshot)!;
 
         Assert.Equal(EventKind.PointerEvent, roundTrip.Kind);
         Assert.Equal("mouse", roundTrip.PointerType);

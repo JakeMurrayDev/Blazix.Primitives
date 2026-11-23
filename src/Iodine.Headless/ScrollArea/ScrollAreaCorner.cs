@@ -1,10 +1,10 @@
-using Blazix.Primitives.Interop;
-using Blazix.Primitives.Rendering;
+using Iodine.Headless.Interop;
+using Iodine.Headless.Rendering;
 using Microsoft.AspNetCore.Components;
 using Microsoft.JSInterop;
 using Microsoft.AspNetCore.Components.Rendering;
 
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // SCR §3.6 (ScrollArea.Corner.State, an empty object; SCR-STA-05, RND-STA-02); ADR 08 Amendments 2026-11-18 names the
 // Corner's own empty record (chosen by the user 2026-11-18).

@@ -1,10 +1,10 @@
 using System.Text;
-using Blazix.Primitives.Interop;
-using Blazix.Primitives.Rendering;
+using Iodine.Headless.Interop;
+using Iodine.Headless.Rendering;
 using Microsoft.AspNetCore.Components;
 using Microsoft.JSInterop;
 
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // The C# half of floating positioning a family's Positioner part composes (floating-and-positioning.md, FLT; ADR 09
 // Amendments 2026-10-27: the folder Floating/; composed into the part as ButtonBehavior is, never a nested component, ADR

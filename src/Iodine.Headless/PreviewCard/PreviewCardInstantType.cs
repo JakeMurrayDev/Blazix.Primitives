@@ -1,4 +1,4 @@
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // PRV §4.1 (instantType), PRV-STA-10; ADR 08 Amendments 2026-10-27 (the per-family instant enums, chosen by the user
 // 2026-10-27). Rendered by C# as data-instant on the Positioner, the Popup and the Viewport (ADR 04 Amendments 2026-10-27;

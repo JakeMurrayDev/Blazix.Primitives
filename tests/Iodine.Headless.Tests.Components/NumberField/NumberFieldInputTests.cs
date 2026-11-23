@@ -1,11 +1,11 @@
 using System.Globalization;
 using System.Text.Json;
-using Blazix.Primitives.Utilities;
+using Iodine.Headless.Utilities;
 using Bunit;
 using Microsoft.AspNetCore.Components;
 
 // The namespace is the project's root: a namespace named after the family would hide the parts' types.
-namespace Blazix.Primitives.Tests.Components;
+namespace Iodine.Headless.Tests.Components;
 
 // NumberFieldInput.test.tsx's and NumberFieldRoot.test.tsx's titles that need no typed text (NUM-EVT-12 and, from 6b's
 // first commits, the eleven titles PR 292 named as reachable without the input role); the typing titles are the input role's. A blur reports the text the input shows, which is the module's last `value`,

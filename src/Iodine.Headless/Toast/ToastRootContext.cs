@@ -1,7 +1,7 @@
-using Blazix.Primitives.Utilities;
+using Iodine.Headless.Utilities;
 using Microsoft.AspNetCore.Components;
 
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // toast/root/ToastRootContext.ts:16-24 (TST-EDGE-02): what Content, Title, Description, Action and Close read from their
 // Root. They are non-generic (ADR 08 Amendments 2026-11-18), so the Root, which knows TData, publishes a non-generic view
@@ -12,7 +12,7 @@ namespace Blazix.Primitives;
 internal sealed class ToastRootContext
 {
     // TST-EDGE-02, with the port's prefix and code quoting.
-    internal const string MissingMessage = "Blazix: `ToastRootContext` is missing. Toast parts must be used within `<ToastRoot>`.";
+    internal const string MissingMessage = "Iodine: `ToastRootContext` is missing. Toast parts must be used within `<ToastRoot>`.";
 
     private readonly Action<string> close;
     private readonly List<Subscription> subscriptions = [];

@@ -1,9 +1,9 @@
-using Blazix.Primitives.Demo.Components;
+using Iodine.Headless.Demo.Components;
 
 var builder = WebApplication.CreateBuilder(args);
 
 // The services a consumer's Program.cs registers for the library's parts.
-builder.Services.AddBlazixPrimitives();
+builder.Services.AddIodineHeadless();
 
 builder.Services.AddRazorComponents()
     .AddInteractiveServerComponents()
@@ -21,6 +21,6 @@ app.MapStaticAssets();
 app.MapRazorComponents<App>()
     .AddInteractiveServerRenderMode()
     .AddInteractiveWebAssemblyRenderMode()
-    .AddAdditionalAssemblies(typeof(Blazix.Primitives.Demo.Client._Imports).Assembly);
+    .AddAdditionalAssemblies(typeof(Iodine.Headless.Demo.Client._Imports).Assembly);
 
 app.Run();

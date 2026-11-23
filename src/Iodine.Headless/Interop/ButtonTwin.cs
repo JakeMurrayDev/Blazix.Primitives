@@ -1,6 +1,6 @@
 using Microsoft.JSInterop;
 
-namespace Blazix.Primitives.Interop;
+namespace Iodine.Headless.Interop;
 
 // ADR 04 §1 (button row), §3 (decision points: button activation, fallback "run"; the hidden-input toggle, fallback
 // "run", ADR 04 Amendments 2026-10-22, chosen by the user 2026-10-22); ADR 01 relaxation table (UBT-KEY-03/04/06; the hidden input's
@@ -11,7 +11,7 @@ namespace Blazix.Primitives.Interop;
 /// </summary>
 /// <param name="jsRuntime">The runtime of the part's circuit or WebAssembly application.</param>
 internal sealed class ButtonTwin(IJSRuntime jsRuntime)
-    : TwinBase<ButtonTwin, ButtonOptions>(jsRuntime, LibraryModule("button"), BlazixJsonContext.Default.ButtonOptions)
+    : TwinBase<ButtonTwin, ButtonOptions>(jsRuntime, LibraryModule("button"), IodineJsonContext.Default.ButtonOptions)
 {
     /// <summary>Represents the name of the decision point the module asks about before a keyboard activation.</summary>
     public const string ActivatePoint = "activate";
@@ -73,7 +73,7 @@ internal sealed class ButtonTwin(IJSRuntime jsRuntime)
     [JSInvokable]
     public void OnInteraction(string payloadJson)
     {
-        ButtonInteraction interaction = Deserialize(payloadJson, BlazixJsonContext.Default.ButtonInteraction);
+        ButtonInteraction interaction = Deserialize(payloadJson, IodineJsonContext.Default.ButtonInteraction);
         InteractionReported?.Invoke(interaction);
     }
 
@@ -83,7 +83,7 @@ internal sealed class ButtonTwin(IJSRuntime jsRuntime)
     [JSInvokable]
     public void OnHoldTick(string payloadJson)
     {
-        ButtonHoldEvent tick = Deserialize(payloadJson, BlazixJsonContext.Default.ButtonHoldEvent);
+        ButtonHoldEvent tick = Deserialize(payloadJson, IodineJsonContext.Default.ButtonHoldEvent);
         HoldTicked?.Invoke(tick);
     }
 
@@ -93,7 +93,7 @@ internal sealed class ButtonTwin(IJSRuntime jsRuntime)
     [JSInvokable]
     public void OnHoldStop(string payloadJson)
     {
-        ButtonHoldEvent release = Deserialize(payloadJson, BlazixJsonContext.Default.ButtonHoldEvent);
+        ButtonHoldEvent release = Deserialize(payloadJson, IodineJsonContext.Default.ButtonHoldEvent);
         HoldStopped?.Invoke(release.Event);
     }
 
@@ -103,7 +103,7 @@ internal sealed class ButtonTwin(IJSRuntime jsRuntime)
     [JSInvokable]
     public void OnHoldClick(string payloadJson)
     {
-        ButtonHoldEvent click = Deserialize(payloadJson, BlazixJsonContext.Default.ButtonHoldEvent);
+        ButtonHoldEvent click = Deserialize(payloadJson, IodineJsonContext.Default.ButtonHoldEvent);
         HoldClicked?.Invoke(click.Event);
     }
 
@@ -113,7 +113,7 @@ internal sealed class ButtonTwin(IJSRuntime jsRuntime)
     [JSInvokable]
     public void OnToggle(string payloadJson)
     {
-        ButtonToggle toggle = Deserialize(payloadJson, BlazixJsonContext.Default.ButtonToggle);
+        ButtonToggle toggle = Deserialize(payloadJson, IodineJsonContext.Default.ButtonToggle);
         Toggled?.Invoke(toggle);
     }
 
@@ -123,7 +123,7 @@ internal sealed class ButtonTwin(IJSRuntime jsRuntime)
     [JSInvokable]
     public void OnNativeButtonMismatch(string payloadJson)
     {
-        NativeButtonMismatch mismatch = Deserialize(payloadJson, BlazixJsonContext.Default.NativeButtonMismatch);
+        NativeButtonMismatch mismatch = Deserialize(payloadJson, IodineJsonContext.Default.NativeButtonMismatch);
         NativeButtonMismatched?.Invoke(mismatch.ExpectedNative);
     }
 

@@ -1,7 +1,7 @@
 using Bunit;
 
 // Family tests use the project's root namespace.
-namespace Blazix.Primitives.Tests.Components;
+namespace Iodine.Headless.Tests.Components;
 
 // ComboboxRoot.test.tsx's `prop: filteredItems` titles cited at L2. The automatic highlight is C#'s request, which reports
 // onItemHighlighted from C#; the highlight of the selected item on open is the list navigation's, from the selected index

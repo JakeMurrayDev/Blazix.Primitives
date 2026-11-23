@@ -1,10 +1,10 @@
-@namespace Blazix.Primitives.Fixtures.Client.ListValuesFixtures
+@namespace Iodine.Headless.Fixtures.Client.ListValuesFixtures
 @using System.Globalization
-@using Blazix.Primitives.Utilities
+@using Iodine.Headless.Utilities
 
 @*
     The `list-values-collation` fixture (tests/browser/list-values.spec.ts; UTL-I18N-09..11, ADR 01 decision 2's note of
-    2026-11-04): a subset of the L1 collation table (tests/Blazix.Primitives.Tests/ListValues/Data/collation-table.json) run by
+    2026-11-04): a subset of the L1 collation table (tests/Iodine.Headless.Tests/ListValues/Data/collation-table.json) run by
     the collator filter in the page's runtime, so WebAssembly's ICU data is measured beside Server's CoreCLR. Each row renders
     its three predicates as `contains,startsWith,endsWith`, or `culture-not-found` when the runtime has no data for it.
 *@

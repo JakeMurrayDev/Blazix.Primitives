@@ -1,6 +1,6 @@
 using Microsoft.AspNetCore.Components;
 
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // What a portal gives the parts inside it (FloatingPortal.tsx's PortalContext), cascaded fixed (ADR 16 rule 9):
 // - the portal node, which a nested portal resolves its default container to (FLT-API-13);

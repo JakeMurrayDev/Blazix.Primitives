@@ -1,4 +1,4 @@
-namespace Blazix.Primitives.Interop;
+namespace Iodine.Headless.Interop;
 
 // ADR 04 Amendments 2026-11-18 (the `toast` scope cell) and 2026-11-19 (the 9b design points DP1 and DP3, chosen by the
 // user): one handle per part, told its part literal. The Viewport sends the store's flags the module's listeners read, the

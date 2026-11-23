@@ -1,8 +1,8 @@
-using Blazix.Primitives.Interop;
-using Blazix.Primitives.Store;
+using Iodine.Headless.Interop;
+using Iodine.Headless.Store;
 using Microsoft.AspNetCore.Components;
 
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // PSH §4.3.1 (utils/popups/store.ts:12-125), ADR 05 Amendments 2026-10-27 (chosen by the user 2026-10-27): the shared
 // fields of every popup store, held as one member of each family's record (PopoverStoreState<TPayload>(PopupStoreState<

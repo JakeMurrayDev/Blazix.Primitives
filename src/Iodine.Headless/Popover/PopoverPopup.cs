@@ -1,11 +1,11 @@
-using Blazix.Primitives.Interop;
-using Blazix.Primitives.Rendering;
+using Iodine.Headless.Interop;
+using Iodine.Headless.Rendering;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Rendering;
 using Microsoft.Extensions.Logging;
 using Microsoft.JSInterop;
 
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // POP-STA-13, §3.5 state object (popover/popup/PopoverPopup.tsx:76-82, 128-149). Side and Align are C#-rendered from the
 // Positioner's mirror (POP-DOM-27; ADR 08 Amendments 2026-10-27), a round trip behind the Positioner's on Server;
@@ -597,13 +597,13 @@ public sealed class PopoverPopup : PartBase<PopoverPopupState>
         if (!warnedInitialFocus && InitialFocus is not null && InitialFocusResolver is not null)
         {
             warnedInitialFocus = true;
-            DevelopmentWarnings.Write(logger, "Blazix: `PopoverPopup` received both `InitialFocus` and `InitialFocusResolver`; the resolver is used.");
+            DevelopmentWarnings.Write(logger, "Iodine: `PopoverPopup` received both `InitialFocus` and `InitialFocusResolver`; the resolver is used.");
         }
 
         if (!warnedFinalFocus && FinalFocus is not null && FinalFocusResolver is not null)
         {
             warnedFinalFocus = true;
-            DevelopmentWarnings.Write(logger, "Blazix: `PopoverPopup` received both `FinalFocus` and `FinalFocusResolver`; the resolver is used.");
+            DevelopmentWarnings.Write(logger, "Iodine: `PopoverPopup` received both `FinalFocus` and `FinalFocusResolver`; the resolver is used.");
         }
     }
 }

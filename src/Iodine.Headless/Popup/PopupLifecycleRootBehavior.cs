@@ -1,10 +1,10 @@
-using Blazix.Primitives.Rendering;
-using Blazix.Primitives.Store;
+using Iodine.Headless.Rendering;
+using Iodine.Headless.Store;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Rendering;
 using Microsoft.Extensions.Logging;
 
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // The root wiring of a popup built on the open lifecycle alone (ADR 05 Amendments 2026-11-03; M5 track 2 brief deliverable
 // 1; ADR 16 rule 10: an internal class, not a component): Select's, Combobox's and NavigationMenu's Roots and the standalone
@@ -39,11 +39,11 @@ internal sealed class PopupLifecycleRootBehavior<TStore, TState> : IDisposable
 
     /// <summary>Gets the root's store; available from the first parameter set.</summary>
     /// <exception cref="InvalidOperationException">The store is read before the root's first parameter set.</exception>
-    public TStore Store => store ?? throw new InvalidOperationException("Blazix: the popup root's store is created at its first parameter set.");
+    public TStore Store => store ?? throw new InvalidOperationException("Iodine: the popup root's store is created at its first parameter set.");
 
     /// <summary>Gets the subscription through which the root renders on the selections it makes.</summary>
     /// <exception cref="InvalidOperationException">The subscription is read before the root's first parameter set.</exception>
-    public SelectorSubscription<TState> Subscription => subscription ?? throw new InvalidOperationException("Blazix: the popup root's store is created at its first parameter set.");
+    public SelectorSubscription<TState> Subscription => subscription ?? throw new InvalidOperationException("Iodine: the popup root's store is created at its first parameter set.");
 
     /// <summary>Gets or sets the content the root renders inside its store's cascade.</summary>
     public RenderFragment? ChildContent { get; set; }

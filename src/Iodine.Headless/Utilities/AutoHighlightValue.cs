@@ -1,6 +1,6 @@
 using System.Runtime.CompilerServices;
 
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // UTL (shared by Menu's filter, MNU-API-55, and Autocomplete): Base UI's `autoHighlight?: boolean | 'always'`. Track 10's
 // design point 4 (a) (settled by the orchestrator 2026-11-04): ModalValue's union shape with a case type on ModalTrapFocus's
@@ -51,9 +51,9 @@ public readonly struct AutoHighlightValue : IUnion
     /// <value><see langword="true"/> if a value is held; otherwise, <see langword="false"/>. The default instance holds no value.</value>
     public bool HasValue => kind != AutoHighlightKind.None;
 
-    // BLZX2005: IUnion requires an object-typed Value, so reading it boxes either case; the library reads the cases
+    // IOD2005: IUnion requires an object-typed Value, so reading it boxes either case; the library reads the cases
     // through TryGetValue, IsAlways and IsEnabled instead.
-#pragma warning disable BLZX2005
+#pragma warning disable IOD2005
     /// <inheritdoc />
     /// <remarks>Reading it boxes the value.</remarks>
     public object? Value => kind switch
@@ -62,7 +62,7 @@ public readonly struct AutoHighlightValue : IUnion
         AutoHighlightKind.Always => default(AutoHighlightAlways),
         _ => null,
     };
-#pragma warning restore BLZX2005
+#pragma warning restore IOD2005
 
     /// <summary>Gets a value indicating whether this instance holds the <c>always</c> literal.</summary>
     /// <value><see langword="true"/> if this instance is <see cref="Always"/>; otherwise, <see langword="false"/>.</value>

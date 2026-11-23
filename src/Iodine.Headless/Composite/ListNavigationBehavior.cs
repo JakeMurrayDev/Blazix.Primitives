@@ -1,7 +1,7 @@
-using Blazix.Primitives.Interop;
+using Iodine.Headless.Interop;
 using Microsoft.AspNetCore.Components;
 
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // List navigation's C# half (M5 track 1, issue 159; ADR 04 Amendments 2026-11-03 (1)-(3), chosen by the user;
 // composite-and-list-navigation.md §4.2.4, §4.6-§4.9, §4.12). Store-agnostic, as InteractionsSessionBehavior is: it takes
@@ -390,7 +390,7 @@ internal sealed class ListNavigationBehavior : IDisposable
     {
         "list-navigation" => EventReason.ListNavigation,
         "focus-out" => EventReason.FocusOut,
-        _ => throw new ArgumentOutOfRangeException(nameof(literal), $"Blazix: `{literal}` is not a reason the `composite` module reports."),
+        _ => throw new ArgumentOutOfRangeException(nameof(literal), $"Iodine: `{literal}` is not a reason the `composite` module reports."),
     };
 
     private static EventTrigger? Trigger(string? id) => id is null ? null : new EventTrigger(id, null);

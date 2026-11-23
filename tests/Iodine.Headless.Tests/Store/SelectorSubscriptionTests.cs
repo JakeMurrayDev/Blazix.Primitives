@@ -1,6 +1,6 @@
-using Blazix.Primitives.Store;
+using Iodine.Headless.Store;
 
-namespace Blazix.Primitives.Tests.Store;
+namespace Iodine.Headless.Tests.Store;
 
 /// <summary>
 /// The part subscription of ADR 05 §1 (UTL-STA-25..27): one store subscription per owner, every selection re-evaluated per

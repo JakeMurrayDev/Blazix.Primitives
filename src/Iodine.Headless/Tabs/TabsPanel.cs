@@ -1,12 +1,12 @@
 using System.Globalization;
-using Blazix.Primitives.Interop;
-using Blazix.Primitives.Rendering;
-using Blazix.Primitives.Store;
+using Iodine.Headless.Interop;
+using Iodine.Headless.Rendering;
+using Iodine.Headless.Store;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Rendering;
 using Microsoft.JSInterop;
 
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // TAB-STA-20, TAB-STA-22; tabs/panel/TabsPanel.tsx:55-60,117-126. ADR 04 §2: the transition status is mirrored (the
 // `transitions` module writes data-starting-style and data-ending-style); ADR 04 Amendments 2026-10-26: so is the direction.
@@ -16,7 +16,7 @@ namespace Blazix.Primitives;
 /// <param name="TabActivationDirection">The direction from the previously active tab to the active one, rendered as <c>data-activation-direction</c> by the browser-side behavior.</param>
 /// <param name="TransitionStatus">
 /// The phase of the panel's enter or exit transition, or <see langword="null"/> when it is not transitioning; never
-/// <see cref="Primitives.TransitionStatus.Idle"/>.
+/// <see cref="Headless.TransitionStatus.Idle"/>.
 /// </param>
 [PartState]
 public sealed partial record TabsPanelState(
@@ -149,7 +149,7 @@ public sealed class TabsPanel<TValue> : PartBase<TabsPanelState>
     /// <inheritdoc />
     protected override bool UsesGeneratedId => true;
 
-    // For the fixtures (tests/Blazix.Primitives.Fixtures.Client): a browser test waits for the module before it selects.
+    // For the fixtures (tests/Iodine.Headless.Fixtures.Client): a browser test waits for the module before it selects.
     /// <summary>Gets a task that completes when the panel's transitions behavior is first attached to its element.</summary>
     /// <value>A task that completes after the first interactive render that showed the element.</value>
     internal Task TwinAttached => attachedSource.Task;
@@ -166,7 +166,7 @@ public sealed class TabsPanel<TValue> : PartBase<TabsPanelState>
         {
             // Design point R7 of M2 (ADR 02 Amendments 2026-10-20, part-misuse errors are always on).
             throw new InvalidOperationException(
-                "Blazix: A `TabsPanel` must have the `TValue` of its `TabsRoot`. Set `TValue` on the panel, or give `Value` the root's type, for example `Value=\"(int?)1\"` in a `TabsRoot` of `int?`.");
+                "Iodine: A `TabsPanel` must have the `TValue` of its `TabsRoot`. Set `TValue` on the panel, or give `Value` the root's type, for example `Value=\"(int?)1\"` in a `TabsRoot` of `int?`.");
         }
 
         root = RootContext;

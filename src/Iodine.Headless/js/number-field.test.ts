@@ -354,7 +354,7 @@ describe('number-field module: the input role', () => {
         expect(first.defaultPrevented).toBe(false);
         expect(fake.reports).toEqual([]);
         expect(warn).toHaveBeenCalledTimes(1);
-        expect(String(warn.mock.calls[0]![0])).toMatch(/^Blazix: <NumberFieldInput> could not read clipboard text during paste handling\. /);
+        expect(String(warn.mock.calls[0]![0])).toMatch(/^Iodine: <NumberFieldInput> could not read clipboard text during paste handling\. /);
       } finally {
         warn.mockRestore();
       }

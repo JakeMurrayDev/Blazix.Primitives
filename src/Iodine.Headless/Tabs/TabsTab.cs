@@ -1,12 +1,12 @@
-using Blazix.Primitives.Interop;
-using Blazix.Primitives.Rendering;
-using Blazix.Primitives.Store;
+using Iodine.Headless.Interop;
+using Iodine.Headless.Rendering;
+using Iodine.Headless.Store;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Web;
 using Microsoft.Extensions.Logging;
 using Microsoft.JSInterop;
 
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // TAB-STA-20; tabs/tab/TabsTab.tsx:179-184,235-252. The direction is mirrored (ADR 04 Amendments 2026-10-26).
 /// <summary>Represents the state of a tab, which the part exposes as data attributes and passes to its class and style functions.</summary>
@@ -158,7 +158,7 @@ public sealed class TabsTab<TValue> : PartBase<TabsTabState>
     /// <inheritdoc />
     protected override bool UsesGeneratedId => true;
 
-    // For the fixtures (tests/Blazix.Primitives.Fixtures.Client): a browser test waits for the button module's listeners.
+    // For the fixtures (tests/Iodine.Headless.Fixtures.Client): a browser test waits for the button module's listeners.
     /// <summary>Gets a task that completes when the tab's button behavior is attached to its element.</summary>
     /// <value>A task that completes after the first interactive render has attached it.</value>
     internal Task TwinAttached => behavior!.TwinAttached;
@@ -176,7 +176,7 @@ public sealed class TabsTab<TValue> : PartBase<TabsTabState>
         {
             // Design point R7 of M2 (ADR 02 Amendments 2026-10-20, part-misuse errors are always on).
             throw new InvalidOperationException(
-                "Blazix: A `TabsTab` must have the `TValue` of its `TabsRoot`. Set `TValue` on the tab, or give `Value` the root's type, for example `Value=\"(int?)1\"` in a `TabsRoot` of `int?`.");
+                "Iodine: A `TabsTab` must have the `TValue` of its `TabsRoot`. Set `TValue` on the tab, or give `Value` the root's type, for example `Value=\"(int?)1\"` in a `TabsRoot` of `int?`.");
         }
 
         root = RootContext;

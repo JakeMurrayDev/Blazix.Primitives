@@ -1,8 +1,8 @@
-using Blazix.Primitives.Interop;
+using Iodine.Headless.Interop;
 using Microsoft.AspNetCore.Components;
 using Microsoft.JSInterop;
 
-namespace Blazix.Primitives.Tests.Components.Interop;
+namespace Iodine.Headless.Tests.Components.Interop;
 
 // The runtime here is a test double, not interop: the analyzer reads its members as JS interop calls.
 #pragma warning disable BL0016
@@ -22,7 +22,7 @@ public sealed class PopupModuleAttachmentTests
 
         Task sync = attachment.SyncAsync(new ElementReference("popup"), new PopupOptions());
         ValueTask disposing = attachment.DisposeAsync();
-        runtime.FailAttach(new JSException("Blazix: no element for the reference"));
+        runtime.FailAttach(new JSException("Iodine: no element for the reference"));
 
         await sync;
         await disposing;
@@ -37,7 +37,7 @@ public sealed class PopupModuleAttachmentTests
         await using PopupModuleAttachment attachment = new(runtime);
 
         Task sync = attachment.SyncAsync(new ElementReference("popup"), new PopupOptions());
-        runtime.FailAttach(new JSException("Blazix: no element for the reference"));
+        runtime.FailAttach(new JSException("Iodine: no element for the reference"));
 
         await Assert.ThrowsAsync<JSException>(() => sync);
     }

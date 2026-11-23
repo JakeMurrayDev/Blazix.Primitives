@@ -3,7 +3,7 @@ using Bunit;
 using Microsoft.Extensions.DependencyInjection;
 
 // The namespace is the project's root: a namespace named after the family would hide the parts' types.
-namespace Blazix.Primitives.Tests.Components;
+namespace Iodine.Headless.Tests.Components;
 
 // MeterIndicator.test.tsx. "sets positioning styles" and "sets zero width when value is 0" read computed pixels in a
 // browser; here they are the inline declarations MTR-DOM-03 requires, and tests/browser/meter.spec.ts asserts the pixels.
@@ -14,7 +14,7 @@ public sealed class MeterIndicatorTests : IDisposable
 
     public MeterIndicatorTests()
     {
-        context.Services.AddBlazixPrimitives();
+        context.Services.AddIodineHeadless();
     }
 
     /// <inheritdoc />
@@ -135,6 +135,6 @@ public sealed class MeterIndicatorTests : IDisposable
     {
         InvalidOperationException error = Assert.Throws<InvalidOperationException>(() => context.Render<MeterIndicator>());
 
-        Assert.Equal("Blazix: The `MeterRoot` context is missing. Meter parts must be placed within `<MeterRoot>`.", error.Message);
+        Assert.Equal("Iodine: The `MeterRoot` context is missing. Meter parts must be placed within `<MeterRoot>`.", error.Message);
     }
 }

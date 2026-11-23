@@ -5,7 +5,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.JSInterop;
 
 // The namespace is the project's root: a namespace named after the family would hide the parts' types.
-namespace Blazix.Primitives.Tests.Components;
+namespace Iodine.Headless.Tests.Components;
 
 /// <summary>
 /// The Portal, Positioner, Popup, Arrow and Backdrop at L2 (PreviewCardPopup.test.tsx, PreviewCardBackdrop.test.tsx and the
@@ -351,7 +351,7 @@ public sealed class PreviewCardPopupPartsTests : IDisposable
 
     private BunitJSModuleInterop SetUpTransitions()
     {
-        BunitJSModuleInterop transitions = host.Context.JSInterop.SetupModule("./_content/Blazix.Primitives/js/transitions.js");
+        BunitJSModuleInterop transitions = host.Context.JSInterop.SetupModule("./_content/Iodine.Headless/js/transitions.js");
         BunitJSModuleInterop handle = transitions.SetupModule("attach", _ => true);
         handle.SetupVoid("update", _ => true).SetVoidResult();
         return handle;

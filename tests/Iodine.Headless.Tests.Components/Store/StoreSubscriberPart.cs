@@ -1,8 +1,8 @@
-using Blazix.Primitives.Rendering;
-using Blazix.Primitives.Store;
+using Iodine.Headless.Rendering;
+using Iodine.Headless.Store;
 using Microsoft.AspNetCore.Components;
 
-namespace Blazix.Primitives.Tests.Components.Store;
+namespace Iodine.Headless.Tests.Components.Store;
 
 /// <summary>A store record with two members, so a write can change one selection and leave the other alone.</summary>
 [StoreState]

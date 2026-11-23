@@ -1,10 +1,10 @@
-using Blazix.Primitives.Rendering;
+using Iodine.Headless.Rendering;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Rendering;
 using Microsoft.Extensions.Logging;
 using Microsoft.JSInterop;
 
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // Base UI's Combobox.Portal (combobox/portal/ComboboxPortal.tsx; CMB §3.12): a sealed thin part over ComboboxPortalBehavior,
 // the lite portal's in-place wrapper (ADR 04 Amendments 2026-10-27), rendered iff mounted, kept mounted or force-mounted.

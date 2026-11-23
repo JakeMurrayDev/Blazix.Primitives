@@ -1,8 +1,8 @@
-using Blazix.Primitives.Interop;
-using Blazix.Primitives.Store;
+using Iodine.Headless.Interop;
+using Iodine.Headless.Store;
 using Microsoft.Extensions.Logging;
 
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // NAV §4 (navigation-menu/root/NavigationMenuRoot.tsx:83-243); ADR 05 Amendments 2026-11-03 (chosen by the user 2026-11-03):
 // the Root's store composes the open lifecycle track 2 extracts from PopupStore (PopupLifecycleStore, FLT-STR-11's port)

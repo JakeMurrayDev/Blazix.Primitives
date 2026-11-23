@@ -1,12 +1,12 @@
-# tests/Blazix.Primitives.Tests.Generators
+# tests/Iodine.Headless.Tests.Generators
 
 Tests for the generator and the analyzers, on the Roslyn testing SDK.
 
 ## Inputs
 
-- `../../src/Blazix.Primitives.Generators` and `../../src/Blazix.Primitives.Analyzers` (project references).
+- `../../src/Iodine.Headless.Generators` and `../../src/Iodine.Headless.Analyzers` (project references).
 - `Microsoft.CodeAnalysis.CSharp.SourceGenerators.Testing` and `...Analyzer.Testing`, pinned in `Directory.Packages.props` with the compiler packages they must match.
-- Decision records 05 §4, 08 §5 (with their Amendments 2026-10-20) and 16 rules 3 and 9 and §C for the behaviour under test; `src/Blazix.Primitives.Analyzers/CONTEXT.md` for the analyzers' placements and allow-list.
+- Decision records 05 §4, 08 §5 (with their Amendments 2026-10-20) and 16 rules 3 and 9 and §C for the behaviour under test; `src/Iodine.Headless.Analyzers/CONTEXT.md` for the analyzers' placements and allow-list.
 
 ## Job
 
@@ -14,7 +14,7 @@ Runs each generator and analyzer against source text and compares the diagnostic
 
 ## Outputs
 
-- A pass or fail per test through `dotnet test --project tests/Blazix.Primitives.Tests.Generators`.
+- A pass or fail per test through `dotnet test --project tests/Iodine.Headless.Tests.Generators`.
 - Run by the `build-and-test` CI job on every change outside `docs/`.
 
 ## Human check

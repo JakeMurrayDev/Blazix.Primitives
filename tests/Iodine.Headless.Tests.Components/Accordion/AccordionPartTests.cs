@@ -1,10 +1,10 @@
 using AngleSharp.Dom;
-using Blazix.Primitives.Rendering;
+using Iodine.Headless.Rendering;
 using Bunit;
 using Microsoft.AspNetCore.Components;
 using Microsoft.Extensions.Logging;
 
-namespace Blazix.Primitives.Tests.Components;
+namespace Iodine.Headless.Tests.Components;
 
 /// <summary>
 /// The <c>[L2]</c> titles of <c>AccordionItem.test.tsx</c>, <c>AccordionHeader.test.tsx</c>, <c>AccordionTrigger.test.tsx</c>
@@ -34,7 +34,7 @@ public sealed class AccordionPartTests : IDisposable
     {
         InvalidOperationException error = Assert.Throws<InvalidOperationException>(() => Context.Render<AccordionItem<string>>());
 
-        Assert.Equal("Blazix: The `AccordionRoot` context is missing. Accordion parts must be placed within `<AccordionRoot>`.", error.Message);
+        Assert.Equal("Iodine: The `AccordionRoot` context is missing. Accordion parts must be placed within `<AccordionRoot>`.", error.Message);
     }
 
     [Fact(DisplayName = "does not report hidden=true after the item has started opening")]
@@ -67,7 +67,7 @@ public sealed class AccordionPartTests : IDisposable
     {
         InvalidOperationException error = Assert.Throws<InvalidOperationException>(() => Context.Render<AccordionHeader<string>>());
 
-        Assert.Equal("Blazix: The `AccordionItem` context is missing. Accordion parts must be placed within `<AccordionItem>`.", error.Message);
+        Assert.Equal("Iodine: The `AccordionItem` context is missing. Accordion parts must be placed within `<AccordionItem>`.", error.Message);
     }
 
     [Fact(DisplayName = "renders the disabled attribute when disabled")]
@@ -189,7 +189,7 @@ public sealed class AccordionPartTests : IDisposable
         (LogLevel level, string message) = Assert.Single(host.PanelLogger.Entries);
         Assert.Equal(LogLevel.Error, level);
         Assert.Equal(
-            "Blazix: The `KeepMounted` parameter set to `false` on an `AccordionPanel` is ignored when `HiddenUntilFound` is enabled on the panel or root, since the panel must remain mounted while closed.",
+            "Iodine: The `KeepMounted` parameter set to `false` on an `AccordionPanel` is ignored when `HiddenUntilFound` is enabled on the panel or root, since the panel must remain mounted while closed.",
             message);
         // The closed panel stays in the document, hidden; the module writes the `until-found` literal (L4).
         Assert.True(cut.Find("[data-testid=panel1]").HasAttribute("hidden"));

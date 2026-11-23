@@ -1,4 +1,4 @@
-namespace Blazix.Primitives.Interop;
+namespace Iodine.Headless.Interop;
 
 // ADR 04 Amendments 2026-11-03 (4) and (6) (chosen by the user 2026-11-03): the `combobox` component module under the
 // placement rule. One handle per part element (input, trigger, clear, input group, chips, chip remove, list, popup); values

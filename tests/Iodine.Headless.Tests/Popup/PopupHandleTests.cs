@@ -1,7 +1,7 @@
-using Blazix.Primitives.Tests.TestSupport;
+using Iodine.Headless.Tests.TestSupport;
 
 // Family tests use the project's root namespace.
-namespace Blazix.Primitives.Tests;
+namespace Iodine.Headless.Tests;
 
 /// <summary>
 /// The popup handle at L1 (utils/popups/popupHandle.test.ts, titles verbatim; PSH-API-01/02/04/05, PSH-STA-34..38,
@@ -142,8 +142,8 @@ public sealed class PopupHandleTests
         await handle.CloseAsync();
         Assert.Equal(
             [
-                "Blazix: `TestHandle.OpenAsync()` was called while no root using this handle is mounted. The call was ignored; mount a root with this handle before opening it imperatively.",
-                "Blazix: `TestHandle.CloseAsync()` was called while no root using this handle is mounted. The call was ignored.",
+                "Iodine: `TestHandle.OpenAsync()` was called while no root using this handle is mounted. The call was ignored; mount a root with this handle before opening it imperatively.",
+                "Iodine: `TestHandle.CloseAsync()` was called while no root using this handle is mounted. The call was ignored.",
             ],
             logger.Messages);
         Assert.Equal(2, logger.Messages.Count(message => message.Contains(DetachedWarning, StringComparison.Ordinal)));
@@ -239,7 +239,7 @@ public sealed class PopupHandleTests
         InvalidOperationException exception = await Assert.ThrowsAsync<InvalidOperationException>(() => handle.OpenAsync("missing"));
 
         Assert.Equal(
-            "Blazix: `TestHandle.OpenAsync()` was called with the trigger id \"missing\", but no matching trigger is registered with this handle. An anchored popup cannot open without a trigger to anchor to. Pass the id of a mounted `TestTrigger` that has this handle set on its `Handle` parameter.",
+            "Iodine: `TestHandle.OpenAsync()` was called with the trigger id \"missing\", but no matching trigger is registered with this handle. An anchored popup cannot open without a trigger to anchor to. Pass the id of a mounted `TestTrigger` that has this handle set on its `Handle` parameter.",
             exception.Message);
         Assert.Empty(rootStore.Requests);
     }
@@ -256,7 +256,7 @@ public sealed class PopupHandleTests
         await handle.OpenAsync("missing");
 
         Assert.Equal(
-            ["Blazix: `TestHandle.OpenAsync()`: No trigger found with id \"missing\". The popup will open, but the trigger will not be associated with it."],
+            ["Iodine: `TestHandle.OpenAsync()`: No trigger found with id \"missing\". The popup will open, but the trigger will not be associated with it."],
             logger.Messages);
         (bool open, OpenChangeEventDetails details) = SingleRequest(rootStore);
         Assert.True(open);
@@ -314,7 +314,7 @@ public sealed class PopupHandleTests
         Assert.False(handle.IsOpen);
         Assert.Empty(rootStore.Payloads);
         Assert.Equal(
-            ["Blazix: `DialogHandle.OpenWithPayloadAsync()` was called while no root using this handle is mounted. The call and its payload were ignored; mount a root with this handle before opening it imperatively."],
+            ["Iodine: `DialogHandle.OpenWithPayloadAsync()` was called while no root using this handle is mounted. The call and its payload were ignored; mount a root with this handle before opening it imperatively."],
             logger.Messages);
     }
 
@@ -348,6 +348,6 @@ public sealed class PopupHandleTests
 
         InvalidOperationException error = Assert.Throws<InvalidOperationException>(() => behavior.Apply(null, handle, "trigger", null, false, default, "missing root"));
 
-        Assert.Equal("Blazix: the `Handle` of `TestTrigger` belongs to another popup family.", error.Message);
+        Assert.Equal("Iodine: the `Handle` of `TestTrigger` belongs to another popup family.", error.Message);
     }
 }

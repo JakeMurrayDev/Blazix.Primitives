@@ -1,12 +1,12 @@
 using System.Linq.Expressions;
-using Blazix.Primitives.Rendering;
+using Iodine.Headless.Rendering;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Forms;
 using Microsoft.AspNetCore.Components.Web;
 using Microsoft.Extensions.Logging;
 using Microsoft.JSInterop;
 
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // INP-STA-01, FLD-STA-03 (INP-STR-04); input/Input.tsx:35,42.
 /// <summary>Represents the state of an input, which the part exposes as data attributes and passes to its class and style functions.</summary>

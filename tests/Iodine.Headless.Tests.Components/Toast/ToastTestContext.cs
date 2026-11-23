@@ -4,7 +4,7 @@ using Microsoft.AspNetCore.Components;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Time.Testing;
 
-namespace Blazix.Primitives.Tests.Components;
+namespace Iodine.Headless.Tests.Components;
 
 /// <summary>
 /// The bUnit context of the Toast tests: the library's services, a <see cref="FakeTimeProvider"/> registered as the
@@ -15,7 +15,7 @@ internal sealed class ToastTestContext : IDisposable
 {
     public ToastTestContext(bool interactive = true)
     {
-        Context.Services.AddBlazixPrimitives();
+        Context.Services.AddIodineHeadless();
         Context.Services.AddSingleton<TimeProvider>(Clock);
         Context.JSInterop.Mode = JSRuntimeMode.Loose;
         Context.Renderer.SetRendererInfo(new RendererInfo(interactive ? "Server" : "Static", interactive));
@@ -25,7 +25,7 @@ internal sealed class ToastTestContext : IDisposable
 
     public FakeTimeProvider Clock { get; } = new();
 
-    // The manager AddBlazixPrimitives registers for the scope, which a provider without a Manager parameter uses.
+    // The manager AddIodineHeadless registers for the scope, which a provider without a Manager parameter uses.
     public ToastManager Manager => Context.Services.GetRequiredService<ToastManager>();
 
     public void Dispose() => Context.Dispose();

@@ -1,8 +1,8 @@
-using Blazix.Primitives.Interop;
+using Iodine.Headless.Interop;
 using Bunit;
 
 // Family tests use the project's root namespace.
-namespace Blazix.Primitives.Tests.Components;
+namespace Iodine.Headless.Tests.Components;
 
 // M5 track 11 (issue 196): AutocompleteRoot.test.tsx's "asynchronous items" at L2 (AUT-EDGE-04, API-11, API-16, STA-11,
 // PTR-06): items that arrive after the typing take the automatic highlight unless a clear, a close or a blur discarded the

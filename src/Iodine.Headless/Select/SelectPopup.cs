@@ -1,14 +1,14 @@
-using Blazix.Primitives.Interop;
-using Blazix.Primitives.Rendering;
-using Blazix.Primitives.Store;
-using Blazix.Primitives.Utilities;
+using Iodine.Headless.Interop;
+using Iodine.Headless.Rendering;
+using Iodine.Headless.Store;
+using Iodine.Headless.Utilities;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Rendering;
 using Microsoft.AspNetCore.Components.Web;
 using Microsoft.Extensions.Logging;
 using Microsoft.JSInterop;
 
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // SEL-STA-21 (select/popup/SelectPopup.tsx:188-193, 511-528). Side and Align are C#-rendered from the Positioner's mirror
 // (the POP Popup precedent, POP-DOM-27; `none` while aligned), a round trip behind the Positioner's on Server;
@@ -553,7 +553,7 @@ public sealed class SelectPopup : PartBase<SelectPopupState>
         }
 
         warnedFinalFocus = true;
-        DevelopmentWarnings.Write(logger, "Blazix: `SelectPopup` received both `FinalFocus` and `FinalFocusResolver`; the resolver is used.");
+        DevelopmentWarnings.Write(logger, "Iodine: `SelectPopup` received both `FinalFocus` and `FinalFocusResolver`; the resolver is used.");
     }
 
     // The Popup renders the Positioner's mirrored placement only when its state record changed.

@@ -3,7 +3,7 @@ import { test, expect, gotoFixture, type Page } from './helpers';
 import { gotoPopupFixture, settle } from './suites/popupFixture';
 
 // L4 (ADR 06 §2) for the `interactions` mechanism module (M4 track 3, issue 119), Server first, then WebAssembly, on the
-// test-only press host (`tests/Blazix.Primitives.Fixtures.Client/Interactions/`): the decision point `press` with a
+// test-only press host (`tests/Iodine.Headless.Fixtures.Client/Interactions/`): the decision point `press` with a
 // consumer `onclick` veto on a trigger carrying a `button` handle and an `interactions` handle (FLT-PTR-03, FLT-ALG-16;
 // ADR 04 and ADR 01 Amendments 2026-10-27), and the attach order of the two handles and of the session (the lesson of
 // CI run 40461905812). The Escape titles (FLT-KEY-01, FLT-EVT-05) run on track 1's popup host (`popup-conformance`,
@@ -15,7 +15,7 @@ import { gotoPopupFixture, settle } from './suites/popupFixture';
 async function stall(page: Page, module: string): Promise<() => Promise<void>> {
   const held: Route[] = [];
   let released = false;
-  const url = new RegExp(`/_content/Blazix\\.Primitives/js/${module}(\\.[a-z0-9]+)?\\.js$`);
+  const url = new RegExp(`/_content/Iodine\\.Primitives/js/${module}(\\.[a-z0-9]+)?\\.js$`);
   await page.route(url, (route) => (released ? route.continue() : held.push(route)));
   return async () => {
     released = true;

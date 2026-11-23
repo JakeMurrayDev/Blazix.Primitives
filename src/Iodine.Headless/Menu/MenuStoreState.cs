@@ -1,7 +1,7 @@
-using Blazix.Primitives.Interop;
-using Blazix.Primitives.Store;
+using Iodine.Headless.Interop;
+using Iodine.Headless.Store;
 
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // MNU §4.1 (menu/store/MenuStore.ts:18-52, 76-149, 297-326); ADR 05 Amendments 2026-10-27 and 2026-11-03 (chosen by the
 // user): the shared popup state is one member, the Menu fields beside it (the PopoverStoreState precedent, plan §Settled).

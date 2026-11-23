@@ -1,10 +1,10 @@
-using Blazix.Primitives.Rendering;
+using Iodine.Headless.Rendering;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Rendering;
 using Microsoft.AspNetCore.Components.Web;
 using Microsoft.JSInterop;
 
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // MBR-STA-01 (menubar/Menubar.tsx:51-55). ADR 08 §3: sealed, partial and [PartState]; HasSubmenuOpen is mapped to
 // data-has-submenu-open (MBR-DOM-03), which the generator would lowercase.
@@ -88,8 +88,8 @@ public sealed class Menubar : PartBase<MenubarState>
     // MBR-API-01
     /// <summary>Gets or sets the axis of the arrow keys that move focus between the bar's triggers.</summary>
     /// <value>
-    /// <see cref="Blazix.Primitives.Orientation.Horizontal"/>, the default, for the left and right arrows, the menus opening
-    /// below the bar; <see cref="Blazix.Primitives.Orientation.Vertical"/> for the up and down arrows, the menus opening
+    /// <see cref="Iodine.Headless.Orientation.Horizontal"/>, the default, for the left and right arrows, the menus opening
+    /// below the bar; <see cref="Iodine.Headless.Orientation.Vertical"/> for the up and down arrows, the menus opening
     /// beside it. Reflected in <c>aria-orientation</c> and <c>data-orientation</c>.
     /// </value>
     [Parameter]
@@ -126,7 +126,7 @@ public sealed class Menubar : PartBase<MenubarState>
     /// <inheritdoc />
     protected override StateAttributesMapping<MenubarState>? StateAttributesMapping => s_mapping;
 
-    // For the fixtures (tests/Blazix.Primitives.Fixtures.Client): completes once the bar's composite and session handles
+    // For the fixtures (tests/Iodine.Headless.Fixtures.Client): completes once the bar's composite and session handles
     // are attached, so a browser test can wait for their listeners before it presses a key.
     /// <summary>Gets a task that completes when the bar's handles are attached.</summary>
     /// <value>A task that completes after the first interactive render has attached them.</value>

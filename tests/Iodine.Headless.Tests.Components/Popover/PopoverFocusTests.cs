@@ -1,9 +1,9 @@
 using System.Text.Json;
-using Blazix.Primitives.Interop;
+using Iodine.Headless.Interop;
 using Bunit;
 using Microsoft.AspNetCore.Components;
 
-namespace Blazix.Primitives.Tests.Components;
+namespace Iodine.Headless.Tests.Components;
 
 /// <summary>
 /// L2: Popover's popup composes the focus manager (PopoverPopup.tsx:108-122; FLT §4.8, PR 128's

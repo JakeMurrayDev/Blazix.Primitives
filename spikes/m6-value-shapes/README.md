@@ -1,7 +1,7 @@
 # M6 value-shape probe (M6 track 1)
 
 Throwaway probe for ADR 08 Amendments 2026-11-18 (the Slider, ScrollArea, Drawer and Toast lines) and ADR 05 Amendments
-2026-11-18 item 4, run by M6 session U on 2026-11-18 ([issue 272](https://github.com/JakeMurrayDev/Blazix.Primitives/issues/272),
+2026-11-18 item 4, run by M6 session U on 2026-11-18 ([issue 272](https://github.com/JakeMurrayDev/Iodine.Headless/issues/272),
 the M6 plan's decisions 3 (a) and 12 (a)) before four families shape their public values. It is the issue-116 and M5 track 4
 kind (`spikes/payload-generic/`, `spikes/list-value-shape/`) and is excluded from the solution. SDK 11.0.100 (`global.json`),
 the SDK's own Razor source generator, `Microsoft.AspNetCore.App` 11.0.0 as a framework reference; `Nullable`, warnings as

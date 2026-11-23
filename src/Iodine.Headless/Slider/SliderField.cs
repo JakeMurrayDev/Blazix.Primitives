@@ -1,7 +1,7 @@
 using System.Linq.Expressions;
 using Microsoft.AspNetCore.Components.Forms;
 
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // SLD §8, FFI §6 (the Slider rows), composed from Field/ (never edited; ADR 05 Amendments 2026-11-18 item 2, ADR 16 rule 10:
 // the SelectField pattern, one internal behavior composed into the Root, never a nested component).

@@ -2,8 +2,8 @@ using AngleSharp.Dom;
 using Bunit;
 using Microsoft.Extensions.DependencyInjection;
 
-// Family tests use the project's root namespace (tests/Blazix.Primitives.Tests.Components/CONTEXT.md).
-namespace Blazix.Primitives.Tests.Components;
+// Family tests use the project's root namespace (tests/Iodine.Headless.Tests.Components/CONTEXT.md).
+namespace Iodine.Headless.Tests.Components;
 
 /// <summary>L2: <c>MenuGroupLabel.test.tsx</c>'s titles over <see cref="MenuGroupLabelHost"/> (MNU-STR-09, API-48, DOM-19, ARIA-10, ARIA-11).</summary>
 public sealed class MenuGroupLabelTests : BunitContext
@@ -11,7 +11,7 @@ public sealed class MenuGroupLabelTests : BunitContext
     public MenuGroupLabelTests()
     {
         JSInterop.Mode = JSRuntimeMode.Loose;
-        Services.AddBlazixPrimitives();
+        Services.AddIodineHeadless();
     }
 
     [Fact(DisplayName = "throws when rendered outside Menu.Group or Menu.RadioGroup")]
@@ -20,7 +20,7 @@ public sealed class MenuGroupLabelTests : BunitContext
     {
         InvalidOperationException error = Assert.Throws<InvalidOperationException>(() => Render<MenuGroupLabelHost>(p => p.Add(x => x.Case, "outside")));
 
-        Assert.Equal("Blazix: The `MenuGroup` context is missing. Menu group parts must be used within `<MenuGroup>` or `<MenuRadioGroup>`.", error.Message);
+        Assert.Equal("Iodine: The `MenuGroup` context is missing. Menu group parts must be used within `<MenuGroup>` or `<MenuRadioGroup>`.", error.Message);
     }
 
     [Fact(DisplayName = "is hidden from the accessibility tree by default")]

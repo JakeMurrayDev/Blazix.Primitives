@@ -1,6 +1,6 @@
 using Microsoft.JSInterop;
 
-namespace Blazix.Primitives.Interop;
+namespace Iodine.Headless.Interop;
 
 // ADR 04 §1 (the `number-field` component module, its scrub role) and §3 (decision points; the `scrub-start` point,
 // fallback start, design point 1 (a), the name chosen by the user 2026-11-18); issue 277, 6b. One twin per part: a
@@ -11,7 +11,7 @@ namespace Blazix.Primitives.Interop;
 /// </summary>
 /// <param name="jsRuntime">The runtime of the part's circuit or WebAssembly application.</param>
 internal sealed class NumberFieldScrubTwin(IJSRuntime jsRuntime)
-    : TwinBase<NumberFieldScrubTwin, NumberFieldScrubOptions>(jsRuntime, LibraryModule("number-field"), BlazixJsonContext.Default.NumberFieldScrubOptions)
+    : TwinBase<NumberFieldScrubTwin, NumberFieldScrubOptions>(jsRuntime, LibraryModule("number-field"), IodineJsonContext.Default.NumberFieldScrubOptions)
 {
     /// <summary>Represents the part literal of a scrub area's handle.</summary>
     public const string ScrubPart = "scrub";
@@ -42,25 +42,25 @@ internal sealed class NumberFieldScrubTwin(IJSRuntime jsRuntime)
     /// <param name="payloadJson">The JSON of a <see cref="NumberFieldScrubStartReport"/>.</param>
     /// <exception cref="System.Text.Json.JsonException">The payload is not valid.</exception>
     [JSInvokable]
-    public void OnScrubStart(string payloadJson) => ScrubStarted?.Invoke(Deserialize(payloadJson, BlazixJsonContext.Default.NumberFieldScrubStartReport));
+    public void OnScrubStart(string payloadJson) => ScrubStarted?.Invoke(Deserialize(payloadJson, IodineJsonContext.Default.NumberFieldScrubStartReport));
 
     /// <summary>Receives the outcome of a pointer-lock request.</summary>
     /// <param name="payloadJson">The JSON of a <see cref="NumberFieldScrubLockReport"/>.</param>
     /// <exception cref="System.Text.Json.JsonException">The payload is not valid.</exception>
     [JSInvokable]
-    public void OnScrubLock(string payloadJson) => LockSettled?.Invoke(Deserialize(payloadJson, BlazixJsonContext.Default.NumberFieldScrubLockReport));
+    public void OnScrubLock(string payloadJson) => LockSettled?.Invoke(Deserialize(payloadJson, IodineJsonContext.Default.NumberFieldScrubLockReport));
 
     /// <summary>Receives a scrub step.</summary>
     /// <param name="payloadJson">The JSON of a <see cref="NumberFieldScrubStepReport"/>.</param>
     /// <exception cref="System.Text.Json.JsonException">The payload is not valid.</exception>
     [JSInvokable]
-    public void OnScrubStep(string payloadJson) => ScrubStepped?.Invoke(Deserialize(payloadJson, BlazixJsonContext.Default.NumberFieldScrubStepReport));
+    public void OnScrubStep(string payloadJson) => ScrubStepped?.Invoke(Deserialize(payloadJson, IodineJsonContext.Default.NumberFieldScrubStepReport));
 
     /// <summary>Receives the end of a scrub.</summary>
     /// <param name="payloadJson">The JSON of a <see cref="NumberFieldScrubEndReport"/>.</param>
     /// <exception cref="System.Text.Json.JsonException">The payload is not valid.</exception>
     [JSInvokable]
-    public void OnScrubEnd(string payloadJson) => ScrubEnded?.Invoke(Deserialize(payloadJson, BlazixJsonContext.Default.NumberFieldScrubEndReport));
+    public void OnScrubEnd(string payloadJson) => ScrubEnded?.Invoke(Deserialize(payloadJson, IodineJsonContext.Default.NumberFieldScrubEndReport));
 
     /// <inheritdoc />
     protected override DecisionPolicy OnDecide(string point, EventSnapshot snapshot)

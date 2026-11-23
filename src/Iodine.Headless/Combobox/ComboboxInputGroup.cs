@@ -1,10 +1,10 @@
-using Blazix.Primitives.Rendering;
+using Iodine.Headless.Rendering;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Web;
 using Microsoft.Extensions.Logging;
 using Microsoft.JSInterop;
 
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // CMB §3.3, STA-02 (combobox/input-group/ComboboxInputGroup.tsx:27-49): the field state with the Root's disabled, the popup and list flags.
 /// <summary>Represents the state of a combobox input group, which the part exposes as data attributes and passes to its class and style functions.</summary>

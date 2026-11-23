@@ -2,7 +2,7 @@ using AngleSharp.Dom;
 using Bunit;
 using Microsoft.Extensions.DependencyInjection;
 
-namespace Blazix.Primitives.Tests.Components;
+namespace Iodine.Headless.Tests.Components;
 
 /// <summary>
 /// CSPProvider.test.tsx's three titles on the real <see cref="ScrollAreaRoot"/> and <see cref="ScrollAreaViewport"/>, as Base
@@ -17,7 +17,7 @@ public sealed class CspProviderScrollAreaTests : IDisposable
 
     public CspProviderScrollAreaTests()
     {
-        context.Services.AddBlazixPrimitives();
+        context.Services.AddIodineHeadless();
         context.JSInterop.Mode = JSRuntimeMode.Loose;
     }
 

@@ -1,4 +1,4 @@
-namespace Blazix.Primitives.Tests.Events;
+namespace Iodine.Headless.Tests.Events;
 
 /// <summary><c>internals/useValueChanged.test.tsx</c> (EVD-ALG-09, UTL-STA-36). Strict Mode has no port equivalent; both variants run the same steps.</summary>
 public sealed class ValueChangedObserverTests

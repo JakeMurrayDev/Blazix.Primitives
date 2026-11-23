@@ -1,11 +1,11 @@
 using System.Text.Json;
-using Blazix.Primitives.Interop;
-using Blazix.Primitives.Rendering;
+using Iodine.Headless.Interop;
+using Iodine.Headless.Rendering;
 using Bunit;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Web;
 
-namespace Blazix.Primitives.Tests.Components;
+namespace Iodine.Headless.Tests.Components;
 
 /// <summary>
 /// The form module's twin contract (ADR 06 §1, L2): one <see cref="FormTwin"/> per control and per label, the
@@ -199,8 +199,8 @@ public sealed class FormTwinWiringTests : IDisposable
     [Trait("Requirement", "SEL-FRM-18")]
     public void The_control_options_carry_reportAutofill_only_when_set()
     {
-        string set = JsonSerializer.Serialize(new FormOptions { Control = new FormControlOptions { ReportAutofill = true, ReportEvents = false, Controlled = true, Value = "a" } }, BlazixJsonContext.Default.FormOptions);
-        string unset = JsonSerializer.Serialize(new FormOptions { Control = new FormControlOptions() }, BlazixJsonContext.Default.FormOptions);
+        string set = JsonSerializer.Serialize(new FormOptions { Control = new FormControlOptions { ReportAutofill = true, ReportEvents = false, Controlled = true, Value = "a" } }, IodineJsonContext.Default.FormOptions);
+        string unset = JsonSerializer.Serialize(new FormOptions { Control = new FormControlOptions() }, IodineJsonContext.Default.FormOptions);
 
         Assert.Contains("\"reportAutofill\":true", set, StringComparison.Ordinal);
         Assert.Contains("\"reportEvents\":false", set, StringComparison.Ordinal);

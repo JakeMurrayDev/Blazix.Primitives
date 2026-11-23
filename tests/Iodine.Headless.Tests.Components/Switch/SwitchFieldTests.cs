@@ -1,14 +1,14 @@
 using System.Linq.Expressions;
 using System.Text.Json;
 using AngleSharp.Dom;
-using Blazix.Primitives.Interop;
+using Iodine.Headless.Interop;
 using Bunit;
 using Microsoft.AspNetCore.Components.Forms;
 using Microsoft.AspNetCore.Components.Web;
 using Microsoft.JSInterop;
 
 // The namespace is the project's root: a namespace named after the family would hide the parts' types.
-namespace Blazix.Primitives.Tests.Components;
+namespace Iodine.Headless.Tests.Components;
 
 // SwitchRoot.test.tsx's "Field" block, the Field-rendering titles of its "prop: onCheckedChange", "Form" and label blocks,
 // and the ADR 05 item 5 participation (issue 76), on a switch inside a field (issue 80's follow-up). A toggle reaches C# as
@@ -640,7 +640,7 @@ public sealed class SwitchFieldTests : IDisposable
     private async Task<string> SubmitAsync(IRenderedComponent<SwitchFieldHost> cut)
     {
         FormTwin form = ((DotNetObjectReference<FormTwin>)test.FormModule.Invocations["attach"]
-            .Last(i => JsonSerializer.Deserialize((string)i.Arguments[1]!, BlazixJsonContext.Default.FormOptions)!.Submit is not null)
+            .Last(i => JsonSerializer.Deserialize((string)i.Arguments[1]!, IodineJsonContext.Default.FormOptions)!.Submit is not null)
             .Arguments[2]!).Value;
         FormSubmitRequest request = new()
         {
@@ -651,7 +651,7 @@ public sealed class SwitchFieldTests : IDisposable
                 new FormControlState { Id = cut.Find("input[type=checkbox]").GetAttribute("id") ?? string.Empty, Validity = test.InputValidity },
             ],
         };
-        string json = JsonSerializer.Serialize(request, BlazixJsonContext.Default.FormSubmitRequest);
+        string json = JsonSerializer.Serialize(request, IodineJsonContext.Default.FormSubmitRequest);
         string answer = await cut.InvokeAsync(() => form.OnSubmitRequest(json));
         await cut.InvokeAsync(static () => { });
         return answer;

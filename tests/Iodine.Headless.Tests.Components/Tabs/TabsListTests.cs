@@ -2,10 +2,10 @@ using AngleSharp.Dom;
 using Bunit;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Web;
-using static Blazix.Primitives.Tests.Components.TabsTestContext;
+using static Iodine.Headless.Tests.Components.TabsTestContext;
 
 // The namespace is the project's root: a namespace named after the family would hide the parts' types.
-namespace Blazix.Primitives.Tests.Components;
+namespace Iodine.Headless.Tests.Components;
 
 // TabsList.test.tsx, the [L2] rows (issue 104), and the List's configuration of the composite root and of its `tabs`
 // handle (TAB §6.1, §11; ADR 04 Amendments 2026-10-26). The keyboard and the tab stop are L4 (tests/browser/tabs.spec.ts).
@@ -85,7 +85,7 @@ public sealed class TabsListTests : IDisposable
     {
         IRenderedComponent<TabsRoot<int>> cut = Context.Render<TabsRoot<int>>(p => p
             .Add(x => x.DefaultValue, 0)
-            .Add(x => x.Orientation, Blazix.Primitives.Orientation.Vertical)
+            .Add(x => x.Orientation, Iodine.Headless.Orientation.Vertical)
             .AddChildContent(List(Tab(0))));
 
         IElement list = cut.Find("[role=tablist]");
@@ -132,14 +132,14 @@ public sealed class TabsListTests : IDisposable
     {
         IRenderedComponent<TabsRoot<int>> cut = Context.Render<TabsRoot<int>>(p => p
             .Add(x => x.DefaultValue, 0)
-            .Add(x => x.Orientation, Blazix.Primitives.Orientation.Vertical)
+            .Add(x => x.Orientation, Iodine.Headless.Orientation.Vertical)
             .AddChildContent(List(Tab(0))));
 
         Assert.Equal(
             """{"part":"list","orientation":"vertical","activateOnFocus":false,"controlled":false,"reportClicks":false,"reportFocus":false}""",
             Assert.Single(test.TabsAttaches));
 
-        cut.Render(p => p.Add(x => x.DefaultValue, 0).Add(x => x.Orientation, Blazix.Primitives.Orientation.Vertical).AddChildContent(Part<TabsList>(l => l.Add(x => x.ActivateOnFocus, true).AddChildContent(Tab(0)))));
+        cut.Render(p => p.Add(x => x.DefaultValue, 0).Add(x => x.Orientation, Iodine.Headless.Orientation.Vertical).AddChildContent(Part<TabsList>(l => l.Add(x => x.ActivateOnFocus, true).AddChildContent(Tab(0)))));
 
         Assert.Equal(
             """{"part":"list","orientation":"vertical","activateOnFocus":true,"controlled":false,"reportClicks":false,"reportFocus":false}""",
@@ -166,7 +166,7 @@ public sealed class TabsListTests : IDisposable
         Assert.Contains("\"reportHandledKeys\":true", test.LastCompositeOptions, StringComparison.Ordinal);
         string tabId = Tabs(cut)[0].Id!;
         string verdict = await cut.InvokeAsync(() => test.CompositeTwin().Decide(
-            Blazix.Primitives.Interop.CompositeTwin.NavigatePoint,
+            Iodine.Headless.Interop.CompositeTwin.NavigatePoint,
             $$$"""{"kind":"KeyboardEvent","type":"keydown","key":"ArrowRight","code":"ArrowRight","target":{"id":"{{{tabId}}}","tagName":"BUTTON"}}"""));
 
         Assert.Equal("stop", verdict);

@@ -1,16 +1,16 @@
-namespace Blazix.Primitives.Tests.Generators.StoreState;
+namespace Iodine.Headless.Tests.Generators.StoreState;
 
 /// <summary>
 /// The library types the generated code references, as source: the generator tests compile against the testing SDK's
 /// reference assemblies and never against the library, so the contract the generated code targets is written out here
-/// and must match <c>src/Blazix.Primitives/Store</c> member for member. Blazor's <c>ElementReference</c>, which the
+/// and must match <c>src/Iodine.Headless/Store</c> member for member. Blazor's <c>ElementReference</c>, which the
 /// generator compares by its members, is written out with the two members it reads.
 /// </summary>
 internal static class LibraryShims
 {
     public const string Source = """
         #nullable enable
-        namespace Blazix.Primitives.Store
+        namespace Iodine.Headless.Store
         {
             [global::System.AttributeUsage(global::System.AttributeTargets.Class, Inherited = false, AllowMultiple = false)]
             public sealed class StoreStateAttribute : global::System.Attribute

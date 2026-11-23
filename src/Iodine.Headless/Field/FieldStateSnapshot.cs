@@ -1,4 +1,4 @@
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // FFI-STA-01, FLD-STA-01..05, FLD §3.1 (the root state object every part spreads into its own). The issue's "field-state
 // snapshot record every control embeds": tracks 4-8 build their state records from it with their own Disabled.

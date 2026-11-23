@@ -1,13 +1,13 @@
 using System.Text.Json;
 using AngleSharp.Dom;
-using Blazix.Primitives.Interop;
+using Iodine.Headless.Interop;
 using Bunit;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Rendering;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.JSInterop;
 
-namespace Blazix.Primitives.Tests.Components;
+namespace Iodine.Headless.Tests.Components;
 
 /// <summary>
 /// The bUnit context of the Radio and RadioGroup tests: the library's services and bUnit's JS interop mock standing in for
@@ -21,15 +21,15 @@ namespace Blazix.Primitives.Tests.Components;
 /// </summary>
 public sealed class RadioTestContext : IDisposable
 {
-    public const string ButtonModulePath = "./_content/Blazix.Primitives/js/button.js";
-    public const string DomModulePath = "./_content/Blazix.Primitives/js/dom.js";
-    public const string TransitionsModulePath = "./_content/Blazix.Primitives/js/transitions.js";
-    public const string FormModulePath = "./_content/Blazix.Primitives/js/form.js";
-    public const string CompositeModulePath = "./_content/Blazix.Primitives/js/composite.js";
+    public const string ButtonModulePath = "./_content/Iodine.Headless/js/button.js";
+    public const string DomModulePath = "./_content/Iodine.Headless/js/dom.js";
+    public const string TransitionsModulePath = "./_content/Iodine.Headless/js/transitions.js";
+    public const string FormModulePath = "./_content/Iodine.Headless/js/form.js";
+    public const string CompositeModulePath = "./_content/Iodine.Headless/js/composite.js";
 
     public RadioTestContext()
     {
-        Context.Services.AddBlazixPrimitives();
+        Context.Services.AddIodineHeadless();
         ButtonModule = Context.JSInterop.SetupModule(ButtonModulePath);
         ButtonHandle = SetupHandle(ButtonModule);
         DomModule = Context.JSInterop.SetupModule(DomModulePath);
@@ -183,7 +183,7 @@ public sealed class RadioTestContext : IDisposable
         where TComponent : IComponent
     {
         ButtonTwin target = ButtonTwin(radio);
-        return cut.InvokeAsync(() => target.Decide(Blazix.Primitives.Interop.ButtonTwin.TogglePoint, InputClickJson()));
+        return cut.InvokeAsync(() => target.Decide(Iodine.Headless.Interop.ButtonTwin.TogglePoint, InputClickJson()));
     }
 
     /// <summary>Asks radio <paramref name="radio"/>'s activation decision of a root click as the module does on WebAssembly.</summary>
@@ -191,7 +191,7 @@ public sealed class RadioTestContext : IDisposable
         where TComponent : IComponent
     {
         ButtonTwin target = ButtonTwin(radio);
-        return cut.InvokeAsync(() => target.Decide(Blazix.Primitives.Interop.ButtonTwin.ActivatePoint, RootClickJson()));
+        return cut.InvokeAsync(() => target.Decide(Iodine.Headless.Interop.ButtonTwin.ActivatePoint, RootClickJson()));
     }
 
     /// <summary>Asks the group's focus-driven selection decision for the radio with the given element id, as the module does on WebAssembly.</summary>
@@ -199,7 +199,7 @@ public sealed class RadioTestContext : IDisposable
         where TComponent : IComponent
     {
         CompositeTwin twin = CompositeTwin();
-        return cut.InvokeAsync(() => twin.Decide(Blazix.Primitives.Interop.CompositeTwin.SelectPoint, FocusInJson(radioId)));
+        return cut.InvokeAsync(() => twin.Decide(Iodine.Headless.Interop.CompositeTwin.SelectPoint, FocusInJson(radioId)));
     }
 
     /// <summary>Asks the group's navigation decision for a key on the radio with the given element id, as the module does on WebAssembly.</summary>
@@ -207,7 +207,7 @@ public sealed class RadioTestContext : IDisposable
         where TComponent : IComponent
     {
         CompositeTwin twin = CompositeTwin();
-        return cut.InvokeAsync(() => twin.Decide(Blazix.Primitives.Interop.CompositeTwin.NavigatePoint, KeyDownJson(key, radioId)));
+        return cut.InvokeAsync(() => twin.Decide(Iodine.Headless.Interop.CompositeTwin.NavigatePoint, KeyDownJson(key, radioId)));
     }
 
     /// <summary>Reports that focus left the group, as the composite module does with <c>reportFocusLeave</c>, then answers every refresh it starts.</summary>
@@ -273,7 +273,7 @@ public sealed class RadioTestContext : IDisposable
         where TComponent : IComponent
     {
         FormTwin twin = FormTwinOf(input);
-        string json = JsonSerializer.Serialize(new FormControlReport { Type = "label", Value = labelId }, BlazixJsonContext.Default.FormControlReport);
+        string json = JsonSerializer.Serialize(new FormControlReport { Type = "label", Value = labelId }, IodineJsonContext.Default.FormControlReport);
         return cut.InvokeAsync(() => twin.OnControlReport(json));
     }
 
@@ -310,7 +310,7 @@ public sealed class RadioTestContext : IDisposable
         where TComponent : IComponent
     {
         JSRuntimeInvocation attach = FormModule.Invocations["attach"]
-            .Last(i => JsonSerializer.Deserialize((string)i.Arguments[1]!, BlazixJsonContext.Default.FormOptions)!.Submit is not null);
+            .Last(i => JsonSerializer.Deserialize((string)i.Arguments[1]!, IodineJsonContext.Default.FormOptions)!.Submit is not null);
         FormTwin twin = ((DotNetObjectReference<FormTwin>)attach.Arguments[2]!).Value;
         FormControlState[] controls =
         [
@@ -326,9 +326,9 @@ public sealed class RadioTestContext : IDisposable
             Event = new EventSnapshot { Kind = EventKind.Event, Type = "submit", DefaultPrevented = true, Target = new EventTargetInfo { TagName = "FORM" } },
             Controls = controls,
         };
-        string json = JsonSerializer.Serialize(request, BlazixJsonContext.Default.FormSubmitRequest);
+        string json = JsonSerializer.Serialize(request, IodineJsonContext.Default.FormSubmitRequest);
         string answer = await cut.InvokeAsync(() => twin.OnSubmitRequest(json));
-        return JsonSerializer.Deserialize(answer, BlazixJsonContext.Default.FormSubmitAnswer)!;
+        return JsonSerializer.Deserialize(answer, IodineJsonContext.Default.FormSubmitAnswer)!;
     }
 
     /// <summary>Builds radios of type <see cref="string"/> with the given values, each with <c>data-testid</c> set to its value.</summary>
@@ -345,7 +345,7 @@ public sealed class RadioTestContext : IDisposable
     };
 
     private static FormControlOptions ParseControl(string json) =>
-        JsonSerializer.Deserialize(json, BlazixJsonContext.Default.FormOptions)!.Control ?? new FormControlOptions();
+        JsonSerializer.Deserialize(json, IodineJsonContext.Default.FormOptions)!.Control ?? new FormControlOptions();
 
     // The module reads `:disabled` with the validity, so a disabled input is never eligible (FFI-FRM-23).
     private static NativeValidity Eligibility(IElement input, NativeValidity validity) =>
@@ -373,7 +373,7 @@ public sealed class RadioTestContext : IDisposable
             Event = snapshot,
             Revision = revision,
         };
-        string json = JsonSerializer.Serialize(report, BlazixJsonContext.Default.FormControlReport);
+        string json = JsonSerializer.Serialize(report, IodineJsonContext.Default.FormControlReport);
         return cut.InvokeAsync(() => twin.OnControlReport(json));
     }
 

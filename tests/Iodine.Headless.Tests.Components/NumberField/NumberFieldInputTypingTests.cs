@@ -1,12 +1,12 @@
 using System.Globalization;
 using System.Text.Json;
-using Blazix.Primitives.Utilities;
+using Iodine.Headless.Utilities;
 using Bunit;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Rendering;
 
 // The namespace is the project's root: a namespace named after the family would hide the parts' types.
-namespace Blazix.Primitives.Tests.Components;
+namespace Iodine.Headless.Tests.Components;
 
 // 6b's input role at L2 (issue 277): NumberFieldInput.test.tsx's titles that type and blur, the step from smallStep and the
 // precision titles. Base UI's fireEvent.change and blur are the `number-field` module's reports here (ADR 06 §1), and its

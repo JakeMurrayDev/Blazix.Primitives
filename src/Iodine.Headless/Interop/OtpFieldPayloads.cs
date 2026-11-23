@@ -1,4 +1,4 @@
-namespace Blazix.Primitives.Interop;
+namespace Iodine.Headless.Interop;
 
 // ADR 04 §3 (one message per edit), Amendments 2026-11-18 and 2026-11-19 (design points 1–7, chosen by the user 2026-11-19);
 // issue 278. The module reports each edit once: typed or composed text, a paste, Backspace, Delete or Ctrl+Backspace.

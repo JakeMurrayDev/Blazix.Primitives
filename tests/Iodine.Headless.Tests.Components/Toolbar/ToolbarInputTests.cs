@@ -2,11 +2,11 @@ using AngleSharp.Dom;
 using Bunit;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Web;
-using LibraryOrientation = Blazix.Primitives.Orientation;
+using LibraryOrientation = Iodine.Headless.Orientation;
 
 // The namespace is the project's root: a namespace named after the family would hide the parts' types. `Orientation` is
 // aliased because SampleRoot.cs declares a test-local `Orientation` in this namespace that would shadow the library's.
-namespace Blazix.Primitives.Tests.Components;
+namespace Iodine.Headless.Tests.Components;
 
 // ToolbarInput.test.tsx's titles are browser titles (tests/browser/toolbar.spec.ts) or NumberField's (M5); these are port
 // titles for the C# half: the element, the option the button twin carries, the handlers and the re-cited rows of an

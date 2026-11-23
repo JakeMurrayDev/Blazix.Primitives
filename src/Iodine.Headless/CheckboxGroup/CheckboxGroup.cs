@@ -1,10 +1,10 @@
 using System.Linq.Expressions;
-using Blazix.Primitives.Rendering;
+using Iodine.Headless.Rendering;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Forms;
 using Microsoft.Extensions.Logging;
 
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // CKG-STA-01; checkbox-group/CheckboxGroup.tsx:143-146,181-186 (the field's state with the group's disabled state). ADR 08
 // §3: the state record is sealed, partial and [PartState].

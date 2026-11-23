@@ -1,4 +1,4 @@
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // ADR 08 Amendments 2026-10-27: the one place the literals of the `button` module's interaction report (ButtonInteraction,
 // UBT-ALG-06) and of the popup modules' reports become InteractionType. Interop/CONTEXT.md's deferral ("the shared enums

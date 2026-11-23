@@ -1,6 +1,6 @@
 using System.Text.Json.Serialization;
 
-namespace Blazix.Primitives.Interop;
+namespace Iodine.Headless.Interop;
 
 // ADR 04 §1's `select` row (M5 track 9): one options record per handle, its Part naming the role (the TabsOptions shape).
 // Elements cross as indices into the references each attach and update carries (ADR 04 Amendments 2026-10-27); the

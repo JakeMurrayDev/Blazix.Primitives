@@ -1,10 +1,10 @@
-using Blazix.Primitives.Rendering;
+using Iodine.Headless.Rendering;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Rendering;
 using Microsoft.Extensions.Logging;
 using Microsoft.JSInterop;
 
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // CMB §3.25, STA-14 (combobox/item-indicator/ComboboxItemIndicator.tsx; ItemIndicatorBehavior): the status mirrored.
 /// <summary>Represents the state of a combobox item indicator, which the part exposes as data attributes and passes to its class and style functions.</summary>

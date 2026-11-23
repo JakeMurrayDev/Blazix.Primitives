@@ -1,7 +1,7 @@
 using Microsoft.AspNetCore.Components;
 using Microsoft.JSInterop;
 
-namespace Blazix.Primitives.Interop;
+namespace Iodine.Headless.Interop;
 
 // ADR 04 Amendments 2026-10-27 (element-typed option values cross as interop arguments; settled by the orchestrator
 // 2026-10-27, M4 track 1). The options record crosses as one JSON string, so an element inside it would never reach the
@@ -29,12 +29,12 @@ internal sealed class TwinReferences
     /// <returns>The index the option that names the element carries.</returns>
     public int Add(ElementReference element)
     {
-        // BLZX2005: the references array holds elements beside script-held objects, so its element type is object, and
+        // IOD2005: the references array holds elements beside script-held objects, so its element type is object, and
         // Blazor's interop serializes each entry by its runtime type, as it does the entries of an invocation's own
         // argument array. This is the array's one boxing site; it runs once per attach or update that names an element.
-#pragma warning disable BLZX2005
+#pragma warning disable IOD2005
         return Append(element, element.Id);
-#pragma warning restore BLZX2005
+#pragma warning restore IOD2005
     }
 
     /// <summary>Adds an object a script holds, such as a closed shadow root.</summary>

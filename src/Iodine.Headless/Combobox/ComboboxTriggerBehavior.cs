@@ -1,10 +1,10 @@
-using Blazix.Primitives.Interop;
-using Blazix.Primitives.Rendering;
-using Blazix.Primitives.Store;
+using Iodine.Headless.Interop;
+using Iodine.Headless.Rendering;
+using Iodine.Headless.Store;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Web;
 
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // combobox/trigger/ComboboxTrigger.tsx (CMB §3.9, §5.3): a native button by default (ButtonBehavior), tabindex 0 inside /
 // -1 outside, role="combobox" with the input inside, aria-haspopup dialog/listbox, aria-expanded. Its handles:
@@ -65,7 +65,7 @@ internal sealed class ComboboxTriggerBehavior : IAsyncDisposable
     }
 
     /// <summary>Gets the root's store.</summary>
-    public ComboboxStore Store => store ?? throw new InvalidOperationException($"Blazix: `{services.Family}Trigger` is used before its first render.");
+    public ComboboxStore Store => store ?? throw new InvalidOperationException($"Iodine: `{services.Family}Trigger` is used before its first render.");
 
     /// <summary>Gets the field's state the trigger projects.</summary>
     public FieldStateSnapshot Field => (fieldScope?.State ?? FieldStateSnapshot.Default) with { Disabled = Disabled };

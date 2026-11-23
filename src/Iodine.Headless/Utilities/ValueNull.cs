@@ -1,4 +1,4 @@
-namespace Blazix.Primitives.Utilities;
+namespace Iodine.Headless.Utilities;
 
 // ADR 08 Amendments 2026-10-22 (any-typed values): `null` means nothing selected, and a radio whose value is `null` behaves
 // as Base UI's `undefined` radio (RAD-EVT-03, RAD-DOM-11). Moved from Radio/RadioValues.cs beside the item equality by M5

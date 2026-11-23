@@ -1,6 +1,6 @@
 using System.Runtime.CompilerServices;
 
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // RND-EVT-03/04, ADR 02 decision 3, named by ADR 08 §4; RND-EVT-05; ADR 04
 /// <summary>

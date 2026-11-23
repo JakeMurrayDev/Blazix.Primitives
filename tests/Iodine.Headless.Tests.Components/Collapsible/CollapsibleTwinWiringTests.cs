@@ -1,10 +1,10 @@
-using Blazix.Primitives.Interop;
+using Iodine.Headless.Interop;
 using Bunit;
 using Microsoft.AspNetCore.Components;
 using Microsoft.Extensions.Logging;
 using Microsoft.JSInterop;
 
-namespace Blazix.Primitives.Tests.Components;
+namespace Iodine.Headless.Tests.Components;
 
 /// <summary>
 /// The Collapsible twin contract (ADR 06 §1, L2): what the parts send on <c>attach</c> and <c>update</c> to the
@@ -210,7 +210,7 @@ public sealed class CollapsibleTwinWiringTests : IDisposable
         (LogLevel level, string message) = Assert.Single(host.PanelLogger.Entries);
         Assert.Equal(LogLevel.Error, level);
         Assert.Equal(
-            "Blazix: CSS transitions and CSS animations both detected on a collapsible or accordion panel. Only one of either animation type should be used.",
+            "Iodine: CSS transitions and CSS animations both detected on a collapsible or accordion panel. Only one of either animation type should be used.",
             message);
     }
 

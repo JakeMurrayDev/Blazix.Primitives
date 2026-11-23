@@ -1,8 +1,8 @@
-using Blazix.Primitives.Analyzers;
+using Iodine.Headless.Analyzers;
 using Microsoft.CodeAnalysis.CSharp.Testing;
 using Microsoft.CodeAnalysis.Testing;
 
-namespace Blazix.Primitives.Tests.Generators.Analyzers;
+namespace Iodine.Headless.Tests.Generators.Analyzers;
 
 /// <summary>
 /// The fixed-cascade analyzer (ADR 16 rule 9): a <c>CascadingValue&lt;T&gt;</c> opened by library render code without

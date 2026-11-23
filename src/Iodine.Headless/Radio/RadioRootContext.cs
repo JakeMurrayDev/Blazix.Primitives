@@ -1,6 +1,6 @@
 using Microsoft.AspNetCore.Components;
 
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // RAD-STR-02, RAD-STA-04, RAD-EDGE-01; radio/root/RadioRootContext.ts. The Switch and Checkbox pattern (ADR 05 §1 keeps the
 // family on plain fields): a listener list, cascaded fixed by RadioRoot (ADR 16 rule 9). Not generic: an indicator reads
@@ -23,7 +23,7 @@ internal sealed class RadioRootContext
     {
         // RAD-EDGE-01, in every build; the port's words, as Collapsible's and Checkbox's (radio.md's dated note).
         return context ?? throw new InvalidOperationException(
-            "Blazix: The `RadioRoot` context is missing. Radio parts must be placed within `<RadioRoot>`.");
+            "Iodine: The `RadioRoot` context is missing. Radio parts must be placed within `<RadioRoot>`.");
     }
 
     /// <summary>Takes the root's new state and notifies the indicators.</summary>

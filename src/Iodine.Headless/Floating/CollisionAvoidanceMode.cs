@@ -1,4 +1,4 @@
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // ADR 08 §3 (Enums row: `None` is a Base UI literal, so the member exists) and Amendments 2026-10-27; Base UI's
 // `SideFlipMode.side`, `SideFlipMode.align`, `SideShiftMode.side` and `SideShiftMode.align` (`'flip' | 'shift' | 'none'`,

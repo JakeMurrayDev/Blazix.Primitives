@@ -1,6 +1,6 @@
 using System.Text.Json;
 
-namespace Blazix.Primitives.Tests.Events;
+namespace Iodine.Headless.Tests.Events;
 
 /// <summary>
 /// The snapshot record of ADR 04 §3 and the JSON shape Track 3's JavaScript writes (documented on the type and in

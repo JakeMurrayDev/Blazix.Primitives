@@ -4,7 +4,7 @@ using System.Text.Json.Serialization.Metadata;
 using Microsoft.AspNetCore.Components;
 using Microsoft.JSInterop;
 
-namespace Blazix.Primitives.Interop;
+namespace Iodine.Headless.Interop;
 
 /// <summary>
 /// The C# half of one JavaScript module. A twin imports its module lazily on first use, attaches parts to it
@@ -13,7 +13,7 @@ namespace Blazix.Primitives.Interop;
 /// points. Parts talk to twins and never to <see cref="IJSRuntime"/>.
 /// </summary>
 /// <typeparam name="TTwin">The concrete twin, whose public <c>[JSInvokable]</c> methods are the module's callbacks.</typeparam>
-/// <typeparam name="TOptions">The module's options record, listed in <see cref="BlazixJsonContext"/>.</typeparam>
+/// <typeparam name="TOptions">The module's options record, listed in <see cref="IodineJsonContext"/>.</typeparam>
 internal abstract class TwinBase<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicMethods | DynamicallyAccessedMemberTypes.NonPublicMethods)] TTwin, TOptions> : IAsyncDisposable
     where TTwin : TwinBase<TTwin, TOptions>
     where TOptions : TwinOptions
@@ -28,8 +28,8 @@ internal abstract class TwinBase<[DynamicallyAccessedMembers(DynamicallyAccessed
 
     /// <summary>Initializes a new instance of the <see cref="TwinBase{TTwin, TOptions}"/> class.</summary>
     /// <param name="jsRuntime">The runtime of the part's circuit or WebAssembly application.</param>
-    /// <param name="modulePath">The module URL, for example <c>./_content/Blazix.Primitives/js/button.js</c>.</param>
-    /// <param name="optionsTypeInfo">The entry of <typeparamref name="TOptions"/> in <see cref="BlazixJsonContext"/>.</param>
+    /// <param name="modulePath">The module URL, for example <c>./_content/Iodine.Headless/js/button.js</c>.</param>
+    /// <param name="optionsTypeInfo">The entry of <typeparamref name="TOptions"/> in <see cref="IodineJsonContext"/>.</param>
     protected TwinBase(IJSRuntime jsRuntime, string modulePath, JsonTypeInfo<TOptions> optionsTypeInfo)
     {
         this.jsRuntime = jsRuntime;
@@ -70,8 +70,8 @@ internal abstract class TwinBase<[DynamicallyAccessedMembers(DynamicallyAccessed
 
     /// <summary>Returns the URL of a module that ships with the library.</summary>
     /// <param name="module">The module's file name without extension, for example <c>button</c>.</param>
-    /// <returns><c>./_content/Blazix.Primitives/js/&lt;module&gt;.js</c>.</returns>
-    protected static string LibraryModule(string module) => $"./_content/Blazix.Primitives/js/{module}.js";
+    /// <returns><c>./_content/Iodine.Headless/js/&lt;module&gt;.js</c>.</returns>
+    protected static string LibraryModule(string module) => $"./_content/Iodine.Headless/js/{module}.js";
 
     // Issue 147 ((B1), ADR 04 Amendments 2026-10-29): a part that awaits the import before building its first attach's
     // options reads them right before the attach is sent, so a change the part recorded while the import was in flight (a
@@ -193,7 +193,7 @@ internal abstract class TwinBase<[DynamicallyAccessedMembers(DynamicallyAccessed
     [JSInvokable]
     public string Decide(string point, string eventJson)
     {
-        EventSnapshot snapshot = Deserialize(eventJson, BlazixJsonContext.Default.EventSnapshot);
+        EventSnapshot snapshot = Deserialize(eventJson, IodineJsonContext.Default.EventSnapshot);
         return OnDecide(point, snapshot).ToLiteral();
     }
 
@@ -206,7 +206,7 @@ internal abstract class TwinBase<[DynamicallyAccessedMembers(DynamicallyAccessed
     /// <summary>Parses a callback payload through its source-generated type information.</summary>
     /// <typeparam name="TPayload">The payload record.</typeparam>
     /// <param name="json">The JSON the module sent.</param>
-    /// <param name="typeInfo">The entry of <typeparamref name="TPayload"/> in <see cref="BlazixJsonContext"/>.</param>
+    /// <param name="typeInfo">The entry of <typeparamref name="TPayload"/> in <see cref="IodineJsonContext"/>.</param>
     /// <returns>The parsed payload.</returns>
     /// <exception cref="JsonException">The JSON is not valid or deserialises to <see langword="null"/>.</exception>
     protected static TPayload Deserialize<TPayload>(string json, JsonTypeInfo<TPayload> typeInfo)

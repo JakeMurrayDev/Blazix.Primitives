@@ -1,9 +1,9 @@
-using Blazix.Primitives.Interop;
-using Blazix.Primitives.Rendering;
+using Iodine.Headless.Interop;
+using Iodine.Headless.Rendering;
 using Microsoft.AspNetCore.Components;
 using Microsoft.JSInterop;
 
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // POP-STA-13, §3.7 state object (popover/backdrop/PopoverBackdrop.tsx:29-32, 55-64). TransitionStatus is the `transitions`
 // module's (ADR 04 §2): mirrored.

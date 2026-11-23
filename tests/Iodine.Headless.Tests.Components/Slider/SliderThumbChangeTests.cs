@@ -1,9 +1,9 @@
 using Bunit;
 using Microsoft.AspNetCore.Components;
-using static Blazix.Primitives.Tests.Components.SliderTestContext;
+using static Iodine.Headless.Tests.Components.SliderTestContext;
 
 // The namespace is the project's root: a namespace named after the family would hide the parts' types.
-namespace Blazix.Primitives.Tests.Components;
+namespace Iodine.Headless.Tests.Components;
 
 // SliderThumb.test.tsx's events › change titles and the unstable-substitute title at [L2] (docs/components/slider.md
 // §13): Base UI's `fireEvent.change` is the `input-change` request the module sends for the input's new value, already

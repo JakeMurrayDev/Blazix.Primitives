@@ -2,7 +2,7 @@ using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp.Testing;
 using Microsoft.CodeAnalysis.Testing;
 
-namespace Blazix.Primitives.Tests.Generators;
+namespace Iodine.Headless.Tests.Generators;
 
 /// <summary>Proves the generator-test runner works: the Roslyn testing SDK drives a generator and sees no diagnostics.</summary>
 public sealed class RoslynHarnessTests

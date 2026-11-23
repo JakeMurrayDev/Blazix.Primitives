@@ -1,4 +1,4 @@
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // DLG-STA-09, DOM-23, ARIA-05/06 (dialog/title/DialogTitle.tsx:20-24, dialog/description/DialogDescription.tsx:20-24): a title
 // or a description publishes its rendered id with SyncedValueWithCleanup (UTL-STA-20) in OnParametersSet, before the

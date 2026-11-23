@@ -1,6 +1,6 @@
-using Blazix.Primitives.Interop;
+using Iodine.Headless.Interop;
 
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // What a family's Positioner part hands its PositionerBehavior on every parameter set (M4 track 2, brief deliverable 6):
 // the twelve FLT §3.1 values, the popup's open, mounted and kept-mounted state, its transition status, whether a Viewport
@@ -14,11 +14,11 @@ internal sealed record PositionerInputs
     public AnchorValue? Anchor { get; init; }
 
     /// <summary>Gets the CSS <c>position</c> once positioned.</summary>
-    /// <value>The method, or <see langword="null"/> for <see cref="Primitives.PositionMethod.Absolute"/>.</value>
+    /// <value>The method, or <see langword="null"/> for <see cref="Headless.PositionMethod.Absolute"/>.</value>
     public PositionMethod? PositionMethod { get; init; }
 
     /// <summary>Gets the requested side.</summary>
-    /// <value>The side, or <see langword="null"/> for <see cref="Primitives.Side.Bottom"/>.</value>
+    /// <value>The side, or <see langword="null"/> for <see cref="Headless.Side.Bottom"/>.</value>
     public Side? Side { get; init; }
 
     /// <summary>Gets the distance from the anchor.</summary>
@@ -26,7 +26,7 @@ internal sealed record PositionerInputs
     public OffsetValue? SideOffset { get; init; }
 
     /// <summary>Gets the requested alignment.</summary>
-    /// <value>The alignment, or <see langword="null"/> for <see cref="Primitives.Align.Center"/>.</value>
+    /// <value>The alignment, or <see langword="null"/> for <see cref="Headless.Align.Center"/>.</value>
     public Align? Align { get; init; }
 
     /// <summary>Gets the distance along the alignment axis.</summary>

@@ -1,8 +1,8 @@
-using Blazix.Primitives.Rendering;
+using Iodine.Headless.Rendering;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Rendering;
 
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // TST §3.7 state object (toast/description/ToastDescription.tsx); TST-STA-26.
 /// <summary>Represents the state of a toast's description, which the part exposes as data attributes.</summary>

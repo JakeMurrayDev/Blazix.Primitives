@@ -1,7 +1,7 @@
 using System.Globalization;
-using Blazix.Primitives.Store;
+using Iodine.Headless.Store;
 
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // SLD §4 (slider/root/SliderRoot.tsx:110-299, SliderRootContext.ts); ADR 05 §1. The store every Slider part subscribes to,
 // each with a selector over the fields it reads (design point 3 of track 4: a step renders the Root, the changed Thumb, the

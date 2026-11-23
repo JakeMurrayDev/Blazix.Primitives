@@ -1,7 +1,7 @@
 using Bunit;
 
 // Family tests use the project's root namespace.
-namespace Blazix.Primitives.Tests.Components;
+namespace Iodine.Headless.Tests.Components;
 
 // CMB-API-16 at L2 (ComboboxRoot.test.tsx, describe "prop: limit"): the limit caps the items rendered from `Items` and their
 // groups, stops the filter once reached, leaves a selection outside it without a selected index, and does nothing without

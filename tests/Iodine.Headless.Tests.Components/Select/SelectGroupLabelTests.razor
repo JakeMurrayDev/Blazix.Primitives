@@ -1,4 +1,4 @@
-@namespace Blazix.Primitives.Tests.Components
+@namespace Iodine.Headless.Tests.Components
 @inherits SelectTestBase
 @using AngleSharp.Dom
 @using Bunit
@@ -51,7 +51,7 @@
             <SelectGroupLabel />
         </SelectRoot>));
 
-        Assert.Equal("Blazix: `SelectGroupContext` is missing. SelectGroup parts must be placed within `<SelectGroup>`.", error.Message);
+        Assert.Equal("Iodine: `SelectGroupContext` is missing. SelectGroup parts must be placed within `<SelectGroup>`.", error.Message);
     }
 
     [Fact(DisplayName = "removes the group aria-labelledby attribute when unmounted")]

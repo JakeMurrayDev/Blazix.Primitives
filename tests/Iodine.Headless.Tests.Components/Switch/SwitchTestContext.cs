@@ -1,12 +1,12 @@
 using System.Text.Json;
-using Blazix.Primitives.Interop;
+using Iodine.Headless.Interop;
 using Bunit;
 using Microsoft.AspNetCore.Components;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.JSInterop;
 
-namespace Blazix.Primitives.Tests.Components;
+namespace Iodine.Headless.Tests.Components;
 
 /// <summary>
 /// The bUnit context of the Switch tests: the library's services, a captured logger, and bUnit's JS interop mock standing
@@ -17,16 +17,16 @@ namespace Blazix.Primitives.Tests.Components;
 /// </summary>
 public sealed class SwitchTestContext : IDisposable
 {
-    public const string ButtonModulePath = "./_content/Blazix.Primitives/js/button.js";
-    public const string DomModulePath = "./_content/Blazix.Primitives/js/dom.js";
-    public const string FormModulePath = "./_content/Blazix.Primitives/js/form.js";
-    public const string TransitionsModulePath = "./_content/Blazix.Primitives/js/transitions.js";
+    public const string ButtonModulePath = "./_content/Iodine.Headless/js/button.js";
+    public const string DomModulePath = "./_content/Iodine.Headless/js/dom.js";
+    public const string FormModulePath = "./_content/Iodine.Headless/js/form.js";
+    public const string TransitionsModulePath = "./_content/Iodine.Headless/js/transitions.js";
 
     private int answeredRevision;
 
     public SwitchTestContext()
     {
-        Context.Services.AddBlazixPrimitives();
+        Context.Services.AddIodineHeadless();
         Context.Services.AddSingleton<ILogger<SwitchRoot>>(Logger);
         ButtonModule = Context.JSInterop.SetupModule(ButtonModulePath);
         ButtonHandle = SetupHandle(ButtonModule);
@@ -119,7 +119,7 @@ public sealed class SwitchTestContext : IDisposable
         where TComponent : IComponent
     {
         ButtonTwin twin = ButtonTwin();
-        return cut.InvokeAsync(() => twin.Decide(Blazix.Primitives.Interop.ButtonTwin.TogglePoint, InputClickJson(shiftKey)));
+        return cut.InvokeAsync(() => twin.Decide(Iodine.Headless.Interop.ButtonTwin.TogglePoint, InputClickJson(shiftKey)));
     }
 
     /// <summary>Asks the activation decision of a root click as the module does on WebAssembly.</summary>
@@ -127,13 +127,13 @@ public sealed class SwitchTestContext : IDisposable
         where TComponent : IComponent
     {
         ButtonTwin twin = ButtonTwin();
-        return cut.InvokeAsync(() => twin.Decide(Blazix.Primitives.Interop.ButtonTwin.ActivatePoint, RootClickJson(shiftKey)));
+        return cut.InvokeAsync(() => twin.Decide(Iodine.Headless.Interop.ButtonTwin.ActivatePoint, RootClickJson(shiftKey)));
     }
 
     /// <summary>The <see cref="FormTwin"/> of the switch attached last (a field label's twin is skipped).</summary>
     internal FormTwin FormTwin() =>
         ((DotNetObjectReference<FormTwin>)FormModule.Invocations["attach"]
-            .Last(i => JsonSerializer.Deserialize((string)i.Arguments[1]!, BlazixJsonContext.Default.FormOptions)!.Control is not null)
+            .Last(i => JsonSerializer.Deserialize((string)i.Arguments[1]!, IodineJsonContext.Default.FormOptions)!.Control is not null)
             .Arguments[2]!).Value;
 
     /// <summary>
@@ -198,7 +198,7 @@ public sealed class SwitchTestContext : IDisposable
         where TComponent : IComponent
     {
         FormTwin twin = FormTwin();
-        string json = JsonSerializer.Serialize(new FormControlReport { Type = "label", Value = labelId }, BlazixJsonContext.Default.FormControlReport);
+        string json = JsonSerializer.Serialize(new FormControlReport { Type = "label", Value = labelId }, IodineJsonContext.Default.FormControlReport);
         return cut.InvokeAsync(() => twin.OnControlReport(json));
     }
 
@@ -210,7 +210,7 @@ public sealed class SwitchTestContext : IDisposable
     }
 
     private static FormControlOptions Parse(string json) =>
-        JsonSerializer.Deserialize(json, BlazixJsonContext.Default.FormOptions)!.Control ?? new FormControlOptions();
+        JsonSerializer.Deserialize(json, IodineJsonContext.Default.FormOptions)!.Control ?? new FormControlOptions();
 
     private Task ReportFormAsync<TComponent>(IRenderedComponent<TComponent> cut, string type, EventSnapshot? snapshot, int revision, bool ownMessage)
         where TComponent : IComponent
@@ -223,7 +223,7 @@ public sealed class SwitchTestContext : IDisposable
             Event = snapshot,
             Revision = revision,
         };
-        string json = JsonSerializer.Serialize(report, BlazixJsonContext.Default.FormControlReport);
+        string json = JsonSerializer.Serialize(report, IodineJsonContext.Default.FormControlReport);
         return cut.InvokeAsync(() => twin.OnControlReport(json));
     }
 

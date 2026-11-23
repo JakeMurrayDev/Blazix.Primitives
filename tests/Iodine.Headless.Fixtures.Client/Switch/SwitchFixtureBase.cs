@@ -1,6 +1,6 @@
 using Microsoft.AspNetCore.Components;
 
-namespace Blazix.Primitives.Fixtures.Client.SwitchFixtures;
+namespace Iodine.Headless.Fixtures.Client.SwitchFixtures;
 
 /// <summary>
 /// The base of the Switch fixtures: renders <c>data-attached</c> once every listed switch has its root and hidden-input

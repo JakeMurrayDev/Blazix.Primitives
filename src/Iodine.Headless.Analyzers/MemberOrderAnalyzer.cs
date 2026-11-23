@@ -4,7 +4,7 @@ using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using Microsoft.CodeAnalysis.Diagnostics;
 
-namespace Blazix.Primitives.Analyzers;
+namespace Iodine.Headless.Analyzers;
 
 // ADR 08 §5 (the eleven groups); the placements of constructors, events, operators, explicit interface implementations,
 // protected members and nested types are this analyzer's, listed in CONTEXT.md
@@ -19,15 +19,15 @@ namespace Blazix.Primitives.Analyzers;
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
 public sealed class MemberOrderAnalyzer : DiagnosticAnalyzer
 {
-    /// <summary>Represents the id of the diagnostic this analyzer reports, <c>BLZX2003</c>.</summary>
-    public const string DiagnosticId = "BLZX2003";
+    /// <summary>Represents the id of the diagnostic this analyzer reports, <c>IOD2003</c>.</summary>
+    public const string DiagnosticId = "IOD2003";
 
     // ADR 08 §5
     private static readonly DiagnosticDescriptor s_rule = new(
         DiagnosticId,
         "Members follow the library's member order",
-        "Blazix: `{0}` is one of the {1} and must come before `{2}`, one of the {3}",
-        "Blazix.Primitives",
+        "Iodine: `{0}` is one of the {1} and must come before `{2}`, one of the {3}",
+        "Iodine.Headless",
         DiagnosticSeverity.Error,
         isEnabledByDefault: true,
         description: "Members appear in this order: constants; fields (field-like events included); constructors (static constructor and finalizer included); private properties; parameter properties ([Parameter] and cascading parameters, whatever their accessibility); public properties; internal properties; lifecycle methods (SetParametersAsync, OnInitialized*, OnParametersSet*, OnAfterRender*, ShouldRender, BuildRenderTree); dispose methods (Dispose, DisposeAsync, DisposeAsyncCore); public methods (operators included); internal methods; private methods; nested types. Protected and protected internal members order as public, private protected members as internal, and an explicit interface implementation as public unless its name makes it a lifecycle or dispose method.");

@@ -1,6 +1,6 @@
-using Blazix.Primitives.Interop;
+using Iodine.Headless.Interop;
 
-namespace Blazix.Primitives.Tests.Interop;
+namespace Iodine.Headless.Tests.Interop;
 
 /// <summary>
 /// L1 (ADR 06 §1): the literals the <c>interactions</c> module reports, parsed back to <see cref="EventReason"/>
@@ -31,6 +31,6 @@ public sealed class InteractionsLiteralsTests
     {
         ArgumentOutOfRangeException exception = Assert.Throws<ArgumentOutOfRangeException>(() => InteractionsLiterals.ParseReason("item-press"));
 
-        Assert.StartsWith("Blazix: ", exception.Message, StringComparison.Ordinal);
+        Assert.StartsWith("Iodine: ", exception.Message, StringComparison.Ordinal);
     }
 }

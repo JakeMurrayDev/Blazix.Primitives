@@ -1,6 +1,6 @@
-using Blazix.Primitives.Interop;
+using Iodine.Headless.Interop;
 
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // FFI §2 (registration record `{ controlRef, id, name?, getValue?, value }`), FFI-ALG-12, FFI §6.1
 // `registerFieldControl(controlRef, id, value, getValue?, enabled, name?)`. The control handle is the id of the element a

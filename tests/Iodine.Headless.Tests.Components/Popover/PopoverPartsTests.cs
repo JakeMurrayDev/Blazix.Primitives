@@ -1,10 +1,10 @@
 using AngleSharp.Dom;
-using Blazix.Primitives.Rendering;
+using Iodine.Headless.Rendering;
 using Bunit;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Rendering;
 
-namespace Blazix.Primitives.Tests.Components;
+namespace Iodine.Headless.Tests.Components;
 
 /// <summary>
 /// L2: the titles of <c>PopoverTrigger.test.tsx</c>, <c>PopoverClose.test.tsx</c>, <c>PopoverTitle.test.tsx</c>,
@@ -24,7 +24,7 @@ public sealed class PopoverPartsTests : IDisposable
     public void Throws_a_descriptive_error_when_rendered_without_a_root_or_a_handle()
     {
         InvalidOperationException error = Assert.Throws<InvalidOperationException>(() => test.Context.Render<PopoverTrigger<NoPayload>>());
-        Assert.Equal("Blazix: `<PopoverTrigger>` must be either used within a `<PopoverRoot>` component or provided with a handle.", error.Message);
+        Assert.Equal("Iodine: `<PopoverTrigger>` must be either used within a `<PopoverRoot>` component or provided with a handle.", error.Message);
     }
 
     [Fact(DisplayName = "throws a descriptive error when rendered outside <Popover.Root>")]
@@ -33,7 +33,7 @@ public sealed class PopoverPartsTests : IDisposable
     public void Throws_a_descriptive_error_when_rendered_outside_Popover_Root()
     {
         InvalidOperationException error = Assert.Throws<InvalidOperationException>(() => test.Context.Render<PopoverPopup>());
-        Assert.Equal("Blazix: The `PopoverRoot` context is missing. Popover parts must be placed within `<PopoverRoot>`.", error.Message);
+        Assert.Equal("Iodine: The `PopoverRoot` context is missing. Popover parts must be placed within `<PopoverRoot>`.", error.Message);
     }
 
     [Fact(DisplayName = "throws a descriptive error when rendered outside <Popover.Positioner>")]
@@ -43,7 +43,7 @@ public sealed class PopoverPartsTests : IDisposable
     {
         test.Context.RenderTree.Add<PopoverRoot<NoPayload>>(p => p.Add(x => x.Open, true));
         InvalidOperationException error = Assert.Throws<InvalidOperationException>(() => test.Context.Render<PopoverPopup>());
-        Assert.Equal("Blazix: The `PopoverPositioner` context is missing. `PopoverPositioner` parts must be placed within `<PopoverPositioner>`.", error.Message);
+        Assert.Equal("Iodine: The `PopoverPositioner` context is missing. `PopoverPositioner` parts must be placed within `<PopoverPositioner>`.", error.Message);
     }
 
     [Fact(DisplayName = "throws a descriptive error when rendered outside <Popover.Portal>")]
@@ -53,7 +53,7 @@ public sealed class PopoverPartsTests : IDisposable
     {
         test.Context.RenderTree.Add<PopoverRoot<NoPayload>>(p => p.Add(x => x.Open, true));
         InvalidOperationException error = Assert.Throws<InvalidOperationException>(() => test.Context.Render<PopoverPositioner>());
-        Assert.Equal("Blazix: `<PopoverPortal>` is missing.", error.Message);
+        Assert.Equal("Iodine: `<PopoverPortal>` is missing.", error.Message);
     }
 
     [Fact(DisplayName = "disables the popover")]

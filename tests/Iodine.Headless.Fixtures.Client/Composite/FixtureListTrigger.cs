@@ -1,11 +1,11 @@
-using Blazix.Primitives.Fixtures.Client.PopupFixtures;
-using Blazix.Primitives.Interop;
-using Blazix.Primitives.Rendering;
+using Iodine.Headless.Fixtures.Client.PopupFixtures;
+using Iodine.Headless.Interop;
+using Iodine.Headless.Rendering;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Web;
 using Microsoft.JSInterop;
 
-namespace Blazix.Primitives.Fixtures.Client.CompositeFixtures;
+namespace Iodine.Headless.Fixtures.Client.CompositeFixtures;
 
 /// <summary>
 /// The test-only list trigger at L4 (M5 track 1, issue 159, Deliverable 12): the list's reference. A <c>button</c> (the
@@ -21,7 +21,7 @@ namespace Blazix.Primitives.Fixtures.Client.CompositeFixtures;
 /// list (the nested page) or a menubar's item (the relay page), with the item's <c>Highlighted</c> mirror as
 /// <c>data-mirrored-highlighted</c>.
 /// The input also takes the Combobox family's Enter (Base UI's <c>ComboboxInput.tsx:404-420</c>, which clicks the
-/// highlighted item): a test-only listener of the fixture host (<c>blazixFixtureDom.listenComboboxEnter</c>) clicks the
+/// highlighted item): a test-only listener of the fixture host (<c>iodineFixtureDom.listenComboboxEnter</c>) clicks the
 /// element <c>aria-activedescendant</c> names and prevents the key, so a surrounding form is not submitted.
 /// </remarks>
 public sealed class FixtureListTrigger : PartBase<FixturePopupTriggerState>
@@ -116,7 +116,7 @@ public sealed class FixtureListTrigger : PartBase<FixturePopupTriggerState>
 
     protected override void OnParametersSet()
     {
-        behavior.Apply(RootStore, null, Id, Element, false, default, "Blazix: `FixtureListTrigger` must be used within a `FixtureListRoot` component.");
+        behavior.Apply(RootStore, null, Id, Element, false, default, "Iodine: `FixtureListTrigger` must be used within a `FixtureListRoot` component.");
         reference!.SetList(ListContext, CompositeListRole.Reference);
         reference.SetConsumerAttributes(AdditionalAttributes);
         item?.SetConsumerAttributes(AdditionalAttributes);
@@ -155,7 +155,7 @@ public sealed class FixtureListTrigger : PartBase<FixturePopupTriggerState>
             enterListened = true;
             try
             {
-                await JSRuntime.InvokeVoidAsync("blazixFixtureDom.listenComboboxEnter", element);
+                await JSRuntime.InvokeVoidAsync("iodineFixtureDom.listenComboboxEnter", element);
             }
             catch (JSDisconnectedException)
             {

@@ -1,10 +1,10 @@
-using Blazix.Primitives.Interop;
-using Blazix.Primitives.Rendering;
+using Iodine.Headless.Interop;
+using Iodine.Headless.Rendering;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Web;
 using Microsoft.JSInterop;
 
-namespace Blazix.Primitives.Tests.Components;
+namespace Iodine.Headless.Tests.Components;
 
 /// <summary>
 /// A test-only composite root (the <see cref="SampleRoot"/> precedent): a <c>div</c> that composes
@@ -35,7 +35,7 @@ internal sealed class TestCompositeRoot : PartBase<EmptyState>
 
     /// <summary>The arrow keys that move the highlight; <see langword="null"/> is both axes.</summary>
     [Parameter]
-    public Blazix.Primitives.Orientation? Orientation { get; set; }
+    public Iodine.Headless.Orientation? Orientation { get; set; }
 
     [Parameter]
     public bool LoopFocus { get; set; } = true;

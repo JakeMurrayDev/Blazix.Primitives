@@ -1,4 +1,4 @@
-namespace Blazix.Primitives.Tests;
+namespace Iodine.Headless.Tests;
 
 // The [L1] rows of docs/components/checkbox-group.md (issue 82): CKG-STA-03, CKG-STA-07, CKG-STA-08 and CKG-EDGE-04 over the
 // pure parent algorithm (checkbox-group §4; useCheckboxGroupParent.ts), titles verbatim from CheckboxGroup.test.tsx and

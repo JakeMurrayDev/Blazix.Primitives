@@ -1,10 +1,10 @@
-using Blazix.Primitives.Interop;
-using Blazix.Primitives.Rendering;
+using Iodine.Headless.Interop;
+using Iodine.Headless.Rendering;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Rendering;
 using Microsoft.JSInterop;
 
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // POP-STA-13, §3.4 state object (popover/positioner/PopoverPositioner.tsx:109-115, 136-157). Side, Align and AnchorHidden
 // are the `positioning` module's from attach (ADR 04 §2): mirrored. Instant is C#'s (ADR 04 Amendments 2026-10-27).
@@ -130,12 +130,12 @@ public sealed class PopoverPositioner : PartBase<PopoverPositionerState>
     public AnchorValue? Anchor { get; set; }
 
     /// <summary>Gets or sets the CSS position of the positioner.</summary>
-    /// <value><see cref="Primitives.PositionMethod.Absolute"/> when <see langword="null"/>, the default.</value>
+    /// <value><see cref="Headless.PositionMethod.Absolute"/> when <see langword="null"/>, the default.</value>
     [Parameter]
     public PositionMethod? PositionMethod { get; set; }
 
     /// <summary>Gets or sets the side of the anchor the popover is placed on.</summary>
-    /// <value><see cref="Primitives.Side.Bottom"/> when <see langword="null"/>, the default.</value>
+    /// <value><see cref="Headless.Side.Bottom"/> when <see langword="null"/>, the default.</value>
     [Parameter]
     public Side? Side { get; set; }
 
@@ -145,7 +145,7 @@ public sealed class PopoverPositioner : PartBase<PopoverPositionerState>
     public OffsetValue? SideOffset { get; set; }
 
     /// <summary>Gets or sets how the popover is aligned against the anchor.</summary>
-    /// <value><see cref="Primitives.Align.Center"/> when <see langword="null"/>, the default.</value>
+    /// <value><see cref="Headless.Align.Center"/> when <see langword="null"/>, the default.</value>
     [Parameter]
     public Align? Align { get; set; }
 

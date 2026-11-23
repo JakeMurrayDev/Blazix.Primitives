@@ -2,7 +2,7 @@ using AngleSharp.Dom;
 using Bunit;
 using Microsoft.AspNetCore.Components;
 
-namespace Blazix.Primitives.Tests.Components;
+namespace Iodine.Headless.Tests.Components;
 
 /// <summary>
 /// The internal backdrop's markup (PSH-STR-09, PSH-DOM-14, PSH-ARIA-06; InternalBackdrop.tsx), written once in

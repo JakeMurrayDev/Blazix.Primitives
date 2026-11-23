@@ -1,6 +1,6 @@
 using Microsoft.AspNetCore.Components;
 
-namespace Blazix.Primitives.Tests.Events;
+namespace Iodine.Headless.Tests.Events;
 
 /// <summary>
 /// The details objects (EVD §3.1–3.3, §3.7; EVD-ALG-01/02, EVD-API-01/02/04..09; ADR 05 §3). A details object is a plain

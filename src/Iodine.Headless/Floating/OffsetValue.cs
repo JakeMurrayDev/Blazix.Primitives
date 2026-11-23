@@ -1,7 +1,7 @@
 using System.Diagnostics.CodeAnalysis;
 using System.Runtime.CompilerServices;
 
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // ADR 05 §4 (hand-written [Union] structs; Duration is the model); ADR 08 Amendments 2026-10-27 (the offset union, suffix
 // Value; its name settled by the orchestrator 2026-10-27 as the positioning track's design point 2). Base UI's
@@ -43,9 +43,9 @@ public readonly struct OffsetValue : IUnion, IEquatable<OffsetValue>
     /// <value><see langword="true"/> if a value is held; otherwise, <see langword="false"/>. The default instance holds no value.</value>
     public bool HasValue => kind != OffsetKind.None;
 
-    // BLZX2005: IUnion requires an object-typed Value, so reading it boxes the number case; the library reads the cases
+    // IOD2005: IUnion requires an object-typed Value, so reading it boxes the number case; the library reads the cases
     // through TryGetValue instead.
-#pragma warning disable BLZX2005
+#pragma warning disable IOD2005
     /// <inheritdoc />
     /// <remarks>Reading it boxes a number.</remarks>
     public object? Value => kind switch
@@ -54,7 +54,7 @@ public readonly struct OffsetValue : IUnion, IEquatable<OffsetValue>
         OffsetKind.Computed => offset,
         _ => null,
     };
-#pragma warning restore BLZX2005
+#pragma warning restore IOD2005
 
     /// <summary>Converts a number of CSS pixels to an <see cref="OffsetValue"/> that holds it.</summary>
     /// <param name="value">The offset, in CSS pixels.</param>

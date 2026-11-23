@@ -3,11 +3,11 @@ using AngleSharp.Dom;
 using Bunit;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Web;
-using LibraryOrientation = Blazix.Primitives.Orientation;
+using LibraryOrientation = Iodine.Headless.Orientation;
 
 // The namespace is the project's root: a namespace named after the family would hide the parts' types. `Orientation` is
 // aliased because SampleRoot.cs declares a test-local `Orientation` in this namespace that would shadow the library's.
-namespace Blazix.Primitives.Tests.Components;
+namespace Iodine.Headless.Tests.Components;
 
 // ToolbarRoot.test.tsx's [L2] titles verbatim and port titles (marked as such) for the root's element, its composite twin,
 // its contexts and the Test: none rows C# observes. The browser halves are tests/browser/toolbar.spec.ts.
@@ -322,7 +322,7 @@ public sealed class ToolbarRootTests : IDisposable
             builder.CloseComponent();
         }));
 
-        Assert.Equal("Blazix: The `ToolbarRoot` context is missing. Toolbar parts must be placed within `<ToolbarRoot>`.", error.Message);
+        Assert.Equal("Iodine: The `ToolbarRoot` context is missing. Toolbar parts must be placed within `<ToolbarRoot>`.", error.Message);
     }
 
     /// <summary>A plain host for a fragment, so a test can render content beside a toolbar.</summary>

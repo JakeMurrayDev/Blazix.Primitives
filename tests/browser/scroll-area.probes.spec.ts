@@ -1,7 +1,7 @@
 // L4 probes (ADR 06 §2), ScrollArea inside other families' popups: design point 12 (a) of the ScrollArea track, chosen by
 // the user. Base UI composes ScrollArea inside its popups (the `scroll-area/inside-select.tsx` and `inside-menu.tsx`
 // experiments, Dialog's `inside-scroll` demo, the NavigationMenu page's advice); no requirement row covers it, so each
-// title is a port title. Fixtures: tests/Blazix.Primitives.Fixtures.Client/ScrollArea/ScrollAreaProbe*Fixture.razor.
+// title is a port title. Fixtures: tests/Iodine.Headless.Fixtures.Client/ScrollArea/ScrollAreaProbe*Fixture.razor.
 import { type Locator } from '@playwright/test';
 import { expect, test, waitForPositioned, wheelOver, type Page } from './helpers';
 import { gotoPopupFixture, settle } from './suites/popupFixture';

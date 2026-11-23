@@ -1,9 +1,9 @@
-using Blazix.Primitives.Rendering;
+using Iodine.Headless.Rendering;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Rendering;
 using Microsoft.JSInterop;
 
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // The portal every dialog family composes (dialog/portal/DialogPortal.tsx; ADR 04 Amendments 2026-10-27, decision 5, chosen
 // by the user 2026-10-27), over track 1's PopupPortalBehavior: the node `<div id data-base-ui-portal>` inside the

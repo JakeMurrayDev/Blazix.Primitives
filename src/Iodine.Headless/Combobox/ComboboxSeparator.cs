@@ -1,7 +1,7 @@
-using Blazix.Primitives.Rendering;
+using Iodine.Headless.Rendering;
 using Microsoft.AspNetCore.Components;
 
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // CMB §3.26, STA-15 (combobox/separator/ComboboxSeparator.tsx; ListboxSeparatorAttributes).
 /// <summary>Represents the state of a combobox separator, which the part exposes as data attributes and passes to its class and style functions.</summary>
@@ -23,12 +23,12 @@ public static class ComboboxSeparatorDataAttributes
 /// <summary>Represents a separator between a combobox's items, Base UI's <c>Combobox.Separator</c>, rendered as a <c>div</c>.</summary>
 public sealed class ComboboxSeparator : PartBase<ComboboxSeparatorState>
 {
-    private ComboboxSeparatorState state = new(Primitives.Orientation.Horizontal);
+    private ComboboxSeparatorState state = new(Headless.Orientation.Horizontal);
 
     /// <summary>Gets or sets the separator's orientation.</summary>
     /// <value>The default is <see cref="Orientation.Horizontal"/>.</value>
     [Parameter]
-    public Orientation Orientation { get; set; } = Primitives.Orientation.Horizontal;
+    public Orientation Orientation { get; set; } = Headless.Orientation.Horizontal;
 
     /// <inheritdoc />
     protected override string DefaultTagName => "div";

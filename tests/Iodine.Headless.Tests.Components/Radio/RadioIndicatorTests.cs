@@ -3,7 +3,7 @@ using Bunit;
 using Microsoft.AspNetCore.Components;
 
 // The namespace is the project's root: a namespace named after the family would hide the parts' types.
-namespace Blazix.Primitives.Tests.Components;
+namespace Iodine.Headless.Tests.Components;
 
 // The radio indicator's rows C# observes (issue 83): when the element is rendered, what C# renders at its creation (the
 // handover of data-starting-style, ADR 04 Amendments 2026-10-18), the twin's options on attach and update, and the mirror of

@@ -1,6 +1,6 @@
 using Microsoft.AspNetCore.Components;
 
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // DRW-STR-04 (drawer/viewport/DrawerViewportContext.tsx): what a Drawer viewport provides its popup: that it is inside a
 // viewport (DRW-EDGE-01) and the gesture's swiping state, the C# mirror of the `drawer` module's data-swiping (8b; ADR 04

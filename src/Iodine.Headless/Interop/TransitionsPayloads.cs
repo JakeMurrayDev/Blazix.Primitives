@@ -1,7 +1,7 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
 
-namespace Blazix.Primitives.Interop;
+namespace Iodine.Headless.Interop;
 
 // TRN-API-07, TRN-STA-01 (one message per change of the mirrored status)
 /// <summary>The payload of the status report: the transition status and the mounted flag after a change of either.</summary>
@@ -41,7 +41,7 @@ internal sealed class TransitionStatusJsonConverter : JsonConverter<TransitionSt
 
         if (reader.TokenType != JsonTokenType.String)
         {
-            throw new JsonException("Blazix: a transition status must be a string or `null`.");
+            throw new JsonException("Iodine: a transition status must be a string or `null`.");
         }
 
         return reader.GetString() switch
@@ -49,7 +49,7 @@ internal sealed class TransitionStatusJsonConverter : JsonConverter<TransitionSt
             "starting" => TransitionStatus.Starting,
             "ending" => TransitionStatus.Ending,
             "idle" => TransitionStatus.Idle,
-            string other => throw new JsonException($"Blazix: `{other}` is not a transition status."),
+            string other => throw new JsonException($"Iodine: `{other}` is not a transition status."),
             null => null,
         };
     }

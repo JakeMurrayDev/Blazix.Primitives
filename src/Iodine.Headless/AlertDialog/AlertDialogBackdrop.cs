@@ -1,9 +1,9 @@
-using Blazix.Primitives.Rendering;
+using Iodine.Headless.Rendering;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Rendering;
 using Microsoft.JSInterop;
 
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // ADL §3.3: Dialog.Backdrop's state object (DLG §3.4, dialog/backdrop/DialogBackdrop.tsx:28-31) under its AlertDialog name.
 // TransitionStatus is mirrored (ADR 04 §2).

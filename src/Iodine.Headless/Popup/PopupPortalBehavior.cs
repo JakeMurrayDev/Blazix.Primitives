@@ -1,11 +1,11 @@
-using Blazix.Primitives.Interop;
-using Blazix.Primitives.Rendering;
-using Blazix.Primitives.Utilities;
+using Iodine.Headless.Interop;
+using Iodine.Headless.Rendering;
+using Iodine.Headless.Utilities;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Rendering;
 using Microsoft.JSInterop;
 
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // The C# half of FloatingPortal and FloatingPortalLite (ADR 04 Amendments 2026-10-27, decision 5, chosen by the user
 // 2026-10-27; FLT-API-13, FLT-DOM-11..14, FLT-ARIA-04/05, PSH-STR-11/12), composed by the families' Portal parts and the

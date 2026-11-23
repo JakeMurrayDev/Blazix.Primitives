@@ -1,9 +1,9 @@
 using Bunit;
 using Microsoft.AspNetCore.Components;
-using static Blazix.Primitives.Tests.Components.SliderTestContext;
+using static Iodine.Headless.Tests.Components.SliderTestContext;
 
 // The namespace is the project's root: a namespace named after the family would hide the parts' types.
-namespace Blazix.Primitives.Tests.Components;
+namespace Iodine.Headless.Tests.Components;
 
 // Design point 3 (a) of M6 track 4: a value step renders only the parts that read the value. The standing rule
 // "render-count claims are measured": each title counts the renders of every part across one step, the `slider` module's

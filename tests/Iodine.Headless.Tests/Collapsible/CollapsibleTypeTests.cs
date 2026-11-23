@@ -1,7 +1,7 @@
-using Blazix.Primitives.Rendering;
+using Iodine.Headless.Rendering;
 using Microsoft.AspNetCore.Components;
 
-namespace Blazix.Primitives.Tests.Collapsible;
+namespace Iodine.Headless.Tests.Collapsible;
 
 /// <summary>
 /// docs/components/collapsible.md §3.4's <c>[L1]</c> line, <c>CollapsibleRoot.spec.tsx</c> (type assertions only): the

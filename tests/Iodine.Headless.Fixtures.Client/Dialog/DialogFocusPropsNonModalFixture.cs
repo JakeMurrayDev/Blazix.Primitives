@@ -1,4 +1,4 @@
-namespace Blazix.Primitives.Fixtures.Client.DialogFixtures;
+namespace Iodine.Headless.Fixtures.Client.DialogFixtures;
 
 /// <summary>The <c>dialog-focus-props-nonmodal</c> fixture: <c>dialog-focus-props</c> with <c>Modal="false"</c> (DialogPopup.test.tsx's second run).</summary>
 public sealed class DialogFocusPropsNonModalFixture : DialogFocusPropsFixture

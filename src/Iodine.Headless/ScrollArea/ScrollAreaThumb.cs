@@ -1,9 +1,9 @@
-using Blazix.Primitives.Interop;
-using Blazix.Primitives.Rendering;
+using Iodine.Headless.Interop;
+using Iodine.Headless.Rendering;
 using Microsoft.AspNetCore.Components;
 using Microsoft.JSInterop;
 
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // SCR §3.5 (ScrollArea.Thumb.State): exactly `scrolling`, this axis's flag, and `orientation` (SCR-STA-04); ADR 08
 // Amendments 2026-11-18. Scrolling is written by the `scroll-area` module and mirrored here (RND-STA-01).

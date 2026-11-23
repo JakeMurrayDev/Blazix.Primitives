@@ -1,7 +1,7 @@
-using Blazix.Primitives.Rendering;
+using Iodine.Headless.Rendering;
 using Microsoft.AspNetCore.Components;
 
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // Base UI's NumberField.Group (number-field/group/NumberFieldGroup.tsx); the contract is docs/components/number-field.md.
 // Structural only (NUM-STR-04): `role="group"` (NUM-ARIA-09), the root's state attributes, no handler and no id of its own.

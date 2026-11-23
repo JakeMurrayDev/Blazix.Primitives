@@ -1,8 +1,8 @@
-using Blazix.Primitives.Interop;
+using Iodine.Headless.Interop;
 using Microsoft.AspNetCore.Components;
 using Microsoft.JSInterop;
 
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // ADR 04 Amendments 2026-11-18 (the `toast` scope cell) with DP1 (a) of the Toast track (chosen by the user 2026-11-19):
 // each Toast part owns one `ToastTwin` and one handle on its element. The handover (ADR 04 Amendments 2026-10-18): a part

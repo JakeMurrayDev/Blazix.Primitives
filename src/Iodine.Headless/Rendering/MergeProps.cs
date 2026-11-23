@@ -1,6 +1,6 @@
 using Microsoft.AspNetCore.Components;
 
-namespace Blazix.Primitives.Rendering;
+namespace Iodine.Headless.Rendering;
 
 // RND-EVT-11
 /// <summary>Represents a function-form input of <see cref="MergeProps"/>.</summary>

@@ -1,8 +1,8 @@
-@namespace Blazix.Primitives.Fixtures.Client.MenuFixtures
+@namespace Iodine.Headless.Fixtures.Client.MenuFixtures
 @using System.Globalization
-@using Blazix.Primitives
-@using Blazix.Primitives.Rendering
-@using Blazix.Primitives.Fixtures.Client.PopupFixtures
+@using Iodine.Headless
+@using Iodine.Headless.Rendering
+@using Iodine.Headless.Fixtures.Client.PopupFixtures
 @using Microsoft.AspNetCore.Components.Web
 @inherits PopupSuiteFixtureBase
 
@@ -339,7 +339,7 @@
         {
             try
             {
-                submenuContainer = new PortalContainerValue(await JS.InvokeAsync<IJSObjectReference>("blazixFixtureDom.createOpenShadowRoot", shadowHost));
+                submenuContainer = new PortalContainerValue(await JS.InvokeAsync<IJSObjectReference>("iodineFixtureDom.createOpenShadowRoot", shadowHost));
                 StateHasChanged();
             }
             catch (JSDisconnectedException)

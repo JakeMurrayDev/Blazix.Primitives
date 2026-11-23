@@ -3,7 +3,7 @@ using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.Diagnostics;
 using Microsoft.CodeAnalysis.Operations;
 
-namespace Blazix.Primitives.Analyzers;
+namespace Iodine.Headless.Analyzers;
 
 // ADR 16 rule 3
 /// <summary>
@@ -16,15 +16,15 @@ namespace Blazix.Primitives.Analyzers;
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
 public sealed class SequenceNumberAnalyzer : DiagnosticAnalyzer
 {
-    /// <summary>Represents the id of the diagnostic this analyzer reports, <c>BLZX2002</c>.</summary>
-    public const string DiagnosticId = "BLZX2002";
+    /// <summary>Represents the id of the diagnostic this analyzer reports, <c>IOD2002</c>.</summary>
+    public const string DiagnosticId = "IOD2002";
 
     // ADR 16 rule 3
     private static readonly DiagnosticDescriptor s_rule = new(
         DiagnosticId,
         "A render tree sequence number must be a constant",
-        "Blazix: `{0}` is not a constant sequence number; use an integer literal or a named constant, never a counter or a calculation",
-        "Blazix.Primitives",
+        "Iodine: `{0}` is not a constant sequence number; use an integer literal or a named constant, never a counter or a calculation",
+        "Iodine.Headless",
         DiagnosticSeverity.Error,
         isEnabledByDefault: true,
         description: "Blazor diffs a render with the last one by sequence number, so a sequence number stands for a place in the source. A counter or a calculation loses that and degrades the diff; a frame re-emitted from the consumer's own fragment is the one place that keeps the consumer's number, and suppresses the rule there.");

@@ -1,10 +1,10 @@
-using Blazix.Primitives.Rendering;
-using Blazix.Primitives.Tests.Components.Rendering.Conformance;
+using Iodine.Headless.Rendering;
+using Iodine.Headless.Tests.Components.Rendering.Conformance;
 using Bunit;
 using Microsoft.AspNetCore.Components;
 
 // The namespace is the project's root: a namespace named after the family would hide the parts' types.
-namespace Blazix.Primitives.Tests.Components;
+namespace Iodine.Headless.Tests.Components;
 
 // NumberFieldRoot.test.tsx: describeConformance(<NumberField.Root />, () => ({ refInstanceof: window.HTMLDivElement })).
 // NUM-DOM-16, NUM-API-20, NUM-API-21, NUM-API-25.

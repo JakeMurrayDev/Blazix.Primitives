@@ -1,11 +1,11 @@
-using Blazix.Primitives.Interop;
-using Blazix.Primitives.Rendering;
-using Blazix.Primitives.Store;
+using Iodine.Headless.Interop;
+using Iodine.Headless.Rendering;
+using Iodine.Headless.Store;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Rendering;
 using Microsoft.JSInterop;
 
-namespace Blazix.Primitives.Fixtures.Client.PopupFixtures;
+namespace Iodine.Headless.Fixtures.Client.PopupFixtures;
 
 /// <summary>
 /// The test-only popup at L4: a <c>div</c> with <c>role="dialog"</c>, rendered while mounted, that reports its element and

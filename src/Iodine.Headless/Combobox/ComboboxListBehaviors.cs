@@ -1,12 +1,12 @@
-using Blazix.Primitives.Interop;
-using Blazix.Primitives.Rendering;
-using Blazix.Primitives.Store;
-using Blazix.Primitives.Utilities;
+using Iodine.Headless.Interop;
+using Iodine.Headless.Rendering;
+using Iodine.Headless.Store;
+using Iodine.Headless.Utilities;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Rendering;
 using Microsoft.AspNetCore.Components.Web;
 
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // combobox/list/ComboboxList.tsx (CMB §3.19, STR-05, STR-06): tabindex="-1", id = the floating id, role listbox or grid,
 // aria-multiselectable, aria-readonly (not grid), data-empty. The `composite` floating list handle (the registry, the items'
@@ -55,7 +55,7 @@ internal sealed class ComboboxListBehavior<TValue> : IAsyncDisposable
     }
 
     /// <summary>Gets the root's store.</summary>
-    public ComboboxStore<TValue> Store => store ?? throw new InvalidOperationException($"Blazix: `{services.Family}List` is used before its first render.");
+    public ComboboxStore<TValue> Store => store ?? throw new InvalidOperationException($"Iodine: `{services.Family}List` is used before its first render.");
 
     /// <summary>Gets the composite context the items register in.</summary>
     public CompositeRootContext Composite => composite.Context;
@@ -656,7 +656,7 @@ internal sealed class ComboboxItemBehavior<TValue> : IAsyncDisposable
         if (!valueSupplied && !ComboboxStore<TValue>.ValueAcceptsNull && root.State.SelectionMode == ComboboxSelectionMode.Multiple)
         {
             throw new InvalidOperationException(
-                $"Blazix: A `{services.Family}Item` without a `Value` stands for `null`, which a multiple `{services.Family}Root` of a non-nullable value type cannot hold. "
+                $"Iodine: A `{services.Family}Item` without a `Value` stands for `null`, which a multiple `{services.Family}Root` of a non-nullable value type cannot hold. "
                 + "Give the item a `Value`, or use a nullable `TValue` such as `int?`.");
         }
 
@@ -934,7 +934,7 @@ internal sealed class ComboboxValueBehavior<TValue> : IDisposable
     }
 
     /// <summary>Gets the root's store.</summary>
-    public ComboboxStore<TValue> Store => store ?? throw new InvalidOperationException($"Blazix: `{family}Value` is used before its first render.");
+    public ComboboxStore<TValue> Store => store ?? throw new InvalidOperationException($"Iodine: `{family}Value` is used before its first render.");
 
     /// <summary>Gets a value indicating whether a value is selected.</summary>
     public bool HasValue => Store.State.HasSelectedValue;
@@ -1027,12 +1027,12 @@ internal sealed class ComboboxValueBehavior<TValue> : IDisposable
         bool multiple = Multiple;
         if (multiple && hasValueContent)
         {
-            throw new InvalidOperationException($"Blazix: `<{family}Value>` was given `ValueContent`, but its `<{family}Root>` is multiple. Use `ValuesContent`, which receives the selected values.");
+            throw new InvalidOperationException($"Iodine: `<{family}Value>` was given `ValueContent`, but its `<{family}Root>` is multiple. Use `ValuesContent`, which receives the selected values.");
         }
 
         if (!multiple && hasValuesContent)
         {
-            throw new InvalidOperationException($"Blazix: `<{family}Value>` was given `ValuesContent`, but its `<{family}Root>` is not multiple. Use `ValueContent`, which receives the selected value.");
+            throw new InvalidOperationException($"Iodine: `<{family}Value>` was given `ValuesContent`, but its `<{family}Root>` is not multiple. Use `ValueContent`, which receives the selected value.");
         }
     }
 

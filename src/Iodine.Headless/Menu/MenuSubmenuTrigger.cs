@@ -1,11 +1,11 @@
-using Blazix.Primitives.Rendering;
+using Iodine.Headless.Rendering;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Rendering;
 using Microsoft.AspNetCore.Components.Web;
 using Microsoft.Extensions.Logging;
 using Microsoft.JSInterop;
 
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // MNU §3.19 state object (menu/submenu-trigger/MenuSubmenuTrigger.tsx:226-230). Highlighted is the parent list's mirror
 // (ADR 04 Amendments 2026-11-03 (2)).

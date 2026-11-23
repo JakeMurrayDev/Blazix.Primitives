@@ -1,4 +1,4 @@
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // FFI-EVT-05, FLD-API-04, FLD-EVT-08; field/root/FieldRoot.tsx:285-290 (`validate(value, formValues)`). ADR 08
 // Amendments 2026-10-22: a readonly record struct, as MeterValueArguments is. ADR 05 Amendments 2026-10-22: the `object?`

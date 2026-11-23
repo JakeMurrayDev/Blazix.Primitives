@@ -2,7 +2,7 @@ using AngleSharp.Dom;
 using Bunit;
 
 // Family tests use the project's root namespace.
-namespace Blazix.Primitives.Tests.Components;
+namespace Iodine.Headless.Tests.Components;
 
 // ComboboxRoot.test.tsx's `prop: grid` titles cited at L2 whose assertions are what C# renders: the grid, gridcell and
 // rowgroup roles. The arrow-key titles are the `composite` module's grid navigation (CMB-API-21's grid-navigation clause

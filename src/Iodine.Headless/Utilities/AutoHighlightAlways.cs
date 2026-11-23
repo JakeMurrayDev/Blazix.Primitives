@@ -1,4 +1,4 @@
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // ADR 08 §3 (boolean-or-literal props): Base UI's `autoHighlight="always"` literal, the named case of AutoHighlightValue.
 /// <summary>Represents the <c>always</c> case of <see cref="AutoHighlightValue"/>: the first item is highlighted even when the query is empty.</summary>

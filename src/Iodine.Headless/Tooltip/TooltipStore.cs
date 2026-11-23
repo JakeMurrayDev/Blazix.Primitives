@@ -1,7 +1,7 @@
-using Blazix.Primitives.Store;
+using Iodine.Headless.Store;
 using Microsoft.Extensions.Logging;
 
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // TIP §4.1 (tooltip/store/TooltipStore.ts:17-27, 120-141); ADR 05 Amendments 2026-10-27 (the composed store record, chosen
 // by the user 2026-10-27). The root's `disabled` is the shared record's Disabled (ADR 05 Amendments 2026-10-28, design

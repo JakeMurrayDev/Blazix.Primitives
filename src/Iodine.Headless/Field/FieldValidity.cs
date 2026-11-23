@@ -1,8 +1,8 @@
-using Blazix.Primitives.Interop;
+using Iodine.Headless.Interop;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Rendering;
 
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // FLD-STA-07, FLD §3.7; field/validity/FieldValidity.tsx:41-50. A class with reference identity: FLD-STA-08 makes the
 // instance observable (a consumer can hand it to a child that renders only when it changes).
@@ -16,8 +16,8 @@ namespace Blazix.Primitives;
 /// <param name="Value">The value the field last validated, or <see langword="null"/> before its first validation.</param>
 /// <param name="InitialValue">The value captured when the field's first control registered, or <see langword="null"/> before.</param>
 /// <param name="TransitionStatus">
-/// The phase of the invalid state's enter or exit transition: <see cref="Primitives.TransitionStatus.Starting"/> for one
-/// frame after the field becomes invalid, <see cref="Primitives.TransitionStatus.Ending"/> from the moment it stops being
+/// The phase of the invalid state's enter or exit transition: <see cref="Headless.TransitionStatus.Starting"/> for one
+/// frame after the field becomes invalid, <see cref="Headless.TransitionStatus.Ending"/> from the moment it stops being
 /// invalid until it is invalid again, and <see langword="null"/> otherwise.
 /// </param>
 public sealed record FieldValidityState(
@@ -92,7 +92,7 @@ public sealed class FieldValidity : ComponentBase, IDisposable
     {
         if (ChildContent is null)
         {
-            throw new InvalidOperationException("Blazix: `FieldValidity` requires `ChildContent`, a template that receives the field's validity.");
+            throw new InvalidOperationException("Iodine: `FieldValidity` requires `ChildContent`, a template that receives the field's validity.");
         }
 
         Evaluate();

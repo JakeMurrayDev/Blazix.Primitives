@@ -1,8 +1,8 @@
-using Blazix.Primitives.Store;
+using Iodine.Headless.Store;
 using Microsoft.AspNetCore.Components;
 using Microsoft.Extensions.Logging;
 
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // POP §11 (PopoverRootContext); popover/root/PopoverRootContext.ts. The Root cascades it fixed (ADR 16 rule 9) beside its
 // store. Only the Root and the Trigger are generic (ADR 08 Amendments 2026-10-27, issue 116's finding), so every other part
@@ -32,7 +32,7 @@ internal abstract class PopoverRootContext
     {
         // POP-EDGE-02: thrown in every build (ADR 02 Amendments 2026-10-20).
         return context ?? throw new InvalidOperationException(
-            "Blazix: The `PopoverRoot` context is missing. Popover parts must be placed within `<PopoverRoot>`.");
+            "Iodine: The `PopoverRoot` context is missing. Popover parts must be placed within `<PopoverRoot>`.");
     }
 
     /// <summary>Subscribes a part to the popover's state.</summary>

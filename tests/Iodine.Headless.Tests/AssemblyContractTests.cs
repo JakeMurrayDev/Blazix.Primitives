@@ -1,7 +1,7 @@
 using System.Reflection;
 using System.Text.Json;
 
-namespace Blazix.Primitives.Tests;
+namespace Iodine.Headless.Tests;
 
 /// <summary>
 /// The build-level contracts of ADR 09 §3, ADR 10 §2 and ADR 16 rule 1. Reflection is fine in a test;
@@ -19,7 +19,7 @@ public sealed class AssemblyContractTests
         "Microsoft.Playwright",
     ];
 
-    private static readonly Assembly s_library = Assembly.Load("Blazix.Primitives");
+    private static readonly Assembly s_library = Assembly.Load("Iodine.Headless");
 
     [Fact]
     public void Library_is_marked_trimmable()
@@ -42,7 +42,7 @@ public sealed class AssemblyContractTests
     [Fact]
     public void L1_test_assembly_depends_on_neither_bunit_nor_a_blazor_test_host()
     {
-        string depsFile = Path.Combine(AppContext.BaseDirectory, "Blazix.Primitives.Tests.deps.json");
+        string depsFile = Path.Combine(AppContext.BaseDirectory, "Iodine.Headless.Tests.deps.json");
         using JsonDocument deps = JsonDocument.Parse(File.ReadAllText(depsFile));
 
         string[] libraries = deps.RootElement
@@ -53,7 +53,7 @@ public sealed class AssemblyContractTests
 
         string[] offenders = libraries
             .Where(name => s_forbiddenPackagePrefixes.Any(prefix => name.StartsWith(prefix, StringComparison.OrdinalIgnoreCase)))
-            .Concat(libraries.Where(name => name.StartsWith("Blazix.Primitives.Fixtures", StringComparison.Ordinal)))
+            .Concat(libraries.Where(name => name.StartsWith("Iodine.Headless.Fixtures", StringComparison.Ordinal)))
             .ToArray();
 
         Assert.Empty(offenders);

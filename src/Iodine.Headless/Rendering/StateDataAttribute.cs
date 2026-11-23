@@ -1,4 +1,4 @@
-namespace Blazix.Primitives.Rendering;
+namespace Iodine.Headless.Rendering;
 
 // RND-DOM-06
 /// <summary>Represents one attribute that a custom mapping produces.</summary>

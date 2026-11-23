@@ -1,6 +1,6 @@
-using Blazix.Primitives.Store;
+using Iodine.Headless.Store;
 
-namespace Blazix.Primitives.Tests.Components.Store;
+namespace Iodine.Headless.Tests.Components.Store;
 
 /// <summary>
 /// The generated <c>ShallowEquals</c> of a <c>[StoreState]</c> record (ADR 05 §1; UTL-STA-11) agrees with the hand-written

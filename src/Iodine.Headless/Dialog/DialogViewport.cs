@@ -1,8 +1,8 @@
-using Blazix.Primitives.Rendering;
+using Iodine.Headless.Rendering;
 using Microsoft.AspNetCore.Components;
 using Microsoft.JSInterop;
 
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // DLG §3.5 state object (dialog/viewport/DialogViewport.tsx:35-40). TransitionStatus is mirrored (ADR 04 §2).
 /// <summary>Represents the state of a dialog's viewport, which the part exposes as data attributes and passes to its class and style functions.</summary>

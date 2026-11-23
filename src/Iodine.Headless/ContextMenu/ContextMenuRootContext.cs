@@ -1,6 +1,6 @@
 using Microsoft.AspNetCore.Components;
 
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // Base UI's ContextMenuRootContext (context-menu/root/ContextMenuRootContext.ts:5-17) as Menu's parent context (MNU-STR-19,
 // IMenuParentContext; decision 12 of the M5 plan, ADR 08 Amendments 2026-11-03 (3), chosen by the user 2026-11-03). Its

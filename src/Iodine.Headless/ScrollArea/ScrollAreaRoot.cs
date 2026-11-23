@@ -1,11 +1,11 @@
-using Blazix.Primitives.Interop;
-using Blazix.Primitives.Rendering;
-using Blazix.Primitives.Utilities;
+using Iodine.Headless.Interop;
+using Iodine.Headless.Rendering;
+using Iodine.Headless.Utilities;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Rendering;
 using Microsoft.JSInterop;
 
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // SCR §3.1 (ScrollArea.Root.State); ADR 08 Amendments 2026-11-18 (one record per part, chosen by the user 2026-11-18).
 // Scrolling is written by the `scroll-area` module and mirrored here (RND-STA-01); CornerHidden is in the state but never an

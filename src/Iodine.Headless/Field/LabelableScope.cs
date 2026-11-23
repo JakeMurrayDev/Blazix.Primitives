@@ -1,7 +1,7 @@
 using System.Text;
-using Blazix.Primitives.Utilities;
+using Iodine.Headless.Utilities;
 
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // FFI §2 (labelable scope), FFI-STR-03, FFI-ALG-06 (control-id selection), FFI-ALG-09 (described-by composition),
 // FFI-ARIA-02 (message ids), FFI-ARIA-08 (label id), FFI-FRM-35 (a scope with no registration keeps its selection);

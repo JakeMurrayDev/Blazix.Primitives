@@ -1,4 +1,4 @@
-namespace Blazix.Primitives.Interop;
+namespace Iodine.Headless.Interop;
 
 // ADR 04 §1 (scroll-lock row) and Amendments 2026-10-27 (the scroll-lock bullet, chosen by the user 2026-10-27): the twin
 // takes Enabled and attaches to the reference element (UTL-DOM-11: the locked document is the element's). Enabled is

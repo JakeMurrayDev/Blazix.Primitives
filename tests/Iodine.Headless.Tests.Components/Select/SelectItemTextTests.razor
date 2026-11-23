@@ -1,4 +1,4 @@
-@namespace Blazix.Primitives.Tests.Components
+@namespace Iodine.Headless.Tests.Components
 @inherits SelectTestBase
 @using Bunit
 @*
@@ -17,6 +17,6 @@
             </SelectPositioner>
         </SelectRoot>));
 
-        Assert.Equal("Blazix: `SelectItemContext` is missing. SelectItem parts must be placed within `<SelectItem>`.", error.Message);
+        Assert.Equal("Iodine: `SelectItemContext` is missing. SelectItem parts must be placed within `<SelectItem>`.", error.Message);
     }
 }

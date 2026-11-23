@@ -1,8 +1,8 @@
-using Blazix.Primitives.Rendering;
-using Blazix.Primitives.Store;
+using Iodine.Headless.Rendering;
+using Iodine.Headless.Store;
 using Microsoft.AspNetCore.Components;
 
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // SEL-STA-17 (select/icon/SelectIcon.tsx:23-25, 37-42).
 /// <summary>Represents the state of a select icon, which the part exposes as data attributes and passes to its class and style functions.</summary>

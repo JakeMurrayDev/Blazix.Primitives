@@ -1,4 +1,4 @@
-namespace Blazix.Primitives.Utilities;
+namespace Iodine.Headless.Utilities;
 
 // FFI-ARIA-08, MTR-STA-03 (useRegisteredLabelId): a label publishes its id to its scope and withdraws it when it goes away
 // only if the scope still holds that same id, so an older label's cleanup never clears a newer label's id. The root renders

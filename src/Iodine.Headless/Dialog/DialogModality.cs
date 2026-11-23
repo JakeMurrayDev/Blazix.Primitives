@@ -1,4 +1,4 @@
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // DLG-API-03: Base UI's `modal: boolean | 'trap-focus'` as the store holds it, so the record compares without a union.
 /// <summary>Specifies the modality regime of a dialog.</summary>

@@ -1,7 +1,7 @@
-using Blazix.Primitives.Interop;
-using Blazix.Primitives.Store;
+using Iodine.Headless.Interop;
+using Iodine.Headless.Store;
 
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // DLG §4.2 (dialog/store/DialogStore.ts:14-68), ADR 05 Amendments 2026-10-27 (the composed store record, chosen by the user
 // 2026-10-27): Dialog's fields beside the shared popup state. Left out: the viewport element (the `drawer` module measures

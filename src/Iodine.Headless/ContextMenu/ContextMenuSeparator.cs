@@ -1,7 +1,7 @@
-using Blazix.Primitives.Rendering;
+using Iodine.Headless.Rendering;
 using Microsoft.AspNetCore.Components;
 
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // CTX-STR-05, DOM-06, ARIA-03 (Base UI's ContextMenu.Separator is Separator; context-menu/index.parts.ts:21,
 // separator/Separator.tsx:25). ADR 08 §3: the state record is sealed, partial and [PartState]; the default projection gives
@@ -32,7 +32,7 @@ public sealed class ContextMenuSeparator : PartBase<ContextMenuSeparatorState>
     private ContextMenuSeparatorState? state;
 
     /// <summary>Gets or sets the separator's orientation.</summary>
-    /// <value><see cref="Blazix.Primitives.Orientation.Horizontal"/> by default.</value>
+    /// <value><see cref="Iodine.Headless.Orientation.Horizontal"/> by default.</value>
     [Parameter]
     public Orientation Orientation { get; set; } = Orientation.Horizontal;
 

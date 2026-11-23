@@ -1,11 +1,11 @@
-using Blazix.Primitives.Rendering;
-using Blazix.Primitives.Store;
+using Iodine.Headless.Rendering;
+using Iodine.Headless.Store;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Web;
 using Microsoft.Extensions.Logging;
 using Microsoft.JSInterop;
 
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // ACC-STA-02: the item's state, unchanged (accordion/trigger/AccordionTrigger.tsx:49,77), in the trigger's own record (ADR 08
 // §3). The trigger's own Disabled is never in it (ACC-API-14).

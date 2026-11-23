@@ -2,8 +2,8 @@ using AngleSharp.Dom;
 using Bunit;
 using Microsoft.Extensions.DependencyInjection;
 
-// Family tests use the project's root namespace (tests/Blazix.Primitives.Tests.Components/CONTEXT.md).
-namespace Blazix.Primitives.Tests.Components;
+// Family tests use the project's root namespace (tests/Iodine.Headless.Tests.Components/CONTEXT.md).
+namespace Iodine.Headless.Tests.Components;
 
 /// <summary>
 /// L2: <c>MenuItem.test.tsx</c>'s titles over <see cref="MenuItemHost"/> (MNU-STR-07, EDGE-03, API-34, API-35, API-39,
@@ -14,7 +14,7 @@ public sealed class MenuItemTests : BunitContext
     public MenuItemTests()
     {
         JSInterop.Mode = JSRuntimeMode.Loose;
-        Services.AddBlazixPrimitives();
+        Services.AddIodineHeadless();
     }
 
     [Fact(DisplayName = "throws when rendered outside Menu.Root")]
@@ -24,7 +24,7 @@ public sealed class MenuItemTests : BunitContext
     {
         InvalidOperationException error = Assert.Throws<InvalidOperationException>(() => Render<MenuItemHost>(p => p.Add(x => x.Outside, true)));
 
-        Assert.Equal("Blazix: The `MenuRoot` context is missing. Menu parts must be placed within `<MenuRoot>`.", error.Message);
+        Assert.Equal("Iodine: The `MenuRoot` context is missing. Menu parts must be placed within `<MenuRoot>`.", error.Message);
     }
 
     [Fact(DisplayName = "calls the onClick handler when clicked")]

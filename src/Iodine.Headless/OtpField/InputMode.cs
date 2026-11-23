@@ -1,4 +1,4 @@
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // OTP-API-09 (the `inputMode` prop's literals); ADR 08 Amendments 2026-11-18: eight members, the PascalCase of the
 // `inputmode` literals; `None` is a literal, not a sentinel, and `null` on the Root means not supplied.

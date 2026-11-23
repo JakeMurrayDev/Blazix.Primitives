@@ -1,10 +1,10 @@
-using Blazix.Primitives.Analyzers;
+using Iodine.Headless.Analyzers;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Testing;
 using Microsoft.CodeAnalysis.Testing;
 
-namespace Blazix.Primitives.Tests.Generators.Analyzers;
+namespace Iodine.Headless.Tests.Generators.Analyzers;
 
 /// <summary>
 /// The inheritdoc analyzer (ADR 08 §5, Amendments 2026-10-20, with the issue-42 clarification that allows
@@ -208,10 +208,10 @@ public sealed class InheritDocAnalyzerTests
         const string source = """
             public sealed class Part : Base
             {
-            #pragma warning disable BLZX2007 // the inherited summary is wrong for this override
+            #pragma warning disable IOD2007 // the inherited summary is wrong for this override
                 /// <summary>Renders nothing.</summary>
                 public override void Render() { }
-            #pragma warning restore BLZX2007
+            #pragma warning restore IOD2007
 
                 /// <summary>Gets one.</summary>
                 public override int {|#0:Size|} => 1;

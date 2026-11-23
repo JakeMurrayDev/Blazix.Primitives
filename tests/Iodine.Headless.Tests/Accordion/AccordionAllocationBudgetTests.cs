@@ -1,4 +1,4 @@
-namespace Blazix.Primitives.Tests.Accordion;
+namespace Iodine.Headless.Tests.Accordion;
 
 /// <summary>
 /// ADR 16 rule 7 for Accordion, on the shared state the parts subscribe to: a parameter set that changes nothing allocates

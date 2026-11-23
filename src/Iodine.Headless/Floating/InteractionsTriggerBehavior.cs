@@ -1,10 +1,10 @@
-using Blazix.Primitives.Interop;
-using Blazix.Primitives.Rendering;
+using Iodine.Headless.Interop;
+using Iodine.Headless.Rendering;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Web;
 using Microsoft.JSInterop;
 
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // ADR 04 and ADR 01 Amendments 2026-10-27 (the decision point press; chosen by the user 2026-10-27); design point 8 of
 // M4 track 3 (Floating/, settled by the orchestrator 2026-10-27). The module decides the next open value on the

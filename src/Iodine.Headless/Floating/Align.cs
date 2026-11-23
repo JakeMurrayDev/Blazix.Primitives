@@ -1,4 +1,4 @@
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // ADR 08 §3 (Enums row) and Amendments 2026-10-27; Base UI's `Align` (internals/useAnchorPositioning.ts:67). The
 // literal is FloatingLiterals.ToLiteral.

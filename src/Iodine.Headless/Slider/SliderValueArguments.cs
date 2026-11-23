@@ -1,4 +1,4 @@
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // SLD-API-26; slider/value/SliderValue.tsx:20-58 (`children(formattedValues, values)`). ADR 08 Amendments 2026-10-21 (the
 // value-argument records; the Meter and Progress precedent, MeterValueArguments).

@@ -1,9 +1,9 @@
-using Blazix.Primitives.Interop;
-using Blazix.Primitives.Rendering;
+using Iodine.Headless.Interop;
+using Iodine.Headless.Rendering;
 using Microsoft.AspNetCore.Components;
 using Microsoft.JSInterop;
 
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // DRW §3.6, DRW-STA-01 (drawer/swipe-area/DrawerSwipeArea.tsx:437-442): the swipe area's state object. Swiping is mirrored
 // (ADR 04 §2): the `drawer` module writes the area's data-swiping during its gesture (8b).
@@ -77,7 +77,7 @@ public sealed class DrawerSwipeArea : PartBase<DrawerSwipeAreaState>
     private bool swiping;
     private string? registeredId;
     private PopupTriggerElement registeredElement;
-    private DrawerSwipeAreaState state = new(false, false, Primitives.SwipeDirection.Up, false);
+    private DrawerSwipeAreaState state = new(false, false, Headless.SwipeDirection.Up, false);
 
     private SwipeDirection OpeningDirection => SwipeDirection ?? DrawerSwipeDirections.Opposite(Drawer!.SwipeDirection);
 

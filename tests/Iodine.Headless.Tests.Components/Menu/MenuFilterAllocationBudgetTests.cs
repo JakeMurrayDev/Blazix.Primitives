@@ -3,7 +3,7 @@ using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Rendering;
 using Microsoft.Extensions.DependencyInjection;
 
-namespace Blazix.Primitives.Tests.Components;
+namespace Iodine.Headless.Tests.Components;
 
 /// <summary>
 /// ADR 16 rule 7 for Menu's filter mode (M5 track 12, the final review's fix 6): a re-render with unchanged parameters of a
@@ -24,7 +24,7 @@ public sealed class MenuFilterAllocationBudgetTests : IDisposable
     public MenuFilterAllocationBudgetTests()
     {
         context.JSInterop.Mode = JSRuntimeMode.Loose;
-        context.Services.AddBlazixPrimitives();
+        context.Services.AddIodineHeadless();
     }
 
     /// <inheritdoc />

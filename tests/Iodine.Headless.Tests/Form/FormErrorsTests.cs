@@ -1,4 +1,4 @@
-namespace Blazix.Primitives.Tests;
+namespace Iodine.Headless.Tests;
 
 // FRM-API-02, FFI-API-04: the errors map a consumer gives Form, a string or an array of strings per field name.
 /// <summary>The form's errors map and its per-key messages.</summary>

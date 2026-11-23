@@ -1,8 +1,8 @@
-using Blazix.Primitives.Analyzers;
+using Iodine.Headless.Analyzers;
 using Microsoft.CodeAnalysis.CSharp.Testing;
 using Microsoft.CodeAnalysis.Testing;
 
-namespace Blazix.Primitives.Tests.Generators.Analyzers;
+namespace Iodine.Headless.Tests.Generators.Analyzers;
 
 /// <summary>
 /// The sequence-number analyzer (ADR 16 rule 3): a sequence number passed to a <c>RenderTreeBuilder</c> that is not a
@@ -150,12 +150,12 @@ public sealed class SequenceNumberAnalyzerTests
 
             internal static class Reemitter
             {
-            #pragma warning disable BLZX2002
+            #pragma warning disable IOD2002
                 public static void Reemit(RenderTreeBuilder builder, RenderTreeFrame frame)
                 {
                     builder.AddAttribute(frame.Sequence, frame);
                 }
-            #pragma warning restore BLZX2002
+            #pragma warning restore IOD2002
 
                 public static void Other(RenderTreeBuilder builder, RenderTreeFrame frame)
                 {

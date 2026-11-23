@@ -1,6 +1,6 @@
-using Blazix.Primitives.Rendering;
+using Iodine.Headless.Rendering;
 
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // PRG-DOM-02; progress/root/stateAttributesMapping.ts. ADR 02 decision 4: a custom mapping is hand-written. Every part's
 // state is `{ status }`, so one projection serves the five state records: exactly one of data-indeterminate,

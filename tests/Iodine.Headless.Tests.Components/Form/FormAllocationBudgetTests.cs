@@ -1,8 +1,8 @@
 using System.Text.Json;
-using Blazix.Primitives.Interop;
+using Iodine.Headless.Interop;
 using Bunit;
 
-namespace Blazix.Primitives.Tests.Components;
+namespace Iodine.Headless.Tests.Components;
 
 /// <summary>
 /// ADR 16 rule 7 for Form: a submission that passes with no consumer callback, from the form module's report to C#'s
@@ -35,7 +35,7 @@ public sealed class FormAllocationBudgetTests : IDisposable
                 Event = new EventSnapshot { Kind = EventKind.Event, Type = "submit", DefaultPrevented = true },
                 Controls = [new FormControlState { Id = cut.Find("[data-testid=email]").GetAttribute("id")!, Value = "a@b.co" }],
             },
-            BlazixJsonContext.Default.FormSubmitRequest);
+            IodineJsonContext.Default.FormSubmitRequest);
         for (int i = 0; i < 20; i++)
         {
             await cut.InvokeAsync(() => twin.OnSubmitRequest(json));

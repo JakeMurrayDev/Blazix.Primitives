@@ -2,8 +2,8 @@ using Bunit;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.JSInterop;
 
-// Family tests use the project's root namespace (tests/Blazix.Primitives.Tests.Components/CONTEXT.md).
-namespace Blazix.Primitives.Tests.Components;
+// Family tests use the project's root namespace (tests/Iodine.Headless.Tests.Components/CONTEXT.md).
+namespace Iodine.Headless.Tests.Components;
 
 /// <summary>
 /// L2: the missing-context titles of <c>MenuCheckboxItemIndicator.test.tsx</c> and <c>MenuRadioItemIndicator.test.tsx</c>
@@ -15,7 +15,7 @@ public sealed class MenuItemIndicatorTests : BunitContext
     public MenuItemIndicatorTests()
     {
         JSInterop.Mode = JSRuntimeMode.Loose;
-        Services.AddBlazixPrimitives();
+        Services.AddIodineHeadless();
     }
 
     [Fact(DisplayName = "throws when rendered outside Menu.CheckboxItem")]
@@ -25,7 +25,7 @@ public sealed class MenuItemIndicatorTests : BunitContext
     {
         InvalidOperationException error = Assert.Throws<InvalidOperationException>(() => Render<MenuCheckboxItemIndicator>());
 
-        Assert.Equal("Blazix: The `MenuCheckboxItem` context is missing. MenuCheckboxItem parts must be placed within `<MenuCheckboxItem>`.", error.Message);
+        Assert.Equal("Iodine: The `MenuCheckboxItem` context is missing. MenuCheckboxItem parts must be placed within `<MenuCheckboxItem>`.", error.Message);
     }
 
     [Fact(DisplayName = "throws when rendered outside Menu.RadioItem")]
@@ -35,7 +35,7 @@ public sealed class MenuItemIndicatorTests : BunitContext
     {
         InvalidOperationException error = Assert.Throws<InvalidOperationException>(() => Render<MenuRadioItemIndicator>());
 
-        Assert.Equal("Blazix: The `MenuRadioItem` context is missing. MenuRadioItem parts must be placed within `<MenuRadioItem>`.", error.Message);
+        Assert.Equal("Iodine: The `MenuRadioItem` context is missing. MenuRadioItem parts must be placed within `<MenuRadioItem>`.", error.Message);
     }
 
     // The held runtime is a test double, not interop: the analyzer reads its members as JS interop calls.
@@ -48,7 +48,7 @@ public sealed class MenuItemIndicatorTests : BunitContext
     [Trait("Requirement", "MNU-ANI-13")]
     public async Task An_uncheck_while_the_handle_attaches_reaches_the_module()
     {
-        BunitJSModuleInterop transitions = JSInterop.SetupModule("./_content/Blazix.Primitives/js/transitions.js");
+        BunitJSModuleInterop transitions = JSInterop.SetupModule("./_content/Iodine.Headless/js/transitions.js");
         BunitJSModuleInterop handle = transitions.SetupModule("attach", _ => true);
         handle.SetupVoid("update", _ => true).SetVoidResult();
         HeldTransitionsAttachRuntime runtime = new(JSInterop.JSRuntime);

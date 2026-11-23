@@ -1,4 +1,4 @@
-namespace Blazix.Primitives.Interop;
+namespace Iodine.Headless.Interop;
 
 // ADR 04 §3 (one message per state change, never per frame) and Amendments 2026-11-18 (the revision rule). The module
 // computes the candidate (SLD §4.1), moves the thumb, writes the input's value and reports; nothing is reported for a move

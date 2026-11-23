@@ -1,9 +1,9 @@
 using System.Text.Json;
-using Blazix.Primitives.Interop;
+using Iodine.Headless.Interop;
 using Bunit;
 using Microsoft.JSInterop;
 
-namespace Blazix.Primitives.Tests.Components.Interop;
+namespace Iodine.Headless.Tests.Components.Interop;
 
 /// <summary>
 /// Twin contract tests of the <c>number-field</c> module's scrub role (ADR 06 §1, L2; issue 277, 6b; design points 1 (a)
@@ -23,7 +23,7 @@ public sealed class NumberFieldScrubTwinContractTests
     public async Task Attach_sends_the_scrub_areas_part_and_omits_unset_options()
     {
         using BunitContext context = new();
-        BunitJSModuleInterop module = context.JSInterop.SetupModule("./_content/Blazix.Primitives/js/number-field.js");
+        BunitJSModuleInterop module = context.JSInterop.SetupModule("./_content/Iodine.Headless/js/number-field.js");
         BunitJSModuleInterop handle = module.SetupModule("attach", _ => true);
         handle.SetupVoid("update", _ => true).SetVoidResult();
         handle.SetupVoid("dispose", _ => true).SetVoidResult();
@@ -52,7 +52,7 @@ public sealed class NumberFieldScrubTwinContractTests
     public async Task The_cursors_options_carry_its_part_and_style()
     {
         using BunitContext context = new();
-        BunitJSModuleInterop module = context.JSInterop.SetupModule("./_content/Blazix.Primitives/js/number-field.js");
+        BunitJSModuleInterop module = context.JSInterop.SetupModule("./_content/Iodine.Headless/js/number-field.js");
         module.SetupModule("attach", _ => true).SetupVoid("dispose", _ => true).SetVoidResult();
         await using NumberFieldScrubTwin twin = new(context.JSInterop.JSRuntime);
 

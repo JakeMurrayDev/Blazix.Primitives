@@ -1,4 +1,4 @@
-namespace Blazix.Primitives.Interop;
+namespace Iodine.Headless.Interop;
 
 // ADR 04 Amendments 2026-10-27 (the `popup` row, chosen by the user 2026-10-27); design point 5 of M4 track 5 (one role
 // sub-record per handle, the InteractionsOptions precedent; settled by the orchestrator 2026-10-28, ADR 04 Amendments

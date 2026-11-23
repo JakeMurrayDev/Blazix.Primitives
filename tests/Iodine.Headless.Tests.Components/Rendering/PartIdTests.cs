@@ -3,7 +3,7 @@ using Bunit;
 using Microsoft.AspNetCore.Components;
 using Microsoft.Extensions.DependencyInjection;
 
-namespace Blazix.Primitives.Tests.Components.Rendering;
+namespace Iodine.Headless.Tests.Components.Rendering;
 
 /// <summary>Generated and supplied ids on a rendered part (RND-DOM-27..32, ADR 02 decision 5), with the [L2] titles of <c>useId.test.tsx</c> and <c>useId.react17.test.tsx</c>.</summary>
 public sealed class PartIdTests : IDisposable
@@ -12,7 +12,7 @@ public sealed class PartIdTests : IDisposable
 
     public PartIdTests()
     {
-        context.Services.AddBlazixPrimitives();
+        context.Services.AddIodineHeadless();
     }
 
     /// <inheritdoc />

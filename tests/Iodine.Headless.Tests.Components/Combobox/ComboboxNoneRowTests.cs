@@ -1,11 +1,11 @@
-using Blazix.Primitives.Interop;
-using Blazix.Primitives.Rendering;
+using Iodine.Headless.Interop;
+using Iodine.Headless.Rendering;
 using Bunit;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Rendering;
 
 // Family tests use the project's root namespace.
-namespace Blazix.Primitives.Tests.Components;
+namespace Iodine.Headless.Tests.Components;
 
 // The rows combobox.md writes `Test: none` for, with the tests Deliverable 10 proposed (PR 193 delta review B1 (d)): the
 // internal dismiss buttons' close (CMB-DIS-07) and the ids an opaque render callback drops (CMB-EDGE-13, EDGE-14), at L2.

@@ -1,9 +1,9 @@
 using System.Runtime.CompilerServices;
-using Blazix.Primitives.Interop;
-using Blazix.Primitives.Rendering;
+using Iodine.Headless.Interop;
+using Iodine.Headless.Rendering;
 using Microsoft.JSInterop;
 
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // ADR 04 Amendments 2026-10-27 (decision 3: the token form of attach and the per-popup session; the verdict Prevent at
 // escape; chosen by the user 2026-10-27); design point 8 of M4 track 3 (Floating/, settled by the orchestrator

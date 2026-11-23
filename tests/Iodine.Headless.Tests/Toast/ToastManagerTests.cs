@@ -1,5 +1,5 @@
 // Family tests use the project's root namespace: a `Toast` namespace would read as a family type.
-namespace Blazix.Primitives.Tests;
+namespace Iodine.Headless.Tests;
 
 /// <summary>
 /// The toast manager at L1 (TST §3.2, TST §4; ADR 06 §1). Base UI's <c>toast/createToastManager.test.tsx</c>, every title

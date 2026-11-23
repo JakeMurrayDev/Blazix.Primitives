@@ -1,7 +1,7 @@
 using Bunit;
 
 // Family tests use the project's root namespace.
-namespace Blazix.Primitives.Tests.Components;
+namespace Iodine.Headless.Tests.Components;
 
 // CMB-STA-26 at L2 (ComboboxRoot.test.tsx, describe "dialog pattern"): an inline combobox whose `open` follows a kept-mounted
 // Dialog clears its highlight when the dialog closes, so a reopen starts without one. The Dialog's Trigger, Close and Escape

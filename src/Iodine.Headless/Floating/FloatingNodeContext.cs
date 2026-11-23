@@ -1,4 +1,4 @@
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // ADR 04 Amendments 2026-11-03 (5): the node a part with no fixed context of its own cascades (NavigationMenu's Content, the
 // test-only roots). See IFloatingNodeContext.

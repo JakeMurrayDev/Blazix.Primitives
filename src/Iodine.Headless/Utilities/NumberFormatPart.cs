@@ -1,4 +1,4 @@
-namespace Blazix.Primitives.Utilities;
+namespace Iodine.Headless.Utilities;
 
 // UTL-I18N-05, NUM-I18N-07: one element of Intl.NumberFormat.prototype.formatToParts's result.
 /// <summary>Represents a piece of formatted number text and its kind.</summary>

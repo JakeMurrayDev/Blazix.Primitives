@@ -1,6 +1,6 @@
 using Microsoft.Extensions.Logging;
 
-namespace Blazix.Primitives.Store;
+namespace Iodine.Headless.Store;
 
 // UTL-STA-15; ADR 16 rule 9; UTL §4.2.2; ADR 05 §1; ADR 01 decision 4 (UTL-STA-19..22 met on both render modes)
 /// <summary>
@@ -43,7 +43,7 @@ public class ComponentStore<TState> : Store<TState>
     /// When <see cref="SyncControlledValue{TValue}"/> is called with a <c>controlled</c> flag different from the first one it saw
     /// for that field, the store logs, at <see cref="LogLevel.Error"/> and on every such call, "A component is changing the
     /// [un]controlled state of {field} to be [un]controlled. Elements should not switch from uncontrolled to controlled (or vice
-    /// versa)." The warning is written only while the <c>Blazix.Primitives.DevelopmentWarnings</c> switch is on.
+    /// versa)." The warning is written only while the <c>Iodine.Headless.DevelopmentWarnings</c> switch is on.
     /// </remarks>
     public ILogger? Logger { get; set; }
 

@@ -1,9 +1,9 @@
-using Blazix.Primitives.Analyzers;
+using Iodine.Headless.Analyzers;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Testing;
 using Microsoft.CodeAnalysis.Testing;
 
-namespace Blazix.Primitives.Tests.Generators.Analyzers;
+namespace Iodine.Headless.Tests.Generators.Analyzers;
 
 /// <summary>
 /// The boxing analyzer (ADR 05 §4 and its union-binding amendment of 2026-10-20; ADR 16 §C): a union never converts to
@@ -353,9 +353,9 @@ public sealed class BoxingAnalyzerTests
             {
                 public static object Run(int index, bool flag)
                 {
-            #pragma warning disable BLZX2005 // the interface contract returns object
+            #pragma warning disable IOD2005 // the interface contract returns object
                     object first = index;
-            #pragma warning restore BLZX2005
+            #pragma warning restore IOD2005
                     return {|#0:flag|};
                 }
             }
@@ -367,17 +367,17 @@ public sealed class BoxingAnalyzerTests
 
     private static DiagnosticResult UnionError(int location, string operand, string union, string target)
     {
-        return Result(location, $"Blazix: `{operand}` converts the union `{union}` to `{target}`, which boxes it and hides its case; pass the case value instead");
+        return Result(location, $"Iodine: `{operand}` converts the union `{union}` to `{target}`, which boxes it and hides its case; pass the case value instead");
     }
 
     private static DiagnosticResult ValueError(int location, string operand, string type, string target)
     {
-        return Result(location, $"Blazix: `{operand}` boxes the `{type}` value into `{target}`; use a typed overload or a generic parameter instead");
+        return Result(location, $"Iodine: `{operand}` boxes the `{type}` value into `{target}`; use a typed overload or a generic parameter instead");
     }
 
     private static DiagnosticResult EnumError(int location, string call, string enumName, string advice)
     {
-        return Result(location, $"Blazix: `{call}` boxes the enum `{enumName}`; {advice}");
+        return Result(location, $"Iodine: `{call}` boxes the enum `{enumName}`; {advice}");
     }
 
     private static DiagnosticResult Result(int location, string message)

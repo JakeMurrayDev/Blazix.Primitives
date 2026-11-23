@@ -1,12 +1,12 @@
 using AngleSharp.Dom;
-using Blazix.Primitives.Rendering;
-using Blazix.Primitives.Tests.Components.Rendering.Consumers;
+using Iodine.Headless.Rendering;
+using Iodine.Headless.Tests.Components.Rendering.Consumers;
 using Bunit;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Web;
 using Microsoft.Extensions.DependencyInjection;
 
-namespace Blazix.Primitives.Tests.Components.Rendering;
+namespace Iodine.Headless.Tests.Components.Rendering;
 
 /// <summary>
 /// The pipeline on <see cref="SampleRoot"/> (RND-ALG-01/08, RND-STR-02..06, RND-DOM-14..18, RND-DOM-25/26, RND-EDGE-03/06),
@@ -19,7 +19,7 @@ public sealed class RenderPipelineTests : IDisposable
 
     public RenderPipelineTests()
     {
-        context.Services.AddBlazixPrimitives();
+        context.Services.AddIodineHeadless();
     }
 
     /// <inheritdoc />

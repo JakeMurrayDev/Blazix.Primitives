@@ -1,9 +1,9 @@
-using Blazix.Primitives.Interop;
+using Iodine.Headless.Interop;
 using Microsoft.AspNetCore.Components;
 using Microsoft.Extensions.Time.Testing;
 
 // Family tests use the project's root namespace (a test namespace is never named like a part).
-namespace Blazix.Primitives.Tests;
+namespace Iodine.Headless.Tests;
 
 /// <summary>
 /// L1: Menu's store over <see cref="MenuStore{TPayload}"/> alone: MNU-STA-01's sequence (a close while closed, the dedupe,

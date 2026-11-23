@@ -7,7 +7,7 @@ using Microsoft.AspNetCore.Components.RenderTree;
 // the advisory is re-checked at each SDK bump.
 #pragma warning disable BL0006
 
-namespace Blazix.Primitives.Rendering;
+namespace Iodine.Headless.Rendering;
 
 // ADR 05 §4, ADR 02 Amendments 2026-10-17
 /// <summary>
@@ -80,9 +80,9 @@ public readonly struct AttributeValue : IUnion
     /// <value><see langword="true"/> if the value is a callback or a delegate; otherwise, <see langword="false"/>.</value>
     public bool IsHandler => kind is AttributeValueKind.Callback or AttributeValueKind.Delegate;
 
-    // ADR 05 §4. BLZX2005: IUnion requires an object-typed Value, so reading it boxes the Boolean and callback cases;
+    // ADR 05 §4. IOD2005: IUnion requires an object-typed Value, so reading it boxes the Boolean and callback cases;
     // the library reads the cases through TryGetValue and Kind instead.
-#pragma warning disable BLZX2005
+#pragma warning disable IOD2005
     /// <inheritdoc />
     /// <remarks>Reading it boxes the Boolean and callback cases.</remarks>
     public object? Value => kind switch
@@ -93,7 +93,7 @@ public readonly struct AttributeValue : IUnion
         AttributeValueKind.Delegate => reference,
         _ => null,
     };
-#pragma warning restore BLZX2005
+#pragma warning restore IOD2005
 
     /// <summary>Converts a string to an <see cref="AttributeValue"/> that holds it.</summary>
     /// <param name="value">The string value.</param>
@@ -262,12 +262,12 @@ public readonly struct AttributeValue : IUnion
         {
             AttributeValueKind.Callback => callback.InvokeAsync(arg),
             AttributeValueKind.Delegate => InvokeDelegateAsync((MulticastDelegate)reference!, arg),
-            _ => throw new InvalidOperationException("Blazix: the attribute value is not a handler, so it cannot be invoked."),
+            _ => throw new InvalidOperationException("Iodine: the attribute value is not a handler, so it cannot be invoked."),
         };
     }
 
-    // BLZX2002: the sequence number is the caller's constant, passed through (ADR 16 rule 3).
-#pragma warning disable BLZX2002
+    // IOD2002: the sequence number is the caller's constant, passed through (ADR 16 rule 3).
+#pragma warning disable IOD2002
     /// <summary>
     /// Adds the value as an attribute of the element or component most recently opened on <paramref name="builder"/>.
     /// </summary>
@@ -296,7 +296,7 @@ public readonly struct AttributeValue : IUnion
                 break;
         }
     }
-#pragma warning restore BLZX2002
+#pragma warning restore IOD2002
 
     /// <inheritdoc />
     public override string ToString() => kind switch

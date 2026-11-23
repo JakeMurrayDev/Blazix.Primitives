@@ -1,6 +1,6 @@
 using Microsoft.AspNetCore.Components;
 
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // AVA-STR-01/02, AVA-STA-05/06, AVA-EDGE-01/04; avatar/root/AvatarRootContext.ts. Cascaded fixed by AvatarRoot (ADR 16
 // rule 9): a change reaches the Root, the Fallbacks and the Images through the subscriptions below, never through the
@@ -95,7 +95,7 @@ internal sealed class AvatarRootContext
     {
         // AVA-EDGE-01, in every build; the port's words.
         return context ?? throw new InvalidOperationException(
-            $"Blazix: `{part}` must be placed within an `AvatarRoot`. The avatar parts read the image loading status from the root.");
+            $"Iodine: `{part}` must be placed within an `AvatarRoot`. The avatar parts read the image loading status from the root.");
     }
 
     /// <summary>Gets the fragment that cascades this context to <paramref name="content"/>.</summary>

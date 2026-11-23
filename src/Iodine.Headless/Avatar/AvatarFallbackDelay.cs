@@ -1,4 +1,4 @@
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // AVA-ANI-07/08, AVA-EDGE-05; avatar/fallback/AvatarFallback.tsx:23-35 and the Timeout of UTL-EVT-01..03 (one pending
 // timeout, replaced by a restart, cleared on dispose). ADR 01 decision 4 ("macrotask / N ms": a C# timer, since the

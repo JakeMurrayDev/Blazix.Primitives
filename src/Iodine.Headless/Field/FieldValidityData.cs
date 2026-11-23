@@ -1,4 +1,4 @@
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // FFI-STA-03, FFI-ALG-14, FFI §3.2 (`Field.ValidityData`); field/root/FieldRoot.tsx:99-105,215-233,
 // field/utils/getCombinedFieldValidityData.ts:7-18. A class, not a record: a publish creates a new instance even when its

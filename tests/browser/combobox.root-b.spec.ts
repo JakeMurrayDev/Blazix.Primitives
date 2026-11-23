@@ -4,7 +4,7 @@ import { center, gotoCombobox, moveTo, recorded, touchTest, type FixtureOptions 
 import { settle } from './suites/popupFixture';
 
 // ComboboxRoot.test.tsx, lines 4000-9999, ported at L4 (M5 track 10, issue 174): Base UI's titles verbatim, on the `combobox-root-b`
-// fixture (tests/Blazix.Primitives.Fixtures.Client/Combobox/L4/ComboboxRootBL4Fixture.razor), every title on both render modes.
+// fixture (tests/Iodine.Headless.Fixtures.Client/Combobox/L4/ComboboxRootBL4Fixture.razor), every title on both render modes.
 // The fixture's `case` and flags pick the test's rendering; its callbacks are recorded as the container's `data-*` attributes.
 
 const FIXTURE = 'combobox-root-b';

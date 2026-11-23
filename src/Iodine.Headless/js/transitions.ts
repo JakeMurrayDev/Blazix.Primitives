@@ -878,10 +878,10 @@ export interface TransitionsOptions extends TwinOptions {
 }
 
 // A symbol on the element, not a module registry: a repeated attach of the same element returns the live handle.
-const attachedHandle = Symbol('blazix.transitions.handle');
-const announcedRetain = Symbol('blazix.transitions.retain');
-const retainChanged = Symbol('blazix.transitions.retainChanged');
-const endingForcer = Symbol('blazix.transitions.endingForcer');
+const attachedHandle = Symbol('iodine.transitions.handle');
+const announcedRetain = Symbol('iodine.transitions.retain');
+const retainChanged = Symbol('iodine.transitions.retainChanged');
+const endingForcer = Symbol('iodine.transitions.endingForcer');
 
 interface AttachedElement extends HTMLElement {
   [attachedHandle]?: TwinHandle;

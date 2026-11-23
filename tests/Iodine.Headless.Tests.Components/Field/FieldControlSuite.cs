@@ -3,9 +3,9 @@ using Bunit;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Rendering;
 using Microsoft.Extensions.DependencyInjection;
-using Scenario = Blazix.Primitives.Tests.Components.FieldScenarios.FieldScenario;
+using Scenario = Iodine.Headless.Tests.Components.FieldScenarios.FieldScenario;
 
-namespace Blazix.Primitives.Tests.Components;
+namespace Iodine.Headless.Tests.Components;
 
 /// <summary>
 /// <c>FieldControl.test.tsx</c>'s titles that need only Field Root, Label and Control (PR 1a), run over a control part:

@@ -1,11 +1,11 @@
-using Blazix.Primitives.Interop;
-using Blazix.Primitives.Rendering;
-using Blazix.Primitives.Store;
+using Iodine.Headless.Interop;
+using Iodine.Headless.Rendering;
+using Iodine.Headless.Store;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Rendering;
 using Microsoft.JSInterop;
 
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // SEL-STA-20 (select/positioner/SelectPositioner.tsx:114, 117-122, 235-252). Side, Align and AnchorHidden are the
 // `positioning` module's from attach (ADR 04 §2): mirrored; Side is `none` while aligned placement is active, written by
@@ -109,7 +109,7 @@ internal sealed class SelectPositionerContext
     {
         // SEL-EDGE-01, SEL-STR-03.
         return context ?? throw new InvalidOperationException(
-            "Blazix: `SelectPositionerContext` is missing. SelectPositioner parts must be placed within `<SelectPositioner>`.");
+            "Iodine: `SelectPositionerContext` is missing. SelectPositioner parts must be placed within `<SelectPositioner>`.");
     }
 }
 
@@ -192,12 +192,12 @@ public sealed class SelectPositioner : PartBase<SelectPositionerState>
     public AnchorValue? Anchor { get; set; }
 
     /// <summary>Gets or sets the CSS position of the positioner outside aligned placement.</summary>
-    /// <value><see cref="Primitives.PositionMethod.Absolute"/> when <see langword="null"/>, the default.</value>
+    /// <value><see cref="Headless.PositionMethod.Absolute"/> when <see langword="null"/>, the default.</value>
     [Parameter]
     public PositionMethod? PositionMethod { get; set; }
 
     /// <summary>Gets or sets the side of the anchor the popup is placed on outside aligned placement.</summary>
-    /// <value><see cref="Primitives.Side.Bottom"/> when <see langword="null"/>, the default.</value>
+    /// <value><see cref="Headless.Side.Bottom"/> when <see langword="null"/>, the default.</value>
     [Parameter]
     public Side? Side { get; set; }
 
@@ -207,7 +207,7 @@ public sealed class SelectPositioner : PartBase<SelectPositionerState>
     public OffsetValue? SideOffset { get; set; }
 
     /// <summary>Gets or sets how the popup is aligned against the anchor outside aligned placement.</summary>
-    /// <value><see cref="Primitives.Align.Center"/> when <see langword="null"/>, the default.</value>
+    /// <value><see cref="Headless.Align.Center"/> when <see langword="null"/>, the default.</value>
     [Parameter]
     public Align? Align { get; set; }
 

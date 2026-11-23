@@ -1,7 +1,7 @@
 using Microsoft.AspNetCore.Components;
 using Microsoft.JSInterop;
 
-namespace Blazix.Primitives.Interop;
+namespace Iodine.Headless.Interop;
 
 // ADR 09: the twin-attachment helper every popup family's parts share (tracks 6, 7 and 8), in Interop/ beside its twin
 // (settled by the orchestrator 2026-10-28, track 5's early review item 7).

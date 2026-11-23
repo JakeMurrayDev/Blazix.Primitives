@@ -1,6 +1,6 @@
 using Microsoft.AspNetCore.Components;
 
-namespace Blazix.Primitives.Fixtures.Client.CollapsibleFixtures;
+namespace Iodine.Headless.Fixtures.Client.CollapsibleFixtures;
 
 /// <summary>
 /// The base of the Collapsible fixtures (tests/browser/collapsible.spec.ts): renders <c>data-attached</c> once every listed

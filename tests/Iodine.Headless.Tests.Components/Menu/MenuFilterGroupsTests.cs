@@ -1,11 +1,11 @@
 using AngleSharp.Dom;
-using Blazix.Primitives.Interop;
+using Iodine.Headless.Interop;
 using Bunit;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.JSInterop;
 
-// Family tests use the project's root namespace (tests/Blazix.Primitives.Tests.Components/CONTEXT.md).
-namespace Blazix.Primitives.Tests.Components;
+// Family tests use the project's root namespace (tests/Iodine.Headless.Tests.Components/CONTEXT.md).
+namespace Iodine.Headless.Tests.Components;
 
 /// <summary>
 /// L2: groups in a filterable menu (MNU-STA-24, DOM-20; M5 track 12), over <see cref="MenuFilterGroupsHost"/>. The items'
@@ -19,8 +19,8 @@ public sealed class MenuFilterGroupsTests : BunitContext
     public MenuFilterGroupsTests()
     {
         JSInterop.Mode = JSRuntimeMode.Loose;
-        Services.AddBlazixPrimitives();
-        module = JSInterop.SetupModule("./_content/Blazix.Primitives/js/menu-filter.js");
+        Services.AddIodineHeadless();
+        module = JSInterop.SetupModule("./_content/Iodine.Headless/js/menu-filter.js");
         module.SetupModule("attach", _ => true).SetupVoid("update", _ => true).SetVoidResult();
     }
 

@@ -1,4 +1,4 @@
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // TST §3.2, the toast object's `positionerProps` (ToastManagerPositionerProps, useToastManager.ts:99-107: every
 // Positioner prop except `toast`, plus `anchor?: Element | null`); TST-POS-02 (the second level of the three-level

@@ -2,7 +2,7 @@ using System.Globalization;
 using Bunit;
 
 // The namespace is the project's root: a namespace named after the family would hide the parts' types.
-namespace Blazix.Primitives.Tests.Components;
+namespace Iodine.Headless.Tests.Components;
 
 // 6b's input role at L2 (issue 277): NumberFieldRoot.test.tsx's "integration: exotic inputs and IME" titles that change the
 // text with fireEvent.change, which is the `number-field` module's change report here (ADR 06 §1). The module sends a text

@@ -1,7 +1,7 @@
 using Bunit;
 
 // Family tests use the project's root namespace: a `Toggle` namespace would hide the `Toggle` type.
-namespace Blazix.Primitives.Tests.Components;
+namespace Iodine.Headless.Tests.Components;
 
 // The toolbar clauses of toggle.md's rows (M3 track 4). The direct members of a toolbar's ToggleGroup are in
 // ToggleGroupToolbarTests.

@@ -1,6 +1,6 @@
 using Microsoft.AspNetCore.Components;
 
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // DRW-STA-14, DRW-API-14 (drawer/provider/DrawerProvider.tsx:17-41): the set of open roots under a provider and whether it
 // is non-empty. Cascaded fixed by DrawerProvider (ADR 16 rule 9); a change of Active reaches the indent parts through the
@@ -15,7 +15,7 @@ internal sealed class DrawerProviderContext
 
     // M6 track 8b slice 3 (2026-11-21): the `drawer` module keys the visual state (DRW-STA-15) by this token.
     /// <summary>Gets the token the provider's visual state is known by in the browser.</summary>
-    public string Token { get; } = "blazix-drawer-provider-" + Interlocked.Increment(ref s_count).ToString(System.Globalization.CultureInfo.InvariantCulture);
+    public string Token { get; } = "iodine-drawer-provider-" + Interlocked.Increment(ref s_count).ToString(System.Globalization.CultureInfo.InvariantCulture);
 
     /// <summary>Gets a value indicating whether any drawer under the provider is open.</summary>
     public bool Active => openRoots.Count > 0;

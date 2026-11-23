@@ -1,11 +1,11 @@
-using Blazix.Primitives.Interop;
-using Blazix.Primitives.Rendering;
+using Iodine.Headless.Interop;
+using Iodine.Headless.Rendering;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Rendering;
 using Microsoft.Extensions.Logging;
 using Microsoft.JSInterop;
 
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // MNU §3.5 (menu/positioner/MenuPositioner.tsx:38-55): Popover's positioner parameters; `null` is read by parent kind
 // (MNU-API-26..30): bottom/center at top level, inline-end/start for a submenu, by the bar's orientation in a menubar,
@@ -280,8 +280,8 @@ internal sealed class MenuPositionerBehavior : IAsyncDisposable
         bool contextMenu = parent.Kind == MenuParentKind.ContextMenu;
         if (contextMenu)
         {
-            align ??= Primitives.Align.Start;
-            if (side is null && align != Primitives.Align.Center)
+            align ??= Headless.Align.Start;
+            if (side is null && align != Headless.Align.Center)
             {
                 alignOffset ??= 2;
                 sideOffset ??= -5;
@@ -290,14 +290,14 @@ internal sealed class MenuPositionerBehavior : IAsyncDisposable
 
         if (parent.Kind == MenuParentKind.Menu)
         {
-            side ??= Primitives.Side.InlineEnd;
-            align ??= Primitives.Align.Start;
+            side ??= Headless.Side.InlineEnd;
+            align ??= Headless.Align.Start;
             collisionAvoidance = parameters.CollisionAvoidance ?? s_submenu;
         }
         else if (parent.Kind == MenuParentKind.Menubar)
         {
-            side ??= parent.Context!.Orientation == Orientation.Vertical ? Primitives.Side.InlineEnd : Primitives.Side.Bottom;
-            align ??= Primitives.Align.Start;
+            side ??= parent.Context!.Orientation == Orientation.Vertical ? Headless.Side.InlineEnd : Headless.Side.Bottom;
+            align ??= Headless.Align.Start;
         }
 
         // MNU-POS-05 (MenuPositioner.tsx:131): a filterable menu keeps its placement while the results resize; M5 track 12
@@ -308,7 +308,7 @@ internal sealed class MenuPositionerBehavior : IAsyncDisposable
             Anchor = parameters.Anchor,
 
             // MNU-EDGE-15 (MenuPositioner.tsx:59, 109): fixed inside any context menu, whatever the parent kind.
-            PositionMethod = MenuParent.Find(parentContext, MenuParentKind.ContextMenu) is not null ? Primitives.PositionMethod.Fixed : parameters.PositionMethod,
+            PositionMethod = MenuParent.Find(parentContext, MenuParentKind.ContextMenu) is not null ? Headless.PositionMethod.Fixed : parameters.PositionMethod,
             Side = side,
             SideOffset = sideOffset,
             Align = align,

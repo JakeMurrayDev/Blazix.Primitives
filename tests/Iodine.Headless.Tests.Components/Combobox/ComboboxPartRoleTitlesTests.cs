@@ -3,7 +3,7 @@ using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Rendering;
 
 // Family tests use the project's root namespace.
-namespace Blazix.Primitives.Tests.Components;
+namespace Iodine.Headless.Tests.Components;
 
 // PR 193 delta review B1: Base UI's titles for what C# renders on the Popup (ComboboxPopup.test.tsx), the List
 // (ComboboxList.test.tsx), the Chips and Chip (ComboboxChips.test.tsx, ComboboxChip.test.tsx) and the Input's aria-required

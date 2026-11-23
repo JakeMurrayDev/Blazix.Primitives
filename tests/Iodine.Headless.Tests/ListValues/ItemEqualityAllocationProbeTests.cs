@@ -1,6 +1,6 @@
-using Blazix.Primitives.Utilities;
+using Iodine.Headless.Utilities;
 
-namespace Blazix.Primitives.Tests.ListValues;
+namespace Iodine.Headless.Tests.ListValues;
 
 // ADR 16 rule 7 (the least of five runs), ADR 05 Amendments 2026-10-20 (Is<T> re-measured for M5): the item equality's
 // render-path calls allocate nothing on CoreCLR once warm, for an int, a string, an enum and a record class: the comparison

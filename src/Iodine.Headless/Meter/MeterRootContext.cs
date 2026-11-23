@@ -1,8 +1,8 @@
 using System.Globalization;
-using Blazix.Primitives.Utilities;
+using Iodine.Headless.Utilities;
 using Microsoft.AspNetCore.Components;
 
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // MTR-STA-02, MTR-STA-03, MTR-STR-02, MTR-EDGE-01; meter/root/MeterRootContext.ts. Cascaded fixed by MeterRoot (ADR 16 rule
 // 9): a change reaches the Indicator and the Value through the listeners below, never through the cascade, and all of them
@@ -62,7 +62,7 @@ internal sealed class MeterRootContext
     {
         // MTR-EDGE-01, in every build; the port's words.
         return context ?? throw new InvalidOperationException(
-            "Blazix: The `MeterRoot` context is missing. Meter parts must be placed within `<MeterRoot>`.");
+            "Iodine: The `MeterRoot` context is missing. Meter parts must be placed within `<MeterRoot>`.");
     }
 
     /// <summary>Recomputes the derived values from the root's parameters, and notifies the parts whose output changed.</summary>

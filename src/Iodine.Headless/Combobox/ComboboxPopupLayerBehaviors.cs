@@ -1,10 +1,10 @@
-using Blazix.Primitives.Interop;
-using Blazix.Primitives.Rendering;
-using Blazix.Primitives.Store;
+using Iodine.Headless.Interop;
+using Iodine.Headless.Rendering;
+using Iodine.Headless.Store;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Rendering;
 
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // combobox/portal/ComboboxPortal.tsx (CMB §3.12, API-48/49): rendered iff mounted, kept mounted or force-mounted, over the
 // shared PopupPortalBehavior (the lite portal of ADR 04 Amendments 2026-10-27); its KeepMounted reaches the Positioner.
@@ -41,7 +41,7 @@ internal sealed class ComboboxPortalBehavior : IAsyncDisposable
     public PopupPortalBehavior Portal => portal;
 
     /// <summary>Gets the root's store.</summary>
-    public ComboboxStore Store => store ?? throw new InvalidOperationException($"Blazix: `{services.Family}Portal` is used before its first render.");
+    public ComboboxStore Store => store ?? throw new InvalidOperationException($"Iodine: `{services.Family}Portal` is used before its first render.");
 
     /// <inheritdoc />
     public async ValueTask DisposeAsync()
@@ -142,7 +142,7 @@ internal sealed class ComboboxBackdropBehavior : IAsyncDisposable
     }
 
     /// <summary>Gets the root's store.</summary>
-    public ComboboxStore Store => store ?? throw new InvalidOperationException($"Blazix: `{services.Family}Backdrop` is used before its first render.");
+    public ComboboxStore Store => store ?? throw new InvalidOperationException($"Iodine: `{services.Family}Backdrop` is used before its first render.");
 
     /// <summary>Gets the mirrored transition status.</summary>
     public TransitionStatus? TransitionStatus => mirrored ?? Store.Lifecycle.DerivedTransitionStatus;
@@ -263,7 +263,7 @@ internal sealed class ComboboxPositionerBehavior : IAsyncDisposable
     }
 
     /// <summary>Gets the root's store.</summary>
-    public ComboboxStore Store => store ?? throw new InvalidOperationException($"Blazix: `{services.Family}Positioner` is used before its first render.");
+    public ComboboxStore Store => store ?? throw new InvalidOperationException($"Iodine: `{services.Family}Positioner` is used before its first render.");
 
     /// <summary>Gets the positioner context the popup, the arrow, the input and the list read.</summary>
     public PositionerContext Context => positioner.Context;
@@ -492,7 +492,7 @@ internal sealed class ComboboxPopupBehavior : IAsyncDisposable
     }
 
     /// <summary>Gets the root's store.</summary>
-    public ComboboxStore Store => store ?? throw new InvalidOperationException($"Blazix: `{services.Family}Popup` is used before its first render.");
+    public ComboboxStore Store => store ?? throw new InvalidOperationException($"Iodine: `{services.Family}Popup` is used before its first render.");
 
     /// <summary>Gets the positioner's mirror the popup projects.</summary>
     public PositionerMirror Mirror => positioner!.Mirror;
@@ -878,7 +878,7 @@ internal sealed class ComboboxLiveRegionBehavior : IAsyncDisposable
         empty = isEmpty;
     }
 
-    private ComboboxStore Store => store ?? throw new InvalidOperationException($"Blazix: `{services.Family}{(empty ? "Empty" : "Status")}` is used before its first render.");
+    private ComboboxStore Store => store ?? throw new InvalidOperationException($"Iodine: `{services.Family}{(empty ? "Empty" : "Status")}` is used before its first render.");
 
     /// <summary>Gets a value indicating whether the region renders its children.</summary>
     public bool ShowsChildren => !empty || Store.State.FilteredCount == 0;

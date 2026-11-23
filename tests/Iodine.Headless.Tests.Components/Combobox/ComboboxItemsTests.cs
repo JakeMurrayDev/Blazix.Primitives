@@ -3,7 +3,7 @@ using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Rendering;
 
 // Family tests use the project's root namespace.
-namespace Blazix.Primitives.Tests.Components;
+namespace Iodine.Headless.Tests.Components;
 
 // CMB-API-32, EDGE-12 and CMB-API-46/47 at L2 (createItems.test.tsx and ComboboxValue.test.tsx's titles whose items label
 // their values): ComboboxItems.Create's collections pass as the root's items with their derived values, label the selection
@@ -191,7 +191,7 @@ public sealed class ComboboxItemsTests : IDisposable
         Assert.Equal("Banana", collection.Get("b").Name);
         Assert.False(collection.TryGet("zzz", out _));
         KeyNotFoundException error = Assert.Throws<KeyNotFoundException>(() => collection.Get("zzz"));
-        Assert.StartsWith("Blazix: ", error.Message, StringComparison.Ordinal);
+        Assert.StartsWith("Iodine: ", error.Message, StringComparison.Ordinal);
     }
 
     private static ComboboxItemCollection<Fruit, string> Collection() => ComboboxItems.Create<Fruit, string>(s_fruits, fruit => fruit.Id!, fruit => fruit.Name);

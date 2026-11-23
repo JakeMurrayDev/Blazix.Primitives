@@ -1,7 +1,7 @@
-using Blazix.Primitives.Rendering;
+using Iodine.Headless.Rendering;
 using Microsoft.AspNetCore.Components;
 
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // Base UI's Drawer.Title, the Dialog.Title component itself (drawer/title/DrawerTitle.tsx:12); the contract is
 // docs/components/drawer.md (§3.13/§3.14; DRW-STR-03 over dialog.md §3.7, §5.6, §5.8). A sealed part over

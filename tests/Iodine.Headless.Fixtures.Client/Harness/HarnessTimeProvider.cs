@@ -1,4 +1,4 @@
-namespace Blazix.Primitives.Fixtures.Client.Harness;
+namespace Iodine.Headless.Fixtures.Client.Harness;
 
 /// <summary>
 /// The <see cref="TimeProvider"/> both hosts register (ADR 06 §2 "Clocks"). It is a singleton because Kestrel and

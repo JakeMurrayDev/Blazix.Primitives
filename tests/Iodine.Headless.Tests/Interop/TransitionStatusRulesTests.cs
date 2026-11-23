@@ -1,8 +1,8 @@
 using System.Text.Json;
-using Blazix.Primitives.Interop;
-using Blazix.Primitives.Tests.TestSupport;
+using Iodine.Headless.Interop;
+using Iodine.Headless.Tests.TestSupport;
 
-namespace Blazix.Primitives.Tests.Interop;
+namespace Iodine.Headless.Tests.Interop;
 
 /// <summary>
 /// L1: the C# half of the transition status machine (TRN-ALG-01). The evaluation step is checked against the case
@@ -62,7 +62,7 @@ public sealed class TransitionStatusRulesTests
 
     private static JsonElement[] ReadCases()
     {
-        string path = Path.Combine(RepositoryRoot.Find(), "src", "Blazix.Primitives", "js", "test-support", "transition-evaluation.cases.json");
+        string path = Path.Combine(RepositoryRoot.Find(), "src", "Iodine.Headless", "js", "test-support", "transition-evaluation.cases.json");
         using JsonDocument document = JsonDocument.Parse(File.ReadAllText(path));
         return [.. document.RootElement.GetProperty("cases").EnumerateArray().Select(e => e.Clone())];
     }

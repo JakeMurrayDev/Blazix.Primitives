@@ -1,4 +1,4 @@
-namespace Blazix.Primitives.Tests.Accordion;
+namespace Iodine.Headless.Tests.Accordion;
 
 /// <summary>
 /// The <c>[L1]</c> rows ACC-STA-04/05/06 on the value algorithm as pure C# (Base UI's <c>handleValueChange</c>,
@@ -165,6 +165,6 @@ public sealed class AccordionValuesTests
         InvalidOperationException missing = Assert.Throws<InvalidOperationException>(() => AccordionValues.Identity<int?>(valueSupplied: true, value: null, fallback: "base-ui-1"));
         Assert.Equal(AccordionValues.MissingValueMessage, missing.Message);
         Assert.Throws<InvalidOperationException>(() => AccordionValues.Identity(valueSupplied: false, value: 0, fallback: "base-ui-1"));
-        Assert.StartsWith("Blazix: ", AccordionValues.MissingValueMessage, StringComparison.Ordinal);
+        Assert.StartsWith("Iodine: ", AccordionValues.MissingValueMessage, StringComparison.Ordinal);
     }
 }

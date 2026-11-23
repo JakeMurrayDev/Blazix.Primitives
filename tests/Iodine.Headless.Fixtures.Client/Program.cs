@@ -1,4 +1,4 @@
-using Blazix.Primitives.Fixtures.Client.Harness;
+using Iodine.Headless.Fixtures.Client.Harness;
 using Microsoft.AspNetCore.Components.WebAssembly.Hosting;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -8,6 +8,6 @@ var builder = WebAssemblyHostBuilder.CreateDefault(args);
 builder.Services.AddFixtureHarness(builder.Logging);
 
 // The services a consumer's Program.cs registers for the library's parts (the first fixture that renders a part needs them).
-builder.Services.AddBlazixPrimitives();
+builder.Services.AddIodineHeadless();
 
 await builder.Build().RunAsync();

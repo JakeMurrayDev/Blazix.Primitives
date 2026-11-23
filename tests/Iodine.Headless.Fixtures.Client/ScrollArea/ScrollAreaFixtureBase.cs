@@ -1,6 +1,6 @@
 using Microsoft.AspNetCore.Components;
 
-namespace Blazix.Primitives.Fixtures.Client.ScrollAreaFixtures;
+namespace Iodine.Headless.Fixtures.Client.ScrollAreaFixtures;
 
 /// <summary>
 /// The base of the ScrollArea fixtures (Deliverable 4 of the ScrollArea brief: readiness markers, no sleeps). Renders

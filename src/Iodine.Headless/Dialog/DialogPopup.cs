@@ -1,10 +1,10 @@
-using Blazix.Primitives.Rendering;
+using Iodine.Headless.Rendering;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Rendering;
 using Microsoft.Extensions.Logging;
 using Microsoft.JSInterop;
 
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // DLG §3.6 state object (dialog/popup/DialogPopup.tsx:64-69). TransitionStatus is mirrored (ADR 04 §2).
 /// <summary>Represents the state of a dialog's popup, which the part exposes as data attributes and passes to its class and style functions.</summary>

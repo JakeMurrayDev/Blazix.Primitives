@@ -2,8 +2,8 @@ using Bunit;
 using Microsoft.AspNetCore.Components;
 using Microsoft.Extensions.DependencyInjection;
 
-// Family tests use the project's root namespace (tests/Blazix.Primitives.Tests.Components/CONTEXT.md).
-namespace Blazix.Primitives.Tests.Components;
+// Family tests use the project's root namespace (tests/Iodine.Headless.Tests.Components/CONTEXT.md).
+namespace Iodine.Headless.Tests.Components;
 
 /// <summary>
 /// L2: C#'s initial render of every item part (MNU-DOM-13, DOM-14, DOM-16, DOM-18 under ADR 04 Amendments 2026-11-03 (2)):
@@ -14,7 +14,7 @@ public sealed class MenuItemInitialRenderTests : BunitContext
     public MenuItemInitialRenderTests()
     {
         JSInterop.Mode = JSRuntimeMode.Loose;
-        Services.AddBlazixPrimitives();
+        Services.AddIodineHeadless();
     }
 
     [Fact(DisplayName = "port: every item part renders its role, tabindex=\"-1\" and no data-highlighted before the list handle attaches")]

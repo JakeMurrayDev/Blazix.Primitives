@@ -617,7 +617,7 @@ interface Declaration {
 }
 
 // A symbol on the element, as every module's handle is kept: the modules that write one element share its writer.
-const attachedStyleWriter = Symbol('blazix.dom.styleWriter');
+const attachedStyleWriter = Symbol('iodine.dom.styleWriter');
 
 interface StyledElement extends HTMLElement {
   [attachedStyleWriter]?: StyleWriter;

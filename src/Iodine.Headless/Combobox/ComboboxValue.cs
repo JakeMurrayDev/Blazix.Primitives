@@ -1,7 +1,7 @@
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Rendering;
 
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // Base UI's Combobox.Value (combobox/value/ComboboxValue.tsx; CMB §3.10): no element of its own. Base UI's one `children` prop,
 // a node or a function of the selected value, is ChildContent beside a template per mode (design point 2 of M5 track 10,

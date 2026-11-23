@@ -1,6 +1,6 @@
 using System.Text.Json.Serialization;
 
-namespace Blazix.Primitives.Interop;
+namespace Iodine.Headless.Interop;
 
 // ADR 04 §1 (form row, Amendments 2026-10-18) and §3; FFI-ALG-02/04/08/10/16, FFI-FRM-09/10, FFI-PTR-01..04,
 // FFI-FOC-05, FFI-STA-09. One options record per twin, with one sub-record per attaching role (DomOptions.Image's shape):

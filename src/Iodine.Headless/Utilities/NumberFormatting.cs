@@ -1,6 +1,6 @@
 using System.Globalization;
 
-namespace Blazix.Primitives.Utilities;
+namespace Iodine.Headless.Utilities;
 
 // MTR-API-04, MTR-API-05, MTR-I18N-01..03 (PRG-I18N-01..03 for Progress); UTL-I18N-05..07. ADR 01 decision 2 as amended
 // 2026-10-18: .NET globalization, output equivalent and not byte-identical to Intl.NumberFormat. ADR 08 Amendments

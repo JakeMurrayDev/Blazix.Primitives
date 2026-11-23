@@ -1,6 +1,6 @@
-using Blazix.Primitives.Rendering;
+using Iodine.Headless.Rendering;
 
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // SEL-STA-20/21/22/25, SEL-POS-14 (select/positioner/SelectPositioner.tsx:114): Base UI's `Side | 'none'`. Decision 8
 // of the M5 plan (chosen by the user 2026-11-03) and design point 2 of M5 track 9 (the name, settled by the

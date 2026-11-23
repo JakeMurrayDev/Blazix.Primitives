@@ -1,10 +1,10 @@
-using Blazix.Primitives.Interop;
+using Iodine.Headless.Interop;
 using Bunit;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.JSInterop;
 
-namespace Blazix.Primitives.Tests.Components;
+namespace Iodine.Headless.Tests.Components;
 
 /// <summary>
 /// The bUnit context of the Collapsible tests: the library's services, captured loggers, and bUnit's JS interop mock
@@ -13,13 +13,13 @@ namespace Blazix.Primitives.Tests.Components;
 /// </summary>
 public sealed class CollapsibleTestContext : IDisposable
 {
-    public const string TransitionsModulePath = "./_content/Blazix.Primitives/js/transitions.js";
-    public const string CollapsibleModulePath = "./_content/Blazix.Primitives/js/collapsible.js";
-    public const string ButtonModulePath = "./_content/Blazix.Primitives/js/button.js";
+    public const string TransitionsModulePath = "./_content/Iodine.Headless/js/transitions.js";
+    public const string CollapsibleModulePath = "./_content/Iodine.Headless/js/collapsible.js";
+    public const string ButtonModulePath = "./_content/Iodine.Headless/js/button.js";
 
     public CollapsibleTestContext()
     {
-        Context.Services.AddBlazixPrimitives();
+        Context.Services.AddIodineHeadless();
         Context.Services.AddSingleton<ILogger<CollapsibleRoot>>(RootLogger);
         Context.Services.AddSingleton<ILogger<CollapsiblePanel>>(PanelLogger);
         Context.JSInterop.Mode = JSRuntimeMode.Loose;

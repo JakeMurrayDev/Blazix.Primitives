@@ -26,7 +26,7 @@ runs:
         playwright: "true"
     - name: Build the fixture host
       shell: bash
-      run: dotnet build tests/Blazix.Primitives.Fixtures -c Debug
+      run: dotnet build tests/Iodine.Headless.Fixtures -c Debug
     - name: Test (browser)
       # The wasm project depends on wasm-warmup, which Playwright runs first in the same invocation. A shard of a scoped
       # run may hold no test at all, which is not a failure. Retries stay 0 and --fail-on-flaky-tests guards the gate (ADR 11 section 4).

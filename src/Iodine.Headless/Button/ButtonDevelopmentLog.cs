@@ -1,25 +1,25 @@
 using Microsoft.Extensions.Logging;
 
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // UBT-EDGE-01..03 (button-behavior.md §7), BTN-EDGE-01. The `button` module runs the declared-mode check only while
 // `ButtonOptions.DevelopmentChecks` is on (the development warnings switch) and reports a mismatch through
 // `ButtonTwin.NativeButtonMismatched`; a part subscribes and calls `ReportNativeButtonMismatch`. Base UI's
 // `createLogOnce` keeps one set per page, so the seen set is a scoped service (one per Server circuit, one per
-// WebAssembly application), registered by `AddBlazixPrimitives()` like `PartIdGenerator`, never a static, which on
+// WebAssembly application), registered by `AddIodineHeadless()` like `PartIdGenerator`, never a static, which on
 // Server would be one per process. CollapsibleTrigger (M1 track 6) and Toggle (M3) call the same method.
 /// <summary>Writes the development messages of button-like parts, each distinct message once per session.</summary>
 internal sealed class ButtonDevelopmentLog
 {
     // UBT-EDGE-01 in the port's words.
     internal const string NativeMismatchMessage =
-        "Blazix: A component that acts as a button expected a native `<button>` because the `NativeButton` parameter is `true`. "
+        "Iodine: A component that acts as a button expected a native `<button>` because the `NativeButton` parameter is `true`. "
         + "Rendering a non-`<button>` removes native button semantics, which can impact forms and accessibility. "
         + "Use a real `<button>` in the `Render` parameter, or set `NativeButton` to `false`.";
 
     // UBT-EDGE-02 in the port's words.
     internal const string NonNativeMismatchMessage =
-        "Blazix: A component that acts as a button expected a non-`<button>` because the `NativeButton` parameter is `false`. "
+        "Iodine: A component that acts as a button expected a non-`<button>` because the `NativeButton` parameter is `false`. "
         + "Rendering a `<button>` keeps native behavior while the library applies non-native attributes and handlers, which can add "
         + "unintended extra attributes (such as `role` or `aria-disabled`). "
         + "Use a non-`<button>` in the `Render` parameter, or set `NativeButton` to `true`.";
@@ -47,7 +47,7 @@ internal sealed class ButtonDevelopmentLog
     /// <param name="part">The part's component name, such as <c>MenuSubmenuTrigger</c>.</param>
     public void ReportDisabledElement(ILogger logger, string part)
     {
-        string message = $"Blazix: A disabled element was detected on `<{part}>`. To properly disable the trigger, use the `Disabled` parameter on the component instead of setting it on the rendered element.";
+        string message = $"Iodine: A disabled element was detected on `<{part}>`. To properly disable the trigger, use the `Disabled` parameter on the component instead of setting it on the rendered element.";
         if (written.Add(message))
         {
             DevelopmentWarnings.Write(logger, message);

@@ -1,4 +1,4 @@
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // TST §3.2 (createToastManager.ts:12-104, useToastManager.ts:9-24); TST-API-05..10, TST-EVT-06, TST-EVT-11; ADR 05
 // Amendments 2026-10-18 item 3 (a class with createToastManager's methods and a subscription event, not a store) and
@@ -186,11 +186,11 @@ public class ToastManager<TData>
 }
 
 // ADR 08 Amendments 2026-11-18 (the non-generic default over NoPayload, chosen by the user 2026-11-18); ADR 05 Amendments
-// 2026-11-18 item 3 (the type AddBlazixPrimitives registers, scoped).
+// 2026-11-18 item 3 (the type AddIodineHeadless registers, scoped).
 /// <summary>Shows, updates and closes toasts that carry no custom data, and tracks the toasts shown.</summary>
 /// <remarks>
 /// <para>
-/// <c>AddBlazixPrimitives</c> registers one instance per scope: per circuit on the server, per application in the
+/// <c>AddIodineHeadless</c> registers one instance per scope: per circuit on the server, per application in the
 /// browser. Inject it anywhere to show toasts; a toast provider without a manager of its own uses it.
 /// </para>
 /// </remarks>

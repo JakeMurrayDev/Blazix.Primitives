@@ -1,8 +1,8 @@
-using Blazix.Primitives.Rendering;
+using Iodine.Headless.Rendering;
 using Microsoft.AspNetCore.Components;
 using Microsoft.JSInterop;
 
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // ADL §3.3: Dialog.Viewport's state object (DLG §3.5, dialog/viewport/DialogViewport.tsx:35-40) under its AlertDialog name.
 // TransitionStatus is mirrored (ADR 04 §2).

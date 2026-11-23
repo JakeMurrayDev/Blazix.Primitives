@@ -1,10 +1,10 @@
-using Blazix.Primitives.Rendering;
-using Blazix.Primitives.Tests.Components.Rendering.Conformance;
+using Iodine.Headless.Rendering;
+using Iodine.Headless.Tests.Components.Rendering.Conformance;
 using Bunit;
 using Microsoft.AspNetCore.Components;
 
 // The namespace is the project's root: a namespace named after the family would hide the parts' types.
-namespace Blazix.Primitives.Tests.Components;
+namespace Iodine.Headless.Tests.Components;
 
 // FieldControl.test.tsx: describeConformance(<Field.Control />, () => ({ refInstanceof: window.HTMLInputElement, render: inside <Field.Root> })). FLD-DOM-19, FLD-API-22/23.
 /// <summary>The conformance suite on <see cref="FieldControl"/> inside a <see cref="FieldRoot"/>: the shared RND-DOM-36..49 tests with Base UI's titles.</summary>

@@ -1,8 +1,8 @@
-using Blazix.Primitives.Interop;
+using Iodine.Headless.Interop;
 using Bunit;
 using Microsoft.JSInterop;
 
-namespace Blazix.Primitives.Tests.Components.Interop;
+namespace Iodine.Headless.Tests.Components.Interop;
 
 /// <summary>
 /// Twin contract tests of the <c>slider</c> module (ADR 06 §1, L2; ADR 04 Amendments 2026-11-18, the module as built):
@@ -11,7 +11,7 @@ namespace Blazix.Primitives.Tests.Components.Interop;
 /// </summary>
 public sealed class SliderTwinContractTests
 {
-    private const string ModulePath = "./_content/Blazix.Primitives/js/slider.js";
+    private const string ModulePath = "./_content/Iodine.Headless/js/slider.js";
 
     private const string KeyJson = """
         {"kind":"KeyboardEvent","type":"keydown","key":"ArrowRight","code":"ArrowRight","altKey":false,"ctrlKey":false,

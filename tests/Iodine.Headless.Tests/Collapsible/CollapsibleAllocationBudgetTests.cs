@@ -1,6 +1,6 @@
-using Blazix.Primitives.Store;
+using Iodine.Headless.Store;
 
-namespace Blazix.Primitives.Tests.Collapsible;
+namespace Iodine.Headless.Tests.Collapsible;
 
 /// <summary>
 /// ADR 16 rule 7 for Collapsible: a status report that changes nothing allocates nothing, and a committed trigger press

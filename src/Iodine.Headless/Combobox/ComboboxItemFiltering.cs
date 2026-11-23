@@ -1,6 +1,6 @@
-using Blazix.Primitives.Utilities;
+using Iodine.Headless.Utilities;
 
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // CMB-STA-22 and CMB-STA-23 (AriaCombobox.tsx:342-452): the bypass and the filtered-items derivation, pure C# (ADR 04 §1's
 // last paragraph: results that are state are C#'s; the brief's [L1] derivation tests). The store calls Derive once per

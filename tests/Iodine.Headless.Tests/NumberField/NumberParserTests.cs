@@ -1,7 +1,7 @@
 using System.Globalization;
-using Blazix.Primitives.Utilities;
+using Iodine.Headless.Utilities;
 
-namespace Blazix.Primitives.Tests;
+namespace Iodine.Headless.Tests;
 
 // NUM-I18N-02..12: Base UI's `number-field/utils/parse.test.ts` (54 titles), verbatim over the C# parser. ADR 01 decision 2 as
 // amended: the formatter that produces the inputs is the port's, equivalent to Intl.NumberFormat rather than identical, so a

@@ -1,4 +1,4 @@
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // TST-API-03 (ToastProvider.tsx:34-57), TST-EVT-06, TST-EDGE-05; ADR 05 Amendments 2026-11-18 item 3 (chosen by the user
 // 2026-11-18): one Provider's subscription to one manager. `invoke` is the Provider's InvokeAsync, which runs the work at

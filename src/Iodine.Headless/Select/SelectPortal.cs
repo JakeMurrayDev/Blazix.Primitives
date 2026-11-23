@@ -1,10 +1,10 @@
-using Blazix.Primitives.Rendering;
-using Blazix.Primitives.Store;
+using Iodine.Headless.Rendering;
+using Iodine.Headless.Store;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Rendering;
 using Microsoft.JSInterop;
 
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // Base UI's Select.Portal (select/portal/SelectPortal.tsx); SEL-STR-06, SEL-API-33, SEL-DOM-16: the shared portal node
 // (track 1 of M4's PopupPortalBehavior over PortalTwin), rendered once the popup is mounted or force-mounted and kept from

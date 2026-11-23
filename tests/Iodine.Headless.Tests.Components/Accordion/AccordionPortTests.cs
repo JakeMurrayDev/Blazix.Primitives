@@ -1,10 +1,10 @@
 using AngleSharp.Dom;
-using Blazix.Primitives.Interop;
+using Iodine.Headless.Interop;
 using Bunit;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Rendering;
 
-namespace Blazix.Primitives.Tests.Components;
+namespace Iodine.Headless.Tests.Components;
 
 /// <summary>
 /// The port's own Accordion titles: the rows whose Base UI evidence is <c>Test: none</c> (ACC-STR-07, ACC-API-08/09,
@@ -49,7 +49,7 @@ public sealed class AccordionPortTests : IDisposable
         Assert.Equal("vertical", root.GetAttribute("data-orientation"));
 
         IRenderedComponent<AccordionRoot<string>> horizontal = Context.Render<AccordionRoot<string>>(p => p
-            .Add(x => x.Orientation, Blazix.Primitives.Orientation.Horizontal)
+            .Add(x => x.Orientation, Iodine.Headless.Orientation.Horizontal)
             .AddChildContent<AccordionItem<string>>(item => item.Add(x => x.Value, "a")));
         Assert.Equal("horizontal", horizontal.Find("div").GetAttribute("data-orientation"));
         Assert.False(horizontal.Find("div").HasAttribute("data-disabled"));
@@ -287,7 +287,7 @@ public sealed class AccordionPortTests : IDisposable
     [Trait("Requirement", "ACC-EDGE-01")]
     public void Parts_outside_an_item_throw_by_their_lookup_order()
     {
-        const string collapsibleMessage = "Blazix: The `CollapsibleRoot` context is missing. Collapsible parts must be placed within `<CollapsibleRoot>`.";
+        const string collapsibleMessage = "Iodine: The `CollapsibleRoot` context is missing. Collapsible parts must be placed within `<CollapsibleRoot>`.";
 
         Exception trigger = Assert.ThrowsAny<Exception>(() => Context.Render<AccordionRoot<string>>(p => p.AddChildContent<AccordionTrigger<string>>()));
         Exception panel = Assert.ThrowsAny<Exception>(() => Context.Render<AccordionRoot<string>>(p => p.AddChildContent<AccordionPanel<string>>()));
@@ -296,8 +296,8 @@ public sealed class AccordionPortTests : IDisposable
 
         Assert.Equal(collapsibleMessage, trigger.GetBaseException().Message);
         Assert.Equal(collapsibleMessage, panel.GetBaseException().Message);
-        Assert.Equal("Blazix: The `AccordionItem` context is missing. Accordion parts must be placed within `<AccordionItem>`.", inCollapsible.GetBaseException().Message);
-        Assert.Equal("Blazix: The `AccordionRoot` context is missing. Accordion parts must be placed within `<AccordionRoot>`.", panelAlone.GetBaseException().Message);
+        Assert.Equal("Iodine: The `AccordionItem` context is missing. Accordion parts must be placed within `<AccordionItem>`.", inCollapsible.GetBaseException().Message);
+        Assert.Equal("Iodine: The `AccordionRoot` context is missing. Accordion parts must be placed within `<AccordionRoot>`.", panelAlone.GetBaseException().Message);
     }
 
     [Fact(DisplayName = "port: an item without a value under a TValue other than string, or of another TValue than its root, throws")]
@@ -310,7 +310,7 @@ public sealed class AccordionPortTests : IDisposable
 
         Assert.Equal(AccordionValues.MissingValueMessage, missing.GetBaseException().Message);
         Assert.Equal(
-            "Blazix: An `AccordionItem` must have the `TValue` of its `AccordionRoot`. Set `TValue` on the part, or give `Value` the root's type, for example `Value=\"(int?)1\"` in an `AccordionRoot` of `int?`.",
+            "Iodine: An `AccordionItem` must have the `TValue` of its `AccordionRoot`. Set `TValue` on the part, or give `Value` the root's type, for example `Value=\"(int?)1\"` in an `AccordionRoot` of `int?`.",
             mismatch.GetBaseException().Message);
     }
 

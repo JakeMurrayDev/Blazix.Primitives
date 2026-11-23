@@ -1,8 +1,8 @@
-using Blazix.Primitives.Rendering;
+using Iodine.Headless.Rendering;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Rendering;
 
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // PSH-STR-09, PSH-DOM-14, PSH-ARIA-06 (utils/InternalBackdrop.tsx): the invisible element that covers the page under a
 // modal popup, rendered by Dialog's Portal and Popover's Positioner (design point 3 of M4 track 8: one shared internal

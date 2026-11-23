@@ -3,7 +3,7 @@ using Bunit;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Web;
 
-namespace Blazix.Primitives.Tests.Components;
+namespace Iodine.Headless.Tests.Components;
 
 /// <summary>
 /// The <c>[L2]</c> titles of <c>DialogTrigger.test.tsx</c>, <c>DialogViewport.test.tsx</c> and <c>DialogPortal.test.tsx</c>:
@@ -24,7 +24,7 @@ public sealed class DialogPartTests : IDisposable
     public void Throws_a_descriptive_error_without_a_root_or_handle()
     {
         InvalidOperationException error = Assert.Throws<InvalidOperationException>(() => test.Context.Render<DialogTrigger<NoPayload>>());
-        Assert.Equal("Blazix: `<DialogTrigger>` must be used within `<DialogRoot>` or provided with a handle.", error.Message);
+        Assert.Equal("Iodine: `<DialogTrigger>` must be used within `<DialogRoot>` or provided with a handle.", error.Message);
     }
 
     // At L2 the press's absence is the trigger's options: a disabled trigger configures no press-to-toggle, so the module
@@ -121,7 +121,7 @@ public sealed class DialogPartTests : IDisposable
         InvalidOperationException error = Assert.Throws<InvalidOperationException>(() => test.Context.Render<DialogRoot<NoPayload>>(p => p
             .Add(x => x.Open, true)
             .AddChildContent<DialogViewport>()));
-        Assert.Equal("Blazix: `<DialogPortal>` is missing.", error.Message);
+        Assert.Equal("Iodine: `<DialogPortal>` is missing.", error.Message);
     }
 
     [Fact(DisplayName = "port: a child that renders after an awaited OnInitializedAsync inside the popup renders its fallback, then its content, without an update loop")]

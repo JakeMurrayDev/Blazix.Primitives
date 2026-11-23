@@ -1,7 +1,7 @@
-using Blazix.Primitives.Rendering;
+using Iodine.Headless.Rendering;
 using Microsoft.AspNetCore.Components;
 
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // TLB-STA-01; toolbar/group/ToolbarGroup.tsx:38-41,54. ADR 08 §3: the state record is sealed, partial and [PartState]; the
 // default projection gives data-disabled and data-orientation (TLB-DOM-09).

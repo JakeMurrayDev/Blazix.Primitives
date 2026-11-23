@@ -16,7 +16,7 @@
 //   node hidden in place until an update resolves one.
 // - When Blazor removes the wrapper (the Portal left the render tree), the node goes with it at once: a `childList`
 //   observer on the wrapper's parent sees the wrapper disconnected, so no node is left behind before `dispose` arrives.
-// - The handle is published on the node under `Symbol.for('blazix.portal')` (settled by the orchestrator 2026-10-27 with
+// - The handle is published on the node under `Symbol.for('iodine.portal')` (settled by the orchestrator 2026-10-27 with
 //   track 4's design point 3, so the two modules import nothing from each other): the node, the wrapper, the outside
 //   guards found by position, and the slot the focus manager publishes its state in (track 4; FLT-FOC-18).
 // - Under VoiceOver on WebKit each outside guard becomes `role="button"` without `aria-hidden` (FLT-DOM-13, FLT-ARIA-05),
@@ -76,7 +76,7 @@ export interface PortalState {
 }
 
 /** The key the portal's state is published under on its node. */
-export const PORTAL_STATE = Symbol.for('blazix.portal');
+export const PORTAL_STATE = Symbol.for('iodine.portal');
 
 const FOCUS_GUARD_ATTRIBUTE = 'data-base-ui-focus-guard';
 
@@ -84,7 +84,7 @@ interface PortalNode extends HTMLElement {
   [PORTAL_STATE]?: PortalState;
 }
 
-const attachedHandle = Symbol('blazix.portal.handle');
+const attachedHandle = Symbol('iodine.portal.handle');
 
 interface AttachedNode extends PortalNode {
   [attachedHandle]?: TwinHandle;

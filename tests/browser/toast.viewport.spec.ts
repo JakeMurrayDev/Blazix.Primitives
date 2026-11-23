@@ -58,7 +58,7 @@ test.describe('Toast.Viewport', () => {
   // PR 325's run 44468298715, browser-server 2). WebAssembly runs it.
   test('returns focus to previous element when pressing shift+Tab on first toast', {
     tag: '@quarantine',
-    annotation: { type: 'open', description: 'https://github.com/JakeMurrayDev/Blazix.Primitives/issues/318 (expires 2026-12-03)' },
+    annotation: { type: 'open', description: 'https://github.com/JakeMurrayDev/Iodine.Headless/issues/318 (expires 2026-12-03)' },
   }, async ({ page, mode }) => {
     test.fixme(mode === 'server', 'Quarantined on Server until 2026-12-03 (issue 318)');
     await openToast(page, mode);
@@ -253,7 +253,7 @@ test.describe('Toast.Viewport', () => {
 
   // DP8 of the Toast track (chosen by the user 2026-11-19), (a) probed first (2026-11-19, both modes): a Viewport moved into
   // a same-origin iframe keeps being rendered by Blazor, but Blazor revives an element reference only against the host
-  // document, so every handle inside the iframe fails to attach ("Blazix: no element for the reference"; on Server the
+  // document, so every handle inside the iframe fails to attach ("Iodine: no element for the reference"; on Server the
   // circuit ends). So (b): the iframe clauses of TST-STR-13 and TST-EDGE-08 stay open for track 10, issue 316 (the user's
   // choice of 2026-11-19); the once-per-cycle binding (TST-FOC-14, TST-EDGE-07) is the port title below, on the host
   // document.

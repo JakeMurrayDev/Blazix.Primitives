@@ -1,8 +1,8 @@
-using Blazix.Primitives.Rendering;
-using Blazix.Primitives.Store;
+using Iodine.Headless.Rendering;
+using Iodine.Headless.Store;
 using Microsoft.Extensions.Logging;
 
-namespace Blazix.Primitives.Fixtures.Client.PopupFixtures;
+namespace Iodine.Headless.Fixtures.Client.PopupFixtures;
 
 /// <summary>
 /// The test-only popup family's store record at L4, the counterpart of the L2 project's <c>TestPopupStoreState</c>: the

@@ -1,6 +1,6 @@
 using System.Globalization;
 
-namespace Blazix.Primitives.Utilities;
+namespace Iodine.Headless.Utilities;
 
 // UTL-DOM-37 (shared-utilities §4.12.1); MTR-ALG-03. Base UI writes numbers into attributes and inline styles through
 // ECMAScript Number::toString(x, 10). double.ToString() agrees on the shortest round-trip digits but spells exponents

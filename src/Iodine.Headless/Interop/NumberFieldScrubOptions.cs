@@ -1,4 +1,4 @@
-namespace Blazix.Primitives.Interop;
+namespace Iodine.Headless.Interop;
 
 // ADR 04 §1 (the `number-field` component module, its scrub role) and Amendments 2026-11-18; issue 277, 6b. One handle per
 // ScrubArea and one per ScrubAreaCursor, told apart by `Part` (the ScrollArea precedent); every unset option is omitted, so

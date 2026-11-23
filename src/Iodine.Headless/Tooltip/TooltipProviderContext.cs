@@ -1,6 +1,6 @@
 using Microsoft.AspNetCore.Components;
 
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // tooltip/provider/TooltipProviderContext.ts:7-11 (Base UI's context holds the provider's `delay`; the close delay goes
 // through FloatingDelayGroup). Cascaded fixed by TooltipProvider (ADR 16 rule 9): its triggers resolve their delays in C#

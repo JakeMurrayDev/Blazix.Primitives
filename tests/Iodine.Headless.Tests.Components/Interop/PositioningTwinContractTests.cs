@@ -1,10 +1,10 @@
 using System.Text.Json;
-using Blazix.Primitives.Interop;
+using Iodine.Headless.Interop;
 using Bunit;
 using Microsoft.AspNetCore.Components;
 using Microsoft.JSInterop;
 
-namespace Blazix.Primitives.Tests.Components.Interop;
+namespace Iodine.Headless.Tests.Components.Interop;
 
 /// <summary>
 /// Twin contract tests of the <c>positioning</c> module (ADR 06 §1, L2; ADR 03; ADR 04 Amendments 2026-10-27): bUnit's
@@ -13,7 +13,7 @@ namespace Blazix.Primitives.Tests.Components.Interop;
 /// </summary>
 public sealed class PositioningTwinContractTests
 {
-    private const string ModulePath = "./_content/Blazix.Primitives/js/positioning.js";
+    private const string ModulePath = "./_content/Iodine.Headless/js/positioning.js";
 
     [Fact]
     [Trait("Requirement", "FLT-API-09")]
@@ -131,8 +131,8 @@ public sealed class PositioningTwinContractTests
     [Trait("Requirement", "PSH-POS-03")]
     public void The_hovered_line_option_is_written_only_when_set()
     {
-        Assert.DoesNotContain("hoveredLine", JsonSerializer.Serialize(new PositioningOptions(), BlazixJsonContext.Default.PositioningOptions), StringComparison.Ordinal);
-        Assert.Contains("\"hoveredLine\":true", JsonSerializer.Serialize(new PositioningOptions { HoveredLine = true }, BlazixJsonContext.Default.PositioningOptions), StringComparison.Ordinal);
+        Assert.DoesNotContain("hoveredLine", JsonSerializer.Serialize(new PositioningOptions(), IodineJsonContext.Default.PositioningOptions), StringComparison.Ordinal);
+        Assert.Contains("\"hoveredLine\":true", JsonSerializer.Serialize(new PositioningOptions { HoveredLine = true }, IodineJsonContext.Default.PositioningOptions), StringComparison.Ordinal);
     }
 
     // ADR 04 Amendments 2026-10-29, design point 11.5 of M4 track 7: PreviewCard's Positioner asks for a pass on a reopen
@@ -141,7 +141,7 @@ public sealed class PositioningTwinContractTests
     [Trait("Requirement", "PRV-ANI-05")]
     public void The_position_on_open_option_is_written_only_when_set()
     {
-        Assert.DoesNotContain("positionOnOpen", JsonSerializer.Serialize(new PositioningOptions(), BlazixJsonContext.Default.PositioningOptions), StringComparison.Ordinal);
-        Assert.Contains("\"positionOnOpen\":true", JsonSerializer.Serialize(new PositioningOptions { PositionOnOpen = true }, BlazixJsonContext.Default.PositioningOptions), StringComparison.Ordinal);
+        Assert.DoesNotContain("positionOnOpen", JsonSerializer.Serialize(new PositioningOptions(), IodineJsonContext.Default.PositioningOptions), StringComparison.Ordinal);
+        Assert.Contains("\"positionOnOpen\":true", JsonSerializer.Serialize(new PositioningOptions { PositionOnOpen = true }, IodineJsonContext.Default.PositioningOptions), StringComparison.Ordinal);
     }
 }

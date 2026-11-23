@@ -1,4 +1,4 @@
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // OTP-API-05, OTP-EVT-07 (onValueInvalid) and OTP-API-06, OTP-EVT-08..11 (onValueComplete); ADR 08 Amendments 2026-11-18: the
 // family keeps its own completion callback, not ValueCommittedEventArgs<T>; the records follow ValueChangeEventArgs<T>.

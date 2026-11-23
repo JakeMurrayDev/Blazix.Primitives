@@ -1,10 +1,10 @@
-using Blazix.Primitives.Interop;
-using Blazix.Primitives.Rendering;
+using Iodine.Headless.Interop;
+using Iodine.Headless.Rendering;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Rendering;
 using Microsoft.JSInterop;
 
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // TAB-STA-20, TAB-DOM-22/24; tabs/indicator/TabsIndicator.tsx:19-23,139-144. ADR 04 §2 (the Tabs.Indicator row) and
 // Amendments 2026-10-26: the `tabs` module writes the six --active-tab-* variables, `hidden` and
@@ -127,7 +127,7 @@ public sealed class TabsIndicator : PartBase<TabsIndicatorState>
     /// <inheritdoc />
     protected override bool UsesGeneratedId => RenderFunction is not null;
 
-    // For the fixtures (tests/Blazix.Primitives.Fixtures.Client): a browser test waits for the module before it measures.
+    // For the fixtures (tests/Iodine.Headless.Fixtures.Client): a browser test waits for the module before it measures.
     /// <summary>Gets a task that completes when the indicator's tabs behavior is first attached to its element.</summary>
     /// <value>A task that completes after the first interactive render that showed the element.</value>
     internal Task TwinAttached => attachedSource.Task;

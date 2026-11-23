@@ -1,10 +1,10 @@
-using Blazix.Primitives.Rendering;
-using Blazix.Primitives.Store;
+using Iodine.Headless.Rendering;
+using Iodine.Headless.Store;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Rendering;
 using Microsoft.Extensions.Logging;
 
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // The root half of Base UI's popup layer (usePopupRootStore, PopupHandleAttachment, useImplicitActiveTrigger,
 // useOpenStateTransitions, usePopupRootSync; PSH-STR-01/03/04, PSH-STA-01/16/18..25/40/41/44, PSH-API-09), composed by

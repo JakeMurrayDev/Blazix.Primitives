@@ -1,11 +1,11 @@
-using Blazix.Primitives.Rendering;
-using Blazix.Primitives.Tests.Components.Rendering.Conformance;
+using Iodine.Headless.Rendering;
+using Iodine.Headless.Tests.Components.Rendering.Conformance;
 using Bunit;
 using Microsoft.AspNetCore.Components;
 
 // The namespace is the project's root, not a `Separator` namespace: a namespace named like the part would shadow the type
-// `Blazix.Primitives.Separator` in every file declared inside it.
-namespace Blazix.Primitives.Tests.Components;
+// `Iodine.Headless.Separator` in every file declared inside it.
+namespace Iodine.Headless.Tests.Components;
 
 // Separator.test.tsx: describeConformance(<Separator />, () => ({ render, refInstanceof: window.HTMLDivElement })).
 // SEP-DOM-03 (RND-DOM-36..48; RND-DOM-49 does not apply, the part has no NativeButton), SEP-API-02, SEP-API-03.

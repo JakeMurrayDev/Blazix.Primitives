@@ -1,6 +1,6 @@
 using Microsoft.JSInterop;
 
-namespace Blazix.Primitives.Interop;
+namespace Iodine.Headless.Interop;
 
 // M5 track 12's design point 1 (a), settled by the orchestrator 2026-11-11: the `menu-filter` component module (a dated ADR 04 §1 row on
 // the `combobox` precedent). Its handles: the Input (composition, value writes, the key router over Base UI's
@@ -11,7 +11,7 @@ namespace Blazix.Primitives.Interop;
 // (ADR 04 Amendments 2026-11-10). The reports are forwarded as events; the parts' handlers land with their red-first commits.
 /// <summary>Represents the C# half of the <c>menu-filter</c> module.</summary>
 internal sealed class MenuFilterTwin(IJSRuntime jsRuntime)
-    : TwinBase<MenuFilterTwin, MenuFilterOptions>(jsRuntime, LibraryModule("menu-filter"), BlazixJsonContext.Default.MenuFilterOptions)
+    : TwinBase<MenuFilterTwin, MenuFilterOptions>(jsRuntime, LibraryModule("menu-filter"), IodineJsonContext.Default.MenuFilterOptions)
 {
     /// <summary>The decision point asked before the module handles a key: the consumer's key veto.</summary>
     public const string NavigatePoint = "navigate";
@@ -58,32 +58,32 @@ internal sealed class MenuFilterTwin(IJSRuntime jsRuntime)
     /// <summary>Receives a change of the query.</summary>
     /// <param name="payloadJson">The <see cref="MenuFilterValueChange"/> JSON.</param>
     [JSInvokable]
-    public void OnValueChange(string payloadJson) => ValueChanged?.Invoke(Deserialize(payloadJson, BlazixJsonContext.Default.MenuFilterValueChange));
+    public void OnValueChange(string payloadJson) => ValueChanged?.Invoke(Deserialize(payloadJson, IodineJsonContext.Default.MenuFilterValueChange));
 
     /// <summary>Receives the rendered texts of items.</summary>
     /// <param name="payloadJson">The <see cref="MenuFilterTexts"/> JSON.</param>
     [JSInvokable]
-    public void OnTexts(string payloadJson) => TextsChanged?.Invoke(Deserialize(payloadJson, BlazixJsonContext.Default.MenuFilterTexts));
+    public void OnTexts(string payloadJson) => TextsChanged?.Invoke(Deserialize(payloadJson, IodineJsonContext.Default.MenuFilterTexts));
 
     /// <summary>Receives a change of the input's focus ring.</summary>
     /// <param name="payloadJson">The <see cref="MenuFilterHighlightedChange"/> JSON.</param>
     [JSInvokable]
-    public void OnHighlightedChange(string payloadJson) => HighlightedChanged?.Invoke(Deserialize(payloadJson, BlazixJsonContext.Default.MenuFilterHighlightedChange).Highlighted);
+    public void OnHighlightedChange(string payloadJson) => HighlightedChanged?.Invoke(Deserialize(payloadJson, IodineJsonContext.Default.MenuFilterHighlightedChange).Highlighted);
 
     /// <summary>Receives a focus-out close.</summary>
     /// <param name="payloadJson">The <see cref="MenuFilterFocusOut"/> JSON.</param>
     [JSInvokable]
-    public void OnFocusOut(string payloadJson) => FocusedOut?.Invoke(Deserialize(payloadJson, BlazixJsonContext.Default.MenuFilterFocusOut));
+    public void OnFocusOut(string payloadJson) => FocusedOut?.Invoke(Deserialize(payloadJson, IodineJsonContext.Default.MenuFilterFocusOut));
 
     /// <summary>Receives a filterable submenu's open or close key.</summary>
     /// <param name="payloadJson">The <see cref="MenuFilterSubmenuKey"/> JSON.</param>
     [JSInvokable]
-    public void OnSubmenuKey(string payloadJson) => SubmenuKey?.Invoke(Deserialize(payloadJson, BlazixJsonContext.Default.MenuFilterSubmenuKey));
+    public void OnSubmenuKey(string payloadJson) => SubmenuKey?.Invoke(Deserialize(payloadJson, IodineJsonContext.Default.MenuFilterSubmenuKey));
 
     /// <summary>Receives the Input's report of a keydown it kept for its caret.</summary>
     /// <param name="payloadJson">The <see cref="MenuFilterOwnedKey"/> JSON.</param>
     [JSInvokable]
-    public void OnOwnedKey(string payloadJson) => OwnedKey?.Invoke(Deserialize(payloadJson, BlazixJsonContext.Default.MenuFilterOwnedKey));
+    public void OnOwnedKey(string payloadJson) => OwnedKey?.Invoke(Deserialize(payloadJson, IodineJsonContext.Default.MenuFilterOwnedKey));
 
     /// <inheritdoc />
     protected override DecisionPolicy OnDecide(string point, EventSnapshot snapshot) =>

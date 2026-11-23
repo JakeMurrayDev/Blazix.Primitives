@@ -5,7 +5,7 @@ using Microsoft.AspNetCore.Components;
 using Microsoft.Extensions.DependencyInjection;
 
 // The namespace is the project's root: a namespace named after the family would hide the parts' types.
-namespace Blazix.Primitives.Tests.Components;
+namespace Iodine.Headless.Tests.Components;
 
 // ProgressValue.test.tsx. Base UI's `children` function is the template parameter ValueContent (ADR 08 Amendments
 // 2026-10-20: named for what it renders, used with Context); its argument is ProgressValueArguments(FormattedValue, Value),
@@ -20,7 +20,7 @@ public sealed class ProgressValueTests : IDisposable
 
     public ProgressValueTests()
     {
-        context.Services.AddBlazixPrimitives();
+        context.Services.AddIodineHeadless();
     }
 
     /// <inheritdoc />
@@ -187,6 +187,6 @@ public sealed class ProgressValueTests : IDisposable
     {
         InvalidOperationException error = Assert.Throws<InvalidOperationException>(() => context.Render<ProgressValue>());
 
-        Assert.Equal("Blazix: The `ProgressRoot` context is missing. Progress parts must be placed within `<ProgressRoot>`.", error.Message);
+        Assert.Equal("Iodine: The `ProgressRoot` context is missing. Progress parts must be placed within `<ProgressRoot>`.", error.Message);
     }
 }

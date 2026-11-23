@@ -264,7 +264,7 @@ test.describe('<Accordion.Panel />', () => {
     await expect(panel).toHaveAttribute('hidden', 'until-found');
     const diagnostics = await readDiagnostics(page, mode, fixture);
     expect(diagnostics.map((entry) => entry.message)).toContain(
-      'Blazix: The `KeepMounted` parameter set to `false` on `AccordionRoot` is ignored when `HiddenUntilFound` is enabled, since panels must remain mounted while closed.',
+      'Iodine: The `KeepMounted` parameter set to `false` on `AccordionRoot` is ignored when `HiddenUntilFound` is enabled, since panels must remain mounted while closed.',
     );
   });
 
@@ -275,7 +275,7 @@ test.describe('<Accordion.Panel />', () => {
     await expect(panel).toHaveAttribute('hidden', 'until-found');
     const diagnostics = await readDiagnostics(page, mode, fixture);
     expect(diagnostics.map((entry) => entry.message)).toContain(
-      'Blazix: The `KeepMounted` parameter set to `false` on an `AccordionPanel` is ignored when `HiddenUntilFound` is enabled on the panel or root, since the panel must remain mounted while closed.',
+      'Iodine: The `KeepMounted` parameter set to `false` on an `AccordionPanel` is ignored when `HiddenUntilFound` is enabled on the panel or root, since the panel must remain mounted while closed.',
     );
   });
 

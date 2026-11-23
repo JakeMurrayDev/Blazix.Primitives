@@ -1,7 +1,7 @@
-using Blazix.Primitives.Rendering;
+using Iodine.Headless.Rendering;
 using Microsoft.AspNetCore.Components;
 
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // Base UI's Meter.Label (meter/label/MeterLabel.tsx) and useRegisteredLabelId; the contract is docs/components/meter.md.
 // MTR-API-12: the id is the consumer's or a generated one. MTR-DOM-07: role="presentation". MTR-STA-03 / FFI-ARIA-08: the

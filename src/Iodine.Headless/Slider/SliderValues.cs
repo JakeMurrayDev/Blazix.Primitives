@@ -1,8 +1,8 @@
 using System.Diagnostics.CodeAnalysis;
 using System.Runtime.CompilerServices;
-using Blazix.Primitives.Store;
+using Iodine.Headless.Store;
 
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // SLD-API-01/02, SLD-STA-04/09; slider/root/SliderRoot.tsx:39-47 (`number | readonly number[]`). ADR 05 §4 and Amendments
 // 2026-11-18 item 4, ADR 08 Amendments 2026-11-18 (the Slider value shape, chosen by the user 2026-11-18): the hand-written
@@ -59,9 +59,9 @@ internal readonly struct SliderValues : IUnion, IEquatable<SliderValues>
     /// <value><see langword="true"/> if a list is held, even of one element; otherwise, <see langword="false"/>.</value>
     public bool IsRange => kind == SliderValuesKind.List;
 
-    // BLZX2005: IUnion requires an object-typed Value, so reading it boxes the number; the library reads the cases through
+    // IOD2005: IUnion requires an object-typed Value, so reading it boxes the number; the library reads the cases through
     // TryGetValue instead.
-#pragma warning disable BLZX2005
+#pragma warning disable IOD2005
     /// <inheritdoc />
     /// <remarks>Reading it boxes a number.</remarks>
     public object? Value => kind switch
@@ -70,7 +70,7 @@ internal readonly struct SliderValues : IUnion, IEquatable<SliderValues>
         SliderValuesKind.List => values,
         _ => null,
     };
-#pragma warning restore BLZX2005
+#pragma warning restore IOD2005
 
     /// <summary>Converts a number to a <see cref="SliderValues"/> that holds it.</summary>
     /// <param name="value">The value of a single-thumb slider.</param>

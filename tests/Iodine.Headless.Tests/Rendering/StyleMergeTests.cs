@@ -1,6 +1,6 @@
-using Blazix.Primitives.Rendering;
+using Iodine.Headless.Rendering;
 
-namespace Blazix.Primitives.Tests.Rendering;
+namespace Iodine.Headless.Tests.Rendering;
 
 /// <summary>
 /// The style merge of ADR 02 decision 2 and RND-DOM-16: inline style strings are parsed into declarations (split on

@@ -1,4 +1,4 @@
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // CMB-API-37, EVT-05 (`onItemHighlighted(value | undefined, { reason, event, index })`); ADR 08 Amendments 2026-11-03 (4)
 // names the args: design point 8 of M5 track 10, settled by the orchestrator 2026-11-04 (decision 9's split: Combobox with

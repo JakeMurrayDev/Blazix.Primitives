@@ -1,6 +1,6 @@
 using System.Numerics;
 
-namespace Blazix.Primitives.Utilities;
+namespace Iodine.Headless.Utilities;
 
 // NUM-STA-12, UTL-I18N-05: the exact decimal value DecimalRounding and NumberFormatter work on.
 /// <summary>Represents a non-negative decimal number <c>Coefficient × 10^Exponent</c>.</summary>

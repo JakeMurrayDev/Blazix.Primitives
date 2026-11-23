@@ -1,12 +1,12 @@
 using AngleSharp.Dom;
-using Blazix.Primitives.Interop;
+using Iodine.Headless.Interop;
 using Bunit;
 using Microsoft.AspNetCore.Components;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.JSInterop;
 
-// Family tests use the project's root namespace (tests/Blazix.Primitives.Tests.Components/CONTEXT.md).
-namespace Blazix.Primitives.Tests.Components;
+// Family tests use the project's root namespace (tests/Iodine.Headless.Tests.Components/CONTEXT.md).
+namespace Iodine.Headless.Tests.Components;
 
 /// <summary>
 /// L2: <see cref="MenuInput"/>'s <c>menu-filter</c> handle on the C# side, the twin contract (M5 track 12): the options it
@@ -15,7 +15,7 @@ namespace Blazix.Primitives.Tests.Components;
 /// </summary>
 public sealed class MenuFilterInputHandleTests : BunitContext
 {
-    private const string ModulePath = "./_content/Blazix.Primitives/js/menu-filter.js";
+    private const string ModulePath = "./_content/Iodine.Headless/js/menu-filter.js";
 
     private readonly BunitJSModuleInterop module;
     private readonly BunitJSModuleInterop handle;
@@ -23,7 +23,7 @@ public sealed class MenuFilterInputHandleTests : BunitContext
     public MenuFilterInputHandleTests()
     {
         JSInterop.Mode = JSRuntimeMode.Loose;
-        Services.AddBlazixPrimitives();
+        Services.AddIodineHeadless();
         module = JSInterop.SetupModule(ModulePath);
         handle = module.SetupModule("attach", _ => true);
         handle.SetupVoid("update", _ => true).SetVoidResult();

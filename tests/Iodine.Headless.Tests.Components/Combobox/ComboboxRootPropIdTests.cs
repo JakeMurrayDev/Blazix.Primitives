@@ -1,7 +1,7 @@
 using Bunit;
 
 // Family tests use the project's root namespace.
-namespace Blazix.Primitives.Tests.Components;
+namespace Iodine.Headless.Tests.Components;
 
 // ComboboxRoot.test.tsx's `prop: id` titles cited at L2.
 /// <summary>Combobox's root at L2: ComboboxRoot.test.tsx's <c>prop: id</c> block.</summary>

@@ -3,7 +3,7 @@ using Bunit;
 using Microsoft.AspNetCore.Components;
 
 // Family tests use the project's root namespace.
-namespace Blazix.Primitives.Tests.Components;
+namespace Iodine.Headless.Tests.Components;
 
 // CMB §3.25 at L2 (ComboboxItemIndicator.test.tsx): the indicator follows its item's selection, mounted only while selected
 // unless kept mounted. The exit's completion is the `transitions` module's, so the unmount after a deselection is L4.
@@ -75,7 +75,7 @@ public sealed class ComboboxItemIndicatorTests : IDisposable
 
         InvalidOperationException error = Assert.Throws<InvalidOperationException>(() => test.Context.Render<ComboboxHarness>(p => p.Add(x => x.Extra, extra)));
 
-        Assert.StartsWith("Blazix: `ComboboxItemContext` is missing.", error.Message, StringComparison.Ordinal);
+        Assert.StartsWith("Iodine: `ComboboxItemContext` is missing.", error.Message, StringComparison.Ordinal);
     }
 
     private static IElement Indicator(IRenderedComponent<ComboboxHarness> cut, string item) => cut.Find($"[data-testid=indicator-{item}]");

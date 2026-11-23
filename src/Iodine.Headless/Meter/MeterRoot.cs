@@ -1,8 +1,8 @@
 using System.Globalization;
-using Blazix.Primitives.Rendering;
+using Iodine.Headless.Rendering;
 using Microsoft.AspNetCore.Components;
 
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // Base UI's Meter.Root (meter/root/MeterRoot.tsx); the contract is docs/components/meter.md. MTR-STA-01: the state is {}
 // (EmptyState.Instance, which projects nothing, MTR-DOM-02). MTR-STR-01 / MTR-DOM-01: the consumer's content, then one

@@ -21,8 +21,8 @@
   "include": [
     "vitest.config.ts",
     "playwright.config.ts",
-    "src/Blazix.Primitives/js/**/*.ts",
-    "tests/Blazix.Primitives.Fixtures.Client/js/**/*.ts",
+    "src/Iodine.Headless/js/**/*.ts",
+    "tests/Iodine.Headless.Fixtures.Client/js/**/*.ts",
     "tests/browser/**/*.ts"
   ]
 }

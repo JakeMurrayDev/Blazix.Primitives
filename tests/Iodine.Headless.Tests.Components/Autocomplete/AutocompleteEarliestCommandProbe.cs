@@ -1,7 +1,7 @@
 using Microsoft.AspNetCore.Components;
 
 // Family tests use the project's root namespace.
-namespace Blazix.Primitives.Tests.Components;
+namespace Iodine.Headless.Tests.Components;
 
 // store.test.tsx's `EarliestCommandProbe` (M6 track 11, issue 257): a descendant of the root that calls the store's open
 // command from its first initialization, the earliest moment a Blazor descendant exists (Base UI's probe dispatches an

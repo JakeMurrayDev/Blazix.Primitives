@@ -1,10 +1,10 @@
-using Blazix.Primitives.Interop;
-using Blazix.Primitives.Rendering;
+using Iodine.Headless.Interop;
+using Iodine.Headless.Rendering;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Rendering;
 using Microsoft.JSInterop;
 
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // Base UI's plain Menu.List (menu/list/MenuList.tsx); the contract is docs/components/menu.md §3.27 (MNU-STR-13, API-62,
 // DOM-24, ARIA-05). A thin shell over MenuListBehavior. In a filterable menu it also attaches the `menu-filter` List handle,

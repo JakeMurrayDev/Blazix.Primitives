@@ -1,4 +1,4 @@
-namespace Blazix.Primitives.Interop;
+namespace Iodine.Headless.Interop;
 
 // ADR 04 §3: one message per state change, never per move or per frame. Each report carries the module's revision
 // (decision 6 (a), chosen by the user 2026-11-18). The kinds a viewport sends: `enter`, `leave`, `focus`, `blur`, `f6`,

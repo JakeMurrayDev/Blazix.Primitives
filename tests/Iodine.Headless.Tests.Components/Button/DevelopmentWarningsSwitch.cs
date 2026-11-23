@@ -1,6 +1,6 @@
 using System.Runtime.CompilerServices;
 
-namespace Blazix.Primitives.Tests.Components;
+namespace Iodine.Headless.Tests.Components;
 
 /// <summary>
 /// Turns the library's development warnings on for the whole L2 run, as a Debug build of an app would, so the button
@@ -9,5 +9,5 @@ namespace Blazix.Primitives.Tests.Components;
 internal static class DevelopmentWarningsSwitch
 {
     [ModuleInitializer]
-    internal static void TurnOn() => AppContext.SetSwitch("Blazix.Primitives.DevelopmentWarnings", true);
+    internal static void TurnOn() => AppContext.SetSwitch("Iodine.Headless.DevelopmentWarnings", true);
 }

@@ -1,9 +1,9 @@
-using Blazix.Primitives.Interop;
+using Iodine.Headless.Interop;
 using Bunit;
 using Microsoft.AspNetCore.Components;
-using Scenario = Blazix.Primitives.Tests.Components.FieldErrorScenarios.ErrorScenario;
+using Scenario = Iodine.Headless.Tests.Components.FieldErrorScenarios.ErrorScenario;
 
-namespace Blazix.Primitives.Tests.Components;
+namespace Iodine.Headless.Tests.Components;
 
 /// <summary>
 /// The <c>[L2]</c> titles of <c>FieldValidity.test.tsx</c> (PR 1c), and port titles for what Base UI leaves untested: the

@@ -124,15 +124,15 @@ interface Rect {
   height: number;
 }
 
-const positionerHandle = Symbol('blazix.select.positioner');
+const positionerHandle = Symbol('iodine.select.positioner');
 // Interim review B2: arrows whose handle attached before the positioner's wait here, and the positioner adopts them.
-const waitingArrows = Symbol('blazix.select.waitingArrows');
+const waitingArrows = Symbol('iodine.select.waitingArrows');
 // The attached Positioners, which a trigger reads live (select/trigger/SelectTrigger.tsx:186-191): an open's batch mounts the
 // Positioner after the trigger's after-render, so the trigger's own reference can lag one update behind.
 const positioners = new Set<PositionerState>();
-const listHandle = Symbol('blazix.select.list');
-const arrowHandle = Symbol('blazix.select.arrow');
-const triggerHandle = Symbol('blazix.select.trigger');
+const listHandle = Symbol('iodine.select.list');
+const arrowHandle = Symbol('iodine.select.arrow');
+const triggerHandle = Symbol('iodine.select.trigger');
 
 interface SelectElement extends HTMLElement {
   [positionerHandle]?: PositionerState;

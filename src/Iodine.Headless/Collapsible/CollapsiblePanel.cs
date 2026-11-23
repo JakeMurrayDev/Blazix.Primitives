@@ -1,11 +1,11 @@
-using Blazix.Primitives.Rendering;
-using Blazix.Primitives.Store;
+using Iodine.Headless.Rendering;
+using Iodine.Headless.Store;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Rendering;
 using Microsoft.Extensions.Logging;
 using Microsoft.JSInterop;
 
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // COL-STA-06/07, §3.3 state object; collapsible/panel/CollapsiblePanel.tsx:92-95,135-140. TransitionStatus is mirrored
 // (ADR 04 §2): the collapsible module writes data-starting-style/data-ending-style.
@@ -230,5 +230,5 @@ public sealed class CollapsiblePanel : PartBase<CollapsiblePanelState>
     }
 
     internal static InvalidOperationException MissingRoot() =>
-        new("Blazix: The `CollapsibleRoot` context is missing. Collapsible parts must be placed within `<CollapsibleRoot>`.");
+        new("Iodine: The `CollapsibleRoot` context is missing. Collapsible parts must be placed within `<CollapsibleRoot>`.");
 }

@@ -1,6 +1,6 @@
 using System.Text.Json.Serialization;
 
-namespace Blazix.Primitives.Interop;
+namespace Iodine.Headless.Interop;
 
 /// <summary>
 /// The library's source-generated JSON context for JavaScript interop. Every twin options record, every callback
@@ -130,4 +130,4 @@ namespace Blazix.Primitives.Interop;
 // M6 track 9b: the `toast` twin's options and report (ADR 04 §1's `toast` row; ADR 16 rule 4).
 [JsonSerializable(typeof(ToastOptions))]
 [JsonSerializable(typeof(ToastReport))]
-internal sealed partial class BlazixJsonContext : JsonSerializerContext;
+internal sealed partial class IodineJsonContext : JsonSerializerContext;

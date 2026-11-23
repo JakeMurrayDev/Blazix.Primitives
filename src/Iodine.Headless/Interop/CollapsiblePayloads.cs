@@ -1,6 +1,6 @@
 using System.Text.Json.Serialization;
 
-namespace Blazix.Primitives.Interop;
+namespace Iodine.Headless.Interop;
 
 // COL-STA-06 (the panel's status is forced to idle during a motion-skipping open)
 /// <summary>The payload of the forced-idle report: whether the panel shows itself settled while the shared status is still starting.</summary>

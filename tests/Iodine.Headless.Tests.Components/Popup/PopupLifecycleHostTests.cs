@@ -1,12 +1,12 @@
 using System.Text.Json;
-using Blazix.Primitives.Interop;
+using Iodine.Headless.Interop;
 using Bunit;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Rendering;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.JSInterop;
 
-namespace Blazix.Primitives.Tests.Components;
+namespace Iodine.Headless.Tests.Components;
 
 /// <summary>
 /// The open lifecycle on the standalone test host at L2 (ADR 05 Amendments 2026-11-03; FLT-STR-11, the port's standalone
@@ -152,13 +152,13 @@ internal sealed class LifecycleTestContext : IDisposable
 {
     public LifecycleTestContext()
     {
-        Context.Services.AddBlazixPrimitives();
+        Context.Services.AddIodineHeadless();
         Context.JSInterop.Mode = JSRuntimeMode.Loose;
         InteractionsModule = Context.JSInterop.SetupModule(InteractionsTestContext.ModulePath);
         InteractionsHandle = InteractionsModule.SetupModule("attach", _ => true);
         InteractionsHandle.SetupVoid("update", _ => true).SetVoidResult();
         InteractionsHandle.SetupVoid("dispose", _ => true).SetVoidResult();
-        BunitJSModuleInterop transitions = Context.JSInterop.SetupModule("./_content/Blazix.Primitives/js/transitions.js");
+        BunitJSModuleInterop transitions = Context.JSInterop.SetupModule("./_content/Iodine.Headless/js/transitions.js");
         BunitJSModuleInterop transitionsHandle = transitions.SetupModule("attach", _ => true);
         transitionsHandle.SetupVoid("update", _ => true).SetVoidResult();
         transitionsHandle.SetupVoid("dispose", _ => true).SetVoidResult();

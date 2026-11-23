@@ -1,6 +1,6 @@
 using Microsoft.AspNetCore.Components.Web;
 
-namespace Blazix.Primitives.Fixtures.Client.CheckboxFixtures;
+namespace Iodine.Headless.Fixtures.Client.CheckboxFixtures;
 
 /// <summary>
 /// The record of one case of the Checkbox fixtures: every <c>OnCheckedChange</c> with its value and modifier keys, the

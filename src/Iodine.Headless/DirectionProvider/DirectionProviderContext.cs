@@ -1,6 +1,6 @@
 using Microsoft.AspNetCore.Components;
 
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // UTL-I18N-01..04 (shared-utilities.md §4.15.1), internals/direction-context/DirectionContext.tsx. Cascaded fixed by
 // DirectionProvider (ADR 16 rule 9): a change of direction reaches the readers through the listeners below, never through

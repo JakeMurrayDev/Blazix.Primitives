@@ -1,7 +1,7 @@
 using System.Reflection;
 
 // Family tests use the project's root namespace.
-namespace Blazix.Primitives.Tests;
+namespace Iodine.Headless.Tests;
 
 /// <summary>
 /// The Dialog store and handle at L1: DLG-STA-01 restated over the C# store (design point 7 of M4 track 8, settled by the

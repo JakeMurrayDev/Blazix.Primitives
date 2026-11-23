@@ -1,14 +1,14 @@
 using System.Text.Json;
 using AngleSharp.Dom;
-using Blazix.Primitives.Rendering;
+using Iodine.Headless.Rendering;
 using Bunit;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Web;
-using LibraryOrientation = Blazix.Primitives.Orientation;
+using LibraryOrientation = Iodine.Headless.Orientation;
 
 // The namespace is the project's root: a namespace named after the family would hide the parts' types. `Orientation` is
 // aliased because SampleRoot.cs declares a test-local `Orientation` in this namespace that would shadow the library's.
-namespace Blazix.Primitives.Tests.Components;
+namespace Iodine.Headless.Tests.Components;
 
 // ToggleGroup.test.tsx's titles verbatim for the [L2] rows of toggle-group.md (issue 102) and the Toggle rows they carry
 // (toggle.md §13), the two grouped titles of Toggle.test.tsx, and port titles (marked as such) for the Test: none rows C#
@@ -19,7 +19,7 @@ namespace Blazix.Primitives.Tests.Components;
 public sealed class ToggleGroupTests : IDisposable
 {
     private const string MissingValueMessage =
-        "Blazix: A `<Toggle>` component rendered in a `<ToggleGroup>` has no explicit `Value` parameter. "
+        "Iodine: A `<Toggle>` component rendered in a `<ToggleGroup>` has no explicit `Value` parameter. "
         + "This will cause issues between the Toggle Group and Toggle values. "
         + "Provide the `<Toggle>` with a `Value` parameter matching the `<ToggleGroup>` values parameter type.";
 

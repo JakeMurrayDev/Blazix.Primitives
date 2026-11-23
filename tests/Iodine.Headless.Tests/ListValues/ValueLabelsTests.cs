@@ -1,7 +1,7 @@
 using System.Globalization;
-using Blazix.Primitives.Utilities;
+using Iodine.Headless.Utilities;
 
-namespace Blazix.Primitives.Tests.ListValues;
+namespace Iodine.Headless.Tests.ListValues;
 
 // UTL-ALG-07, UTL-I18N-13 (internals/resolveValueLabel.tsx; design point 2 of M5 track 4, settled by the orchestrator
 // 2026-11-04: the internal LabeledItems<TValue> view, default labels as invariant text). resolveValueLabel.test.ts's titles

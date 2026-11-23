@@ -1,10 +1,10 @@
-using Blazix.Primitives.Rendering;
+using Iodine.Headless.Rendering;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Rendering;
 using Microsoft.Extensions.Logging;
 using Microsoft.JSInterop;
 
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // ACC-STA-01, §3.1 state object; accordion/root/AccordionRoot.tsx:91-98. ADR 08 §3: sealed, partial, [PartState]; ADR 02
 // Amendments 2026-10-26: the value is in the state, never projected ([NotProjected]; ACC-DOM-03, ACC-DOM-09).
@@ -280,12 +280,12 @@ public sealed class AccordionRoot<TValue> : PartBase<AccordionRootState<TValue>>
         list!.AddAttributes(attributes, Id);
     }
 
-    // ACC-EDGE-01 (the PRG-EDGE-01 precedent: `Blazix: ` for `Base UI: `, the part names for the context names).
+    // ACC-EDGE-01 (the PRG-EDGE-01 precedent: `Iodine: ` for `Base UI: `, the part names for the context names).
     internal static InvalidOperationException MissingRoot() =>
-        new("Blazix: The `AccordionRoot` context is missing. Accordion parts must be placed within `<AccordionRoot>`.");
+        new("Iodine: The `AccordionRoot` context is missing. Accordion parts must be placed within `<AccordionRoot>`.");
 
     // Design point R7's pattern (ADR 02 Amendments 2026-10-20, part-misuse errors are always on): Razor infers a part's TValue
     // from its own Value first, so `Value="1"` in an AccordionRoot of int? is an AccordionItem of int.
     internal static InvalidOperationException TypeMismatch(string part) =>
-        new($"Blazix: An `{part}` must have the `TValue` of its `AccordionRoot`. Set `TValue` on the part, or give `Value` the root's type, for example `Value=\"(int?)1\"` in an `AccordionRoot` of `int?`.");
+        new($"Iodine: An `{part}` must have the `TValue` of its `AccordionRoot`. Set `TValue` on the part, or give `Value` the root's type, for example `Value=\"(int?)1\"` in an `AccordionRoot` of `int?`.");
 }

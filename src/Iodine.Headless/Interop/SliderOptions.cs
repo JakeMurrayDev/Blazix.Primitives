@@ -1,4 +1,4 @@
-namespace Blazix.Primitives.Interop;
+namespace Iodine.Headless.Interop;
 
 // ADR 04 §1 (the `slider` component module), §2 (the Slider.Thumb and Slider.Indicator row) and Amendments 2026-10-18 (the
 // handover) and 2026-11-18 (the bands, the revision rule). Design point 1 (a') of track 4: one handle on the Root element,

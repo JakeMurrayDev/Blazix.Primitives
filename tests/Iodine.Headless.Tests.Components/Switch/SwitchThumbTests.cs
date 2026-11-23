@@ -2,7 +2,7 @@ using Bunit;
 using Microsoft.AspNetCore.Components;
 
 // The namespace is the project's root: a namespace named after the family would hide the parts' types.
-namespace Blazix.Primitives.Tests.Components;
+namespace Iodine.Headless.Tests.Components;
 
 // SwitchThumb.test.tsx and the state shape it provides (test context, lines 6-16).
 /// <summary>The thumb: the root's state, and the error outside a root.</summary>
@@ -20,7 +20,7 @@ public sealed class SwitchThumbTests : IDisposable
     {
         InvalidOperationException error = Assert.Throws<InvalidOperationException>(() => test.Context.Render<SwitchThumb>());
 
-        Assert.Equal("Blazix: The `SwitchRoot` context is missing. Switch parts must be placed within `<SwitchRoot>`.", error.Message);
+        Assert.Equal("Iodine: The `SwitchRoot` context is missing. Switch parts must be placed within `<SwitchRoot>`.", error.Message);
     }
 
     [Fact(DisplayName = "port: the state has exactly the nine fields, the same on the root and the thumb")]

@@ -4,7 +4,7 @@ using Microsoft.AspNetCore.Components.Rendering;
 using Microsoft.Extensions.DependencyInjection;
 
 // The namespace is the project's root: a namespace named after the family would hide the parts' types.
-namespace Blazix.Primitives.Tests.Components;
+namespace Iodine.Headless.Tests.Components;
 
 /// <summary>
 /// The misuse errors at L2 (PreviewCardPopup.test.tsx, PreviewCardTrigger.test.tsx, PreviewCardPositioner.test.tsx,
@@ -12,14 +12,14 @@ namespace Blazix.Primitives.Tests.Components;
 /// </summary>
 public sealed class PreviewCardMisuseTests : IDisposable
 {
-    private const string RootMissing = "Blazix: `PreviewCardRootContext` is missing. PreviewCard parts must be placed within `<PreviewCardRoot>`.";
-    private const string PositionerMissing = "Blazix: `PreviewCardPositionerContext` is missing. `PreviewCardPositioner` parts must be placed within `<PreviewCardPositioner>`.";
+    private const string RootMissing = "Iodine: `PreviewCardRootContext` is missing. PreviewCard parts must be placed within `<PreviewCardRoot>`.";
+    private const string PositionerMissing = "Iodine: `PreviewCardPositionerContext` is missing. `PreviewCardPositioner` parts must be placed within `<PreviewCardPositioner>`.";
 
     private readonly BunitContext context = new();
 
     public PreviewCardMisuseTests()
     {
-        context.Services.AddBlazixPrimitives();
+        context.Services.AddIodineHeadless();
         context.JSInterop.Mode = JSRuntimeMode.Loose;
     }
 
@@ -46,7 +46,7 @@ public sealed class PreviewCardMisuseTests : IDisposable
     {
         InvalidOperationException error = Assert.Throws<InvalidOperationException>(() => context.Render<PreviewCardTrigger<NoPayload>>());
 
-        Assert.Equal("Blazix: `<PreviewCardTrigger>` must be either used within a `<PreviewCardRoot>` component or provided with a handle.", error.Message);
+        Assert.Equal("Iodine: `<PreviewCardTrigger>` must be either used within a `<PreviewCardRoot>` component or provided with a handle.", error.Message);
     }
 
     [Fact(DisplayName = "throws a descriptive error when rendered outside <PreviewCard.Portal>")]
@@ -59,7 +59,7 @@ public sealed class PreviewCardMisuseTests : IDisposable
             builder.CloseComponent();
         }));
 
-        Assert.Equal("Blazix: `<PreviewCardPortal>` is missing.", error.Message);
+        Assert.Equal("Iodine: `<PreviewCardPortal>` is missing.", error.Message);
     }
 
     [Fact(DisplayName = "throws a descriptive error when rendered outside <PreviewCard.Positioner>")]

@@ -1,4 +1,4 @@
-namespace Blazix.Primitives.Interop;
+namespace Iodine.Headless.Interop;
 
 /// <summary>
 /// The verdict of a decision point: what the JavaScript module does with the browser dispatch it owns. On
@@ -40,7 +40,7 @@ internal static class DecisionPolicyLiterals
             DecisionPolicy.PreventAndStop => "prevent-and-stop",
             DecisionPolicy.Prevent => "prevent",
             // The value is formatted as an integer: passing the enum as the actual value would box it.
-            _ => throw new ArgumentOutOfRangeException(nameof(policy), $"Blazix: `{(int)policy}` is not a member of `DecisionPolicy`."),
+            _ => throw new ArgumentOutOfRangeException(nameof(policy), $"Iodine: `{(int)policy}` is not a member of `DecisionPolicy`."),
         };
     }
 }

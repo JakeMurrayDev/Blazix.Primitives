@@ -1,7 +1,7 @@
-using Blazix.Primitives.Interop;
+using Iodine.Headless.Interop;
 using Microsoft.AspNetCore.Components;
 
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // The attach-then-flush cycle every interactions behaviour shares (the CompositeRootBehavior shape): attach after the
 // first render that has the element (by ElementReference, by the rendered id, or by token for a part without one), then

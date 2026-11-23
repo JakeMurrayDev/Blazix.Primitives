@@ -1,12 +1,12 @@
 using System.Text.Json;
-using Blazix.Primitives.Interop;
+using Iodine.Headless.Interop;
 using Bunit;
 using Microsoft.AspNetCore.Components;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Time.Testing;
 using Microsoft.JSInterop;
 
-namespace Blazix.Primitives.Tests.Components;
+namespace Iodine.Headless.Tests.Components;
 
 /// <summary>
 /// The bUnit context of the Field, Fieldset and Input tests: the library's services, a <see cref="FakeTimeProvider"/>, and
@@ -18,12 +18,12 @@ namespace Blazix.Primitives.Tests.Components;
 /// </summary>
 public sealed class FieldTestContext : IDisposable
 {
-    public const string FormModulePath = "./_content/Blazix.Primitives/js/form.js";
-    public const string TransitionsModulePath = "./_content/Blazix.Primitives/js/transitions.js";
+    public const string FormModulePath = "./_content/Iodine.Headless/js/form.js";
+    public const string TransitionsModulePath = "./_content/Iodine.Headless/js/transitions.js";
 
     public FieldTestContext()
     {
-        Context.Services.AddBlazixPrimitives();
+        Context.Services.AddIodineHeadless();
         Context.Services.AddSingleton<TimeProvider>(Clock);
         Context.JSInterop.Mode = JSRuntimeMode.Loose;
         FormModule = Context.JSInterop.SetupModule(FormModulePath);
@@ -62,11 +62,11 @@ public sealed class FieldTestContext : IDisposable
 
     /// <summary>The options of every attach of the transitions module, in order.</summary>
     internal IReadOnlyList<TransitionsOptions> TransitionsAttachOptions() =>
-        [.. TransitionsModule.Invocations["attach"].Select(invocation => JsonSerializer.Deserialize((string)invocation.Arguments[1]!, BlazixJsonContext.Default.TransitionsOptions)!)];
+        [.. TransitionsModule.Invocations["attach"].Select(invocation => JsonSerializer.Deserialize((string)invocation.Arguments[1]!, IodineJsonContext.Default.TransitionsOptions)!)];
 
     /// <summary>The options of every update sent through the transitions module's handles, in order.</summary>
     internal IReadOnlyList<TransitionsOptions> TransitionsUpdateOptions() =>
-        [.. TransitionsHandle.Invocations["update"].Select(invocation => JsonSerializer.Deserialize((string)invocation.Arguments[0]!, BlazixJsonContext.Default.TransitionsOptions)!)];
+        [.. TransitionsHandle.Invocations["update"].Select(invocation => JsonSerializer.Deserialize((string)invocation.Arguments[0]!, IodineJsonContext.Default.TransitionsOptions)!)];
 
     /// <summary>
     /// Ends every exit in progress as the transitions module reports it, with no animation to wait for: each live twin
@@ -92,7 +92,7 @@ public sealed class FieldTestContext : IDisposable
         }
     }
 
-    internal static FormOptions Parse(string json) => JsonSerializer.Deserialize(json, BlazixJsonContext.Default.FormOptions)!;
+    internal static FormOptions Parse(string json) => JsonSerializer.Deserialize(json, IodineJsonContext.Default.FormOptions)!;
 
     private List<TransitionsTwin> LiveTransitionsTwins()
     {
@@ -219,9 +219,9 @@ internal sealed class FormModuleStandIn(FieldTestContext host)
                 SubmitterId = submitterId,
                 Controls = controls,
             };
-            string json = JsonSerializer.Serialize(request, BlazixJsonContext.Default.FormSubmitRequest);
+            string json = JsonSerializer.Serialize(request, IodineJsonContext.Default.FormSubmitRequest);
             string answer = cut.InvokeAsync(() => Twin!.OnSubmitRequest(json)).GetAwaiter().GetResult();
-            return JsonSerializer.Deserialize(answer, BlazixJsonContext.Default.FormSubmitAnswer)!;
+            return JsonSerializer.Deserialize(answer, IodineJsonContext.Default.FormSubmitAnswer)!;
         }
 
         /// <summary>
@@ -367,7 +367,7 @@ internal sealed class FormModuleStandIn(FieldTestContext host)
                 SameForm = sameForm,
                 Revision = answeredRevision,
             };
-            string json = JsonSerializer.Serialize(report, BlazixJsonContext.Default.FormControlReport);
+            string json = JsonSerializer.Serialize(report, IodineJsonContext.Default.FormControlReport);
             cut.InvokeAsync(() => Twin!.OnControlReport(json));
         }
     }

@@ -1,10 +1,10 @@
 using System.Text.Json;
-using Blazix.Primitives.Interop;
+using Iodine.Headless.Interop;
 using Bunit;
 using Microsoft.AspNetCore.Components.Web;
 using Microsoft.JSInterop;
 
-namespace Blazix.Primitives.Tests.Components.Interop;
+namespace Iodine.Headless.Tests.Components.Interop;
 
 /// <summary>
 /// Twin contract tests of the <c>composite</c> module (ADR 06 §1, L2): bUnit's JS interop mock records every field C#
@@ -34,7 +34,7 @@ public sealed class CompositeTwinContractTests
     public async Task Attach_imports_the_composite_module_and_sends_every_field_on_attach_and_update()
     {
         using BunitContext context = new();
-        BunitJSModuleInterop module = context.JSInterop.SetupModule("./_content/Blazix.Primitives/js/composite.js");
+        BunitJSModuleInterop module = context.JSInterop.SetupModule("./_content/Iodine.Headless/js/composite.js");
         BunitJSModuleInterop handle = module.SetupModule("attach", _ => true);
         handle.SetupVoid("update", _ => true).SetVoidResult();
         handle.SetupVoid("dispose", _ => true).SetVoidResult();
@@ -90,7 +90,7 @@ public sealed class CompositeTwinContractTests
             ],
         };
 
-        string json = JsonSerializer.Serialize(options, BlazixJsonContext.Default.CompositeOptions);
+        string json = JsonSerializer.Serialize(options, IodineJsonContext.Default.CompositeOptions);
 
         Assert.Contains("\"deriveDisabledIndices\":true", json, StringComparison.Ordinal);
         Assert.Contains(
@@ -99,7 +99,7 @@ public sealed class CompositeTwinContractTests
             """,
             json,
             StringComparison.Ordinal);
-        Assert.DoesNotContain("deriveDisabledIndices", JsonSerializer.Serialize(new CompositeOptions(), BlazixJsonContext.Default.CompositeOptions), StringComparison.Ordinal);
+        Assert.DoesNotContain("deriveDisabledIndices", JsonSerializer.Serialize(new CompositeOptions(), IodineJsonContext.Default.CompositeOptions), StringComparison.Ordinal);
     }
 
     // M3 track 1, E2 (ADR 04 Amendments 2026-10-26, chosen by the user): the items report, asked for only when set.
@@ -118,8 +118,8 @@ public sealed class CompositeTwinContractTests
         Assert.Equal(2, changes.Count);
         Assert.Equal(["base-ui-3", "base-ui-1"], changes[0]);
         Assert.Empty(changes[1]);
-        Assert.Contains("\"reportItems\":true", JsonSerializer.Serialize(new CompositeOptions { ReportItems = true }, BlazixJsonContext.Default.CompositeOptions), StringComparison.Ordinal);
-        Assert.DoesNotContain("reportItems", JsonSerializer.Serialize(new CompositeOptions(), BlazixJsonContext.Default.CompositeOptions), StringComparison.Ordinal);
+        Assert.Contains("\"reportItems\":true", JsonSerializer.Serialize(new CompositeOptions { ReportItems = true }, IodineJsonContext.Default.CompositeOptions), StringComparison.Ordinal);
+        Assert.DoesNotContain("reportItems", JsonSerializer.Serialize(new CompositeOptions(), IodineJsonContext.Default.CompositeOptions), StringComparison.Ordinal);
     }
 
     // M3 track 1, E1 (ADR 04 Amendments 2026-10-26, chosen by the user): the registration-only mode, sent only when set.
@@ -129,11 +129,11 @@ public sealed class CompositeTwinContractTests
     {
         string json = JsonSerializer.Serialize(
             new CompositeOptions { RegistrationOnly = true, Items = [new CompositeItemRegistration("base-ui-1", null)] },
-            BlazixJsonContext.Default.CompositeOptions);
+            IodineJsonContext.Default.CompositeOptions);
 
         Assert.Contains("\"registrationOnly\":true", json, StringComparison.Ordinal);
         Assert.Contains("\"items\":[{\"id\":\"base-ui-1\"}]", json, StringComparison.Ordinal);
-        Assert.DoesNotContain("registrationOnly", JsonSerializer.Serialize(new CompositeOptions(), BlazixJsonContext.Default.CompositeOptions), StringComparison.Ordinal);
+        Assert.DoesNotContain("registrationOnly", JsonSerializer.Serialize(new CompositeOptions(), IodineJsonContext.Default.CompositeOptions), StringComparison.Ordinal);
     }
 
     // M3 track 1, E5 (ADR 04 Amendments 2026-10-26, chosen by the user): the active-item follow, sent only when set.
@@ -142,8 +142,8 @@ public sealed class CompositeTwinContractTests
     [Trait("Requirement", "CMP-EDGE-09")]
     public void FollowActiveItem_is_sent_only_when_set()
     {
-        Assert.Contains("\"followActiveItem\":true", JsonSerializer.Serialize(new CompositeOptions { FollowActiveItem = true }, BlazixJsonContext.Default.CompositeOptions), StringComparison.Ordinal);
-        Assert.DoesNotContain("followActiveItem", JsonSerializer.Serialize(new CompositeOptions(), BlazixJsonContext.Default.CompositeOptions), StringComparison.Ordinal);
+        Assert.Contains("\"followActiveItem\":true", JsonSerializer.Serialize(new CompositeOptions { FollowActiveItem = true }, IodineJsonContext.Default.CompositeOptions), StringComparison.Ordinal);
+        Assert.DoesNotContain("followActiveItem", JsonSerializer.Serialize(new CompositeOptions(), IodineJsonContext.Default.CompositeOptions), StringComparison.Ordinal);
     }
 
     [Fact]
@@ -154,7 +154,7 @@ public sealed class CompositeTwinContractTests
     {
         CompositeOptions options = new();
 
-        Assert.Equal(DefaultsJson, JsonSerializer.Serialize(options, BlazixJsonContext.Default.CompositeOptions));
+        Assert.Equal(DefaultsJson, JsonSerializer.Serialize(options, IodineJsonContext.Default.CompositeOptions));
         Assert.Null(options.DisabledIndices);
         Assert.Null(options.Style);
     }
@@ -281,7 +281,7 @@ public sealed class CompositeTwinContractTests
     [Trait("Requirement", "CMP-STR-06")]
     public void A_list_handle_sends_its_session_its_list_options_and_one_role_and_each_option_only_when_set()
     {
-        string defaults = JsonSerializer.Serialize(new CompositeOptions(), BlazixJsonContext.Default.CompositeOptions);
+        string defaults = JsonSerializer.Serialize(new CompositeOptions(), IodineJsonContext.Default.CompositeOptions);
         Assert.Equal(DefaultsJson, defaults);
 
         CompositeOptions floating = new()
@@ -291,7 +291,7 @@ public sealed class CompositeTwinContractTests
             Floating = new CompositeFloatingOptions(),
             Items = [new CompositeItemRegistration("a", null) { Label = "Alpha", Index = 0 }, new CompositeItemRegistration("b", null) { Label = string.Empty, TextId = "t", OmitTabIndex = true }],
         };
-        string json = JsonSerializer.Serialize(floating, BlazixJsonContext.Default.CompositeOptions);
+        string json = JsonSerializer.Serialize(floating, IodineJsonContext.Default.CompositeOptions);
         Assert.Contains("""
             "items":[{"id":"a","label":"Alpha","index":0},{"id":"b","label":"","textId":"t","omitTabIndex":true}]
             """.Trim(), json, StringComparison.Ordinal);
@@ -326,9 +326,9 @@ public sealed class CompositeTwinContractTests
         };
         Assert.Equal(
             """{"enabled":false,"loopFocus":true,"orientation":"horizontal","triggerOrientation":"vertical","rtl":true,"virtual":true,"nested":true,"parentOrientation":"both","focusItemOnOpen":false,"allowEscape":true,"openOnArrowKeyDown":false,"focusItemOnHover":false,"resetOnPointerLeave":false,"disabledIndices":[],"deriveDisabledIndices":true,"selectedIndex":2,"grid":true,"keepOpenOnCrossOrientationKey":true,"nestedReturnFocusElement":0,"relayElement":1,"highlight":{"revision":3},"typeahead":{"resetMs":500,"skip":"element","labels":["one",null]},"cols":3,"itemCount":40}""",
-            JsonSerializer.Serialize(every, BlazixJsonContext.Default.CompositeListOptions));
-        Assert.Contains(""","reference":{}}""", JsonSerializer.Serialize(new CompositeOptions { Reference = new CompositeReferenceOptions() }, BlazixJsonContext.Default.CompositeOptions), StringComparison.Ordinal);
-        Assert.Contains(""","trigger":{}}""", JsonSerializer.Serialize(new CompositeOptions { Trigger = new CompositeTriggerOptions() }, BlazixJsonContext.Default.CompositeOptions), StringComparison.Ordinal);
+            JsonSerializer.Serialize(every, IodineJsonContext.Default.CompositeListOptions));
+        Assert.Contains(""","reference":{}}""", JsonSerializer.Serialize(new CompositeOptions { Reference = new CompositeReferenceOptions() }, IodineJsonContext.Default.CompositeOptions), StringComparison.Ordinal);
+        Assert.Contains(""","trigger":{}}""", JsonSerializer.Serialize(new CompositeOptions { Trigger = new CompositeTriggerOptions() }, IodineJsonContext.Default.CompositeOptions), StringComparison.Ordinal);
     }
 
     // SEL-STA-07 (queued by the orchestrator 2026-11-10): the list option crosses by its module name, only when true.
@@ -336,8 +336,8 @@ public sealed class CompositeTwinContractTests
     [Trait("Requirement", "CMP-STA-34")]
     public void Retain_highlight_while_closing_is_written_by_its_module_name_only_when_true()
     {
-        Assert.Contains("\"retainHighlightWhileClosing\":true", JsonSerializer.Serialize(new CompositeListOptions { RetainHighlightWhileClosing = true }, BlazixJsonContext.Default.CompositeListOptions), StringComparison.Ordinal);
-        Assert.DoesNotContain("retainHighlightWhileClosing", JsonSerializer.Serialize(new CompositeListOptions(), BlazixJsonContext.Default.CompositeListOptions), StringComparison.Ordinal);
+        Assert.Contains("\"retainHighlightWhileClosing\":true", JsonSerializer.Serialize(new CompositeListOptions { RetainHighlightWhileClosing = true }, IodineJsonContext.Default.CompositeListOptions), StringComparison.Ordinal);
+        Assert.DoesNotContain("retainHighlightWhileClosing", JsonSerializer.Serialize(new CompositeListOptions(), IodineJsonContext.Default.CompositeListOptions), StringComparison.Ordinal);
     }
 
     // MNU-ARIA-06 (M5 track 12, the orchestrator's 2026-11-12 grant): written only when false, as RetainHighlightWhileClosing is
@@ -346,8 +346,8 @@ public sealed class CompositeTwinContractTests
     [Trait("Requirement", "MNU-ARIA-06")]
     public void Floating_active_descendant_is_written_by_its_module_name_only_when_false()
     {
-        Assert.Contains("\"floatingActiveDescendant\":false", JsonSerializer.Serialize(new CompositeListOptions { FloatingActiveDescendant = false }, BlazixJsonContext.Default.CompositeListOptions), StringComparison.Ordinal);
-        Assert.DoesNotContain("floatingActiveDescendant", JsonSerializer.Serialize(new CompositeListOptions(), BlazixJsonContext.Default.CompositeListOptions), StringComparison.Ordinal);
+        Assert.Contains("\"floatingActiveDescendant\":false", JsonSerializer.Serialize(new CompositeListOptions { FloatingActiveDescendant = false }, IodineJsonContext.Default.CompositeListOptions), StringComparison.Ordinal);
+        Assert.DoesNotContain("floatingActiveDescendant", JsonSerializer.Serialize(new CompositeListOptions(), IodineJsonContext.Default.CompositeListOptions), StringComparison.Ordinal);
         Assert.NotEqual(new CompositeListOptions(), new CompositeListOptions { FloatingActiveDescendant = false });
     }
 

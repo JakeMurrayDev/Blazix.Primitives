@@ -1,13 +1,13 @@
-using Blazix.Primitives.Rendering;
-using Blazix.Primitives.Utilities;
+using Iodine.Headless.Rendering;
+using Iodine.Headless.Utilities;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Rendering;
 using Microsoft.AspNetCore.Components.RenderTree;
 
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // CMB-STR-02, STR-04 (combobox/root/ComboboxRootContext.tsx:30-58, the part-local contexts): the missing-context errors,
-// thrown in every build with the `Blazix: ` prefix and the family's part names (ADR 08 Amendments 2026-11-03 (3); ADR 02
+// thrown in every build with the `Iodine: ` prefix and the family's part names (ADR 08 Amendments 2026-11-03 (3); ADR 02
 // Amendments 2026-10-20).
 /// <summary>The diagnostics the combobox-family parts share.</summary>
 internal static class ComboboxParts
@@ -83,7 +83,7 @@ internal static class ComboboxParts
     /// <returns>The store.</returns>
     /// <exception cref="InvalidOperationException"><paramref name="store"/> is <see langword="null"/>.</exception>
     public static ComboboxStore RequireRoot(ComboboxStore? store, string family) =>
-        store ?? throw new InvalidOperationException($"Blazix: `{family}RootContext` is missing. {family} parts must be placed within `<{family}Root>`.");
+        store ?? throw new InvalidOperationException($"Iodine: `{family}RootContext` is missing. {family} parts must be placed within `<{family}Root>`.");
 
     /// <summary>Returns the cascaded store of the expected value type, or throws the missing-root error.</summary>
     /// <typeparam name="TValue">The type of the part's value.</typeparam>
@@ -95,43 +95,43 @@ internal static class ComboboxParts
     public static ComboboxStore<TValue> RequireRoot<TValue>(ComboboxStore? store, string family, string part) => RequireRoot(store, family) switch
     {
         ComboboxStore<TValue> typed => typed,
-        _ => throw new InvalidOperationException($"Blazix: `{family}{part}` has a value type that differs from its `<{family}Root>`'s. Write `TValue` on the part, or give it a value of the root's exact type."),
+        _ => throw new InvalidOperationException($"Iodine: `{family}{part}` has a value type that differs from its `<{family}Root>`'s. Write `TValue` on the part, or give it a value of the root's exact type."),
     };
 
     /// <summary>Gets the error of a positioner outside a portal.</summary>
     /// <param name="family">The family whose parts the error names.</param>
     /// <returns>The error.</returns>
-    public static InvalidOperationException MissingPortal(string family) => new($"Blazix: `<{family}Portal>` is missing.");
+    public static InvalidOperationException MissingPortal(string family) => new($"Iodine: `<{family}Portal>` is missing.");
 
     /// <summary>Gets the error of a popup or arrow outside a positioner.</summary>
     /// <param name="family">The family whose parts the error names.</param>
     /// <returns>The error.</returns>
     public static InvalidOperationException MissingPositioner(string family) =>
-        new($"Blazix: `<{family}Popup>` and `<{family}Arrow>` must be used within the `<{family}Positioner>` component.");
+        new($"Iodine: `<{family}Popup>` and `<{family}Arrow>` must be used within the `<{family}Positioner>` component.");
 
     /// <summary>Gets the error of an item part outside an item.</summary>
     /// <param name="family">The family whose parts the error names.</param>
     /// <returns>The error.</returns>
     public static InvalidOperationException MissingItem(string family) =>
-        new($"Blazix: `{family}ItemContext` is missing. `{family}Item` parts must be placed within `<{family}Item>`.");
+        new($"Iodine: `{family}ItemContext` is missing. `{family}Item` parts must be placed within `<{family}Item>`.");
 
     /// <summary>Gets the error of a chip part outside a chip.</summary>
     /// <param name="family">The family whose parts the error names.</param>
     /// <returns>The error.</returns>
     public static InvalidOperationException MissingChip(string family) =>
-        new($"Blazix: `{family}ChipContext` is missing. `{family}Chip` parts must be placed within `<{family}Chip>`.");
+        new($"Iodine: `{family}ChipContext` is missing. `{family}Chip` parts must be placed within `<{family}Chip>`.");
 
     /// <summary>Gets the error of a chip outside a chips container.</summary>
     /// <param name="family">The family whose parts the error names.</param>
     /// <returns>The error.</returns>
     public static InvalidOperationException MissingChips(string family) =>
-        new($"Blazix: `{family}ChipsContext` is missing. `{family}Chip` must be placed within `<{family}Chips>`.");
+        new($"Iodine: `{family}ChipsContext` is missing. `{family}Chip` must be placed within `<{family}Chips>`.");
 
     /// <summary>Gets the error of a group label outside a group.</summary>
     /// <param name="family">The family whose parts the error names.</param>
     /// <returns>The error.</returns>
     public static InvalidOperationException MissingGroup(string family) =>
-        new($"Blazix: `{family}GroupContext` is missing. `{family}Group` parts must be placed within `<{family}Group>`.");
+        new($"Iodine: `{family}GroupContext` is missing. `{family}Group` parts must be placed within `<{family}Group>`.");
 
     // useFieldValidation.ts:367-376 (getValidationProps), applied after the merge as the field's controls do: the consumer's
     // description ids composed with the field's, and aria-invalid while the field is invalid and neither it nor the part is

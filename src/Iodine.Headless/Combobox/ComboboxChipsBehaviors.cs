@@ -1,11 +1,11 @@
-using Blazix.Primitives.Interop;
-using Blazix.Primitives.Rendering;
-using Blazix.Primitives.Store;
+using Iodine.Headless.Interop;
+using Iodine.Headless.Rendering;
+using Iodine.Headless.Store;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Rendering;
 using Microsoft.AspNetCore.Components.Web;
 
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // combobox/chips/ComboboxChips.tsx (CMB §3.4, STR-09, STA-33): role="toolbar" while a value exists, a second registry
 // (CompositeListBehavior in registration-only mode: the composite module reports the chips' document order); its `combobox`
@@ -44,7 +44,7 @@ internal sealed class ComboboxChipsBehavior : IAsyncDisposable
         press = new ComboboxPressVeto(services.DispatchException);
     }
 
-    private ComboboxStore Store => store ?? throw new InvalidOperationException($"Blazix: `{services.Family}Chips` is used before its first render.");
+    private ComboboxStore Store => store ?? throw new InvalidOperationException($"Iodine: `{services.Family}Chips` is used before its first render.");
 
     /// <summary>Gets a task that completes once the chips' handles have attached.</summary>
     public Task TwinAttached => Task.WhenAll(sync.Attached, list.TwinAttached);
@@ -261,7 +261,7 @@ internal sealed class ComboboxChipBehavior : IDisposable
         this.services = services;
     }
 
-    private ComboboxStore Store => store ?? throw new InvalidOperationException($"Blazix: `{services.Family}Chip` is used before its first render.");
+    private ComboboxStore Store => store ?? throw new InvalidOperationException($"Iodine: `{services.Family}Chip` is used before its first render.");
 
     /// <summary>Gets the chip context its remove button reads.</summary>
     public ComboboxChipContext Context => context;
@@ -448,7 +448,7 @@ internal sealed class ComboboxChipRemoveBehavior : IAsyncDisposable
         button = new ButtonBehavior(services.JSRuntime, services.Logger, developmentLog, services.Ids, services.RequestRender, services.DispatchException, onKeyDown, onKeyUp);
     }
 
-    private ComboboxStore Store => store ?? throw new InvalidOperationException($"Blazix: `{services.Family}ChipRemove` is used before its first render.");
+    private ComboboxStore Store => store ?? throw new InvalidOperationException($"Iodine: `{services.Family}ChipRemove` is used before its first render.");
 
     // ComboboxChipRemove.tsx:42-46: useButton's `disabled || readOnly` keeps the press handlers from running at all.
     private bool Removes => !Disabled && !Store.State.ReadOnly;

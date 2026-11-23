@@ -1,8 +1,8 @@
-using Blazix.Primitives.Interop;
+using Iodine.Headless.Interop;
 using Microsoft.AspNetCore.Components;
 using Microsoft.JSInterop;
 
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // Design points 2 and 8 of M4 track 3 (the floating role; Floating/; both settled by the orchestrator 2026-10-27): the floating element (a Positioner, or Dialog's Popup) carries the inside-press marks, the floating keydown
 // and the hover leave (FLT-DIS-04/12, FLT-KEY-01, FLT-PTR-23/24), and publishes the tree node's context (FLT-STR-08). The

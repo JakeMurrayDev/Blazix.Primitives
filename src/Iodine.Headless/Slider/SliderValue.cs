@@ -1,9 +1,9 @@
-using Blazix.Primitives.Rendering;
-using Blazix.Primitives.Store;
+using Iodine.Headless.Rendering;
+using Iodine.Headless.Store;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Rendering;
 
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // SLD §3.3: the Root's state object (slider/value/SliderValue.tsx:63).
 /// <summary>Represents the state of a slider value, which the part exposes as data attributes and passes to its class and style functions.</summary>

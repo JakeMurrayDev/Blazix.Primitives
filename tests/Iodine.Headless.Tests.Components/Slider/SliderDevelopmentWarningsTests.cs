@@ -2,10 +2,10 @@ using Bunit;
 using Microsoft.AspNetCore.Components;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
-using static Blazix.Primitives.Tests.Components.SliderTestContext;
+using static Iodine.Headless.Tests.Components.SliderTestContext;
 
 // The namespace is the project's root: a namespace named after the family would hide the parts' types.
-namespace Blazix.Primitives.Tests.Components;
+namespace Iodine.Headless.Tests.Components;
 
 // SLD-STA-01 and SLD-EDGE-03 through the development warnings switch, which is on for the whole run
 // (Button/DevelopmentWarningsSwitch): the root's messages are Controlled<T>'s (UTL-EDGE-22/23) with the name `Slider` and

@@ -1,12 +1,12 @@
 using System.Text.Json;
-using Blazix.Primitives.Interop;
+using Iodine.Headless.Interop;
 using Bunit;
 using Microsoft.AspNetCore.Components;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.JSInterop;
 
-namespace Blazix.Primitives.Tests.Components;
+namespace Iodine.Headless.Tests.Components;
 
 /// <summary>
 /// The bUnit context of the NumberField tests: the library's services, a captured logger, and bUnit's JS interop mock
@@ -17,11 +17,11 @@ namespace Blazix.Primitives.Tests.Components;
 /// </summary>
 public sealed class NumberFieldTestContext : IDisposable
 {
-    public const string ButtonModulePath = "./_content/Blazix.Primitives/js/button.js";
-    public const string FormModulePath = "./_content/Blazix.Primitives/js/form.js";
-    public const string NumberFieldModulePath = "./_content/Blazix.Primitives/js/number-field.js";
+    public const string ButtonModulePath = "./_content/Iodine.Headless/js/button.js";
+    public const string FormModulePath = "./_content/Iodine.Headless/js/form.js";
+    public const string NumberFieldModulePath = "./_content/Iodine.Headless/js/number-field.js";
 
-    public const string InteractionsModulePath = "./_content/Blazix.Primitives/js/interactions.js";
+    public const string InteractionsModulePath = "./_content/Iodine.Headless/js/interactions.js";
 
     /// <summary>Initializes a new instance of the <see cref="NumberFieldTestContext"/> class.</summary>
     /// <param name="ios">Whether the stubbed <c>readPlatformFlags</c> reports iOS (NUM-STA-19).</param>
@@ -30,7 +30,7 @@ public sealed class NumberFieldTestContext : IDisposable
         Context.JSInterop.SetupModule(InteractionsModulePath)
             .Setup<string>("readPlatformFlags")
             .SetResult(ios ? """{"voiceOver":false,"mac":false,"ios":true}""" : """{"voiceOver":false,"mac":false,"ios":false}""");
-        Context.Services.AddBlazixPrimitives();
+        Context.Services.AddIodineHeadless();
         Context.Services.AddSingleton<ILogger<NumberFieldRoot>>(Logger);
         ButtonModule = Context.JSInterop.SetupModule(ButtonModulePath);
         ButtonHandle = ButtonModule.SetupModule("attach", _ => true);
@@ -82,8 +82,8 @@ public sealed class NumberFieldTestContext : IDisposable
     /// <summary>The control options of every <c>form</c> attach and update, in order.</summary>
     internal IReadOnlyList<FormControlOptions> FormOptions =>
         [
-            .. FormModule.Invocations["attach"].Select(i => JsonSerializer.Deserialize((string)i.Arguments[1]!, BlazixJsonContext.Default.FormOptions)!.Control!),
-            .. FormHandle.Invocations["update"].Select(i => JsonSerializer.Deserialize((string)i.Arguments[0]!, BlazixJsonContext.Default.FormOptions)!.Control!),
+            .. FormModule.Invocations["attach"].Select(i => JsonSerializer.Deserialize((string)i.Arguments[1]!, IodineJsonContext.Default.FormOptions)!.Control!),
+            .. FormHandle.Invocations["update"].Select(i => JsonSerializer.Deserialize((string)i.Arguments[0]!, IodineJsonContext.Default.FormOptions)!.Control!),
         ];
 
     /// <inheritdoc />

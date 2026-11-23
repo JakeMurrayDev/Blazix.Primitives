@@ -1,7 +1,7 @@
 using Bunit;
 using Microsoft.AspNetCore.Components;
 
-namespace Blazix.Primitives.Tests.Components.Rendering.Conformance;
+namespace Iodine.Headless.Tests.Components.Rendering.Conformance;
 
 /// <summary>
 /// The options of Base UI's <c>describeConformance(minimalElement, () => options)</c> (RND §4.9, ADR 06 §1):

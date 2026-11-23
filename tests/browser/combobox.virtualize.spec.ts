@@ -4,7 +4,7 @@ import { settle } from './suites/popupFixture';
 
 // Issue 29 (ADR 14's ADR 16 item, Amendments 2026-11-03; design point 1 (a); CMB-API-22), M5 track 10: Combobox's `virtualized`
 // path with Blazor's `Virtualize` on both render modes, on the `combobox-virtualize` fixture
-// (tests/Blazix.Primitives.Fixtures.Client/Combobox/L4/ComboboxVirtualizeL4Fixture.razor): 1,000 items, a window rendered by
+// (tests/Iodine.Headless.Fixtures.Client/Combobox/L4/ComboboxVirtualizeL4Fixture.razor): 1,000 items, a window rendered by
 // `Virtualize` over the consumer's filtered items, each an Item without `Index`, and the consumer's reveal through
 // `ScrollToItemAsync` driven by `OnItemHighlighted`.
 

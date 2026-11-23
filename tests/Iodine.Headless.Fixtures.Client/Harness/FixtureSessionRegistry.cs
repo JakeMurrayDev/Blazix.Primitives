@@ -1,7 +1,7 @@
 using System.Collections.Concurrent;
 using System.Runtime.CompilerServices;
 
-namespace Blazix.Primitives.Fixtures.Client.Harness;
+namespace Iodine.Headless.Fixtures.Client.Harness;
 
 /// <summary>
 /// The singleton index of live sessions. Playwright workers run in parallel against one host process, so every

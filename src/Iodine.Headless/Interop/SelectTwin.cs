@@ -1,6 +1,6 @@
 using Microsoft.JSInterop;
 
-namespace Blazix.Primitives.Interop;
+namespace Iodine.Headless.Interop;
 
 // ADR 04 §1 (the `select` component module, its row dated 2026-11-04 by M5 track 9), §2, §3 and Amendments 2026-11-03 (4)
 // (`activate` on the `select` twin, chosen by the user 2026-11-03): the module places the popup over the trigger, grows it
@@ -17,7 +17,7 @@ namespace Blazix.Primitives.Interop;
 /// </summary>
 /// <param name="jsRuntime">The runtime of the part's circuit or WebAssembly application.</param>
 internal sealed class SelectTwin(IJSRuntime jsRuntime)
-    : TwinBase<SelectTwin, SelectOptions>(jsRuntime, LibraryModule("select"), BlazixJsonContext.Default.SelectOptions)
+    : TwinBase<SelectTwin, SelectOptions>(jsRuntime, LibraryModule("select"), IodineJsonContext.Default.SelectOptions)
 {
     /// <summary>Represents the name of the decision point the module asks about before an item click activates the item.</summary>
     public const string ActivatePoint = "activate";
@@ -77,25 +77,25 @@ internal sealed class SelectTwin(IJSRuntime jsRuntime)
     /// <param name="payloadJson">The JSON of a <see cref="SelectActivation"/> without its event.</param>
     /// <exception cref="System.Text.Json.JsonException">The payload is not valid.</exception>
     [JSInvokable]
-    public void OnActivating(string payloadJson) => pendingActivation = Deserialize(payloadJson, BlazixJsonContext.Default.SelectActivation);
+    public void OnActivating(string payloadJson) => pendingActivation = Deserialize(payloadJson, IodineJsonContext.Default.SelectActivation);
 
     /// <summary>Receives an activation that was not decided inside the dispatch.</summary>
     /// <param name="payloadJson">The JSON of a <see cref="SelectActivation"/>.</param>
     /// <exception cref="System.Text.Json.JsonException">The payload is not valid.</exception>
     [JSInvokable]
-    public void OnActivate(string payloadJson) => ActivationReported?.Invoke(Deserialize(payloadJson, BlazixJsonContext.Default.SelectActivation));
+    public void OnActivate(string payloadJson) => ActivationReported?.Invoke(Deserialize(payloadJson, IodineJsonContext.Default.SelectActivation));
 
     /// <summary>Receives a change of whether aligned placement is active.</summary>
     /// <param name="payloadJson">The JSON of a <see cref="SelectAlignedChange"/>.</param>
     /// <exception cref="System.Text.Json.JsonException">The payload is not valid.</exception>
     [JSInvokable]
-    public void OnAlignedChange(string payloadJson) => AlignedChanged?.Invoke(Deserialize(payloadJson, BlazixJsonContext.Default.SelectAlignedChange).Aligned);
+    public void OnAlignedChange(string payloadJson) => AlignedChanged?.Invoke(Deserialize(payloadJson, IodineJsonContext.Default.SelectAlignedChange).Aligned);
 
     /// <summary>Receives a change of the scroll arrows' visibility.</summary>
     /// <param name="payloadJson">The JSON of a <see cref="SelectArrowsVisibility"/>.</param>
     /// <exception cref="System.Text.Json.JsonException">The payload is not valid.</exception>
     [JSInvokable]
-    public void OnArrowsChange(string payloadJson) => ArrowsChanged?.Invoke(Deserialize(payloadJson, BlazixJsonContext.Default.SelectArrowsVisibility));
+    public void OnArrowsChange(string payloadJson) => ArrowsChanged?.Invoke(Deserialize(payloadJson, IodineJsonContext.Default.SelectArrowsVisibility));
 
     /// <summary>Receives the end of an aligned placement.</summary>
     [JSInvokable]
@@ -109,19 +109,19 @@ internal sealed class SelectTwin(IJSRuntime jsRuntime)
     /// <param name="eventJson">The JSON of the <c>mouseup</c>'s <see cref="EventSnapshot"/>.</param>
     /// <exception cref="System.Text.Json.JsonException">The payload is not valid.</exception>
     [JSInvokable]
-    public void OnCancelOpen(string eventJson) => OpenCanceled?.Invoke(Deserialize(eventJson, BlazixJsonContext.Default.EventSnapshot));
+    public void OnCancelOpen(string eventJson) => OpenCanceled?.Invoke(Deserialize(eventJson, IodineJsonContext.Default.EventSnapshot));
 
     /// <summary>Receives a resize of the window while aligned placement was active.</summary>
     /// <param name="eventJson">The JSON of the <c>resize</c>'s <see cref="EventSnapshot"/>.</param>
     /// <exception cref="System.Text.Json.JsonException">The payload is not valid.</exception>
     [JSInvokable]
-    public void OnWindowResize(string eventJson) => WindowResized?.Invoke(Deserialize(eventJson, BlazixJsonContext.Default.EventSnapshot));
+    public void OnWindowResize(string eventJson) => WindowResized?.Invoke(Deserialize(eventJson, IodineJsonContext.Default.EventSnapshot));
 
     /// <summary>Receives the trigger's blur.</summary>
     /// <param name="payloadJson">The JSON of a <see cref="SelectTriggerBlur"/>.</param>
     /// <exception cref="System.Text.Json.JsonException">The payload is not valid.</exception>
     [JSInvokable]
-    public void OnTriggerBlur(string payloadJson) => TriggerBlurred?.Invoke(Deserialize(payloadJson, BlazixJsonContext.Default.SelectTriggerBlur).IntoPopup);
+    public void OnTriggerBlur(string payloadJson) => TriggerBlurred?.Invoke(Deserialize(payloadJson, IodineJsonContext.Default.SelectTriggerBlur).IntoPopup);
 
     /// <inheritdoc />
     /// <remarks>

@@ -1,8 +1,8 @@
-using Blazix.Primitives.Interop;
+using Iodine.Headless.Interop;
 using Microsoft.AspNetCore.Components;
 using Microsoft.JSInterop;
 
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // M6 track 8b slice 3 (issue 279), added 2026-11-21. The Popup's own `drawer` handle (role `popup`): the module measures the
 // Popup and reports the height, which the Root records as its popup height (DRW-STA-10), and writes the Popup's

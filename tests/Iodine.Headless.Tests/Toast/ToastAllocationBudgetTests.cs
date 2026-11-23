@@ -1,7 +1,7 @@
-using Blazix.Primitives.Store;
+using Iodine.Headless.Store;
 
 // Family tests use the project's root namespace: a `Toast` namespace would read as a family type.
-namespace Blazix.Primitives.Tests;
+namespace Iodine.Headless.Tests;
 
 /// <summary>
 /// ADR 16 rule 7 for the toast store (the M6 plan's decision 26 (a); issue 280, Deliverable 11): an add's whole path

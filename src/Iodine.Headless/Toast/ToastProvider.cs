@@ -2,14 +2,14 @@ using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Rendering;
 using Microsoft.Extensions.DependencyInjection;
 
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // toast/provider/ToastProviderContext.ts:9-15 (TST-EDGE-01): the Provider's store, which the Viewport, Root, Close and
 // Positioner read. Base UI's message names `useToastManager`, a hook the port does not have; the port's names the Provider
 // (a dated deviation note on TST-EDGE-01).
 internal sealed class ToastProviderContext<TData>(ToastStore<TData> store)
 {
-    internal const string MissingMessage = "Blazix: `ToastProviderContext` is missing. Toast parts must be used within `<ToastProvider>`.";
+    internal const string MissingMessage = "Iodine: `ToastProviderContext` is missing. Toast parts must be used within `<ToastProvider>`.";
 
     public ToastStore<TData> Store { get; } = store;
 
@@ -38,7 +38,7 @@ internal sealed class ToastProviderContext<TData>(ToastStore<TData> store)
 /// <remarks>
 /// <para>
 /// The provider acts on the calls of <see cref="Manager"/>, else of the manager registered for the application
-/// (<c>AddBlazixPrimitives</c> registers a <see cref="ToastManager"/>), else of a manager of its own, which its content
+/// (<c>AddIodineHeadless</c> registers a <see cref="ToastManager"/>), else of a manager of its own, which its content
 /// receives as a cascading value.
 /// </para>
 /// <para>
@@ -132,7 +132,7 @@ public sealed class ToastProvider<TData> : ComponentBase, IDisposable
         store?.Dispose();
     }
 
-    // The provider context and the manager, both fixed (BLZX2001). A change of manager builds a new cascade under a new key,
+    // The provider context and the manager, both fixed (IOD2001). A change of manager builds a new cascade under a new key,
     // so its content receives the new manager.
     private static RenderFragment Cascade(ToastProviderContext<TData> context, ToastManager<TData> manager, RenderFragment? content) => builder =>
     {
@@ -151,7 +151,7 @@ public sealed class ToastProvider<TData> : ComponentBase, IDisposable
         builder.CloseComponent();
     };
 
-    // The scope's manager for this data type: the default ToastManager that AddBlazixPrimitives registers, or a consumer's
+    // The scope's manager for this data type: the default ToastManager that AddIodineHeadless registers, or a consumer's
     // own registration of ToastManager<TData>.
     private ToastManager<TData>? Registered()
     {

@@ -1,11 +1,11 @@
-using Blazix.Primitives.Interop;
-using Blazix.Primitives.Rendering;
+using Iodine.Headless.Interop;
+using Iodine.Headless.Rendering;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Rendering;
 using Microsoft.Extensions.Logging;
 using Microsoft.JSInterop;
 
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // The popup every dialog family composes (dialog/popup/DialogPopup.tsx; ADR 08 Amendments 2026-10-27). It configures the
 // modules and re-implements none (DLG §11):
@@ -331,7 +331,7 @@ internal sealed class DialogPopupBehavior : IAsyncDisposable
         if (!warned)
         {
             warned = true;
-            DevelopmentWarnings.Write(logger, $"Blazix: `{partName}` received both `{parameter}` and `{parameter}Resolver`. `{parameter}Resolver` is used; set only one of them.");
+            DevelopmentWarnings.Write(logger, $"Iodine: `{partName}` received both `{parameter}` and `{parameter}Resolver`. `{parameter}Resolver` is used; set only one of them.");
         }
     }
 

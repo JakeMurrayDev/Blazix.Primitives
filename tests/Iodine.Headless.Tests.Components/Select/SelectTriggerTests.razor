@@ -1,4 +1,4 @@
-@namespace Blazix.Primitives.Tests.Components
+@namespace Iodine.Headless.Tests.Components
 @inherits SelectTestBase
 @using AngleSharp.Dom
 @using Bunit
@@ -17,7 +17,7 @@
     {
         InvalidOperationException error = Assert.Throws<InvalidOperationException>(() => Render<SelectTrigger<string>>());
 
-        Assert.Equal("Blazix: `SelectRootContext` is missing. Select parts must be placed within `<SelectRoot>`.", error.Message);
+        Assert.Equal("Iodine: `SelectRootContext` is missing. Select parts must be placed within `<SelectRoot>`.", error.Message);
     }
 
     [Fact(DisplayName = "is removed from the tab order when disabled and not rendered as a button")]

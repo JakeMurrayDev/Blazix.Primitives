@@ -1,9 +1,9 @@
-using Blazix.Primitives.Rendering;
+using Iodine.Headless.Rendering;
 using Bunit;
 using Microsoft.AspNetCore.Components;
 using Microsoft.Extensions.DependencyInjection;
 
-namespace Blazix.Primitives.Tests.Components.Rendering;
+namespace Iodine.Headless.Tests.Components.Rendering;
 
 /// <summary>
 /// The pipeline's last word to the part (ADR 02 Amendments 2026-10-21, M1 track 6): <c>FinishAttributes</c> runs once per
@@ -16,7 +16,7 @@ public sealed class FinishAttributesTests : IDisposable
 
     public FinishAttributesTests()
     {
-        context.Services.AddBlazixPrimitives();
+        context.Services.AddIodineHeadless();
     }
 
     /// <inheritdoc />
@@ -51,7 +51,7 @@ public sealed class FinishAttributesTests : IDisposable
     {
         // The pipeline cannot tell a part-owned attribute from any other: a part that changed the consumer's `title` here
         // would win. ADR 02 Amendments 2026-10-21 restrict the hook to part-owned attributes and documented fallbacks,
-        // which src/Blazix.Primitives/Rendering/CONTEXT.md lists as a human check.
+        // which src/Iodine.Headless/Rendering/CONTEXT.md lists as a human check.
         IRenderedComponent<FinishingPart> cut = context.Render<FinishingPart>(p => p.AddUnmatched("title", "consumer").AddUnmatched("id", "kept"));
 
         Assert.Equal("part", cut.Find("div").GetAttribute("title"));

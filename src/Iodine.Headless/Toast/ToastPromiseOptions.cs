@@ -1,4 +1,4 @@
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // TST-API-12 (ToastManagerPromiseOptions, useToastManager.ts:139-149; resolvePromiseOptions.ts:3-22): `loading` is a
 // string or update options; `success` and `error` a string, update options, or a function of the value or the error that

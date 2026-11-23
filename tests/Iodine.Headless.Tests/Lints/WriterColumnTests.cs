@@ -1,4 +1,4 @@
-namespace Blazix.Primitives.Tests.Lints;
+namespace Iodine.Headless.Tests.Lints;
 
 // The reader of the Writer column (docs/conventions.md section 3.4): every attribute table of a component document ends
 // in a Writer column holding C#, JS or C# → JS. The inputs are shaped like the tables of docs/components.

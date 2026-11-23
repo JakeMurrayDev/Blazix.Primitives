@@ -1,10 +1,10 @@
-using Blazix.Primitives.Rendering;
-using Blazix.Primitives.Tests.Components.Rendering.Conformance;
+using Iodine.Headless.Rendering;
+using Iodine.Headless.Tests.Components.Rendering.Conformance;
 using Bunit;
 using Microsoft.AspNetCore.Components;
 
 // The namespace is the project's root: a namespace named after the family would hide the part's type.
-namespace Blazix.Primitives.Tests.Components;
+namespace Iodine.Headless.Tests.Components;
 
 // ToggleGroup.test.tsx: describeConformance(<ToggleGroup />, () => ({ refInstanceof: window.HTMLDivElement })).
 // TGG-DOM-08, TGG-API-08, TGG-API-09, TGG-DOM-01, TGG-DOM-07. No `button` option, so RND-DOM-49 does not run.

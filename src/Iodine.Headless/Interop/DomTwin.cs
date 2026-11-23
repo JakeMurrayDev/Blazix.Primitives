@@ -1,6 +1,6 @@
 using Microsoft.JSInterop;
 
-namespace Blazix.Primitives.Interop;
+namespace Iodine.Headless.Interop;
 
 // ADR 04 §1 (dom row) and Amendments; ADR 01 relaxation table (AVA-EDGE-02/03, the indeterminate row).
 // The module's helpers (owner and shadow DOM, measurement, observers, platform flags) are imported by other modules;
@@ -11,7 +11,7 @@ namespace Blazix.Primitives.Interop;
 /// </summary>
 /// <param name="jsRuntime">The runtime of the part's circuit or WebAssembly application.</param>
 internal sealed class DomTwin(IJSRuntime jsRuntime)
-    : TwinBase<DomTwin, DomOptions>(jsRuntime, LibraryModule("dom"), BlazixJsonContext.Default.DomOptions)
+    : TwinBase<DomTwin, DomOptions>(jsRuntime, LibraryModule("dom"), IodineJsonContext.Default.DomOptions)
 {
     /// <summary>Occurs when the status of the image in <see cref="DomOptions.Image"/> changes.</summary>
     /// <remarks>
@@ -26,7 +26,7 @@ internal sealed class DomTwin(IJSRuntime jsRuntime)
     [JSInvokable]
     public void OnImageStatus(string payloadJson)
     {
-        ImageStatusChange change = Deserialize(payloadJson, BlazixJsonContext.Default.ImageStatusChange);
+        ImageStatusChange change = Deserialize(payloadJson, IodineJsonContext.Default.ImageStatusChange);
         ImageStatusChanged?.Invoke(change.Status);
     }
 

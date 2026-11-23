@@ -1,4 +1,4 @@
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // TGG §4's value-rule table; toggle-group/ToggleGroup.tsx:61-71 (setGroupValue). TGG-STA-03: single-select gives
 // [identity] or [], so the last pressed toggle may be deselected (toggle-group §16 Q1, chosen by the user 2026-10-26: mirror

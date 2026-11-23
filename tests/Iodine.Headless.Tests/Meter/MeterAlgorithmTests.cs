@@ -1,8 +1,8 @@
 using System.Globalization;
-using Blazix.Primitives.Utilities;
+using Iodine.Headless.Utilities;
 
 // Family tests use the project's root namespace.
-namespace Blazix.Primitives.Tests;
+namespace Iodine.Headless.Tests;
 
 // meter/root/MeterRoot.test.tsx and meter/indicator/MeterIndicator.test.tsx, the clauses MTR-ALG-01 and MTR-ALG-02 cite at L1:
 // the pure computation behind aria-valuenow, the formatted text and the indicator width. The titles are Base UI's; the

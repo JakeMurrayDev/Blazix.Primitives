@@ -1,4 +1,4 @@
-@namespace Blazix.Primitives.Tests.Components
+@namespace Iodine.Headless.Tests.Components
 @* The ContextMenu trees of the L2 ports, by `Case`:
    - `tree` (the default): a Root (`DefaultOpen`, `Disabled`), a Trigger with `TriggerAttributes`, an optional consumer
      Backdrop, then Portal > Positioner (`PositionerAttributes`) > Popup with an item, a Menu item, a separator, a group,
@@ -18,7 +18,7 @@
         </ContextMenuRoot>
         break;
     case "separator-alone":
-        <ContextMenuSeparator data-testid="separator" Orientation="Blazix.Primitives.Orientation.Vertical" />
+        <ContextMenuSeparator data-testid="separator" Orientation="Iodine.Headless.Orientation.Vertical" />
         break;
     case "nested":
         <ContextMenuRoot OnOpenChange="RecordOpenChange">

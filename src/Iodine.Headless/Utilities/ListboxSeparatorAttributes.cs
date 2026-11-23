@@ -1,6 +1,6 @@
-using Blazix.Primitives.Rendering;
+using Iodine.Headless.Rendering;
 
-namespace Blazix.Primitives.Utilities;
+namespace Iodine.Headless.Utilities;
 
 // RND-STR-11, RND-API-13, RND-DOM-53, RND-ARIA-02 (utils/listbox-separator/ListboxSeparator.tsx): the attributes the
 // separators of Select, Combobox and Autocomplete render. One static helper their AddPartAttributes call, the

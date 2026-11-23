@@ -1,9 +1,9 @@
-using Blazix.Primitives.Interop;
+using Iodine.Headless.Interop;
 using Microsoft.AspNetCore.Components;
 
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
-// The list a family's Root cascades with `IsFixed` (ADR 16 rule 9, BLZX2001): its handles (composite roots in list mode,
+// The list a family's Root cascades with `IsFixed` (ADR 16 rule 9, IOD2001): its handles (composite roots in list mode,
 // M5 track 1) build their options from it and route their reports into it (ADR 04 Amendments 2026-11-03 (1)).
 /// <summary>The cascaded list of one popup: the options its handles send and the receiver of their reports.</summary>
 internal sealed class ListNavigationContext

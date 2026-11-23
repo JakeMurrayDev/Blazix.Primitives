@@ -1,4 +1,4 @@
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // CMP-STR-06's element roles as the list handles carry them (M5 track 1, issue 159; ADR 04 Amendments 2026-11-03 (1),
 // chosen by the user; design point 1 (a)); the item role is the item's registration.

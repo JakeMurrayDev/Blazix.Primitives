@@ -1,8 +1,8 @@
-using Blazix.Primitives.Interop;
+using Iodine.Headless.Interop;
 using Microsoft.AspNetCore.Components;
 using Microsoft.JSInterop;
 
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // ADR 04 Amendments 2026-11-18 (the `scroll-area` scope cell) with design point 6 (a) of the ScrollArea track: each part
 // owns one handle of the `scroll-area` module on its element, given the root element as its one reference. The handover

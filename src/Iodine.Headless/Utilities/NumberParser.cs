@@ -1,7 +1,7 @@
 using System.Globalization;
 using System.Text;
 
-namespace Blazix.Primitives.Utilities;
+namespace Iodine.Headless.Utilities;
 
 // NUM-I18N-02..12 (number-field/utils/parse.ts): Base UI's parseNumber step for step, with ECMAScript's character classes
 // written out (sheet D contradiction 12): `\s` and String.prototype.trim are ECMAScript's WhiteSpace and LineTerminator, never

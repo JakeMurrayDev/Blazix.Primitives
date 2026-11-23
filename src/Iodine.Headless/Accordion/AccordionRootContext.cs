@@ -1,7 +1,7 @@
 using Microsoft.AspNetCore.Components;
 using Microsoft.Extensions.Logging;
 
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // Base UI's AccordionRootContext (accordion/root/AccordionRootContext.ts): the Root-level settings every Item and Panel reads
 // (ACC-API-05..07, ACC-API-11/16/17) and the value with its request (ACC-STA-04..07, ACC-EVT-03/04/09). A plain listener list

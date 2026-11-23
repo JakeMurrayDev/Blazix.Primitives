@@ -1,9 +1,9 @@
 using System.Globalization;
 using System.Text.Json;
-using Blazix.Primitives.Tests.TestSupport;
-using Blazix.Primitives.Utilities;
+using Iodine.Headless.Tests.TestSupport;
+using Iodine.Headless.Utilities;
 
-namespace Blazix.Primitives.Tests.ListValues;
+namespace Iodine.Headless.Tests.ListValues;
 
 // UTL-I18N-08..12, UTL-ALG-05 (internals/filter.ts; chosen by the user 2026-11-03, plan decision 10 (a)): the collator filter
 // over CompareInfo, with Base UI's window of query.Length UTF-16 code units. filter.test.ts's three titles, the cache titles
@@ -95,5 +95,5 @@ public sealed class CollatorFilterTests
         return data;
     }
 
-    private static string TablePath() => Path.Combine(RepositoryRoot.Find(), "tests", "Blazix.Primitives.Tests", "ListValues", "Data", "collation-table.json");
+    private static string TablePath() => Path.Combine(RepositoryRoot.Find(), "tests", "Iodine.Headless.Tests", "ListValues", "Data", "collation-table.json");
 }

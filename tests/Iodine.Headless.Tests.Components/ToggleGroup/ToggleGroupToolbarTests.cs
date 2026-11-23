@@ -3,11 +3,11 @@ using AngleSharp.Dom;
 using Bunit;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Web;
-using LibraryOrientation = Blazix.Primitives.Orientation;
+using LibraryOrientation = Iodine.Headless.Orientation;
 
 // The namespace is the project's root: a namespace named after the family would hide the parts' types. `Orientation` is
 // aliased because SampleRoot.cs declares a test-local `Orientation` in this namespace that would shadow the library's.
-namespace Blazix.Primitives.Tests.Components;
+namespace Iodine.Headless.Tests.Components;
 
 // The toolbar clauses of toggle-group.md's [L2] rows (M3 track 4): a ToggleGroup inside a ToolbarRoot is no composite root
 // of its own (TGG-STR-02, TLB-STR-04). The browser halves are in tests/browser/toggle-group.spec.ts and toolbar.spec.ts.

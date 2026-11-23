@@ -1,9 +1,9 @@
 using System.Collections;
 
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // FRM-API-02, FFI-API-04 (ADR 08 Amendments 2026-10-22: a FormErrors value is a string or an array of strings). A class,
-// not a struct, so reading it as IReadOnlyList<string> never boxes (BLZX2005).
+// not a struct, so reading it as IReadOnlyList<string> never boxes (IOD2005).
 /// <summary>
 /// Represents the error messages of one field in <see cref="FormErrors"/>: one message, several, or none. A
 /// <see langword="string"/> or a <see langword="string"/> array converts to it implicitly.

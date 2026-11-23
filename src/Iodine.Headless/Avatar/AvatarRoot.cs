@@ -1,12 +1,12 @@
-using Blazix.Primitives.Rendering;
+using Iodine.Headless.Rendering;
 using Microsoft.AspNetCore.Components;
 
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // AVA-STA-01; avatar/root/AvatarRoot.tsx:46-51. ADR 08 §3: sealed, partial, [PartState]. AVA-DOM-05: the status is never
 // projected (the mapping below).
 /// <summary>Represents the state of an avatar root, which the part passes to its class and style functions.</summary>
-/// <param name="ImageLoadingStatus">The status the avatar's image most recently reported; <see cref="Primitives.ImageLoadingStatus.Idle"/> when there is no image.</param>
+/// <param name="ImageLoadingStatus">The status the avatar's image most recently reported; <see cref="Headless.ImageLoadingStatus.Idle"/> when there is no image.</param>
 [PartState]
 public sealed partial record AvatarRootState(ImageLoadingStatus ImageLoadingStatus);
 

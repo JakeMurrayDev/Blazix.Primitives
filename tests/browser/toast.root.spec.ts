@@ -105,7 +105,7 @@ test.describe('Toast.Root', () => {
   // (`Expected: 0 / Received: 1`).
   test('resets drag state after releasing a far swipe even when the release lands on the document', {
     tag: '@quarantine',
-    annotation: { type: 'open', description: 'https://github.com/JakeMurrayDev/Blazix.Primitives/issues/318 (expires 2026-12-03)' },
+    annotation: { type: 'open', description: 'https://github.com/JakeMurrayDev/Iodine.Headless/issues/318 (expires 2026-12-03)' },
   }, async ({ page, mode }) => {
     test.fixme(true, 'Quarantined on both modes until 2026-12-03 (issue 318)');
     const fixture = await openToast(page, mode);
@@ -312,7 +312,7 @@ test.describe('Toast.Root', () => {
   test('port: a stalled transitions module holds the removal, never the measurement or the swipe', async ({ page, mode }) => {
     let release!: () => void;
     const held = new Promise<void>((resolve) => (release = resolve));
-    await page.route(/\/_content\/Blazix\.Primitives\/js\/transitions(\.[a-z0-9]+)?\.js$/, async (route) => {
+    await page.route(/\/_content\/Iodine\.Primitives\/js\/transitions(\.[a-z0-9]+)?\.js$/, async (route) => {
       await held;
       await route.continue();
     });

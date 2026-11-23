@@ -1,6 +1,6 @@
-using Blazix.Primitives.Store;
+using Iodine.Headless.Store;
 
-namespace Blazix.Primitives.Utilities;
+namespace Iodine.Headless.Utilities;
 
 // UTL-ALG-07, UTL-I18N-13 (internals/resolveValueLabel.tsx), ADR 08 Amendments 2026-11-03 (2); design point 2 of M5 track 4,
 // settled by the orchestrator 2026-11-04: the input is the internal LabeledItems<TValue> view the families adapt their

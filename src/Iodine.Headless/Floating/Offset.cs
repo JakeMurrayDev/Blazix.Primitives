@@ -1,4 +1,4 @@
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // ADR 08 Amendments 2026-10-27 (the offset union and its record, "its fields are track 2's"); the fields settled by the
 // orchestrator 2026-10-27 as the positioning track's design point 2. Base UI's `OffsetFunction` receives `{ side, align,

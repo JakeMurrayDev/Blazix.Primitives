@@ -332,7 +332,7 @@ export function resetScrollLockForTest(): void {
   locker = new ScrollLocker();
 }
 
-const attachedHandle = Symbol('blazix.scroll-lock.handle');
+const attachedHandle = Symbol('iodine.scroll-lock.handle');
 
 interface AttachedElement extends HTMLElement {
   [attachedHandle]?: TwinHandle;

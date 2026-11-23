@@ -1,4 +1,4 @@
-namespace Blazix.Primitives.Interop;
+namespace Iodine.Headless.Interop;
 
 /// <summary>
 /// The base of every twin options record. A twin serializes its options record to JSON and hands it to the

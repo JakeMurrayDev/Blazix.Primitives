@@ -1,7 +1,7 @@
 using System.Globalization;
 
 // Family tests use the project's root namespace (a test namespace is never named like a part).
-namespace Blazix.Primitives.Tests;
+namespace Iodine.Headless.Tests;
 
 /// <summary>
 /// L1: the C# filter of a filterable menu (MNU §4.4; M5 track 12), Base UI's FilterDropdownRoot rules

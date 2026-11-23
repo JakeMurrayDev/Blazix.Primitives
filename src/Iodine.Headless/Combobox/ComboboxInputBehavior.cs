@@ -1,11 +1,11 @@
-using Blazix.Primitives.Interop;
-using Blazix.Primitives.Rendering;
-using Blazix.Primitives.Store;
+using Iodine.Headless.Interop;
+using Iodine.Headless.Rendering;
+using Iodine.Headless.Store;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Rendering;
 using Microsoft.AspNetCore.Components.Web;
 
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // combobox/input/ComboboxInput.tsx (CMB §3.7, §5.1, §6.1): the text control. Its handles on its own element:
 // - `interactions` trigger role, Click { Event = "mousedown-only", Toggle = false, TouchOpenDelay = inside ? 0 : 100,
@@ -105,7 +105,7 @@ internal sealed class ComboboxInputBehavior : IAsyncDisposable
     }
 
     /// <summary>Gets the root's store.</summary>
-    public ComboboxStore Store => store ?? throw new InvalidOperationException($"Blazix: `{services.Family}Input` is used before its first render.");
+    public ComboboxStore Store => store ?? throw new InvalidOperationException($"Iodine: `{services.Family}Input` is used before its first render.");
 
     /// <summary>Gets a value indicating whether the input renders inside the popup.</summary>
     public bool InsidePopup => insidePopup;

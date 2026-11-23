@@ -1,9 +1,9 @@
-using Blazix.Primitives.Store;
-using Blazix.Primitives.Utilities;
+using Iodine.Headless.Store;
+using Iodine.Headless.Utilities;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Rendering;
 
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // SEL-STR-01, SEL-DOM-47..53 (select/root/SelectRoot.tsx:486-586): the form-participation input after the root's
 // children, then one `<input type="hidden">` per value of a named multiple select. A child component of the root, so a

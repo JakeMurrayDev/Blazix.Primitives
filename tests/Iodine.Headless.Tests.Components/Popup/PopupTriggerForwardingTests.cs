@@ -1,7 +1,7 @@
 using Bunit;
 using Microsoft.AspNetCore.Components;
 
-namespace Blazix.Primitives.Tests.Components;
+namespace Iodine.Headless.Tests.Components;
 
 /// <summary>
 /// PSH-STA-28/30 (useTriggerDataForwarding, popupStoreUtils.ts:339-394): a trigger writes its forwarded state whenever it

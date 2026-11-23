@@ -1,7 +1,7 @@
-using Blazix.Primitives.Rendering;
+using Iodine.Headless.Rendering;
 using Microsoft.Extensions.DependencyInjection;
 
-namespace Blazix.Primitives.Tests.Rendering;
+namespace Iodine.Headless.Tests.Rendering;
 
 /// <summary>The generated ids (RND-ALG-11, RND-DOM-27, RND-DOM-31; ADR 02 decision 5), with the [L1] titles of <c>packages/utils/src/useId.test.tsx</c>.</summary>
 public sealed class PartIdGeneratorTests
@@ -58,12 +58,12 @@ public sealed class PartIdGeneratorTests
         Assert.Equal("base-ui-1", second.Next());
     }
 
-    [Fact(DisplayName = "AddBlazixPrimitives registers the generator per scope")]
+    [Fact(DisplayName = "AddIodineHeadless registers the generator per scope")]
     [Trait("Requirement", "RND-DOM-29")]
-    public void AddBlazixPrimitives_registers_the_generator_per_scope()
+    public void AddIodineHeadless_registers_the_generator_per_scope()
     {
         ServiceCollection services = new();
-        services.AddBlazixPrimitives();
+        services.AddIodineHeadless();
         using ServiceProvider provider = services.BuildServiceProvider();
 
         using IServiceScope scopeA = provider.CreateScope();

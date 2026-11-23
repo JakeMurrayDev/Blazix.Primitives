@@ -1,7 +1,7 @@
-using Blazix.Primitives.Rendering;
+using Iodine.Headless.Rendering;
 using Microsoft.AspNetCore.Components;
 
-namespace Blazix.Primitives.Fixtures.Client.FloatingFixtures;
+namespace Iodine.Headless.Fixtures.Client.FloatingFixtures;
 
 /// <summary>
 /// A test-only arrow for the <c>positioning-*</c> fixtures, the counterpart of <c>TestPositionerArrow</c>: a <c>div</c>

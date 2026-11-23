@@ -1,6 +1,6 @@
 using Microsoft.Extensions.Logging;
 
-namespace Blazix.Primitives.Fixtures.Client.Harness;
+namespace Iodine.Headless.Fixtures.Client.Harness;
 
 /// <summary>
 /// Captures log entries of <see cref="LogLevel.Information"/> and above into the session that is rendering, so a

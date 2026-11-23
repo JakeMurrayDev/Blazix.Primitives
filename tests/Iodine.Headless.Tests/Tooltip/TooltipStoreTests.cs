@@ -1,9 +1,9 @@
 using System.Reflection;
-using Blazix.Primitives.Interop;
+using Iodine.Headless.Interop;
 using Microsoft.AspNetCore.Components;
 
 // Family tests use the project's root namespace.
-namespace Blazix.Primitives.Tests;
+namespace Iodine.Headless.Tests;
 
 /// <summary>
 /// The tooltip store at L1 (tooltip/store/TooltipStore.ts; TIP §4.1): its initial values (TIP-STA-01), the instant type of

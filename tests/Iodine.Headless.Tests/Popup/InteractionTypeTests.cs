@@ -1,5 +1,5 @@
 // Family tests use the project's root namespace.
-namespace Blazix.Primitives.Tests;
+namespace Iodine.Headless.Tests;
 
 /// <summary>
 /// <see cref="InteractionType"/> at L1: Base UI's <c>'mouse' | 'touch' | 'pen' | 'keyboard' | ''</c> (PSH §2, the open

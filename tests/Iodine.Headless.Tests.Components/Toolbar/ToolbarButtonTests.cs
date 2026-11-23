@@ -1,14 +1,14 @@
 using AngleSharp.Dom;
-using Blazix.Primitives.Rendering;
+using Iodine.Headless.Rendering;
 using Bunit;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Rendering;
 using Microsoft.AspNetCore.Components.Web;
-using LibraryOrientation = Blazix.Primitives.Orientation;
+using LibraryOrientation = Iodine.Headless.Orientation;
 
 // The namespace is the project's root: a namespace named after the family would hide the parts' types. `Orientation` is
 // aliased because SampleRoot.cs declares a test-local `Orientation` in this namespace that would shadow the library's.
-namespace Blazix.Primitives.Tests.Components;
+namespace Iodine.Headless.Tests.Components;
 
 // ToolbarButton.test.tsx's [L2] titles verbatim and port titles (marked as such) for the button's element, its two
 // behaviours and the disabled cascade. The browser halves (keyboard activation, hover, the substituted parts' blocks) are
@@ -17,7 +17,7 @@ namespace Blazix.Primitives.Tests.Components;
 public sealed class ToolbarButtonTests : IDisposable
 {
     private const string MismatchMessage =
-        "Blazix: A component that acts as a button expected a native `<button>` because the `NativeButton` parameter is `true`.";
+        "Iodine: A component that acts as a button expected a native `<button>` because the `NativeButton` parameter is `true`.";
 
     private readonly ToolbarTestContext test = new();
 

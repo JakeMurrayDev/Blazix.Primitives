@@ -1,7 +1,7 @@
 using Bunit;
 
 // Family tests use the project's root namespace.
-namespace Blazix.Primitives.Tests.Components;
+namespace Iodine.Headless.Tests.Components;
 
 // ComboboxRoot.test.tsx's `initial input value derivation` titles cited at L2 that ComboboxRootTests does not hold. The
 // input's text is the store's (the module writes the DOM value). Base UI's `{ value, label }` items label through their

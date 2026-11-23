@@ -1,4 +1,4 @@
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // TIP-API-11, TIP-POS-03; ADR 08 Amendments 2026-10-27 (chosen by the user 2026-10-27).
 /// <summary>Specifies the axes along which a tooltip follows the pointer instead of its trigger.</summary>

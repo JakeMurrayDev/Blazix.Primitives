@@ -1,9 +1,9 @@
-using Blazix.Primitives.Interop;
-using Blazix.Primitives.Store;
+using Iodine.Headless.Interop;
+using Iodine.Headless.Store;
 using Microsoft.AspNetCore.Components;
 using Microsoft.Extensions.Logging;
 
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // FLT-STR-11, the port's standalone root store (useFloatingRootContext.ts:24-77, FloatingRootStore.ts:106-135), extracted
 // from PopupStore (ADR 05 Amendments 2026-11-03, chosen by the user 2026-11-03; M5 track 2 design point 1, shape (a2),

@@ -1,4 +1,4 @@
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // ADR 08 Amendments 2026-10-27: AnchorValue's virtual-rect case, re-sent on change. Base UI's `VirtualElement` calls
 // `getBoundingClientRect()` on every positioning pass; the port has no function case, so a moved virtual anchor is a new

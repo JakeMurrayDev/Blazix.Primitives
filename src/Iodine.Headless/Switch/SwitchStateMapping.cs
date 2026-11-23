@@ -1,6 +1,6 @@
-using Blazix.Primitives.Rendering;
+using Iodine.Headless.Rendering;
 
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // SWT-DOM-02, SWT-DOM-05; switch/stateAttributesMapping.ts (the field validity mapping, then checked). ADR 02 decision 4:
 // a custom mapping is hand-written. Both parts' state records have the same nine fields, so one projection serves both:

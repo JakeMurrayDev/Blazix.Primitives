@@ -1,10 +1,10 @@
 using System.Linq.Expressions;
-using Blazix.Primitives.Interop;
+using Iodine.Headless.Interop;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Forms;
 using Microsoft.JSInterop;
 
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // The field half of a control whose value is a hidden checkbox input's `checked` (Checkbox now; Switch's follow-up and
 // Radio reuse it; design point C5 of M2 track 5, settled by the orchestrator 2026-10-23): FFI §8 as checkbox §8 states it
@@ -35,10 +35,10 @@ internal sealed class CheckableFieldBehavior : IDisposable
     // A bool boxes into the registration and the validation arguments (FieldControlRegistration.Value and
     // FieldValidationArguments.Value are `object?`, ADR 05's note of 2026-10-22); one instance per value, boxed once, keeps
     // every render and commit allocation-free.
-#pragma warning disable BLZX2005 // The two values are boxed once, at type initialization.
+#pragma warning disable IOD2005 // The two values are boxed once, at type initialization.
     private static readonly object s_true = true;
     private static readonly object s_false = false;
-#pragma warning restore BLZX2005
+#pragma warning restore IOD2005
 
     private readonly Action stateHasChanged;
     private readonly Func<Exception, Task> dispatchException;

@@ -2,10 +2,10 @@ using System.Linq.Expressions;
 using Bunit;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Forms;
-using static Blazix.Primitives.Tests.Components.RadioGroupFieldHost;
+using static Iodine.Headless.Tests.Components.RadioGroupFieldHost;
 
 // The namespace is the project's root: a namespace named after the family would hide the parts' types.
-namespace Blazix.Primitives.Tests.Components;
+namespace Iodine.Headless.Tests.Components;
 
 // Verification item 5 of ADR 05 (Amendments 2026-10-22, issue 76) for RadioGroup at L2, through track 1's
 // EditContextParticipation: ValueExpression with a cascaded EditContext notifies the context of every committed change,

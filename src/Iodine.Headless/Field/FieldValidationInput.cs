@@ -1,6 +1,6 @@
-using Blazix.Primitives.Interop;
+using Iodine.Headless.Interop;
 
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // FFI §2 (validation input(s)): `validation.inputRef` for a control with one native input, `registeredInputs` for a group
 // (tracks 6 and 8). The browser's ValidityState is the form module's: the input holds the state its last report carried

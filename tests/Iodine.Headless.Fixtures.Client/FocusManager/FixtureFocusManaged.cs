@@ -1,10 +1,10 @@
-using Blazix.Primitives.Interop;
-using Blazix.Primitives.Rendering;
+using Iodine.Headless.Interop;
+using Iodine.Headless.Rendering;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Rendering;
 using Microsoft.JSInterop;
 
-namespace Blazix.Primitives.Fixtures.Client.FocusManagerFixtures;
+namespace Iodine.Headless.Fixtures.Client.FocusManagerFixtures;
 
 /// <summary>
 /// A test-only focus-managed popup for the <c>focus-manager-*</c> fixtures (tests/browser/focus-manager.spec.ts): a

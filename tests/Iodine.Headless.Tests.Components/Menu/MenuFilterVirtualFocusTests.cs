@@ -2,8 +2,8 @@ using Bunit;
 using Microsoft.AspNetCore.Components;
 using Microsoft.Extensions.DependencyInjection;
 
-// Family tests use the project's root namespace (tests/Blazix.Primitives.Tests.Components/CONTEXT.md).
-namespace Blazix.Primitives.Tests.Components;
+// Family tests use the project's root namespace (tests/Iodine.Headless.Tests.Components/CONTEXT.md).
+namespace Iodine.Headless.Tests.Components;
 
 /// <summary>
 /// L2: virtual focus in a filterable menu (MNU-STA-22, KEY-22; MenuRoot.tsx:622-634; M5 track 12), over
@@ -17,8 +17,8 @@ public sealed class MenuFilterVirtualFocusTests : BunitContext
     public MenuFilterVirtualFocusTests()
     {
         JSInterop.Mode = JSRuntimeMode.Loose;
-        Services.AddBlazixPrimitives();
-        composite = JSInterop.SetupModule("./_content/Blazix.Primitives/js/composite.js");
+        Services.AddIodineHeadless();
+        composite = JSInterop.SetupModule("./_content/Iodine.Headless/js/composite.js");
         composite.SetupModule("attach", _ => true).SetupVoid("update", _ => true).SetVoidResult();
     }
 

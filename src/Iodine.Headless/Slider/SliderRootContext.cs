@@ -1,10 +1,10 @@
-using Blazix.Primitives.Interop;
-using Blazix.Primitives.Rendering;
-using Blazix.Primitives.Store;
-using Blazix.Primitives.Utilities;
+using Iodine.Headless.Interop;
+using Iodine.Headless.Rendering;
+using Iodine.Headless.Store;
+using Iodine.Headless.Utilities;
 using Microsoft.AspNetCore.Components;
 
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // SLD §11 (SliderRootContext); slider/root/SliderRootContext.ts:110-118. Cascaded fixed by SliderRoot (ADR 16 rule 9): the
 // parts read the store through their selections (design point 3 (a) of track 4), and the non-reactive registries below
@@ -84,7 +84,7 @@ internal sealed class SliderRootContext
         // SLD-EDGE-01, in every build (ADR 02 Amendments 2026-10-20); Base UI's wording with the product prefix (the M5
         // Select precedent).
         return context ?? throw new InvalidOperationException(
-            "Blazix: `SliderRootContext` is missing. Slider parts must be placed within `<SliderRoot>`.");
+            "Iodine: `SliderRootContext` is missing. Slider parts must be placed within `<SliderRoot>`.");
     }
 
     /// <summary>Adds a thumb.</summary>

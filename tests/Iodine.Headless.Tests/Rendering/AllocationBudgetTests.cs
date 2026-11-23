@@ -1,8 +1,8 @@
-using Blazix.Primitives.Rendering;
+using Iodine.Headless.Rendering;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Web;
 
-namespace Blazix.Primitives.Tests.Rendering;
+namespace Iodine.Headless.Tests.Rendering;
 
 /// <summary>
 /// ADR 16 rule 7: allocation budgets as tests. Each budget was taken from the first measurement on the machine that

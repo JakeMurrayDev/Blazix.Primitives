@@ -1,6 +1,6 @@
-using Blazix.Primitives.Rendering;
+using Iodine.Headless.Rendering;
 
-namespace Blazix.Primitives.Tests;
+namespace Iodine.Headless.Tests;
 
 // stateAttributesMapping.test.ts "fieldValidityMapping" (FFI-DOM-01, FLD-DOM-03): the names are pinned against literals,
 // as Base UI's test does, so a rename of the constants cannot pass through.

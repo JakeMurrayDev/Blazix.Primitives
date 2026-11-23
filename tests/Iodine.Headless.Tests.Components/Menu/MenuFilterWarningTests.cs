@@ -2,8 +2,8 @@ using Bunit;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 
-// Family tests use the project's root namespace (tests/Blazix.Primitives.Tests.Components/CONTEXT.md).
-namespace Blazix.Primitives.Tests.Components;
+// Family tests use the project's root namespace (tests/Iodine.Headless.Tests.Components/CONTEXT.md).
+namespace Iodine.Headless.Tests.Components;
 
 /// <summary>
 /// L2: the development warning of a filterable menu opened without its input (MNU-EDGE-05; M5 track 12), over
@@ -13,14 +13,14 @@ namespace Blazix.Primitives.Tests.Components;
 public sealed class MenuFilterWarningTests : BunitContext
 {
     private const string Message =
-        "Blazix: A filterable menu opened without a `<MenuInput>`. Render the input inside `<MenuPopup>`, or drop `<MenuFilterProvider>` for a menu that does not filter.";
+        "Iodine: A filterable menu opened without a `<MenuInput>`. Render the input inside `<MenuPopup>`, or drop `<MenuFilterProvider>` for a menu that does not filter.";
 
     private readonly CapturingLogger<MenuRoot<NoPayload>> logger = new();
 
     public MenuFilterWarningTests()
     {
         JSInterop.Mode = JSRuntimeMode.Loose;
-        Services.AddBlazixPrimitives();
+        Services.AddIodineHeadless();
         Services.AddSingleton<ILogger<MenuRoot<NoPayload>>>(logger);
     }
 

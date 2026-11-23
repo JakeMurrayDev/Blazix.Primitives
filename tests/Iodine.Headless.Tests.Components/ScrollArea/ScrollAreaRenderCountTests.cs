@@ -1,6 +1,6 @@
 using Bunit;
 
-namespace Blazix.Primitives.Tests.Components;
+namespace Iodine.Headless.Tests.Components;
 
 /// <summary>
 /// Render counts of the ScrollArea parts on the module's reports (SCR-STA-20; ADR 16 rules 8 and 9; the standing rule that

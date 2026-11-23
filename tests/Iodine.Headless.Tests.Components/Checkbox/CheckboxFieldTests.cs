@@ -1,12 +1,12 @@
 using System.Linq.Expressions;
 using AngleSharp.Dom;
-using Blazix.Primitives.Interop;
+using Iodine.Headless.Interop;
 using Bunit;
 using Microsoft.AspNetCore.Components.Forms;
 using Microsoft.AspNetCore.Components.Web;
 
 // The namespace is the project's root: a namespace named after the family would hide the parts' types.
-namespace Blazix.Primitives.Tests.Components;
+namespace Iodine.Headless.Tests.Components;
 
 // CheckboxRoot.test.tsx's "Field" block and the Field-rendering titles of its "id" and label blocks (issue 81), on a
 // standalone box. A toggle reaches C# as the button module's report; the field's native validity is the hidden input's,

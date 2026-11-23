@@ -1,6 +1,6 @@
 using Microsoft.AspNetCore.Components;
 
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // CMP §6.6 (CompositeListContext, the registry a root-less CompositeList provides); M3 track 1, E1 (ADR 04 Amendments
 // 2026-10-26, chosen by the user). A context of its own, separate from CompositeRootContext, as Base UI keeps the list
@@ -9,7 +9,7 @@ namespace Blazix.Primitives;
 // settled by the orchestrator 2026-10-26). Base UI registers with the nearest CompositeList, and a CompositeRoot is one
 // too, so a composite item inside a list inside a root registers with the list, and a list item inside a root inside a
 // list with the root's list; neither untested quirk is replicated here (design point 6b, chosen by the user 2026-10-27
-// under ADR 04 Amendments 2026-10-18). Cascaded fixed inside the list's element (ADR 16 rule 9, BLZX2001).
+// under ADR 04 Amendments 2026-10-18). Cascaded fixed inside the list's element (ADR 16 rule 9, IOD2001).
 /// <summary>The registry a registration-only list shares with the items rendered inside it.</summary>
 internal sealed class CompositeListContext
 {

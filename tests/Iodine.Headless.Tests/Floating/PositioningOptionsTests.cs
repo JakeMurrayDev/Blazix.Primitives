@@ -1,6 +1,6 @@
-using Blazix.Primitives.Interop;
+using Iodine.Headless.Interop;
 
-namespace Blazix.Primitives.Tests;
+namespace Iodine.Headless.Tests;
 
 /// <summary>
 /// L1: the options record of the <c>positioning</c> module compares by value (ADR 04 and ADR 16 Amendments 2026-10-27), so

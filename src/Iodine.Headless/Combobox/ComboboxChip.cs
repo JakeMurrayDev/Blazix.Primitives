@@ -1,9 +1,9 @@
-using Blazix.Primitives.Rendering;
+using Iodine.Headless.Rendering;
 using Microsoft.AspNetCore.Components;
 using Microsoft.Extensions.Logging;
 using Microsoft.JSInterop;
 
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // CMB §3.5, STA-03 (combobox/chip/ComboboxChip.tsx).
 /// <summary>Represents the state of a combobox chip, which the part exposes as data attributes and passes to its class and style functions.</summary>

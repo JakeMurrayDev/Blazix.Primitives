@@ -1,11 +1,11 @@
-using Blazix.Primitives.Interop;
-using Blazix.Primitives.Rendering;
-using Blazix.Primitives.Store;
-using Blazix.Primitives.Utilities;
+using Iodine.Headless.Interop;
+using Iodine.Headless.Rendering;
+using Iodine.Headless.Store;
+using Iodine.Headless.Utilities;
 using Microsoft.AspNetCore.Components;
 using Microsoft.JSInterop;
 
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // Base UI's Select.List (select/list/SelectList.tsx); SEL-STR-08, SEL-DOM-31..33, SEL-ARIA-08: the listbox and the scroll
 // container while mounted (the Popup becomes presentational), `<root id>-list`, `aria-multiselectable`, `aria-readonly`,

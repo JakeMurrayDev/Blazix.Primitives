@@ -1,7 +1,7 @@
 using Bunit;
 
 // The namespace is the project's root: a namespace named after the family would hide the parts' types.
-namespace Blazix.Primitives.Tests.Components;
+namespace Iodine.Headless.Tests.Components;
 
 // RadioGroup.spec.tsx and RadioRoot.spec.tsx (RDG §3.2, RAD §3.3): RadioGroupTypeInference.razor must compile; this test
 // renders it and reads the type arguments the Razor compiler inferred.
@@ -40,7 +40,7 @@ public sealed class RadioGroupTypeTests : IDisposable
             .AddChildContent<RadioRoot<int>>(r => r.Add(x => x.Value, 1))));
 
         Assert.Equal(
-            "Blazix: A `RadioRoot` must have the `TValue` of its `RadioGroup`. Set `TValue` on the radio button, or give `Value` the group's type, for example `Value=\"(int?)1\"` in a `RadioGroup` of `int?`.",
+            "Iodine: A `RadioRoot` must have the `TValue` of its `RadioGroup`. Set `TValue` on the radio button, or give `Value` the group's type, for example `Value=\"(int?)1\"` in a `RadioGroup` of `int?`.",
             error.Message);
     }
 }

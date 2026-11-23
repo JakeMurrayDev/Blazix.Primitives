@@ -1,6 +1,6 @@
-using Blazix.Primitives.Rendering;
+using Iodine.Headless.Rendering;
 
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // OTP-STA-14, OTP-DOM-02..05; otp-field/root/OTPFieldRoot.tsx:311-324 (the field's state with the component's fields on
 // top). ADR 08 §3: one record per part; `Value` and `Length` produce no data attribute (OTP-DOM-02,

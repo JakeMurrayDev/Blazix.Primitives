@@ -1,9 +1,9 @@
-using Blazix.Primitives.Interop;
-using Blazix.Primitives.Rendering;
+using Iodine.Headless.Interop;
+using Iodine.Headless.Rendering;
 using Microsoft.AspNetCore.Components;
 using Microsoft.JSInterop;
 
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // A root-less item registry as a part uses it (CMP §6.6, CompositeList without a CompositeRoot; CMP-STR-03): TabsRoot's
 // panels (TabsRoot.tsx:346) and AccordionRoot's items (AccordionRoot.tsx:121). M3 track 1, E1 (ADR 04 Amendments

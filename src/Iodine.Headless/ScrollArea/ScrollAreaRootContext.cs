@@ -1,6 +1,6 @@
 using Microsoft.AspNetCore.Components;
 
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // SCR §2, §4.2-§4.4 (scroll-area/root/ScrollAreaRootContext.ts). A plain listener list cascaded fixed (ADR 16 rule 9; the
 // Tabs precedent): the `scroll-area` module measures, and its reports reach C# as the overflow state, which C# projects, and
@@ -64,7 +64,7 @@ internal sealed class ScrollAreaRootContext
         // SCR-EDGE-01: Base UI's wording with the product prefix and code in backticks (plan §Settled; a dated note on the
         // row), thrown in every build (ADR 02 Amendments 2026-10-20).
         return context ?? throw new InvalidOperationException(
-            "Blazix: `ScrollAreaRootContext` is missing. ScrollArea parts must be placed within `<ScrollAreaRoot>`.");
+            "Iodine: `ScrollAreaRootContext` is missing. ScrollArea parts must be placed within `<ScrollAreaRoot>`.");
     }
 
     /// <summary>Sets the root's listener, which runs before every other listener.</summary>
@@ -174,7 +174,7 @@ internal sealed class ScrollAreaViewportContext
     {
         // SCR-EDGE-02: Base UI's wording, which has no "is", with the product prefix and code in backticks.
         return context ?? throw new InvalidOperationException(
-            "Blazix: `ScrollAreaViewportContext` missing. ScrollAreaViewport parts must be placed within `<ScrollAreaViewport>`.");
+            "Iodine: `ScrollAreaViewportContext` missing. ScrollAreaViewport parts must be placed within `<ScrollAreaViewport>`.");
     }
 
     /// <summary>Gets the fragment that cascades this context to <paramref name="content"/>.</summary>
@@ -208,7 +208,7 @@ internal sealed class ScrollAreaScrollbarContext
     {
         // SCR-EDGE-03: Base UI's wording with the product prefix and code in backticks.
         return context ?? throw new InvalidOperationException(
-            "Blazix: `ScrollAreaScrollbarContext` is missing. ScrollAreaScrollbar parts must be placed within `<ScrollAreaScrollbar>`.");
+            "Iodine: `ScrollAreaScrollbarContext` is missing. ScrollAreaScrollbar parts must be placed within `<ScrollAreaScrollbar>`.");
     }
 
     /// <summary>Sets the thumb's listener, which runs when the orientation changes.</summary>

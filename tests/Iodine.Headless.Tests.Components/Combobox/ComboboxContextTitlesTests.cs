@@ -3,7 +3,7 @@ using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Rendering;
 
 // Family tests use the project's root namespace.
-namespace Blazix.Primitives.Tests.Components;
+namespace Iodine.Headless.Tests.Components;
 
 // Base UI's *Context.test.tsx titles (PR 193 delta review B1): a context hook outside its provider throws a descriptive error.
 // The port has no public hooks; the parts that read each context throw it when rendered outside the provider. Also the
@@ -24,7 +24,7 @@ public sealed class ComboboxContextTitlesTests : IDisposable
     {
         InvalidOperationException error = Assert.Throws<InvalidOperationException>(() => test.Context.Render<ComboboxInput>());
 
-        Assert.StartsWith($"Blazix: `{name}` is missing.", error.Message, StringComparison.Ordinal);
+        Assert.StartsWith($"Iodine: `{name}` is missing.", error.Message, StringComparison.Ordinal);
     }
 
     [Fact(DisplayName = "throws a descriptive error when used outside <Combobox.Item>")]
@@ -37,7 +37,7 @@ public sealed class ComboboxContextTitlesTests : IDisposable
             builder.CloseComponent();
         }));
 
-        Assert.StartsWith("Blazix: `ComboboxItemContext` is missing.", error.Message, StringComparison.Ordinal);
+        Assert.StartsWith("Iodine: `ComboboxItemContext` is missing.", error.Message, StringComparison.Ordinal);
     }
 
     [Fact(DisplayName = "throws a descriptive error when used outside <Combobox.Group>")]
@@ -50,7 +50,7 @@ public sealed class ComboboxContextTitlesTests : IDisposable
             builder.CloseComponent();
         }));
 
-        Assert.StartsWith("Blazix: `ComboboxGroupContext` is missing.", error.Message, StringComparison.Ordinal);
+        Assert.StartsWith("Iodine: `ComboboxGroupContext` is missing.", error.Message, StringComparison.Ordinal);
     }
 
     [Fact(DisplayName = "throws a descriptive error when used outside <Combobox.Portal>")]
@@ -63,7 +63,7 @@ public sealed class ComboboxContextTitlesTests : IDisposable
             builder.CloseComponent();
         }));
 
-        Assert.StartsWith("Blazix: `<ComboboxPortal>` is missing.", error.Message, StringComparison.Ordinal);
+        Assert.StartsWith("Iodine: `<ComboboxPortal>` is missing.", error.Message, StringComparison.Ordinal);
     }
 
     [Fact(DisplayName = "throws a descriptive error when a required consumer is outside the positioner")]
@@ -76,7 +76,7 @@ public sealed class ComboboxContextTitlesTests : IDisposable
             builder.CloseComponent();
         }));
 
-        Assert.Equal("Blazix: `<ComboboxPopup>` and `<ComboboxArrow>` must be used within the `<ComboboxPositioner>` component.", error.Message);
+        Assert.Equal("Iodine: `<ComboboxPopup>` and `<ComboboxArrow>` must be used within the `<ComboboxPositioner>` component.", error.Message);
     }
 
     [Fact(DisplayName = "exposes open state via data attributes mapping")]

@@ -1,8 +1,8 @@
-using Blazix.Primitives.Rendering;
+using Iodine.Headless.Rendering;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Web;
 
-namespace Blazix.Primitives.Tests.Components;
+namespace Iodine.Headless.Tests.Components;
 
 /// <summary>The state of the test-only trigger: whether the popup is open and owned by it.</summary>
 [PartState]
@@ -72,7 +72,7 @@ public sealed class TestPopupTrigger<TPayload> : PartBase<TestPopupTriggerState>
 
     protected override void OnParametersSet()
     {
-        behavior.Apply(RootStore, Handle, Id, Element, payloadSupplied, Payload, "Blazix: `TestPopupTrigger` must be either used within a `TestPopupRoot` component or provided with a handle.");
+        behavior.Apply(RootStore, Handle, Id, Element, payloadSupplied, Payload, "Iodine: `TestPopupTrigger` must be either used within a `TestPopupRoot` component or provided with a handle.");
     }
 
     protected override Task OnAfterRenderAsync(bool firstRender) => behavior.OnAfterRenderAsync(Element);

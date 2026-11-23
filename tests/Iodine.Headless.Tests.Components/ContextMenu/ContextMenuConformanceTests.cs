@@ -1,10 +1,10 @@
-using Blazix.Primitives.Rendering;
-using Blazix.Primitives.Tests.Components.Rendering.Conformance;
+using Iodine.Headless.Rendering;
+using Iodine.Headless.Tests.Components.Rendering.Conformance;
 using Bunit;
 using Microsoft.AspNetCore.Components;
 
-// Family tests use the project's root namespace (tests/Blazix.Primitives.Tests.Components/CONTEXT.md).
-namespace Blazix.Primitives.Tests.Components;
+// Family tests use the project's root namespace (tests/Iodine.Headless.Tests.Components/CONTEXT.md).
+namespace Iodine.Headless.Tests.Components;
 
 /// <summary>CTX-STR-04, CTX-STR-08, CTX-API-06: <c>ContextMenuTrigger.test.tsx</c>'s conformance suite inside a root (describeConformance, <c>refInstanceof: HTMLDivElement</c>).</summary>
 public sealed class ContextMenuTriggerConformanceTests : PartConformanceTests<ContextMenuTrigger>

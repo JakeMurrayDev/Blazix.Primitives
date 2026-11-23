@@ -1,12 +1,12 @@
-using Blazix.Primitives.Interop;
-using Blazix.Primitives.Rendering;
-using Blazix.Primitives.Store;
+using Iodine.Headless.Interop;
+using Iodine.Headless.Rendering;
+using Iodine.Headless.Store;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Rendering;
 using Microsoft.Extensions.Logging;
 using Microsoft.JSInterop;
 
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // COL-STA-07, §3.1 state object; collapsible/root/CollapsibleRoot.tsx:43-50,75-78. ADR 08 §3: sealed, partial, [PartState].
 // TransitionStatus is a mirrored field (ADR 04 §2): the transitions module writes data-starting-style/data-ending-style.

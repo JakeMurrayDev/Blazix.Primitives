@@ -1,7 +1,7 @@
-using Blazix.Primitives.Store;
-using Blazix.Primitives.Utilities;
+using Iodine.Headless.Store;
+using Iodine.Headless.Utilities;
 
-namespace Blazix.Primitives.Tests.Radio;
+namespace Iodine.Headless.Tests.Radio;
 
 // ADR 08 Amendments 2026-10-22 (any-typed values; "does not box ... the primitives"), ADR 16 rule 7: the comparisons a radio
 // and its group make on the render path, Equality.StrictEquals<TValue>, ValueChangedObserver<TValue>.Observe and the null

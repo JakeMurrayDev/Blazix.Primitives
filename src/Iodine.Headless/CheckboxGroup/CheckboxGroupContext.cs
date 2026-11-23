@@ -1,6 +1,6 @@
 using Microsoft.AspNetCore.Components;
 
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // checkbox-group §11 (the CheckboxGroupContext a Checkbox.Root reads); checkbox-group/CheckboxGroupContext.ts. Design point
 // G1 of M2 track 6 (settled by the orchestrator 2026-10-23): a plain listener list cascaded fixed (ADR 16 rule 9), the Switch and Checkbox

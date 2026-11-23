@@ -1,8 +1,8 @@
-using Blazix.Primitives.Fixtures.Client.Harness;
-using Blazix.Primitives.Interop;
+using Iodine.Headless.Fixtures.Client.Harness;
+using Iodine.Headless.Interop;
 using Microsoft.JSInterop;
 
-namespace Blazix.Primitives.Fixtures.Client.Probe;
+namespace Iodine.Headless.Fixtures.Client.Probe;
 
 /// <summary>
 /// The harness canary's twin (issue 33, deliverable 6): the smallest twin that exercises every edge of the contract

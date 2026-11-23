@@ -1,12 +1,12 @@
-using Blazix.Primitives.Interop;
-using Blazix.Primitives.Rendering;
-using Blazix.Primitives.Store;
+using Iodine.Headless.Interop;
+using Iodine.Headless.Rendering;
+using Iodine.Headless.Store;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Web;
 using Microsoft.Extensions.Logging;
 using Microsoft.JSInterop;
 
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // COL-STA-07, §3.2 state object: the root's state, unchanged (collapsible/trigger/CollapsibleTrigger.tsx:31,50), so
 // Disabled is the root's even when the trigger's own Disabled overrides it for the button (COL-DOM-05 as corrected

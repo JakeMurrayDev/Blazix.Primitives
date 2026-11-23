@@ -1,6 +1,6 @@
-@namespace Blazix.Primitives.Fixtures.Client.CompositeFixtures
-@using Blazix.Primitives
-@using Blazix.Primitives.Fixtures.Client.PopupFixtures
+@namespace Iodine.Headless.Fixtures.Client.CompositeFixtures
+@using Iodine.Headless
+@using Iodine.Headless.Fixtures.Client.PopupFixtures
 @inherits PopupSuiteFixtureBase
 
 @*
@@ -15,7 +15,7 @@
 <FixtureContainer Name="composite-list-relay" data-attached="@(Attached ? "true" : "false")" data-sync="@Sync"
                   data-open-changes="@OpenChanges">
     <button type="button" data-sync-button data-key-control @onclick="() => Sync++" @onkeydown="OnShift(() => Sync++)">Sync</button>
-    <FixtureCompositeRoot @ref="bar" role="menubar" data-testid="menubar" Orientation="Blazix.Primitives.Orientation.Horizontal"
+    <FixtureCompositeRoot @ref="bar" role="menubar" data-testid="menubar" Orientation="Iodine.Headless.Orientation.Horizontal"
                           LoopFocus="true" EnableHomeAndEndKeys="true">
         <FixtureCompositeItem Tag="button" type="button" data-testid="file">File</FixtureCompositeItem>
         <FixtureListRoot Nested="true" ParentOrientation="horizontal" RelayTarget="@relayTarget" OnOpenChange="RecordOpenChange"

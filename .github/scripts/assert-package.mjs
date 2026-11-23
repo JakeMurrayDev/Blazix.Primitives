@@ -1,6 +1,6 @@
 // ADR 10 decision 1 and ADR 07 decision 4: asserts what the one NuGet package contains.
 //
-//   node .github/scripts/assert-package.mjs path/to/Blazix.Primitives.<version>.nupkg
+//   node .github/scripts/assert-package.mjs path/to/Iodine.Headless.<version>.nupkg
 //
 // The package must hold the licence files, the library, the generator as an analyzer asset, and the built JavaScript
 // as static web assets; the internal analyzers assembly must not be in it. The packed output that bundles the Floating UI
@@ -10,7 +10,7 @@
 // the engine into a shared chunk, which the build's inputs manifest names (`--inputs`, ADR 07 Amendments 2026-10-28). The
 // output is found by its inputs, not its text, because minification renames `computePosition`.
 //
-//   node .github/scripts/assert-package.mjs path/to/Blazix.Primitives.<version>.nupkg [--inputs blazix-js.inputs.json]
+//   node .github/scripts/assert-package.mjs path/to/Iodine.Headless.<version>.nupkg [--inputs iodine-js.inputs.json]
 import { execFileSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import { pathToFileURL } from 'node:url';
@@ -34,10 +34,10 @@ export function engineOutput(inputsByOutput) {
 const required = [
   { description: 'LICENSE', test: (entry) => entry === 'LICENSE' },
   { description: 'THIRD-PARTY-NOTICES.md', test: (entry) => entry === 'THIRD-PARTY-NOTICES.md' },
-  { description: 'the library assembly lib/net11.0/Blazix.Primitives.dll', test: (entry) => entry === 'lib/net11.0/Blazix.Primitives.dll' },
+  { description: 'the library assembly lib/net11.0/Iodine.Headless.dll', test: (entry) => entry === 'lib/net11.0/Iodine.Headless.dll' },
   {
     description: 'the generator under analyzers/dotnet/cs',
-    test: (entry) => entry === 'analyzers/dotnet/cs/Blazix.Primitives.Generators.dll',
+    test: (entry) => entry === 'analyzers/dotnet/cs/Iodine.Headless.Generators.dll',
   },
   {
     description: 'the JavaScript initializer under staticwebassets (the JavaScript build did not run, or its output was not packed)',
@@ -50,7 +50,7 @@ const required = [
 export function checkPackageEntries(entries) {
   const problems = required.filter(({ test }) => !entries.some(test)).map(({ description }) => `missing: ${description}`);
   for (const entry of entries) {
-    if (entry === 'analyzers/dotnet/cs/Blazix.Primitives.Analyzers.dll') {
+    if (entry === 'analyzers/dotnet/cs/Iodine.Headless.Analyzers.dll') {
       problems.push(`unexpected: ${entry} (the analyzers project is never packed)`);
     }
   }
@@ -92,7 +92,7 @@ export function checkEngineBanner(source, versions, entry = engineEntry) {
 
 function main() {
   const path = process.argv[2];
-  if (!path) throw new Error('usage: assert-package.mjs <package.nupkg> [--inputs <blazix-js.inputs.json>]');
+  if (!path) throw new Error('usage: assert-package.mjs <package.nupkg> [--inputs <iodine-js.inputs.json>]');
   const inputsFlag = process.argv.indexOf('--inputs');
   const inputs = inputsFlag > 0 ? JSON.parse(readFileSync(process.argv[inputsFlag + 1], 'utf8')) : null;
   const engine = inputs === null ? engineEntry : (engineOutput(inputs) ?? engineEntry);

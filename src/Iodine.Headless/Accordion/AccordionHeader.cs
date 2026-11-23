@@ -1,7 +1,7 @@
-using Blazix.Primitives.Rendering;
+using Iodine.Headless.Rendering;
 using Microsoft.AspNetCore.Components;
 
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // ACC-STA-02: the item's state, unchanged (accordion/header/AccordionHeader.tsx:21,33), in the header's own record (ADR 08 §3).
 /// <summary>Represents the state of an accordion header, which the part exposes as data attributes and passes to its class and style functions.</summary>

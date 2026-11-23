@@ -1,6 +1,6 @@
 using Microsoft.AspNetCore.Components;
 
-namespace Blazix.Primitives.Tests.Components;
+namespace Iodine.Headless.Tests.Components;
 
 // A descendant that adds its toasts through the cascaded manager from the parameter set that activates it: the port's
 // form of ToastProvider.test.tsx's AddToastInLayoutEffect (a descendant's post-commit work).

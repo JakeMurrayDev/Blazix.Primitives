@@ -1,11 +1,11 @@
-using Blazix.Primitives.Interop;
-using Blazix.Primitives.Rendering;
+using Iodine.Headless.Interop;
+using Iodine.Headless.Rendering;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Rendering;
 using Microsoft.AspNetCore.Components.Web;
 using Microsoft.JSInterop;
 
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // AVA-STA-02, AVA-STA-07; avatar/image/AvatarImage.tsx:182-187. ADR 04 §2: the transition status is a mirrored field
 // (JS writes data-starting-style / data-ending-style); AVA-DOM-05: the loading status is never projected.
@@ -13,7 +13,7 @@ namespace Blazix.Primitives;
 /// <param name="ImageLoadingStatus">The image's own loading status.</param>
 /// <param name="TransitionStatus">
 /// The phase of the image's enter or exit transition, or <see langword="null"/> when it is not transitioning; never
-/// <see cref="Primitives.TransitionStatus.Ending"/> while the image is kept mounted.
+/// <see cref="Headless.TransitionStatus.Ending"/> while the image is kept mounted.
 /// </param>
 [PartState]
 public sealed partial record AvatarImageState(ImageLoadingStatus ImageLoadingStatus, [property: MirroredField] TransitionStatus? TransitionStatus);
@@ -323,7 +323,7 @@ public sealed class AvatarImage : PartBase<AvatarImageState>
         "loading" => ImageLoadingStatus.Loading,
         "loaded" => ImageLoadingStatus.Loaded,
         "error" => ImageLoadingStatus.Error,
-        _ => throw new ArgumentOutOfRangeException(nameof(literal), literal, "Blazix: an image loading status must be `loading`, `loaded` or `error`."),
+        _ => throw new ArgumentOutOfRangeException(nameof(literal), literal, "Iodine: an image loading status must be `loading`, `loaded` or `error`."),
     };
 
     private bool ConsumerHidesImage()

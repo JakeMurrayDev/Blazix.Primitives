@@ -1,9 +1,9 @@
-using Blazix.Primitives.Rendering;
+using Iodine.Headless.Rendering;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Rendering;
 using Microsoft.JSInterop;
 
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // MNU §3.7 state object (menu/viewport/MenuViewport.tsx; Popover's popupViewportStateMapping). ActivationDirection and
 // Transitioning are the `popup` module's report (Interop/PopupPayloads.cs:8): mirrored.

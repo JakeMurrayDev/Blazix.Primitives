@@ -1,6 +1,6 @@
 using System.Globalization;
 
-namespace Blazix.Primitives.Utilities;
+namespace Iodine.Headless.Utilities;
 
 // UTL-I18N-08..12, UTL-ALG-05 (internals/filter.ts; chosen by the user 2026-11-03, plan decision 10 (a)): Base UI's
 // Intl.Collator(locale, { usage: 'search', sensitivity: 'base', ignorePunctuation: true }) is CompareInfo.Compare with

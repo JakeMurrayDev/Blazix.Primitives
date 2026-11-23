@@ -1,12 +1,12 @@
 using System.Globalization;
-using Blazix.Primitives.Interop;
-using Blazix.Primitives.Rendering;
-using Blazix.Primitives.Store;
+using Iodine.Headless.Interop;
+using Iodine.Headless.Rendering;
+using Iodine.Headless.Store;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Rendering;
 using Microsoft.JSInterop;
 
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // TST §3.4 state object (toast/root/ToastRoot.tsx:497-504); TST-STA-26. Three fields are mirrored: the `transitions`
 // module writes data-starting-style and data-ending-style from the transition status, and the `toast` module writes
@@ -126,7 +126,7 @@ public sealed class ToastRoot<TData> : PartBase<ToastRootState>
     private StoreSelection<ToastStoreState<TData>, bool>? focused;
     private RootView rendered;
     private RootView view;
-    private static readonly IReadOnlyList<SwipeDirection> s_defaultSwipeDirections = [Primitives.SwipeDirection.Down, Primitives.SwipeDirection.Right];
+    private static readonly IReadOnlyList<SwipeDirection> s_defaultSwipeDirections = [Headless.SwipeDirection.Down, Headless.SwipeDirection.Right];
     private static readonly IReadOnlyList<SwipeDirection> s_noSwipeDirections = [];
 
     private ToastRootState state = new(null, false, false, null, false, null);

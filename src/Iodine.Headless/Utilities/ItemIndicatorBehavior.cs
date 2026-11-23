@@ -1,9 +1,9 @@
-using Blazix.Primitives.Interop;
-using Blazix.Primitives.Rendering;
+using Iodine.Headless.Interop;
+using Iodine.Headless.Rendering;
 using Microsoft.AspNetCore.Components;
 using Microsoft.JSInterop;
 
-namespace Blazix.Primitives.Utilities;
+namespace Iodine.Headless.Utilities;
 
 // RND-STR-10, RND-API-12, RND-DOM-50..52, RND-ARIA-01, RND-ANI-01..03 (utils/ItemIndicator.tsx): the behaviour behind
 // Select.ItemIndicator and Combobox.ItemIndicator, composed by their sealed shells (design point 1 of M5 track 4, settled by
@@ -117,7 +117,7 @@ internal sealed class ItemIndicatorBehavior
         attributes.Set("aria-hidden", "true");
 
         // The handover value of an element created selected (RND-ANI-02): the module owns the attribute from attach on.
-        if (renderedStatus == Blazix.Primitives.TransitionStatus.Starting)
+        if (renderedStatus == Iodine.Headless.TransitionStatus.Starting)
         {
             attributes.Set(ItemIndicatorDataAttributes.StartingStyle, string.Empty);
         }

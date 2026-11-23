@@ -774,7 +774,7 @@ export const FOCUS_OUT_CLOSE_REPORT = 'OnFocusOutClose';
 export const INTERACTION_TYPE_REPORT = 'OnInteractionTypeChange';
 
 // A symbol on the element, not a module registry: a repeated attach of the same element returns the live handle.
-const attachedHandle = Symbol('blazix.focus-manager.handle');
+const attachedHandle = Symbol('iodine.focus-manager.handle');
 
 interface AttachedElement extends HTMLElement {
   [attachedHandle]?: TwinHandle;
@@ -783,7 +783,7 @@ interface AttachedElement extends HTMLElement {
 // The `portal` module publishes its state on its node under this key and the focus manager fills its slot (design
 // point 3 of the focus-manager track, settled by the orchestrator 2026-10-27): the two modules import nothing from each
 // other, so the shapes are declared on both sides.
-const PORTAL_STATE = Symbol.for('blazix.portal');
+const PORTAL_STATE = Symbol.for('iodine.portal');
 
 /** What the manager publishes to the portal it is rendered inside (Base UI's `FocusManagerState`). */
 interface PortalFocusPublication {

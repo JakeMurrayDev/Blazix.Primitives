@@ -1,6 +1,6 @@
 using Microsoft.AspNetCore.Components;
 
-namespace Blazix.Primitives.Fixtures.Client.OtpFieldFixtures;
+namespace Iodine.Headless.Fixtures.Client.OtpFieldFixtures;
 
 /// <summary>
 /// The base of the OtpField fixtures (tests/browser/otp-field*.spec.ts): the readiness marker once every root's

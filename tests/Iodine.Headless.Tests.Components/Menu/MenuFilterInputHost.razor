@@ -1,4 +1,4 @@
-@namespace Blazix.Primitives.Tests.Components
+@namespace Iodine.Headless.Tests.Components
 @* MenuFilterRoot.test.tsx's trees for the input's own element (MNU-API-59, DOM-21): an open filterable menu whose popup
    holds a label, the input and a list. `ListId` is the list's id, `Disabled` disables the root, `InputDisabled` the input, `DefaultQuery` seeds the
    provider, `OnValueChange` receives its query requests (`RenderOnChange` makes this host the receiver instead, so each
@@ -63,7 +63,7 @@
     public bool KeepMounted { get; set; }
 
     [Parameter]
-    public Blazix.Primitives.Orientation Orientation { get; set; } = Blazix.Primitives.Orientation.Vertical;
+    public Iodine.Headless.Orientation Orientation { get; set; } = Iodine.Headless.Orientation.Vertical;
 
     [Parameter]
     public Func<MenuInputState, string?>? InputClass { get; set; }

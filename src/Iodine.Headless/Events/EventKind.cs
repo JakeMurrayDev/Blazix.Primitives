@@ -1,6 +1,6 @@
 using System.Text.Json.Serialization;
 
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // ADR 04 §3; EVD §3.5, EVD-API-05
 /// <summary>

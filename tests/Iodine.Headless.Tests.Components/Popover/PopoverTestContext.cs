@@ -1,12 +1,12 @@
 using System.Globalization;
-using Blazix.Primitives.Interop;
+using Iodine.Headless.Interop;
 using Bunit;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Rendering;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.JSInterop;
 
-namespace Blazix.Primitives.Tests.Components;
+namespace Iodine.Headless.Tests.Components;
 
 /// <summary>
 /// A bUnit context for the Popover tests: the library's services, every module loose except <c>interactions</c>, whose
@@ -16,11 +16,11 @@ namespace Blazix.Primitives.Tests.Components;
 /// </summary>
 internal sealed class PopoverTestContext : IDisposable
 {
-    public const string InteractionsPath = "./_content/Blazix.Primitives/js/interactions.js";
+    public const string InteractionsPath = "./_content/Iodine.Headless/js/interactions.js";
 
-    public const string PopupPath = "./_content/Blazix.Primitives/js/popup.js";
+    public const string PopupPath = "./_content/Iodine.Headless/js/popup.js";
 
-    public const string FocusManagerPath = "./_content/Blazix.Primitives/js/focus-manager.js";
+    public const string FocusManagerPath = "./_content/Iodine.Headless/js/focus-manager.js";
 
     private const string ClickTemplate = """
         {"kind":"PointerEvent","type":"click","key":null,"code":null,"altKey":false,"ctrlKey":false,
@@ -36,7 +36,7 @@ internal sealed class PopoverTestContext : IDisposable
 
     public PopoverTestContext()
     {
-        Context.Services.AddBlazixPrimitives();
+        Context.Services.AddIodineHeadless();
         Context.JSInterop.Mode = JSRuntimeMode.Loose;
         Interactions = Context.JSInterop.SetupModule(InteractionsPath);
         InteractionsHandle = Interactions.SetupModule("attach", _ => true);

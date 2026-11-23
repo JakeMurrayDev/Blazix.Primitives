@@ -1,6 +1,6 @@
 using Microsoft.AspNetCore.Components.Web;
 
-namespace Blazix.Primitives.Fixtures.Client.ButtonFixtures;
+namespace Iodine.Headless.Fixtures.Client.ButtonFixtures;
 
 /// <summary>
 /// The counts of one case of the Button fixtures: each consumer handler Blazor invoked, the substitute element's and an

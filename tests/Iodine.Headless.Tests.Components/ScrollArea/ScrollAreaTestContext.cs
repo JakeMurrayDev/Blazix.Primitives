@@ -1,11 +1,11 @@
 using System.Text.Json;
-using Blazix.Primitives.Interop;
+using Iodine.Headless.Interop;
 using Bunit;
 using Microsoft.AspNetCore.Components;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.JSInterop;
 
-namespace Blazix.Primitives.Tests.Components;
+namespace Iodine.Headless.Tests.Components;
 
 /// <summary>
 /// The bUnit context of the ScrollArea tests: the library's services and bUnit's JS interop mock standing in for the
@@ -15,11 +15,11 @@ namespace Blazix.Primitives.Tests.Components;
 /// </summary>
 public sealed class ScrollAreaTestContext : IDisposable
 {
-    public const string ModulePath = "./_content/Blazix.Primitives/js/scroll-area.js";
+    public const string ModulePath = "./_content/Iodine.Headless/js/scroll-area.js";
 
     public ScrollAreaTestContext()
     {
-        Context.Services.AddBlazixPrimitives();
+        Context.Services.AddIodineHeadless();
         Module = Context.JSInterop.SetupModule(ModulePath);
         Handle = Module.SetupModule("attach", _ => true);
         Handle.SetupVoid("update", _ => true).SetVoidResult();

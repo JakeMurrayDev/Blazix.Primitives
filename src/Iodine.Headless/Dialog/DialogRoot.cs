@@ -1,10 +1,10 @@
-using Blazix.Primitives.Rendering;
+using Iodine.Headless.Rendering;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Rendering;
 using Microsoft.Extensions.Logging;
 using Microsoft.JSInterop;
 
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // DLG §3.1 (dialog/root/DialogRoot.tsx), ADR 08 Amendments 2026-10-27 (the shared Root parameters; the payload type
 // parameter and issue 116's finding: generic only, ChildContent beside PayloadContent; chosen by the user 2026-10-27). It
@@ -35,7 +35,7 @@ public sealed class DialogRoot<TPayload> : ComponentBase, IAsyncDisposable
     private DialogRootBehavior<TPayload>? behavior;
 
     // Created at the first parameter set, once the services are injected.
-    private DialogRootBehavior<TPayload> Behavior => behavior ?? throw new InvalidOperationException("Blazix: `DialogRoot` is used before its first parameter set.");
+    private DialogRootBehavior<TPayload> Behavior => behavior ?? throw new InvalidOperationException("Iodine: `DialogRoot` is used before its first parameter set.");
 
     [Inject]
     private PartIdGenerator IdGenerator { get; set; } = null!;

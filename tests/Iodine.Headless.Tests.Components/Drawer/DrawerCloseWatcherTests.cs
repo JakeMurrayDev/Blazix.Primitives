@@ -1,9 +1,9 @@
-using Blazix.Primitives.Interop;
+using Iodine.Headless.Interop;
 using Bunit;
 using Microsoft.AspNetCore.Components;
 using Microsoft.JSInterop;
 
-namespace Blazix.Primitives.Tests.Components;
+namespace Iodine.Headless.Tests.Components;
 
 // M6 track 8c (issue 279): the C# half of the drawer's CloseWatcher (DRW-DIS-01, EVT-01's `close-watcher`). The watcher
 // rides the Popup's `drawer` handle (design point 1 (a) of 2026-11-18). Design point D1 (a), chosen by the user
@@ -26,7 +26,7 @@ public sealed class DrawerCloseWatcherTests : IDisposable
 
     public DrawerCloseWatcherTests()
     {
-        drawerModule = test.Context.JSInterop.SetupModule("./_content/Blazix.Primitives/js/drawer.js");
+        drawerModule = test.Context.JSInterop.SetupModule("./_content/Iodine.Headless/js/drawer.js");
         drawerHandle = drawerModule.SetupModule("attach", _ => true);
         drawerHandle.SetupVoid("update", _ => true).SetVoidResult();
         drawerHandle.SetupVoid("dispose", _ => true).SetVoidResult();

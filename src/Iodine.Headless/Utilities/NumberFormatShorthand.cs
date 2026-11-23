@@ -1,6 +1,6 @@
 using System.Globalization;
 
-namespace Blazix.Primitives.Utilities;
+namespace Iodine.Headless.Utilities;
 
 // ADR 08 Amendments 2026-11-18 (decision 10 (a), chosen by the user 2026-11-18): NumberFieldRoot.Format's implicit conversion
 // from a .NET numeric format string. The standard strings N, F, P and E with their precision (the .NET defaults: 2, and 6 for
@@ -155,6 +155,6 @@ internal static class NumberFormatShorthand
     }
 
     private static ArgumentException Unsupported(string format) => new(
-        $"Blazix: the format string `{format}` has no `NumberFormatOptions` equivalent. Use `N`, `F`, `P` or `E` with an optional precision, a pattern of `0`, `#`, `,`, `.`, `%` and `E0`, or a `NumberFormatOptions`.",
+        $"Iodine: the format string `{format}` has no `NumberFormatOptions` equivalent. Use `N`, `F`, `P` or `E` with an optional precision, a pattern of `0`, `#`, `,`, `.`, `%` and `E0`, or a `NumberFormatOptions`.",
         nameof(format));
 }

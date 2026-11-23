@@ -1,13 +1,13 @@
 using Microsoft.AspNetCore.Components.Rendering;
 
-namespace Blazix.Primitives.Utilities;
+namespace Iodine.Headless.Utilities;
 
 // UTL-DOM-32, UTL-DOM-33 (utils/styles.tsx, styleDisableScrollbar): the scrollbar-hiding stylesheet ScrollArea.Root and
 // Select.Popup emit, with the nearest CspProvider's nonce, and none under DisableStyleElements while the class stays applied.
 // Design point 5 of M5 track 4 (settled by the orchestrator 2026-11-04): each emitter renders its own inline <style>, on
 // prerender too; React 19 hoists and de-duplicates it per document (href, precedence) and Blazor does neither, a dated
 // deviation on UTL-DOM-32's de-duplication clause. The caller wraps the call in a region at its own constant sequence number
-// (BLZX2002), so the sequence numbers here are constants of the region.
+// (IOD2002), so the sequence numbers here are constants of the region.
 /// <summary>Renders the inline style that hides an element's scrollbars.</summary>
 internal static class DisableScrollbarStyle
 {

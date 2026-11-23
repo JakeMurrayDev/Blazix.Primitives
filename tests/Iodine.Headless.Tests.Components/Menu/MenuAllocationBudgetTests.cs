@@ -3,7 +3,7 @@ using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Rendering;
 using Microsoft.Extensions.DependencyInjection;
 
-namespace Blazix.Primitives.Tests.Components;
+namespace Iodine.Headless.Tests.Components;
 
 /// <summary>
 /// ADR 16 rule 7 for Menu: a re-render with unchanged parameters (the parent passing the same values again) of a closed
@@ -25,7 +25,7 @@ public sealed class MenuAllocationBudgetTests : IDisposable
     public MenuAllocationBudgetTests()
     {
         context.JSInterop.Mode = JSRuntimeMode.Loose;
-        context.Services.AddBlazixPrimitives();
+        context.Services.AddIodineHeadless();
     }
 
     /// <inheritdoc />

@@ -1,8 +1,8 @@
-using Blazix.Primitives.Interop;
-using Blazix.Primitives.Store;
+using Iodine.Headless.Interop;
+using Iodine.Headless.Store;
 using Microsoft.AspNetCore.Components;
 
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // tooltip/root/TooltipRootContext.ts:9-20 (TIP-STR-11, TIP-EDGE-02). The Root and the Trigger are generic over the payload
 // (ADR 08 Amendments 2026-10-27, issue 116's finding); the Portal, Positioner, Popup, Arrow and Viewport are not, so the Root
@@ -13,7 +13,7 @@ internal abstract class TooltipRootContext
 {
     // TIP-EDGE-02 (tooltip/root/TooltipRootContext.ts:11-19), with the port's prefix and code quoting (issue 121).
     /// <summary>The message thrown when a tooltip part is placed outside a <c>TooltipRoot</c>.</summary>
-    internal const string MissingMessage = "Blazix: `TooltipRootContext` is missing. Tooltip parts must be placed within `<TooltipRoot>`.";
+    internal const string MissingMessage = "Iodine: `TooltipRootContext` is missing. Tooltip parts must be placed within `<TooltipRoot>`.";
 
     /// <summary>Gets the session token the tooltip's browser-side behaviors share; it is never rendered.</summary>
     public abstract string SessionToken { get; }

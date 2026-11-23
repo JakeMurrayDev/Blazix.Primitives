@@ -1,15 +1,15 @@
 using System.Linq.Expressions;
-using Blazix.Primitives.Interop;
-using Blazix.Primitives.Rendering;
-using Blazix.Primitives.Store;
-using Blazix.Primitives.Utilities;
+using Iodine.Headless.Interop;
+using Iodine.Headless.Rendering;
+using Iodine.Headless.Store;
+using Iodine.Headless.Utilities;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Forms;
 using Microsoft.AspNetCore.Components.Rendering;
 using Microsoft.Extensions.Logging;
 using Microsoft.JSInterop;
 
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // Base UI's Select.Root (select/root/SelectRoot.tsx); the contract is docs/components/select.md §3.1, §4, §7, §8.
 // - An elementless ComponentBase that composes PopupLifecycleRootBehavior over SelectStore<TValue> (ADR 05 Amendments
@@ -544,7 +544,7 @@ public sealed class SelectRoot<TValue> : ComponentBase, IAsyncDisposable
 
         if (supplied > 1)
         {
-            throw new InvalidOperationException("Blazix: `SelectRoot` received more than one of `Items`, `ItemGroups` and `ItemLabels`. Supply the labels in one form.");
+            throw new InvalidOperationException("Iodine: `SelectRoot` received more than one of `Items`, `ItemGroups` and `ItemLabels`. Supply the labels in one form.");
         }
     }
 

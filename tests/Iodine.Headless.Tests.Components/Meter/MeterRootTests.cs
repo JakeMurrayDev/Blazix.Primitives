@@ -1,12 +1,12 @@
 using System.Globalization;
 using AngleSharp.Dom;
-using Blazix.Primitives.Rendering;
+using Iodine.Headless.Rendering;
 using Bunit;
 using Microsoft.AspNetCore.Components;
 using Microsoft.Extensions.DependencyInjection;
 
 // The namespace is the project's root: a namespace named after the family would hide the parts' types.
-namespace Blazix.Primitives.Tests.Components;
+namespace Iodine.Headless.Tests.Components;
 
 // MeterRoot.test.tsx, with Base UI's titles. The cultures are explicit (en-US, de-DE) wherever Base UI compares with
 // Intl.NumberFormat in the same runtime, because the port's text comes from .NET globalization (ADR 01 decision 2:
@@ -22,7 +22,7 @@ public sealed class MeterRootTests : IDisposable
 
     public MeterRootTests()
     {
-        context.Services.AddBlazixPrimitives();
+        context.Services.AddIodineHeadless();
     }
 
     /// <inheritdoc />

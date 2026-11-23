@@ -1,7 +1,7 @@
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Rendering;
 
-namespace Blazix.Primitives.Tests.Components;
+namespace Iodine.Headless.Tests.Components;
 
 /// <summary>
 /// A test-only consumer of the toolbar's context, read optionally as ToggleGroup and the popups read it: it renders the
@@ -17,7 +17,7 @@ internal sealed class OptionalToolbarConsumer : ComponentBase
     protected override void BuildRenderTree(RenderTreeBuilder builder)
     {
         builder.OpenElement(0, "span");
-        builder.AddContent(1, Toolbar is null ? "outside" : Toolbar.Orientation == Blazix.Primitives.Orientation.Vertical ? "vertical" : "horizontal");
+        builder.AddContent(1, Toolbar is null ? "outside" : Toolbar.Orientation == Iodine.Headless.Orientation.Vertical ? "vertical" : "horizontal");
         builder.CloseElement();
     }
 }

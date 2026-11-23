@@ -1,6 +1,6 @@
 using Microsoft.Extensions.Logging;
 
-namespace Blazix.Primitives.Tests.TestSupport;
+namespace Iodine.Headless.Tests.TestSupport;
 
 /// <summary>The captured logger of ADR 06 §2 "Diagnostics": records every message written to it, in order.</summary>
 public sealed class CapturingLogger : ILogger

@@ -1,7 +1,7 @@
-using Blazix.Primitives.Rendering;
+using Iodine.Headless.Rendering;
 using Microsoft.AspNetCore.Components;
 
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // UBT-ALG-07, UBT-EVT-10, UBT-PTR-20, NUM-PTR-02/03; issue 277 deliverable 3, decision 16 (a), chosen by the user 2026-11-18.
 // The press-and-hold state of one ButtonBehavior, in an object of its own so the parts without a repeater (Button, Toggle,

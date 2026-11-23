@@ -6,7 +6,7 @@ using Microsoft.JSInterop;
 // The stalling runtime below is a test double, not interop: the analyzer reads its members as JS interop calls.
 #pragma warning disable BL0016
 
-namespace Blazix.Primitives.Tests.Components;
+namespace Iodine.Headless.Tests.Components;
 
 /// <summary>
 /// The <c>[L2]</c> titles of <c>DialogPopup.test.tsx</c>: the missing root (DLG-EDGE-02), <c>keepMounted</c> (DLG-API-17,
@@ -28,7 +28,7 @@ public sealed class DialogPopupTests : IDisposable
     public void Throws_a_descriptive_error_when_rendered_outside_the_root()
     {
         InvalidOperationException error = Assert.Throws<InvalidOperationException>(() => test.Context.Render<DialogPopup>());
-        Assert.Equal("Blazix: The `DialogRoot` context is missing. Dialog parts must be placed within `<DialogRoot>`.", error.Message);
+        Assert.Equal("Iodine: The `DialogRoot` context is missing. Dialog parts must be placed within `<DialogRoot>`.", error.Message);
     }
 
     [Fact(DisplayName = "should keep the dialog mounted when keepMounted=true")]
@@ -238,7 +238,7 @@ public sealed class DialogPopupTests : IDisposable
         cut.Render(p => p.Add(x => x.ControlledOpen, false));
         await test.CompletePopupTransitionAsync(cut, open: false);
         Assert.Empty(cut.FindAll("[role=dialog]"));
-        runtime.FailAttach(new JSException("Blazix: no element for the reference"));
+        runtime.FailAttach(new JSException("Iodine: no element for the reference"));
 
         Task<Exception> unhandled = test.Context.Renderer.UnhandledException;
         if (await Task.WhenAny(unhandled, Task.Delay(TimeSpan.FromMilliseconds(500), Xunit.TestContext.Current.CancellationToken)) == unhandled)

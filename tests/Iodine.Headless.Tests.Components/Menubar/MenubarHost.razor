@@ -1,4 +1,4 @@
-@namespace Blazix.Primitives.Tests.Components
+@namespace Iodine.Headless.Tests.Components
 @* A Menubar (`Orientation`, `Modal`) holding the File menu, open at its first render with `DefaultOpen`, its Root given
    `RootModal` when supplied, and a plain button that is no item. *@
 <Menubar id="bar" Orientation="Orientation" Modal="Modal">
@@ -15,7 +15,7 @@
 
 @code {
     [Parameter]
-    public Blazix.Primitives.Orientation Orientation { get; set; } = Blazix.Primitives.Orientation.Horizontal;
+    public Iodine.Headless.Orientation Orientation { get; set; } = Iodine.Headless.Orientation.Horizontal;
 
     [Parameter]
     public bool Modal { get; set; } = true;

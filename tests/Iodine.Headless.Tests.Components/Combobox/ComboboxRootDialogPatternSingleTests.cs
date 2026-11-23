@@ -1,7 +1,7 @@
 using Bunit;
 
 // Family tests use the project's root namespace.
-namespace Blazix.Primitives.Tests.Components;
+namespace Iodine.Headless.Tests.Components;
 
 // CMB-API-23 and STA-28 at L2 (ComboboxRoot.test.tsx, describe "dialog pattern > single"): an inline Input saves its highlight
 // when focus leaves it, clears it, and restores it when focus returns within the same open cycle (ComboboxInput.tsx:188-216,

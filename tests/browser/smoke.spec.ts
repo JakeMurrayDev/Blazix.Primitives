@@ -93,7 +93,7 @@ test.describe('harness channels', () => {
       .poll(async () => (await readDiagnostics(page, mode, probe)).filter((d) => d.level === 'Warning'))
       .toEqual([
         expect.objectContaining({
-          category: 'Blazix.Primitives.Fixtures.Client.Probe.ProbeFixture',
+          category: 'Iodine.Headless.Fixtures.Client.Probe.ProbeFixture',
           message: expect.stringContaining('probe warning 1'),
         }),
       ]);

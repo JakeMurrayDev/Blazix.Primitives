@@ -1,7 +1,7 @@
-using Blazix.Primitives.Rendering;
+using Iodine.Headless.Rendering;
 using Microsoft.AspNetCore.Components;
 
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // DRW §3.2 (drawer/indent-background/DrawerIndentBackground.tsx:32-34): the indent background's state object.
 /// <summary>Represents the state of a drawer indent background, which the part exposes as data attributes and passes to its class and style functions.</summary>

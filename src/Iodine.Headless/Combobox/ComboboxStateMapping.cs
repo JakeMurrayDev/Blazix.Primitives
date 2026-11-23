@@ -1,6 +1,6 @@
-using Blazix.Primitives.Rendering;
+using Iodine.Headless.Rendering;
 
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // combobox/utils/stateAttributesMapping.ts:7-19: the Input, InputGroup and Trigger take the pressable trigger mapping (open →
 // data-popup-open and data-pressed), PopupSide → data-popup-side, ListEmpty → data-list-empty, and the field validity

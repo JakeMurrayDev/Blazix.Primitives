@@ -1,5 +1,5 @@
 using AngleSharp.Dom;
-using Blazix.Primitives.Interop;
+using Iodine.Headless.Interop;
 using Bunit;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Web;
@@ -7,7 +7,7 @@ using Microsoft.AspNetCore.Components.Rendering;
 using Microsoft.JSInterop;
 
 // Family tests use the project's root namespace.
-namespace Blazix.Primitives.Tests.Components;
+namespace Iodine.Headless.Tests.Components;
 
 // CMB §3.9 at L2 (ComboboxTrigger.test.tsx's titles whose assertions are what C# renders and sends): the button, the ARIA of
 // both layouts, the state attributes, the id with the input inside the popup, and the requests the trigger's handles route.

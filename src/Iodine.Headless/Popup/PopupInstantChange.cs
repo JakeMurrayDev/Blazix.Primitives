@@ -1,4 +1,4 @@
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // EVD-EVT-17, PSH-ANI-04: how a committed open change moves the shared stores' instant phase (popupStoreUtils.ts:261-304).
 // Each family maps it to its own enum, rendered as data-instant (ADR 08 Amendments 2026-10-27).

@@ -1,4 +1,4 @@
-namespace Blazix.Primitives.Interop;
+namespace Iodine.Headless.Interop;
 
 // ADR 04 §1 (portal row), §5 and Amendments 2026-10-27, decision 5 (chosen by the user 2026-10-27): the container crosses as
 // the index of its reference in the references array (an ElementReference or a script-held IJSObjectReference, the

@@ -1,8 +1,8 @@
-using Blazix.Primitives.Rendering;
+using Iodine.Headless.Rendering;
 using Microsoft.AspNetCore.Components;
 using Microsoft.JSInterop;
 
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // MNU §3.4 state object (menu/backdrop/MenuBackdrop.tsx:40-43). TransitionStatus is mirrored (ADR 04 §2).
 /// <summary>Represents the state of a menu backdrop, which the part exposes as data attributes and passes to its class and style functions.</summary>

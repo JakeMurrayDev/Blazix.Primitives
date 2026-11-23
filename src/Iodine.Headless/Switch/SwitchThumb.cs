@@ -1,7 +1,7 @@
-using Blazix.Primitives.Rendering;
+using Iodine.Headless.Rendering;
 using Microsoft.AspNetCore.Components;
 
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // SWT-STA-08, SWT-STA-04; switch/thumb/SwitchThumb.tsx:33 (the thumb's state is the root's). ADR 08 §3: one record per part.
 /// <summary>Represents the state of a switch thumb, the same as its root's, which the part exposes as data attributes and passes to its class and style functions.</summary>

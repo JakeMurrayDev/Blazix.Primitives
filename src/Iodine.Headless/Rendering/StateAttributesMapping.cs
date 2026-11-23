@@ -1,4 +1,4 @@
-namespace Blazix.Primitives.Rendering;
+namespace Iodine.Headless.Rendering;
 
 // ADR 02 decision 4; RND §4.4. The shared mappings (transition status, the family-specific ones) are hand-written on top of this type.
 /// <summary>
@@ -86,7 +86,7 @@ public sealed class StateAttributesMapping<TState>
 
             if (entries[i].Value is not StateFieldProjection<TValue> projection)
             {
-                throw new InvalidOperationException($"Blazix: the mapping for `{field}` projects a `{entries[i].Value.GetType().GenericTypeArguments[0].Name}`, but the field is a `{typeof(TValue).Name}`.");
+                throw new InvalidOperationException($"Iodine: the mapping for `{field}` projects a `{entries[i].Value.GetType().GenericTypeArguments[0].Name}`, but the field is a `{typeof(TValue).Name}`.");
             }
 
             StateDataAttribute[]? result = projection(value);

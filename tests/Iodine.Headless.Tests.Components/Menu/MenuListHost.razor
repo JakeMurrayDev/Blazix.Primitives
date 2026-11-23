@@ -1,4 +1,4 @@
-@namespace Blazix.Primitives.Tests.Components
+@namespace Iodine.Headless.Tests.Components
 @* MenuList.test.tsx's trees, open from the start with the trigger active (Base UI presses the trigger; here the Root's
    `DefaultTriggerId` names it). `PlainMenu`: a contained trigger, a header and a List of two items. `TwoTriggers`: two
    detached triggers of one handle, the first active (or the menu closed, `StartOpen` false, until the handle opens it on the
@@ -51,7 +51,7 @@ else
     public string? ListId { get; set; }
 
     [Parameter]
-    public Blazix.Primitives.Orientation Orientation { get; set; } = Blazix.Primitives.Orientation.Vertical;
+    public Iodine.Headless.Orientation Orientation { get; set; } = Iodine.Headless.Orientation.Vertical;
 
     public int SecondTriggerPasses { get; private set; }
 

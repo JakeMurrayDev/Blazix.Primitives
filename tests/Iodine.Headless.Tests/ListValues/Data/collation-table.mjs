@@ -3,7 +3,7 @@
 // `query.length` UTF-16 code units) over `Intl.Collator(locale, { usage: 'search', sensitivity: 'base',
 // ignorePunctuation: true })`. Run once and commit the output; CollationTableTests reads it.
 //
-//   node tests/Blazix.Primitives.Tests/ListValues/Data/collation-table.mjs > tests/Blazix.Primitives.Tests/ListValues/Data/collation-table.json
+//   node tests/Iodine.Headless.Tests/ListValues/Data/collation-table.mjs > tests/Iodine.Headless.Tests/ListValues/Data/collation-table.json
 const rows = [
   ['en-US', 'Résumé', 'resume', 'accents (filter.test.ts)'],
   ['en-US', 'RESUME', 'resume', 'case'],

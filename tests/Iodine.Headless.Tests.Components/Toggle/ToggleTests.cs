@@ -1,11 +1,11 @@
 using AngleSharp.Dom;
-using Blazix.Primitives.Rendering;
+using Iodine.Headless.Rendering;
 using Bunit;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Web;
 
 // The namespace is the project's root: a namespace named after the family would hide the part's type.
-namespace Blazix.Primitives.Tests.Components;
+namespace Iodine.Headless.Tests.Components;
 
 // Toggle.test.tsx's standalone titles verbatim, and port titles (marked as such) for the Test: none rows C# observes and
 // the twin and gate wiring. A click is Blazor's dispatch of the part's own onclick (TGL-PTR-01); the browser halves (the
@@ -374,7 +374,7 @@ public sealed class ToggleTests : IDisposable
         test.ButtonTwin(1).OnNativeButtonMismatch("""{"expectedNative":true}""");
 
         Assert.Single(test.ToggleMessages, message => message.StartsWith(
-            "Blazix: A component that acts as a button expected a native `<button>` because the `NativeButton` parameter is `true`.", StringComparison.Ordinal));
+            "Iodine: A component that acts as a button expected a native `<button>` because the `NativeButton` parameter is `true`.", StringComparison.Ordinal));
     }
 
     [Fact(DisplayName = "port: the consumer's onkeydown runs once, from the activation decision or from the toggle's handler")]

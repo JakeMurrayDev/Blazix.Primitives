@@ -1,11 +1,11 @@
-using Blazix.Primitives.Interop;
-using Blazix.Primitives.Rendering;
+using Iodine.Headless.Interop;
+using Iodine.Headless.Rendering;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Rendering;
 using Microsoft.Extensions.Logging;
 using Microsoft.JSInterop;
 
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // The root half every dialog-family root composes (useRenderDialogRoot, DialogInteractions; ADR 08 Amendments 2026-10-27,
 // the Input/FieldControl precedent: DialogRoot and AlertDialogRoot are thin parts over it). It owns:

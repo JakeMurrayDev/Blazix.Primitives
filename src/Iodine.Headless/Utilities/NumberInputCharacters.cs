@@ -1,7 +1,7 @@
 using System.Globalization;
 using System.Text;
 
-namespace Blazix.Primitives.Utilities;
+namespace Iodine.Headless.Utilities;
 
 // NUM-KEY-07, NUM-EVT-15, NUM-EDGE-06 (NumberFieldRoot.tsx:152-206, getAllowedNonNumericKeys; NumberFieldInput.tsx:247-258;
 // parse.ts:37-52): what a number field's input accepts besides numerals. C# computes the set for the `number-field` module's

@@ -2,7 +2,7 @@ using Bunit;
 using Microsoft.AspNetCore.Components;
 
 // Family tests use the project's root namespace.
-namespace Blazix.Primitives.Tests.Components;
+namespace Iodine.Headless.Tests.Components;
 
 // CMB-API-17, STA-24, STA-26 and STA-27 at L2 (ComboboxRoot.test.tsx, describe "prop: autoHighlight"): typing highlights the
 // first match, a cleared query keeps the highlight, the highlight callback follows the filtered list, and Enter's selection

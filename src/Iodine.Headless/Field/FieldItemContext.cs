@@ -1,4 +1,4 @@
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // FLD-STR-04/06, FLD-API-27, FFI-STR-03, FFI-STA-11; field/item/FieldItem.tsx:29-47, field/item/FieldItemContext.ts. The item
 // scope: the item's disabled state and the nested labelable scope it opens. A part uses an item only when the item

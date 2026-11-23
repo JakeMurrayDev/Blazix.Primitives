@@ -1,6 +1,6 @@
 using Microsoft.AspNetCore.Components;
 
-namespace Blazix.Primitives.Fixtures.Client.AccordionFixtures;
+namespace Iodine.Headless.Fixtures.Client.AccordionFixtures;
 
 /// <summary>
 /// The base of the Accordion fixtures (tests/browser/accordion.spec.ts): renders <c>data-attached</c> once every listed

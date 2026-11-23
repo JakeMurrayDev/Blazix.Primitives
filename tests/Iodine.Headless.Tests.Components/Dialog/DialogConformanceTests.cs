@@ -1,10 +1,10 @@
-using Blazix.Primitives.Rendering;
-using Blazix.Primitives.Tests.Components.Rendering.Conformance;
+using Iodine.Headless.Rendering;
+using Iodine.Headless.Tests.Components.Rendering.Conformance;
 using Bunit;
 using Microsoft.AspNetCore.Components;
 
-// Family tests use the project's root namespace (tests/Blazix.Primitives.Tests.Components/CONTEXT.md).
-namespace Blazix.Primitives.Tests.Components;
+// Family tests use the project's root namespace (tests/Iodine.Headless.Tests.Components/CONTEXT.md).
+namespace Iodine.Headless.Tests.Components;
 
 /// <summary>DLG-STR-02, DLG-API-15: <c>DialogTrigger.test.tsx</c>'s conformance suite inside a root, with <c>button: true</c> and <c>testRenderPropWith: 'button'</c> (RND-DOM-49). Base UI renders it under <c>Root open modal={false}</c>; here the root is closed (the portal kept mounted), because bUnit's markup keeps an element's reference capture only from its first render and an open root renders the part again on mount (a lone trigger claims the open dialog; a non-modal open popup's portal renders its outside guards).</summary>
 public sealed class DialogTriggerConformanceTests : PartConformanceTests<DialogTrigger<NoPayload>>

@@ -21,15 +21,15 @@ import { execFileSync } from 'node:child_process';
 import { basename } from 'node:path';
 import { pathToFileURL } from 'node:url';
 
-const libraryRoot = 'src/Blazix.Primitives/';
+const libraryRoot = 'src/Iodine.Headless/';
 const browserRoot = 'tests/browser/';
 // Paths that Playwright never builds or runs against: a change confined to them cannot change a browser result. The three
 // test projects have tests of their own; samples/ is the sample application (ADR 09, Amendments 2026-10-22), which
 // build-and-test builds and no spec visits.
 const inertPrefixes = [
-  'tests/Blazix.Primitives.Tests/',
-  'tests/Blazix.Primitives.Tests.Components/',
-  'tests/Blazix.Primitives.Tests.Generators/',
+  'tests/Iodine.Headless.Tests/',
+  'tests/Iodine.Headless.Tests.Components/',
+  'tests/Iodine.Headless.Tests.Generators/',
   'samples/',
 ];
 

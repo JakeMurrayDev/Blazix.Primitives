@@ -2,8 +2,8 @@ using AngleSharp.Dom;
 using Bunit;
 using Microsoft.Extensions.DependencyInjection;
 
-// Family tests use the project's root namespace (tests/Blazix.Primitives.Tests.Components/CONTEXT.md).
-namespace Blazix.Primitives.Tests.Components;
+// Family tests use the project's root namespace (tests/Iodine.Headless.Tests.Components/CONTEXT.md).
+namespace Iodine.Headless.Tests.Components;
 
 /// <summary>
 /// L2: <see cref="MenuClear"/> (MNU-API-60, DOM-22, ARIA-16, EVT-17, PTR-21; M5 track 12), over
@@ -16,7 +16,7 @@ public sealed class MenuFilterClearTests : BunitContext
     public MenuFilterClearTests()
     {
         JSInterop.Mode = JSRuntimeMode.Loose;
-        Services.AddBlazixPrimitives();
+        Services.AddIodineHeadless();
     }
 
     [Fact(DisplayName = "port: renders the clear button only while the query is not empty, hidden from the tab order and the accessibility tree")]

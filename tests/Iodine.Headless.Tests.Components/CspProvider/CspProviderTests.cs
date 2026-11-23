@@ -2,7 +2,7 @@ using Bunit;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Rendering;
 
-namespace Blazix.Primitives.Tests.Components;
+namespace Iodine.Headless.Tests.Components;
 
 /// <summary>
 /// <see cref="CspProvider"/> at L2 (shared-utilities.md §4.12): the absent element and its fixed cascade (UTL-DOM-36), the

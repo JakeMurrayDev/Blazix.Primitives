@@ -1,9 +1,9 @@
-using Blazix.Primitives.Rendering;
+using Iodine.Headless.Rendering;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Rendering;
 using Microsoft.Extensions.DependencyInjection;
 
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // AVA-STA-03; avatar/fallback/AvatarFallback.tsx:52-66. AVA-DOM-05: the status is never projected.
 /// <summary>Represents the state of an avatar fallback, which the part passes to its class and style functions.</summary>

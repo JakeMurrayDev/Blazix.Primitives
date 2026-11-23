@@ -1,6 +1,6 @@
 using Microsoft.AspNetCore.Components;
 
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // The item of a registration-only list as a part uses it (CMP §6.5, useCompositeListItem.ts; M3 track 1, E1, ADR 04
 // Amendments 2026-10-26, chosen by the user): TabsPanel and AccordionItem. Composed into the part, never a nested

@@ -1,10 +1,10 @@
 using System.Globalization;
-using Blazix.Primitives.Fixtures.Client.PopupFixtures;
+using Iodine.Headless.Fixtures.Client.PopupFixtures;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Rendering;
 using Microsoft.AspNetCore.Components.Web;
 
-namespace Blazix.Primitives.Fixtures.Client.ComboboxFixtures;
+namespace Iodine.Headless.Fixtures.Client.ComboboxFixtures;
 
 /// <summary>
 /// The base of the fixtures that port the Base UI titles of Combobox's [L4] rows (tests/browser/combobox.*.spec.ts, M5

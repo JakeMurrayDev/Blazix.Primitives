@@ -2,7 +2,7 @@ using System.Text.Json;
 using Bunit;
 
 // The namespace is the project's root: a namespace named after the family would hide the parts' types.
-namespace Blazix.Primitives.Tests.Components;
+namespace Iodine.Headless.Tests.Components;
 
 /// <summary>
 /// The preview card trigger at L2 (PreviewCardTrigger.test.tsx and the trigger rows of PreviewCardRoot.test.tsx): its

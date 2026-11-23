@@ -1,7 +1,7 @@
-using Blazix.Primitives.Utilities;
+using Iodine.Headless.Utilities;
 using Microsoft.AspNetCore.Components.Rendering;
 
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // PSH-STR-08, PSH-DOM-13 (utils/FocusGuard.tsx:10-42): the visually hidden, tabbable span a portal, the navigation menu's
 // inline viewport and the toast viewport render around content whose focus a module routes. One renderer for the three

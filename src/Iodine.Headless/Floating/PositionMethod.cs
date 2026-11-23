@@ -1,4 +1,4 @@
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // ADR 08 §3 (Enums row) and Amendments 2026-10-27; Base UI's `positionMethod` (internals/useAnchorPositioning.ts:681).
 /// <summary>Specifies the CSS <c>position</c> a positioned popup uses.</summary>

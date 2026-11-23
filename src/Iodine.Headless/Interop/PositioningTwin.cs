@@ -1,6 +1,6 @@
 using Microsoft.JSInterop;
 
-namespace Blazix.Primitives.Interop;
+namespace Iodine.Headless.Interop;
 
 // ADR 04 §1 (the `positioning` mechanism module) and Amendments 2026-10-27 (chosen by the user 2026-10-27); ADR 03. One
 // twin per Positioner; its Arrow has no handle of its own (the Arrow's id and style travel in the Positioner's options).
@@ -13,7 +13,7 @@ namespace Blazix.Primitives.Interop;
 /// </summary>
 /// <param name="jsRuntime">The runtime of the part's circuit or WebAssembly application.</param>
 internal sealed class PositioningTwin(IJSRuntime jsRuntime)
-    : TwinBase<PositioningTwin, PositioningOptions>(jsRuntime, LibraryModule("positioning"), BlazixJsonContext.Default.PositioningOptions)
+    : TwinBase<PositioningTwin, PositioningOptions>(jsRuntime, LibraryModule("positioning"), IodineJsonContext.Default.PositioningOptions)
 {
     /// <summary>Occurs when the rendered side, alignment, hidden anchor or uncentered arrow changed, once per change.</summary>
     public event Action<PositioningPlacement>? PlacementChanged;
@@ -24,7 +24,7 @@ internal sealed class PositioningTwin(IJSRuntime jsRuntime)
     [JSInvokable]
     public void OnPlacementChange(string payloadJson)
     {
-        PositioningPlacement placement = Deserialize(payloadJson, BlazixJsonContext.Default.PositioningPlacement);
+        PositioningPlacement placement = Deserialize(payloadJson, IodineJsonContext.Default.PositioningPlacement);
         PlacementChanged?.Invoke(placement);
     }
 

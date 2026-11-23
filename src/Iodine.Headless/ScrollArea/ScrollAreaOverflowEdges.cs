@@ -1,4 +1,4 @@
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // ADR 08 Amendments 2026-11-18 (the ScrollArea bullet; chosen by the user 2026-11-18): Base UI's
 // `Partial<{ xStart, xEnd, yStart, yEnd }>` (scroll-area/root/ScrollAreaRoot.tsx:392-402). A missing edge is `null` and

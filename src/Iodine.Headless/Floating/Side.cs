@@ -1,4 +1,4 @@
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // ADR 08 §3 (Enums row, the example `Side.InlineStart`) and Amendments 2026-10-27; Base UI's `Side`
 // (internals/useAnchorPositioning.ts:66). The literal is FloatingLiterals.ToLiteral.

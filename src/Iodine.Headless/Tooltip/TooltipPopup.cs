@@ -1,10 +1,10 @@
-using Blazix.Primitives.Interop;
-using Blazix.Primitives.Rendering;
+using Iodine.Headless.Interop;
+using Iodine.Headless.Rendering;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Rendering;
 using Microsoft.JSInterop;
 
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // TIP §3.6 (tooltip/popup/TooltipPopup.tsx:55-61, 78-99); ADR 08 Amendments 2026-10-27 ("State records"). The placement
 // is the positioner's mirror, rendered by C# (TIP-STA-13's relaxation); the transition status is the `transitions`

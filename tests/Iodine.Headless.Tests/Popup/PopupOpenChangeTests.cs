@@ -1,7 +1,7 @@
 using Microsoft.AspNetCore.Components;
 
 // Family tests use the project's root namespace.
-namespace Blazix.Primitives.Tests;
+namespace Iodine.Headless.Tests;
 
 /// <summary>
 /// The committed open state and the open-change sequence at L1 (utils/popups/popupStoreUtils.test.tsx, the
@@ -93,7 +93,7 @@ public sealed class PopupOpenChangeTests
         Assert.True(received?.Value);
         Assert.Same(details, received?.Details);
         Assert.Equal(["onOpenChange", "onBeforeDispatch", "dispatchOpenChange", "update", "notified"], store.Order);
-        Assert.Equal(new Blazix.Primitives.Interop.OpenChangeRelay(1, "trigger-focus", EventKind.Event, "base-ui", null, null), store.Popup.OpenChange);
+        Assert.Equal(new Iodine.Headless.Interop.OpenChangeRelay(1, "trigger-focus", EventKind.Event, "base-ui", null, null), store.Popup.OpenChange);
         Assert.True(store.Popup.Open);
     }
 
@@ -157,18 +157,18 @@ public sealed class PopupOpenChangeTests
         await store.RequestOpenAsync(false, new OpenChangeEventDetails(EventReason.EscapeKey));
         await store.RequestOpenAsync(true, new OpenChangeEventDetails(EventReason.TriggerPress));
 
-        Assert.Equal(new Blazix.Primitives.Interop.OpenChangeRelay(2, "trigger-press", EventKind.Event, "base-ui", null, null, 1, "escape-key"), store.Popup.OpenChange);
+        Assert.Equal(new Iodine.Headless.Interop.OpenChangeRelay(2, "trigger-press", EventKind.Event, "base-ui", null, null, 1, "escape-key"), store.Popup.OpenChange);
 
         await store.AtBatchBoundaryAsync();
         await store.RequestOpenAsync(false, new OpenChangeEventDetails(EventReason.OutsidePress));
         await store.AtBatchBoundaryAsync();
         await store.RequestOpenAsync(true, new OpenChangeEventDetails(EventReason.TriggerHover));
 
-        Assert.Equal(new Blazix.Primitives.Interop.OpenChangeRelay(4, "trigger-hover", EventKind.Event, "base-ui", null, null), store.Popup.OpenChange);
+        Assert.Equal(new Iodine.Headless.Interop.OpenChangeRelay(4, "trigger-hover", EventKind.Event, "base-ui", null, null), store.Popup.OpenChange);
 
         // A close that follows an open in one batch is relayed alone: the module sees the open's session end with it.
         await store.RequestOpenAsync(false, new OpenChangeEventDetails(EventReason.TriggerPress));
-        Assert.Equal(new Blazix.Primitives.Interop.OpenChangeRelay(5, "trigger-press", EventKind.Event, "base-ui", null, null), store.Popup.OpenChange);
+        Assert.Equal(new Iodine.Headless.Interop.OpenChangeRelay(5, "trigger-press", EventKind.Event, "base-ui", null, null), store.Popup.OpenChange);
     }
 
     // ADR 16 rule 7 (UTL-STA-11): a write that changes nothing is a no-op and allocates nothing, the equal shared record

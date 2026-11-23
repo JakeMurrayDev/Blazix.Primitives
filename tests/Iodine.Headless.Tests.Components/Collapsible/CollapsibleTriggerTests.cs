@@ -1,7 +1,7 @@
 using Bunit;
 using Microsoft.AspNetCore.Components;
 
-namespace Blazix.Primitives.Tests.Components;
+namespace Iodine.Headless.Tests.Components;
 
 /// <summary>
 /// The <c>[L2]</c> rows of docs/components/collapsible.md that <c>CollapsibleTrigger.test.tsx</c> covers: the missing-root
@@ -24,7 +24,7 @@ public sealed class CollapsibleTriggerTests : IDisposable
     {
         InvalidOperationException error = Assert.Throws<InvalidOperationException>(() => Context.Render<CollapsibleTrigger>());
 
-        Assert.Equal("Blazix: The `CollapsibleRoot` context is missing. Collapsible parts must be placed within `<CollapsibleRoot>`.", error.Message);
+        Assert.Equal("Iodine: The `CollapsibleRoot` context is missing. Collapsible parts must be placed within `<CollapsibleRoot>`.", error.Message);
     }
 
     [Fact(DisplayName = "throws when a panel is rendered outside a Collapsible.Root")]
@@ -34,7 +34,7 @@ public sealed class CollapsibleTriggerTests : IDisposable
     {
         InvalidOperationException error = Assert.Throws<InvalidOperationException>(() => Context.Render<CollapsiblePanel>());
 
-        Assert.Equal("Blazix: The `CollapsibleRoot` context is missing. Collapsible parts must be placed within `<CollapsibleRoot>`.", error.Message);
+        Assert.Equal("Iodine: The `CollapsibleRoot` context is missing. Collapsible parts must be placed within `<CollapsibleRoot>`.", error.Message);
     }
 
     [Fact(DisplayName = "renders the disabled attribute when disabled")]

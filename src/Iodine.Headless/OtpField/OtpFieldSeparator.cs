@@ -1,7 +1,7 @@
-using Blazix.Primitives.Rendering;
+using Iodine.Headless.Rendering;
 using Microsoft.AspNetCore.Components;
 
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // OTP-STR-05, OTP-API-25, OTP-DOM-27 (Base UI's OTPField.Separator is Separator; otp-field/index.parts.ts:3,
 // separator/Separator.tsx:16-24). ADR 08 §3: the state record is sealed, partial and [PartState]; the default projection gives
@@ -31,7 +31,7 @@ public sealed class OtpFieldSeparator : PartBase<OtpFieldSeparatorState>
     private OtpFieldSeparatorState? state;
 
     /// <summary>Gets or sets the separator's orientation.</summary>
-    /// <value><see cref="Blazix.Primitives.Orientation.Horizontal"/> by default.</value>
+    /// <value><see cref="Iodine.Headless.Orientation.Horizontal"/> by default.</value>
     [Parameter]
     public Orientation Orientation { get; set; } = Orientation.Horizontal;
 

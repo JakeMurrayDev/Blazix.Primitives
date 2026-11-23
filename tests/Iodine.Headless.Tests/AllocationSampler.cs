@@ -1,4 +1,4 @@
-namespace Blazix.Primitives.Tests;
+namespace Iodine.Headless.Tests;
 
 // ADR 16 Amendments 2026-11-19 (issue 304; chosen by the user 2026-11-19, "256 B tolerance"): the L1 project's
 // counterpart of the L2 project's AllocationSampler.AssertWithinBudget, with the same tolerance and message. The largest

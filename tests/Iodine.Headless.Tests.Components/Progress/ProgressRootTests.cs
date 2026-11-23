@@ -4,7 +4,7 @@ using Bunit;
 using Microsoft.Extensions.DependencyInjection;
 
 // The namespace is the project's root: a namespace named after the family would hide the parts' types.
-namespace Blazix.Primitives.Tests.Components;
+namespace Iodine.Headless.Tests.Components;
 
 // ProgressRoot.test.tsx, with Base UI's titles. The cultures are explicit (en-US, de-DE) wherever Base UI compares with
 // Intl.NumberFormat in the same runtime, because the port's text comes from .NET globalization (ADR 01 decision 2:
@@ -20,7 +20,7 @@ public sealed class ProgressRootTests : IDisposable
 
     public ProgressRootTests()
     {
-        context.Services.AddBlazixPrimitives();
+        context.Services.AddIodineHeadless();
     }
 
     /// <inheritdoc />

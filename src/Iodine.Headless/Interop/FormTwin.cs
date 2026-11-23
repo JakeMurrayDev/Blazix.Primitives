@@ -1,6 +1,6 @@
 using Microsoft.JSInterop;
 
-namespace Blazix.Primitives.Interop;
+namespace Iodine.Headless.Interop;
 
 // ADR 04 §1 (form row, Amendments 2026-10-18), §3 (one message per event; the decision point `label`, fallback run, for a
 // consumer's C# pointer handler on a label: ADR 01's "C#-origin consumer vetoes" row); ADR 08 §3 (`<Module>Twin`).
@@ -11,7 +11,7 @@ namespace Blazix.Primitives.Interop;
 /// </summary>
 /// <param name="jsRuntime">The runtime of the part's circuit or WebAssembly application.</param>
 internal sealed class FormTwin(IJSRuntime jsRuntime)
-    : TwinBase<FormTwin, FormOptions>(jsRuntime, LibraryModule("form"), BlazixJsonContext.Default.FormOptions)
+    : TwinBase<FormTwin, FormOptions>(jsRuntime, LibraryModule("form"), IodineJsonContext.Default.FormOptions)
 {
     /// <summary>Represents the name of the decision point a label's pointer handling asks about.</summary>
     public const string LabelPoint = "label";
@@ -50,9 +50,9 @@ internal sealed class FormTwin(IJSRuntime jsRuntime)
     [JSInvokable]
     public async Task<string> OnSubmitRequest(string payloadJson)
     {
-        FormSubmitRequest request = Deserialize(payloadJson, BlazixJsonContext.Default.FormSubmitRequest);
+        FormSubmitRequest request = Deserialize(payloadJson, IodineJsonContext.Default.FormSubmitRequest);
         FormSubmitAnswer answer = SubmitHandler is { } handler ? await handler(request).ConfigureAwait(true) : new FormSubmitAnswer();
-        return System.Text.Json.JsonSerializer.Serialize(answer, BlazixJsonContext.Default.FormSubmitAnswer);
+        return System.Text.Json.JsonSerializer.Serialize(answer, IodineJsonContext.Default.FormSubmitAnswer);
     }
 
     /// <summary>Receives one event of an attached control.</summary>
@@ -61,7 +61,7 @@ internal sealed class FormTwin(IJSRuntime jsRuntime)
     [JSInvokable]
     public void OnControlReport(string payloadJson)
     {
-        FormControlReport report = Deserialize(payloadJson, BlazixJsonContext.Default.FormControlReport);
+        FormControlReport report = Deserialize(payloadJson, IodineJsonContext.Default.FormControlReport);
         ControlReported?.Invoke(report);
     }
 
@@ -71,7 +71,7 @@ internal sealed class FormTwin(IJSRuntime jsRuntime)
     [JSInvokable]
     public void OnAutofill(string payloadJson)
     {
-        FormAutofillReport report = Deserialize(payloadJson, BlazixJsonContext.Default.FormAutofillReport);
+        FormAutofillReport report = Deserialize(payloadJson, IodineJsonContext.Default.FormAutofillReport);
         Autofilled?.Invoke(report);
     }
 
@@ -81,7 +81,7 @@ internal sealed class FormTwin(IJSRuntime jsRuntime)
     [JSInvokable]
     public void OnLabelMismatch(string payloadJson)
     {
-        LabelMismatch mismatch = Deserialize(payloadJson, BlazixJsonContext.Default.LabelMismatch);
+        LabelMismatch mismatch = Deserialize(payloadJson, IodineJsonContext.Default.LabelMismatch);
         LabelMismatched?.Invoke(mismatch.ExpectedNative);
     }
 

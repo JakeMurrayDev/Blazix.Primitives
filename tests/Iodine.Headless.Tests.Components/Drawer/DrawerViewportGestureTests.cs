@@ -1,9 +1,9 @@
-using Blazix.Primitives.Interop;
+using Iodine.Headless.Interop;
 using Bunit;
 using Microsoft.AspNetCore.Components;
 using Microsoft.JSInterop;
 
-namespace Blazix.Primitives.Tests.Components;
+namespace Iodine.Headless.Tests.Components;
 
 // M6 track 8b (issue 279), slice 1: the C# half of the Viewport's dismiss gesture. The `drawer` module's handle on the
 // Viewport, the Popup and Backdrop elements it is handed, C#'s mirror of data-swiping, and the close a swipe release
@@ -27,7 +27,7 @@ public sealed class DrawerViewportGestureTests : IDisposable
 
     public DrawerViewportGestureTests()
     {
-        drawerModule = test.Context.JSInterop.SetupModule("./_content/Blazix.Primitives/js/drawer.js");
+        drawerModule = test.Context.JSInterop.SetupModule("./_content/Iodine.Headless/js/drawer.js");
         drawerHandle = drawerModule.SetupModule("attach", _ => true);
         drawerHandle.SetupVoid("update", _ => true).SetVoidResult();
         drawerHandle.SetupVoid("dispose", _ => true).SetVoidResult();

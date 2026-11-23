@@ -1,8 +1,8 @@
-using Blazix.Primitives.Rendering;
+using Iodine.Headless.Rendering;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Web;
 
-namespace Blazix.Primitives.Fixtures.Client.PopupFixtures;
+namespace Iodine.Headless.Fixtures.Client.PopupFixtures;
 
 /// <summary>
 /// The test-only popup trigger at L4: a <c>button</c> composing <see cref="PopupTriggerBehavior{TStore, TState, TPayload}"/>.
@@ -63,7 +63,7 @@ public sealed class FixturePopupTrigger<TPayload> : PartBase<FixturePopupTrigger
 
     protected override void OnParametersSet()
     {
-        behavior.Apply(RootStore, Handle, Id, Element, payloadSupplied, Payload, "Blazix: `FixturePopupTrigger` must be either used within a `FixturePopupRoot` component or provided with a handle.");
+        behavior.Apply(RootStore, Handle, Id, Element, payloadSupplied, Payload, "Iodine: `FixturePopupTrigger` must be either used within a `FixturePopupRoot` component or provided with a handle.");
     }
 
     protected override Task OnAfterRenderAsync(bool firstRender) => behavior.OnAfterRenderAsync(Element);

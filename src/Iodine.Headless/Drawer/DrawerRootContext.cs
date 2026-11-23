@@ -1,6 +1,6 @@
 using Microsoft.AspNetCore.Components;
 
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // DRW-STR-10, DRW-STA-10..12 (drawer/root/DrawerRoot.tsx:52-148, DrawerRootContext.ts): what a Drawer root adds to the
 // Dialog store for its own parts and for a nested Drawer root. Cascaded fixed by DrawerRoot around the Dialog root's

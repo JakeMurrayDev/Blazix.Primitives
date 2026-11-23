@@ -1,4 +1,4 @@
-namespace Blazix.Primitives.Tests;
+namespace Iodine.Headless.Tests;
 
 // FFI §2 (form scope), FFI-EVT-03/04, FFI-FOC-03, FRM-STA-02..04, FRM-EVT-06: the scope a Form cascades, with no renderer.
 /// <summary>The form scope: the error map and its clearing, the submission counter and the submitted latch.</summary>

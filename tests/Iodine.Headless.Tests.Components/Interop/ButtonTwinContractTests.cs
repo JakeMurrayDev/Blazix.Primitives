@@ -1,9 +1,9 @@
 using System.Text.Json;
-using Blazix.Primitives.Interop;
+using Iodine.Headless.Interop;
 using Bunit;
 using Microsoft.JSInterop;
 
-namespace Blazix.Primitives.Tests.Components.Interop;
+namespace Iodine.Headless.Tests.Components.Interop;
 
 /// <summary>
 /// Twin contract tests of the <c>button</c> module (ADR 06 §1, L2): bUnit's JS interop mock records the options C# sends
@@ -29,7 +29,7 @@ public sealed class ButtonTwinContractTests
     public async Task Attach_imports_the_button_module_and_sends_the_options_on_attach_and_update()
     {
         using BunitContext context = new();
-        BunitJSModuleInterop module = context.JSInterop.SetupModule("./_content/Blazix.Primitives/js/button.js");
+        BunitJSModuleInterop module = context.JSInterop.SetupModule("./_content/Iodine.Headless/js/button.js");
         BunitJSModuleInterop handle = SetupHandle(module);
         await using ButtonTwin twin = new(context.JSInterop.JSRuntime);
 
@@ -67,7 +67,7 @@ public sealed class ButtonTwinContractTests
 
         Assert.Equal(
             """{"disabled":false,"native":true,"composite":false,"reportInteractionType":false,"developmentChecks":false}""",
-            JsonSerializer.Serialize(options, BlazixJsonContext.Default.ButtonOptions));
+            JsonSerializer.Serialize(options, IodineJsonContext.Default.ButtonOptions));
         Assert.Null(options.FocusableWhenDisabled);
         Assert.Null(options.PressAndHold);
         Assert.Null(options.Style);
@@ -176,10 +176,10 @@ public sealed class ButtonTwinContractTests
 
         Assert.Equal(
             """{"disabled":false,"native":true,"composite":false,"pressAndHold":{"tickDelay":60,"startDelay":400,"scrollDistance":8,"focusTarget":"base-ui-7","stop":2},"reportInteractionType":false,"developmentChecks":false}""",
-            JsonSerializer.Serialize(options, BlazixJsonContext.Default.ButtonOptions));
+            JsonSerializer.Serialize(options, IodineJsonContext.Default.ButtonOptions));
         Assert.Equal(
             """{"tickDelay":60,"startDelay":400,"scrollDistance":8}""",
-            JsonSerializer.Serialize(new PressAndHoldOptions(), BlazixJsonContext.Default.PressAndHoldOptions));
+            JsonSerializer.Serialize(new PressAndHoldOptions(), IodineJsonContext.Default.PressAndHoldOptions));
     }
 
     // NUM-PTR-05: the stepper syncs the dirty text once per press, at the first tick of a sequence.
@@ -254,8 +254,8 @@ public sealed class ButtonTwinContractTests
             """{"disabled":false,"native":false,"composite":false,"hiddenInput":true,"readOnly":true,"suppressEnter":true,"reportInteractionType":false,"developmentChecks":false}""",
             JsonSerializer.Serialize(
                 new ButtonOptions { Native = false, HiddenInput = true, ReadOnly = true, SuppressEnter = true, DevelopmentChecks = false },
-                BlazixJsonContext.Default.ButtonOptions));
-        Assert.DoesNotContain("hiddenInput", JsonSerializer.Serialize(new ButtonOptions(), BlazixJsonContext.Default.ButtonOptions), StringComparison.Ordinal);
+                IodineJsonContext.Default.ButtonOptions));
+        Assert.DoesNotContain("hiddenInput", JsonSerializer.Serialize(new ButtonOptions(), IodineJsonContext.Default.ButtonOptions), StringComparison.Ordinal);
     }
 
     [Fact]
@@ -268,8 +268,8 @@ public sealed class ButtonTwinContractTests
             """{"disabled":true,"focusableWhenDisabled":true,"native":false,"composite":true,"inputItem":true,"reportInteractionType":false,"developmentChecks":false}""",
             JsonSerializer.Serialize(
                 new ButtonOptions { Disabled = true, FocusableWhenDisabled = true, Native = false, Composite = true, InputItem = true, DevelopmentChecks = false },
-                BlazixJsonContext.Default.ButtonOptions));
-        Assert.DoesNotContain("inputItem", JsonSerializer.Serialize(new ButtonOptions(), BlazixJsonContext.Default.ButtonOptions), StringComparison.Ordinal);
+                IodineJsonContext.Default.ButtonOptions));
+        Assert.DoesNotContain("inputItem", JsonSerializer.Serialize(new ButtonOptions(), IodineJsonContext.Default.ButtonOptions), StringComparison.Ordinal);
     }
 
     // MNU-EDGE-06 (settled by the orchestrator 2026-11-10 as option (a); final review F5): the disabled-element check crosses
@@ -281,9 +281,9 @@ public sealed class ButtonTwinContractTests
     {
         Assert.Contains(
             "\"disabledElementCheck\":true",
-            JsonSerializer.Serialize(new ButtonOptions { DisabledElementCheck = true }, BlazixJsonContext.Default.ButtonOptions),
+            JsonSerializer.Serialize(new ButtonOptions { DisabledElementCheck = true }, IodineJsonContext.Default.ButtonOptions),
             StringComparison.Ordinal);
-        Assert.DoesNotContain("disabledElementCheck", JsonSerializer.Serialize(new ButtonOptions(), BlazixJsonContext.Default.ButtonOptions), StringComparison.Ordinal);
+        Assert.DoesNotContain("disabledElementCheck", JsonSerializer.Serialize(new ButtonOptions(), IodineJsonContext.Default.ButtonOptions), StringComparison.Ordinal);
 
         using BunitContext context = new();
         ButtonTwin twin = new(context.JSInterop.JSRuntime);

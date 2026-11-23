@@ -1,6 +1,6 @@
 using Microsoft.AspNetCore.Components;
 
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // TGG §11 (the ToggleGroupContext a Toggle reads); toggle-group/ToggleGroupContext.ts:6-19. Design point 11.1 of M3 tracks
 // 2-3, option (a), settled by the orchestrator 2026-10-26: a plain listener list cascaded fixed (ADR 16 rule 9; the Switch, Checkbox,

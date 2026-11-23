@@ -1,4 +1,4 @@
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // ADR 04 Amendments 2026-10-27, decision 5; ADR 08 Amendments 2026-10-27: Base UI's `container={null}`, "render nothing
 // until a container is supplied" (FLT-API-13), the named case of PortalContainerValue.

@@ -1,6 +1,6 @@
 using Microsoft.AspNetCore.Components;
 
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // TLB §11 (the ToolbarRootContext every part reads); toolbar/root/ToolbarRootContext.ts:5-23. Design point 14.4 of M3 track
 // 4, option (a), settled by the orchestrator 2026-10-27: a plain listener list cascaded fixed (ADR 16 rule 9;
@@ -40,9 +40,9 @@ internal sealed class ToolbarRootContext
     public static ToolbarRootContext Require(ToolbarRootContext? context)
     {
         // TLB-STR-02, TLB-EDGE-01, in every build and before the composite item's own error; the port's words (the
-        // PRG-EDGE-01 form, `Blazix: ` for `Base UI: `, chosen by the user 2026-10-26).
+        // PRG-EDGE-01 form, `Iodine: ` for `Base UI: `, chosen by the user 2026-10-26).
         return context ?? throw new InvalidOperationException(
-            "Blazix: The `ToolbarRoot` context is missing. Toolbar parts must be placed within `<ToolbarRoot>`.");
+            "Iodine: The `ToolbarRoot` context is missing. Toolbar parts must be placed within `<ToolbarRoot>`.");
     }
 
     /// <summary>Takes the toolbar's state and notifies the parts when it changed.</summary>

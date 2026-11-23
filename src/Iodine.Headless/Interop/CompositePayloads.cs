@@ -1,4 +1,4 @@
-namespace Blazix.Primitives.Interop;
+namespace Iodine.Headless.Interop;
 
 // CMP-EVT-01 (one report per change, ADR 16 rule 6)
 /// <summary>The payload of the <c>composite</c> module's highlight report.</summary>

@@ -1,6 +1,6 @@
-using Blazix.Primitives.Demo.Client.Demos;
+using Iodine.Headless.Demo.Client.Demos;
 
-namespace Blazix.Primitives.Demo.Client;
+namespace Iodine.Headless.Demo.Client;
 
 /// <summary>One demo page: the address segment, the heading, one line about it and the component the host renders.</summary>
 public sealed record DemoEntry(string Slug, string Title, string Summary, Type Component);

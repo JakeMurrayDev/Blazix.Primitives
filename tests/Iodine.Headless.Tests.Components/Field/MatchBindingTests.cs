@@ -1,7 +1,7 @@
 using Bunit;
 
 // The namespace is the project's root: a namespace named after the family would hide the parts' types.
-namespace Blazix.Primitives.Tests.Components;
+namespace Iodine.Headless.Tests.Components;
 
 /// <summary>
 /// How Razor binds a <see cref="MatchValue"/>-typed parameter (ADR 05 §4 and its union checklist, Amendments 2026-10-20:

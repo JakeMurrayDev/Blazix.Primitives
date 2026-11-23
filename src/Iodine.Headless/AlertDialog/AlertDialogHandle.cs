@@ -1,4 +1,4 @@
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // ADL-API-06 (alert-dialog/handle.ts:11-22), ADR 08 Amendments 2026-10-27 (chosen by the user 2026-10-27): the AlertDialog
 // family's handle derives from DialogHandle, is created with `new` and adds no member. Base UI brands it with a type-only

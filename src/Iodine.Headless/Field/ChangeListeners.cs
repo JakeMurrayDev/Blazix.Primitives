@@ -1,4 +1,4 @@
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // FLD-EDGE-13, FFI-EDGE-09 (one render per part per change). The field and fieldset scopes' subscriber list. Listeners run in
 // registration order: an enclosing part registers in OnInitialized before the parts inside it, so it renders first, and a

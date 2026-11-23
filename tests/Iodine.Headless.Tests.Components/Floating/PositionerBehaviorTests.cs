@@ -1,10 +1,10 @@
 using System.Text.Json;
-using Blazix.Primitives.Interop;
+using Iodine.Headless.Interop;
 using Bunit;
 using Microsoft.AspNetCore.Components;
 using Microsoft.JSInterop;
 
-namespace Blazix.Primitives.Tests.Components;
+namespace Iodine.Headless.Tests.Components;
 
 /// <summary>
 /// L2: the C# half of floating positioning on the test-only <see cref="TestPositioner"/> and <see cref="TestPositionerArrow"/>
@@ -422,7 +422,7 @@ public sealed class PositionerBehaviorTests : IDisposable
             }
 
             Attaches++;
-            return ValueTask.FromException<TValue>(new JSException("Blazix: no element for the reference"));
+            return ValueTask.FromException<TValue>(new JSException("Iodine: no element for the reference"));
         }
     }
 #pragma warning restore BL0016

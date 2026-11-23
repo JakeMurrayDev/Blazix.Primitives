@@ -1,13 +1,13 @@
 using System.Text.Json;
 using AngleSharp.Dom;
-using Blazix.Primitives.Interop;
+using Iodine.Headless.Interop;
 using Bunit;
 using Microsoft.AspNetCore.Components;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.JSInterop;
 
-namespace Blazix.Primitives.Tests.Components;
+namespace Iodine.Headless.Tests.Components;
 
 /// <summary>
 /// The bUnit context of the Toggle and ToggleGroup tests: the library's services, a captured logger for each part, and
@@ -18,12 +18,12 @@ namespace Blazix.Primitives.Tests.Components;
 /// </summary>
 public sealed class ToggleTestContext : IDisposable
 {
-    public const string ButtonModulePath = "./_content/Blazix.Primitives/js/button.js";
-    public const string CompositeModulePath = "./_content/Blazix.Primitives/js/composite.js";
+    public const string ButtonModulePath = "./_content/Iodine.Headless/js/button.js";
+    public const string CompositeModulePath = "./_content/Iodine.Headless/js/composite.js";
 
     public ToggleTestContext()
     {
-        Context.Services.AddBlazixPrimitives();
+        Context.Services.AddIodineHeadless();
         Context.Services.AddSingleton<ILogger<Toggle>>(ToggleLogger);
         Context.Services.AddSingleton<ILogger<ToggleGroup>>(GroupLogger);
         ButtonModule = Context.JSInterop.SetupModule(ButtonModulePath);
@@ -120,7 +120,7 @@ public sealed class ToggleTestContext : IDisposable
         where TComponent : IComponent
     {
         ButtonTwin target = ButtonTwin(toggle);
-        return cut.InvokeAsync(() => target.Decide(Blazix.Primitives.Interop.ButtonTwin.ActivatePoint, KeyDownJson(key, null)));
+        return cut.InvokeAsync(() => target.Decide(Iodine.Headless.Interop.ButtonTwin.ActivatePoint, KeyDownJson(key, null)));
     }
 
     /// <summary>Asks the root's navigation decision for a key on the item with the given element id, as the <c>composite</c> module does on WebAssembly.</summary>
@@ -128,7 +128,7 @@ public sealed class ToggleTestContext : IDisposable
         where TComponent : IComponent
     {
         CompositeTwin twin = CompositeTwin();
-        return cut.InvokeAsync(() => twin.Decide(Blazix.Primitives.Interop.CompositeTwin.NavigatePoint, KeyDownJson(key, itemId)));
+        return cut.InvokeAsync(() => twin.Decide(Iodine.Headless.Interop.CompositeTwin.NavigatePoint, KeyDownJson(key, itemId)));
     }
 
     /// <summary>Reports a key the root handled and stopped, as the <c>composite</c> module does on Server.</summary>

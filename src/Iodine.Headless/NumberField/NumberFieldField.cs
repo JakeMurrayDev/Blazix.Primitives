@@ -1,8 +1,8 @@
-using Blazix.Primitives.Interop;
+using Iodine.Headless.Interop;
 using Microsoft.AspNetCore.Components;
 using Microsoft.JSInterop;
 
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // NUM §8, FFI §6.3 row `NumberField.Root + NumberField.Input` (field-and-form-infrastructure.md:803,821,837); ADR 05
 // Amendments 2026-11-18 item 2 (decision 14 (a), chosen by the user 2026-11-18): the family's one field behaviour, the

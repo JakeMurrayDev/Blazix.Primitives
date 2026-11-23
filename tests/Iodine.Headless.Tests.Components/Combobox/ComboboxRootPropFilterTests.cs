@@ -2,7 +2,7 @@ using Bunit;
 using Microsoft.AspNetCore.Components;
 
 // Family tests use the project's root namespace.
-namespace Blazix.Primitives.Tests.Components;
+namespace Iodine.Headless.Tests.Components;
 
 // ComboboxRoot.test.tsx's `prop: filter` titles cited at L2. Combobox.useFilter({ value }) is ComboboxFilter.Create(value),
 // created again at each consumer render as the hook's memo follows `value`; the component's setValue is the harness's own

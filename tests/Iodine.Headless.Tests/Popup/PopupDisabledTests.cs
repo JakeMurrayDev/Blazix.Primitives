@@ -1,5 +1,5 @@
 // Family tests use the project's root namespace.
-namespace Blazix.Primitives.Tests;
+namespace Iodine.Headless.Tests;
 
 /// <summary>
 /// A family root's disabled state on the shared store (TIP-STA-02, TIP-API-09, TIP-DIS-06; tooltip/root/TooltipRoot.tsx:68-82:

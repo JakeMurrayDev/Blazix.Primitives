@@ -3,10 +3,10 @@ using Bunit;
 using Microsoft.AspNetCore.Components;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
-using static Blazix.Primitives.Tests.Components.SliderTestContext;
+using static Iodine.Headless.Tests.Components.SliderTestContext;
 
 // The namespace is the project's root: a namespace named after the family would hide the parts' types.
-namespace Blazix.Primitives.Tests.Components;
+namespace Iodine.Headless.Tests.Components;
 
 // SliderRoot.test.tsx's prop titles at [L2] (docs/components/slider.md §13): the development warning, the step and
 // min props, the range locale format, and SliderControl.test.tsx's tabindex title. The warning goes to the logger while
@@ -36,7 +36,7 @@ public sealed class SliderRootPropsTests : IDisposable
         cut.Render(p => p.Add(x => x.DefaultValue, 10).Add(x => x.Min, 10).Add(x => x.Max, 10).AddChildContent(Anatomy()));
 
         (LogLevel _, string message) = Assert.Single(logger.Entries);
-        Assert.Equal("Blazix: Slider `max` must be greater than `min`.", message);
+        Assert.Equal("Iodine: Slider `max` must be greater than `min`.", message);
     }
 
     [Fact(DisplayName = "supports non-integer values")]

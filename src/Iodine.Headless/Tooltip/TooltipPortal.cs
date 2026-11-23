@@ -1,9 +1,9 @@
-using Blazix.Primitives.Rendering;
+using Iodine.Headless.Rendering;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Rendering;
 using Microsoft.JSInterop;
 
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // tooltip/portal/TooltipPortalContext.ts:6-12 (TIP-EDGE-03): the Portal's keepMounted, which the Positioner reads.
 /// <summary>What a tooltip portal gives the positioner inside it.</summary>
@@ -12,7 +12,7 @@ internal sealed record TooltipPortalContext(bool KeepMounted)
 {
     // TIP-EDGE-03, with the port's prefix and code quoting (issue 121).
     /// <summary>The message thrown when a tooltip positioner is placed outside a <c>TooltipPortal</c>.</summary>
-    internal const string MissingMessage = "Blazix: `<TooltipPortal>` is missing.";
+    internal const string MissingMessage = "Iodine: `<TooltipPortal>` is missing.";
 
     /// <summary>Returns <paramref name="context"/>, or throws when the positioner is placed outside a tooltip portal.</summary>
     /// <param name="context">The cascaded context.</param>

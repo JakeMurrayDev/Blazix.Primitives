@@ -1,10 +1,10 @@
-using Blazix.Primitives.Rendering;
+using Iodine.Headless.Rendering;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Web;
 using Microsoft.Extensions.Logging;
 using Microsoft.JSInterop;
 
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // DLG §3.9 state object (dialog/close/DialogClose.tsx:37).
 /// <summary>Represents the state of a dialog's close button, which the part exposes as data attributes and passes to its class and style functions.</summary>

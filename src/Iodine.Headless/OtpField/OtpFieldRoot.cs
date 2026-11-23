@@ -1,16 +1,16 @@
 using System.Globalization;
 using System.Linq.Expressions;
-using Blazix.Primitives.Interop;
-using Blazix.Primitives.Rendering;
-using Blazix.Primitives.Store;
-using Blazix.Primitives.Utilities;
+using Iodine.Headless.Interop;
+using Iodine.Headless.Rendering;
+using Iodine.Headless.Store;
+using Iodine.Headless.Utilities;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Forms;
 using Microsoft.AspNetCore.Components.Rendering;
 using Microsoft.Extensions.Logging;
 using Microsoft.JSInterop;
 
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // Base UI's OTPField.Root (otp-field/root/OTPFieldRoot.tsx); the contract is docs/components/otp-field.md (issue 278, M6
 // track 7).
@@ -216,8 +216,8 @@ public sealed class OtpFieldRoot : PartBase<OtpFieldRootState>
     // OTP-API-09; ADR 08 Amendments 2026-11-18.
     /// <summary>Gets or sets the virtual keyboard the slots and the hidden input ask for.</summary>
     /// <value>
-    /// The keyboard, or <see langword="null"/>, the default, for <see cref="Primitives.InputMode.Numeric"/> with numeric
-    /// validation, <see cref="Primitives.InputMode.Text"/> with alphabetic or alphanumeric validation, and none otherwise.
+    /// The keyboard, or <see langword="null"/>, the default, for <see cref="Headless.InputMode.Numeric"/> with numeric
+    /// validation, <see cref="Headless.InputMode.Text"/> with alphabetic or alphanumeric validation, and none otherwise.
     /// </value>
     [Parameter]
     public InputMode? InputMode { get; set; }
@@ -344,14 +344,14 @@ public sealed class OtpFieldRoot : PartBase<OtpFieldRootState>
     /// <summary>Gets the effective <c>inputmode</c> literal, or <see langword="null"/>.</summary>
     internal string? InputModeLiteral => InputMode switch
     {
-        Primitives.InputMode.None => "none",
-        Primitives.InputMode.Text => "text",
-        Primitives.InputMode.Tel => "tel",
-        Primitives.InputMode.Url => "url",
-        Primitives.InputMode.Email => "email",
-        Primitives.InputMode.Numeric => "numeric",
-        Primitives.InputMode.Decimal => "decimal",
-        Primitives.InputMode.Search => "search",
+        Headless.InputMode.None => "none",
+        Headless.InputMode.Text => "text",
+        Headless.InputMode.Tel => "tel",
+        Headless.InputMode.Url => "url",
+        Headless.InputMode.Email => "email",
+        Headless.InputMode.Numeric => "numeric",
+        Headless.InputMode.Decimal => "decimal",
+        Headless.InputMode.Search => "search",
         _ => EffectiveValidationType switch
         {
             OtpFieldValidationType.Numeric => "numeric",
@@ -851,7 +851,7 @@ public sealed class OtpFieldRoot : PartBase<OtpFieldRootState>
 
     // OTP-EDGE-05 (OTPFieldInput.tsx:312-321).
     private void OnPasteUnreadable(OtpFieldPasteUnreadableReport report) =>
-        _ = InvokeAsync(() => Warn("Blazix: `<OtpFieldInput>` could not read clipboard text during paste handling."));
+        _ = InvokeAsync(() => Warn("Iodine: `<OtpFieldInput>` could not read clipboard text during paste handling."));
 
     private OtpFieldInput? FindSlot(int index)
     {
@@ -1119,7 +1119,7 @@ public sealed class OtpFieldRoot : PartBase<OtpFieldRootState>
 
         if (Length <= 0)
         {
-            Warn($"Blazix: `<OtpFieldRoot>` `Length` must be a positive integer. Received `Length={Length.ToString(CultureInfo.InvariantCulture)}`.");
+            Warn($"Iodine: `<OtpFieldRoot>` `Length` must be a positive integer. Received `Length={Length.ToString(CultureInfo.InvariantCulture)}`.");
             return;
         }
 
@@ -1130,7 +1130,7 @@ public sealed class OtpFieldRoot : PartBase<OtpFieldRootState>
 
         string count = mountedSlots.ToString(CultureInfo.InvariantCulture);
         Warn(
-            $"Blazix: `<OtpFieldRoot>` `Length` must match the number of rendered `<OtpFieldInput />` parts. Received `Length={Length.ToString(CultureInfo.InvariantCulture)}` but rendered {count} input{(mountedSlots == 1 ? string.Empty : "s")}.");
+            $"Iodine: `<OtpFieldRoot>` `Length` must match the number of rendered `<OtpFieldInput />` parts. Received `Length={Length.ToString(CultureInfo.InvariantCulture)}` but rendered {count} input{(mountedSlots == 1 ? string.Empty : "s")}.");
     }
 
     // OTP-EDGE-02, OTP-EDGE-03: once per message text per session (UTL-EDGE-11/12; the scoped log, granted by the

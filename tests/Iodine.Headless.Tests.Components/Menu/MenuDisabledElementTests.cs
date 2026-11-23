@@ -1,11 +1,11 @@
-using Blazix.Primitives.Interop;
+using Iodine.Headless.Interop;
 using Bunit;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.JSInterop;
 
-// Family tests use the project's root namespace (tests/Blazix.Primitives.Tests.Components/CONTEXT.md).
-namespace Blazix.Primitives.Tests.Components;
+// Family tests use the project's root namespace (tests/Iodine.Headless.Tests.Components/CONTEXT.md).
+namespace Iodine.Headless.Tests.Components;
 
 /// <summary>
 /// L2: <c>MenuSubmenuTrigger.test.tsx</c>'s disabled-element warning (MNU-EDGE-06). The `button` module checks the rendered
@@ -19,7 +19,7 @@ public sealed class MenuDisabledElementTests : BunitContext
     public MenuDisabledElementTests()
     {
         JSInterop.Mode = JSRuntimeMode.Loose;
-        Services.AddBlazixPrimitives();
+        Services.AddIodineHeadless();
         Services.AddSingleton<ILogger<MenuSubmenuTrigger>>(logger);
     }
 
@@ -27,7 +27,7 @@ public sealed class MenuDisabledElementTests : BunitContext
     [Trait("Requirement", "MNU-EDGE-06")]
     public async Task Warns_when_a_disabled_element_is_detected_via_the_render_function()
     {
-        BunitJSModuleInterop button = JSInterop.SetupModule("./_content/Blazix.Primitives/js/button.js");
+        BunitJSModuleInterop button = JSInterop.SetupModule("./_content/Iodine.Headless/js/button.js");
         button.SetupModule("attach", _ => true);
 
         IRenderedComponent<MenuPartsHost> cut = Render<MenuPartsHost>(p => p.Add(x => x.Case, "submenu-disabled-element"));
@@ -40,7 +40,7 @@ public sealed class MenuDisabledElementTests : BunitContext
 
         string message = Assert.Single(logger.Entries).Message;
         Assert.Equal(
-            "Blazix: A disabled element was detected on `<MenuSubmenuTrigger>`. To properly disable the trigger, use the `Disabled` parameter on the component instead of setting it on the rendered element.",
+            "Iodine: A disabled element was detected on `<MenuSubmenuTrigger>`. To properly disable the trigger, use the `Disabled` parameter on the component instead of setting it on the rendered element.",
             message);
     }
 }

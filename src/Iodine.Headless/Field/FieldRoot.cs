@@ -1,9 +1,9 @@
-using Blazix.Primitives.Rendering;
+using Iodine.Headless.Rendering;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Rendering;
 using Microsoft.Extensions.DependencyInjection;
 
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // FLD-STA-01, FFI-STA-01; field/root/FieldRoot.tsx:112-122,239-264 (Base UI's order; projection order is declaration order).
 // The verdict's mapping is FieldValidityMapping (FLD-DOM-03): data-valid for true, data-invalid for false, nothing for null.

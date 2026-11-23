@@ -1,4 +1,4 @@
-namespace Blazix.Primitives.Rendering;
+namespace Iodine.Headless.Rendering;
 
 // RND-DOM-09
 /// <summary>Represents the sink that generated projections and custom mappings write state attributes to.</summary>

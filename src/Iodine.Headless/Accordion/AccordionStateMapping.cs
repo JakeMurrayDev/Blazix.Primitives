@@ -1,7 +1,7 @@
 using System.Globalization;
-using Blazix.Primitives.Rendering;
+using Iodine.Headless.Rendering;
 
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // ACC §5.2, §11; accordion/item/stateAttributesMapping.ts:7-12 (collapsibleOpenStateMapping, index → data-index,
 // transitionStatusMapping, value → nothing) and accordion/trigger/AccordionTrigger.tsx:14-17 (triggerOpenStateMapping):

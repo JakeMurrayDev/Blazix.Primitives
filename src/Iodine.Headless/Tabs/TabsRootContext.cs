@@ -1,8 +1,8 @@
-using Blazix.Primitives.Store;
-using Blazix.Primitives.Utilities;
+using Iodine.Headless.Store;
+using Iodine.Headless.Utilities;
 using Microsoft.AspNetCore.Components;
 
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // TAB §11 (TabsRootContext); tabs/root/TabsRootContext.ts. A plain listener list cascaded fixed (ADR 16 rule 9; the
 // Switch, Checkbox and RadioGroup groups' shape): a change of the value, the orientation, the mirrored direction or the
@@ -55,7 +55,7 @@ internal abstract class TabsRootContext
     {
         // TAB-EDGE-01: thrown in every build (ADR 02 Amendments 2026-10-20), the RadioIndicator rewrite as precedent.
         return context ?? throw new InvalidOperationException(
-            "Blazix: The `TabsRoot` context is missing. Tabs parts must be placed within `<TabsRoot>`.");
+            "Iodine: The `TabsRoot` context is missing. Tabs parts must be placed within `<TabsRoot>`.");
     }
 
     /// <summary>Adds a listener that runs after every change of the root's shared state.</summary>

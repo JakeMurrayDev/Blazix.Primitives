@@ -1,4 +1,4 @@
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // AUT-API-15 (autocomplete/root/AutocompleteRoot.tsx:90-105; CMB-API-37, EVT-05): `onItemHighlighted(value | undefined,
 // { reason, event, index })`, on the pattern of ComboboxItemHighlightedEventArgs (design point 8 of M5 track 10), named by

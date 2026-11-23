@@ -1,6 +1,6 @@
 using Microsoft.AspNetCore.Components;
 
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // TLB §11 (the ToolbarGroupContext the buttons, inputs and toggle groups read, optionally); toolbar/group/
 // ToolbarGroupContext.ts:4-12. Design point 14.4 (a), settled by the orchestrator 2026-10-27: the listener list of

@@ -1,10 +1,10 @@
 using System.Text.Json;
-using Blazix.Primitives.Interop;
+using Iodine.Headless.Interop;
 using Bunit;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.JSInterop;
 
-namespace Blazix.Primitives.Tests.Components;
+namespace Iodine.Headless.Tests.Components;
 
 /// <summary>
 /// A bUnit context with the <c>positioning</c> module mocked: the attach, update and dispose calls are recorded and the
@@ -12,11 +12,11 @@ namespace Blazix.Primitives.Tests.Components;
 /// </summary>
 internal sealed class PositioningTestContext : IDisposable
 {
-    public const string ModulePath = "./_content/Blazix.Primitives/js/positioning.js";
+    public const string ModulePath = "./_content/Iodine.Headless/js/positioning.js";
 
     public PositioningTestContext()
     {
-        Context.Services.AddBlazixPrimitives();
+        Context.Services.AddIodineHeadless();
         Module = Context.JSInterop.SetupModule(ModulePath);
         Handle = Module.SetupModule("attach", _ => true);
         Handle.SetupVoid("update", _ => true).SetVoidResult();

@@ -1,7 +1,7 @@
-using Blazix.Primitives.Rendering;
+using Iodine.Headless.Rendering;
 using Microsoft.AspNetCore.Components;
 
-namespace Blazix.Primitives.Tests.Accordion;
+namespace Iodine.Headless.Tests.Accordion;
 
 /// <summary>
 /// docs/components/accordion.md §3.6's <c>[L1]</c> line, <c>AccordionRoot.spec.tsx</c> (type assertions only), as compile-time

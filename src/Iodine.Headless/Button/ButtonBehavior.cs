@@ -1,11 +1,11 @@
-using Blazix.Primitives.Interop;
-using Blazix.Primitives.Rendering;
+using Iodine.Headless.Interop;
+using Iodine.Headless.Rendering;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Web;
 using Microsoft.Extensions.Logging;
 using Microsoft.JSInterop;
 
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // The button mechanism as a button-like part uses it (button-behavior.md, UBT; ADR 04 §1 button row, §3 decision point
 // `activate`, fallback run); lifted from Button (M1 track 4) by CollapsibleTrigger (M1 track 6), which its hand-over

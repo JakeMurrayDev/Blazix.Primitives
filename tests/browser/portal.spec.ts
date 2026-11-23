@@ -105,7 +105,7 @@ test.describe('FixturePortal', () => {
     await expect
       .poll(() =>
         page.evaluate(() => {
-          const root = (globalThis as unknown as { blazixFixtureDom: { lastClosedShadowRoot: ShadowRoot | null } }).blazixFixtureDom.lastClosedShadowRoot;
+          const root = (globalThis as unknown as { iodineFixtureDom: { lastClosedShadowRoot: ShadowRoot | null } }).iodineFixtureDom.lastClosedShadowRoot;
           const node = root?.querySelector('[data-base-ui-portal]');
           return node?.parentNode === root && node?.querySelector('[data-testid="portal-content"]') !== null;
         }),

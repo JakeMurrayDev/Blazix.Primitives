@@ -1,4 +1,4 @@
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // ADR 08 Amendments 2026-10-27 (CollisionBoundaryValue's rect case); Base UI's `Rect` from @floating-ui/utils.
 /// <summary>Represents a rectangle in viewport coordinates.</summary>

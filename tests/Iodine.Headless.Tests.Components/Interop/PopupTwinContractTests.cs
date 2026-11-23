@@ -1,8 +1,8 @@
-using Blazix.Primitives.Interop;
+using Iodine.Headless.Interop;
 using Bunit;
 using Microsoft.JSInterop;
 
-namespace Blazix.Primitives.Tests.Components.Interop;
+namespace Iodine.Headless.Tests.Components.Interop;
 
 /// <summary>
 /// Twin contract tests of the <c>popup</c> module (ADR 06 §1, L2; ADR 04 Amendments 2026-10-27, the <c>popup</c> row;
@@ -11,7 +11,7 @@ namespace Blazix.Primitives.Tests.Components.Interop;
 /// </summary>
 public sealed class PopupTwinContractTests
 {
-    private const string ModulePath = "./_content/Blazix.Primitives/js/popup.js";
+    private const string ModulePath = "./_content/Iodine.Headless/js/popup.js";
 
     [Fact]
     [Trait("Requirement", "PSH-ALG-14")]

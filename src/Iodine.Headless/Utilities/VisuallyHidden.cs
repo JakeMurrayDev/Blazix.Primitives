@@ -1,4 +1,4 @@
-namespace Blazix.Primitives.Utilities;
+namespace Iodine.Headless.Utilities;
 
 // UTL-DOM-13, UTL-DOM-14, UTL-DOM-15: exact declaration lists, in Base UI's order, as inline style text (MTR-DOM-01).
 /// <summary>Provides the inline style declarations that hide an element visually while keeping it available to assistive technology.</summary>

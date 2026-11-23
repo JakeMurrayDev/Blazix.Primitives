@@ -1,4 +1,4 @@
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // The literals the positioning module reads (Interop/PositioningOptions): Base UI's `Side`, `Align`, `positionMethod`
 // and collision-avoidance literals (internals/useAnchorPositioning.ts:66-125, :681). The CompositeLiterals precedent.
@@ -20,7 +20,7 @@ internal static class FloatingLiterals
             Side.InlineEnd => "inline-end",
             Side.InlineStart => "inline-start",
             // The value is formatted as an integer: passing the enum as the actual value would box it.
-            _ => throw new ArgumentOutOfRangeException(nameof(side), $"Blazix: `{(int)side}` is not a member of `Side`."),
+            _ => throw new ArgumentOutOfRangeException(nameof(side), $"Iodine: `{(int)side}` is not a member of `Side`."),
         };
     }
 
@@ -35,7 +35,7 @@ internal static class FloatingLiterals
             Align.Start => "start",
             Align.Center => "center",
             Align.End => "end",
-            _ => throw new ArgumentOutOfRangeException(nameof(align), $"Blazix: `{(int)align}` is not a member of `Align`."),
+            _ => throw new ArgumentOutOfRangeException(nameof(align), $"Iodine: `{(int)align}` is not a member of `Align`."),
         };
     }
 
@@ -49,7 +49,7 @@ internal static class FloatingLiterals
         {
             PositionMethod.Absolute => "absolute",
             PositionMethod.Fixed => "fixed",
-            _ => throw new ArgumentOutOfRangeException(nameof(method), $"Blazix: `{(int)method}` is not a member of `PositionMethod`."),
+            _ => throw new ArgumentOutOfRangeException(nameof(method), $"Iodine: `{(int)method}` is not a member of `PositionMethod`."),
         };
     }
 
@@ -64,7 +64,7 @@ internal static class FloatingLiterals
             CollisionAvoidanceMode.Flip => "flip",
             CollisionAvoidanceMode.Shift => "shift",
             CollisionAvoidanceMode.None => "none",
-            _ => throw new ArgumentOutOfRangeException(nameof(mode), $"Blazix: `{(int)mode}` is not a member of `CollisionAvoidanceMode`."),
+            _ => throw new ArgumentOutOfRangeException(nameof(mode), $"Iodine: `{(int)mode}` is not a member of `CollisionAvoidanceMode`."),
         };
     }
 
@@ -122,7 +122,7 @@ internal static class FloatingLiterals
             FallbackAxisSide.Start => "start",
             FallbackAxisSide.End => "end",
             FallbackAxisSide.None => "none",
-            _ => throw new ArgumentOutOfRangeException(nameof(side), $"Blazix: `{(int)side}` is not a member of `FallbackAxisSide`."),
+            _ => throw new ArgumentOutOfRangeException(nameof(side), $"Iodine: `{(int)side}` is not a member of `FallbackAxisSide`."),
         };
     }
 }

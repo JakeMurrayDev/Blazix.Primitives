@@ -2,7 +2,7 @@ using System.Collections;
 using Microsoft.AspNetCore.Components;
 using Microsoft.Extensions.Logging;
 
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // ADR 05 Amendments 2026-10-18, item 1; EVD-STA-05; EVD-ALG-08, EVD-STA-01..06, UTL-STA-01..06; ADR 05 §1/§2; glossary "Controlled / uncontrolled", "Request"; EVD-EDGE-01
 /// <summary>
@@ -22,7 +22,7 @@ namespace Blazix.Primitives;
 /// continues into a parent.
 /// </para>
 /// <para>
-/// Development warnings go to the logger only while the <c>Blazix.Primitives.DevelopmentWarnings</c> switch is on; each
+/// Development warnings go to the logger only while the <c>Iodine.Headless.DevelopmentWarnings</c> switch is on; each
 /// distinct message is logged once per instance.
 /// </para>
 /// </remarks>

@@ -1,4 +1,4 @@
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // ADR 08 Amendments 2026-10-27, the probe's finding (issue 116): the popup parts are generic only, and a popup whose
 // triggers carry no payload names this marker, TPayload="NoPayload", on its Root; its Triggers inherit it through

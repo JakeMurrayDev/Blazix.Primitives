@@ -2,7 +2,7 @@ using AngleSharp.Dom;
 using Bunit;
 using Microsoft.AspNetCore.Components;
 
-namespace Blazix.Primitives.Tests.Components;
+namespace Iodine.Headless.Tests.Components;
 
 /// <summary>
 /// The registration without a <c>tabindex</c> (M5 track 1, issue 159, Deliverable 10; NAV-DOM-21 and NAV-FOC-03, sheet F

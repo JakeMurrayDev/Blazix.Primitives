@@ -1,6 +1,6 @@
 using Microsoft.JSInterop;
 
-namespace Blazix.Primitives.Interop;
+namespace Iodine.Headless.Interop;
 
 // ADR 04 §1 (the `navigation-menu` component module) and Amendments 2026-10-18 and 2026-11-03 (4) (chosen by the user
 // 2026-11-03); design points 2-6 of M5 track 5 (settled by the orchestrator 2026-11-04, ADR 04 Amendments 2026-11-04,
@@ -11,7 +11,7 @@ namespace Blazix.Primitives.Interop;
 // the open key and the activation are reports (design point 4), Escape is the interactions session's.
 /// <summary>Represents the C# half of the <c>navigation-menu</c> module.</summary>
 internal sealed class NavigationMenuTwin(IJSRuntime jsRuntime)
-    : TwinBase<NavigationMenuTwin, NavigationMenuOptions>(jsRuntime, LibraryModule("navigation-menu"), BlazixJsonContext.Default.NavigationMenuOptions)
+    : TwinBase<NavigationMenuTwin, NavigationMenuOptions>(jsRuntime, LibraryModule("navigation-menu"), IodineJsonContext.Default.NavigationMenuOptions)
 {
     // ADR 04 Amendments 2026-11-04 (chosen by the user 2026-11-04).
     /// <summary>The decision point asked before the open key opens the trigger's item: the consumer's key veto.</summary>
@@ -67,7 +67,7 @@ internal sealed class NavigationMenuTwin(IJSRuntime jsRuntime)
     [JSInvokable]
     public void OnActivate(string payloadJson)
     {
-        NavigationMenuActivation activation = Deserialize(payloadJson, BlazixJsonContext.Default.NavigationMenuActivation);
+        NavigationMenuActivation activation = Deserialize(payloadJson, IodineJsonContext.Default.NavigationMenuActivation);
         Activated?.Invoke(activation);
     }
 
@@ -76,7 +76,7 @@ internal sealed class NavigationMenuTwin(IJSRuntime jsRuntime)
     [JSInvokable]
     public void OnFocusOut(string payloadJson)
     {
-        NavigationMenuFocusOut focusOut = Deserialize(payloadJson, BlazixJsonContext.Default.NavigationMenuFocusOut);
+        NavigationMenuFocusOut focusOut = Deserialize(payloadJson, IodineJsonContext.Default.NavigationMenuFocusOut);
         FocusedOut?.Invoke(focusOut);
     }
 
@@ -85,7 +85,7 @@ internal sealed class NavigationMenuTwin(IJSRuntime jsRuntime)
     [JSInvokable]
     public void OnViewportInertChange(string payloadJson)
     {
-        NavigationMenuViewportInertChange change = Deserialize(payloadJson, BlazixJsonContext.Default.NavigationMenuViewportInertChange);
+        NavigationMenuViewportInertChange change = Deserialize(payloadJson, IodineJsonContext.Default.NavigationMenuViewportInertChange);
         ViewportInertChanged?.Invoke(change.Inert);
     }
 

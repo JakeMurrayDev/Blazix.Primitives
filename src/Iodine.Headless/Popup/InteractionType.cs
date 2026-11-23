@@ -1,4 +1,4 @@
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // ADR 08 §3 (enums) and Amendments 2026-10-27 (M4 planning: the enum, in Popup/ beside its first consumers; `Unknown`
 // stands for Base UI's empty literal, the sentinel §3 allows where Base UI has the literal; `InteractionType?` is the

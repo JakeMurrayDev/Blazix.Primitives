@@ -1,8 +1,8 @@
 using System.Diagnostics.CodeAnalysis;
 using System.Runtime.CompilerServices;
-using Blazix.Primitives.Store;
+using Iodine.Headless.Store;
 
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // DRW-API-02..04, §3.18 (drawer/root/DrawerRootContext.ts:7, `Drawer.Root.SnapPoint = number | string`); ADR 08 Amendments
 // 2026-11-18 (decision 20 (a) of the M6 plan, chosen by the user 2026-11-18, and the probe's outcome): a hand-written union
@@ -59,9 +59,9 @@ public readonly struct SnapPointValue : IUnion, IEquatable<SnapPointValue>
     /// <value><see langword="true"/> if a value is held; otherwise, <see langword="false"/>. The default instance holds no value.</value>
     public bool HasValue => kind != SnapPointKind.None;
 
-    // BLZX2005: IUnion requires an object-typed Value, so reading it boxes the number; the library reads the cases through
+    // IOD2005: IUnion requires an object-typed Value, so reading it boxes the number; the library reads the cases through
     // TryGetValue instead.
-#pragma warning disable BLZX2005
+#pragma warning disable IOD2005
     /// <inheritdoc />
     /// <remarks>Reading it boxes a number.</remarks>
     public object? Value => kind switch
@@ -70,7 +70,7 @@ public readonly struct SnapPointValue : IUnion, IEquatable<SnapPointValue>
         SnapPointKind.String => text,
         _ => null,
     };
-#pragma warning restore BLZX2005
+#pragma warning restore IOD2005
 
     // DRW-STA-16 (DrawerPopup.tsx:314): only the number 1 is the full height.
     internal bool IsFullHeight => kind == SnapPointKind.Number && number == 1;

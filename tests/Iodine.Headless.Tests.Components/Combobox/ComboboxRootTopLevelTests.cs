@@ -4,7 +4,7 @@ using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Rendering;
 
 // Family tests use the project's root namespace.
-namespace Blazix.Primitives.Tests.Components;
+namespace Iodine.Headless.Tests.Components;
 
 // ComboboxRoot.test.tsx's top-level `<Combobox.Root />` titles outside any nested describe, at L2 (batch A): the Separator's
 // orientation, the internal dismiss buttons, the modal trap's structure, items unloading, browser autofill through the hidden
@@ -14,7 +14,7 @@ namespace Blazix.Primitives.Tests.Components;
 /// <summary>Combobox's root at L2: ComboboxRoot.test.tsx's top-level titles.</summary>
 public sealed class ComboboxRootTopLevelTests : IDisposable
 {
-    private const string FocusManagerPath = "./_content/Blazix.Primitives/js/focus-manager.js";
+    private const string FocusManagerPath = "./_content/Iodine.Headless/js/focus-manager.js";
 
     private static readonly string[] s_appleBanana = ["Apple", "Banana"];
 
@@ -127,7 +127,7 @@ public sealed class ComboboxRootTopLevelTests : IDisposable
         Assert.False(dismissButtons[0].HasAttribute("tabindex"));
         Assert.False(dismissButtons[1].HasAttribute("tabindex"));
 
-        await cut.InvokeAsync(() => test.TwinOf(Blazix.Primitives.Interop.ComboboxTwin.PopupPart).OnDismiss(ComboboxTestContext.Click));
+        await cut.InvokeAsync(() => test.TwinOf(Iodine.Headless.Interop.ComboboxTwin.PopupPart).OnDismiss(ComboboxTestContext.Click));
         await cut.CompleteCloseAsync();
 
         Assert.False(cut.HasListbox());
@@ -150,7 +150,7 @@ public sealed class ComboboxRootTopLevelTests : IDisposable
         Assert.False(dismissButtons[0].HasAttribute("tabindex"));
         Assert.False(dismissButtons[1].HasAttribute("tabindex"));
 
-        await cut.InvokeAsync(() => test.TwinOf(Blazix.Primitives.Interop.ComboboxTwin.InputPart).OnDismiss(ComboboxTestContext.Click));
+        await cut.InvokeAsync(() => test.TwinOf(Iodine.Headless.Interop.ComboboxTwin.InputPart).OnDismiss(ComboboxTestContext.Click));
         await cut.CompleteCloseAsync();
 
         Assert.False(cut.HasListbox());

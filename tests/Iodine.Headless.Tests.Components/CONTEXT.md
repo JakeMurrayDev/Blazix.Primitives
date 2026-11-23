@@ -1,20 +1,20 @@
-# tests/Blazix.Primitives.Tests.Components
+# tests/Iodine.Headless.Tests.Components
 
 L2: bUnit, including the twin contract tests.
 
 ## Inputs
 
-- `../../src/Blazix.Primitives`, and bUnit and `Microsoft.Extensions.TimeProvider.Testing` from `Directory.Packages.props`; the generators as an analyzer, so the project's own state records are projected (`[PartState]`) and given their `Copy` and `ShallowEquals` (`[StoreState]`) as a consumer's would be.
+- `../../src/Iodine.Headless`, and bUnit and `Microsoft.Extensions.TimeProvider.Testing` from `Directory.Packages.props`; the generators as an analyzer, so the project's own state records are projected (`[PartState]`) and given their `Copy` and `ShallowEquals` (`[StoreState]`) as a consumer's would be.
 - The `Test:` lines tagged `[L2]` in `docs/components/*.md`; the conformance suite RND-DOM-36..49; decision record 06 §1.
 - The project uses the Razor SDK so `.razor` test consumers (`Rendering/Consumers/`) exercise the consumer-facing forms: a substitute written as static markup, `<Render>` and `<RenderFunction Context="props">` child content.
 
 ## Job
 
-Renders every part through a `BunitContext` (with `Services.AddBlazixPrimitives()`): the conformance suite, the controlled and uncontrolled contract, request sequences and cancelation for C#-dispatched events, form integration, and the rendered attributes and ARIA that C# owns. The conformance suite is `Rendering/Conformance/PartConformanceTests<TPart>`: a family derives from it, supplies `ConformanceOptions<TPart>` (tag name, substitution tag, button, wrapping, and `RendersAgainOnMount` for a part its root renders again when it mounts, whose ref titles then find the element by its test id and assert the captures non-null, ADR 06 Amendments 2026-11-18) and inherits every RND-DOM-36..49 test with Base UI's title; `SampleRootConformanceTests` is the reference run on the sample part `SampleRoot`. Twin contract tests record the `attach`/`update`/`dispose` calls on bUnit's JS interop mock and drive the twin's `[JSInvokable]` callbacks directly. It has no DOM, no focus model and no JavaScript, so anything that needs one goes to L4 (a test never fakes a layer above it).
+Renders every part through a `BunitContext` (with `Services.AddIodineHeadless()`): the conformance suite, the controlled and uncontrolled contract, request sequences and cancelation for C#-dispatched events, form integration, and the rendered attributes and ARIA that C# owns. The conformance suite is `Rendering/Conformance/PartConformanceTests<TPart>`: a family derives from it, supplies `ConformanceOptions<TPart>` (tag name, substitution tag, button, wrapping, and `RendersAgainOnMount` for a part its root renders again when it mounts, whose ref titles then find the element by its test id and assert the captures non-null, ADR 06 Amendments 2026-11-18) and inherits every RND-DOM-36..49 test with Base UI's title; `SampleRootConformanceTests` is the reference run on the sample part `SampleRoot`. Twin contract tests record the `attach`/`update`/`dispose` calls on bUnit's JS interop mock and drive the twin's `[JSInvokable]` callbacks directly. It has no DOM, no focus model and no JavaScript, so anything that needs one goes to L4 (a test never fakes a layer above it).
 
 ## Outputs
 
-- A pass or fail per test through `dotnet test --project tests/Blazix.Primitives.Tests.Components`.
+- A pass or fail per test through `dotnet test --project tests/Iodine.Headless.Tests.Components`.
 - Run by the `build-and-test` CI job on every change outside `docs/`.
 
 ## Human check

@@ -1,4 +1,4 @@
-namespace Blazix.Primitives.Interop;
+namespace Iodine.Headless.Interop;
 
 // NUM-FOC-05, NUM-FRM-07 (NumberFieldInput.tsx:131-136)
 /// <summary>The payload of the <c>number-field</c> module's focus report.</summary>

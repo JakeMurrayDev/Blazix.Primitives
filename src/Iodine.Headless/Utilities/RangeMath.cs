@@ -1,4 +1,4 @@
-namespace Blazix.Primitives.Utilities;
+namespace Iodine.Headless.Utilities;
 
 // UTL-EDGE-14, UTL-DOM-31; MTR-ALG-01, MTR-ALG-02 (and PRG-ALG-01 for Progress): IEEE-754 double arithmetic, the same
 // operations in the same order as Base UI's clamp and valueToPercent.

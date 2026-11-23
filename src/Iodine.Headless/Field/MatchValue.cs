@@ -1,6 +1,6 @@
 using System.Runtime.CompilerServices;
 
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // ADR 05 §4 (value-typed alternatives are hand-written [Union] structs with the non-boxing access pattern; Duration is
 // the model); ADR 08 §3. Base UI's `match?: boolean | keyof ValidityState` (FLD-API-30, field/error/FieldError.tsx:153):
@@ -44,9 +44,9 @@ public readonly struct MatchValue : IUnion
     /// <value><see langword="true"/> if a value is held; otherwise, <see langword="false"/>. The default instance holds no value.</value>
     public bool HasValue => kind != MatchKind.None;
 
-    // BLZX2005: IUnion requires an object-typed Value, so reading it boxes either case; the library reads the cases
+    // IOD2005: IUnion requires an object-typed Value, so reading it boxes either case; the library reads the cases
     // through TryGetValue instead.
-#pragma warning disable BLZX2005
+#pragma warning disable IOD2005
     /// <inheritdoc />
     /// <remarks>Reading it boxes the value.</remarks>
     public object? Value => kind switch
@@ -55,7 +55,7 @@ public readonly struct MatchValue : IUnion
         MatchKind.Flag => flag,
         _ => null,
     };
-#pragma warning restore BLZX2005
+#pragma warning restore IOD2005
 
     /// <summary>Converts a boolean to a <see cref="MatchValue"/> that holds it.</summary>
     /// <param name="value"><see langword="true"/> to render the error always; <see langword="false"/> for the default slot.</param>

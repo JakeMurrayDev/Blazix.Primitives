@@ -1,6 +1,6 @@
 using System.Text.Json.Serialization;
 
-namespace Blazix.Primitives.Interop;
+namespace Iodine.Headless.Interop;
 
 // ADR 04 §1 and §3; UBT-API-01, UBT-ALG-01..07, UBT-EDGE-01..03 (button-behavior.md §6.1 and §6.3); the hidden-input
 // bridge and the Enter suppression, UBT-EVT-09 and UBT-KEY-06 (ADR 12 Amendments 2026-10-22 item 4; ADR 04 Amendments

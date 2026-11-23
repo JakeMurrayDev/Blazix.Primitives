@@ -1,13 +1,13 @@
-using Blazix.Primitives.Interop;
-using Blazix.Primitives.Rendering;
-using Blazix.Primitives.Store;
+using Iodine.Headless.Interop;
+using Iodine.Headless.Rendering;
+using Iodine.Headless.Store;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Web;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.JSInterop;
 
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // SEL-STA-15 (select/trigger/SelectTrigger.tsx:218-226, 236-257); design point 4 (a), settled by the orchestrator
 // 2026-11-04: the value is in the state, not projected (SEL-DOM-08). PopupSide is C#'s render of the positioning report

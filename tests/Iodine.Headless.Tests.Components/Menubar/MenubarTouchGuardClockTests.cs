@@ -2,8 +2,8 @@ using Bunit;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Time.Testing;
 
-// Family tests use the project's root namespace (tests/Blazix.Primitives.Tests.Components/CONTEXT.md).
-namespace Blazix.Primitives.Tests.Components;
+// Family tests use the project's root namespace (tests/Iodine.Headless.Tests.Components/CONTEXT.md).
+namespace Iodine.Headless.Tests.Components;
 
 /// <summary>
 /// L2: a bar menu's touch guard (MNU-STA-05's bar clause, MBR-PTR-08) runs under the <see cref="TimeProvider"/> the
@@ -17,7 +17,7 @@ public sealed class MenubarTouchGuardClockTests : BunitContext
     public MenubarTouchGuardClockTests()
     {
         JSInterop.Mode = JSRuntimeMode.Loose;
-        Services.AddBlazixPrimitives();
+        Services.AddIodineHeadless();
         Services.AddSingleton<TimeProvider>(time);
     }
 

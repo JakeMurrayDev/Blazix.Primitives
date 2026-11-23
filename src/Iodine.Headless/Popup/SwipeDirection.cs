@@ -1,4 +1,4 @@
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // ADR 08 Amendments 2026-11-18, the Swipe line (chosen by the user 2026-11-18, the M6 plan's decision 24): the PascalCase of
 // Base UI's `'up' | 'down' | 'left' | 'right'`, shared by Drawer and Toast. In Popup/ beside the swipe tracker's contract

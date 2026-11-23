@@ -1,5 +1,5 @@
 using AngleSharp.Dom;
-using Blazix.Primitives.Interop;
+using Iodine.Headless.Interop;
 using Bunit;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Rendering;
@@ -8,7 +8,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.JSInterop;
 
 // Family tests use the project's root namespace.
-namespace Blazix.Primitives.Tests.Components;
+namespace Iodine.Headless.Tests.Components;
 
 // CMB §3.4..3.6 at L2: what C# renders for the chips, the order the composite module reports and C# sends back to the chips'
 // handle, and the removals and the open the `combobox` module reports (its keys and focus moves are L3). Base UI's chip
@@ -299,7 +299,7 @@ public sealed class ComboboxChipsTests : IDisposable
             .Add(x => x.RootParameters, new Dictionary<string, object?> { ["Multiple"] = true })
             .Add(x => x.Extra, extra)));
 
-        Assert.StartsWith("Blazix: `ComboboxChipContext` is missing.", error.Message, StringComparison.Ordinal);
+        Assert.StartsWith("Iodine: `ComboboxChipContext` is missing.", error.Message, StringComparison.Ordinal);
     }
 
     [Fact(DisplayName = "port: a chip outside the chips container throws the missing chips error")]
@@ -314,7 +314,7 @@ public sealed class ComboboxChipsTests : IDisposable
 
         InvalidOperationException error = Assert.Throws<InvalidOperationException>(() => test.Context.Render<ComboboxHarness>(p => p.Add(x => x.Extra, extra)));
 
-        Assert.StartsWith("Blazix: `ComboboxChipsContext` is missing.", error.Message, StringComparison.Ordinal);
+        Assert.StartsWith("Iodine: `ComboboxChipsContext` is missing.", error.Message, StringComparison.Ordinal);
     }
 
     // ComboboxChip.tsx:100-127 with mergeProps: the consumer's onKeyDown and onMouseDown run before the chip's own handling and

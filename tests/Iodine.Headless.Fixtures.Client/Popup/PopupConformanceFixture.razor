@@ -1,5 +1,5 @@
-@namespace Blazix.Primitives.Fixtures.Client.PopupFixtures
-@using Blazix.Primitives
+@namespace Iodine.Headless.Fixtures.Client.PopupFixtures
+@using Iodine.Headless
 @inherits PopupSuiteFixtureBase
 @inject IJSRuntime JS
 
@@ -14,7 +14,7 @@
       (open the page with `?animations=1`);
     - `container=shadow`: the portal renders nothing (a pending container) until a page script creates a closed shadow
       root on `[data-shadow-host]` after the first render and hands it to C# as an IJSObjectReference
-      (`blazixFixtureDom.lastClosedShadowRoot` in the page), the portal-basic pattern (ADR 04 Amendments 2026-10-28).
+      (`iodineFixtureDom.lastClosedShadowRoot` in the page), the portal-basic pattern (ADR 04 Amendments 2026-10-28).
 *@
 <FixtureContainer Name="popup-conformance" data-attached="@(Attached ? "true" : "false")" data-sync="@Sync" data-case="@Case"
                   data-open-changes="@OpenChanges" data-open-change-completes="@OpenChangeCompletes">
@@ -89,7 +89,7 @@
         {
             try
             {
-                container = new PortalContainerValue(await JS.InvokeAsync<IJSObjectReference>("blazixFixtureDom.createClosedShadowRoot", shadowHost));
+                container = new PortalContainerValue(await JS.InvokeAsync<IJSObjectReference>("iodineFixtureDom.createClosedShadowRoot", shadowHost));
                 StateHasChanged();
             }
             catch (JSDisconnectedException)

@@ -1,10 +1,10 @@
-using Blazix.Primitives.Rendering;
+using Iodine.Headless.Rendering;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Rendering;
 using Microsoft.Extensions.Logging;
 using Microsoft.JSInterop;
 
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // ADL §3.1 (alert-dialog/root/AlertDialogRoot.tsx): the Dialog root routine in alert mode (useRenderDialogRoot('alert-dialog')).
 // ADR 08 Amendments 2026-10-27 (chosen by the user 2026-10-27): a sealed part over DialogRootBehavior with its own parameter
@@ -43,7 +43,7 @@ public sealed class AlertDialogRoot<TPayload> : ComponentBase, IAsyncDisposable
     private DialogRootBehavior<TPayload>? behavior;
 
     // Created at the first parameter set, once the services are injected.
-    private DialogRootBehavior<TPayload> Behavior => behavior ?? throw new InvalidOperationException("Blazix: `AlertDialogRoot` is used before its first parameter set.");
+    private DialogRootBehavior<TPayload> Behavior => behavior ?? throw new InvalidOperationException("Iodine: `AlertDialogRoot` is used before its first parameter set.");
 
     [Inject]
     private PartIdGenerator IdGenerator { get; set; } = null!;

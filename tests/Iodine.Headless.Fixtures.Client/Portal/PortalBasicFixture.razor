@@ -1,6 +1,6 @@
-@namespace Blazix.Primitives.Fixtures.Client.PortalFixtures
-@using Blazix.Primitives
-@using Blazix.Primitives.Fixtures.Client.PopupFixtures
+@namespace Iodine.Headless.Fixtures.Client.PortalFixtures
+@using Iodine.Headless
+@using Iodine.Headless.Fixtures.Client.PopupFixtures
 @using Microsoft.JSInterop
 @inherits PopupSuiteFixtureBase
 @inject IJSRuntime JS
@@ -113,7 +113,7 @@
         {
             try
             {
-                container = new PortalContainerValue(await JS.InvokeAsync<IJSObjectReference>("blazixFixtureDom.createClosedShadowRoot", shadowHost));
+                container = new PortalContainerValue(await JS.InvokeAsync<IJSObjectReference>("iodineFixtureDom.createClosedShadowRoot", shadowHost));
                 StateHasChanged();
             }
             catch (JSDisconnectedException)

@@ -1,8 +1,8 @@
-using Blazix.Primitives.Analyzers;
+using Iodine.Headless.Analyzers;
 using Microsoft.CodeAnalysis.CSharp.Testing;
 using Microsoft.CodeAnalysis.Testing;
 
-namespace Blazix.Primitives.Tests.Generators.Analyzers;
+namespace Iodine.Headless.Tests.Generators.Analyzers;
 
 /// <summary>
 /// The field-prefix analyzer (ADR 08 §5 as amended 2026-10-20): <c>_x</c> and <c>m_x</c> are rejected on every field. The
@@ -96,9 +96,9 @@ public sealed class FieldPrefixAnalyzerTests
         const string source = """
             public class Part
             {
-            #pragma warning disable BLZX2004 // a name fixed by an interop contract
+            #pragma warning disable IOD2004 // a name fixed by an interop contract
                 public int _legacy;
-            #pragma warning restore BLZX2004
+            #pragma warning restore IOD2004
 
                 public int {|#0:_other|};
             }

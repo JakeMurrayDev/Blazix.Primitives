@@ -4,7 +4,7 @@ using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Rendering;
 
 // Family tests use the project's root namespace.
-namespace Blazix.Primitives.Tests.Components;
+namespace Iodine.Headless.Tests.Components;
 
 // CMB §3.13 and §3.16 at L2. Base UI tests the Backdrop and the Arrow only through describeConformance (a batch of its own);
 // these port titles cover what the parts render from the store: the backdrop's role, hidden state, open state and style, and
@@ -78,7 +78,7 @@ public sealed class ComboboxPopupLayerTests : IDisposable
     {
         InvalidOperationException error = Assert.Throws<InvalidOperationException>(() => Render(new(), Arrow));
 
-        Assert.Equal("Blazix: `<ComboboxPopup>` and `<ComboboxArrow>` must be used within the `<ComboboxPositioner>` component.", error.Message);
+        Assert.Equal("Iodine: `<ComboboxPopup>` and `<ComboboxArrow>` must be used within the `<ComboboxPositioner>` component.", error.Message);
     }
 
     private static void Arrow(RenderTreeBuilder builder)

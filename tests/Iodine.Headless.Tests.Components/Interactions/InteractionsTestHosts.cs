@@ -1,5 +1,5 @@
-using Blazix.Primitives.Interop;
-using Blazix.Primitives.Rendering;
+using Iodine.Headless.Interop;
+using Iodine.Headless.Rendering;
 using Bunit;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Rendering;
@@ -7,7 +7,7 @@ using Microsoft.AspNetCore.Components.Web;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.JSInterop;
 
-namespace Blazix.Primitives.Tests.Components;
+namespace Iodine.Headless.Tests.Components;
 
 /// <summary>
 /// A bUnit context with the <c>interactions</c> module mocked: every attach, update and dispose is recorded, and the twin
@@ -15,11 +15,11 @@ namespace Blazix.Primitives.Tests.Components;
 /// </summary>
 internal sealed class InteractionsTestContext : IDisposable
 {
-    public const string ModulePath = "./_content/Blazix.Primitives/js/interactions.js";
+    public const string ModulePath = "./_content/Iodine.Headless/js/interactions.js";
 
     public InteractionsTestContext()
     {
-        Context.Services.AddBlazixPrimitives();
+        Context.Services.AddIodineHeadless();
         Module = Context.JSInterop.SetupModule(ModulePath);
         Handle = Module.SetupModule("attach", _ => true);
         Handle.SetupVoid("update", _ => true).SetVoidResult();

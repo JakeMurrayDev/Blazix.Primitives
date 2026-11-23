@@ -1,10 +1,10 @@
-using Blazix.Primitives.Rendering;
-using Blazix.Primitives.Store;
+using Iodine.Headless.Rendering;
+using Iodine.Headless.Store;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Rendering;
 using Microsoft.JSInterop;
 
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // TST §3.11 state object (toast/positioner/ToastPositioner.tsx:92-96); TST-STA-26. The placement is mirrored from the
 // `positioning` module's report (ADR 08 Amendments 2026-10-27; the RND-STA-01 row of ADR 01), as TooltipPositionerState.
@@ -56,7 +56,7 @@ public static class ToastPositionerCssVars
 internal sealed class ToastPositionerContext(PositionerContext positioner)
 {
     // TST-EDGE-03, with the port's prefix and code quoting.
-    internal const string MissingMessage = "Blazix: `ToastPositionerContext` is missing. `ToastPositioner` parts must be placed within `<ToastPositioner>`.";
+    internal const string MissingMessage = "Iodine: `ToastPositionerContext` is missing. `ToastPositioner` parts must be placed within `<ToastPositioner>`.";
 
     public PositionerContext Positioner { get; } = positioner;
 
@@ -125,7 +125,7 @@ public sealed class ToastPositioner<TData> : PartBase<ToastPositionerState>
     public PositionMethod? PositionMethod { get; set; }
 
     /// <summary>Gets or sets the side of the anchor to place the toast on.</summary>
-    /// <value>The side, or <see langword="null"/> for the toast's setting, else <see cref="Primitives.Side.Top"/>.</value>
+    /// <value>The side, or <see langword="null"/> for the toast's setting, else <see cref="Headless.Side.Top"/>.</value>
     [Parameter]
     public Side? Side { get; set; }
 
@@ -135,7 +135,7 @@ public sealed class ToastPositioner<TData> : PartBase<ToastPositionerState>
     public OffsetValue? SideOffset { get; set; }
 
     /// <summary>Gets or sets the alignment of the toast on its side.</summary>
-    /// <value>The alignment, or <see langword="null"/> for the toast's setting, else <see cref="Primitives.Align.Center"/>.</value>
+    /// <value>The alignment, or <see langword="null"/> for the toast's setting, else <see cref="Headless.Align.Center"/>.</value>
     [Parameter]
     public Align? Align { get; set; }
 
@@ -249,10 +249,10 @@ public sealed class ToastPositioner<TData> : PartBase<ToastPositionerState>
         behavior!.SetInputs(new PositionerInputs
         {
             Anchor = anchor is { } value && value.TryGetValue(out ElementReference element) ? element : null,
-            PositionMethod = PositionMethod ?? settings?.PositionMethod ?? Primitives.PositionMethod.Absolute,
-            Side = Side ?? settings?.Side ?? Primitives.Side.Top,
+            PositionMethod = PositionMethod ?? settings?.PositionMethod ?? Headless.PositionMethod.Absolute,
+            Side = Side ?? settings?.Side ?? Headless.Side.Top,
             SideOffset = SideOffset ?? settings?.SideOffset,
-            Align = Align ?? settings?.Align ?? Primitives.Align.Center,
+            Align = Align ?? settings?.Align ?? Headless.Align.Center,
             AlignOffset = AlignOffset ?? settings?.AlignOffset,
             CollisionBoundary = CollisionBoundary ?? settings?.CollisionBoundary,
             CollisionPadding = CollisionPadding ?? settings?.CollisionPadding ?? 5d,

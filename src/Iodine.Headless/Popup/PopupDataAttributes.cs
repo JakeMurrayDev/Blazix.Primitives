@@ -1,4 +1,4 @@
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // PSH §3.4, §4.4; utils/CommonTriggerDataAttributes.ts, CommonPopupDataAttributes.ts, CommonViewportDataAttributes.ts,
 // CommonPopupCssVars.ts, FocusGuard.tsx:39, InternalBackdrop.tsx:24, popupStoreUtils.ts:27-30, the click-trigger marker of

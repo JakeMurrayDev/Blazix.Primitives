@@ -1,4 +1,4 @@
-# src/Blazix.Primitives
+# src/Iodine.Headless
 
 The library: every part of the port and the machinery the parts share. It is the only project that ships code to consumers.
 
@@ -6,17 +6,17 @@ The library: every part of the port and the machinery the parts share. It is the
 
 - `docs/components/<family>.md` for each family folder; `docs/architecture/*.md` for `Rendering/`, `Store/`, `Events/`, `Interop/` and `js/`.
 - Decision records 02 (pipeline), 04 (interop boundary), 05 (state store, event details), 08 (naming, member order), 16 (performance).
-- The generator (`../Blazix.Primitives.Generators`) and the analyzers (`../Blazix.Primitives.Analyzers`), consumed as analyzers at compile time.
-- `node_modules` at the repository root for the TypeScript build (esbuild, `@floating-ui/dom` 1.8.0); `node` at build time only (`BlazixSkipJsBuild=true` with prebuilt outputs skips it).
+- The generator (`../Iodine.Headless.Generators`) and the analyzers (`../Iodine.Headless.Analyzers`), consumed as analyzers at compile time.
+- `node_modules` at the repository root for the TypeScript build (esbuild, `@floating-ui/dom` 1.8.0); `node` at build time only (`IodineSkipJsBuild=true` with prebuilt outputs skips it).
 
 ## Job
 
-Implements the parts as C# classes in the namespace `Blazix.Primitives` (flat `FamilyPart` names, ADR 08), one folder per family (`<Family>/`, no contract file of their own: the component document is their contract), plus `Rendering/`, `Store/`, `Events/` and `Interop/` for the pipeline, the state store, event details and the twins. A mechanism's C# half with no owning family has a folder named after it, with its own `CONTEXT.md` and its architecture document as contract (ADR 09 Amendments 2026-10-22): `Composite/` holds the composite root and item behaviours (CMP); `Floating/` holds floating positioning's public types and the Positioner and Arrow behaviours (FLT; ADR 09 Amendments 2026-10-27), with the interaction and focus-manager behaviours of M4 tracks 3 and 4 beside them. `DirectionProvider/` is a family folder whose contract is shared-utilities.md §4.15.1. `js/<module>.ts` holds the TypeScript modules with their vitest tests (`js/<module>.test.ts`) beside them. `BlazixPrimitivesServiceCollectionExtensions.AddBlazixPrimitives()` registers seven scoped services, which `tests/Blazix.Primitives.Tests/Rendering/ServiceRegistrationTests.cs` counts. The seventh, `ToastManager`, is the library's first registered stateful service: scoped, never a singleton, because on the server a singleton would span circuits (ADR 05 Amendments 2026-11-18 item 3, chosen by the user 2026-11-18). A toast provider without a manager of its own uses it. The project sets `IsTrimmable` and `IsAotCompatible` (warnings as errors), so reflection fails the build. No `.razor` part files (ADR 02 decision 4).
+Implements the parts as C# classes in the namespace `Iodine.Headless` (flat `FamilyPart` names, ADR 08), one folder per family (`<Family>/`, no contract file of their own: the component document is their contract), plus `Rendering/`, `Store/`, `Events/` and `Interop/` for the pipeline, the state store, event details and the twins. A mechanism's C# half with no owning family has a folder named after it, with its own `CONTEXT.md` and its architecture document as contract (ADR 09 Amendments 2026-10-22): `Composite/` holds the composite root and item behaviours (CMP); `Floating/` holds floating positioning's public types and the Positioner and Arrow behaviours (FLT; ADR 09 Amendments 2026-10-27), with the interaction and focus-manager behaviours of M4 tracks 3 and 4 beside them. `DirectionProvider/` is a family folder whose contract is shared-utilities.md §4.15.1. `js/<module>.ts` holds the TypeScript modules with their vitest tests (`js/<module>.test.ts`) beside them. `IodineHeadlessServiceCollectionExtensions.AddIodineHeadless()` registers seven scoped services, which `tests/Iodine.Headless.Tests/Rendering/ServiceRegistrationTests.cs` counts. The seventh, `ToastManager`, is the library's first registered stateful service: scoped, never a singleton, because on the server a singleton would span circuits (ADR 05 Amendments 2026-11-18 item 3, chosen by the user 2026-11-18). A toast provider without a manager of its own uses it. The project sets `IsTrimmable` and `IsAotCompatible` (warnings as errors), so reflection fails the build. No `.razor` part files (ADR 02 decision 4).
 
 ## Outputs
 
-- `Blazix.Primitives.dll` and the `Blazix.Primitives` NuGet package (library, generator as an analyzer asset, built JavaScript as static web assets, `LICENSE`, `THIRD-PARTY-NOTICES.md`), with `BaseUIVersion` metadata set to the pinned Base UI tag.
-- `wwwroot/` is esbuild output (the initializer and `js/<module>.js`): ignored by git, rebuilt by the `BlazixBuildJs` target on every build (or `npm run build:js`), never edited; `js/CONTEXT.md` has the toolchain rules.
+- `Iodine.Headless.dll` and the `Iodine.Headless` NuGet package (library, generator as an analyzer asset, built JavaScript as static web assets, `LICENSE`, `THIRD-PARTY-NOTICES.md`), with `BaseUIVersion` metadata set to the pinned Base UI tag.
+- `wwwroot/` is esbuild output (the initializer and `js/<module>.js`): ignored by git, rebuilt by the `IodineBuildJs` target on every build (or `npm run build:js`), never edited; `js/CONTEXT.md` has the toolchain rules.
 - Consumed by every project under `tests/`.
 
 ## Human check

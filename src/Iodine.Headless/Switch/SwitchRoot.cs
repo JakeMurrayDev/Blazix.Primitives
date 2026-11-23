@@ -1,7 +1,7 @@
 using System.Linq.Expressions;
-using Blazix.Primitives.Interop;
-using Blazix.Primitives.Rendering;
-using Blazix.Primitives.Utilities;
+using Iodine.Headless.Interop;
+using Iodine.Headless.Rendering;
+using Iodine.Headless.Utilities;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Forms;
 using Microsoft.AspNetCore.Components.Rendering;
@@ -9,7 +9,7 @@ using Microsoft.AspNetCore.Components.Web;
 using Microsoft.Extensions.Logging;
 using Microsoft.JSInterop;
 
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // SWT-STA-04; switch/root/SwitchRoot.tsx:207-216 (the field's state with four switch fields). ADR 08 §3: the state record is
 // sealed, partial and [PartState]; one record per part (Progress precedent).
@@ -291,7 +291,7 @@ public sealed class SwitchRoot : PartBase<SwitchRootState>
     /// <inheritdoc />
     protected override bool UsesGeneratedId => true;
 
-    // For the fixtures (tests/Blazix.Primitives.Fixtures.Client): completes once both twins are attached, so a browser test
+    // For the fixtures (tests/Iodine.Headless.Fixtures.Client): completes once both twins are attached, so a browser test
     // can wait for the modules' listeners before it clicks.
     /// <summary>Gets a task that completes when the switch's behaviors are attached to its element and its hidden input.</summary>
     /// <value>A task that completes after the first interactive render has attached both.</value>

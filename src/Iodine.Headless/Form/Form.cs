@@ -1,14 +1,14 @@
-using Blazix.Primitives.Interop;
-using Blazix.Primitives.Rendering;
+using Iodine.Headless.Interop;
+using Iodine.Headless.Rendering;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Rendering;
 using Microsoft.JSInterop;
 
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // Base UI's Form (form/Form.tsx); the contract is docs/components/form.md and the form scope of
 // docs/architecture/field-and-form-infrastructure.md §2. FRM-STR-01, FFI-STR-04: the form scope is cascaded fixed as
-// IFormScope around the part's whole output (ADR 16 rule 9, BLZX2001; the M2 contexts design point, settled by the
+// IFormScope around the part's whole output (ADR 16 rule 9, IOD2001; the M2 contexts design point, settled by the
 // orchestrator 2026-10-22), so portaled fields and a substituted root see it. FRM-STA-01: the state is empty.
 // FRM-API-05: Base UI's actionsRef is ValidateAsync and ClearErrors, reached by @ref (ADR 08 Amendments 2026-10-22).
 // FRM-EVT-01, FFI-ALG-05: the form module prevents every native submit and reports it with the state of every enrolled

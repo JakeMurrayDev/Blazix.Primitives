@@ -1,4 +1,4 @@
-namespace Blazix.Primitives.Tests.Components;
+namespace Iodine.Headless.Tests.Components;
 
 // ADR 16 rule 7; PR 127's rule, settled by the orchestrator 2026-10-28 (M4 track 8's shared-gaps PR): every allocation
 // budget is measured as the least of five runs of its operation, after the warm-up, in the non-parallel AllocationBudgets

@@ -2,8 +2,8 @@ using Bunit;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 
-// Family tests use the project's root namespace (tests/Blazix.Primitives.Tests.Components/CONTEXT.md).
-namespace Blazix.Primitives.Tests.Components;
+// Family tests use the project's root namespace (tests/Iodine.Headless.Tests.Components/CONTEXT.md).
+namespace Iodine.Headless.Tests.Components;
 
 /// <summary>
 /// L2: <c>MenuRoot.test.tsx</c>'s nested-modal warning (MNU-API-08, API-49, EDGE-02) on a test-only parent. The production
@@ -16,7 +16,7 @@ public sealed class MenuNestedModalTests : BunitContext
     public MenuNestedModalTests()
     {
         JSInterop.Mode = JSRuntimeMode.Loose;
-        Services.AddBlazixPrimitives();
+        Services.AddIodineHeadless();
         Services.AddSingleton<ILogger<MenuRoot<NoPayload>>>(logger);
     }
 
@@ -28,7 +28,7 @@ public sealed class MenuNestedModalTests : BunitContext
     {
         Render<MenuParentedHost>(p => p.Add(x => x.Modal, false));
 
-        Assert.Contains(logger.Entries, entry => entry.Message == "Blazix: The `Modal` parameter is not supported on nested menus. It will be ignored.");
+        Assert.Contains(logger.Entries, entry => entry.Message == "Iodine: The `Modal` parameter is not supported on nested menus. It will be ignored.");
     }
 
     [Fact(DisplayName = "port: a nested menu without a supplied Modal does not warn")]

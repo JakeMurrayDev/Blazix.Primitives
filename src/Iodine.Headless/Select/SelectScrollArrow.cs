@@ -1,11 +1,11 @@
-using Blazix.Primitives.Interop;
-using Blazix.Primitives.Rendering;
-using Blazix.Primitives.Store;
+using Iodine.Headless.Interop;
+using Iodine.Headless.Rendering;
+using Iodine.Headless.Store;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Rendering;
 using Microsoft.JSInterop;
 
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // SEL-STA-25 (select/scroll-arrow/SelectScrollArrow.tsx:40, 73-78, 153-170): Base UI's one `SelectScrollArrow.State`,
 // shared by both parts (the exception to ADR 08 §3's part-name rule, recorded in its note of 2026-11-10). Visible and
@@ -157,7 +157,7 @@ internal sealed class SelectScrollArrowBehavior : IDisposable
         {
             // An arrow that becomes visible is created in its starting phase (TRN-ALG-01).
             mounted = true;
-            status = Primitives.TransitionStatus.Starting;
+            status = Headless.TransitionStatus.Starting;
         }
         else if (!visible && mounted && transitionsHandle is null)
         {
@@ -182,7 +182,7 @@ internal sealed class SelectScrollArrowBehavior : IDisposable
             attributes.Set(SelectScrollUpArrowDataAttributes.Visible, string.Empty);
         }
 
-        if (!handedOver && status == Primitives.TransitionStatus.Starting)
+        if (!handedOver && status == Headless.TransitionStatus.Starting)
         {
             attributes.Set(PopupDataAttributes.StartingStyle, string.Empty);
         }

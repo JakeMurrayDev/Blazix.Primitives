@@ -1,6 +1,6 @@
 using Bunit;
 
-namespace Blazix.Primitives.Tests.Components;
+namespace Iodine.Headless.Tests.Components;
 
 /// <summary>
 /// The payload probe's permanent evidence at L2 (issue 116; ADR 08 Amendments 2026-10-27): one Razor host binds both forms

@@ -1,11 +1,11 @@
 using AngleSharp.Dom;
-using Blazix.Primitives.Rendering;
+using Iodine.Headless.Rendering;
 using Bunit;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Web;
 using Microsoft.Extensions.DependencyInjection;
 
-namespace Blazix.Primitives.Tests.Components;
+namespace Iodine.Headless.Tests.Components;
 
 /// <summary>
 /// The <c>[L2]</c> rows of docs/components/button.md: the attributes C# renders (UBT-ALG-03 with Button's explicit
@@ -26,7 +26,7 @@ public sealed class ButtonTests : IDisposable
 
     public ButtonTests()
     {
-        context.Services.AddBlazixPrimitives();
+        context.Services.AddIodineHeadless();
         context.JSInterop.Mode = JSRuntimeMode.Loose;
     }
 

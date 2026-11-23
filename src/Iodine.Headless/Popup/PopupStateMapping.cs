@@ -1,6 +1,6 @@
-using Blazix.Primitives.Rendering;
+using Iodine.Headless.Rendering;
 
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // PSH-DOM-01..05; utils/popupStateMapping.ts. The four mappings the families' parts call: a trigger's Open is
 // data-popup-open (PSH-DOM-01), a pressable trigger's adds data-pressed (PSH-DOM-02), a popup part's Open is data-open or

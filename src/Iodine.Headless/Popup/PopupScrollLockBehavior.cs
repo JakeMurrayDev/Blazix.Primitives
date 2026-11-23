@@ -1,8 +1,8 @@
-using Blazix.Primitives.Interop;
+using Iodine.Headless.Interop;
 using Microsoft.AspNetCore.Components;
 using Microsoft.JSInterop;
 
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // UTL §4.8 through ScrollLockTwin (ADR 04 Amendments 2026-10-27, the scroll-lock bullet): Dialog's useScrollLock(open &&
 // modal === true, popupElement) and, through PSH's anchored decision, Popover's. The anchored decision (PSH-PTR-07,

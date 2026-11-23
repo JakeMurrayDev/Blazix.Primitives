@@ -1,6 +1,6 @@
 using Microsoft.JSInterop;
 
-namespace Blazix.Primitives.Interop;
+namespace Iodine.Headless.Interop;
 
 // ADR 04 Amendments 2026-10-27 (the `popup` row, chosen by the user 2026-10-27): the twin of the `popup` mechanism module,
 // attached by the parts of every popup family (one twin per part). Its reports: the Viewport's mirrored direction and
@@ -11,7 +11,7 @@ namespace Blazix.Primitives.Interop;
 /// <summary>The C# twin of the <c>popup</c> module.</summary>
 /// <param name="jsRuntime">The JavaScript runtime.</param>
 internal sealed class PopupTwin(IJSRuntime jsRuntime)
-    : TwinBase<PopupTwin, PopupOptions>(jsRuntime, LibraryModule("popup"), BlazixJsonContext.Default.PopupOptions)
+    : TwinBase<PopupTwin, PopupOptions>(jsRuntime, LibraryModule("popup"), IodineJsonContext.Default.PopupOptions)
 {
     /// <summary>The decision point a focused trigger guard asks on WebAssembly.</summary>
     public const string GuardPoint = "guard";
@@ -32,7 +32,7 @@ internal sealed class PopupTwin(IJSRuntime jsRuntime)
     [JSInvokable]
     public void OnViewportChange(string payloadJson)
     {
-        PopupViewportReport report = Deserialize(payloadJson, BlazixJsonContext.Default.PopupViewportReport);
+        PopupViewportReport report = Deserialize(payloadJson, IodineJsonContext.Default.PopupViewportReport);
         ViewportChanged?.Invoke(report);
     }
 
@@ -50,7 +50,7 @@ internal sealed class PopupTwin(IJSRuntime jsRuntime)
     [JSInvokable]
     public void OnGuardFocus(string payloadJson)
     {
-        PopupGuardFocus report = Deserialize(payloadJson, BlazixJsonContext.Default.PopupGuardFocus);
+        PopupGuardFocus report = Deserialize(payloadJson, IodineJsonContext.Default.PopupGuardFocus);
         GuardFocused?.Invoke(report.Guard, report.Event);
     }
 
@@ -59,7 +59,7 @@ internal sealed class PopupTwin(IJSRuntime jsRuntime)
     [JSInvokable]
     public void OnGuardFocusing(string payloadJson)
     {
-        pendingGuard = Deserialize(payloadJson, BlazixJsonContext.Default.PopupGuardHandover).Guard;
+        pendingGuard = Deserialize(payloadJson, IodineJsonContext.Default.PopupGuardHandover).Guard;
     }
 
     /// <inheritdoc />

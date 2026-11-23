@@ -1,7 +1,7 @@
 using System.Diagnostics.CodeAnalysis;
 using System.Runtime.CompilerServices;
 
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // ADR 05 §4 (hand-written [Union] structs; CollisionPaddingValue is the model); ADR 08 Amendments 2026-11-18 (chosen by the
 // user 2026-11-18) and the probe's line of 2026-11-18 (`OverflowEdgeThreshold="20"` binds). Base UI's
@@ -43,9 +43,9 @@ public readonly struct OverflowEdgeThresholdValue : IUnion, IEquatable<OverflowE
     /// <value><see langword="true"/> if a value is held; otherwise, <see langword="false"/>. The default instance holds no value.</value>
     public bool HasValue => kind != ThresholdKind.None;
 
-    // BLZX2005: IUnion requires an object-typed Value, so reading it boxes the number case; the library reads the cases
+    // IOD2005: IUnion requires an object-typed Value, so reading it boxes the number case; the library reads the cases
     // through TryGetValue instead.
-#pragma warning disable BLZX2005
+#pragma warning disable IOD2005
     /// <inheritdoc />
     /// <remarks>Reading it boxes a number.</remarks>
     public object? Value => kind switch
@@ -54,7 +54,7 @@ public readonly struct OverflowEdgeThresholdValue : IUnion, IEquatable<OverflowE
         ThresholdKind.Edges => edges,
         _ => null,
     };
-#pragma warning restore BLZX2005
+#pragma warning restore IOD2005
 
     /// <summary>Converts a number to an <see cref="OverflowEdgeThresholdValue"/> that holds it for every edge.</summary>
     /// <param name="value">The threshold, in CSS pixels.</param>

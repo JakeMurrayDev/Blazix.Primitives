@@ -1,10 +1,10 @@
 using System.Text.Json;
-using Blazix.Primitives.Interop;
+using Iodine.Headless.Interop;
 using Bunit;
 using Microsoft.AspNetCore.Components;
 using Microsoft.JSInterop;
 
-namespace Blazix.Primitives.Tests.Components.Interop;
+namespace Iodine.Headless.Tests.Components.Interop;
 
 /// <summary>
 /// Twin contract tests of the <c>context-menu</c> module (ADR 06 §1, L2; ADR 04 Amendments 2026-10-18 and 2026-11-03
@@ -14,7 +14,7 @@ namespace Blazix.Primitives.Tests.Components.Interop;
 /// </summary>
 public sealed class ContextMenuTwinContractTests
 {
-    private const string ModulePath = "./_content/Blazix.Primitives/js/context-menu.js";
+    private const string ModulePath = "./_content/Iodine.Headless/js/context-menu.js";
 
     private const string ContextMenuJson = """
         {"kind":"MouseEvent","type":"contextmenu","key":null,"code":null,"altKey":false,"ctrlKey":true,
@@ -172,15 +172,15 @@ public sealed class ContextMenuTwinContractTests
     {
         Assert.Equal(
             """{"x":1,"y":2,"pointerType":"touch"}""",
-            JsonSerializer.Serialize(new ContextMenuOpenRequest(1, 2, "touch", null), BlazixJsonContext.Default.ContextMenuOpenRequest));
-        Assert.Equal("{}", JsonSerializer.Serialize(new ContextMenuCancelOpen(null), BlazixJsonContext.Default.ContextMenuCancelOpen));
+            JsonSerializer.Serialize(new ContextMenuOpenRequest(1, 2, "touch", null), IodineJsonContext.Default.ContextMenuOpenRequest));
+        Assert.Equal("{}", JsonSerializer.Serialize(new ContextMenuCancelOpen(null), IodineJsonContext.Default.ContextMenuCancelOpen));
         Assert.Equal(
             """{"identifier":1,"clientX":2,"clientY":3,"screenX":4,"screenY":5,"pageX":6,"pageY":7}""",
-            JsonSerializer.Serialize(new ContextMenuTouch(1, 2, 3, 4, 5, 6, 7), BlazixJsonContext.Default.ContextMenuTouch));
+            JsonSerializer.Serialize(new ContextMenuTouch(1, 2, 3, 4, 5, 6, 7), IodineJsonContext.Default.ContextMenuTouch));
         Assert.Equal(
             """{"clientX":0,"clientY":0,"screenX":0,"screenY":0,"pageX":0,"pageY":0,"offsetX":0,"offsetY":0,"button":2,"buttons":0}""",
-            JsonSerializer.Serialize(new ContextMenuPress(0, 0, 0, 0, 0, 0, 0, 0, 2, 0, null, null, null, null), BlazixJsonContext.Default.ContextMenuPress));
-        Assert.Equal("""{"part":"root"}""", JsonSerializer.Serialize(new ContextMenuOptions(), BlazixJsonContext.Default.ContextMenuOptions));
+            JsonSerializer.Serialize(new ContextMenuPress(0, 0, 0, 0, 0, 0, 0, 0, 2, 0, null, null, null, null), IodineJsonContext.Default.ContextMenuPress));
+        Assert.Equal("""{"part":"root"}""", JsonSerializer.Serialize(new ContextMenuOptions(), IodineJsonContext.Default.ContextMenuOptions));
     }
 
     /// <summary>A runtime the callback tests never reach: they call the twin's methods directly.</summary>

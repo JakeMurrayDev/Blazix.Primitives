@@ -2,10 +2,10 @@ using AngleSharp.Dom;
 using Bunit;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
-using static Blazix.Primitives.Tests.Components.TabsTestContext;
+using static Iodine.Headless.Tests.Components.TabsTestContext;
 
 // The namespace is the project's root: a namespace named after the family would hide the parts' types.
-namespace Blazix.Primitives.Tests.Components;
+namespace Iodine.Headless.Tests.Components;
 
 // TAB-EDGE-03, TAB-EDGE-04 and TAB-EDGE-05 through the development warnings switch, which is on for the whole run
 // (Button/DevelopmentWarningsSwitch). The root's messages are Controlled<T>'s (UTL-EDGE-22/23) with the name `Tabs`; the
@@ -87,8 +87,8 @@ public sealed class TabsDevelopmentWarningsTests : IDisposable
 
     [Theory(DisplayName = "port: a tab whose element does not match NativeButton logs the button mechanism's error once")]
     [Trait("Requirement", "TAB-EDGE-05")]
-    [InlineData(true, "Blazix: A component that acts as a button expected a native `<button>` because the `NativeButton` parameter is `true`.")]
-    [InlineData(false, "Blazix: A component that acts as a button expected a non-`<button>` because the `NativeButton` parameter is `false`.")]
+    [InlineData(true, "Iodine: A component that acts as a button expected a native `<button>` because the `NativeButton` parameter is `true`.")]
+    [InlineData(false, "Iodine: A component that acts as a button expected a non-`<button>` because the `NativeButton` parameter is `false`.")]
     public async Task Port_a_tab_whose_element_does_not_match_NativeButton_logs_once(bool expectedNative, string start)
     {
         Context.Render<TabsRoot<int>>(p => p

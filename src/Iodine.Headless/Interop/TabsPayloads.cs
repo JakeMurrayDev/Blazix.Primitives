@@ -1,4 +1,4 @@
-namespace Blazix.Primitives.Interop;
+namespace Iodine.Headless.Interop;
 
 // ADR 04 Amendments 2026-10-26 (chosen by the user 2026-10-26): on Server the module reports the Tab's id, the
 // activationDirection and the event, and C# runs the request a round trip later; on WebAssembly the same selection is

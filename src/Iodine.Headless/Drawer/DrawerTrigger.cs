@@ -1,10 +1,10 @@
-using Blazix.Primitives.Rendering;
+using Iodine.Headless.Rendering;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Web;
 using Microsoft.Extensions.Logging;
 using Microsoft.JSInterop;
 
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // DRW §3.5: Dialog.Trigger's state object (DLG §3.2, dialog/trigger/DialogTrigger.tsx:76-79) under its Drawer name;
 // DLG-STA-12: Open is isOpenedByTrigger, not the drawer's open state.

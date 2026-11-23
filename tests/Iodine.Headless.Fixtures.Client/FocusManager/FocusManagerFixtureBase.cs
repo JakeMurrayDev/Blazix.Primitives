@@ -1,7 +1,7 @@
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Web;
 
-namespace Blazix.Primitives.Fixtures.Client.FocusManagerFixtures;
+namespace Iodine.Headless.Fixtures.Client.FocusManagerFixtures;
 
 /// <summary>
 /// The base of the <c>focus-manager-*</c> fixtures (tests/browser/focus-manager.spec.ts). It plays the popup store: a

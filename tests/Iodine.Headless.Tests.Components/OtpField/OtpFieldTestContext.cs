@@ -1,5 +1,5 @@
 using System.Text.Json;
-using Blazix.Primitives.Interop;
+using Iodine.Headless.Interop;
 using Bunit;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Rendering;
@@ -7,7 +7,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.JSInterop;
 
-namespace Blazix.Primitives.Tests.Components;
+namespace Iodine.Headless.Tests.Components;
 
 /// <summary>
 /// The bUnit context of the OtpField tests (issue 278, M6 track 7): the library's services, captured loggers for the root and
@@ -16,14 +16,14 @@ namespace Blazix.Primitives.Tests.Components;
 /// </summary>
 public sealed class OtpFieldTestContext : IDisposable
 {
-    public const string CompositeModulePath = "./_content/Blazix.Primitives/js/composite.js";
-    public const string FormModulePath = "./_content/Blazix.Primitives/js/form.js";
-    public const string OtpFieldModulePath = "./_content/Blazix.Primitives/js/otp-field.js";
+    public const string CompositeModulePath = "./_content/Iodine.Headless/js/composite.js";
+    public const string FormModulePath = "./_content/Iodine.Headless/js/form.js";
+    public const string OtpFieldModulePath = "./_content/Iodine.Headless/js/otp-field.js";
 
     /// <summary>Initializes a new instance of the <see cref="OtpFieldTestContext"/> class.</summary>
     public OtpFieldTestContext()
     {
-        Context.Services.AddBlazixPrimitives();
+        Context.Services.AddIodineHeadless();
         Context.Services.AddSingleton<ILogger<OtpFieldRoot>>(RootLogger);
         Context.Services.AddSingleton<ILogger<OtpFieldInput>>(InputLogger);
         CompositeModule = Context.JSInterop.SetupModule(CompositeModulePath);
@@ -60,7 +60,7 @@ public sealed class OtpFieldTestContext : IDisposable
 
     /// <summary>The control options of every <c>form</c> attach, in order.</summary>
     internal IReadOnlyList<FormControlOptions> FormAttaches =>
-        [.. FormModule.Invocations["attach"].Select(i => JsonSerializer.Deserialize((string)i.Arguments[1]!, BlazixJsonContext.Default.FormOptions)!.Control!)];
+        [.. FormModule.Invocations["attach"].Select(i => JsonSerializer.Deserialize((string)i.Arguments[1]!, IodineJsonContext.Default.FormOptions)!.Control!)];
 
     /// <summary>Renders a root of six slots (Base UI's <c>OTPField</c> helper) with the given root parameters.</summary>
     /// <param name="parameters">Sets the root's parameters; <c>Length</c> is 6 unless set.</param>
@@ -99,8 +99,8 @@ public sealed class OtpFieldTestContext : IDisposable
     // The options the `otp-field` module received: the attach's, then every update's, in order.
     internal IReadOnlyList<OtpFieldOptions> OtpOptions =>
         [
-            .. OtpFieldModule.Invocations["attach"].Select(i => JsonSerializer.Deserialize((string)i.Arguments[1]!, BlazixJsonContext.Default.OtpFieldOptions)!),
-            .. OtpFieldHandle.Invocations["update"].Select(i => JsonSerializer.Deserialize((string)i.Arguments[0]!, BlazixJsonContext.Default.OtpFieldOptions)!),
+            .. OtpFieldModule.Invocations["attach"].Select(i => JsonSerializer.Deserialize((string)i.Arguments[1]!, IodineJsonContext.Default.OtpFieldOptions)!),
+            .. OtpFieldHandle.Invocations["update"].Select(i => JsonSerializer.Deserialize((string)i.Arguments[0]!, IodineJsonContext.Default.OtpFieldOptions)!),
         ];
 
     internal OtpFieldTwin OtpTwin() =>

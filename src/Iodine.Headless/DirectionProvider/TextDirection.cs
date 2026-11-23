@@ -1,4 +1,4 @@
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // UTL §3.1 (`TextDirection = 'ltr' | 'rtl'`), UTL-I18N-02; ADR 08 §3 Enums row and its note of 2026-10-22: a shared enum
 // beside its first consumer, DirectionProvider, because the composite root, positioning and Slider read it. The members

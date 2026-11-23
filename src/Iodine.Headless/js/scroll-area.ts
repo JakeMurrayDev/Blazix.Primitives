@@ -502,7 +502,7 @@ interface RootState {
   queueMeasure(): void;
 }
 
-const rootStateKey = Symbol('blazix.scrollArea.root');
+const rootStateKey = Symbol('iodine.scrollArea.root');
 
 interface ScrollAreaRootElement extends HTMLElement {
   [rootStateKey]?: RootState;
@@ -576,7 +576,7 @@ function takeOver(element: HTMLElement, style: string | null | undefined): void 
   writer.setConsumer(style ?? null);
 }
 
-const takenOver = Symbol('blazix.scrollArea.takenOver');
+const takenOver = Symbol('iodine.scrollArea.takenOver');
 
 function band(element: HTMLElement, name: typeof AFTER_RENDER_BAND | typeof MEASURED_BAND): StyleLayer {
   return styleWriter(element).layer(name);

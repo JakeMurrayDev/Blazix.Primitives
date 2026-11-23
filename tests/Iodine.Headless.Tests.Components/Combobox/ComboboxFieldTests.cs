@@ -1,12 +1,12 @@
 using AngleSharp.Dom;
-using Blazix.Primitives.Interop;
+using Iodine.Headless.Interop;
 using Bunit;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Rendering;
 using Microsoft.JSInterop;
 
 // Family tests use the project's root namespace.
-namespace Blazix.Primitives.Tests.Components;
+namespace Iodine.Headless.Tests.Components;
 
 // CMB §8 at L2 (ComboboxRoot.test.tsx's and ComboboxTrigger.test.tsx's Field titles): the root's id is the field's control
 // id, so Field.Label points at the input; a selection marks the field dirty and filled and validates in onChange mode; a
@@ -107,7 +107,7 @@ public sealed class ComboboxFieldTests : IDisposable
     {
         IRenderedComponent<FieldRoot> cut = Render(field => { }, new(), withTrigger: true);
         Assert.False(cut.Find("[data-testid=trigger]").HasAttribute("onblur"));
-        Blazix.Primitives.Interop.ComboboxTwin twin = test.TwinOf(Blazix.Primitives.Interop.ComboboxTwin.TriggerPart);
+        Iodine.Headless.Interop.ComboboxTwin twin = test.TwinOf(Iodine.Headless.Interop.ComboboxTwin.TriggerPart);
 
         await cut.InvokeAsync(() => twin.OnBlur(ComboboxTestContext.Click));
 

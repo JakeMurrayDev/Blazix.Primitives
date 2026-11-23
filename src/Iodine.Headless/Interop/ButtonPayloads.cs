@@ -1,4 +1,4 @@
-namespace Blazix.Primitives.Interop;
+namespace Iodine.Headless.Interop;
 
 // UBT-ALG-06, UBT-EVT-07/08
 /// <summary>The payload of the <c>button</c> module's interaction report: how a press happened.</summary>

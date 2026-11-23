@@ -1,6 +1,6 @@
 using System.Text.Json.Serialization;
 
-namespace Blazix.Primitives.Interop;
+namespace Iodine.Headless.Interop;
 
 // ADR 04 §1 (composite row) and §3; CMP §6.1 (the root part's options and defaults) and §6.2; the RadioGroup options of
 // ADR 04 Amendments 2026-10-20 (the pending-navigation flag and the focus-driven selection, RDG-STA-06, RAD-FOC-05) and

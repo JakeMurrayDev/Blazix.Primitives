@@ -1,11 +1,11 @@
 using System.Text.Json;
-using Blazix.Primitives.Interop;
+using Iodine.Headless.Interop;
 using Bunit;
 using Microsoft.JSInterop;
 using Microsoft.AspNetCore.Components;
-using Scenario = Blazix.Primitives.Tests.Components.FieldFormScenarios.FormScenario;
+using Scenario = Iodine.Headless.Tests.Components.FieldFormScenarios.FormScenario;
 
-namespace Blazix.Primitives.Tests.Components;
+namespace Iodine.Headless.Tests.Components;
 
 /// <summary>
 /// The <c>[L2]</c> titles of <c>FieldRoot.test.tsx</c> and <c>FieldRoot.react17.test.tsx</c> that render <c>Form</c>,
@@ -478,7 +478,7 @@ public sealed class FieldRootFormTests : IDisposable
     private static async Task SubmitAsync(SliderTestContext slider, IRenderedComponent<SliderHost> cut, params (string TestId, string Value)[] values)
     {
         JSRuntimeInvocation attach = slider.FormModule.Invocations["attach"]
-            .Last(i => JsonSerializer.Deserialize((string)i.Arguments[1]!, BlazixJsonContext.Default.FormOptions)!.Submit is not null);
+            .Last(i => JsonSerializer.Deserialize((string)i.Arguments[1]!, IodineJsonContext.Default.FormOptions)!.Submit is not null);
         FormTwin twin = ((DotNetObjectReference<FormTwin>)attach.Arguments[2]!).Value;
         FormSubmitRequest request = new()
         {
@@ -490,7 +490,7 @@ public sealed class FieldRootFormTests : IDisposable
                 Validity = NativeValidity.Default,
             })],
         };
-        string json = JsonSerializer.Serialize(request, BlazixJsonContext.Default.FormSubmitRequest);
+        string json = JsonSerializer.Serialize(request, IodineJsonContext.Default.FormSubmitRequest);
         await cut.InvokeAsync(() => twin.OnSubmitRequest(json));
     }
 

@@ -1,7 +1,7 @@
-using Blazix.Primitives.Utilities;
+using Iodine.Headless.Utilities;
 using Microsoft.AspNetCore.Components;
 
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // toast/utils/useToastLabelPart.ts (TST-API-15, TST-DOM-16, TST-ARIA-04/05/10), shared by Title and Description: the content
 // is the part's own ChildContent, else the toast's fragment, else its string; with none of them the part renders nothing

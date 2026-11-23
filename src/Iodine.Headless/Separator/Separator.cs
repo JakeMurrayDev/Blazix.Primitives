@@ -1,7 +1,7 @@
-using Blazix.Primitives.Rendering;
+using Iodine.Headless.Rendering;
 using Microsoft.AspNetCore.Components;
 
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // ADR 08 §3: the state record is sealed, partial and [PartState]. SEP-STA-01: exactly one field. SEP-DOM-01: the
 // generator's default projection writes data-orientation, so the part declares no custom mapping.
@@ -31,7 +31,7 @@ public sealed class Separator : PartBase<SeparatorState>
 
     // 4. parameter properties
     /// <summary>Gets or sets the orientation of the separator.</summary>
-    /// <value>The orientation, reflected in <c>aria-orientation</c> and <c>data-orientation</c>. The default is <see cref="Blazix.Primitives.Orientation.Horizontal"/>.</value>
+    /// <value>The orientation, reflected in <c>aria-orientation</c> and <c>data-orientation</c>. The default is <see cref="Iodine.Headless.Orientation.Horizontal"/>.</value>
     [Parameter]
     public Orientation Orientation { get; set; } = Orientation.Horizontal;
 

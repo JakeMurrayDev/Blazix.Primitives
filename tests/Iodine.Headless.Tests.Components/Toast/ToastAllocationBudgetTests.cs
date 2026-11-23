@@ -7,7 +7,7 @@ using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.JSInterop;
 
 // The namespace is the project's root: a namespace named after the family would hide the parts' types.
-namespace Blazix.Primitives.Tests.Components;
+namespace Iodine.Headless.Tests.Components;
 
 /// <summary>
 /// ADR 16 rule 7 for the toast parts (the M6 plan's decision 26 (a); issue 280, Deliverable 11): the least of five hover
@@ -40,7 +40,7 @@ public sealed class ToastAllocationBudgetTests
     public void A_hover_that_renders_the_viewport_and_every_toast_once_stays_within_its_budget(int toasts, long budgetBytes)
     {
         ServiceCollection services = new();
-        services.AddBlazixPrimitives();
+        services.AddIodineHeadless();
         services.AddSingleton<IJSRuntime>(new SilentJSRuntime());
         services.AddSingleton<ILoggerFactory>(NullLoggerFactory.Instance);
         services.AddSingleton(typeof(ILogger<>), typeof(NullLogger<>));

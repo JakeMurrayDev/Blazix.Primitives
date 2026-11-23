@@ -1,8 +1,8 @@
 using Bunit;
 using Microsoft.AspNetCore.Components;
 
-// Family tests use the project's root namespace (tests/Blazix.Primitives.Tests.Components/CONTEXT.md).
-namespace Blazix.Primitives.Tests.Components;
+// Family tests use the project's root namespace (tests/Iodine.Headless.Tests.Components/CONTEXT.md).
+namespace Iodine.Headless.Tests.Components;
 
 /// <summary>
 /// The AlertDialog parts' diagnostics and their interchange with the Dialog parts. The context errors name the AlertDialog
@@ -13,7 +13,7 @@ namespace Blazix.Primitives.Tests.Components;
 /// </summary>
 public sealed class AlertDialogPartTests : IDisposable
 {
-    private const string MissingRoot = "Blazix: The `AlertDialogRoot` context is missing. AlertDialog parts must be placed within `<AlertDialogRoot>`.";
+    private const string MissingRoot = "Iodine: The `AlertDialogRoot` context is missing. AlertDialog parts must be placed within `<AlertDialogRoot>`.";
 
     private readonly DialogTestContext test = new();
 
@@ -28,7 +28,7 @@ public sealed class AlertDialogPartTests : IDisposable
     public void An_AlertDialogTrigger_with_neither_a_root_nor_a_handle_throws()
     {
         InvalidOperationException error = Assert.Throws<InvalidOperationException>(() => test.Context.Render<AlertDialogTrigger<NoPayload>>());
-        Assert.Equal("Blazix: `<AlertDialogTrigger>` must be used within `<AlertDialogRoot>` or provided with a handle.", error.Message);
+        Assert.Equal("Iodine: `<AlertDialogTrigger>` must be used within `<AlertDialogRoot>` or provided with a handle.", error.Message);
     }
 
     [Theory(DisplayName = "port: an AlertDialog part outside any root throws a message that names the AlertDialog root:")]
@@ -51,7 +51,7 @@ public sealed class AlertDialogPartTests : IDisposable
         InvalidOperationException error = Assert.Throws<InvalidOperationException>(() => test.Context.Render<AlertDialogRoot<NoPayload>>(p => p
             .Add(x => x.Open, true)
             .Add(x => x.ChildContent, Part(part))));
-        Assert.Equal("Blazix: `<AlertDialogPortal>` is missing.", error.Message);
+        Assert.Equal("Iodine: `<AlertDialogPortal>` is missing.", error.Message);
     }
 
     [Fact(DisplayName = "port: a part outside its portal names its own family's portal, whichever family's root encloses it")]
@@ -63,12 +63,12 @@ public sealed class AlertDialogPartTests : IDisposable
         InvalidOperationException alert = Assert.Throws<InvalidOperationException>(() => test.Context.Render<DialogRoot<NoPayload>>(p => p
             .Add(x => x.Open, true)
             .Add(x => x.ChildContent, Part("Popup"))));
-        Assert.Equal("Blazix: `<AlertDialogPortal>` is missing.", alert.Message);
+        Assert.Equal("Iodine: `<AlertDialogPortal>` is missing.", alert.Message);
 
         InvalidOperationException dialog = Assert.Throws<InvalidOperationException>(() => test.Context.Render<AlertDialogRoot<NoPayload>>(p => p
             .Add(x => x.Open, true)
             .AddChildContent<DialogPopup>()));
-        Assert.Equal("Blazix: `<DialogPortal>` is missing.", dialog.Message);
+        Assert.Equal("Iodine: `<DialogPortal>` is missing.", dialog.Message);
     }
 
     // Base UI's only evidence is ToolbarButton.test.tsx's comment that AlertDialog.Trigger is Dialog.Trigger; the port's parts

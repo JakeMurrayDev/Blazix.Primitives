@@ -1,10 +1,10 @@
-using Blazix.Primitives.Interop;
-using Blazix.Primitives.Rendering;
-using Blazix.Primitives.Store;
+using Iodine.Headless.Interop;
+using Iodine.Headless.Rendering;
+using Iodine.Headless.Store;
 using Microsoft.AspNetCore.Components;
 using Microsoft.JSInterop;
 
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // SEL-STA-19 (select/backdrop/SelectBackdrop.tsx:34-37, 59-68): TransitionStatus is the `transitions` module's (ADR 04 §2).
 /// <summary>Represents the state of a select backdrop, which the part exposes as data attributes and passes to its class and style functions.</summary>

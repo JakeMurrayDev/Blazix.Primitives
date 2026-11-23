@@ -1,7 +1,7 @@
 using Microsoft.AspNetCore.Components;
 
 // Family tests use the project's root namespace.
-namespace Blazix.Primitives.Tests;
+namespace Iodine.Headless.Tests;
 
 /// <summary>
 /// <see cref="FocusTargetValue"/> at L1: the value form of <c>initialFocus</c> and <c>finalFocus</c> (PSH-FOC-02/04;

@@ -1,9 +1,9 @@
 using System.Globalization;
-using Blazix.Primitives.Interop;
+using Iodine.Headless.Interop;
 using Bunit;
 
 // Family tests use the project's root namespace.
-namespace Blazix.Primitives.Tests.Components;
+namespace Iodine.Headless.Tests.Components;
 
 // M5 track 11 (issue 196): Autocomplete's filtering over object items and the default filter's culture at L2 (AUT-API-08,
 // API-10). Port note (the brief's Deliverable 6): an item's `label` or `value` member is never read (ADR 16 rule 1, no

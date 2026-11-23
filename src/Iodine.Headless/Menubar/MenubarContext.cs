@@ -1,6 +1,6 @@
 using Microsoft.AspNetCore.Components;
 
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // MBR §3.1, §4 (menubar/MenubarContext.ts:19-30, Menubar.tsx:46-128), M5 track 8: the bar's values as Menu's parent
 // context (decision 12 of the M5 plan; ADR 08 Amendments 2026-11-03 (3)), cascaded fixed with a subscription (ADR 16
@@ -73,7 +73,7 @@ internal sealed class MenubarContext : IMenuParentContext, IFloatingNodeContext
     /// <exception cref="InvalidOperationException"><paramref name="parent"/> is not a menubar's context.</exception>
     public static MenubarContext Require(IMenuParentContext? parent) =>
         parent as MenubarContext ?? throw new InvalidOperationException(
-            "Blazix: The `Menubar` context is missing. Menubar parts must be placed within `<Menubar>`.");
+            "Iodine: The `Menubar` context is missing. Menubar parts must be placed within `<Menubar>`.");
 
     /// <summary>Writes the bar's values from its parameters, notifying the subscribers when one changed.</summary>
     /// <param name="modal">The bar's <c>Modal</c>.</param>

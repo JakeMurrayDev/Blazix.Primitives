@@ -1,7 +1,7 @@
-using Blazix.Primitives.Interop;
-using Blazix.Primitives.Store;
+using Iodine.Headless.Interop;
+using Iodine.Headless.Store;
 
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // PSH-ALG-22 (popupStoreSelectors, store.ts:146-213) as named selectors over a family's record (ADR 05 §1: a selector is a
 // static readonly Func field): a part subscribes to its family's store and selects through these, so each part renders

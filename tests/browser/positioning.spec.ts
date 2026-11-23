@@ -185,7 +185,7 @@ test.describe('transform origin', () => {
 // Base UI's TestLazyFlip in the page, the shipped module attached to a 100×100 floating element with a stub twin, its
 // height shrunk to 10 through an update of the consumer's style, as C# would send it.
 test.describe('useAnchorPositioning', () => {
-  const positioningModule = '/_content/Blazix.Primitives/js/positioning.js';
+  const positioningModule = '/_content/Iodine.Headless/js/positioning.js';
 
   async function renderLazyFlip(
     page: Page,

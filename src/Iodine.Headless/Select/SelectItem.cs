@@ -1,13 +1,13 @@
-using Blazix.Primitives.Rendering;
-using Blazix.Primitives.Store;
-using Blazix.Primitives.Utilities;
+using Iodine.Headless.Rendering;
+using Iodine.Headless.Store;
+using Iodine.Headless.Utilities;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Rendering;
 using Microsoft.AspNetCore.Components.Web;
 using Microsoft.Extensions.Logging;
 using Microsoft.JSInterop;
 
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // SEL-STA-23 (select/item/SelectItem.tsx:127-131, 259-272): Highlighted is list navigation's from attach (ADR 04 Amendments
 // 2026-11-03 (2), the item row of 2026-11-04): mirrored, so C# never projects `data-highlighted`.
@@ -59,7 +59,7 @@ internal sealed class SelectItemContext
     {
         // SEL-EDGE-01, SEL-STR-04.
         return context ?? throw new InvalidOperationException(
-            "Blazix: `SelectItemContext` is missing. SelectItem parts must be placed within `<SelectItem>`.");
+            "Iodine: `SelectItemContext` is missing. SelectItem parts must be placed within `<SelectItem>`.");
     }
 
     /// <summary>Adds a listener that runs when <see cref="Selected"/> changes.</summary>

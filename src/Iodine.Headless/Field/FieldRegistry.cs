@@ -1,6 +1,6 @@
-using Blazix.Primitives.Interop;
+using Iodine.Headless.Interop;
 
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // FFI §2 (field registry), FFI-FRM-17..21, FFI-API-07; internals/form-context/FormContext.ts:13-28 (`formRef.current.fields`,
 // an insertion-ordered Map keyed by control id). Written by fields (FFI-ALG-12/14), read by the form: replacing an entry

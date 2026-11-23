@@ -1,4 +1,4 @@
-namespace Blazix.Primitives.Tests;
+namespace Iodine.Headless.Tests;
 
 /// <summary>
 /// The collection of every allocation-budget class of this project (ADR 16 rule 7), run with parallelization disabled:

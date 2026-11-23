@@ -2,7 +2,7 @@ using System.Collections.Immutable;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.Text;
 
-namespace Blazix.Primitives.Generators;
+namespace Iodine.Headless.Generators;
 
 /// <summary>Represents a diagnostic to report, in an equatable form that the incremental pipeline can cache.</summary>
 /// <param name="Descriptor">The descriptor of the diagnostic.</param>

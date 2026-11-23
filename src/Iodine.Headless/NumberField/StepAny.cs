@@ -1,4 +1,4 @@
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // NUM-API-06: the `'any'` case of StepValue, a case type as AutoHighlightAlways is for AutoHighlightValue.
 /// <summary>Represents the <c>any</c> step of a number field, which steps by 1 and turns off the browser's step validation.</summary>

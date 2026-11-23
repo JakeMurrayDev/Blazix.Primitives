@@ -1,10 +1,10 @@
-using Blazix.Primitives.Interop;
-using Blazix.Primitives.Rendering;
-using Blazix.Primitives.Store;
+using Iodine.Headless.Interop;
+using Iodine.Headless.Rendering;
+using Iodine.Headless.Store;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Web;
 
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // combobox/label/ComboboxLabel.tsx (CMB §3.2, STR-10, ARIA-16, FFI-PTR-01): a div whose id is always {rootId}-label (Base
 // UI drops a consumer `id`), published to the store after its render for the Trigger's aria-labelledby (so a prerender has
@@ -56,7 +56,7 @@ internal sealed class ComboboxLabelBehavior : IAsyncDisposable
     }
 
     /// <summary>Gets the root's store.</summary>
-    public ComboboxStore Store => store ?? throw new InvalidOperationException($"Blazix: `{services.Family}Label` is used before its first render.");
+    public ComboboxStore Store => store ?? throw new InvalidOperationException($"Iodine: `{services.Family}Label` is used before its first render.");
 
     /// <summary>Gets the field's state the label projects.</summary>
     public FieldStateSnapshot Field => fieldScope?.State ?? FieldStateSnapshot.Default;
@@ -198,7 +198,7 @@ internal sealed class ComboboxLabelBehavior : IAsyncDisposable
             warnedInputId = inputId;
             DevelopmentWarnings.Write(
                 services.Logger,
-                $"Blazix: `<{services.Family}Label>` labels `<{services.Family}Trigger>` only. When `<{services.Family}Input>` is the form control, use a native `<label>` or `<FieldLabel>` instead.");
+                $"Iodine: `<{services.Family}Label>` labels `<{services.Family}Trigger>` only. When `<{services.Family}Input>` is the form control, use a native `<label>` or `<FieldLabel>` instead.");
         }
 
         FormOptions options = new()

@@ -20,7 +20,7 @@ async function gotoRadios(page: Page, mode: RenderMode, name: FixtureName, optio
 
 async function gotoAnimated(page: Page, mode: RenderMode, name: FixtureName): Promise<Locator> {
   await page.goto(`${fixtureUrl(mode, name)}?animations=1`, { waitUntil: 'commit' });
-  await page.locator('html[data-blazix-started]').waitFor({ state: 'attached' });
+  await page.locator('html[data-iodine-started]').waitFor({ state: 'attached' });
   await page.locator(`[data-fixture="${name}"][data-interactive="true"]`).first().waitFor({ state: 'attached' });
   return page.locator(`[data-fixture="${name}"]`);
 }

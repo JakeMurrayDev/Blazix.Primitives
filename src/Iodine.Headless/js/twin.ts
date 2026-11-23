@@ -110,7 +110,7 @@ export function createTwinChannel(twin: DotNetTwin): TwinChannel {
 
 // ADR 04 Amendments 2026-10-28 (design point 9 of M4 track 8): the shadow roots the `portal` module moved nodes into,
 // counted per registration and kept on `globalThis`, so every bundle of the library reads the one page-global map.
-const shadowRootsKey = Symbol.for('blazix.shadowRoots');
+const shadowRootsKey = Symbol.for('iodine.shadowRoots');
 
 function shadowRoots(): Map<ShadowRoot, number> {
   const global = globalThis as unknown as Record<symbol, Map<ShadowRoot, number> | undefined>;
@@ -170,7 +170,7 @@ export function resolveElement(elementOrId: Element | string | null, captureId?:
       ? (document.getElementById(elementOrId) ?? findInShadowRoots((root) => root.getElementById(elementOrId)))
       : (elementOrId ?? findCaptured(captureId));
   if (!(element instanceof HTMLElement)) {
-    throw new Error(`Blazix: no element for ${typeof elementOrId === 'string' ? `id '${elementOrId}'` : 'the reference'}`);
+    throw new Error(`Iodine: no element for ${typeof elementOrId === 'string' ? `id '${elementOrId}'` : 'the reference'}`);
   }
   return element;
 }

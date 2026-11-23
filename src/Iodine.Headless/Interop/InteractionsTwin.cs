@@ -1,6 +1,6 @@
 using Microsoft.JSInterop;
 
-namespace Blazix.Primitives.Interop;
+namespace Iodine.Headless.Interop;
 
 // ADR 04 §1 (the interactions row), §3 (decision points) and Amendments 2026-10-27 (decision 3: the token form, the
 // session, press and Prevent at escape; chosen by the user 2026-10-27). One twin per attaching part (Interop/CONTEXT.md, a
@@ -13,7 +13,7 @@ namespace Blazix.Primitives.Interop;
 /// </summary>
 /// <param name="jsRuntime">The runtime of the part's circuit or WebAssembly application.</param>
 internal sealed class InteractionsTwin(IJSRuntime jsRuntime)
-    : TwinBase<InteractionsTwin, InteractionsOptions>(jsRuntime, LibraryModule("interactions"), BlazixJsonContext.Default.InteractionsOptions)
+    : TwinBase<InteractionsTwin, InteractionsOptions>(jsRuntime, LibraryModule("interactions"), IodineJsonContext.Default.InteractionsOptions)
 {
     /// <summary>Represents the name of the decision point a trigger asks about before it requests the open state a press computed.</summary>
     public const string PressPoint = "press";
@@ -61,7 +61,7 @@ internal sealed class InteractionsTwin(IJSRuntime jsRuntime)
     [JSInvokable]
     public void OnRequest(string payloadJson)
     {
-        InteractionsRequest request = Deserialize(payloadJson, BlazixJsonContext.Default.InteractionsRequest);
+        InteractionsRequest request = Deserialize(payloadJson, IodineJsonContext.Default.InteractionsRequest);
         RequestReported?.Invoke(request);
     }
 
@@ -71,7 +71,7 @@ internal sealed class InteractionsTwin(IJSRuntime jsRuntime)
     [JSInvokable]
     public void OnPress(string payloadJson)
     {
-        InteractionsPress press = Deserialize(payloadJson, BlazixJsonContext.Default.InteractionsPress);
+        InteractionsPress press = Deserialize(payloadJson, IodineJsonContext.Default.InteractionsPress);
         PressReported?.Invoke(press);
     }
 
@@ -81,7 +81,7 @@ internal sealed class InteractionsTwin(IJSRuntime jsRuntime)
     [JSInvokable]
     public void OnPressing(string payloadJson)
     {
-        pendingPress = Deserialize(payloadJson, BlazixJsonContext.Default.InteractionsPressing);
+        pendingPress = Deserialize(payloadJson, IodineJsonContext.Default.InteractionsPressing);
     }
 
     /// <inheritdoc />

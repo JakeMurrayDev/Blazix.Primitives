@@ -1,6 +1,6 @@
 using Microsoft.AspNetCore.Components;
 
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // SWT-STR-02, SWT-STA-08, SWT-DOM-06, SWT-EDGE-01; switch/root/SwitchRootContext.ts. ADR 05 §1 keeps Switch on plain fields
 // (a store was rejected for it), so the context is a listener list, cascaded fixed by SwitchRoot (ADR 16 rule 9; the
@@ -23,7 +23,7 @@ internal sealed class SwitchRootContext
     {
         // SWT-EDGE-01, in every build; the port's words (2026-10-22 port note).
         return context ?? throw new InvalidOperationException(
-            "Blazix: The `SwitchRoot` context is missing. Switch parts must be placed within `<SwitchRoot>`.");
+            "Iodine: The `SwitchRoot` context is missing. Switch parts must be placed within `<SwitchRoot>`.");
     }
 
     /// <summary>Takes the root's new state and notifies the thumbs.</summary>

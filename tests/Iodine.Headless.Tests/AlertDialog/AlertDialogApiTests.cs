@@ -1,9 +1,9 @@
 using System.Reflection;
-using Blazix.Primitives.Tests.TestSupport;
+using Iodine.Headless.Tests.TestSupport;
 using Microsoft.AspNetCore.Components;
 
 // Family tests use the project's root namespace.
-namespace Blazix.Primitives.Tests;
+namespace Iodine.Headless.Tests;
 
 /// <summary>
 /// AlertDialog at L1: its parameter lists and handle by reflection (ADL-API-01..06, ADL-EDGE-02, PSH-API-03; the type-level
@@ -101,8 +101,8 @@ public sealed class AlertDialogApiTests
         Assert.False(handle.IsOpen);
         Assert.Equal(
             [
-                "Blazix: `DialogHandle.OpenAsync()` was called while no root using this handle is mounted. The call was ignored; mount a root with this handle before opening it imperatively.",
-                "Blazix: `DialogHandle.CloseAsync()` was called while no root using this handle is mounted. The call was ignored.",
+                "Iodine: `DialogHandle.OpenAsync()` was called while no root using this handle is mounted. The call was ignored; mount a root with this handle before opening it imperatively.",
+                "Iodine: `DialogHandle.CloseAsync()` was called while no root using this handle is mounted. The call was ignored.",
             ],
             logger.Messages);
     }
@@ -121,7 +121,7 @@ public sealed class AlertDialogApiTests
 
         Assert.False(handle.IsOpen);
         Assert.Equal(
-            ["Blazix: `DialogHandle.OpenWithPayloadAsync()` was called while no root using this handle is mounted. The call and its payload were ignored; mount a root with this handle before opening it imperatively."],
+            ["Iodine: `DialogHandle.OpenWithPayloadAsync()` was called while no root using this handle is mounted. The call and its payload were ignored; mount a root with this handle before opening it imperatively."],
             logger.Messages);
     }
 

@@ -794,7 +794,7 @@ test.describe('<Drawer.Viewport /> touch swipe over selections and range inputs'
   // positive half: the same touch on the thumb element is claimed. The real-touch behaviour is kept as Base UI's and filed
   // as issue 331 (track 10), chosen by the user 2026-11-20.
   testWithTouch('does not block touchmove on slider thumb range inputs', {
-    annotation: { type: 'issue', description: 'https://github.com/JakeMurrayDev/Blazix.Primitives/issues/331' },
+    annotation: { type: 'issue', description: 'https://github.com/JakeMurrayDev/Iodine.Headless/issues/331' },
   }, async ({ touchPage: page, mode }) => {
     const fixture = await controlsCase(page, mode);
     const backdrop = page.getByTestId('backdrop');
@@ -2858,7 +2858,7 @@ test.describe('<Drawer.SwipeArea /> interruptions, thresholds and quick flicks',
   // On Server the first outside press after the open is swallowed until the popup's floating handle attaches (issue 332,
   // track 10; drawer.md §9): the barrier below waits out that documented window.
   test('opens on a quick flick whose only move is already released (buttons: 0)', {
-    annotation: { type: 'issue', description: 'https://github.com/JakeMurrayDev/Blazix.Primitives/issues/332' },
+    annotation: { type: 'issue', description: 'https://github.com/JakeMurrayDev/Iodine.Headless/issues/332' },
   }, async ({ page, mode }) => {
     const fixture = await areaCase(page, mode, { parts: true });
     await areaPointer(page, 'pointerdown', 10, 120, 1, 1);

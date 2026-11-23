@@ -1,7 +1,7 @@
-using Blazix.Primitives.Rendering;
+using Iodine.Headless.Rendering;
 using Microsoft.AspNetCore.Components;
 
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // Base UI's Menu.Group (menu/group/MenuGroup.tsx; MNU-ARIA-10): role="group", aria-labelledby = the mounted label's id
 // (MenuGroupContext, the PopoverIdSync form). A family's group part composes it (ContextMenu's, track 7).

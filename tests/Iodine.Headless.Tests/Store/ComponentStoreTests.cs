@@ -1,8 +1,8 @@
-using Blazix.Primitives.Store;
-using Blazix.Primitives.Tests.TestSupport;
+using Iodine.Headless.Store;
+using Iodine.Headless.Tests.TestSupport;
 using Microsoft.AspNetCore.Components;
 
-namespace Blazix.Primitives.Tests.Store;
+namespace Iodine.Headless.Tests.Store;
 
 /// <summary>
 /// <c>packages/utils/src/store/ReactStore.test.tsx</c> (UTL-STA-15..24, UTL-EDGE-25). The React test components become

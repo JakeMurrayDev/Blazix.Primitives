@@ -1,9 +1,9 @@
 using System.Globalization;
-using Blazix.Primitives.Interop;
+using Iodine.Headless.Interop;
 using Bunit;
 using Microsoft.AspNetCore.Components;
 
-namespace Blazix.Primitives.Tests.Components;
+namespace Iodine.Headless.Tests.Components;
 
 /// <summary>
 /// ADR 16 rule 7 for NumberField (issue 277, decision 26 (a), chosen by the user 2026-11-18): a re-render of a root with

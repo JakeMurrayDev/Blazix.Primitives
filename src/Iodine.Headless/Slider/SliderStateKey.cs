@@ -1,6 +1,6 @@
-using Blazix.Primitives.Utilities;
+using Iodine.Headless.Utilities;
 
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // SLD-STA-05: every part's state record carries the Root's fourteen fields. A part rebuilds its record only when this key
 // changed (ADR 16 rule 7). The list compares by reference: the store makes a new one per change (SliderStoreState.Values).

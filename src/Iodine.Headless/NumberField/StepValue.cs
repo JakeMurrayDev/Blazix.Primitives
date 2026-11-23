@@ -1,7 +1,7 @@
 using System.Runtime.CompilerServices;
-using Blazix.Primitives.Utilities;
+using Iodine.Headless.Utilities;
 
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // NUM-API-06: Base UI's `step?: number | 'any'`. ADR 05 §4 and ADR 08 §3's union row (a hand-written [Union], suffix
 // `Value`); the brief of issue 277 leaves the name to the track. The case type of the literal follows AutoHighlightValue's
@@ -52,9 +52,9 @@ public readonly struct StepValue : IUnion, IEquatable<StepValue>
     /// <value><see langword="true"/> if a value is held; otherwise, <see langword="false"/>. The default instance holds no value.</value>
     public bool HasValue => kind != StepKind.None;
 
-    // BLZX2005: IUnion requires an object-typed Value, so reading it boxes either case; the library reads the cases through
+    // IOD2005: IUnion requires an object-typed Value, so reading it boxes either case; the library reads the cases through
     // TryGetValue and Amount instead.
-#pragma warning disable BLZX2005
+#pragma warning disable IOD2005
     /// <inheritdoc />
     /// <remarks>Reading it boxes the value.</remarks>
     public object? Value => kind switch
@@ -63,7 +63,7 @@ public readonly struct StepValue : IUnion, IEquatable<StepValue>
         StepKind.Any => default(StepAny),
         _ => null,
     };
-#pragma warning restore BLZX2005
+#pragma warning restore IOD2005
 
     /// <summary>Gets a value indicating whether this instance holds the <c>any</c> literal.</summary>
     /// <value><see langword="true"/> if this instance is <see cref="Any"/>; otherwise, <see langword="false"/>.</value>

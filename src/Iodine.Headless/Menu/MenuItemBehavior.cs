@@ -1,10 +1,10 @@
-using Blazix.Primitives.Rendering;
+using Iodine.Headless.Rendering;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Web;
 using Microsoft.Extensions.Logging;
 using Microsoft.JSInterop;
 
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // useMenuItem.ts:11 and MenuSubmenuTrigger.tsx:152 (`itemMetadata.type`): which item a behaviour serves.
 /// <summary>Specifies the kind of a menu item.</summary>

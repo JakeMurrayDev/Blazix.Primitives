@@ -1,4 +1,4 @@
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // EVD-API-09, ADR 05 §3; EVD-EVT-21; EVD-EDGE-07. The dialog family's rule: DLG-EVT-05 (EVD-EDGE-09), DLG §16 Q1
 // resolved as observed (ADR 05 Amendments 2026-10-27).

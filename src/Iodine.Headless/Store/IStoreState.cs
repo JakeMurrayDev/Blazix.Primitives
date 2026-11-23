@@ -1,4 +1,4 @@
-namespace Blazix.Primitives.Store;
+namespace Iodine.Headless.Store;
 
 // ADR 05 §1, ADR 16 rule 1
 /// <summary>

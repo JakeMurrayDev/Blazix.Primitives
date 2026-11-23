@@ -1,4 +1,4 @@
-namespace Blazix.Primitives.Tests.Tabs;
+namespace Iodine.Headless.Tests.Tabs;
 
 // TAB-DOM-02, TAB-DOM-07, TAB-STA-15, TAB-API-04: the literals of Base UI's `Tabs.Tab.ActivationDirection` ('left' | 'right' |
 // 'up' | 'down' | 'none'), which the `tabs` module reports and C# renders under the handover, and of the orientation the
@@ -35,7 +35,7 @@ public sealed class TabsLiteralsTests
     public void Port_an_undefined_activation_direction_has_no_literal()
     {
         ArgumentOutOfRangeException error = Assert.Throws<ArgumentOutOfRangeException>(() => TabsLiterals.ToLiteral((TabsActivationDirection)42));
-        Assert.StartsWith("Blazix: ", error.Message, StringComparison.Ordinal);
+        Assert.StartsWith("Iodine: ", error.Message, StringComparison.Ordinal);
     }
 
     [Fact(DisplayName = "port: the two orientations reach the composite as horizontal and vertical")]

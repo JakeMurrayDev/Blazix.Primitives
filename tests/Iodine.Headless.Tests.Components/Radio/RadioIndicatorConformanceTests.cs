@@ -1,10 +1,10 @@
-using Blazix.Primitives.Rendering;
-using Blazix.Primitives.Tests.Components.Rendering.Conformance;
+using Iodine.Headless.Rendering;
+using Iodine.Headless.Tests.Components.Rendering.Conformance;
 using Bunit;
 using Microsoft.AspNetCore.Components;
 
 // The namespace is the project's root: a namespace named after the family would hide the parts' types.
-namespace Blazix.Primitives.Tests.Components;
+namespace Iodine.Headless.Tests.Components;
 
 // RadioIndicator.test.tsx: describeConformance(<Radio.Indicator />, () => ({ refInstanceof: window.HTMLSpanElement, render:
 // inside <Radio.Root value=""> })). RAD-DOM-17, RAD-API-11, RAD-STA-01: a standalone root whose value is the empty string is

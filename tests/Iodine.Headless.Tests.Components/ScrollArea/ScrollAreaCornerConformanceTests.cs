@@ -1,10 +1,10 @@
-using Blazix.Primitives.Rendering;
-using Blazix.Primitives.Tests.Components.Rendering.Conformance;
+using Iodine.Headless.Rendering;
+using Iodine.Headless.Tests.Components.Rendering.Conformance;
 using Bunit;
 using Microsoft.AspNetCore.Components;
 
 // The namespace is the project's root: a namespace named after the family would hide the parts' types.
-namespace Blazix.Primitives.Tests.Components;
+namespace Iodine.Headless.Tests.Components;
 
 // ScrollAreaCorner.test.tsx: describeConformance(<ScrollArea.Corner />, () => ({ render inside a Root whose viewport overflows
 // on both axes, refInstanceof: window.HTMLDivElement })). SCR-STR-06. The overflow is applied by a stand-in for the

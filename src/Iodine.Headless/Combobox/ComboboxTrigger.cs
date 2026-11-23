@@ -1,10 +1,10 @@
-using Blazix.Primitives.Rendering;
+using Iodine.Headless.Rendering;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Web;
 using Microsoft.Extensions.Logging;
 using Microsoft.JSInterop;
 
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // CMB §3.9, STA-07 (combobox/trigger/ComboboxTrigger.tsx): as the input group's.
 /// <summary>Represents the state of a combobox trigger, which the part exposes as data attributes and passes to its class and style functions.</summary>

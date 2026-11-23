@@ -1,13 +1,13 @@
-using Blazix.Primitives.Interop;
-using Blazix.Primitives.Rendering;
-using Blazix.Primitives.Utilities;
+using Iodine.Headless.Interop;
+using Iodine.Headless.Rendering;
+using Iodine.Headless.Utilities;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Rendering;
 using Microsoft.AspNetCore.Components.Web;
 using Microsoft.Extensions.Logging;
 using Microsoft.JSInterop;
 
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // POP-STA-13/14, §3.2 state object (popover/trigger/PopoverTrigger.tsx:127-130, 179-188).
 /// <summary>Represents the state of a popover trigger, which the part exposes as data attributes and passes to its class and style functions.</summary>
@@ -60,7 +60,7 @@ public sealed class PopoverTrigger<TPayload> : PartBase<PopoverTriggerState>, IP
 {
     // POP-OPEN_DELAY (popover/utils/constants.ts:1).
     private const int OpenDelay = 300;
-    private const string MissingRootMessage = "Blazix: `<PopoverTrigger>` must be either used within a `<PopoverRoot>` component or provided with a handle.";
+    private const string MissingRootMessage = "Iodine: `<PopoverTrigger>` must be either used within a `<PopoverRoot>` component or provided with a handle.";
 
     private static readonly StateAttributesMapping<PopoverTriggerState> s_mapping = PopupStateMapping.CreateTrigger<PopoverTriggerState>();
     private static readonly InteractionsClickOptions s_click = new() { PatientClick = true };

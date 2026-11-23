@@ -4,7 +4,7 @@ using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Rendering;
 
 // The namespace is the project's root: a namespace named after the family would hide the parts' types.
-namespace Blazix.Primitives.Tests.Components;
+namespace Iodine.Headless.Tests.Components;
 
 // 6b's input role at L2 (issue 277), batch B1: the stepper titles that type before they step, from
 // useNumberFieldStepperButton.test.tsx's describe.each over NumberField.Increment and NumberField.Decrement (one derived class

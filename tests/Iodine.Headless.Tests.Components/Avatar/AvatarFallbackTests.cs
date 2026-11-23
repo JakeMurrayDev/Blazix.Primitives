@@ -1,7 +1,7 @@
 using Bunit;
 
 // The namespace is the project's root: a namespace named after the family would hide the parts' types.
-namespace Blazix.Primitives.Tests.Components;
+namespace Iodine.Headless.Tests.Components;
 
 /// <summary>
 /// <c>AvatarFallback.test.tsx</c> at L2. Base UI stubs the image's status computation; here the image's twin reports the

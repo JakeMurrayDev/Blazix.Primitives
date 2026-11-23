@@ -194,7 +194,7 @@ describe('useListNavigation', () => {
   // to and the element focus came from, in the session's data slot; the close clears it.
   it('port: the open focus marks the item it moved focus to and the element focus came from, until the close', async () => {
     const harness = app();
-    const slot = () => getSession(harness.popup.token)?.dataRef.current['blazix.composite.openFocus'];
+    const slot = () => getSession(harness.popup.token)?.dataRef.current['iodine.composite.openFocus'];
     harness.reference.focus();
 
     keyDown(harness.reference, 'ArrowDown');
@@ -2715,17 +2715,17 @@ describe('list navigation rows without a Base UI title (port)', () => {
     expect(document.activeElement).toBe(harness.item(3));
   });
 
-  // CMP-EDGE-03..05: Base UI's development warnings, with the `Blazix: ` prefix, where the options are set.
+  // CMP-EDGE-03..05: Base UI's development warnings, with the `Iodine: ` prefix, where the options are set.
   it('port: warns where the options are set when allowEscape lacks loopFocus or virtual, and for a vertical grid', () => {
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
 
     app({ list: { allowEscape: true } });
-    expect(warn).toHaveBeenCalledWith('Blazix: `useListNavigation` looping must be enabled to allow escaping.');
-    expect(warn).toHaveBeenCalledWith('Blazix: `useListNavigation` must be virtual to allow escaping.');
+    expect(warn).toHaveBeenCalledWith('Iodine: `useListNavigation` looping must be enabled to allow escaping.');
+    expect(warn).toHaveBeenCalledWith('Iodine: `useListNavigation` must be virtual to allow escaping.');
 
     warn.mockClear();
     app({ list: { grid: true } });
-    expect(warn).toHaveBeenCalledWith('Blazix: In grid list navigation mode, the `orientation` should', 'be either "horizontal" or "both".');
+    expect(warn).toHaveBeenCalledWith('Iodine: In grid list navigation mode, the `orientation` should', 'be either "horizontal" or "both".');
 
     warn.mockClear();
     const quiet = app({ list: { allowEscape: true, loopFocus: true, virtual: true, grid: true, orientation: 'horizontal' } });
@@ -2733,10 +2733,10 @@ describe('list navigation rows without a Base UI title (port)', () => {
 
     // An update that sets the options warns as a render with them would.
     quiet.update({ loopFocus: false });
-    expect(warn).toHaveBeenCalledWith('Blazix: `useListNavigation` looping must be enabled to allow escaping.');
+    expect(warn).toHaveBeenCalledWith('Iodine: `useListNavigation` looping must be enabled to allow escaping.');
     warn.mockClear();
     quiet.update({ loopFocus: false, orientation: 'vertical' });
-    expect(warn).toHaveBeenCalledWith('Blazix: In grid list navigation mode, the `orientation` should', 'be either "horizontal" or "both".');
+    expect(warn).toHaveBeenCalledWith('Iodine: In grid list navigation mode, the `orientation` should', 'be either "horizontal" or "both".');
   });
 });
 

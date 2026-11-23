@@ -1,6 +1,6 @@
 using Microsoft.JSInterop;
 
-namespace Blazix.Primitives.Interop;
+namespace Iodine.Headless.Interop;
 
 // ADR 04 §1 (the `drawer` component module), §2 (the Popup's and Backdrop's JS-owned swipe attributes and styles), §3
 // as amended 2026-11-18 (the `dismiss` point, fallback run); design point 10 (a) (chosen by the user 2026-11-19).
@@ -12,7 +12,7 @@ namespace Blazix.Primitives.Interop;
 /// </summary>
 /// <param name="jsRuntime">The runtime of the part's circuit or WebAssembly application.</param>
 internal sealed class DrawerTwin(IJSRuntime jsRuntime)
-    : TwinBase<DrawerTwin, DrawerOptions>(jsRuntime, LibraryModule("drawer"), BlazixJsonContext.Default.DrawerOptions)
+    : TwinBase<DrawerTwin, DrawerOptions>(jsRuntime, LibraryModule("drawer"), IodineJsonContext.Default.DrawerOptions)
 {
     /// <summary>Represents the role of the handle a drawer's viewport attaches.</summary>
     public const string ViewportRole = "viewport";
@@ -88,7 +88,7 @@ internal sealed class DrawerTwin(IJSRuntime jsRuntime)
     [JSInvokable]
     public void OnSwipingChange(string payloadJson)
     {
-        DrawerSwipingChange change = Deserialize(payloadJson, BlazixJsonContext.Default.DrawerSwipingChange);
+        DrawerSwipingChange change = Deserialize(payloadJson, IodineJsonContext.Default.DrawerSwipingChange);
         SwipingChanged?.Invoke(change.Swiping);
     }
 
@@ -98,7 +98,7 @@ internal sealed class DrawerTwin(IJSRuntime jsRuntime)
     [JSInvokable]
     public void OnDismissRequest(string payloadJson)
     {
-        DrawerDismissRequest request = Deserialize(payloadJson, BlazixJsonContext.Default.DrawerDismissRequest);
+        DrawerDismissRequest request = Deserialize(payloadJson, IodineJsonContext.Default.DrawerDismissRequest);
         DismissRequested?.Invoke(request);
     }
 
@@ -108,7 +108,7 @@ internal sealed class DrawerTwin(IJSRuntime jsRuntime)
     [JSInvokable]
     public void OnSnapPointRequest(string payloadJson)
     {
-        DrawerSnapPointRequest request = Deserialize(payloadJson, BlazixJsonContext.Default.DrawerSnapPointRequest);
+        DrawerSnapPointRequest request = Deserialize(payloadJson, IodineJsonContext.Default.DrawerSnapPointRequest);
         SnapPointRequested?.Invoke(request);
     }
 
@@ -118,7 +118,7 @@ internal sealed class DrawerTwin(IJSRuntime jsRuntime)
     [JSInvokable]
     public void OnPopupHeightChange(string payloadJson)
     {
-        DrawerPopupHeightChange change = Deserialize(payloadJson, BlazixJsonContext.Default.DrawerPopupHeightChange);
+        DrawerPopupHeightChange change = Deserialize(payloadJson, IodineJsonContext.Default.DrawerPopupHeightChange);
         PopupHeightChanged?.Invoke(change.Height);
     }
 
@@ -128,7 +128,7 @@ internal sealed class DrawerTwin(IJSRuntime jsRuntime)
     [JSInvokable]
     public void OnNestedSwipingChange(string payloadJson)
     {
-        DrawerSwipingChange change = Deserialize(payloadJson, BlazixJsonContext.Default.DrawerSwipingChange);
+        DrawerSwipingChange change = Deserialize(payloadJson, IodineJsonContext.Default.DrawerSwipingChange);
         NestedSwipingChanged?.Invoke(change.Swiping);
     }
 
@@ -138,7 +138,7 @@ internal sealed class DrawerTwin(IJSRuntime jsRuntime)
     [JSInvokable]
     public void OnOpenRequest(string payloadJson)
     {
-        DrawerOpenRequest request = Deserialize(payloadJson, BlazixJsonContext.Default.DrawerOpenRequest);
+        DrawerOpenRequest request = Deserialize(payloadJson, IodineJsonContext.Default.DrawerOpenRequest);
         OpenRequested?.Invoke(request);
     }
 
@@ -148,7 +148,7 @@ internal sealed class DrawerTwin(IJSRuntime jsRuntime)
     [JSInvokable]
     public void OnCloseWatcherRequest(string payloadJson)
     {
-        DrawerCloseWatcherRequest request = Deserialize(payloadJson, BlazixJsonContext.Default.DrawerCloseWatcherRequest);
+        DrawerCloseWatcherRequest request = Deserialize(payloadJson, IodineJsonContext.Default.DrawerCloseWatcherRequest);
         CloseWatcherRequested?.Invoke(request);
     }
 

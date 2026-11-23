@@ -2,7 +2,7 @@
 // the twin base's three messages, the `IJSObjectReference` `update`, the `invokeMethodAsync` report and the synchronous
 // `invokeMethod` `Decide`, against `[JSImport]` and `[JSExport]` with the same JSON, so the per-message cost of each
 // transport is measured on the interpreter. Each sample is a batch, so the timer's resolution does not decide the figure.
-import type { DotNetTwin, TwinHandle } from '../../../src/Blazix.Primitives/js/twin';
+import type { DotNetTwin, TwinHandle } from '../../../src/Iodine.Headless/js/twin';
 
 let parsed = 0;
 
@@ -32,14 +32,14 @@ async function assemblyExports(): Promise<RuntimeExports> {
   };
   const runtime = host.Blazor?.runtime ?? (await host.getDotnetRuntime?.(0));
   if (!runtime) {
-    throw new Error('Blazix: the .NET runtime API is not reachable');
+    throw new Error('Iodine: the .NET runtime API is not reachable');
   }
-  return runtime.getAssemblyExports('Blazix.Primitives.Fixtures.Client.dll');
+  return runtime.getAssemblyExports('Iodine.Headless.Fixtures.Client.dll');
 }
 
 function probeExports(root: RuntimeExports): { Report(json: string): void; Decide(point: string, json: string): string } {
   let node: unknown = root;
-  for (const key of ['Blazix', 'Primitives', 'Fixtures', 'Client', 'Interactions', 'TransportProbeExports']) {
+  for (const key of ['Iodine', 'Primitives', 'Fixtures', 'Client', 'Interactions', 'TransportProbeExports']) {
     node = (node as RuntimeExports)[key];
   }
   return node as { Report(json: string): void; Decide(point: string, json: string): string };

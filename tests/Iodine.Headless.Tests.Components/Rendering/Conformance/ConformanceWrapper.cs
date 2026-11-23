@@ -1,7 +1,7 @@
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Rendering;
 
-namespace Blazix.Primitives.Tests.Components.Rendering.Conformance;
+namespace Iodine.Headless.Tests.Components.Rendering.Conformance;
 
 /// <summary>
 /// Base UI's conformance <c>Wrapper</c> (<c>test/conformanceTests/renderProp.tsx</c>): a consumer component that

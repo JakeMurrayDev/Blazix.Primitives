@@ -1,6 +1,6 @@
 using System.Text.Json;
-using Blazix.Primitives.Fixtures.Client.Harness;
-using Blazix.Primitives.Fixtures.Components;
+using Iodine.Headless.Fixtures.Client.Harness;
+using Iodine.Headless.Fixtures.Components;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -8,7 +8,7 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddFixtureHarness(builder.Logging);
 
 // The services a consumer's Program.cs registers for the library's parts (the first fixture that renders a part needs them).
-builder.Services.AddBlazixPrimitives();
+builder.Services.AddIodineHeadless();
 
 builder.Services.AddRazorComponents()
     .AddInteractiveServerComponents()
@@ -40,6 +40,6 @@ app.MapGet("/_fixture/diagnostics/{token}", (string token, FixtureSessionRegistr
 app.MapRazorComponents<App>()
     .AddInteractiveServerRenderMode()
     .AddInteractiveWebAssemblyRenderMode()
-    .AddAdditionalAssemblies(typeof(Blazix.Primitives.Fixtures.Client._Imports).Assembly);
+    .AddAdditionalAssemblies(typeof(Iodine.Headless.Fixtures.Client._Imports).Assembly);
 
 app.Run();

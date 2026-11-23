@@ -1,7 +1,7 @@
-using Blazix.Primitives.Rendering;
+using Iodine.Headless.Rendering;
 using Microsoft.AspNetCore.Components;
 
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // MNU §3.18 (Base UI's Menu.Separator is Separator; separator/Separator.tsx:25). ADR 08 §3: the state record is sealed,
 // partial and [PartState]; the default projection gives data-orientation.
@@ -27,7 +27,7 @@ public sealed class MenuSeparator : PartBase<MenuSeparatorState>
     private MenuSeparatorState? state;
 
     /// <summary>Gets or sets the separator's orientation.</summary>
-    /// <value><see cref="Blazix.Primitives.Orientation.Horizontal"/> by default.</value>
+    /// <value><see cref="Iodine.Headless.Orientation.Horizontal"/> by default.</value>
     [Parameter]
     public Orientation Orientation { get; set; } = Orientation.Horizontal;
 

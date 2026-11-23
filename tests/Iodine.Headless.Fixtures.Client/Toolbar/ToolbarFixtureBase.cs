@@ -1,6 +1,6 @@
 using Microsoft.AspNetCore.Components;
 
-namespace Blazix.Primitives.Fixtures.Client.ToolbarFixtures;
+namespace Iodine.Headless.Fixtures.Client.ToolbarFixtures;
 
 /// <summary>
 /// The base of the Toolbar fixtures: renders <c>data-attached</c> once every tracked toolbar has its composite behavior

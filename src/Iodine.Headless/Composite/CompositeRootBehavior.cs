@@ -1,10 +1,10 @@
-using Blazix.Primitives.Interop;
-using Blazix.Primitives.Rendering;
+using Iodine.Headless.Interop;
+using Iodine.Headless.Rendering;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Web;
 using Microsoft.JSInterop;
 
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // The composite root as a part uses it (composite-and-list-navigation.md, CMP; ADR 09 Amendments 2026-10-22: the C# half
 // of a mechanism lives in a folder named after it; composed into the part as ButtonBehavior is, never a nested component,

@@ -1,6 +1,6 @@
 using Microsoft.AspNetCore.Components;
 
-namespace Blazix.Primitives.Utilities;
+namespace Iodine.Headless.Utilities;
 
 // ADR 08 Amendments 2026-11-03 (1) and the probe's finding of 2026-11-04 (spikes/list-value-shape/): a value-typed list root
 // (SelectRoot, ComboboxRoot, AutocompleteRoot) takes a single-mode and a multiple-mode triple, `Multiple` choosing the live
@@ -41,12 +41,12 @@ internal static class ListValueParameters
 
         if (multiple && single is not null)
         {
-            throw new InvalidOperationException($"Blazix: `{rootName}` received `{single}` while `Multiple` is true. In multiple mode, use `Values`, `ValuesChanged` (or `@bind-Values`), `DefaultValues` and `OnValuesChange`.");
+            throw new InvalidOperationException($"Iodine: `{rootName}` received `{single}` while `Multiple` is true. In multiple mode, use `Values`, `ValuesChanged` (or `@bind-Values`), `DefaultValues` and `OnValuesChange`.");
         }
 
         if (!multiple && many is not null)
         {
-            throw new InvalidOperationException($"Blazix: `{rootName}` received `{many}` while `Multiple` is false. Set `Multiple=\"true\"`, or use `Value`, `ValueChanged` (or `@bind-Value`), `DefaultValue` and `OnValueChange` for one value.");
+            throw new InvalidOperationException($"Iodine: `{rootName}` received `{many}` while `Multiple` is false. Set `Multiple=\"true\"`, or use `Value`, `ValueChanged` (or `@bind-Value`), `DefaultValue` and `OnValueChange` for one value.");
         }
     }
 
@@ -75,7 +75,7 @@ internal static class ListValueParameters
 
         if (single is not null && many is not null)
         {
-            throw new InvalidOperationException($"Blazix: `{rootName}` received `{single}` and `{many}`. Use `Value`, `ValueChanged` (or `@bind-Value`), `DefaultValue` and `OnValueChange` for one value, or `Values`, `ValuesChanged` (or `@bind-Values`), `DefaultValues` and `OnValuesChange` for a list.");
+            throw new InvalidOperationException($"Iodine: `{rootName}` received `{single}` and `{many}`. Use `Value`, `ValueChanged` (or `@bind-Value`), `DefaultValue` and `OnValueChange` for one value, or `Values`, `ValuesChanged` (or `@bind-Values`), `DefaultValues` and `OnValuesChange` for a list.");
         }
     }
 }

@@ -3,7 +3,7 @@ using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Rendering;
 
 // Family tests use the project's root namespace.
-namespace Blazix.Primitives.Tests.Components;
+namespace Iodine.Headless.Tests.Components;
 
 // Base UI's ComboboxInput.test.tsx titles for an Input rendered as a <textarea> (CMB-DOM-01, CMB-ARIA-05), at L2: the
 // substitute is the part's Render fragment.

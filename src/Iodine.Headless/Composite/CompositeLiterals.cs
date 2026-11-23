@@ -1,4 +1,4 @@
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // The literals the composite module reads (Interop/CompositeOptions): CMP §6.1 orientation 'horizontal' | 'vertical' |
 // 'both' with the mechanism default 'both' (ADR 08 Amendments 2026-10-21, the shared Orientation enum has no Both; a
@@ -18,7 +18,7 @@ internal static class CompositeLiterals
             Orientation.Horizontal => "horizontal",
             Orientation.Vertical => "vertical",
             // The value is formatted as an integer: passing the enum as the actual value would box it.
-            _ => throw new ArgumentOutOfRangeException(nameof(orientation), $"Blazix: `{(int)orientation.Value}` is not a member of `Orientation`."),
+            _ => throw new ArgumentOutOfRangeException(nameof(orientation), $"Iodine: `{(int)orientation.Value}` is not a member of `Orientation`."),
         };
     }
 
@@ -32,7 +32,7 @@ internal static class CompositeLiterals
         {
             TextDirection.Ltr => "ltr",
             TextDirection.Rtl => "rtl",
-            _ => throw new ArgumentOutOfRangeException(nameof(direction), $"Blazix: `{(int)direction}` is not a member of `TextDirection`."),
+            _ => throw new ArgumentOutOfRangeException(nameof(direction), $"Iodine: `{(int)direction}` is not a member of `TextDirection`."),
         };
     }
 }

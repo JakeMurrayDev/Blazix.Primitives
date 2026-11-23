@@ -1,6 +1,6 @@
 using Microsoft.AspNetCore.Components;
 
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // OTP-STR-02, OTP-EDGE-01; otp-field/root/OTPFieldRootContext.ts. The context the root cascades fixed (ADR 16 rule 9): the
 // slots read the root's state and parameters through it and re-render from its listeners, so a change reaches every slot in
@@ -32,9 +32,9 @@ internal sealed class OtpFieldRootContext
     /// <exception cref="InvalidOperationException"><paramref name="context"/> is <see langword="null"/>.</exception>
     public static OtpFieldRootContext Require(OtpFieldRootContext? context)
     {
-        // OTP-EDGE-01, in every build; Base UI's words with the `Blazix: ` prefix and backticks (a dated deviation).
+        // OTP-EDGE-01, in every build; Base UI's words with the `Iodine: ` prefix and backticks (a dated deviation).
         return context ?? throw new InvalidOperationException(
-            "Blazix: `OtpFieldRootContext` is missing. OtpField parts must be placed within `<OtpFieldRoot>`.");
+            "Iodine: `OtpFieldRootContext` is missing. OtpField parts must be placed within `<OtpFieldRoot>`.");
     }
 
     /// <summary>Takes the root's new state and notifies the slots.</summary>

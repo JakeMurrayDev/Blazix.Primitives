@@ -1,13 +1,13 @@
 using System.Linq.Expressions;
 using System.Text.Json;
 using AngleSharp.Dom;
-using Blazix.Primitives.Interop;
+using Iodine.Headless.Interop;
 using Bunit;
 using Microsoft.AspNetCore.Components;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.JSInterop;
 
-namespace Blazix.Primitives.Tests.Components;
+namespace Iodine.Headless.Tests.Components;
 
 /// <summary>
 /// The bUnit context of the Tabs tests: the library's services and bUnit's JS interop mock standing in for the
@@ -19,14 +19,14 @@ namespace Blazix.Primitives.Tests.Components;
 /// </summary>
 public sealed class TabsTestContext : IDisposable
 {
-    public const string ButtonModulePath = "./_content/Blazix.Primitives/js/button.js";
-    public const string CompositeModulePath = "./_content/Blazix.Primitives/js/composite.js";
-    public const string TransitionsModulePath = "./_content/Blazix.Primitives/js/transitions.js";
-    public const string TabsModulePath = "./_content/Blazix.Primitives/js/tabs.js";
+    public const string ButtonModulePath = "./_content/Iodine.Headless/js/button.js";
+    public const string CompositeModulePath = "./_content/Iodine.Headless/js/composite.js";
+    public const string TransitionsModulePath = "./_content/Iodine.Headless/js/transitions.js";
+    public const string TabsModulePath = "./_content/Iodine.Headless/js/tabs.js";
 
     public TabsTestContext()
     {
-        Context.Services.AddBlazixPrimitives();
+        Context.Services.AddIodineHeadless();
         ButtonModule = Context.JSInterop.SetupModule(ButtonModulePath);
         ButtonHandle = SetupHandle(ButtonModule);
         CompositeModule = Context.JSInterop.SetupModule(CompositeModulePath);
@@ -210,7 +210,7 @@ public sealed class TabsTestContext : IDisposable
         return cut.InvokeAsync(() =>
         {
             twin.OnSelecting($$"""{"tabId":"{{tabId}}","direction":"{{direction}}"}""");
-            return twin.Decide(Blazix.Primitives.Interop.TabsTwin.SelectPoint, eventJson ?? ClickJson(tabId));
+            return twin.Decide(Iodine.Headless.Interop.TabsTwin.SelectPoint, eventJson ?? ClickJson(tabId));
         });
     }
 
@@ -235,7 +235,7 @@ public sealed class TabsTestContext : IDisposable
         where TComponent : IComponent
     {
         TabsTwin twin = IndicatorTwin(indicator);
-        string json = JsonSerializer.Serialize(new TabsIndicatorMeasurement(position, size), BlazixJsonContext.Default.TabsIndicatorMeasurement);
+        string json = JsonSerializer.Serialize(new TabsIndicatorMeasurement(position, size), IodineJsonContext.Default.TabsIndicatorMeasurement);
         return cut.InvokeAsync(() => twin.OnMeasure(json));
     }
 
@@ -339,7 +339,7 @@ public sealed class TabsTestContext : IDisposable
     {
         JSRuntimeInvocation[] attaches =
         [
-            .. TabsModule.Invocations["attach"].Where(i => JsonSerializer.Deserialize((string)i.Arguments[1]!, BlazixJsonContext.Default.TabsOptions)!.Part == part),
+            .. TabsModule.Invocations["attach"].Where(i => JsonSerializer.Deserialize((string)i.Arguments[1]!, IodineJsonContext.Default.TabsOptions)!.Part == part),
         ];
         return ((DotNetObjectReference<TabsTwin>)attaches[index < 0 ? ^1 : index].Arguments[2]!).Value;
     }

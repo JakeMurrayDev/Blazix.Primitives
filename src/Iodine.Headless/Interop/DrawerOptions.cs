@@ -1,6 +1,6 @@
 using System.Text.Json.Serialization;
 
-namespace Blazix.Primitives.Interop;
+namespace Iodine.Headless.Interop;
 
 // ADR 04 §1 (the `drawer` component module) and Amendments 2026-11-18 (the `dismiss` and `snap-point` points; decision
 // 21 (a)); M6 track 8b, issue 279. Slice 1: the Viewport handle of the mouse and pen dismiss gesture. AnsweredDismiss

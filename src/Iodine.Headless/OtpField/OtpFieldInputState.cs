@@ -1,6 +1,6 @@
-using Blazix.Primitives.Rendering;
+using Iodine.Headless.Rendering;
 
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // OTP-STA-11, OTP-DOM-17, OTP-DOM-18; otp-field/root/OTPFieldRootContext.ts:47-58 (getOTPFieldInputState: the root's state
 // with the slot's value, filled and index). `Value` and `Index` produce no data attribute; `Length` does, as

@@ -1,6 +1,6 @@
-using Blazix.Primitives.Rendering;
+using Iodine.Headless.Rendering;
 
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // SEP-ARIA-01/02, TLB-DOM-10, TLB-ARIA-07: the attributes Separator and ToolbarSeparator both render (separator/Separator.tsx:
 // 16-24; ToolbarSeparator renders Base UI's Separator). One static helper, so neither part composes or derives from the other

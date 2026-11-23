@@ -1,7 +1,7 @@
 using System.Reflection;
 using Microsoft.AspNetCore.Components;
 
-namespace Blazix.Primitives.Tests;
+namespace Iodine.Headless.Tests;
 
 // OTPFieldRoot.spec.tsx and OTPFieldInput.spec.tsx, the type-only specs (issue 278, M6 track 7): what the C# types declare.
 // `// @ts-expect-error - length is required` becomes [EditorRequired] on Length (RZ2012 is an analyzer warning, so a

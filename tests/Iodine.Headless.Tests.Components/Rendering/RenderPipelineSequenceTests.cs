@@ -1,11 +1,11 @@
-using Blazix.Primitives.Tests.Components.Rendering.Consumers;
+using Iodine.Headless.Tests.Components.Rendering.Consumers;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.RenderTree;
 using Microsoft.AspNetCore.Components.Rendering;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging.Abstractions;
 
-namespace Blazix.Primitives.Tests.Components.Rendering;
+namespace Iodine.Headless.Tests.Components.Rendering;
 
 /// <summary>
 /// ADR 16 rule 3 at L2: the sequence numbers of the frames the pipeline emits. A frame the pipeline itself adds carries one
@@ -29,7 +29,7 @@ public sealed class RenderPipelineSequenceTests : IDisposable
     private const int HostWrapperSequence = 104;
     private const int HostWrapperAttributeSequence = 105;
 
-    private readonly ServiceProvider services = new ServiceCollection().AddBlazixPrimitives().BuildServiceProvider();
+    private readonly ServiceProvider services = new ServiceCollection().AddIodineHeadless().BuildServiceProvider();
     private readonly FrameRenderer renderer;
 
     public RenderPipelineSequenceTests()

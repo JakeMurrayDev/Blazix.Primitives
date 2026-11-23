@@ -3,7 +3,7 @@ using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Rendering;
 
 // Family tests use the project's root namespace.
-namespace Blazix.Primitives.Tests.Components;
+namespace Iodine.Headless.Tests.Components;
 
 // ComboboxCollection.test.tsx, ComboboxGroup.test.tsx and ComboboxGroupLabel.test.tsx at L2 (PR 193 delta review B1): what
 // the Collection renders, the Group's role and its labelling by the GroupLabel.

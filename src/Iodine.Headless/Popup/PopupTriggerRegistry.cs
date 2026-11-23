@@ -1,4 +1,4 @@
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // PSH-STA-33, PSH-EDGE-07; utils/popups/popupTriggerMap.ts. An insertion-ordered map from trigger id to the registered
 // element. Base UI keeps its reverse index (element to id) only outside production; the port throws in every build
@@ -28,7 +28,7 @@ internal sealed class PopupTriggerRegistry
         ArgumentNullException.ThrowIfNull(id);
         if (idsByElement.TryGetValue(element, out string? existingId) && !string.Equals(existingId, id, StringComparison.Ordinal))
         {
-            throw new InvalidOperationException("Blazix: A trigger element cannot be registered under multiple IDs in `PopupTriggerMap`.");
+            throw new InvalidOperationException("Iodine: A trigger element cannot be registered under multiple IDs in `PopupTriggerMap`.");
         }
 
         int index = IndexOf(id);

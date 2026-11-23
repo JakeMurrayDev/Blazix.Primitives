@@ -8,11 +8,11 @@
 
   <!-- The library's development warnings are on in a Debug build, as a consumer's app would have them. -->
   <ItemGroup Condition="'$(Configuration)' == 'Debug'">
-    <RuntimeHostConfigurationOption Include="Blazix.Primitives.DevelopmentWarnings" Value="true" />
+    <RuntimeHostConfigurationOption Include="Iodine.Headless.DevelopmentWarnings" Value="true" />
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\Blazix.Primitives.Demo.Client\Blazix.Primitives.Demo.Client.csproj" />
+    <ProjectReference Include="..\Iodine.Headless.Demo.Client\Iodine.Headless.Demo.Client.csproj" />
     <PackageReference Include="Microsoft.AspNetCore.Components.WebAssembly.Server" />
   </ItemGroup>
 

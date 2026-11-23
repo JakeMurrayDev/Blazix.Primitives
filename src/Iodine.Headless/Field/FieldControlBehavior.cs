@@ -1,13 +1,13 @@
 using System.Linq.Expressions;
-using Blazix.Primitives.Interop;
-using Blazix.Primitives.Rendering;
+using Iodine.Headless.Interop;
+using Iodine.Headless.Rendering;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Forms;
 using Microsoft.AspNetCore.Components.Web;
 using Microsoft.Extensions.Logging;
 using Microsoft.JSInterop;
 
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // Base UI's Field.Control (field/control/FieldControl.tsx), which Input renders unchanged (input/Input.tsx:13-18): one
 // behavior under two sealed parts (ADR 08 Amendments 2026-10-22; ADR 16 rule 10; the ButtonBehavior pattern).

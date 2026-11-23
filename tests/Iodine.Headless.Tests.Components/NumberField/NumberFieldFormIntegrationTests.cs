@@ -1,14 +1,14 @@
 using System.Globalization;
 using System.Text.Json;
 using AngleSharp.Dom;
-using Blazix.Primitives.Interop;
+using Iodine.Headless.Interop;
 using Bunit;
 using Microsoft.AspNetCore.Components;
 using Microsoft.JSInterop;
-using Scenario = Blazix.Primitives.Tests.Components.NumberFieldFormIntegrationScenarios.IntegrationScenario;
+using Scenario = Iodine.Headless.Tests.Components.NumberFieldFormIntegrationScenarios.IntegrationScenario;
 
 // The namespace is the project's root: a namespace named after the family would hide the parts' types.
-namespace Blazix.Primitives.Tests.Components;
+namespace Iodine.Headless.Tests.Components;
 
 // 6b's batch C at L2 (issue 277): NumberFieldRoot.test.tsx's Field and Form titles (the field state attributes, the
 // validation modes, external errors, autofill) and its root-level typing and stepping titles whose text also names an L1
@@ -22,7 +22,7 @@ namespace Blazix.Primitives.Tests.Components;
 /// <summary>A number field inside a field or a form, and the root's parsing and stepping of typed and stepped values.</summary>
 public sealed class NumberFieldFormIntegrationTests : IDisposable
 {
-    private const string ButtonModulePath = "./_content/Blazix.Primitives/js/button.js";
+    private const string ButtonModulePath = "./_content/Iodine.Headless/js/button.js";
     private static readonly CultureInfo s_enUs = CultureInfo.GetCultureInfo("en-US");
 
     private readonly FieldTestContext host = new();

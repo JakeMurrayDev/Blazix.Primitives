@@ -1,7 +1,7 @@
 using System.Collections;
 using System.Diagnostics.CodeAnalysis;
 
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // FRM-API-02, FFI-API-04 (ADR 08 Amendments 2026-10-22). Keys keep their insertion order (a JavaScript object's own string
 // keys enumerate in insertion order). FFI-API-04's inherited-property and prototype-less clauses have no C# meaning (port

@@ -1,6 +1,6 @@
 using Microsoft.AspNetCore.Components;
 
-namespace Blazix.Primitives.Tests.Events;
+namespace Iodine.Headless.Tests.Events;
 
 /// <summary>
 /// The delivery budget of ADR 16 rule 7 for <see cref="ValueChangeEventArgs{T}"/> (ADR 05 §3: "<c>EventCallback&lt;ValueChangeEventArgs&lt;T&gt;&gt;</c>

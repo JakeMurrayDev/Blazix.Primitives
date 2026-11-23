@@ -1,10 +1,10 @@
-using Blazix.Primitives.Interop;
-using Blazix.Primitives.Rendering;
-using Blazix.Primitives.Store;
+using Iodine.Headless.Interop;
+using Iodine.Headless.Rendering;
+using Iodine.Headless.Store;
 using Microsoft.AspNetCore.Components;
 using Microsoft.JSInterop;
 
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // TIP §3.3 (tooltip/trigger/TooltipTrigger.tsx:277-282).
 /// <summary>Represents the state of a tooltip trigger, which the part exposes as data attributes and passes to its class and style functions.</summary>
@@ -159,7 +159,7 @@ public sealed class TooltipTrigger<TPayload> : PartBase<TooltipTriggerState>
     /// <inheritdoc />
     protected override StateAttributesMapping<TooltipTriggerState>? StateAttributesMapping => s_mapping;
 
-    // For the fixtures (tests/Blazix.Primitives.Fixtures.Client).
+    // For the fixtures (tests/Iodine.Headless.Fixtures.Client).
     /// <summary>Gets a task that completes when the trigger's interactions handle is attached, or at once while no root is attached to its handle.</summary>
     internal Task TwinAttached => interactions is null || popup.Store.SessionToken is null ? Task.CompletedTask : interactions.TwinAttached;
 
@@ -190,7 +190,7 @@ public sealed class TooltipTrigger<TPayload> : PartBase<TooltipTriggerState>
         }
 
         // TIP-EDGE-01 (TooltipTrigger.tsx:62-69), in every build.
-        popup.Apply(CascadedStore, Handle, Id, Element, payloadSupplied, Payload, "Blazix: `<TooltipTrigger>` must be either used within a `<TooltipRoot>` component or provided with a handle.");
+        popup.Apply(CascadedStore, Handle, Id, Element, payloadSupplied, Payload, "Iodine: `<TooltipTrigger>` must be either used within a `<TooltipRoot>` component or provided with a handle.");
         interactions!.SetConsumerAttributes(AdditionalAttributes);
     }
 

@@ -2,8 +2,8 @@ using AngleSharp.Dom;
 using Bunit;
 using Microsoft.Extensions.DependencyInjection;
 
-// Family tests use the project's root namespace (tests/Blazix.Primitives.Tests.Components/CONTEXT.md).
-namespace Blazix.Primitives.Tests.Components;
+// Family tests use the project's root namespace (tests/Iodine.Headless.Tests.Components/CONTEXT.md).
+namespace Iodine.Headless.Tests.Components;
 
 /// <summary>
 /// L2: <c>MenuList.test.tsx</c>'s titles that read the render (MNU-STR-13, API-62, ARIA-03, ARIA-05, STA-13, EDGE-09) over
@@ -14,7 +14,7 @@ public sealed class MenuListTests : BunitContext
     public MenuListTests()
     {
         JSInterop.Mode = JSRuntimeMode.Loose;
-        Services.AddBlazixPrimitives();
+        Services.AddIodineHeadless();
     }
 
     [Fact(DisplayName = "takes the menu role and label from the popup")]
@@ -53,7 +53,7 @@ public sealed class MenuListTests : BunitContext
     [Trait("Requirement", "MNU-STA-13")]
     public void Renders_the_orientation_on_the_list()
     {
-        IRenderedComponent<MenuListHost> cut = Render<MenuListHost>(p => p.Add(x => x.Orientation, Blazix.Primitives.Orientation.Horizontal));
+        IRenderedComponent<MenuListHost> cut = Render<MenuListHost>(p => p.Add(x => x.Orientation, Iodine.Headless.Orientation.Horizontal));
 
         Assert.Equal("horizontal", cut.Find("[data-testid=list]").GetAttribute("aria-orientation"));
         Assert.False(cut.Find("[data-testid=popup]").HasAttribute("aria-orientation"));

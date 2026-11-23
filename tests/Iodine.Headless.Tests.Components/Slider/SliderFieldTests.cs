@@ -2,10 +2,10 @@ using AngleSharp.Dom;
 using Bunit;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Forms;
-using static Blazix.Primitives.Tests.Components.SliderTestContext;
+using static Iodine.Headless.Tests.Components.SliderTestContext;
 
 // The namespace is the project's root: a namespace named after the family would hide the parts' types.
-namespace Blazix.Primitives.Tests.Components;
+namespace Iodine.Headless.Tests.Components;
 
 // SliderRoot.test.tsx's Field and form blocks, the [L2] rows (SLD §8): SliderField composed into the Root (ADR 05
 // Amendments 2026-11-18 item 2). The module's reports are driven by hand; the browser's FormData and the focus of a blocked

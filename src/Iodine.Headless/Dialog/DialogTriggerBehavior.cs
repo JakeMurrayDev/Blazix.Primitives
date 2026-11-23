@@ -1,11 +1,11 @@
-using Blazix.Primitives.Interop;
-using Blazix.Primitives.Rendering;
+using Iodine.Headless.Interop;
+using Iodine.Headless.Rendering;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Web;
 using Microsoft.Extensions.Logging;
 using Microsoft.JSInterop;
 
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // The trigger half every dialog-family trigger composes (dialog/trigger/DialogTrigger.tsx; ADR 08 Amendments 2026-10-27, the
 // Input/FieldControl precedent). Three behaviors on the trigger's own element (issue 115: the bag's id is the trigger id):
@@ -62,7 +62,7 @@ internal sealed class DialogTriggerBehavior<TPayload> : IAsyncDisposable
         interactions = new InteractionsTriggerBehavior(jsRuntime, RequestAsync, dispatchException, onClick);
 
         // DLG-EDGE-01, thrown in every build.
-        missingRootMessage = $"Blazix: `<{partName}>` must be used within `<{rootName}>` or provided with a handle.";
+        missingRootMessage = $"Iodine: `<{partName}>` must be used within `<{rootName}>` or provided with a handle.";
     }
 
     /// <summary>Gets a value indicating whether the dialog is open and this trigger owns it.</summary>

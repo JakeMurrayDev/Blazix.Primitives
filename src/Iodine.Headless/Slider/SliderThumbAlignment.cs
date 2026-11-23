@@ -1,4 +1,4 @@
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // SLD-API-11; slider/root/SliderRoot.tsx:78,311,330 (`thumbAlignment: 'center' | 'edge' | 'edge-client-only'`). ADR 08 §3's
 // Enums row: family-prefixed and one family's, the members the PascalCase of the literals. ADR 12 Amendments 2026-11-18

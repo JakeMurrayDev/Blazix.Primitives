@@ -1,7 +1,7 @@
-using Blazix.Primitives.Store;
+using Iodine.Headless.Store;
 using Microsoft.AspNetCore.Components;
 
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // Base UI's AccordionItemContext (accordion/item/AccordionItemContext.ts): the default trigger id and its three-state
 // registration (ACC-STA-11; accordion/item/AccordionItem.tsx:98-102: undefined = the generated id, null = a trigger registered

@@ -4,7 +4,7 @@ using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Rendering;
 
 // The namespace is the project's root: a namespace named after the family would hide the parts' types.
-namespace Blazix.Primitives.Tests.Components;
+namespace Iodine.Headless.Tests.Components;
 
 /// <summary>
 /// The tooltip trigger at L2 (TooltipTrigger.test.tsx and the trigger rows of TooltipRoot.test.tsx): its element, id and
@@ -24,7 +24,7 @@ public sealed class TooltipTriggerTests : IDisposable
     {
         InvalidOperationException error = Assert.Throws<InvalidOperationException>(() => host.Context.Render<TooltipTrigger<NoPayload>>());
 
-        Assert.Equal("Blazix: `<TooltipTrigger>` must be either used within a `<TooltipRoot>` component or provided with a handle.", error.Message);
+        Assert.Equal("Iodine: `<TooltipTrigger>` must be either used within a `<TooltipRoot>` component or provided with a handle.", error.Message);
     }
 
     [Fact(DisplayName = "port: renders a button of type button with its trigger id, the enabled marker and no ARIA attribute")]
@@ -207,7 +207,7 @@ public sealed class TooltipTriggerTests : IDisposable
         {
             builder.OpenComponent<TooltipTrigger<NoPayload>>(0);
             builder.AddAttribute(1, "id", "callback-trigger");
-            builder.AddAttribute(2, nameof(TooltipTrigger<NoPayload>.RenderFunction), (RenderFragment<Blazix.Primitives.Rendering.RenderProps<TooltipTriggerState>>)(props => substitute =>
+            builder.AddAttribute(2, nameof(TooltipTrigger<NoPayload>.RenderFunction), (RenderFragment<Iodine.Headless.Rendering.RenderProps<TooltipTriggerState>>)(props => substitute =>
             {
                 substitute.OpenElement(0, "span");
                 substitute.AddMultipleAttributes(1, props.Attributes);

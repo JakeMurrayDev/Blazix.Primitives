@@ -2,11 +2,11 @@ using System.Reflection;
 using AngleSharp.Dom;
 using Bunit;
 using Microsoft.Extensions.DependencyInjection;
-using LibraryOrientation = Blazix.Primitives.Orientation;
+using LibraryOrientation = Iodine.Headless.Orientation;
 
 // The namespace is the project's root, not a `Separator` namespace (see SeparatorConformanceTests). `Orientation` is
 // aliased because SampleRoot.cs declares a test-local `Orientation` in this namespace that would shadow the library's.
-namespace Blazix.Primitives.Tests.Components;
+namespace Iodine.Headless.Tests.Components;
 
 /// <summary>
 /// <c>Separator.test.tsx</c> (SEP-STR-01, SEP-API-01, SEP-ARIA-01, SEP-ARIA-02), then the port's own tests for the rows
@@ -19,7 +19,7 @@ public sealed class SeparatorTests : IDisposable
 
     public SeparatorTests()
     {
-        context.Services.AddBlazixPrimitives();
+        context.Services.AddIodineHeadless();
     }
 
     /// <inheritdoc />

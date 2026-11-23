@@ -1,8 +1,8 @@
-using Blazix.Primitives.Store;
+using Iodine.Headless.Store;
 using Microsoft.AspNetCore.Components;
 using Microsoft.Extensions.Logging;
 
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // MNU §11 (MenuRootContext); menu/root/MenuRootContext.ts. The Root's behaviour cascades it fixed (ADR 16 rule 9) beside its
 // store. Only the Root and the Trigger are generic (ADR 08 Amendments 2026-10-27, issue 116's finding), so every other part
@@ -280,7 +280,7 @@ internal sealed class MenuRootContext<TPayload> : MenuRootContext
     public bool Handled { get; set; }
 
     /// <inheritdoc />
-    public override ListNavigationContext List => ListNavigation?.Context ?? throw new InvalidOperationException("Blazix: the menu's list is created with its root.");
+    public override ListNavigationContext List => ListNavigation?.Context ?? throw new InvalidOperationException("Iodine: the menu's list is created with its root.");
 
     /// <summary>Gets or sets the root's list navigation.</summary>
     public ListNavigationBehavior? ListNavigation { get; set; }

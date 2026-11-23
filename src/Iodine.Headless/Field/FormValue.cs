@@ -1,7 +1,7 @@
 using System.Globalization;
-using Blazix.Primitives.Utilities;
+using Iodine.Headless.Utilities;
 
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // FFI-ALG-11, RAD-FRM-02 (internals/serializeValue.ts): the text a hidden form input submits for a value-typed part (Radio,
 // and from M5 Select, Combobox and Autocomplete). Moved from Radio/RadioValues.cs by M5 track 4 (chosen by the user

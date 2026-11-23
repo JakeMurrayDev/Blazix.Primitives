@@ -4,7 +4,7 @@ import { center, gotoCombobox, recorded } from './combobox.helpers';
 import { openChangeCompletes, openChanges, pressControl, settle } from './suites/popupFixture';
 
 // Base UI's AutocompleteRoot.test.tsx at L4 (M5 track 11, issue 196), titles verbatim where the title is Base UI's, on the
-// `autocomplete-root` fixture (tests/Blazix.Primitives.Fixtures.Client/Autocomplete/L4/AutocompleteRootL4Fixture.razor): the
+// `autocomplete-root` fixture (tests/Iodine.Headless.Fixtures.Client/Autocomplete/L4/AutocompleteRootL4Fixture.razor): the
 // root's items are apple, banana and cherry. Callbacks are read from the container's recorded attributes. The inline
 // completion is computed in C# (decision 11 (a)), so on Server the Input shows it a round trip after the arrow: the titles
 // wait for the value, never for a frame.
@@ -506,7 +506,7 @@ test.describe('<Autocomplete.Root /> attach order', () => {
     const held: Route[] = [];
     let heldCount = 0;
     let released = false;
-    const url = new RegExp(`/_content/Blazix\\.Primitives/js/${module}(\\.[a-z0-9]+)?\\.js$`);
+    const url = new RegExp(`/_content/Iodine\\.Primitives/js/${module}(\\.[a-z0-9]+)?\\.js$`);
     await page.route(url, (route) => {
       if (released) {
         return route.continue();

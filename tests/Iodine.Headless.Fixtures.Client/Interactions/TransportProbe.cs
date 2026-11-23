@@ -2,18 +2,18 @@ using System.Runtime.InteropServices.JavaScript;
 using System.Runtime.Versioning;
 using System.Diagnostics;
 using System.Text.Json;
-using Blazix.Primitives.Interop;
+using Iodine.Headless.Interop;
 using Microsoft.JSInterop;
 
-namespace Blazix.Primitives.Fixtures.Client.Interactions;
+namespace Iodine.Headless.Fixtures.Client.Interactions;
 
 // Issue 26 (ADR 16 §B and Amendments 2026-10-27; ADR 14 Amendments 2026-10-27; M4 track 3): the twin base's transport
 // against [JSImport]/[JSExport], the JSON held equal and the work at each end the same (the module parses an update; C#
-// deserializes a report and a Decide's snapshot through BlazixJsonContext, as InteractionsTwin does).
+// deserializes a report and a Decide's snapshot through IodineJsonContext, as InteractionsTwin does).
 
 /// <summary>The twin base's form of the three messages, over the probe module.</summary>
 internal sealed class TransportProbeTwin(IJSRuntime jsRuntime)
-    : TwinBase<TransportProbeTwin, InteractionsOptions>(jsRuntime, ModulePath, BlazixJsonContext.Default.InteractionsOptions)
+    : TwinBase<TransportProbeTwin, InteractionsOptions>(jsRuntime, ModulePath, IodineJsonContext.Default.InteractionsOptions)
 {
     public const string ModulePath = "./js/transport-probe.js";
 
@@ -24,7 +24,7 @@ internal sealed class TransportProbeTwin(IJSRuntime jsRuntime)
     [JSInvokable]
     public void Report(string payloadJson)
     {
-        _ = Deserialize(payloadJson, BlazixJsonContext.Default.InteractionsRequest);
+        _ = Deserialize(payloadJson, IodineJsonContext.Default.InteractionsRequest);
         Reports++;
     }
 
@@ -41,14 +41,14 @@ internal static partial class TransportProbeExports
     [JSExport]
     internal static void Report(string payloadJson)
     {
-        _ = JsonSerializer.Deserialize(payloadJson, BlazixJsonContext.Default.InteractionsRequest);
+        _ = JsonSerializer.Deserialize(payloadJson, IodineJsonContext.Default.InteractionsRequest);
         Reports++;
     }
 
     [JSExport]
     internal static string Decide(string point, string eventJson)
     {
-        _ = JsonSerializer.Deserialize(eventJson, BlazixJsonContext.Default.EventSnapshot);
+        _ = JsonSerializer.Deserialize(eventJson, IodineJsonContext.Default.EventSnapshot);
         return string.Equals(point, "escape", StringComparison.Ordinal) ? DecisionPolicy.PreventAndStop.ToLiteral() : DecisionPolicy.Run.ToLiteral();
     }
 }
@@ -93,7 +93,7 @@ internal static class TransportProbeRun
         Session = new InteractionsSessionOptions { Open = true, ActiveTriggerId = "base-ui-13", FloatingId = "base-ui-14", Dismiss = new InteractionsDismissOptions() },
     };
 
-    private static readonly string s_updateJson = JsonSerializer.Serialize(s_update, BlazixJsonContext.Default.InteractionsOptions);
+    private static readonly string s_updateJson = JsonSerializer.Serialize(s_update, IodineJsonContext.Default.InteractionsOptions);
 
     /// <summary>Measures every message kind both ways.</summary>
     /// <param name="runtime">The runtime of the WebAssembly application.</param>

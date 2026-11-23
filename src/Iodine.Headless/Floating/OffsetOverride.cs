@@ -1,4 +1,4 @@
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // ADR 08 Amendments 2026-10-27; the positioning track's design point 2, settled by the orchestrator 2026-10-27: an
 // override keyed by the evaluated logical side and the alignment, the first match in list order winning.

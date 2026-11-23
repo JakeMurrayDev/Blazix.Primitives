@@ -1,7 +1,7 @@
 using System.Globalization;
 
 // Family tests use the project's root namespace.
-namespace Blazix.Primitives.Tests;
+namespace Iodine.Headless.Tests;
 
 // CMB-API-65 (combobox/root/utils/useFilter.ts:14-46, root/utils/index.ts:23-68): Combobox.useFilter as the public
 // ComboboxFilter (named by the track in its dated ADR 08 line), over the shared collator filter (UTL-I18N-08..13). Base UI's

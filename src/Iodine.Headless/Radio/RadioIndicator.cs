@@ -1,10 +1,10 @@
-using Blazix.Primitives.Interop;
-using Blazix.Primitives.Rendering;
+using Iodine.Headless.Interop;
+using Iodine.Headless.Rendering;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Rendering;
 using Microsoft.JSInterop;
 
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // RAD-STA-04; radio/indicator/RadioIndicator.tsx:24-33,73-78 (the root's state and the transition status). ADR 04 §2: the
 // transition status is a mirrored field (JavaScript writes data-starting-style and data-ending-style).
@@ -23,7 +23,7 @@ namespace Blazix.Primitives;
 /// <param name="Focused">A value indicating whether a radio button of the field has focus; projected as <c>data-focused</c>.</param>
 /// <param name="TransitionStatus">
 /// The phase of the indicator's enter or exit transition, or <see langword="null"/> when it is not transitioning; never
-/// <see cref="Primitives.TransitionStatus.Idle"/>.
+/// <see cref="Headless.TransitionStatus.Idle"/>.
 /// </param>
 [PartState]
 public sealed partial record RadioIndicatorState(
@@ -158,7 +158,7 @@ public sealed class RadioIndicator : PartBase<RadioIndicatorState>
     /// <inheritdoc />
     protected override StateAttributesMapping<RadioIndicatorState>? StateAttributesMapping => s_mapping;
 
-    // For the fixtures (tests/Blazix.Primitives.Fixtures.Client): a browser test waits for the module before it selects.
+    // For the fixtures (tests/Iodine.Headless.Fixtures.Client): a browser test waits for the module before it selects.
     /// <summary>Gets a task that completes when the indicator's transitions behavior is first attached to its element.</summary>
     /// <value>A task that completes after the first interactive render that showed the element.</value>
     internal Task TwinAttached => attachedSource.Task;

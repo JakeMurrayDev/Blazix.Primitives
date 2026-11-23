@@ -1,12 +1,12 @@
 using AngleSharp.Dom;
-using Blazix.Primitives.Interop;
+using Iodine.Headless.Interop;
 using Bunit;
 using Microsoft.AspNetCore.Components;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.JSInterop;
 
-// Family tests use the project's root namespace (tests/Blazix.Primitives.Tests.Components/CONTEXT.md).
-namespace Blazix.Primitives.Tests.Components;
+// Family tests use the project's root namespace (tests/Iodine.Headless.Tests.Components/CONTEXT.md).
+namespace Iodine.Headless.Tests.Components;
 
 /// <summary>
 /// L2: a submenu trigger under a filterable parent (MNU-STA-25; M5 track 12), over <see cref="MenuFilterSubmenuHost"/>. The
@@ -20,8 +20,8 @@ public sealed class MenuFilterSubmenuTests : BunitContext
     public MenuFilterSubmenuTests()
     {
         JSInterop.Mode = JSRuntimeMode.Loose;
-        Services.AddBlazixPrimitives();
-        module = JSInterop.SetupModule("./_content/Blazix.Primitives/js/menu-filter.js");
+        Services.AddIodineHeadless();
+        module = JSInterop.SetupModule("./_content/Iodine.Headless/js/menu-filter.js");
         module.SetupModule("attach", _ => true).SetupVoid("update", _ => true).SetVoidResult();
     }
 

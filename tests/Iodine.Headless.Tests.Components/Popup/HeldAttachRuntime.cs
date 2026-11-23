@@ -5,7 +5,7 @@ using Microsoft.JSInterop;
 // A test double, not interop: the analyzer reads its members as JS interop calls.
 #pragma warning disable BL0016
 
-namespace Blazix.Primitives.Tests.Components;
+namespace Iodine.Headless.Tests.Components;
 
 /// <summary>
 /// An <see cref="IJSRuntime"/> over bUnit's that holds one module's <c>attach</c> (or, with <paramref name="holdImport"/>, its

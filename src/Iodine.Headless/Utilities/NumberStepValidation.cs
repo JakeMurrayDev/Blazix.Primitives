@@ -1,7 +1,7 @@
 using System.Collections.Concurrent;
 using System.Globalization;
 
-namespace Blazix.Primitives.Utilities;
+namespace Iodine.Headless.Utilities;
 
 // NUM-STA-07..12 (number-field/utils/validate.ts): toValidatedNumber, snapToStep and removeFloatingPointErrors, the same IEEE
 // operations in the same order. clamp is UTL-EDGE-14 (RangeMath.Clamp); Math.round is ECMAScript's (ties toward +∞).

@@ -1,13 +1,13 @@
 using System.Text.Json;
 using AngleSharp.Dom;
-using Blazix.Primitives.Interop;
+using Iodine.Headless.Interop;
 using Bunit;
 using Microsoft.AspNetCore.Components.Web;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.JSInterop;
 
-namespace Blazix.Primitives.Tests.Components;
+namespace Iodine.Headless.Tests.Components;
 
 /// <summary>
 /// The <c>[L2]</c> titles of <c>DialogRoot.detached-triggers.test.tsx</c> outside its conformance suite: inactive triggers
@@ -24,7 +24,7 @@ public sealed class DialogDetachedTriggersTests : IDisposable
 {
     private const string DetachedWarning = "no root using this handle is mounted";
     private const string OverlapWarning = "more than one mounted root";
-    private const string OpenWithPayloadWarning = "Blazix: `DialogHandle.OpenWithPayloadAsync()` was called while no root using this handle is mounted. The call and its payload were ignored; mount a root with this handle before opening it imperatively.";
+    private const string OpenWithPayloadWarning = "Iodine: `DialogHandle.OpenWithPayloadAsync()` was called while no root using this handle is mounted. The call and its payload were ignored; mount a root with this handle before opening it imperatively.";
 
     private readonly DialogTestContext test = new();
     private readonly CapturingLogger<DialogRoot<int?>> numberLogger = new();
@@ -888,7 +888,7 @@ public sealed class DialogDetachedTriggersTests : IDisposable
 [Collection(AllocationBudgetsCollection.Name)]
 public sealed class DialogDetachedTriggersProductionTests : IDisposable
 {
-    private const string SwitchName = "Blazix.Primitives.DevelopmentWarnings";
+    private const string SwitchName = "Iodine.Headless.DevelopmentWarnings";
 
     private readonly DialogTestContext test = new();
     private readonly CapturingLogger<DialogRoot<int?>> numberLogger = new();

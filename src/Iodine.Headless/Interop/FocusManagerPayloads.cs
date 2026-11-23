@@ -1,6 +1,6 @@
 using System.Text.Json.Serialization;
 
-namespace Blazix.Primitives.Interop;
+namespace Iodine.Headless.Interop;
 
 // FLT-FOC-11 (the focus-out close, reason focus-out, a request C# commits), FLT-FOC-10 (the close type C# classifies
 // from the request's snapshot and the type the module recorded; ADR 04 Amendments 2026-10-27, "Focus targets"). A

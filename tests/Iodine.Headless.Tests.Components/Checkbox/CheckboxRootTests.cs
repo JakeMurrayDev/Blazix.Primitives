@@ -1,12 +1,12 @@
 using AngleSharp.Dom;
-using Blazix.Primitives.Rendering;
+using Iodine.Headless.Rendering;
 using Bunit;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Web;
 using Microsoft.Extensions.Logging;
 
 // The namespace is the project's root: a namespace named after the family would hide the parts' types.
-namespace Blazix.Primitives.Tests.Components;
+namespace Iodine.Headless.Tests.Components;
 
 // CheckboxRoot.test.tsx, the rows that render neither Field, Form nor CheckboxGroup (issue 81). A click reaches C# through
 // the `button` module: on Server as the OnToggle report (ToggleAsync), on WebAssembly as the toggle decision
@@ -746,7 +746,7 @@ public sealed class CheckboxRootTests : IDisposable
         // Design point C2 of M2 track 5: the form module owns the Enter path (ADR 04 §1's form row); outside a field the
         // root's handle reports nothing.
         IRenderedComponent<CheckboxRoot> cut = Context.Render<CheckboxRoot>();
-        Blazix.Primitives.Interop.FormControlOptions root = test.FormOptions.First(o => o.EnterSubmit);
+        Iodine.Headless.Interop.FormControlOptions root = test.FormOptions.First(o => o.EnterSubmit);
         Assert.True(root.EnterSubmit);
         Assert.False(root.ReportEvents);
         Assert.False(root.Disabled);
@@ -766,7 +766,7 @@ public sealed class CheckboxRootTests : IDisposable
         // Design point C4 of M2 track 5: the form module discovers the label (ADR 04 §1's form row); C# renders the id.
         IRenderedComponent<CheckboxRoot> cut = Context.Render<CheckboxRoot>(p => p.AddUnmatched("id", "box"));
         string rootId = cut.Find(CheckboxSelector).GetAttribute("id")!;
-        Blazix.Primitives.Interop.FormControlOptions input = test.FormOptions.Last(o => !o.ReportEvents && !o.EnterSubmit);
+        Iodine.Headless.Interop.FormControlOptions input = test.FormOptions.Last(o => !o.ReportEvents && !o.EnterSubmit);
         Assert.Equal((true, rootId), (input.LabelFallback, input.FocusTarget));
 
         await test.ReportLabelAsync(cut, "found");

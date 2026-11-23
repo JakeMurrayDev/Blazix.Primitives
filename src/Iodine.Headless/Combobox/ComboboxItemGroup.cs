@@ -1,4 +1,4 @@
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // CMB-API-12 (`items` as `{ value?, label?, items }[]`, AriaCombobox.tsx:1861-1871; internals/resolveValueLabel.tsx's Group
 // shape). The group shape is the track's (ADR 08 Amendments 2026-11-03 (4); M5 track 10 design point 2 (a), settled by the

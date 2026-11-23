@@ -7,7 +7,7 @@
  *    what these tokens style.
  * 2. The chrome: header, navigation, the demo box (the documentation's DemoRoot/DemoPlayground), and the few classes the
  *    "Try it" blocks share. It sits in the `components` layer, below Tailwind's utilities (tailwind.css, built from
- *    Blazix.Primitives.Demo.Client/Styles/tailwind.css), so a chrome rule never overrides a demo's utility class.
+ *    Iodine.Headless.Demo.Client/Styles/tailwind.css), so a chrome rule never overrides a demo's utility class.
  */
 
 @layer theme, base, components, utilities;

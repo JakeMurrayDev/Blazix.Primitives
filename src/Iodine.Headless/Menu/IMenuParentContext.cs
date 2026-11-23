@@ -1,6 +1,6 @@
 using Microsoft.AspNetCore.Components;
 
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // MNU-STR-19, MNU §4 (menu/root/MenuRoot.tsx:94-122, 959-979; menubar/MenubarContext.ts:5-15;
 // context-menu/root/ContextMenuRootContext.ts:5-17). Decision 12 of the M5 plan and ADR 08 Amendments 2026-11-03 (3)

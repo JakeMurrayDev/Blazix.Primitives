@@ -1,8 +1,8 @@
-using Blazix.Primitives.Rendering;
+using Iodine.Headless.Rendering;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Rendering;
 
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // FST-STA-01; fieldset/root/FieldsetRoot.tsx:30-32,60-65. ADR 08 §3: sealed, partial, [PartState]. Base UI exports no
 // FieldsetRootDataAttributes (fieldset §3.3), so the port declares none.

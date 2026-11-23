@@ -1,7 +1,7 @@
 using System.Globalization;
-using Blazix.Primitives.Utilities;
+using Iodine.Headless.Utilities;
 
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // CMB-API-65 (combobox/root/utils/useFilter.ts:14-46, root/utils/index.ts:23-68): Base UI's Combobox.useFilter, named by
 // M5 track 10 (its dated ADR 08 line). A value over the shared collator filter (UTL-I18N-08..13): equal options give equal

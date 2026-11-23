@@ -3,7 +3,7 @@ using Bunit;
 using Microsoft.AspNetCore.Components;
 
 // The namespace is the project's root: a namespace named after the family would hide the parts' types.
-namespace Blazix.Primitives.Tests.Components;
+namespace Iodine.Headless.Tests.Components;
 
 // NUM-API-04, NUM-EVT-05, NUM-EVT-08..10: OnValueCommitted over track 1's ValueCommittedEventArgs<T>(T Value,
 // GenericEventDetails Details) (ADR 08 Amendments 2026-11-18, decision 13 (a), the Details type confirmed by track 1). The

@@ -1,4 +1,4 @@
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // The M6 plan's decision 13 (a); ADR 08 Amendments 2026-11-18, the commit-callback line, with `Details` confirmed as
 // GenericEventDetails (ADR 05 §3, EVD-API-02; SLD-API-04, NUM-API-04: a notification, not cancelable); the twin of

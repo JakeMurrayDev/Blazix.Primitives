@@ -1,6 +1,6 @@
-using Blazix.Primitives.Rendering;
+using Iodine.Headless.Rendering;
 
-namespace Blazix.Primitives.Tests.Rendering;
+namespace Iodine.Headless.Tests.Rendering;
 
 public enum Orientation
 {

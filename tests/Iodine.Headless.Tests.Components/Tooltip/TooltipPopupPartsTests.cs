@@ -6,7 +6,7 @@ using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Rendering;
 
 // The namespace is the project's root: a namespace named after the family would hide the parts' types.
-namespace Blazix.Primitives.Tests.Components;
+namespace Iodine.Headless.Tests.Components;
 
 /// <summary>
 /// The Portal, Positioner, Popup and Arrow at L2 (TooltipPortal.test.tsx, TooltipPositioner.test.tsx, TooltipPopup.test.tsx,
@@ -26,7 +26,7 @@ public sealed class TooltipPopupPartsTests : IDisposable
     [Trait("Requirement", "TIP-STR-08")]
     public void Throws_a_descriptive_error_when_rendered_outside_the_root()
     {
-        const string message = "Blazix: `TooltipRootContext` is missing. Tooltip parts must be placed within `<TooltipRoot>`.";
+        const string message = "Iodine: `TooltipRootContext` is missing. Tooltip parts must be placed within `<TooltipRoot>`.";
 
         Assert.Equal(message, Assert.Throws<InvalidOperationException>(() => host.Context.Render<TooltipPositioner>()).Message);
         Assert.Equal(message, Assert.Throws<InvalidOperationException>(() => host.Context.Render<TooltipPortal>()).Message);
@@ -46,7 +46,7 @@ public sealed class TooltipPopupPartsTests : IDisposable
             builder.CloseComponent();
         }));
 
-        Assert.Equal("Blazix: `<TooltipPortal>` is missing.", error.Message);
+        Assert.Equal("Iodine: `<TooltipPortal>` is missing.", error.Message);
     }
 
     [Fact(DisplayName = "throws a descriptive error when rendered outside <Tooltip.Positioner>")]
@@ -56,7 +56,7 @@ public sealed class TooltipPopupPartsTests : IDisposable
     [Trait("Requirement", "TIP-STR-08")]
     public void Throws_a_descriptive_error_when_rendered_outside_the_positioner()
     {
-        const string message = "Blazix: `TooltipPositionerContext` is missing. `TooltipPositioner` parts must be placed within `<TooltipPositioner>`.";
+        const string message = "Iodine: `TooltipPositionerContext` is missing. `TooltipPositioner` parts must be placed within `<TooltipPositioner>`.";
 
         Assert.Equal(message, Assert.Throws<InvalidOperationException>(() => RenderOpen(builder =>
         {
@@ -278,7 +278,7 @@ public sealed class TooltipPopupPartsTests : IDisposable
 
     private BunitJSModuleInterop SetUpTransitions()
     {
-        BunitJSModuleInterop transitions = host.Context.JSInterop.SetupModule("./_content/Blazix.Primitives/js/transitions.js");
+        BunitJSModuleInterop transitions = host.Context.JSInterop.SetupModule("./_content/Iodine.Headless/js/transitions.js");
         BunitJSModuleInterop handle = transitions.SetupModule("attach", _ => true);
         handle.SetupVoid("update", _ => true).SetVoidResult();
         return handle;

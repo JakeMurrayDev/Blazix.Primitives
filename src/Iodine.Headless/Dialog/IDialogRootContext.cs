@@ -1,7 +1,7 @@
-using Blazix.Primitives.Interop;
+using Iodine.Headless.Interop;
 using Microsoft.AspNetCore.Components;
 
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // DLG-STR-12, DLG-STA-03 (dialog/root/DialogRootContext.ts): what every dialog-family root provides to its parts and to a
 // nested root, whatever its payload type (ADR 08 Amendments 2026-10-27: only the Root and the Trigger take TPayload, so the

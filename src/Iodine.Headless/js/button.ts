@@ -104,7 +104,7 @@ const noop = (): void => {};
 
 // Per dispatch, like Base UI's `baseUIHandlerPrevented`: set right before a synthetic click is dispatched so another
 // handle of this module on the same element (a part substituting another button-like part) does not activate again.
-const activated = Symbol('blazix.button.activated');
+const activated = Symbol('iodine.button.activated');
 
 interface MarkedEvent extends Event {
   [activated]?: true;

@@ -1,10 +1,10 @@
-using Blazix.Primitives.Interop;
-using Blazix.Primitives.Rendering;
+using Iodine.Headless.Interop;
+using Iodine.Headless.Rendering;
 using Microsoft.AspNetCore.Components;
 using Microsoft.Extensions.Logging;
 using Microsoft.JSInterop;
 
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // The C# half of Base UI's useCollapsiblePanel (collapsible/panel/useCollapsiblePanel.ts) and of CollapsiblePanel.tsx's
 // id registration and style; the measurement passes are the `collapsible` module's (ADR 04 §1, the component module of

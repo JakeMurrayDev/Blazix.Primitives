@@ -1,6 +1,6 @@
 using Microsoft.AspNetCore.Components;
 
-namespace Blazix.Primitives.Fixtures.Client.PopupFixtures;
+namespace Iodine.Headless.Fixtures.Client.PopupFixtures;
 
 /// <summary>Runs a callback once, after its first render: Base UI's <c>OpenOnMount</c> layout effect, at the batch boundary.</summary>
 public sealed class OpenOnMount : ComponentBase

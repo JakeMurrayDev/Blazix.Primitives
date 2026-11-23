@@ -295,7 +295,7 @@ test.describe('<Menu.Trigger />', () => {
     // after PR 290's.
     test('port: a leave between the hover commit and the press commit keeps the menu open', {
       tag: '@quarantine',
-      annotation: { type: 'issue', description: 'https://github.com/JakeMurrayDev/Blazix.Primitives/issues/303 (expires 2026-12-03)' },
+      annotation: { type: 'issue', description: 'https://github.com/JakeMurrayDev/Iodine.Headless/issues/303 (expires 2026-12-03)' },
     }, async ({ page, mode }) => {
       test.skip(mode !== 'server', 'Server only: the window between the hover request and its commit');
       test.fixme(mode === 'server', 'Quarantined on Server until 2026-12-03 (issue 303)');
@@ -328,7 +328,7 @@ test.describe('<Menu.Trigger />', () => {
     async function stall(page: Page, module: string): Promise<() => Promise<void>> {
       const held: Route[] = [];
       let released = false;
-      const url = new RegExp(`/_content/Blazix\\.Primitives/js/${module}(\\.[a-z0-9]+)?\\.js$`);
+      const url = new RegExp(`/_content/Iodine\\.Primitives/js/${module}(\\.[a-z0-9]+)?\\.js$`);
       await page.route(url, (route) => (released ? route.continue() : held.push(route)));
       return async () => {
         released = true;

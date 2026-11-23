@@ -1,4 +1,4 @@
-namespace Blazix.Primitives.Utilities;
+namespace Iodine.Headless.Utilities;
 
 // NUM-I18N-07: Base UI's getNumberLocaleDetails, the last value of each part type of formatToParts(11111.1) under the culture
 // and options, the decimal always the plain culture's.

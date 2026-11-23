@@ -4,7 +4,7 @@ using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 
-namespace Blazix.Primitives.Generators;
+namespace Iodine.Headless.Generators;
 
 /// <summary>Provides what the generators share to write a partial declaration back into the type that carries their attribute.</summary>
 internal static class PartialDeclarations

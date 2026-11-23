@@ -1,6 +1,6 @@
-using Blazix.Primitives.Utilities;
+using Iodine.Headless.Utilities;
 
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // FST-STR-01..03, FST-API-01, FST-DOM-07, FST-FRM-03, FFI-STR-06; fieldset/root/FieldsetRootContext.ts. The fieldset scope:
 // the legend id (LabelIdSlot, FFI-ARIA-08) and the effective disabled state, which a nested root ORs with its parent's and
@@ -42,7 +42,7 @@ internal sealed class FieldsetRootContext : IDisposable
         listeners.Clear();
     }
 
-    // FST-STR-02, FST-EDGE-01 (PRG-EDGE-01 precedent: the port's words, `Blazix: `).
+    // FST-STR-02, FST-EDGE-01 (PRG-EDGE-01 precedent: the port's words, `Iodine: `).
     /// <summary>Throws the error of a part rendered outside a fieldset root.</summary>
     /// <param name="context">The cascaded context, or <see langword="null"/>.</param>
     /// <returns>The context.</returns>
@@ -50,7 +50,7 @@ internal sealed class FieldsetRootContext : IDisposable
     public static FieldsetRootContext Require(FieldsetRootContext? context)
     {
         return context ?? throw new InvalidOperationException(
-            "Blazix: The `FieldsetRoot` context is missing. Fieldset parts must be placed within `<FieldsetRoot>`.");
+            "Iodine: The `FieldsetRoot` context is missing. Fieldset parts must be placed within `<FieldsetRoot>`.");
     }
 
     /// <summary>Sets the fieldset's own disabled parameter.</summary>

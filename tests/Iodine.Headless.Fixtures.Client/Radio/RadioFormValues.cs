@@ -1,4 +1,4 @@
-namespace Blazix.Primitives.Fixtures.Client.RadioFixtures;
+namespace Iodine.Headless.Fixtures.Client.RadioFixtures;
 
 /// <summary>Renders a form's values as text for a data attribute: <c>name=value</c> pairs, <c>null</c> for a null value.</summary>
 public static class RadioFormValues

@@ -1,7 +1,7 @@
 using System.Text.RegularExpressions;
-using Blazix.Primitives.Tests.TestSupport;
+using Iodine.Headless.Tests.TestSupport;
 
-namespace Blazix.Primitives.Tests.Events;
+namespace Iodine.Headless.Tests.Events;
 
 /// <summary>
 /// The reason enum against its oracle, the table of EVD §3.5 read from <c>docs/architecture/event-details-and-reasons.md</c>

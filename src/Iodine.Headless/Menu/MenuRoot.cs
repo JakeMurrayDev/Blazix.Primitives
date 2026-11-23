@@ -1,11 +1,11 @@
-using Blazix.Primitives.Rendering;
+using Iodine.Headless.Rendering;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Rendering;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.JSInterop;
 
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // Base UI's Menu.Root (menu/root/MenuRoot.tsx); the contract is docs/components/menu.md §3.1, §4, §6. An elementless
 // ComponentBase (the PopoverRoot precedent) over MenuRootBehavior, which ContextMenuRoot (track 7) and MenuSubmenuRoot

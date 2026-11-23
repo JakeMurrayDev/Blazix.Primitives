@@ -3,7 +3,7 @@ using Bunit;
 using Microsoft.Extensions.DependencyInjection;
 
 // The namespace is the project's root: a namespace named after the family would hide the parts' types.
-namespace Blazix.Primitives.Tests.Components;
+namespace Iodine.Headless.Tests.Components;
 
 // MeterTrack.test.tsx has only the conformance suite (MeterTrackConformanceTests); these are the port's own tests for the
 // two rows that cite no Base UI test (MTR-STR-03, MTR-STR-04). MTR §16 item 3 leaves aligning with Progress to a decision.
@@ -14,7 +14,7 @@ public sealed class MeterTrackTests : IDisposable
 
     public MeterTrackTests()
     {
-        context.Services.AddBlazixPrimitives();
+        context.Services.AddIodineHeadless();
     }
 
     /// <inheritdoc />

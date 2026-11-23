@@ -1,6 +1,6 @@
 using Microsoft.AspNetCore.Components;
 
-namespace Blazix.Primitives.Tests.Events;
+namespace Iodine.Headless.Tests.Events;
 
 /// <summary>
 /// <see cref="ValueCommittedEventArgs{T}"/>, the argument of <c>OnValueCommitted</c> (the M6 plan's decision 13 (a); ADR 08

@@ -139,10 +139,10 @@ test.describe('a portal moved into a closed shadow root', () => {
   test('port: the popup inside it attaches its handles after the move, reports its completions, and Escape closes it', async ({ page, mode }) => {
     const fixture = await gotoPopupFixture(page, mode, 'popup-conformance', { container: 'shadow' });
     const shadowRoot = () =>
-      page.evaluate(() => (globalThis as unknown as { blazixFixtureDom: { lastClosedShadowRoot: ShadowRoot | null } }).blazixFixtureDom.lastClosedShadowRoot != null);
+      page.evaluate(() => (globalThis as unknown as { iodineFixtureDom: { lastClosedShadowRoot: ShadowRoot | null } }).iodineFixtureDom.lastClosedShadowRoot != null);
     const insideShadowRoot = () =>
       page.evaluate(() => {
-        const root = (globalThis as unknown as { blazixFixtureDom: { lastClosedShadowRoot: ShadowRoot | null } }).blazixFixtureDom.lastClosedShadowRoot;
+        const root = (globalThis as unknown as { iodineFixtureDom: { lastClosedShadowRoot: ShadowRoot | null } }).iodineFixtureDom.lastClosedShadowRoot;
         return root?.querySelector('[data-testid="popup"]') != null;
       });
     await expect.poll(shadowRoot).toBe(true);

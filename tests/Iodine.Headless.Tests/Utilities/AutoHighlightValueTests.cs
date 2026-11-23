@@ -1,5 +1,5 @@
 // Family tests use the project's root namespace.
-namespace Blazix.Primitives.Tests;
+namespace Iodine.Headless.Tests;
 
 /// <summary>
 /// <see cref="AutoHighlightValue"/> at L1: Base UI's <c>autoHighlight: boolean | 'always'</c> as a hand-written union on

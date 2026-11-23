@@ -1,4 +1,4 @@
-namespace Blazix.Primitives.Interop;
+namespace Iodine.Headless.Interop;
 
 // Design point 3 (a) of the ScrollArea track: one report per change, never per frame (ADR 04 §3); a scroll through the
 // middle of the content reports nothing (SCR-STA-20).

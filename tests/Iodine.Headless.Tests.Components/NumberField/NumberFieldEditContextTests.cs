@@ -5,7 +5,7 @@ using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Forms;
 
 // The namespace is the project's root: a namespace named after the family would hide the parts' types.
-namespace Blazix.Primitives.Tests.Components;
+namespace Iodine.Headless.Tests.Components;
 
 // Verification item 5 of ADR 05 (Amendments 2026-10-22, issue 76) for NumberField at L2 (Amendments 2026-11-18 item 2,
 // decision 14 (a), chosen by the user 2026-11-18), the RadioGroupEditContextTests pattern: ValueExpression with a cascaded

@@ -1,9 +1,9 @@
-using Blazix.Primitives.Rendering;
+using Iodine.Headless.Rendering;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Rendering;
 using Microsoft.JSInterop;
 
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // NUM-STR-06, NUM-DOM-14 (NumberFieldScrubAreaCursor.tsx:52, ReactDOM.createPortal to the owning document's body): the
 // cursor's body portal, the lite FloatingPortal over PopupPortalBehavior (composed, never edited; the brief's "no second

@@ -1,19 +1,19 @@
 using AngleSharp.Dom;
-using Blazix.Primitives.Interop;
+using Iodine.Headless.Interop;
 using Bunit;
 using Microsoft.AspNetCore.Components;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 
-namespace Blazix.Primitives.Tests.Components;
+namespace Iodine.Headless.Tests.Components;
 
 // The rows of docs/components/navigation-menu.md whose Base UI source has no test (`Test: none`), each given a port title
 // where one can fail (the review of PR 168, fix 7); the rows' dated notes name these titles.
 /// <summary>Port titles for the NavigationMenu requirements no Base UI test covers.</summary>
 public sealed class NavigationMenuPortRowsTests : IDisposable
 {
-    private const string PositioningPath = "./_content/Blazix.Primitives/js/positioning.js";
-    private const string CompositePath = "./_content/Blazix.Primitives/js/composite.js";
+    private const string PositioningPath = "./_content/Iodine.Headless/js/positioning.js";
+    private const string CompositePath = "./_content/Iodine.Headless/js/composite.js";
 
     private readonly NavigationMenuTestContext test = new();
     private readonly CapturingLogger<NavigationMenuRoot<string>> rootLogger = new();

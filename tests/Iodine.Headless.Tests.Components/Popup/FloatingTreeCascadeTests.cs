@@ -1,7 +1,7 @@
 using System.Text.Json;
 using Bunit;
 
-namespace Blazix.Primitives.Tests.Components;
+namespace Iodine.Headless.Tests.Components;
 
 /// <summary>
 /// The cross-family floating tree at L2 (ADR 04 Amendments 2026-11-03 (5), chosen by the user 2026-11-03; M5 track 2, brief

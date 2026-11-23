@@ -16,7 +16,7 @@ type FixtureName = 'tabs-keyboard' | 'tabs-list' | 'tabs-activation' | 'tabs-dir
 async function gotoTabs(page: Page, mode: RenderMode, name: FixtureName, query: Record<string, string | number | boolean> = {}): Promise<Locator> {
   const search = new URLSearchParams(Object.entries(query).map(([key, value]) => [key, String(value)])).toString();
   await page.goto(`${fixtureUrl(mode, name)}${search ? `?${search}` : ''}`, { waitUntil: 'commit' });
-  await page.locator('html[data-blazix-started]').waitFor({ state: 'attached' });
+  await page.locator('html[data-iodine-started]').waitFor({ state: 'attached' });
   await page.locator(`[data-fixture="${name}"][data-interactive="true"]`).first().waitFor({ state: 'attached' });
   const fixture = page.locator(`[data-fixture="${name}"]`);
   await expect(fixture).toHaveAttribute('data-attached', 'true');

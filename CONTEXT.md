@@ -1,4 +1,4 @@
-# Blazix.Primitives
+# Iodine.Headless
 
 The Blazor (C#) port of MUI Base UI v1.9.0. The behavioural vocabulary of the library itself (parts, element substitution, state object, event details, the seven timing terms) is defined in `docs/conventions.md` and the `docs/architecture/*.md` §2 tables and is not repeated here. This glossary holds only the terms the port adds on top of Base UI.
 
@@ -97,7 +97,7 @@ A bUnit test that records what C# asked a JavaScript module to do and drives the
 _Avoid_: interop mock test
 
 **Readiness marker**:
-The `data-interactive` attribute a fixture renders once Blazor is interactive, plus the `data-blazix-started` attribute the initializer sets; the only thing a browser test waits for.
+The `data-interactive` attribute a fixture renders once Blazor is interactive, plus the `data-iodine-started` attribute the initializer sets; the only thing a browser test waits for.
 _Avoid_: hydration wait, sleep
 
 **Family**:

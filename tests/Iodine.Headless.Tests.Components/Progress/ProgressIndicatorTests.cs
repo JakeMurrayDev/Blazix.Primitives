@@ -4,7 +4,7 @@ using Microsoft.AspNetCore.Components;
 using Microsoft.Extensions.DependencyInjection;
 
 // The namespace is the project's root: a namespace named after the family would hide the parts' types.
-namespace Blazix.Primitives.Tests.Components;
+namespace Iodine.Headless.Tests.Components;
 
 // ProgressIndicator.test.tsx. "determinate", "sets zero width when value is 0" and "indeterminate" read computed styles in
 // a browser; here they are the inline declarations PRG-DOM-03 and PRG-DOM-04 require, and tests/browser/progress.spec.ts
@@ -16,7 +16,7 @@ public sealed class ProgressIndicatorTests : IDisposable
 
     public ProgressIndicatorTests()
     {
-        context.Services.AddBlazixPrimitives();
+        context.Services.AddIodineHeadless();
     }
 
     /// <inheritdoc />
@@ -136,6 +136,6 @@ public sealed class ProgressIndicatorTests : IDisposable
     {
         InvalidOperationException error = Assert.Throws<InvalidOperationException>(() => context.Render<ProgressIndicator>());
 
-        Assert.Equal("Blazix: The `ProgressRoot` context is missing. Progress parts must be placed within `<ProgressRoot>`.", error.Message);
+        Assert.Equal("Iodine: The `ProgressRoot` context is missing. Progress parts must be placed within `<ProgressRoot>`.", error.Message);
     }
 }

@@ -612,7 +612,7 @@ export interface SessionData {
  * element focus came from; a focus manager reads it at the open's first arm (F1 of PR 183, settled by the orchestrator
  * 2026-11-04 as (b)).
  */
-export const LIST_OPEN_FOCUS_KEY = 'blazix.composite.openFocus';
+export const LIST_OPEN_FOCUS_KEY = 'iodine.composite.openFocus';
 
 /** The `composite` module's open-focus mark. */
 export interface ListOpenFocus {
@@ -1373,7 +1373,7 @@ const PORTAL_ATTRIBUTE = 'data-base-ui-portal';
 
 // One close per keydown (FLT §10 Q11, POP §16 Q7; the js/button.ts precedent): the tokens of the sessions that asked
 // `escape` for a keydown, so a session's document listener skips a keydown its floating or reference listener handled.
-const escapeHandled = Symbol('blazix.interactions.escapeHandled');
+const escapeHandled = Symbol('iodine.interactions.escapeHandled');
 
 interface EscapeMarkedEvent extends KeyboardEvent {
   [escapeHandled]?: Set<string>;
@@ -2979,7 +2979,7 @@ interface HoverInteraction extends PointerEventsMutationState {
 
 // The owner of a scope element's mutation, kept on the element (Base UI keeps a module-level WeakMap,
 // useHoverInteractionSharedState.ts:47-50; the port keeps no module-level registry).
-const pointerEventsOwner = Symbol('blazix.interactions.pointerEventsOwner');
+const pointerEventsOwner = Symbol('iodine.interactions.pointerEventsOwner');
 
 type PointerEventsScope = (HTMLElement | SVGSVGElement) & { [pointerEventsOwner]?: PointerEventsMutationState | undefined };
 
@@ -4220,7 +4220,7 @@ interface MenuItemHoverEvent {
 // The tree's release slot (design point 2 (a) of M5 track 6, settled by the orchestrator 2026-11-04): Base UI's
 // `allowMouseUpTriggerRef`, shared by every menu of a tree (MenuStore.ts:173-181), and ContextMenu's rules and
 // `initialCursorPointRef`, in the `dataRef.current` of the menu tree's outermost menu session (`menuTreeRoot` below).
-const MENU_RELEASE_KEY = 'blazix.interactions.menuRelease';
+const MENU_RELEASE_KEY = 'iodine.interactions.menuRelease';
 
 interface MenuReleaseSlot {
   armed: boolean;

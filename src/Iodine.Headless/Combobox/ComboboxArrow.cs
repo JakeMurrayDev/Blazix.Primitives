@@ -1,10 +1,10 @@
-using Blazix.Primitives.Interop;
-using Blazix.Primitives.Rendering;
+using Iodine.Headless.Interop;
+using Iodine.Headless.Rendering;
 using Microsoft.AspNetCore.Components;
 using Microsoft.Extensions.Logging;
 using Microsoft.JSInterop;
 
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // CMB §3.16, STA-11 (combobox/arrow/ComboboxArrow.tsx): the arrow's placement mirrored.
 /// <summary>Represents the state of a combobox arrow, which the part exposes as data attributes and passes to its class and style functions.</summary>

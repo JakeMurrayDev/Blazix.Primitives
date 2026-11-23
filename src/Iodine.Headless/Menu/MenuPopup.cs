@@ -1,11 +1,11 @@
-using Blazix.Primitives.Rendering;
+using Iodine.Headless.Rendering;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Rendering;
 using Microsoft.AspNetCore.Components.Web;
 using Microsoft.Extensions.Logging;
 using Microsoft.JSInterop;
 
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // MNU §3.6 state object (menu/popup/MenuPopup.tsx:137-144). TransitionStatus is mirrored (ADR 04 §2); Side and Align are
 // the positioner's mirror, rendered by C# a round trip after the positioner's (MNU-DOM-06; RND-STA-01's row).

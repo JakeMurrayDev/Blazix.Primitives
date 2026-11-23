@@ -1,10 +1,10 @@
 using System.Globalization;
-using Blazix.Primitives.Utilities;
+using Iodine.Headless.Utilities;
 using Bunit;
 using Microsoft.AspNetCore.Components;
 
 // The namespace is the project's root: a namespace named after the family would hide the parts' types.
-namespace Blazix.Primitives.Tests.Components;
+namespace Iodine.Headless.Tests.Components;
 
 // 6b's input role at L2 (issue 277), batch B1: NumberFieldRoot.test.tsx's titles below line 1390 that type, blur, step with
 // a key or a modified press, or clamp to min and max. Base UI's fireEvent.change, keyDown, blur and wheel are the

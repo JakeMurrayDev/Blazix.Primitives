@@ -1,11 +1,11 @@
-using Blazix.Primitives;
-using Blazix.Primitives.Rendering;
+using Iodine.Headless;
+using Iodine.Headless.Rendering;
 
 namespace Microsoft.Extensions.DependencyInjection;
 
 // ADR 02 consequences
 /// <summary>Provides the extension method that registers the services the library's parts need.</summary>
-public static class BlazixPrimitivesServiceCollectionExtensions
+public static class IodineHeadlessServiceCollectionExtensions
 {
     // ADR 02 decision 5; UBT-EDGE-03 and COL-EDGE-02/03 (the once-per-session sets of the button and collapsible development
     // messages); FFI-STR-05 (the registry of the fields outside a form, settled by the orchestrator 2026-10-23); TGL-EDGE-01
@@ -23,7 +23,7 @@ public static class BlazixPrimitivesServiceCollectionExtensions
     /// outside a form; the <see cref="ToastManager"/> that toast providers without a manager of their own use; and the set
     /// of the one-time code fields' development messages already written in the session.
     /// </remarks>
-    public static IServiceCollection AddBlazixPrimitives(this IServiceCollection services)
+    public static IServiceCollection AddIodineHeadless(this IServiceCollection services)
     {
         ArgumentNullException.ThrowIfNull(services);
         services.AddScoped<PartIdGenerator>();

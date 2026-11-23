@@ -1,9 +1,9 @@
-using Blazix.Primitives.Rendering;
+using Iodine.Headless.Rendering;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Rendering;
 using Microsoft.JSInterop;
 
-namespace Blazix.Primitives.Fixtures.Client.Interactions;
+namespace Iodine.Headless.Fixtures.Client.Interactions;
 
 /// <summary>
 /// A test-only popup root (M4 track 3; the composite fixture precedent): it renders no element, composes

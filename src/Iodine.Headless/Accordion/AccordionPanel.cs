@@ -1,12 +1,12 @@
-using Blazix.Primitives.Interop;
-using Blazix.Primitives.Rendering;
-using Blazix.Primitives.Store;
+using Iodine.Headless.Interop;
+using Iodine.Headless.Rendering;
+using Iodine.Headless.Store;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Rendering;
 using Microsoft.Extensions.Logging;
 using Microsoft.JSInterop;
 
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // ACC-STA-03, §3.5 state object; accordion/panel/AccordionPanel.tsx:97-103: the item's state plus the panel's transition status
 // (COL-STA-06), mirrored (ADR 04 §2): the collapsible module writes data-starting-style and data-ending-style.

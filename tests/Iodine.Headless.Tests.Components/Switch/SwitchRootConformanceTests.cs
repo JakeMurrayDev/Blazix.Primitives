@@ -1,10 +1,10 @@
-using Blazix.Primitives.Rendering;
-using Blazix.Primitives.Tests.Components.Rendering.Conformance;
+using Iodine.Headless.Rendering;
+using Iodine.Headless.Tests.Components.Rendering.Conformance;
 using Bunit;
 using Microsoft.AspNetCore.Components;
 
 // The namespace is the project's root: a namespace named after the family would hide the parts' types.
-namespace Blazix.Primitives.Tests.Components;
+namespace Iodine.Headless.Tests.Components;
 
 // SwitchRoot.test.tsx: describeConformance(<Switch.Root />, () => ({ refInstanceof: window.HTMLSpanElement,
 // testRenderPropWith: 'span', button: true })). SWT-DOM-17, SWT-API-14. With testRenderPropWith a span, every substitution

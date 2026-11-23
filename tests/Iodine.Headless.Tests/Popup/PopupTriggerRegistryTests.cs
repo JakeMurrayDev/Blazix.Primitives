@@ -1,5 +1,5 @@
 // Family tests use the project's root namespace.
-namespace Blazix.Primitives.Tests;
+namespace Iodine.Headless.Tests;
 
 /// <summary>
 /// The trigger registry at L1 (utils/popups/popupTriggerMap.test.ts and the PopupTriggerMap block of
@@ -10,7 +10,7 @@ namespace Blazix.Primitives.Tests;
 /// </summary>
 public sealed class PopupTriggerRegistryTests
 {
-    private const string MultipleIds = "Blazix: A trigger element cannot be registered under multiple IDs in `PopupTriggerMap`.";
+    private const string MultipleIds = "Iodine: A trigger element cannot be registered under multiple IDs in `PopupTriggerMap`.";
 
     private static PopupTriggerElement CreateButton() => new(new object());
 

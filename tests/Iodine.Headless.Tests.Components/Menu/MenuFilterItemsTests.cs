@@ -1,11 +1,11 @@
 using AngleSharp.Dom;
-using Blazix.Primitives.Interop;
+using Iodine.Headless.Interop;
 using Bunit;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.JSInterop;
 
-// Family tests use the project's root namespace (tests/Blazix.Primitives.Tests.Components/CONTEXT.md).
-namespace Blazix.Primitives.Tests.Components;
+// Family tests use the project's root namespace (tests/Iodine.Headless.Tests.Components/CONTEXT.md).
+namespace Iodine.Headless.Tests.Components;
 
 /// <summary>
 /// L2: the items of a filterable menu and <see cref="MenuEmpty"/> (MNU-STA-15, STA-23, API-61, DOM-23, ARIA-16; M5 track
@@ -19,8 +19,8 @@ public sealed class MenuFilterItemsTests : BunitContext
     public MenuFilterItemsTests()
     {
         JSInterop.Mode = JSRuntimeMode.Loose;
-        Services.AddBlazixPrimitives();
-        module = JSInterop.SetupModule("./_content/Blazix.Primitives/js/menu-filter.js");
+        Services.AddIodineHeadless();
+        module = JSInterop.SetupModule("./_content/Iodine.Headless/js/menu-filter.js");
         module.SetupModule("attach", _ => true).SetupVoid("update", _ => true).SetVoidResult();
     }
 
@@ -46,7 +46,7 @@ public sealed class MenuFilterItemsTests : BunitContext
     [Trait("Requirement", "MNU-DOM-23")]
     public void Empty_attaches_its_live_region()
     {
-        BunitJSModuleInterop dom = JSInterop.SetupModule("./_content/Blazix.Primitives/js/dom.js");
+        BunitJSModuleInterop dom = JSInterop.SetupModule("./_content/Iodine.Headless/js/dom.js");
         dom.SetupModule("attach", _ => true).SetupVoid("update", _ => true).SetVoidResult();
 
         IRenderedComponent<MenuFilterItemsHost> cut = Render<MenuFilterItemsHost>(p => p.Add(x => x.Case, "no-items"));

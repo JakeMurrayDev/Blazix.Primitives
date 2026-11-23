@@ -1,8 +1,8 @@
-using Blazix.Primitives.Interop;
-using Blazix.Primitives.Store;
+using Iodine.Headless.Interop;
+using Iodine.Headless.Store;
 using Microsoft.AspNetCore.Components;
 
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // preview-card/root/PreviewCardContext.ts (PRV-STR-09, PRV-EDGE-01), the shape of TooltipRootContext (M4 track 6). The Root
 // and the Trigger are generic over the payload (ADR 08 Amendments 2026-10-27, issue 116's finding); the Portal, Backdrop,
@@ -14,7 +14,7 @@ internal abstract class PreviewCardRootContext
 {
     // PRV-EDGE-01 (preview-card/root/PreviewCardContext.ts), with the port's prefix and code quoting (issue 122).
     /// <summary>The message thrown when a preview card part is placed outside a <c>PreviewCardRoot</c>.</summary>
-    internal const string MissingMessage = "Blazix: `PreviewCardRootContext` is missing. PreviewCard parts must be placed within `<PreviewCardRoot>`.";
+    internal const string MissingMessage = "Iodine: `PreviewCardRootContext` is missing. PreviewCard parts must be placed within `<PreviewCardRoot>`.";
 
     /// <summary>Gets the session token the preview card's browser-side behaviors share; it is never rendered.</summary>
     public abstract string SessionToken { get; }

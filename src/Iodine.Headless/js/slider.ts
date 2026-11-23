@@ -377,7 +377,7 @@ interface OwnedStyle {
   written: Map<string, string>;
 }
 
-const attachedHandle = Symbol('blazix.slider.handle');
+const attachedHandle = Symbol('iodine.slider.handle');
 
 interface SliderRootElement extends HTMLElement {
   [attachedHandle]?: TwinHandle;

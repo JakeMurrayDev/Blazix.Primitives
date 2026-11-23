@@ -4,12 +4,12 @@ using Microsoft.AspNetCore.Components.Rendering;
 using Microsoft.AspNetCore.Components.RenderTree;
 
 // BL0006: the frame rewrite reads the consumer fragment's frames through the public GetFrames() (ADR 02 decision 1).
-// BLZX2002 (the analyzers project; Microsoft's ASP0006 ships with Microsoft.AspNetCore.App, which this library does not
+// IOD2002 (the analyzers project; Microsoft's ASP0006 ships with Microsoft.AspNetCore.App, which this library does not
 // reference, and would reject named constants) requires a constant sequence number. It is suppressed on Reemit alone,
 // where the number is the consumer's own compiled one (ADR 16 rule 3).
 #pragma warning disable BL0006
 
-namespace Blazix.Primitives.Rendering;
+namespace Iodine.Headless.Rendering;
 
 // RND §6.1
 /// <summary>Holds the inputs of one render of a part or <see cref="RenderElement{TState}"/>.</summary>
@@ -103,7 +103,7 @@ internal static class RenderPipeline
         if (inputs.Render is not null && inputs.RenderFunction is not null)
         {
             throw new InvalidOperationException(
-                "Blazix: `Render` and `RenderFunction` are mutually exclusive. Supply the substitute element in `Render` or the substitute callback in `RenderFunction`, not both.");
+                "Iodine: `Render` and `RenderFunction` are mutually exclusive. Supply the substitute element in `Render` or the substitute callback in `RenderFunction`, not both.");
         }
 
         if (!inputs.Enabled)
@@ -315,11 +315,11 @@ internal static class RenderPipeline
                 else if (MergeProps.IsHandler(entry.Name, entry.Value))
                 {
                     HandlerSlot slot = state.GetOrAddSlot(MergeProps.HandlerName(entry.Name));
-                    // BLZX2005: Blazor's EventCallback has no typed equality, only Equals(object), so this comparison boxes the
+                    // IOD2005: Blazor's EventCallback has no typed equality, only Equals(object), so this comparison boxes the
                     // slot's callback once per part handler per render; issue 57 removes it.
-#pragma warning disable BLZX2005
+#pragma warning disable IOD2005
                     if (!(entry.Value.TryGetValue(out EventCallback callback) && callback.Equals(slot.Typed)))
-#pragma warning restore BLZX2005
+#pragma warning restore IOD2005
                     {
                         slot.Part = entry.Value;
                     }
@@ -675,7 +675,7 @@ internal static class RenderPipeline
         }
 
         // Re-emits one frame and its subtree verbatim, with its original sequence numbers (ADR 16 rule 3).
-#pragma warning disable BLZX2002
+#pragma warning disable IOD2002
         [UnconditionalSuppressMessage("Trimming", "IL2072", Justification = "The component type comes from the consumer's own OpenComponent<T> call in the scratch render, which already preserved its members.")]
         private readonly void Reemit(ArrayRange<RenderTreeFrame> frames, int index)
         {
@@ -755,7 +755,7 @@ internal static class RenderPipeline
                     break;
             }
         }
-#pragma warning restore BLZX2002
+#pragma warning restore IOD2002
 
         // The single root of the fragment: whitespace-only text is skipped and a lone region is looked into (RND-EDGE-03).
         private static int FindRoot(ArrayRange<RenderTreeFrame> frames)
@@ -831,7 +831,7 @@ internal static class RenderPipeline
         private static InvalidOperationException InvalidRoot(string what)
         {
             return new InvalidOperationException(
-                $"Blazix: the `Render` fragment must have exactly one root that is an element or a component, because that root is re-emitted with the part's merged attributes in place of the default element. It rendered {what}.");
+                $"Iodine: the `Render` fragment must have exactly one root that is an element or a component, because that root is re-emitted with the part's merged attributes in place of the default element. It rendered {what}.");
         }
 
         // ADR 04 Amendments 2026-10-18 item 3: Blazor's event directives are applied after the library's JavaScript
@@ -850,7 +850,7 @@ internal static class RenderPipeline
                     ? $"@{name[StopPropagationPrefix.Length..]}:stopPropagation"
                     : name;
             throw new InvalidOperationException(
-                $"Blazix: `{directive}` is not supported on {where}. Blazor applies event directives after the library's JavaScript listeners have run, so they cannot take part in its dispatch. Call `e.PreventPartHandler()` from a C# handler to stop the part's handler, or call `preventDefault()` from a JavaScript listener on the element to cancel the browser default.");
+                $"Iodine: `{directive}` is not supported on {where}. Blazor applies event directives after the library's JavaScript listeners have run, so they cannot take part in its dispatch. Call `e.PreventPartHandler()` from a C# handler to stop the part's handler, or call `preventDefault()` from a JavaScript listener on the element to cancel the browser default.");
         }
     }
 }

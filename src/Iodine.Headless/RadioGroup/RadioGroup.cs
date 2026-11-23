@@ -1,15 +1,15 @@
 using System.Linq.Expressions;
-using Blazix.Primitives.Interop;
-using Blazix.Primitives.Rendering;
-using Blazix.Primitives.Store;
-using Blazix.Primitives.Utilities;
+using Iodine.Headless.Interop;
+using Iodine.Headless.Rendering;
+using Iodine.Headless.Store;
+using Iodine.Headless.Utilities;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Forms;
 using Microsoft.AspNetCore.Components.Web;
 using Microsoft.Extensions.Logging;
 using Microsoft.JSInterop;
 
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // RDG-STA-01; radio-group/RadioGroup.tsx:187-192,271-280 (the field's state with three group fields; the value is not in
 // it). ADR 08 §3: the state record is sealed, partial and [PartState].
@@ -267,7 +267,7 @@ public sealed class RadioGroup<TValue> : PartBase<RadioGroupState>
     /// <inheritdoc />
     protected override bool UsesGeneratedId => RenderFunction is not null;
 
-    // For the fixtures (tests/Blazix.Primitives.Fixtures.Client): completes once the composite behavior is attached, so a
+    // For the fixtures (tests/Iodine.Headless.Fixtures.Client): completes once the composite behavior is attached, so a
     // browser test can wait for its listeners before it presses a key.
     /// <summary>Gets a task that completes when the group's composite behavior is attached to its element.</summary>
     /// <value>A task that completes after the first interactive render has attached it.</value>

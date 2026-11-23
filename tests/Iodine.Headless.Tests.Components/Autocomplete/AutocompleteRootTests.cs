@@ -1,10 +1,10 @@
 using AngleSharp.Dom;
-using Blazix.Primitives.Interop;
+using Iodine.Headless.Interop;
 using Bunit;
 using Microsoft.AspNetCore.Components;
 
 // Family tests use the project's root namespace.
-namespace Blazix.Primitives.Tests.Components;
+namespace Iodine.Headless.Tests.Components;
 
 // M5 track 11 (issue 196): Autocomplete's Root, Value and shells at L2 over the engine in None mode (AUT-STR-03), with the
 // combobox module's handles faked by ComboboxTestContext. The Input's text is typed as the module reports a typed change.
@@ -68,7 +68,7 @@ public sealed class AutocompleteRootTests : IDisposable
     {
         InvalidOperationException error = Assert.ThrowsAny<InvalidOperationException>(() => test.Context.Render<AutocompleteInput>());
 
-        Assert.StartsWith("Blazix: ", error.Message, StringComparison.Ordinal);
+        Assert.StartsWith("Iodine: ", error.Message, StringComparison.Ordinal);
         Assert.Contains("AutocompleteRoot", error.Message, StringComparison.Ordinal);
         Assert.DoesNotContain("ComboboxRoot", error.Message, StringComparison.Ordinal);
     }

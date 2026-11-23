@@ -2,7 +2,7 @@ using System.Globalization;
 using System.Linq.Expressions;
 using Microsoft.AspNetCore.Components;
 
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // Every input of the shared engine (AriaCombobox.tsx:103-146, the props ComboboxRoot.tsx and AutocompleteRoot.tsx pass),
 // set by the family's root at every parameter set: Autocomplete's `mode` changes the ARIA autocomplete mode at run time, so

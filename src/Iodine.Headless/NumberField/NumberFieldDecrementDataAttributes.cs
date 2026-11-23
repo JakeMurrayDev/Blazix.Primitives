@@ -1,4 +1,4 @@
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // NUM-DOM-02..05, NUM-DOM-17; number-field/decrement/NumberFieldDecrementDataAttributes.ts, in its order (the
 // ten names every NumberField part shares, NUM §3.8).

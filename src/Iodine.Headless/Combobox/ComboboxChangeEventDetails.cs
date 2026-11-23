@@ -1,4 +1,4 @@
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // CMB-EVT-08, §3.27 (Combobox.Root.ChangeEventDetails: the change details plus `isItemPress?`), the TabsChangeEventDetails
 // precedent (ADR 08 Amendments 2026-10-26); in Combobox/, the family folder, rather than the shared Events/ (M5 track 10

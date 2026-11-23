@@ -1,10 +1,10 @@
 using AngleSharp.Dom;
-using Blazix.Primitives.Interop;
+using Iodine.Headless.Interop;
 using Bunit;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.JSInterop;
 
-namespace Blazix.Primitives.Tests.Components;
+namespace Iodine.Headless.Tests.Components;
 
 /// <summary>
 /// The item indicator behaviour at L2 (RND-API-12, DOM-50, DOM-51, ARIA-01, ANI-01, ANI-02) on the test-only indicator, with
@@ -14,7 +14,7 @@ namespace Blazix.Primitives.Tests.Components;
 /// </summary>
 public sealed class ItemIndicatorTests : IDisposable
 {
-    private const string TransitionsModulePath = "./_content/Blazix.Primitives/js/transitions.js";
+    private const string TransitionsModulePath = "./_content/Iodine.Headless/js/transitions.js";
 
     private readonly BunitContext context = new();
     private readonly BunitJSModuleInterop transitions;
@@ -22,7 +22,7 @@ public sealed class ItemIndicatorTests : IDisposable
 
     public ItemIndicatorTests()
     {
-        context.Services.AddBlazixPrimitives();
+        context.Services.AddIodineHeadless();
         transitions = context.JSInterop.SetupModule(TransitionsModulePath);
         handle = transitions.SetupModule("attach", _ => true);
         handle.SetupVoid("update", _ => true).SetVoidResult();

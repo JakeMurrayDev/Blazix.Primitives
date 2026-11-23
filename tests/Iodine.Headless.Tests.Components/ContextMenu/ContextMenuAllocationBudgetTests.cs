@@ -3,7 +3,7 @@ using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Rendering;
 using Microsoft.Extensions.DependencyInjection;
 
-namespace Blazix.Primitives.Tests.Components;
+namespace Iodine.Headless.Tests.Components;
 
 /// <summary>
 /// ADR 16 rule 7 for ContextMenu (the brief's Tests first): a re-render with unchanged parameters of a closed root with its
@@ -30,7 +30,7 @@ public sealed class ContextMenuAllocationBudgetTests : IDisposable
     public ContextMenuAllocationBudgetTests()
     {
         context.JSInterop.Mode = JSRuntimeMode.Loose;
-        context.Services.AddBlazixPrimitives();
+        context.Services.AddIodineHeadless();
     }
 
     /// <inheritdoc />

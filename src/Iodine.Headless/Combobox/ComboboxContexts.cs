@@ -1,7 +1,7 @@
 using Microsoft.AspNetCore.Components;
-using Blazix.Primitives.Utilities;
+using Iodine.Headless.Utilities;
 
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // The part-local contexts (CMB §2: Item, Chip, Chips, Group; ADR 08 §3's <Part>Context row), each cascaded IsFixed with a
 // listener list (ADR 16 rule 9). The positioner and the portal reuse the shared PositionerContext and PopupPortalContext.

@@ -1,6 +1,6 @@
-using Blazix.Primitives.Utilities;
+using Iodine.Headless.Utilities;
 
-namespace Blazix.Primitives.Tests;
+namespace Iodine.Headless.Tests;
 
 // UTL-DOM-13, UTL-DOM-14, UTL-DOM-15: the declarations are exact strings the documents quote (MTR-DOM-01).
 /// <summary>The visually hidden declarations shared by every part that renders a hidden helper element.</summary>

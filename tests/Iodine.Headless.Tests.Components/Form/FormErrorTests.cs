@@ -1,9 +1,9 @@
-using Blazix.Primitives.Interop;
+using Iodine.Headless.Interop;
 using Bunit;
 using Microsoft.AspNetCore.Components;
-using Scenario = Blazix.Primitives.Tests.Components.FormErrorScenarios.ErrorScenario;
+using Scenario = Iodine.Headless.Tests.Components.FormErrorScenarios.ErrorScenario;
 
-namespace Blazix.Primitives.Tests.Components;
+namespace Iodine.Headless.Tests.Components;
 
 /// <summary>
 /// The <c>[L2]</c> titles of <c>Form.test.tsx</c> that render <c>Field.Error</c> over <c>Field.Control</c> (PR 1c; the four

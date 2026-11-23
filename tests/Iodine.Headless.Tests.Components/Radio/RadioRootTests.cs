@@ -1,12 +1,12 @@
 using AngleSharp.Dom;
-using Blazix.Primitives.Interop;
-using Blazix.Primitives.Rendering;
+using Iodine.Headless.Interop;
+using Iodine.Headless.Rendering;
 using Bunit;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Web;
 
 // The namespace is the project's root: a namespace named after the family would hide the parts' types.
-namespace Blazix.Primitives.Tests.Components;
+namespace Iodine.Headless.Tests.Components;
 
 // RadioRoot.test.tsx, the [L2] rows and halves of radio.md (issue 83), and port titles for the `none` rows a part test can
 // show. A click reaches C# through the `button` module: on Server as the OnToggle report (ToggleAsync), on WebAssembly as
@@ -353,7 +353,7 @@ public sealed class RadioRootTests : IDisposable
     {
         InvalidOperationException error = Assert.Throws<InvalidOperationException>(() => Context.Render<RadioIndicator>());
 
-        Assert.Equal("Blazix: The `RadioRoot` context is missing. Radio parts must be placed within `<RadioRoot>`.", error.Message);
+        Assert.Equal("Iodine: The `RadioRoot` context is missing. Radio parts must be placed within `<RadioRoot>`.", error.Message);
     }
 
     [Fact(DisplayName = "port: a standalone radio is checked when its value is the empty string, and a click never changes it")]

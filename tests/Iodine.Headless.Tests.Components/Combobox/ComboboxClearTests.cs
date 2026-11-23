@@ -4,7 +4,7 @@ using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Rendering;
 
 // Family tests use the project's root namespace.
-namespace Blazix.Primitives.Tests.Components;
+namespace Iodine.Headless.Tests.Components;
 
 // CMB §3.8 at L2 (ComboboxClear.test.tsx's titles whose assertions are what C# renders and requests): the visibility, the
 // clear-press requests, the disabled and read-only no-ops, the dismissal exemption, and the enter transition's handover

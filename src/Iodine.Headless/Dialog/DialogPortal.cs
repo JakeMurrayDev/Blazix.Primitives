@@ -1,9 +1,9 @@
-using Blazix.Primitives.Rendering;
+using Iodine.Headless.Rendering;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Rendering;
 using Microsoft.JSInterop;
 
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // Base UI's Dialog.Portal (dialog/portal/DialogPortal.tsx); the contract is docs/components/dialog.md (§3.3, §5.2). A thin
 // part over DialogPortalBehavior, which AlertDialogPortal shares (ADR 08 Amendments 2026-10-27). Its host is the portal node,

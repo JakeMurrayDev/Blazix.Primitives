@@ -1,10 +1,10 @@
 using AngleSharp.Dom;
 using Bunit;
 using Microsoft.AspNetCore.Components;
-using static Blazix.Primitives.Tests.Components.TabsTestContext;
+using static Iodine.Headless.Tests.Components.TabsTestContext;
 
 // The namespace is the project's root: a namespace named after the family would hide the parts' types.
-namespace Blazix.Primitives.Tests.Components;
+namespace Iodine.Headless.Tests.Components;
 
 // TabsIndicator.test.tsx, the [L2] clauses (issue 104): whether the element renders, what C# renders under the
 // handover, what the Indicator's `tabs` handle is told, and the C# reaction to the module's measurement report (ADR 04
@@ -28,7 +28,7 @@ public sealed class TabsIndicatorTests : IDisposable
         InvalidOperationException error = Assert.Throws<InvalidOperationException>(() =>
             Context.Render<TabsRoot<int>>(p => p.Add(x => x.Value, 0).AddChildContent(Part<TabsIndicator>())));
 
-        Assert.Equal("Blazix: The `TabsList` context is missing. `TabsTab` and `TabsIndicator` must be placed within `<TabsList>`.", error.Message);
+        Assert.Equal("Iodine: The `TabsList` context is missing. `TabsTab` and `TabsIndicator` must be placed within `<TabsList>`.", error.Message);
     }
 
     // TabsIndicator.test.tsx "should not render when no tab is active" (browser only in Base UI): the element's presence is
@@ -118,7 +118,7 @@ public sealed class TabsIndicatorTests : IDisposable
         int rootRenders = 0;
         int listRenders = 0;
         int tabRenders = 0;
-        RenderFragment<Blazix.Primitives.Rendering.RenderProps<TabsIndicatorState>> render = props => builder =>
+        RenderFragment<Iodine.Headless.Rendering.RenderProps<TabsIndicatorState>> render = props => builder =>
         {
             states.Add(props.State);
             builder.OpenElement(0, "span");

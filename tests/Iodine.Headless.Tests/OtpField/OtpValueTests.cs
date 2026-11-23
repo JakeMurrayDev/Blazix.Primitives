@@ -1,4 +1,4 @@
-namespace Blazix.Primitives.Tests;
+namespace Iodine.Headless.Tests;
 
 // otp-field/utils/otp.test.ts, the 19 titles verbatim over the C# helpers (OTP-STA-04..08, OTP-API-08, OTP-EDGE-07; issue
 // 278, M6 track 7), and port titles for the ECMAScript classes and the code-point clamp (OTP-EDGE-12; §16 item 2,

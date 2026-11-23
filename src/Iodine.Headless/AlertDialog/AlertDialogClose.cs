@@ -1,10 +1,10 @@
-using Blazix.Primitives.Rendering;
+using Iodine.Headless.Rendering;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Web;
 using Microsoft.Extensions.Logging;
 using Microsoft.JSInterop;
 
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // ADL §3.3: Dialog.Close's state object (DLG §3.9, dialog/close/DialogClose.tsx:37) under its AlertDialog name.
 /// <summary>Represents the state of an alert dialog's close button, which the part exposes as data attributes and passes to its class and style functions.</summary>

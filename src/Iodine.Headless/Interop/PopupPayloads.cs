@@ -1,4 +1,4 @@
-namespace Blazix.Primitives.Interop;
+namespace Iodine.Headless.Interop;
 
 // ADR 04 Amendments 2026-10-27 (the `popup` row): the Viewport's direction and transitioning flag are the module's writes,
 // mirrored in C#'s state record (the RND-STA-01 row of ADR 01). PSH-DOM-07, PSH-DOM-08.

@@ -29,7 +29,7 @@ async function chipsReady(page: Page, count: number): Promise<void> {
   await expect
     .poll(() =>
       chips.evaluate((element) => {
-        const key = Object.getOwnPropertySymbols(element).find((symbol) => symbol.description === 'blazix.combobox.chipIds');
+        const key = Object.getOwnPropertySymbols(element).find((symbol) => symbol.description === 'iodine.combobox.chipIds');
         const ids = key ? ((element as unknown as Record<symbol, readonly string[]>)[key] ?? []) : [];
         return ids.length;
       }),

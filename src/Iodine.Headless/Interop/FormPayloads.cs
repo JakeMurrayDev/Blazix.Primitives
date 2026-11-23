@@ -1,4 +1,4 @@
-namespace Blazix.Primitives.Interop;
+namespace Iodine.Headless.Interop;
 
 // FFI-ALG-02 (the eleven ValidityState flags), FFI-FRM-06/08 (willValidate), FFI-ALG-04 (eligibility), FFI-FRM-09 (the
 // field's own message is read back out). One message per event carries the value and this state (M2 plan, settled).

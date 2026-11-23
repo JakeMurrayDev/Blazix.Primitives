@@ -1,7 +1,7 @@
 using System.Globalization;
-using Blazix.Primitives.Rendering;
+using Iodine.Headless.Rendering;
 
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // UBT-ALG-03 (button-behavior.md §5), with UBT-DOM-01..08 and UBT-ARIA-01..05 as its observable rows; ADR 04 §1: the
 // `button` module writes no attribute, so every button-like part renders these from C#, also in prerender (UBT-DOM-11).

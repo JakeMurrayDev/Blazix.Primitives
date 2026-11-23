@@ -1,6 +1,6 @@
-using Blazix.Primitives.Interop;
+using Iodine.Headless.Interop;
 
-namespace Blazix.Primitives.Fixtures.Client.Probe;
+namespace Iodine.Headless.Fixtures.Client.Probe;
 
 /// <summary>The probe module's options: the shared style string plus a label the module writes to the element.</summary>
 internal sealed record ProbeOptions : TwinOptions

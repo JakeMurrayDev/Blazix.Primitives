@@ -1,7 +1,7 @@
 using System.Globalization;
 using System.Numerics;
 
-namespace Blazix.Primitives.Utilities;
+namespace Iodine.Headless.Utilities;
 
 // ADR 01 Amendments 2026-10-20 (`:115`): the nine Intl rounding modes and `roundingIncrement` as one C# helper, tested with
 // `validate.test.ts`; MidpointRounding lacks HalfCeil, HalfFloor, HalfTrunc and Expand. NUM-STA-10..12, UTL-I18N-05: the rounding

@@ -1,11 +1,11 @@
-using Blazix.Primitives.Rendering;
+using Iodine.Headless.Rendering;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Rendering;
 using Microsoft.AspNetCore.Components.Web;
 using Microsoft.Extensions.Logging;
 using Microsoft.JSInterop;
 
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // MNU §3.14 state object (menu/radio-item/MenuRadioItem.tsx). Highlighted is mirrored (ADR 04 Amendments 2026-11-03 (2)).
 /// <summary>Represents the state of a context menu radio item, which the part exposes as data attributes and passes to its class and style functions.</summary>

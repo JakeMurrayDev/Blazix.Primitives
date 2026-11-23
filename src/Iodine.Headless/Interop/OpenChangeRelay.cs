@@ -1,4 +1,4 @@
-namespace Blazix.Primitives.Interop;
+namespace Iodine.Headless.Interop;
 
 // ADR 04 Amendments 2026-10-27 (the open-change relay; the record is track 1's, settled by the orchestrator 2026-10-27).
 // Base UI's root store emits `openchange` on its event bus with { open, reason, nativeEvent, nested, triggerElement }

@@ -1,4 +1,4 @@
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // CMP §4.2.2, CMP-STA-19..21, CMP-ALG-30 (internals/useItemRegistry.ts:14-54): M5 track 12's design point 3 (a), settled by
 // the orchestrator 2026-11-11 (the Composite/ grant, new files only). Registrations go into the live map at once and ask the

@@ -1,12 +1,12 @@
 using System.Text.Json;
 using AngleSharp.Dom;
-using Blazix.Primitives.Interop;
+using Iodine.Headless.Interop;
 using Bunit;
 using Microsoft.JSInterop;
-using Scenario = Blazix.Primitives.Tests.Components.NumberFieldAutofillScenarios.AutofillScenario;
+using Scenario = Iodine.Headless.Tests.Components.NumberFieldAutofillScenarios.AutofillScenario;
 
 // The namespace is the project's root: a namespace named after the family would hide the parts' types.
-namespace Blazix.Primitives.Tests.Components;
+namespace Iodine.Headless.Tests.Components;
 
 // 6b's input role at L2 (issue 277): NumberFieldRoot.test.tsx's titles on the hidden input's autofill and on the onBlur
 // validation of typed text. Base UI's fireEvent.change on the hidden input is the `number-field` module's autofill report,

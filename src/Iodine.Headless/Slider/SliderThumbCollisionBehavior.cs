@@ -1,4 +1,4 @@
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // SLD-API-12, SLD-STA-19; slider/root/SliderRoot.tsx:77 (`thumbCollisionBehavior: 'push' | 'swap' | 'none'`). ADR 08 §3's
 // Enums row: family-prefixed and one family's, the members the PascalCase of the literals.

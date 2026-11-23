@@ -1,9 +1,9 @@
-using Blazix.Primitives.Interop;
-using Blazix.Primitives.Store;
+using Iodine.Headless.Interop;
+using Iodine.Headless.Store;
 using Microsoft.AspNetCore.Components;
 using Microsoft.Extensions.Logging;
 
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // Base UI's popup store (utils/popups/store.ts, popupStoreUtils.ts), the PSH C# half (ADR 05 Amendments 2026-10-27, chosen
 // by the user 2026-10-27). A family subclasses it for its record and its own steps of the open-change sequence. Its fields

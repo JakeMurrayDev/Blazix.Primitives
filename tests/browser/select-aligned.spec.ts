@@ -1,5 +1,5 @@
 // L4 for docs/components/select.md (M5 track 9, issue 173), SelectPopup.test.tsx's aligned-placement titles and its two
-// keyboard titles: Server then WebAssembly. Fixtures: tests/Blazix.Primitives.Fixtures.Client/Select/SelectAligned*Fixture.razor.
+// keyboard titles: Server then WebAssembly. Fixtures: tests/Iodine.Headless.Fixtures.Client/Select/SelectAligned*Fixture.razor.
 //
 // Base UI's `aligned popup scroll resizing` describe (1137-1726) and the titles at 875-1135 stub the viewport and the
 // elements' boxes in their ref callbacks (`Object.defineProperty` of `getBoundingClientRect`, `offsetWidth`, `scrollTop`,

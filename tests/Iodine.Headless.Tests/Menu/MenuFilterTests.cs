@@ -1,7 +1,7 @@
 using System.Globalization;
 
 // Family tests use the project's root namespace (a test namespace is never named like a part).
-namespace Blazix.Primitives.Tests;
+namespace Iodine.Headless.Tests;
 
 /// <summary>
 /// L1: <see cref="MenuFilter"/>, Base UI's <c>Menu.useFilter</c> (MNU-API-67, <c>Test: none</c> upstream; M5 track 12's

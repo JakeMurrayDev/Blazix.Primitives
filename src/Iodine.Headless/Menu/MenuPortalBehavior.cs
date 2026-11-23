@@ -1,9 +1,9 @@
-using Blazix.Primitives.Rendering;
+using Iodine.Headless.Rendering;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Rendering;
 using Microsoft.JSInterop;
 
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // MNU-EDGE-03 (menu/portal/MenuPortalContext.ts:9): what the Positioner reads from its Portal (MNU-API-24: KeepMounted is
 // published to the Positioner).

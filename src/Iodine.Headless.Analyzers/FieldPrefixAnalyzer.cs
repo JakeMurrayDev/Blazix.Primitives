@@ -2,7 +2,7 @@ using System.Collections.Immutable;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.Diagnostics;
 
-namespace Blazix.Primitives.Analyzers;
+namespace Iodine.Headless.Analyzers;
 
 // ADR 08 §5 as amended 2026-10-20. IDE1006 (.editorconfig) already rejects `_x` and `m_x` on private fields and on
 // constants; this rule covers the fields it does not reach: every non-private field that is not a constant.
@@ -18,15 +18,15 @@ namespace Blazix.Primitives.Analyzers;
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
 public sealed class FieldPrefixAnalyzer : DiagnosticAnalyzer
 {
-    /// <summary>Represents the id of the diagnostic this analyzer reports, <c>BLZX2004</c>.</summary>
-    public const string DiagnosticId = "BLZX2004";
+    /// <summary>Represents the id of the diagnostic this analyzer reports, <c>IOD2004</c>.</summary>
+    public const string DiagnosticId = "IOD2004";
 
     // ADR 08 §5
     private static readonly DiagnosticDescriptor s_rule = new(
         DiagnosticId,
         "A field name carries no `_` or `m_` prefix",
-        "Blazix: field `{0}` starts with `{1}`; no field carries a `_` or `m_` prefix",
-        "Blazix.Primitives",
+        "Iodine: field `{0}` starts with `{1}`; no field carries a `_` or `m_` prefix",
+        "Iodine.Headless",
         DiagnosticSeverity.Error,
         isEnabledByDefault: true,
         description: "No field of the library starts with `_` or `m_`. The naming rules of the repository's .editorconfig check private fields and constants; this rule checks the internal, protected and public fields they do not reach.");

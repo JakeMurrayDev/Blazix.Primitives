@@ -8,7 +8,7 @@ import { budgetClasses, exclusionArgs, summarize } from './allocation-budgets.mj
 describe('budget classes', () => {
   it('names a class in the collection by its file-scoped namespace', () => {
     const source = [
-      'namespace Blazix.Primitives.Tests.Components;',
+      'namespace Iodine.Headless.Tests.Components;',
       '',
       '/// <summary>A budget.</summary>',
       '[Collection(AllocationBudgetsCollection.Name)]',
@@ -17,12 +17,12 @@ describe('budget classes', () => {
       '}',
     ].join('\n');
 
-    expect(budgetClasses(source)).toEqual(['Blazix.Primitives.Tests.Components.ToggleAllocationBudgetTests']);
+    expect(budgetClasses(source)).toEqual(['Iodine.Headless.Tests.Components.ToggleAllocationBudgetTests']);
   });
 
   it('names a class under a block namespace, after other attributes, and by the collection\'s literal name', () => {
     const source = [
-      'namespace Blazix.Primitives.Tests.Rendering',
+      'namespace Iodine.Headless.Tests.Rendering',
       '{',
       '    [Collection("AllocationBudgets")]',
       '    [Trait("Layer", "L1")]',
@@ -32,12 +32,12 @@ describe('budget classes', () => {
       '}',
     ].join('\n');
 
-    expect(budgetClasses(source)).toEqual(['Blazix.Primitives.Tests.Rendering.AllocationBudgetTests']);
+    expect(budgetClasses(source)).toEqual(['Iodine.Headless.Tests.Rendering.AllocationBudgetTests']);
   });
 
   it('leaves out the classes of other collections and the collection\'s own definition', () => {
     const source = [
-      'namespace Blazix.Primitives.Tests.Components;',
+      'namespace Iodine.Headless.Tests.Components;',
       '',
       '[CollectionDefinition(Name, DisableParallelization = true)]',
       'public sealed class AllocationBudgetsCollection',
@@ -56,7 +56,7 @@ describe('budget classes', () => {
       '}',
     ].join('\n');
 
-    expect(budgetClasses(source)).toEqual(['Blazix.Primitives.Tests.Components.FocusManagerBehaviorTests']);
+    expect(budgetClasses(source)).toEqual(['Iodine.Headless.Tests.Components.FocusManagerBehaviorTests']);
   });
 
   it('finds no class in a file without the attribute', () => {
@@ -65,7 +65,7 @@ describe('budget classes', () => {
 
   it('names a Razor test component in the collection by its @namespace and its file name', () => {
     const source = [
-      '@namespace Blazix.Primitives.Tests.Components',
+      '@namespace Iodine.Headless.Tests.Components',
       '@inherits SelectTestBase',
       '@attribute [Collection(AllocationBudgetsCollection.Name)]',
       '@using Bunit',
@@ -77,14 +77,14 @@ describe('budget classes', () => {
       '}',
     ].join('\n');
 
-    expect(budgetClasses(source, 'tests/Blazix.Primitives.Tests.Components/Select/SelectAllocationBudgetTests.razor'))
-      .toEqual(['Blazix.Primitives.Tests.Components.SelectAllocationBudgetTests']);
+    expect(budgetClasses(source, 'tests/Iodine.Headless.Tests.Components/Select/SelectAllocationBudgetTests.razor'))
+      .toEqual(['Iodine.Headless.Tests.Components.SelectAllocationBudgetTests']);
   });
 
   it('finds no class in a Razor component without the @attribute directive', () => {
-    const source = '@namespace Blazix.Primitives.Tests.Components\n\n@code {\n    // [Collection(AllocationBudgetsCollection.Name)]\n}\n';
+    const source = '@namespace Iodine.Headless.Tests.Components\n\n@code {\n    // [Collection(AllocationBudgetsCollection.Name)]\n}\n';
 
-    expect(budgetClasses(source, 'tests/Blazix.Primitives.Tests.Components/Popup/Harness.razor')).toEqual([]);
+    expect(budgetClasses(source, 'tests/Iodine.Headless.Tests.Components/Popup/Harness.razor')).toEqual([]);
   });
 });
 
@@ -96,14 +96,14 @@ describe('exclusion arguments', () => {
 });
 
 describe('summary', () => {
-  const result = (name, status, seconds = 2) => ({ project: 'tests/Blazix.Primitives.Tests.Components', name, status, seconds });
+  const result = (name, status, seconds = 2) => ({ project: 'tests/Iodine.Headless.Tests.Components', name, status, seconds });
 
   it('passes when every class passed, and gives the total time', () => {
     const { ok, markdown } = summarize([result('A.One', 0, 2.5), result('B.Two', 0, 3)]);
 
     expect(ok).toBe(true);
     expect(markdown).toContain('All 2 budget classes passed, one process each (6 s).');
-    expect(markdown).toContain('| tests/Blazix.Primitives.Tests.Components | `A.One` | passed | 2.5 |');
+    expect(markdown).toContain('| tests/Iodine.Headless.Tests.Components | `A.One` | passed | 2.5 |');
   });
 
   it('fails on a failed class and on a class whose filter ran no test', () => {

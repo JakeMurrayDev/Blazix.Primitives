@@ -1,9 +1,9 @@
-using Blazix.Primitives.Rendering;
-using Blazix.Primitives.Store;
+using Iodine.Headless.Rendering;
+using Iodine.Headless.Store;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Rendering;
 
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // Base UI's NavigationMenu.Item (navigation-menu/item/NavigationMenuItem.tsx); the contract is
 // docs/components/navigation-menu.md §3.3, §5.3.
@@ -21,11 +21,11 @@ namespace Blazix.Primitives;
 public sealed class NavigationMenuItem<TValue> : PartBase<EmptyState>
 {
     private const string MissingValueMessage =
-        "Blazix: A `NavigationMenuItem` without a `Value` is identified by a generated id, which needs a `TValue` of `string`. "
+        "Iodine: A `NavigationMenuItem` without a `Value` is identified by a generated id, which needs a `TValue` of `string`. "
         + "Give the item a `Value`, or set `TValue=\"string\"` on the `NavigationMenuRoot`.";
 
     private const string TypeMismatchMessage =
-        "Blazix: A `NavigationMenuItem` must have the `TValue` of its `NavigationMenuRoot`. Set `TValue` on the item, or give `Value` the root's type.";
+        "Iodine: A `NavigationMenuItem` must have the `TValue` of its `NavigationMenuRoot`. Set `TValue` on the item, or give `Value` the root's type.";
 
     private readonly RenderFragment renderCascade;
     private NavigationMenuItemContext<TValue>? context;

@@ -5,7 +5,7 @@ using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Web;
 
 // The namespace is the project's root: a namespace named after the family would hide the parts' types.
-namespace Blazix.Primitives.Tests.Components;
+namespace Iodine.Headless.Tests.Components;
 
 // RadioGroup.test.tsx, the [L2] rows that render neither Field, Fieldset nor Form (issue 84), with the Radio-owned rows of
 // radio.md §13, and the twin contract of the group's composite root. A selection reaches C# as a radio's bridge report
@@ -374,8 +374,8 @@ public sealed class RadioGroupTests : IDisposable
         Assert.Equal(2, cut.FindAll("[data-indicator][data-unchecked]").Count);
 
         // Each indicator has its own twin; the module reports each completion.
-        foreach (Blazix.Primitives.Interop.TransitionsTwin twin in test.TransitionsModule.Invocations["attach"]
-            .Select(i => ((Microsoft.JSInterop.DotNetObjectReference<Blazix.Primitives.Interop.TransitionsTwin>)i.Arguments[2]!).Value)
+        foreach (Iodine.Headless.Interop.TransitionsTwin twin in test.TransitionsModule.Invocations["attach"]
+            .Select(i => ((Microsoft.JSInterop.DotNetObjectReference<Iodine.Headless.Interop.TransitionsTwin>)i.Arguments[2]!).Value)
             .ToArray())
         {
             await cut.InvokeAsync(() => twin.OnTransitionComplete("""{"open":false}"""));

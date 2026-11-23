@@ -18,7 +18,7 @@ import { pressControl, settle } from './suites/popupFixture';
 
 // The Base UI titles of the rows the 2026-11-11 docs pass re-tagged [L4] (CMB-STA-21, STA-25, STA-26, STA-27, STA-28, EVT-04), ported
 // at L4 (M5 track 10, issue 174): ComboboxRoot.test.tsx's `skipIf(isJSDOM)` titles and one ComboboxInput.test.tsx title, verbatim, on
-// the `combobox-root-d` fixture (tests/Blazix.Primitives.Fixtures.Client/Combobox/L4/ComboboxRootDL4Fixture.razor), every title on
+// the `combobox-root-d` fixture (tests/Iodine.Headless.Fixtures.Client/Combobox/L4/ComboboxRootDL4Fixture.razor), every title on
 // both render modes. The fixture's `case` picks the test's rendering; its callbacks are recorded as the container's `data-*` attributes.
 //
 // Deviations (2026-11-11):

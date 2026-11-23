@@ -1,14 +1,14 @@
 using System.Globalization;
 using System.Linq.Expressions;
-using Blazix.Primitives.Rendering;
-using Blazix.Primitives.Utilities;
+using Iodine.Headless.Rendering;
+using Iodine.Headless.Utilities;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Forms;
 using Microsoft.AspNetCore.Components.Rendering;
 using Microsoft.Extensions.Logging;
 using Microsoft.JSInterop;
 
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // AUT-API-02 (autocomplete/root/AutocompleteRoot.tsx:181-196): the `mode` prop, beside its first consumer (M5 track 11's
 // dated ADR 08 §3 line). It is the engine's ARIA autoComplete mode (AUT-STR-03).
@@ -91,7 +91,7 @@ public sealed class AutocompleteRoot<TValue> : ComponentBase, IAsyncDisposable
     private IJSRuntime JSRuntime { get; set; } = null!;
 
     // Created at the first parameter set, once the services are injected.
-    private ComboboxRootBehavior<TValue> Behavior => behavior ?? throw new InvalidOperationException("Blazix: `AutocompleteRoot` is used before its first parameter set.");
+    private ComboboxRootBehavior<TValue> Behavior => behavior ?? throw new InvalidOperationException("Iodine: `AutocompleteRoot` is used before its first parameter set.");
 
     // AUT-STA-04 (AutocompleteRoot.tsx:50-74): the completion while one is shown, else the committed text.
     private bool InlineEnabled => Mode is AutocompleteMode.Both or AutocompleteMode.Inline && !ReadOnly;

@@ -1,9 +1,9 @@
 using System.Text.Json;
-using Blazix.Primitives.Interop;
+using Iodine.Headless.Interop;
 using Bunit;
 using Microsoft.JSInterop;
 
-namespace Blazix.Primitives.Tests.Components.Interop;
+namespace Iodine.Headless.Tests.Components.Interop;
 
 /// <summary>
 /// Twin contract tests of the <c>tabs</c> module (ADR 06 §1, L2; ADR 04 Amendments 2026-10-26): bUnit's JS interop mock
@@ -12,7 +12,7 @@ namespace Blazix.Primitives.Tests.Components.Interop;
 /// </summary>
 public sealed class TabsTwinContractTests
 {
-    private const string ModulePath = "./_content/Blazix.Primitives/js/tabs.js";
+    private const string ModulePath = "./_content/Iodine.Headless/js/tabs.js";
 
     private const string ClickJson = """
         {"kind":"PointerEvent","type":"click","key":null,"code":null,"altKey":false,"ctrlKey":false,
@@ -147,13 +147,13 @@ public sealed class TabsTwinContractTests
     public void Every_payload_round_trips_through_the_source_generated_context()
     {
         TabsIndicatorMeasurement measurement = new(new TabsTabPosition(1, 2, 3, 4), new TabsTabSize(5, 6));
-        string json = JsonSerializer.Serialize(measurement, BlazixJsonContext.Default.TabsIndicatorMeasurement);
+        string json = JsonSerializer.Serialize(measurement, IodineJsonContext.Default.TabsIndicatorMeasurement);
         Assert.Equal("""{"position":{"left":1,"right":2,"top":3,"bottom":4},"size":{"width":5,"height":6}}""", json);
-        Assert.Equal(measurement, JsonSerializer.Deserialize(json, BlazixJsonContext.Default.TabsIndicatorMeasurement));
+        Assert.Equal(measurement, JsonSerializer.Deserialize(json, IodineJsonContext.Default.TabsIndicatorMeasurement));
         Assert.Equal(
             """{"tabId":"t","direction":"up"}""",
-            JsonSerializer.Serialize(new TabsSelection("t", "up", null), BlazixJsonContext.Default.TabsSelection));
-        Assert.Equal("""{"direction":"none"}""", JsonSerializer.Serialize(new TabsDirectionChange("none"), BlazixJsonContext.Default.TabsDirectionChange));
+            JsonSerializer.Serialize(new TabsSelection("t", "up", null), IodineJsonContext.Default.TabsSelection));
+        Assert.Equal("""{"direction":"none"}""", JsonSerializer.Serialize(new TabsDirectionChange("none"), IodineJsonContext.Default.TabsDirectionChange));
     }
 
     /// <summary>A runtime the callback tests never reach: they call the twin's methods directly.</summary>

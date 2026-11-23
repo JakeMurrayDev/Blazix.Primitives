@@ -4,7 +4,7 @@ using Microsoft.AspNetCore.Components;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.JSInterop;
 
-namespace Blazix.Primitives.Tests.Components;
+namespace Iodine.Headless.Tests.Components;
 
 /// <summary>
 /// L2: the C# half of the <c>popup</c> module's roles in Popover (ADR 04 Amendments 2026-10-27; design points 5-8 of
@@ -208,7 +208,7 @@ public sealed class PopoverModuleWiringTests : IDisposable
     public void The_popups_transitions_handle_asks_for_transition_none_while_starting()
     {
         // TRN-DOM-05 (ADR 04 Amendments 2026-10-28): the module writes it from the handover on, on the starting frame.
-        BunitJSModuleInterop transitions = test.Context.JSInterop.SetupModule("./_content/Blazix.Primitives/js/transitions.js");
+        BunitJSModuleInterop transitions = test.Context.JSInterop.SetupModule("./_content/Iodine.Headless/js/transitions.js");
         transitions.SetupModule("attach", _ => true);
 
         Render(new PopoverSpec { DefaultOpen = true });
@@ -463,7 +463,7 @@ public sealed class PopoverModuleWiringTests : IDisposable
 
     private BunitJSModuleInterop SetUpTransitions()
     {
-        BunitJSModuleInterop transitions = test.Context.JSInterop.SetupModule("./_content/Blazix.Primitives/js/transitions.js");
+        BunitJSModuleInterop transitions = test.Context.JSInterop.SetupModule("./_content/Iodine.Headless/js/transitions.js");
         BunitJSModuleInterop handle = transitions.SetupModule("attach", _ => true);
         handle.SetupVoid("update", _ => true).SetVoidResult();
         return handle;

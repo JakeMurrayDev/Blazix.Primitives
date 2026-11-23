@@ -1,8 +1,8 @@
-using Blazix.Primitives.Interop;
+using Iodine.Headless.Interop;
 using Microsoft.AspNetCore.Components;
 using Microsoft.JSInterop;
 
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // ADR 04 Amendments 2026-11-03 (4): every part that owns a `navigation-menu` handle attaches it after the render that
 // created its element (and, under a portal, after the portal's move), with the Root's element as the first reference, so

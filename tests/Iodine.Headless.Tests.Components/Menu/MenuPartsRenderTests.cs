@@ -2,8 +2,8 @@ using AngleSharp.Dom;
 using Bunit;
 using Microsoft.Extensions.DependencyInjection;
 
-// Family tests use the project's root namespace (tests/Blazix.Primitives.Tests.Components/CONTEXT.md).
-namespace Blazix.Primitives.Tests.Components;
+// Family tests use the project's root namespace (tests/Iodine.Headless.Tests.Components/CONTEXT.md).
+namespace Iodine.Headless.Tests.Components;
 
 /// <summary>
 /// L2: render titles of <c>MenuTrigger.test.tsx</c>, <c>MenuPositioner.test.tsx</c>, <c>MenuSubmenuTrigger.test.tsx</c> and
@@ -15,7 +15,7 @@ public sealed class MenuPartsRenderTests : BunitContext
     public MenuPartsRenderTests()
     {
         JSInterop.Mode = JSRuntimeMode.Loose;
-        Services.AddBlazixPrimitives();
+        Services.AddIodineHeadless();
     }
 
     [Fact(DisplayName = "throws without Menu.Root or a handle")]
@@ -25,7 +25,7 @@ public sealed class MenuPartsRenderTests : BunitContext
     {
         InvalidOperationException error = Assert.Throws<InvalidOperationException>(() => Render<MenuPartsHost>(p => p.Add(x => x.Case, "trigger-alone")));
 
-        Assert.Equal("Blazix: `<MenuTrigger>` must be either used within a `<MenuRoot>` component or provided with a handle.", error.Message);
+        Assert.Equal("Iodine: `<MenuTrigger>` must be either used within a `<MenuRoot>` component or provided with a handle.", error.Message);
     }
 
     [Fact(DisplayName = "throws when rendered outside Menu.Portal")]
@@ -35,7 +35,7 @@ public sealed class MenuPartsRenderTests : BunitContext
     {
         InvalidOperationException error = Assert.Throws<InvalidOperationException>(() => Render<MenuPartsHost>(p => p.Add(x => x.Case, "positioner-outside-portal")));
 
-        Assert.Equal("Blazix: `<MenuPortal>` is missing.", error.Message);
+        Assert.Equal("Iodine: `<MenuPortal>` is missing.", error.Message);
     }
 
     [Fact(DisplayName = "should render a disabled button")]
@@ -76,7 +76,7 @@ public sealed class MenuPartsRenderTests : BunitContext
     {
         InvalidOperationException error = Assert.Throws<InvalidOperationException>(() => Render<MenuPartsHost>(p => p.Add(x => x.Case, "submenu-trigger-alone")));
 
-        Assert.Equal("Blazix: `<MenuSubmenuTrigger>` must be placed in `<MenuSubmenuRoot>`.", error.Message);
+        Assert.Equal("Iodine: `<MenuSubmenuTrigger>` must be placed in `<MenuSubmenuRoot>`.", error.Message);
     }
 
     [Fact(DisplayName = "throws when Menu.SubmenuRoot is rendered outside a menu")]
@@ -86,7 +86,7 @@ public sealed class MenuPartsRenderTests : BunitContext
     {
         InvalidOperationException error = Assert.Throws<InvalidOperationException>(() => Render<MenuPartsHost>(p => p.Add(x => x.Case, "submenu-root-alone")));
 
-        Assert.StartsWith("Blazix: The `MenuRoot` context is missing.", error.Message, StringComparison.Ordinal);
+        Assert.StartsWith("Iodine: The `MenuRoot` context is missing.", error.Message, StringComparison.Ordinal);
     }
 
     [Fact(DisplayName = "should render with disabled attributes when disabled prop is set")]
@@ -106,7 +106,7 @@ public sealed class MenuPartsRenderTests : BunitContext
     [Trait("Requirement", "MNU-ARIA-04")]
     public void Popup_sets_aria_orientation_when_horizontal()
     {
-        IRenderedComponent<MenuTreeHost> cut = Render<MenuTreeHost>(p => p.Add(x => x.Orientation, Blazix.Primitives.Orientation.Horizontal));
+        IRenderedComponent<MenuTreeHost> cut = Render<MenuTreeHost>(p => p.Add(x => x.Orientation, Iodine.Headless.Orientation.Horizontal));
 
         Assert.Equal("horizontal", cut.Find("[role=menu]").GetAttribute("aria-orientation"));
     }
@@ -211,7 +211,7 @@ public sealed class MenuPartsRenderTests : BunitContext
     [Trait("Requirement", "MNU-API-29")]
     public void Collision_avoidance_defaults_by_parent_kind(bool submenu, string fallbackAxisSide)
     {
-        BunitJSModuleInterop positioning = JSInterop.SetupModule("./_content/Blazix.Primitives/js/positioning.js");
+        BunitJSModuleInterop positioning = JSInterop.SetupModule("./_content/Iodine.Headless/js/positioning.js");
         positioning.SetupModule("attach", _ => true);
 
         Render<MenuPartsHost>(p => p.Add(x => x.SubmenuOpen, submenu));
@@ -238,7 +238,7 @@ public sealed class MenuPartsRenderTests : BunitContext
     [Trait("Requirement", "MNU-POS-05")]
     public void Positioner_leaves_lazy_flipping_off_for_a_plain_menu()
     {
-        BunitJSModuleInterop positioning = JSInterop.SetupModule("./_content/Blazix.Primitives/js/positioning.js");
+        BunitJSModuleInterop positioning = JSInterop.SetupModule("./_content/Iodine.Headless/js/positioning.js");
         positioning.SetupModule("attach", _ => true);
 
         Render<MenuPartsHost>();

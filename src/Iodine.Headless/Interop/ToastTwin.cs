@@ -1,6 +1,6 @@
 using Microsoft.JSInterop;
 
-namespace Blazix.Primitives.Interop;
+namespace Iodine.Headless.Interop;
 
 // ADR 04 §1 (the `toast` component module), its scope in Amendments 2026-11-18 and the 9b design points of 2026-11-19
 // (DP1 (a), chosen by the user): one twin per part, with the part literals viewport, root and content, one handle per
@@ -10,7 +10,7 @@ namespace Blazix.Primitives.Interop;
 /// <summary>The C# half of the <c>toast</c> module for one part of a toast viewport.</summary>
 /// <param name="jsRuntime">The runtime of the part's circuit or WebAssembly application.</param>
 internal sealed class ToastTwin(IJSRuntime jsRuntime)
-    : TwinBase<ToastTwin, ToastOptions>(jsRuntime, LibraryModule("toast"), BlazixJsonContext.Default.ToastOptions)
+    : TwinBase<ToastTwin, ToastOptions>(jsRuntime, LibraryModule("toast"), IodineJsonContext.Default.ToastOptions)
 {
     /// <summary>Represents the part literal of a viewport's handle.</summary>
     public const string ViewportPart = "viewport";
@@ -30,7 +30,7 @@ internal sealed class ToastTwin(IJSRuntime jsRuntime)
     [JSInvokable]
     public void OnReport(string payloadJson)
     {
-        Reported?.Invoke(Deserialize(payloadJson, BlazixJsonContext.Default.ToastReport));
+        Reported?.Invoke(Deserialize(payloadJson, IodineJsonContext.Default.ToastReport));
     }
 
     /// <inheritdoc />

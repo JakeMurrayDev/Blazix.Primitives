@@ -1,7 +1,7 @@
 using Microsoft.Extensions.Time.Testing;
 
 // Family tests use the project's root namespace: an `Avatar` namespace would read as a family type.
-namespace Blazix.Primitives.Tests;
+namespace Iodine.Headless.Tests;
 
 /// <summary>
 /// The Avatar fallback's delay at L1 (AVA-ANI-07, AVA-ANI-08, AVA-EDGE-05; ADR 06 §1: C# timers under a

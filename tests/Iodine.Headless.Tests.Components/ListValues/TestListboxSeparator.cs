@@ -1,8 +1,8 @@
-using Blazix.Primitives.Rendering;
-using Blazix.Primitives.Utilities;
+using Iodine.Headless.Rendering;
+using Iodine.Headless.Utilities;
 using Microsoft.AspNetCore.Components;
 
-namespace Blazix.Primitives.Tests.Components;
+namespace Iodine.Headless.Tests.Components;
 
 /// <summary>The state of <see cref="TestListboxSeparator"/>: ListboxSeparator's <c>{ orientation }</c>.</summary>
 /// <param name="Orientation">The separator's orientation, projected as <c>data-orientation</c>.</param>

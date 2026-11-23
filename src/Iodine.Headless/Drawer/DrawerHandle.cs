@@ -1,4 +1,4 @@
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // DRW-API-12 (drawer/handle.ts:11-22), decision 20 (a) of the M6 plan (chosen by the user 2026-11-18; ADR 08 Amendments
 // 2026-11-18): the Drawer family's handle derives from DialogHandle, is created with `new` and adds no member, the

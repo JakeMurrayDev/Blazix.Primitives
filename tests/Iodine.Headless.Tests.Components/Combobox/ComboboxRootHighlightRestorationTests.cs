@@ -2,7 +2,7 @@ using Bunit;
 using Microsoft.AspNetCore.Components;
 
 // Family tests use the project's root namespace.
-namespace Blazix.Primitives.Tests.Components;
+namespace Iodine.Headless.Tests.Components;
 
 // CMB-STA-26 at L2 (ComboboxRoot.test.tsx, describe "highlight restoration when clearing the query"): clearing a typed query
 // returns the highlight to the selected item, by the items' registry with or without `items`, and leaves none without a

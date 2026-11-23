@@ -1,8 +1,8 @@
-using Blazix.Primitives.Rendering;
+using Iodine.Headless.Rendering;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Web;
 
-namespace Blazix.Primitives.Tests.Rendering;
+namespace Iodine.Headless.Tests.Rendering;
 
 /// <summary>
 /// <c>merge-props/mergeProps.test.ts</c> over the typed list (RND-ALG-02..06, RND-API-09/10, RND-DOM-19, RND-EVT-01..04/06/10..12).

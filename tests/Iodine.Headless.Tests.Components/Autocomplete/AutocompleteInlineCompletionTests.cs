@@ -1,10 +1,10 @@
-using Blazix.Primitives.Interop;
+using Iodine.Headless.Interop;
 using Bunit;
 using Microsoft.AspNetCore.Components;
 using Microsoft.JSInterop;
 
 // Family tests use the project's root namespace.
-namespace Blazix.Primitives.Tests.Components;
+namespace Iodine.Headless.Tests.Components;
 
 // M5 track 11 (issue 196): the inline completion computed in C# from the highlight report (decision 11 (a), chosen by the
 // user 2026-11-03; AUT-STA-05, STA-06 (d), API-15, API-17; AutocompleteRoot.tsx:90-105). The list handle's highlight is

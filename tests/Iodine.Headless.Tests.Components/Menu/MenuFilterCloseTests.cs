@@ -1,10 +1,10 @@
-using Blazix.Primitives.Interop;
+using Iodine.Headless.Interop;
 using Bunit;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.JSInterop;
 
-// Family tests use the project's root namespace (tests/Blazix.Primitives.Tests.Components/CONTEXT.md).
-namespace Blazix.Primitives.Tests.Components;
+// Family tests use the project's root namespace (tests/Iodine.Headless.Tests.Components/CONTEXT.md).
+namespace Iodine.Headless.Tests.Components;
 
 /// <summary>
 /// L2: the filter query's reset when a filterable menu closes (MNU-EVT-18, API-58; M5 track 12), over
@@ -18,8 +18,8 @@ public sealed class MenuFilterCloseTests : BunitContext
     public MenuFilterCloseTests()
     {
         JSInterop.Mode = JSRuntimeMode.Loose;
-        Services.AddBlazixPrimitives();
-        module = JSInterop.SetupModule("./_content/Blazix.Primitives/js/menu-filter.js");
+        Services.AddIodineHeadless();
+        module = JSInterop.SetupModule("./_content/Iodine.Headless/js/menu-filter.js");
         handle = module.SetupModule("attach", _ => true);
         handle.SetupVoid("update", _ => true).SetVoidResult();
     }

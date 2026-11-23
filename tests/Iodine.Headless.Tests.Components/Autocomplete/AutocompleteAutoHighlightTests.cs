@@ -1,8 +1,8 @@
-using Blazix.Primitives.Interop;
+using Iodine.Headless.Interop;
 using Bunit;
 
 // Family tests use the project's root namespace.
-namespace Blazix.Primitives.Tests.Components;
+namespace Iodine.Headless.Tests.Components;
 
 // M5 track 11 (issue 196): AutocompleteRoot's AutoHighlight over track 12's AutoHighlightValue (design point 4; AUT-API-05,
 // STA-11, STA-12, §16 Q4; AutocompleteRoot.test.tsx "prop: autoHighlight"): null and false are off, true highlights the
@@ -102,7 +102,7 @@ public sealed class AutocompleteAutoHighlightTests : IDisposable
         Assert.Empty(cut.FindAll("[role=option]"));
 
         string reopen = $$"""{"open":true,"reason":"trigger-press","event":{{ComboboxTestContext.Click}},"triggerId":null}""";
-        Blazix.Primitives.Interop.InteractionsTwin session = test.SessionTwin;
+        Iodine.Headless.Interop.InteractionsTwin session = test.SessionTwin;
         await cut.InvokeAsync(() => session.OnRequest(reopen));
         Assert.Equal(3, cut.FindAll("[role=option]").Count);
 

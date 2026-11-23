@@ -1,9 +1,9 @@
 using System.Text.Json;
-using Blazix.Primitives.Interop;
+using Iodine.Headless.Interop;
 using Bunit;
 using Microsoft.JSInterop;
 
-namespace Blazix.Primitives.Tests.Components.Interop;
+namespace Iodine.Headless.Tests.Components.Interop;
 
 /// <summary>
 /// Twin contract tests of the <c>otp-field</c> module (ADR 06 §1, L2; issue 278, M6 track 7; design points 1–7, chosen by the
@@ -12,7 +12,7 @@ namespace Blazix.Primitives.Tests.Components.Interop;
 /// </summary>
 public sealed class OtpFieldTwinContractTests
 {
-    private const string ModulePath = "./_content/Blazix.Primitives/js/otp-field.js";
+    private const string ModulePath = "./_content/Iodine.Headless/js/otp-field.js";
 
     private const string InputJson = """
         {"kind":"InputEvent","type":"input","key":null,"code":null,"altKey":false,"ctrlKey":false,

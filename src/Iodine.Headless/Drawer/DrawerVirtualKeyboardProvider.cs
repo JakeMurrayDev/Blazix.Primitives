@@ -1,7 +1,7 @@
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Rendering;
 
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // Base UI's Drawer.VirtualKeyboardProvider (drawer/virtual-keyboard-provider/DrawerVirtualKeyboardProvider.tsx); the
 // contract is docs/components/drawer.md (§3.7, §6.3.1; DRW-STR-09, API-11). It renders no element and must be under a

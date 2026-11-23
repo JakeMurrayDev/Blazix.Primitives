@@ -1,4 +1,4 @@
-namespace Blazix.Primitives.Interop;
+namespace Iodine.Headless.Interop;
 
 // M5 track 12's design point 1 (a), settled by the orchestrator 2026-11-11: the `menu-filter` component module, one handle per part that
 // owns a MenuFilterTwin (the Input, the Trigger's relay, the List and the Popup), joined to its menu by MenuKey, a key C#

@@ -1,9 +1,9 @@
-using Blazix.Primitives.Rendering;
+using Iodine.Headless.Rendering;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Rendering;
 using Microsoft.JSInterop;
 
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // Base UI's Drawer.Portal, the Dialog.Portal component itself (drawer/portal/DrawerPortal.tsx:13); the contract is
 // docs/components/drawer.md (§3.8; DRW-STR-03 over dialog.md §3.3, §5.2). A sealed part over

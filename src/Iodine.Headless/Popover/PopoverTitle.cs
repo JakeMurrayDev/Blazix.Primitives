@@ -1,7 +1,7 @@
-using Blazix.Primitives.Rendering;
+using Iodine.Headless.Rendering;
 using Microsoft.AspNetCore.Components;
 
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // Base UI's Popover.Title (popover/title/PopoverTitle.tsx); the contract is docs/components/popover.md §3.9, POP-STA-09,
 // POP-DOM-42, POP-ARIA-05. The id it renders (the consumer's, else the generated one) is published in OnParametersSet

@@ -1,6 +1,6 @@
 using Microsoft.AspNetCore.Components;
 
-namespace Blazix.Primitives.Tests.Components;
+namespace Iodine.Headless.Tests.Components;
 
 /// <summary>Records whether the menu it renders in is filterable: its cascaded root context's <c>Filter</c>.</summary>
 public sealed class MenuRootProbe : ComponentBase

@@ -1,14 +1,14 @@
-using Blazix.Primitives.Interop;
-using Blazix.Primitives.Rendering;
-using Blazix.Primitives.Store;
-using Blazix.Primitives.Utilities;
+using Iodine.Headless.Interop;
+using Iodine.Headless.Rendering;
+using Iodine.Headless.Store;
+using Iodine.Headless.Utilities;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Rendering;
 using Microsoft.AspNetCore.Components.Web;
 using Microsoft.Extensions.Logging;
 using Microsoft.JSInterop;
 
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // RAD-STA-03; radio/root/RadioRoot.tsx:226-235,283-320 (the field's state with four radio fields). ADR 08 §3: the state
 // record is sealed, partial and [PartState]; one record per part.
@@ -297,7 +297,7 @@ public sealed class RadioRoot<TValue> : PartBase<RadioRootState>
     /// <value>The behavior, which the group refreshes and reads for its form value.</value>
     internal CheckableFieldBehavior FieldBehavior => fieldBehavior!;
 
-    // For the fixtures (tests/Blazix.Primitives.Fixtures.Client): completes once the twins are attached, so a browser test
+    // For the fixtures (tests/Iodine.Headless.Fixtures.Client): completes once the twins are attached, so a browser test
     // can wait for the modules' listeners before it clicks.
     /// <summary>Gets a task that completes when the radio button's behaviors are attached to its element and its hidden input.</summary>
     /// <value>A task that completes after the first interactive render has attached them.</value>
@@ -313,7 +313,7 @@ public sealed class RadioRoot<TValue> : PartBase<RadioRootState>
         if (GroupContext is null && AnyGroupContext is not null)
         {
             throw new InvalidOperationException(
-                "Blazix: A `RadioRoot` must have the `TValue` of its `RadioGroup`. Set `TValue` on the radio button, or give `Value` the group's type, for example `Value=\"(int?)1\"` in a `RadioGroup` of `int?`.");
+                "Iodine: A `RadioRoot` must have the `TValue` of its `RadioGroup`. Set `TValue` on the radio button, or give `Value` the group's type, for example `Value=\"(int?)1\"` in a `RadioGroup` of `int?`.");
         }
 
         behavior = new ButtonBehavior(JSRuntime, Logger, DevelopmentLog, IdGenerator, StateHasChanged, DispatchExceptionAsync, onKeyDown, onKeyUp, onClick)

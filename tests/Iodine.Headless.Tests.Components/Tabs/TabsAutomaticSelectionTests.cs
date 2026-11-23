@@ -1,10 +1,10 @@
 using AngleSharp.Dom;
 using Bunit;
 using Microsoft.AspNetCore.Components;
-using static Blazix.Primitives.Tests.Components.TabsTestContext;
+using static Iodine.Headless.Tests.Components.TabsTestContext;
 
 // The namespace is the project's root: a namespace named after the family would hide the parts' types.
-namespace Blazix.Primitives.Tests.Components;
+namespace Iodine.Headless.Tests.Components;
 
 // TabsRoot.test.tsx's [L2] rows that read the Tab registry (track 1's E2: the `composite` module reports the List's Tabs
 // in document order) and TabsPanel.test.tsx's `data-index` (E1: the Root's registration-only list of Panels). A report

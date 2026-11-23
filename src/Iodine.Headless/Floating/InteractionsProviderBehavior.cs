@@ -1,8 +1,8 @@
-using Blazix.Primitives.Interop;
-using Blazix.Primitives.Rendering;
+using Iodine.Headless.Interop;
+using Iodine.Headless.Rendering;
 using Microsoft.JSInterop;
 
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // ADR 04 Amendments 2026-10-27 (hover timers and the delay group; chosen by the user 2026-10-27): a tooltip provider
 // renders no element, draws a provider token and cascades it; the delay group is one object per token in the module

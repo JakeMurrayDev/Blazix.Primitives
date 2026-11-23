@@ -1,4 +1,4 @@
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // ADR 04 Amendments 2026-10-27 (decision 3: every request the interactions module makes, press included; the delay
 // group's instant phase on the open request; chosen by the user 2026-10-27). The family's root routes it into its popup
@@ -11,7 +11,7 @@ namespace Blazix.Primitives;
 /// state in the same render as its open state.
 /// </param>
 /// <param name="InteractionType">
-/// For a press, how it happened (<see cref="Blazix.Primitives.InteractionType.Unknown"/> for the empty literal), which the
+/// For a press, how it happened (<see cref="Iodine.Headless.InteractionType.Unknown"/> for the empty literal), which the
 /// store records with <c>SetOpenInteractionType</c>; otherwise <see langword="null"/>.
 /// </param>
 internal readonly record struct OpenChangeRequest(bool Open, OpenChangeEventDetails Details, bool Instant, InteractionType? InteractionType);

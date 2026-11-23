@@ -1,10 +1,10 @@
 using System.Globalization;
-using Blazix.Primitives.Interop;
-using Blazix.Primitives.Rendering;
+using Iodine.Headless.Interop;
+using Iodine.Headless.Rendering;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Web;
 
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // The composite item as a part uses it (CMP §6.4 and §6.5; useCompositeItem.ts, useCompositeListItem.ts). Composed into
 // the part (RadioRoot in a group in M2; the M3 items), never a nested component (ADR 16 rule 10).

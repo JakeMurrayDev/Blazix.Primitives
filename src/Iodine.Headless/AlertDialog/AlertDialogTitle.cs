@@ -1,7 +1,7 @@
-using Blazix.Primitives.Rendering;
+using Iodine.Headless.Rendering;
 using Microsoft.AspNetCore.Components;
 
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // Base UI's AlertDialog.Title, the Dialog.Title component itself (alert-dialog/index.parts.ts:7); the contract is
 // docs/components/alert-dialog.md (§3.3, ADL-STR-02 over dialog.md §3.7, §5.6, §5.8). A sealed part over

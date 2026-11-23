@@ -2,7 +2,7 @@ using System.Reflection;
 using Microsoft.AspNetCore.Components;
 
 // Family tests use the project's root namespace.
-namespace Blazix.Primitives.Tests;
+namespace Iodine.Headless.Tests;
 
 /// <summary>
 /// ContextMenu at L1: its own parts' parameter lists by reflection against Menu's (CTX-API-01, 03..05, 07..13, CTX-EDGE-03,
@@ -42,7 +42,7 @@ public sealed class ContextMenuApiTests
     public void ContextMenuTrigger_declares_no_parameter_of_its_own()
     {
         Assert.DoesNotContain(Parameters(typeof(ContextMenuTrigger)).Values, property => property.DeclaringType == typeof(ContextMenuTrigger));
-        Assert.Equal(typeof(Blazix.Primitives.Rendering.PartBase<ContextMenuTriggerState>), typeof(ContextMenuTrigger).BaseType);
+        Assert.Equal(typeof(Iodine.Headless.Rendering.PartBase<ContextMenuTriggerState>), typeof(ContextMenuTrigger).BaseType);
         Assert.True(typeof(ContextMenuTrigger).IsSealed);
         Assert.Equal(["Open"], typeof(ContextMenuTriggerState).GetConstructors().Single().GetParameters().Select(parameter => parameter.Name!));
         Assert.Equal("data-popup-open", ContextMenuTriggerDataAttributes.PopupOpen);

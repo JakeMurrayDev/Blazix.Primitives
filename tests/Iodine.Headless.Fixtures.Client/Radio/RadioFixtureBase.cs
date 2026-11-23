@@ -1,6 +1,6 @@
 using Microsoft.AspNetCore.Components;
 
-namespace Blazix.Primitives.Fixtures.Client.RadioFixtures;
+namespace Iodine.Headless.Fixtures.Client.RadioFixtures;
 
 /// <summary>
 /// The base of the Radio and RadioGroup fixtures: renders <c>data-attached</c> once every tracked radio has its root,

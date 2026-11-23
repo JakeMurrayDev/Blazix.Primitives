@@ -1,4 +1,4 @@
-namespace Blazix.Primitives.Tests;
+namespace Iodine.Headless.Tests;
 
 /// <summary>
 /// ADR 16 rule 7 for CheckboxGroup at L1: the proposal of one member toggle, which builds the new list a commit produces

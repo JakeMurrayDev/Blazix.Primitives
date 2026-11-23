@@ -3,7 +3,7 @@ using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Web;
 using Microsoft.Extensions.DependencyInjection;
 
-namespace Blazix.Primitives.Tests.Components;
+namespace Iodine.Headless.Tests.Components;
 
 /// <summary>
 /// ADR 16 rule 7 for Button: a re-render with unchanged parameters, the parent passing the same values again, measured
@@ -26,7 +26,7 @@ public sealed class ButtonAllocationBudgetTests : IDisposable
 
     public ButtonAllocationBudgetTests()
     {
-        context.Services.AddBlazixPrimitives();
+        context.Services.AddIodineHeadless();
         context.JSInterop.Mode = JSRuntimeMode.Loose;
     }
 

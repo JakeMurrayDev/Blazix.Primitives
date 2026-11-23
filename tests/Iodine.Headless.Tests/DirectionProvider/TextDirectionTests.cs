@@ -1,7 +1,7 @@
 using System.Reflection;
 using Microsoft.AspNetCore.Components;
 
-namespace Blazix.Primitives.Tests;
+namespace Iodine.Headless.Tests;
 
 /// <summary>
 /// L1: UTL-I18N-02 as Base UI's DirectionProvider.spec.tsx checks it, at the type level (the reading direction is a

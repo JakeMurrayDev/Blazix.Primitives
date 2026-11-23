@@ -1,11 +1,11 @@
 using System.Globalization;
-using Blazix.Primitives.Interop;
-using Blazix.Primitives.Rendering;
+using Iodine.Headless.Interop;
+using Iodine.Headless.Rendering;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Rendering;
 using Microsoft.JSInterop;
 
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // TIP-STA-13, TIP-ANI-10 (tooltip/viewport/TooltipViewport.tsx:34-38, 49-62). ActivationDirection and Transitioning are the
 // `popup` module's (ADR 04 Amendments 2026-10-27): mirrored. Instant is C#'s.

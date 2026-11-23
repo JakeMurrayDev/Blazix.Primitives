@@ -1,12 +1,12 @@
-using Blazix.Primitives.Interop;
-using Blazix.Primitives.Rendering;
-using Blazix.Primitives.Store;
+using Iodine.Headless.Interop;
+using Iodine.Headless.Rendering;
+using Iodine.Headless.Store;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Rendering;
 using Microsoft.Extensions.Logging;
 using Microsoft.JSInterop;
 
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // MNU §3.1, §3.17 (MenuRoot.tsx, MenuSubmenuRoot.tsx): what MenuRoot<TPayload>, MenuSubmenuRoot and ContextMenuRoot (track
 // 7) hand their behaviour after their parameters are assigned. Open and TriggerId are read from the ParameterView by
@@ -327,7 +327,7 @@ internal sealed class MenuRootBehavior<TPayload> : IAsyncDisposable
     {
         if (modal is not null && parent.Kind is not null && logger is not null && DevelopmentWarnings.IsEnabled)
         {
-            DevelopmentWarnings.Write(logger, "Blazix: The `Modal` parameter is not supported on nested menus. It will be ignored.");
+            DevelopmentWarnings.Write(logger, "Iodine: The `Modal` parameter is not supported on nested menus. It will be ignored.");
         }
     }
 

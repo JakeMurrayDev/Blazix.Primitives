@@ -1,6 +1,6 @@
 using System.Text.Json.Serialization;
 
-namespace Blazix.Primitives.Interop;
+namespace Iodine.Headless.Interop;
 
 // ADR 04 §1 (dom row) and Amendments 2026-10-18 (Avatar convergent write), 2026-10-20 (owners) and 2026-10-22 (the hidden
 // input's checked; SWT-DOM-08, SWT-EVT-04, SWT-STA-03 and the CHK, RAD rows of the same shape); CHK-DOM-13,

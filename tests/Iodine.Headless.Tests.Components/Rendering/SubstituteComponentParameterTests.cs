@@ -3,7 +3,7 @@ using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Rendering;
 using Microsoft.Extensions.DependencyInjection;
 
-namespace Blazix.Primitives.Tests.Components.Rendering;
+namespace Iodine.Headless.Tests.Components.Rendering;
 
 /// <summary>
 /// ADR 02 decision 1 for a substitute whose root is a component: the component's own parameters keep the types Razor
@@ -17,7 +17,7 @@ public sealed class SubstituteComponentParameterTests : IDisposable
 
     public SubstituteComponentParameterTests()
     {
-        context.Services.AddBlazixPrimitives();
+        context.Services.AddIodineHeadless();
     }
 
     /// <inheritdoc />

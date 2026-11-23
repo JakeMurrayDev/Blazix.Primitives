@@ -1,12 +1,12 @@
 using System.Text.RegularExpressions;
 using AngleSharp.Dom;
-using Blazix.Primitives.Interop;
+using Iodine.Headless.Interop;
 using Bunit;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Web;
 using Microsoft.JSInterop;
 
-namespace Blazix.Primitives.Tests.Components;
+namespace Iodine.Headless.Tests.Components;
 
 // The steps batch B's ComboboxRoot.test.tsx titles take on a ComboboxRootBatchBHarness (and, for the press, the Escape and
 // the options sent, on any Combobox tree), as the modules report them on Server (the twins' [JSInvokable] callbacks), and

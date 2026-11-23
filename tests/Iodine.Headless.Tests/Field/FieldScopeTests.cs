@@ -1,4 +1,4 @@
-namespace Blazix.Primitives.Tests;
+namespace Iodine.Headless.Tests;
 
 // The pure parts of the field scopes at L1: FFI-ALG-09 (described-by composition), FFI-ALG-06 (control-id selection),
 // FFI-ALG-03's empty-value rule, FFI-API-01 (result normalization) and FFI-API-07 (the values object).

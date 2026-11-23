@@ -1,4 +1,4 @@
-namespace Blazix.Primitives.Store;
+namespace Iodine.Headless.Store;
 
 // UTL-STA-20. In Blazor's order a keyed replacement's new part syncs in its parameter set before the replaced part is
 // disposed, where React runs the cleanup first; the dispose therefore resets the member only while this instance synced

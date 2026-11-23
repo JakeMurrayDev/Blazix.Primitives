@@ -1,6 +1,6 @@
-using Blazix.Primitives.Utilities;
+using Iodine.Headless.Utilities;
 
-namespace Blazix.Primitives.Tests;
+namespace Iodine.Headless.Tests;
 
 // UTL-DOM-37 (shared-utilities §4.12.1) as MTR-ALG-03 cites it: numbers written into attributes and inline styles follow
 // ECMAScript Number::toString, which C# double.ToString() does not. The titles are the port's own; the cases are the ones

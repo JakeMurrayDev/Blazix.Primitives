@@ -1,6 +1,6 @@
 using Microsoft.AspNetCore.Components;
 
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // CHK-STR-02, CHK-STA-02, CHK-DOM-08, CHK-EDGE-01; checkbox/root/CheckboxRootContext.ts. The Switch pattern (ADR 05 §1 keeps
 // the family on plain fields): a listener list, cascaded fixed by CheckboxRoot (ADR 16 rule 9). A change reaches the
@@ -23,7 +23,7 @@ internal sealed class CheckboxRootContext
     {
         // CHK-EDGE-01, in every build; the port's words (2026-10-23 port note).
         return context ?? throw new InvalidOperationException(
-            "Blazix: The `CheckboxRoot` context is missing. Checkbox parts must be placed within `<CheckboxRoot>`.");
+            "Iodine: The `CheckboxRoot` context is missing. Checkbox parts must be placed within `<CheckboxRoot>`.");
     }
 
     /// <summary>Takes the root's new state and notifies the indicators.</summary>

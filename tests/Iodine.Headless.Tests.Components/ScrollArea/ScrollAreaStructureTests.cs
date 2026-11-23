@@ -3,7 +3,7 @@ using Bunit;
 using Microsoft.AspNetCore.Components;
 using Microsoft.Extensions.DependencyInjection;
 
-namespace Blazix.Primitives.Tests.Components;
+namespace Iodine.Headless.Tests.Components;
 
 /// <summary>
 /// What the six parts render before the first measurement, and the structural errors (SCR §2, §5; SCR-STA-08, SCR-EDGE-13):
@@ -15,7 +15,7 @@ public sealed class ScrollAreaStructureTests : IDisposable
 
     public ScrollAreaStructureTests()
     {
-        context.Services.AddBlazixPrimitives();
+        context.Services.AddIodineHeadless();
         context.JSInterop.Mode = JSRuntimeMode.Loose;
     }
 
@@ -30,7 +30,7 @@ public sealed class ScrollAreaStructureTests : IDisposable
         // Base UI's wording with the product prefix and code in backticks (plan §Settled, a dated deviation on the row).
         InvalidOperationException error = Assert.Throws<InvalidOperationException>(() => context.Render<ScrollAreaViewport>());
 
-        Assert.Equal("Blazix: `ScrollAreaRootContext` is missing. ScrollArea parts must be placed within `<ScrollAreaRoot>`.", error.Message);
+        Assert.Equal("Iodine: `ScrollAreaRootContext` is missing. ScrollArea parts must be placed within `<ScrollAreaRoot>`.", error.Message);
     }
 
     [Fact(DisplayName = "port: the scrollbar, the corner and the thumb throw the root's error outside a root")]
@@ -39,7 +39,7 @@ public sealed class ScrollAreaStructureTests : IDisposable
     [Trait("Requirement", "SCR-EDGE-01")]
     public void The_scrollbar_the_corner_and_the_thumb_throw_the_roots_error_outside_a_root()
     {
-        const string Message = "Blazix: `ScrollAreaRootContext` is missing. ScrollArea parts must be placed within `<ScrollAreaRoot>`.";
+        const string Message = "Iodine: `ScrollAreaRootContext` is missing. ScrollArea parts must be placed within `<ScrollAreaRoot>`.";
 
         Assert.Equal(Message, Assert.Throws<InvalidOperationException>(() => context.Render<ScrollAreaScrollbar>()).Message);
         Assert.Equal(Message, Assert.Throws<InvalidOperationException>(() => context.Render<ScrollAreaCorner>()).Message);
@@ -54,7 +54,7 @@ public sealed class ScrollAreaStructureTests : IDisposable
         InvalidOperationException error = Assert.Throws<InvalidOperationException>(() => context.Render<ScrollAreaRoot>(p => p
             .AddChildContent<ScrollAreaContent>()));
 
-        Assert.Equal("Blazix: `ScrollAreaViewportContext` missing. ScrollAreaViewport parts must be placed within `<ScrollAreaViewport>`.", error.Message);
+        Assert.Equal("Iodine: `ScrollAreaViewportContext` missing. ScrollAreaViewport parts must be placed within `<ScrollAreaViewport>`.", error.Message);
     }
 
     [Fact(DisplayName = "throws a descriptive error when rendered outside <ScrollArea.Scrollbar>")]
@@ -65,7 +65,7 @@ public sealed class ScrollAreaStructureTests : IDisposable
         InvalidOperationException error = Assert.Throws<InvalidOperationException>(() => context.Render<ScrollAreaRoot>(p => p
             .AddChildContent<ScrollAreaThumb>()));
 
-        Assert.Equal("Blazix: `ScrollAreaScrollbarContext` is missing. ScrollAreaScrollbar parts must be placed within `<ScrollAreaScrollbar>`.", error.Message);
+        Assert.Equal("Iodine: `ScrollAreaScrollbarContext` is missing. ScrollAreaScrollbar parts must be placed within `<ScrollAreaScrollbar>`.", error.Message);
     }
 
     [Fact(DisplayName = "port: the root renders role presentation, position relative and the corner variables at 0px after the scrollbar style")]
@@ -190,7 +190,7 @@ public sealed class ScrollAreaStructureTests : IDisposable
     [Trait("Requirement", "SCR-DOM-16")]
     public void Sets_the_orientation_data_attribute()
     {
-        IRenderedComponent<ScrollAreaRoot> cut = RenderScrollbar(s => s.Add(x => x.KeepMounted, true).Add(x => x.Orientation, Primitives.Orientation.Horizontal));
+        IRenderedComponent<ScrollAreaRoot> cut = RenderScrollbar(s => s.Add(x => x.KeepMounted, true).Add(x => x.Orientation, Headless.Orientation.Horizontal));
 
         Assert.Equal("horizontal", cut.Find("[data-testid=scrollbar]").GetAttribute("data-orientation"));
     }
@@ -208,7 +208,7 @@ public sealed class ScrollAreaStructureTests : IDisposable
             builder.AddAttribute(2, "data-testid", "kept");
             builder.CloseComponent();
             builder.OpenComponent<ScrollAreaScrollbar>(3);
-            builder.AddComponentParameter(4, nameof(ScrollAreaScrollbar.Orientation), Primitives.Orientation.Horizontal);
+            builder.AddComponentParameter(4, nameof(ScrollAreaScrollbar.Orientation), Headless.Orientation.Horizontal);
             builder.AddAttribute(5, "data-testid", "conditional");
             builder.CloseComponent();
         }));
@@ -234,7 +234,7 @@ public sealed class ScrollAreaStructureTests : IDisposable
             builder.AddAttribute(2, "data-testid", "vertical");
             builder.CloseComponent();
             builder.OpenComponent<ScrollAreaScrollbar>(3);
-            builder.AddComponentParameter(4, nameof(ScrollAreaScrollbar.Orientation), Primitives.Orientation.Horizontal);
+            builder.AddComponentParameter(4, nameof(ScrollAreaScrollbar.Orientation), Headless.Orientation.Horizontal);
             builder.AddComponentParameter(5, nameof(ScrollAreaScrollbar.KeepMounted), true);
             builder.AddAttribute(6, "data-testid", "horizontal");
             builder.CloseComponent();
@@ -271,7 +271,7 @@ public sealed class ScrollAreaStructureTests : IDisposable
             }));
             builder.CloseComponent();
             builder.OpenComponent<ScrollAreaScrollbar>(3);
-            builder.AddComponentParameter(4, nameof(ScrollAreaScrollbar.Orientation), Primitives.Orientation.Horizontal);
+            builder.AddComponentParameter(4, nameof(ScrollAreaScrollbar.Orientation), Headless.Orientation.Horizontal);
             builder.AddComponentParameter(5, nameof(ScrollAreaScrollbar.KeepMounted), true);
             builder.AddComponentParameter(6, nameof(ScrollAreaScrollbar.ChildContent), (RenderFragment)(b =>
             {
@@ -300,7 +300,7 @@ public sealed class ScrollAreaStructureTests : IDisposable
         context.Render<ScrollAreaRoot>(p => p.AddChildContent(builder =>
         {
             builder.OpenComponent<ScrollAreaScrollbar>(0);
-            builder.AddComponentParameter(1, nameof(ScrollAreaScrollbar.Orientation), Primitives.Orientation.Horizontal);
+            builder.AddComponentParameter(1, nameof(ScrollAreaScrollbar.Orientation), Headless.Orientation.Horizontal);
             builder.AddComponentParameter(2, nameof(ScrollAreaScrollbar.KeepMounted), true);
             builder.AddComponentParameter(3, nameof(ScrollAreaScrollbar.ChildContent), (RenderFragment)(b =>
             {
@@ -315,7 +315,7 @@ public sealed class ScrollAreaStructureTests : IDisposable
             builder.CloseComponent();
         }));
 
-        Assert.Equal(new ScrollAreaThumbState(false, Primitives.Orientation.Horizontal), seen);
+        Assert.Equal(new ScrollAreaThumbState(false, Headless.Orientation.Horizontal), seen);
     }
 
     [Fact(DisplayName = "port: the corner renders no element before the first measurement, while a kept-mounted scrollbar does")]

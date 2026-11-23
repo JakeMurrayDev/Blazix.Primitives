@@ -1,8 +1,8 @@
 using Bunit;
-using Blazix.Primitives.Store;
+using Iodine.Headless.Store;
 using Microsoft.Extensions.DependencyInjection;
 
-namespace Blazix.Primitives.Tests.Components.Store;
+namespace Iodine.Headless.Tests.Components.Store;
 
 /// <summary>
 /// The part subscription of ADR 05 §1 wired into <c>PartBase</c> (UTL-STA-25/27), observed through bUnit render counts:
@@ -15,7 +15,7 @@ public sealed class PartSubscriptionTests : IDisposable
 
     public PartSubscriptionTests()
     {
-        context.Services.AddBlazixPrimitives();
+        context.Services.AddIodineHeadless();
     }
 
     /// <inheritdoc />

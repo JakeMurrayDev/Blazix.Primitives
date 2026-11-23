@@ -1,9 +1,9 @@
 using System.Linq.Expressions;
-using Blazix.Primitives.Utilities;
+using Iodine.Headless.Utilities;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Rendering;
 
-namespace Blazix.Primitives.Tests.Components;
+namespace Iodine.Headless.Tests.Components;
 
 /// <summary>
 /// A test-only list root of <c>SelectRoot&lt;TValue&gt;</c> and <c>ComboboxRoot&lt;TValue&gt;</c>'s value shape (ADR 08

@@ -1,7 +1,7 @@
-using Blazix.Primitives.Interop;
+using Iodine.Headless.Interop;
 using Microsoft.AspNetCore.Components;
 
-namespace Blazix.Primitives;
+namespace Iodine.Headless;
 
 // What a Popup part hands its FocusManagerBehavior on every parameter set (design point 6 of the focus-manager track,
 // settled by the orchestrator 2026-10-27): FLT §6.10's props as the part resolved them. The targets arrive resolved, the

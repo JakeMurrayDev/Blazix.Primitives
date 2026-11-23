@@ -47,9 +47,9 @@ describe('specification references', () => {
     ['a decision record', 'Settled by a decision record.'],
     ['the glossary', 'A Glossary term.'],
   ])('fails a /// line with %s', (_name, text) => {
-    const result = lint({ 'src/Blazix.Primitives/Part.cs': cs('class Part', '{', doc(text), '    int X;', '}') });
+    const result = lint({ 'src/Iodine.Headless/Part.cs': cs('class Part', '{', doc(text), '    int X;', '}') });
     expect(result.status).toBe(1);
-    expect(result.output).toContain('src/Blazix.Primitives/Part.cs:3');
+    expect(result.output).toContain('src/Iodine.Headless/Part.cs:3');
   });
 
   it('finds an indented /// line (the macOS -E bug skipped these)', () => {

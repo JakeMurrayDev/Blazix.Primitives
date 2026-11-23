@@ -1,10 +1,10 @@
 using AngleSharp.Dom;
 using Bunit;
-using LibraryOrientation = Blazix.Primitives.Orientation;
+using LibraryOrientation = Iodine.Headless.Orientation;
 
 // The namespace is the project's root: a namespace named after the family would hide the parts' types. `Orientation` is
 // aliased because SampleRoot.cs declares a test-local `Orientation` in this namespace that would shadow the library's.
-namespace Blazix.Primitives.Tests.Components;
+namespace Iodine.Headless.Tests.Components;
 
 // ToolbarSeparator.test.tsx's titles verbatim and port titles (marked as such).
 /// <summary>The toolbar separator: a separator perpendicular to its toolbar unless its orientation is supplied.</summary>
@@ -51,7 +51,7 @@ public sealed class ToolbarSeparatorTests : IDisposable
     {
         InvalidOperationException error = Assert.Throws<InvalidOperationException>(() => Context.Render<ToolbarSeparator>());
 
-        Assert.Equal("Blazix: The `ToolbarRoot` context is missing. Toolbar parts must be placed within `<ToolbarRoot>`.", error.Message);
+        Assert.Equal("Iodine: The `ToolbarRoot` context is missing. Toolbar parts must be placed within `<ToolbarRoot>`.", error.Message);
     }
 
     [Fact(DisplayName = "port: data-orientation and the state carry the resolved orientation, which follows the toolbar's")]

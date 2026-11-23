@@ -1,6 +1,6 @@
 using Microsoft.JSInterop;
 
-namespace Blazix.Primitives.Interop;
+namespace Iodine.Headless.Interop;
 
 // ADR 04 §1 (the collapsible component module, Amendments 2026-10-21), §2 (the panel's JS-owned attributes and style;
 // the convergent hidden), §3 (one message per state change; the reveal decision point, fallback run, and its Server
@@ -13,7 +13,7 @@ namespace Blazix.Primitives.Interop;
 /// </summary>
 /// <param name="jsRuntime">The runtime of the part's circuit or WebAssembly application.</param>
 internal sealed class CollapsibleTwin(IJSRuntime jsRuntime)
-    : TwinBase<CollapsibleTwin, CollapsibleOptions>(jsRuntime, LibraryModule("collapsible"), BlazixJsonContext.Default.CollapsibleOptions)
+    : TwinBase<CollapsibleTwin, CollapsibleOptions>(jsRuntime, LibraryModule("collapsible"), IodineJsonContext.Default.CollapsibleOptions)
 {
     /// <summary>Represents the name of the decision point the module asks about when <c>beforematch</c> reveals the panel.</summary>
     public const string RevealPoint = "reveal";
@@ -54,7 +54,7 @@ internal sealed class CollapsibleTwin(IJSRuntime jsRuntime)
     [JSInvokable]
     public void OnForcedIdleChange(string payloadJson)
     {
-        PanelForcedIdleChange change = Deserialize(payloadJson, BlazixJsonContext.Default.PanelForcedIdleChange);
+        PanelForcedIdleChange change = Deserialize(payloadJson, IodineJsonContext.Default.PanelForcedIdleChange);
         ForcedIdleChanged?.Invoke(change.ForcedIdle);
     }
 
@@ -64,7 +64,7 @@ internal sealed class CollapsibleTwin(IJSRuntime jsRuntime)
     [JSInvokable]
     public void OnTransitionComplete(string payloadJson)
     {
-        TransitionCompletion completion = Deserialize(payloadJson, BlazixJsonContext.Default.TransitionCompletion);
+        TransitionCompletion completion = Deserialize(payloadJson, IodineJsonContext.Default.TransitionCompletion);
         if (!completion.Open)
         {
             ExitCompleted?.Invoke();
@@ -77,7 +77,7 @@ internal sealed class CollapsibleTwin(IJSRuntime jsRuntime)
     [JSInvokable]
     public void OnAnimationTypeChange(string payloadJson)
     {
-        PanelAnimationTypeChange change = Deserialize(payloadJson, BlazixJsonContext.Default.PanelAnimationTypeChange);
+        PanelAnimationTypeChange change = Deserialize(payloadJson, IodineJsonContext.Default.PanelAnimationTypeChange);
         AnimationTypeChanged?.Invoke(change);
     }
 
@@ -87,7 +87,7 @@ internal sealed class CollapsibleTwin(IJSRuntime jsRuntime)
     [JSInvokable]
     public void OnPanelStatusChange(string payloadJson)
     {
-        PanelStatusChange change = Deserialize(payloadJson, BlazixJsonContext.Default.PanelStatusChange);
+        PanelStatusChange change = Deserialize(payloadJson, IodineJsonContext.Default.PanelStatusChange);
         StatusChanged?.Invoke(change.Status);
     }
 
@@ -98,7 +98,7 @@ internal sealed class CollapsibleTwin(IJSRuntime jsRuntime)
     [JSInvokable]
     public async Task<bool> OnRevealRequest(string payloadJson)
     {
-        RevealRequest request = Deserialize(payloadJson, BlazixJsonContext.Default.RevealRequest);
+        RevealRequest request = Deserialize(payloadJson, IodineJsonContext.Default.RevealRequest);
         return RevealRequestHandler is { } handler && await handler(request.Event).ConfigureAwait(false);
     }
 

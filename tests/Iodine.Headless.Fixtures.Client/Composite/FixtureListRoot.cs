@@ -1,8 +1,8 @@
-using Blazix.Primitives.Fixtures.Client.PopupFixtures;
+using Iodine.Headless.Fixtures.Client.PopupFixtures;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Rendering;
 
-namespace Blazix.Primitives.Fixtures.Client.CompositeFixtures;
+namespace Iodine.Headless.Fixtures.Client.CompositeFixtures;
 
 /// <summary>
 /// The test-only popup list root at L4 (M5 track 1, issue 159, Deliverable 12; plan §Settled "Test-only hosts"), the

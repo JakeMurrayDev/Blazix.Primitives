@@ -1,4 +1,4 @@
-namespace Blazix.Primitives.Tests.Lints;
+namespace Iodine.Headless.Tests.Lints;
 
 /// <summary>The value of a <c>Writer</c> cell in a component document.</summary>
 internal enum Writer
@@ -37,7 +37,7 @@ internal sealed record RegistryEntry(string Family, string Part, string Attribut
 
 /// <summary>What one run of the ownership lint saw.</summary>
 /// <param name="Violations">One message per mismatch.</param>
-/// <param name="Checked">The families that have a folder under <c>src/Blazix.Primitives/</c>.</param>
+/// <param name="Checked">The families that have a folder under <c>src/Iodine.Headless/</c>.</param>
 /// <param name="Skipped">The families that have none yet.</param>
 /// <param name="JsRows">The number of <c>JS</c> and <c>C# → JS</c> rows in the checked families.</param>
 internal sealed record OwnershipReport(IReadOnlyList<string> Violations, IReadOnlyList<string> Checked, IReadOnlyList<string> Skipped, int JsRows);

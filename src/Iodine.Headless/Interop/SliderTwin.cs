@@ -1,6 +1,6 @@
 using Microsoft.JSInterop;
 
-namespace Blazix.Primitives.Interop;
+namespace Iodine.Headless.Interop;
 
 // ADR 04 §1 (the `slider` component module), §2 (the Slider.Thumb and Slider.Indicator row), §3 (the two decision points of
 // Slider) and Amendments 2026-10-18 (placement; the handover), 2026-10-20 (the blur classification) and 2026-11-18 (the
@@ -14,7 +14,7 @@ namespace Blazix.Primitives.Interop;
 /// </summary>
 /// <param name="jsRuntime">The runtime of the part's circuit or WebAssembly application.</param>
 internal sealed class SliderTwin(IJSRuntime jsRuntime)
-    : TwinBase<SliderTwin, SliderOptions>(jsRuntime, LibraryModule("slider"), BlazixJsonContext.Default.SliderOptions)
+    : TwinBase<SliderTwin, SliderOptions>(jsRuntime, LibraryModule("slider"), IodineJsonContext.Default.SliderOptions)
 {
     // ADR 04 §3: the thumb `keydown`, fallback run (SLD-KEY-01, SLD-API-22, SLD-EVT-09).
     /// <summary>Represents the name of the decision point the module asks before it handles a key on a thumb input.</summary>
@@ -59,7 +59,7 @@ internal sealed class SliderTwin(IJSRuntime jsRuntime)
     [JSInvokable]
     public void OnValueRequest(string payloadJson)
     {
-        SliderValueRequest request = Deserialize(payloadJson, BlazixJsonContext.Default.SliderValueRequest);
+        SliderValueRequest request = Deserialize(payloadJson, IodineJsonContext.Default.SliderValueRequest);
         ValueRequested?.Invoke(request);
     }
 
@@ -69,7 +69,7 @@ internal sealed class SliderTwin(IJSRuntime jsRuntime)
     [JSInvokable]
     public void OnGesture(string payloadJson)
     {
-        SliderGestureReport report = Deserialize(payloadJson, BlazixJsonContext.Default.SliderGestureReport);
+        SliderGestureReport report = Deserialize(payloadJson, IodineJsonContext.Default.SliderGestureReport);
         GestureChanged?.Invoke(report);
     }
 
@@ -79,7 +79,7 @@ internal sealed class SliderTwin(IJSRuntime jsRuntime)
     [JSInvokable]
     public void OnFocusChange(string payloadJson)
     {
-        SliderFocusReport report = Deserialize(payloadJson, BlazixJsonContext.Default.SliderFocusReport);
+        SliderFocusReport report = Deserialize(payloadJson, IodineJsonContext.Default.SliderFocusReport);
         FocusChanged?.Invoke(report);
     }
 
@@ -89,7 +89,7 @@ internal sealed class SliderTwin(IJSRuntime jsRuntime)
     [JSInvokable]
     public void OnKeyDown(string payloadJson)
     {
-        SliderKeyReport report = Deserialize(payloadJson, BlazixJsonContext.Default.SliderKeyReport);
+        SliderKeyReport report = Deserialize(payloadJson, IodineJsonContext.Default.SliderKeyReport);
         KeyReported?.Invoke(report);
     }
 

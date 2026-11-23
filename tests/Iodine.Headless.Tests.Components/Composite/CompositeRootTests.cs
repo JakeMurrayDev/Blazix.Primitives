@@ -1,11 +1,11 @@
-using Blazix.Primitives.Interop;
+using Iodine.Headless.Interop;
 using Bunit;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Rendering;
 using Microsoft.AspNetCore.Components.Web;
 using Microsoft.JSInterop;
 
-namespace Blazix.Primitives.Tests.Components;
+namespace Iodine.Headless.Tests.Components;
 
 /// <summary>
 /// The C# half of the composite (L2, the test-only hosts): what <see cref="CompositeRootBehavior"/> and
@@ -43,7 +43,7 @@ public sealed class CompositeRootTests : IDisposable
     public void Does_not_add_aria_orientation_when_orientation_is_set()
     {
         IRenderedComponent<TestCompositeRoot> cut = Context.Render<TestCompositeRoot>(p => p
-            .Add(x => x.Orientation, Blazix.Primitives.Orientation.Horizontal)
+            .Add(x => x.Orientation, Iodine.Headless.Orientation.Horizontal)
             .AddChildContent(CompositeItems.Of("1", "2")));
 
         AngleSharp.Dom.IElement root = cut.Find("div");
@@ -211,7 +211,7 @@ public sealed class CompositeRootTests : IDisposable
         Context.Render<DirectionProvider>(p => p
             .Add(x => x.Direction, TextDirection.Rtl)
             .AddChildContent<TestCompositeRoot>(root => root
-                .Add(x => x.Orientation, Blazix.Primitives.Orientation.Horizontal)
+                .Add(x => x.Orientation, Iodine.Headless.Orientation.Horizontal)
                 .AddChildContent(CompositeItems.Of("1", "2", "3"))));
 
         JsonAssert(Assert.Single(host.Attaches), "direction", "rtl");
@@ -402,7 +402,7 @@ public sealed class CompositeRootTests : IDisposable
         InvalidOperationException error = Assert.Throws<InvalidOperationException>(() => Context.Render<TestCompositeItem>());
 
         Assert.Equal(
-            "Blazix: `TestCompositeItem` must be placed within a composite root. A composite item registers with the nearest root, which owns its tab stop.",
+            "Iodine: `TestCompositeItem` must be placed within a composite root. A composite item registers with the nearest root, which owns its tab stop.",
             error.Message);
     }
 

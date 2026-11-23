@@ -1,7 +1,7 @@
 using System.Globalization;
-using Blazix.Primitives.Utilities;
+using Iodine.Headless.Utilities;
 
-namespace Blazix.Primitives.Tests;
+namespace Iodine.Headless.Tests;
 
 // RAD-FRM-02, RAD-DOM-11, FFI-ALG-11 (radio.md's dated deviation note of 2026-10-23, ADR 08 Amendments 2026-10-22): the text a
 // hidden radio input submits. CI runs under the invariant culture, so every title sets a culture whose decimal separator

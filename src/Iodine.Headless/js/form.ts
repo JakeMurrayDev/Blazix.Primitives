@@ -134,8 +134,8 @@ const VALIDITY_KEYS = [
 
 // FFI-FRM-09: the field's own message and the message it displaced, kept on the element so that the form half (track 2)
 // reads the same base state as the control's handle.
-const ownership = Symbol('blazix.form.ownership');
-const liveHandle = Symbol('blazix.form.handle');
+const ownership = Symbol('iodine.form.ownership');
+const liveHandle = Symbol('iodine.form.handle');
 // FRM-DOM-02/03, design point F6 (settled by the orchestrator 2026-10-23; ADR 04 §3's one-way contract): the forms of the
 // page by the token C# draws and never renders, each with the controls enrolled on it. The one module-level registry of
 // the module (js/CONTEXT.md): a control and its form attach in either order, so a control enrols by token, and resolves its

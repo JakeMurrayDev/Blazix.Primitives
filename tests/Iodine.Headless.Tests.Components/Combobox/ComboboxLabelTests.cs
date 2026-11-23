@@ -8,7 +8,7 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 
 // Family tests use the project's root namespace.
-namespace Blazix.Primitives.Tests.Components;
+namespace Iodine.Headless.Tests.Components;
 
 // CMB §3.2 at L2 (ComboboxLabel.test.tsx and ComboboxRoot.test.tsx's labelling titles whose assertions are what C# renders and
 // sends): the label's id, the trigger's aria-labelledby, the `form` module's label role, and the development warning of
@@ -16,7 +16,7 @@ namespace Blazix.Primitives.Tests.Components;
 /// <summary>Combobox's Label at L2.</summary>
 public sealed class ComboboxLabelTests : IDisposable
 {
-    private const string Warning = "Blazix: `<ComboboxLabel>` labels `<ComboboxTrigger>` only.";
+    private const string Warning = "Iodine: `<ComboboxLabel>` labels `<ComboboxTrigger>` only.";
 
     private readonly ComboboxTestContext test = new();
 

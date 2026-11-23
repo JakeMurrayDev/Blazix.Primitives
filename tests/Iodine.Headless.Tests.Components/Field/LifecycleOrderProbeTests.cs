@@ -2,7 +2,7 @@ using Bunit;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Rendering;
 
-namespace Blazix.Primitives.Tests.Components;
+namespace Iodine.Headless.Tests.Components;
 
 /// <summary>
 /// The ADR 01 probe of issue 77: Blazor's order of <c>OnAfterRender</c> and <c>Dispose</c> against FFI §8 ("after DOM
