@@ -27,7 +27,7 @@ describe('family folder names', () => {
 
 describe('scoped L4', () => {
   it('a change confined to one family folder runs that family\'s specs in both modes', () => {
-    const result = run(['src/Blazix.Primitives/Tabs/TabsRoot.cs', 'src/Blazix.Primitives/Tabs/TabsList.cs']);
+    const result = run(['src/Iodine.Headless/Tabs/TabsRoot.cs', 'src/Iodine.Headless/Tabs/TabsList.cs']);
     expect(result.l4).toBe('scoped');
     expect(result.families).toEqual(['tabs']);
     expect(result.specs).toEqual(['tests/browser/tabs.indicator.spec.ts', 'tests/browser/tabs.spec.ts']);
@@ -43,11 +43,11 @@ describe('scoped L4', () => {
 
   it('matches a spec to its family by the name before the first dot, so checkbox does not claim checkbox-group', () => {
     expect(run(['tests/browser/checkbox.spec.ts']).specs).toEqual(['tests/browser/checkbox.spec.ts']);
-    expect(run(['src/Blazix.Primitives/CheckboxGroup/CheckboxGroupRoot.cs']).specs).toEqual(['tests/browser/checkbox-group.spec.ts']);
+    expect(run(['src/Iodine.Headless/CheckboxGroup/CheckboxGroupRoot.cs']).specs).toEqual(['tests/browser/checkbox-group.spec.ts']);
   });
 
   it('several families run all of their specs', () => {
-    const result = run(['src/Blazix.Primitives/Tabs/TabsRoot.cs', 'src/Blazix.Primitives/AlertDialog/AlertDialogRoot.cs']);
+    const result = run(['src/Iodine.Headless/Tabs/TabsRoot.cs', 'src/Iodine.Headless/AlertDialog/AlertDialogRoot.cs']);
     expect(result.l4).toBe('scoped');
     expect(result.families).toEqual(['alert-dialog', 'tabs']);
     expect(result.specs).toEqual(['tests/browser/alert-dialog.spec.ts', 'tests/browser/tabs.indicator.spec.ts', 'tests/browser/tabs.spec.ts']);
@@ -61,7 +61,7 @@ describe('scoped L4', () => {
   });
 
   it('a family with no spec yet is scoped and has nothing to run', () => {
-    const result = run(['src/Blazix.Primitives/Button/Button.cs']);
+    const result = run(['src/Iodine.Headless/Button/Button.cs']);
     expect(result.l4).toBe('scoped');
     expect(result.specs).toEqual([]);
     expect(result.runL4).toBe(false);
@@ -69,10 +69,10 @@ describe('scoped L4', () => {
 
   it('files that cannot change a browser result do not widen a family change', () => {
     const result = run([
-      'src/Blazix.Primitives/Tabs/TabsRoot.cs',
-      'tests/Blazix.Primitives.Tests/Tabs/TabsRootTests.cs',
-      'tests/Blazix.Primitives.Tests.Components/Tabs/TabsRootRenderTests.cs',
-      'src/Blazix.Primitives/Tabs/CONTEXT.md',
+      'src/Iodine.Headless/Tabs/TabsRoot.cs',
+      'tests/Iodine.Headless.Tests/Tabs/TabsRootTests.cs',
+      'tests/Iodine.Headless.Tests.Components/Tabs/TabsRootRenderTests.cs',
+      'src/Iodine.Headless/Tabs/CONTEXT.md',
     ]);
     expect(result.l4).toBe('scoped');
     expect(result.families).toEqual(['tabs']);
@@ -85,12 +85,12 @@ describe('dependent families', () => {
   const withDialog = { families: [...families, 'dialog'], specFiles: [...specFiles, 'tests/browser/dialog.spec.ts'] };
 
   it('a change under the Dialog folder also runs the AlertDialog specs, and not the other way round', () => {
-    const shared = run(['src/Blazix.Primitives/Dialog/DialogPopupBehavior.cs'], withDialog);
+    const shared = run(['src/Iodine.Headless/Dialog/DialogPopupBehavior.cs'], withDialog);
     expect(shared.l4).toBe('scoped');
     expect(shared.families).toEqual(['alert-dialog', 'dialog']);
     expect(shared.specs).toEqual(['tests/browser/alert-dialog.spec.ts', 'tests/browser/dialog.spec.ts']);
 
-    expect(run(['src/Blazix.Primitives/AlertDialog/AlertDialogRoot.cs'], withDialog).specs).toEqual(['tests/browser/alert-dialog.spec.ts']);
+    expect(run(['src/Iodine.Headless/AlertDialog/AlertDialogRoot.cs'], withDialog).specs).toEqual(['tests/browser/alert-dialog.spec.ts']);
     expect(run(['tests/browser/dialog.spec.ts'], withDialog).specs).toEqual(['tests/browser/dialog.spec.ts']);
   });
 
@@ -101,13 +101,13 @@ describe('dependent families', () => {
       families: [...families, 'menu', 'context-menu'],
       specFiles: [...specFiles, 'tests/browser/menu.root.spec.ts', 'tests/browser/menu.helpers.ts', 'tests/browser/context-menu.spec.ts'],
     };
-    const shared = run(['src/Blazix.Primitives/Menu/MenuPopupBehavior.cs'], withMenu);
+    const shared = run(['src/Iodine.Headless/Menu/MenuPopupBehavior.cs'], withMenu);
     expect(shared.l4).toBe('scoped');
     expect(shared.families).toEqual(['context-menu', 'menu']);
     expect(shared.specs).toContain('tests/browser/context-menu.spec.ts');
     expect(shared.specs).toContain('tests/browser/menu.root.spec.ts');
 
-    expect(run(['src/Blazix.Primitives/ContextMenu/ContextMenuTrigger.cs'], withMenu).specs).toEqual(['tests/browser/context-menu.spec.ts']);
+    expect(run(['src/Iodine.Headless/ContextMenu/ContextMenuTrigger.cs'], withMenu).specs).toEqual(['tests/browser/context-menu.spec.ts']);
   });
 
   // Design point 4 (a) of M5 track 8 (issue 195; settled by the orchestrator 2026-11-11): Menubar's menus are Menu's own
@@ -117,11 +117,11 @@ describe('dependent families', () => {
       families: [...families, 'menu', 'context-menu', 'menubar'],
       specFiles: [...specFiles, 'tests/browser/menu.root.spec.ts', 'tests/browser/context-menu.spec.ts', 'tests/browser/menubar.spec.ts'],
     };
-    const shared = run(['src/Blazix.Primitives/Menu/MenuTriggerBehavior.cs'], withMenu);
+    const shared = run(['src/Iodine.Headless/Menu/MenuTriggerBehavior.cs'], withMenu);
     expect(shared.families).toEqual(['context-menu', 'menu', 'menubar']);
     expect(shared.specs).toContain('tests/browser/menubar.spec.ts');
 
-    expect(run(['src/Blazix.Primitives/Menubar/Menubar.cs'], withMenu).specs).toEqual(['tests/browser/menubar.spec.ts']);
+    expect(run(['src/Iodine.Headless/Menubar/Menubar.cs'], withMenu).specs).toEqual(['tests/browser/menubar.spec.ts']);
   });
 
   // Deliverable 10 of M5 track 11 (issue 196; the AlertDialog precedent, ADR 11 Amendments 2026-10-29): Autocomplete's parts
@@ -132,13 +132,13 @@ describe('dependent families', () => {
       families: [...families, 'combobox', 'autocomplete'],
       specFiles: [...specFiles, 'tests/browser/combobox.root-a.spec.ts', 'tests/browser/combobox.helpers.ts', 'tests/browser/autocomplete.spec.ts'],
     };
-    const shared = run(['src/Blazix.Primitives/Combobox/ComboboxStore.cs'], withCombobox);
+    const shared = run(['src/Iodine.Headless/Combobox/ComboboxStore.cs'], withCombobox);
     expect(shared.l4).toBe('scoped');
     expect(shared.families).toEqual(['autocomplete', 'combobox']);
     expect(shared.specs).toContain('tests/browser/autocomplete.spec.ts');
     expect(shared.specs).toContain('tests/browser/combobox.root-a.spec.ts');
 
-    expect(run(['src/Blazix.Primitives/Autocomplete/AutocompleteRoot.cs'], withCombobox).specs).toEqual(['tests/browser/autocomplete.spec.ts']);
+    expect(run(['src/Iodine.Headless/Autocomplete/AutocompleteRoot.cs'], withCombobox).specs).toEqual(['tests/browser/autocomplete.spec.ts']);
   });
 
   // M6 track 8a (issue 279; decision 20 (a) of the M6 plan, chosen by the user 2026-11-18; ADR 11 Amendments 2026-10-29's
@@ -149,14 +149,14 @@ describe('dependent families', () => {
       families: [...families, 'dialog', 'drawer'],
       specFiles: [...specFiles, 'tests/browser/dialog.spec.ts', 'tests/browser/drawer.spec.ts', 'tests/browser/drawer.swipe.spec.ts'],
     };
-    const shared = run(['src/Blazix.Primitives/Dialog/DialogStore.cs'], withDrawer);
+    const shared = run(['src/Iodine.Headless/Dialog/DialogStore.cs'], withDrawer);
     expect(shared.l4).toBe('scoped');
     expect(shared.families).toEqual(['alert-dialog', 'dialog', 'drawer']);
     expect(shared.specs).toContain('tests/browser/drawer.spec.ts');
     expect(shared.specs).toContain('tests/browser/drawer.swipe.spec.ts');
     expect(shared.specs).toContain('tests/browser/alert-dialog.spec.ts');
 
-    expect(run(['src/Blazix.Primitives/Drawer/DrawerRoot.cs'], withDrawer).specs).toEqual([
+    expect(run(['src/Iodine.Headless/Drawer/DrawerRoot.cs'], withDrawer).specs).toEqual([
       'tests/browser/drawer.spec.ts',
       'tests/browser/drawer.swipe.spec.ts',
     ]);
@@ -165,15 +165,15 @@ describe('dependent families', () => {
 
 describe('full L4', () => {
   it.each([
-    'src/Blazix.Primitives/Rendering/PartBase.cs',
-    'src/Blazix.Primitives/Store/Store.cs',
-    'src/Blazix.Primitives/Events/ChangeEventDetails.cs',
-    'src/Blazix.Primitives/Interop/TwinBase.cs',
-    'src/Blazix.Primitives/js/twin.ts',
-    'src/Blazix.Primitives/Blazix.Primitives.csproj',
-    'src/Blazix.Primitives.Generators/PartStateGenerator.cs',
-    'tests/Blazix.Primitives.Fixtures/Program.cs',
-    'tests/Blazix.Primitives.Fixtures.Client/FixtureCatalog.cs',
+    'src/Iodine.Headless/Rendering/PartBase.cs',
+    'src/Iodine.Headless/Store/Store.cs',
+    'src/Iodine.Headless/Events/ChangeEventDetails.cs',
+    'src/Iodine.Headless/Interop/TwinBase.cs',
+    'src/Iodine.Headless/js/twin.ts',
+    'src/Iodine.Headless/Iodine.Headless.csproj',
+    'src/Iodine.Headless.Generators/PartStateGenerator.cs',
+    'tests/Iodine.Headless.Fixtures/Program.cs',
+    'tests/Iodine.Headless.Fixtures.Client/FixtureCatalog.cs',
     'tests/browser/helpers/navigation.ts',
     'tests/browser/wasm-warmup.setup.ts',
     'playwright.config.ts',
@@ -193,11 +193,11 @@ describe('full L4', () => {
   });
 
   it('a path nobody classified forces it, so a new folder is never silently skipped', () => {
-    expect(run(['src/Blazix.Primitives/Frobnicate/Frob.cs']).l4).toBe('full');
+    expect(run(['src/Iodine.Headless/Frobnicate/Frob.cs']).l4).toBe('full');
   });
 
   it('a family folder and a shared folder together are full L4 (the synthetic pull request of issue 22)', () => {
-    const result = run(['src/Blazix.Primitives/Tabs/TabsRoot.cs', 'src/Blazix.Primitives/Rendering/PartBase.cs']);
+    const result = run(['src/Iodine.Headless/Tabs/TabsRoot.cs', 'src/Iodine.Headless/Rendering/PartBase.cs']);
     expect(result.l4).toBe('full');
     expect(result.runL4).toBe(true);
   });
@@ -236,24 +236,24 @@ describe('no L4', () => {
 
   it('a change confined to the L1, L2 and generator test projects needs no browser run', () => {
     const result = run([
-      'tests/Blazix.Primitives.Tests/Store/StoreTests.cs',
-      'tests/Blazix.Primitives.Tests.Components/Rendering/RenderPipelineTests.cs',
-      'tests/Blazix.Primitives.Tests.Generators/PartState/PartStateGeneratorTests.cs',
+      'tests/Iodine.Headless.Tests/Store/StoreTests.cs',
+      'tests/Iodine.Headless.Tests.Components/Rendering/RenderPipelineTests.cs',
+      'tests/Iodine.Headless.Tests.Generators/PartState/PartStateGeneratorTests.cs',
     ]);
     expect(result).toMatchObject({ docs: false, code: true, l4: 'none', runL4: false });
   });
 
   it('a change confined to samples/ runs build-and-test, which builds the sample application, and needs no browser run', () => {
     const result = run([
-      'samples/Blazix.Primitives.Demo/Program.cs',
-      'samples/Blazix.Primitives.Demo.Client/Demos/MeterDemo.razor.css',
+      'samples/Iodine.Headless.Demo/Program.cs',
+      'samples/Iodine.Headless.Demo.Client/Demos/MeterDemo.razor.css',
       'samples/README.md',
     ]);
     expect(result).toMatchObject({ docs: false, code: true, l4: 'none', runL4: false });
   });
 
   it('samples/ next to a family change leaves the scope at that family', () => {
-    const result = run(['samples/Blazix.Primitives.Demo.Client/Demos/ButtonDemo.razor', 'src/Blazix.Primitives/Button/Button.cs']);
+    const result = run(['samples/Iodine.Headless.Demo.Client/Demos/ButtonDemo.razor', 'src/Iodine.Headless/Button/Button.cs']);
     expect(result).toMatchObject({ code: true, l4: 'scoped', families: ['button'] });
   });
 
@@ -266,14 +266,14 @@ describe('no L4', () => {
   });
 
   it('documents and a family change together run docs-lint and the family\'s specs', () => {
-    const result = run(['docs/components/tabs.md', 'src/Blazix.Primitives/Tabs/TabsRoot.cs']);
+    const result = run(['docs/components/tabs.md', 'src/Iodine.Headless/Tabs/TabsRoot.cs']);
     expect(result).toMatchObject({ docs: true, code: true, l4: 'scoped', families: ['tabs'] });
   });
 });
 
 describe('workflow outputs', () => {
   it('writes the keys the workflow reads, with specs space-separated and empty for full L4', () => {
-    const scoped = formatOutputs(run(['src/Blazix.Primitives/Tabs/TabsRoot.cs']));
+    const scoped = formatOutputs(run(['src/Iodine.Headless/Tabs/TabsRoot.cs']));
     expect(scoped).toBe(
       [
         'docs=false',

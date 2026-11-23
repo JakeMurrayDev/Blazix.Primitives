@@ -9,6 +9,6 @@ import { test, expect, gotoFixture } from './helpers';
 test('warms up the WebAssembly fixture host', async ({ page, mode }) => {
   const probe = await gotoFixture(page, mode, 'probe');
   await expect(probe).toHaveAttribute('data-renderer', 'WebAssembly');
-  const positioning = await page.evaluate(async () => (await fetch('/_content/Blazix.Primitives/js/positioning.js')).status);
+  const positioning = await page.evaluate(async () => (await fetch('/_content/Iodine.Headless/js/positioning.js')).status);
   expect(positioning).toBe(200);
 });

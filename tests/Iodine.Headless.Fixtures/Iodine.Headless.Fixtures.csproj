@@ -1,0 +1,22 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <!-- L4 host (ADR 09 §1): a Blazor Web App with Server and WebAssembly interactivity. Not built by the L1-L3 CI job. -->
+  <PropertyGroup>
+    <IsPackable>false</IsPackable>
+    <BlazorDisableThrowNavigationException>true</BlazorDisableThrowNavigationException>
+  </PropertyGroup>
+
+  <!--
+    The library's development warnings are on in both modes, as in a Debug build of an app, so the specs can read them
+    from the captured diagnostics (ADR 06 §2; first needed by the Collapsible warnings, COL-EDGE-02/03).
+  -->
+  <ItemGroup>
+    <RuntimeHostConfigurationOption Include="Iodine.Headless.DevelopmentWarnings" Value="true" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Iodine.Headless.Fixtures.Client\Iodine.Headless.Fixtures.Client.csproj" />
+    <PackageReference Include="Microsoft.AspNetCore.Components.WebAssembly.Server" />
+  </ItemGroup>
+
+</Project>

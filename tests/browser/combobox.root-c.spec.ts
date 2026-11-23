@@ -4,7 +4,7 @@ import { center, fire, gotoCombobox, moveTo, recorded, type FixtureOptions } fro
 import { pressControl, settle } from './suites/popupFixture';
 
 // ComboboxRoot.test.tsx, lines 10000 on, ported at L4 (M5 track 10, issue 174): Base UI's titles verbatim, on the `combobox-root-c`
-// fixture (tests/Blazix.Primitives.Fixtures.Client/Combobox/L4/ComboboxRootCL4Fixture.razor), every title on both render modes.
+// fixture (tests/Iodine.Headless.Fixtures.Client/Combobox/L4/ComboboxRootCL4Fixture.razor), every title on both render modes.
 // The fixture's `case` picks the test's rendering; its callbacks are recorded as the container's `data-*` attributes.
 //
 // Not ported (render `Autocomplete.*`, track 11's): "does not request form submission when no form owns the autocomplete",

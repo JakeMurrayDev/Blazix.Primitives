@@ -1,0 +1,44 @@
+@namespace Iodine.Headless.Fixtures.Client.OtpFieldFixtures
+@using System.ComponentModel.DataAnnotations
+@using Iodine.Headless
+@inherits OtpFieldFixtureBase
+
+@*
+    The `otp-field-editcontext` fixture (tests/browser/otp-field.spec.ts, `@verifies ADR-05/5`): Blazor's EditForm with
+    DataAnnotationsValidator and ValidationMessage over a FieldRoot and an OtpFieldRoot bound with @bind-Value to a code
+    that must be six digits. The field notifies the EditContext of each committed change, takes the property's name, and
+    shows the validator's messages as its invalid state (ADR 05 Amendments 2026-10-22, Amendments 2026-11-18 item 2).
+    Submissions are counted as data-valid-submits and data-invalid-submits. The form is `novalidate`: the hidden input's
+    whole-code `pattern` would otherwise block an incomplete code's submit before the EditForm sees it.
+*@
+<FixtureContainer Name="otp-field-editcontext" data-attached="@(Attached ? "true" : "false")"
+                  data-valid-submits="@validSubmits" data-invalid-submits="@invalidSubmits">
+    <EditForm Model="model" novalidate OnValidSubmit="() => validSubmits++" OnInvalidSubmit="() => invalidSubmits++">
+        <DataAnnotationsValidator />
+        <FieldRoot data-testid="field">
+            <OtpFieldRoot @ref="Root" Length="6" @bind-Value="model.Code" data-testid="root">
+                @for (int i = 0; i < 6; i++)
+                {
+                    int index = i;
+                    <OtpFieldInput data-testid="@($"slot-{index}")" aria-label="@($"Character {index + 1} of 6")" />
+                }
+            </OtpFieldRoot>
+            <FieldError data-testid="error" />
+        </FieldRoot>
+        <ValidationMessage For="() => model.Code" data-testid="message" />
+        <button type="submit">Submit</button>
+    </EditForm>
+</FixtureContainer>
+
+@code {
+    private readonly Login model = new();
+    private int validSubmits;
+    private int invalidSubmits;
+
+    private sealed class Login
+    {
+        [Required(ErrorMessage = "Enter the code.")]
+        [RegularExpression(@"^\d{6}$", ErrorMessage = "The code has six digits.")]
+        public string Code { get; set; } = string.Empty;
+    }
+}

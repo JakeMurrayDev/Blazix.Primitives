@@ -1,0 +1,83 @@
+@namespace Iodine.Headless.Fixtures.Client.SliderFixtures
+@using Iodine.Headless
+@inherits SliderFixtureBase
+
+@*
+    The `slider-label` fixture (tests/browser/slider.field.spec.ts): a slider outside a Field with a SliderLabel, for
+    SLD-FOC-05/06/08, SLD-KEY-11, SLD-API-22 and SLD-EDGE-10. Query: `value=` (single DefaultValue, default 40) or
+    `values=` (range DefaultValues, comma-separated; the thumbs are labelled "Minimum price" and "Maximum price" and carry
+    `Index`); `name=` (the Root's Name). A 100 px Control, its Track filling it, 10 px thumbs `thumb-0`..; every thumb's
+    consumer `onfocus` and `onblur` are recorded as `data-focus-log` (`focus:i` / `blur:i`, space-separated). The
+    `disabled` toggle (pressed with a DOM click, so focus stays) flips the Root's Disabled. Records OnValueChange and
+    OnValuesChange (`data-changes`).
+*@
+<FixtureContainer Name="slider-label" data-attached="@(Attached ? "true" : "false")" data-sync="@Sync"
+                  data-changes="@string.Join(" ", Changes)" data-focus-log="@string.Join(" ", focusLog)">
+    <button type="button" data-sync-button @onclick="() => Sync++">Sync</button>
+    <button type="button" data-toggle="disabled" @onclick="() => disabled = !disabled">Disabled</button>
+    @if (defaultValues is null)
+    {
+        <SliderRoot @ref="Root" DefaultValue="@defaultValue" Name="@name" Disabled="@disabled" Culture="@Culture"
+                    OnValueChange="RecordChange" data-testid="root">
+            @Parts
+        </SliderRoot>
+    }
+    else
+    {
+        <SliderRoot @ref="Root" DefaultValues="@defaultValues" Name="@name" Disabled="@disabled" Culture="@Culture"
+                    OnValuesChange="RecordChanges" data-testid="root">
+            @Parts
+        </SliderRoot>
+    }
+</FixtureContainer>
+
+@code {
+    private readonly List<string> focusLog = [];
+    private double? defaultValue;
+    private double[]? defaultValues;
+    private string? name;
+    private bool disabled;
+
+    private static System.Globalization.CultureInfo Culture => System.Globalization.CultureInfo.GetCultureInfo("en-US");
+
+    private RenderFragment Parts => __builder =>
+    {
+        <SliderLabel @ref="Label" data-testid="label">@(defaultValues is null ? "Volume" : "Price range")</SliderLabel>
+        <SliderControl data-testid="control" style="width: 100px; height: 10px; position: relative">
+            <SliderTrack data-testid="track" style="width: 100%; height: 100%">
+                @if (defaultValues is null)
+                {
+                    <SliderThumb data-testid="thumb-0" style="width: 10px; height: 10px; background: red"
+                                 @onfocus="@(() => focusLog.Add("focus:0"))" @onblur="@(() => focusLog.Add("blur:0"))" />
+                }
+                else
+                {
+                    for (int i = 0; i < defaultValues.Length; i++)
+                    {
+                        int index = i;
+                        <SliderThumb Index="@index" data-testid="@($"thumb-{index}")" aria-label="@(index == 0 ? "Minimum price" : "Maximum price")"
+                                     style="width: 10px; height: 10px; background: red"
+                                     @onfocus="@(() => focusLog.Add($"focus:{index}"))" @onblur="@(() => focusLog.Add($"blur:{index}"))" />
+                    }
+                }
+            </SliderTrack>
+        </SliderControl>
+    };
+
+    /// <inheritdoc />
+    protected override void OnInitialized()
+    {
+        System.Globalization.CultureInfo invariant = System.Globalization.CultureInfo.InvariantCulture;
+        string range = Query("values", "");
+        if (range.Length > 0)
+        {
+            defaultValues = range.Split(',', StringSplitOptions.RemoveEmptyEntries).Select(text => double.Parse(text, invariant)).ToArray();
+        }
+        else
+        {
+            defaultValue = double.Parse(Query("value", "40"), invariant);
+        }
+
+        name = Query("name", "") is { Length: > 0 } text ? text : null;
+    }
+}

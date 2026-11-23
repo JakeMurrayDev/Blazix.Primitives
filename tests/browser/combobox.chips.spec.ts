@@ -5,7 +5,7 @@ import { fire, gotoCombobox, moveTo, recorded, type FixtureOptions } from './com
 
 // Base UI's ComboboxChip.test.tsx, ComboboxChipRemove.test.tsx, ComboboxChips.test.tsx and parts.test.ts (M5 track 10, issue 174)
 // on the `combobox-chips` fixture, titles verbatim, every title on both render modes. The fixture renders the page of each test
-// from its query (tests/Blazix.Primitives.Fixtures.Client/Combobox/L4/ComboboxChipsL4Fixture.razor). `settle` is the barrier a
+// from its query (tests/Iodine.Headless.Fixtures.Client/Combobox/L4/ComboboxChipsL4Fixture.razor). `settle` is the barrier a
 // negative assertion waits behind: every event dispatched before it has reached C#.
 
 /** Opens the fixture and waits behind the barrier, so the chips' own handles (they report no marker of theirs) are attached. */
@@ -21,7 +21,7 @@ async function open(page: Page, mode: RenderMode, options: FixtureOptions = {}):
   await expect
     .poll(() =>
       page.getByTestId('chips').evaluate((element) => {
-        const key = Object.getOwnPropertySymbols(element).find((symbol) => symbol.description === 'blazix.combobox.chipIds');
+        const key = Object.getOwnPropertySymbols(element).find((symbol) => symbol.description === 'iodine.combobox.chipIds');
         const ids = key ? ((element as unknown as Record<symbol, string[]>)[key] ?? []) : [];
         const chips = element.querySelectorAll('[data-testid^="chip-"]').length;
         return ids.length === chips ? 'ready' : `ids ${ids.length} chips ${chips} key ${Boolean(key)}`;

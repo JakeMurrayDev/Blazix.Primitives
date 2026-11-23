@@ -1,7 +1,7 @@
 # Payload type parameter probe (issue 116)
 
 Throwaway probe for ADR 08 Amendments 2026-10-27's payload bullet and ADR 14's row for it
-([issue 116](https://github.com/JakeMurrayDev/Blazix.Primitives/issues/116)), run by M4 track 1 on 2026-10-27 before the
+([issue 116](https://github.com/JakeMurrayDev/Iodine.Headless/issues/116)), run by M4 track 1 on 2026-10-27 before the
 popup parts were shaped. Excluded from the solution (ADR 14 §3). SDK 11.0.100-rc.2.26504.105 (`global.json`), the SDK's
 own Razor source generator, `Microsoft.AspNetCore.App` 11.0.0-rc.2 as a framework reference.
 

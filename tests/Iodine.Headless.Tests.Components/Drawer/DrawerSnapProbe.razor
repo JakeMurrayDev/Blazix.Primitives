@@ -1,0 +1,44 @@
+@namespace Iodine.Headless.Tests.Components
+@implements IDisposable
+@* Reads the nearest drawer root's internal context (Base UI's useDrawerRootContext) and renders its active snap point as
+   `String(activeSnapPoint)` would (DrawerRoot.test.tsx's ActiveSnapPointDisplay); its two buttons request a snap point
+   through the context as SnapPointContextControls does. *@
+<div data-testid="@TestId">@Display(Root!.ActiveSnapPoint)</div>
+<button type="button" data-testid="set-canceled" @onclick="() => Root!.RequestSnapPointAsync(Canceled, null)">Set canceled snap point</button>
+<button type="button" data-testid="set-invalid" @onclick="() => Root!.RequestSnapPointAsync(Invalid, null)">Set invalid snap point</button>
+
+@code {
+    private IDisposable? subscription;
+
+    [CascadingParameter]
+    private DrawerRootContext? Root { get; set; }
+
+    [Parameter] public string TestId { get; set; } = "context-active-snap-point";
+
+    [Parameter] public SnapPointValue? Canceled { get; set; }
+
+    [Parameter] public SnapPointValue? Invalid { get; set; }
+
+    /// <inheritdoc />
+    public void Dispose() => subscription?.Dispose();
+
+    /// <summary>Renders a snap point as JavaScript's <c>String(value)</c>.</summary>
+    public static string Display(SnapPointValue? value)
+    {
+        if (value is not { } point)
+        {
+            return "null";
+        }
+
+        if (point.TryGetValue(out string? text))
+        {
+            return text;
+        }
+
+        point.TryGetValue(out double number);
+        return number.ToString(System.Globalization.CultureInfo.InvariantCulture);
+    }
+
+    /// <inheritdoc />
+    protected override void OnInitialized() => subscription = Root!.Subscribe(DrawerFields.Settings, StateHasChanged);
+}

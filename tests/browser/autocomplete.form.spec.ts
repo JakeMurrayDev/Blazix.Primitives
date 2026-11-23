@@ -5,7 +5,7 @@ import { settle } from './suites/popupFixture';
 
 // Issues 248 and 257 (M6 track 11): the Autocomplete titles PR 245 left open by ID, and ComboboxClear.test.tsx's
 // no-selection row, Base UI's titles verbatim, at L4 on both render modes, on the `autocomplete-form` fixture
-// (tests/Blazix.Primitives.Fixtures.Client/Autocomplete/L4/AutocompleteFormL4Fixture.razor), one Base UI render per `case`.
+// (tests/Iodine.Headless.Fixtures.Client/Autocomplete/L4/AutocompleteFormL4Fixture.razor), one Base UI render per `case`.
 // The titles come from AutocompleteRoot.test.tsx (:1088, :1984, :2096, :2608, :3003), ComboboxRoot.test.tsx (its three
 // Autocomplete titles), ComboboxTrigger.test.tsx (the `no selection` row of "validates the $name value when blurred") and
 // ComboboxClear.test.tsx. AutocompleteItem.test.tsx:40 and store.test.tsx's hydration title use the `autocomplete-root` and

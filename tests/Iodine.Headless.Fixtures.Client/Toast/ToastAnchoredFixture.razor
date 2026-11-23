@@ -1,0 +1,51 @@
+@namespace Iodine.Headless.Fixtures.Client.ToastFixtures
+@using Iodine.Headless
+@inherits ToastFixtureBase
+
+@*
+    The `toast-anchored` fixture (tests/browser/toast.positioner.spec.ts): ToastPositioner.test.tsx's `AnchoredList`, one
+    positioner per toast keyed and test-id'd by its id, with ToastArrow.test.tsx's arrow inside the root. `anchor` adds the
+    toast `anchored` against the 80 × 20 button at (100, 200) with `side` bottom and an 8 px offset; `add` adds the toast
+    `unanchored`; `add-oldest`, `add-newest` and `close-newest` drive the index title (a 10 s exit keeps a closing toast).
+*@
+<FixtureContainer Name="toast-anchored" data-attached="@(Attached ? "true" : "false")" data-closed="@Closed" data-removed="@Removed"
+                  data-reports="@Reports" data-sync="@Sync">
+    <style>
+        [data-testid="toast-root"] { opacity: 1; transition: opacity 10s; }
+        [data-testid="toast-root"][data-ending-style] { opacity: 0; }
+    </style>
+    <button type="button" data-sync-button @onclick="() => Sync++">Sync</button>
+    <button type="button" @ref="anchor" data-testid="anchor" style="position: absolute; top: 200px; left: 100px; width: 80px; height: 20px"
+            @onclick="AddAnchored">anchor</button>
+    <ToastProvider TData="NoPayload" @ref="Provider" Timeout="0">
+        <ToastViewport @ref="Viewport" data-testid="viewport">
+            <ToastsContent Context="toasts">
+                @foreach (ToastObject<NoPayload> toast in toasts)
+                {
+                    <ToastPositioner @key="toast.Id" Toast="toast" data-testid="@toast.Id">
+                        <ToastRoot Toast="toast" data-testid="toast-root" data-toast-id="@toast.Id" data-height="@toast.Height">
+                            <ToastArrow data-testid="arrow" />
+                            <ToastTitle />
+                        </ToastRoot>
+                    </ToastPositioner>
+                }
+            </ToastsContent>
+        </ToastViewport>
+    </ToastProvider>
+    <div style="position: absolute; top: 300px; left: 0">
+        <button type="button" data-testid="add" @onclick="@(() => Manager.Add(Recorded("unanchored") with { Title = "title" }))">add</button>
+        <button type="button" data-testid="add-oldest" @onclick="@(() => Manager.Add(Recorded("oldest") with { Title = "oldest" }))">add oldest</button>
+        <button type="button" data-testid="add-newest" @onclick="@(() => Manager.Add(Recorded("newest") with { Title = "newest" }))">add newest</button>
+        <button type="button" data-testid="close-newest" @onclick="@(() => Manager.Close("newest"))">close newest</button>
+    </div>
+</FixtureContainer>
+
+@code {
+    private ElementReference anchor;
+
+    private void AddAnchored() => Manager.Add(Recorded("anchored") with
+    {
+        Title = "title",
+        Positioner = new ToastPositionerSettings { Anchor = anchor, Side = Side.Bottom, SideOffset = 8 },
+    });
+}

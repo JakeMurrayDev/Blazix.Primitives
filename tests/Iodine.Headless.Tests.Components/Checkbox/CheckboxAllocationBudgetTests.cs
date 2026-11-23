@@ -1,0 +1,101 @@
+using Iodine.Headless.Interop;
+using Bunit;
+using Microsoft.AspNetCore.Components;
+using Microsoft.AspNetCore.Components.Web;
+
+namespace Iodine.Headless.Tests.Components;
+
+/// <summary>
+/// ADR 16 rule 7 for Checkbox: a re-render of a root with unchanged parameters (the parent passing the same values again)
+/// and an indicator status report that changes nothing, both measured around bUnit's synchronous work on the test thread.
+/// The re-render includes Blazor's own per-render cost and the twins' comparison of their options, which sends nothing;
+/// the report includes the parse of its JSON and the comparison with the mirrored status. The budgets were taken from the
+/// first measurement and only tighten afterwards.
+/// </summary>
+[Collection(AllocationBudgetsCollection.Name)]
+public sealed class CheckboxAllocationBudgetTests : IDisposable
+{
+    // First measurement 2026-10-23 (arm64, .NET 11 RC2, Release): 704 bytes for the re-render, Switch's 672 plus 32 for the
+    // four cascading parameters of the field integration (the indeterminate state adds a field, not an allocation); 328
+    // bytes for the status report, the source-generated parse of its JSON, which the comparison with the mirrored status
+    // then discards without a render.
+    private const long RerenderBudgetBytes = 704;
+
+    // Design point C4 of M2 track 5 (settled by the orchestrator 2026-10-23): while the native-label fallback is in play (no aria-label, no
+    // aria-labelledby, no Field.Label) the form module watches the document's labels itself (CHK-ARIA-08), so a re-render
+    // sends nothing more. First measurement 2026-10-23: 704 bytes, the same as a box named by aria-label.
+    private const long FallbackRerenderBudgetBytes = 704;
+    private const long UnchangedStatusBudgetBytes = 328;
+
+    private readonly CheckboxTestContext test = new();
+
+    /// <inheritdoc />
+    public void Dispose() => test.Dispose();
+
+    [Fact(DisplayName = "a re-render of a checkbox named by aria-label with unchanged parameters stays within its budget")]
+    [Trait("Requirement", "ADR16-7")]
+    public void A_rerender_of_a_checkbox_with_unchanged_parameters_stays_within_its_budget()
+    {
+        EventCallback<MouseEventArgs> onClick = EventCallback.Factory.Create<MouseEventArgs>(this, () => { });
+        RenderFragment content = builder => builder.AddContent(0, "x");
+        IRenderedComponent<CheckboxRoot> cut = test.Context.Render<CheckboxRoot>(p => p
+            .Add(x => x.Name, "n")
+            .AddUnmatched("class", "consumer")
+            .AddUnmatched("aria-label", "Name")
+            .AddUnmatched("onclick", onClick)
+            .AddChildContent(content));
+
+        long allocated = Measure(cut);
+
+        AllocationSampler.AssertWithinBudget(allocated, RerenderBudgetBytes, "a re-render");
+    }
+
+    [Fact(DisplayName = "a re-render of a checkbox named by its native label stays within its budget")]
+    [Trait("Requirement", "ADR16-7")]
+    public void A_rerender_of_a_checkbox_named_by_its_native_label_stays_within_its_budget()
+    {
+        EventCallback<MouseEventArgs> onClick = EventCallback.Factory.Create<MouseEventArgs>(this, () => { });
+        RenderFragment content = builder => builder.AddContent(0, "x");
+        IRenderedComponent<CheckboxRoot> cut = test.Context.Render<CheckboxRoot>(p => p
+            .Add(x => x.Name, "n")
+            .AddUnmatched("class", "consumer")
+            .AddUnmatched("onclick", onClick)
+            .AddChildContent(content));
+
+        long allocated = Measure(cut);
+
+        AllocationSampler.AssertWithinBudget(allocated, FallbackRerenderBudgetBytes, "a re-render");
+    }
+
+    private static long Measure(IRenderedComponent<CheckboxRoot> cut)
+    {
+        for (int i = 0; i < 20; i++)
+        {
+            cut.Render();
+        }
+
+        return AllocationSampler.LeastOfFive(() => cut.Render());
+    }
+
+    [Fact(DisplayName = "an indicator status report that changes nothing stays within its budget")]
+    [Trait("Requirement", "ADR16-7")]
+    public async Task An_indicator_status_report_that_changes_nothing_stays_within_its_budget()
+    {
+        IRenderedComponent<CheckboxRoot> cut = test.Context.Render<CheckboxRoot>(p => p
+            .Add(x => x.DefaultChecked, true)
+            .AddChildContent<CheckboxIndicator>());
+        TransitionsTwin twin = test.TransitionsTwin();
+        const string unchanged = """{"status":null,"mounted":true}""";
+        for (int i = 0; i < 20; i++)
+        {
+            await cut.InvokeAsync(() => twin.OnStatusChange(unchanged));
+        }
+
+        // bUnit's dispatcher runs the call inline, so the measurement stays on the test thread.
+        Task reported = Task.CompletedTask;
+        long allocated = AllocationSampler.LeastOfFive(() => reported = cut.InvokeAsync(() => twin.OnStatusChange(unchanged)));
+        await reported;
+
+        AllocationSampler.AssertWithinBudget(allocated, UnchangedStatusBudgetBytes, "a status report");
+    }
+}

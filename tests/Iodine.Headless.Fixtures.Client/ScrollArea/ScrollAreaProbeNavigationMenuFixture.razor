@@ -1,0 +1,54 @@
+@namespace Iodine.Headless.Fixtures.Client.ScrollAreaFixtures
+@using Iodine.Headless
+@using Iodine.Headless.Fixtures.Client.PopupFixtures
+@inherits PopupSuiteFixtureBase
+
+@*
+    The `scroll-area-probe-navigation-menu` fixture (tests/browser/scroll-area.probes.spec.ts; design point 12 (a) of the
+    ScrollArea track, a probe no requirement row covers): the NavigationMenu page's advice (its "Scrollable layout", with a
+    ScrollArea in place of the native scrollbars). One Item `overview` whose Trigger opens a Content holding a 300 × 200 px
+    ScrollArea over 20 links of 40 px (800 px), with a vertical scrollbar and its thumb; a Portal, a Positioner 8 px from the
+    trigger, a Popup sized by the menu's `--popup-width` and `--popup-height`, and the menu's Viewport. Test ids: `trigger`,
+    `content`, `positioner`, `popup`, `menu-viewport`, `root`, `viewport`, `scrollbar`, `thumb`.
+*@
+<FixtureContainer Name="scroll-area-probe-navigation-menu" data-attached="@(Attached ? "true" : "false")" data-sync="@Sync">
+    <NavigationMenuRoot TValue="string" @ref="root" data-testid="menu">
+        <NavigationMenuList style="display: flex; gap: 8px; list-style: none; margin: 0; padding: 0">
+            <NavigationMenuItem TValue="string" Value="@("overview")">
+                <NavigationMenuTrigger @ref="trigger" data-testid="trigger">Overview</NavigationMenuTrigger>
+                <NavigationMenuContent data-testid="content">
+                    <ScrollAreaRoot data-testid="root" style="width: 300px; height: 200px">
+                        <ScrollAreaViewport data-testid="viewport" style="height: 100%">
+                            <ScrollAreaContent>
+                                @for (int i = 1; i <= 20; i++)
+                                {
+                                    int n = i;
+                                    <NavigationMenuLink @key="n" href="@($"#link-{n}")" style="display: block; box-sizing: border-box; height: 40px; padding: 8px 16px">Link @n</NavigationMenuLink>
+                                }
+                            </ScrollAreaContent>
+                        </ScrollAreaViewport>
+                        <ScrollAreaScrollbar data-testid="scrollbar" style="width: 4px; background: #ddd">
+                            <ScrollAreaThumb data-testid="thumb" style="width: 100%; background: gray" />
+                        </ScrollAreaScrollbar>
+                    </ScrollAreaRoot>
+                </NavigationMenuContent>
+            </NavigationMenuItem>
+        </NavigationMenuList>
+        <NavigationMenuPortal>
+            <NavigationMenuPositioner data-testid="positioner" SideOffset="8">
+                <NavigationMenuPopup data-testid="popup" style="position: relative; z-index: 1; box-sizing: border-box; width: var(--popup-width); height: var(--popup-height); max-height: var(--available-height); background: white; outline: 1px solid #ccc">
+                    <NavigationMenuViewport data-testid="menu-viewport" style="position: relative; width: 100%; height: 100%; overflow: hidden" />
+                </NavigationMenuPopup>
+            </NavigationMenuPositioner>
+        </NavigationMenuPortal>
+    </NavigationMenuRoot>
+    <button type="button" tabindex="-1" data-sync-button data-key-control @onclick="() => Sync++" @onkeydown="OnShift(() => Sync++)">Sync</button>
+</FixtureContainer>
+
+@code {
+    private NavigationMenuRoot<string>? root;
+    private NavigationMenuTrigger? trigger;
+
+    /// <inheritdoc />
+    protected override IEnumerable<Task> Attachments => [root!.TwinsAttached, trigger!.TwinsAttached];
+}

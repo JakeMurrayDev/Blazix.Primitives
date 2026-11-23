@@ -1,0 +1,128 @@
+@namespace Iodine.Headless.Tests.Components
+@using System.Globalization
+@*
+    Test consumers of NumberFieldRoot.test.tsx's autofill and onBlur-validation titles (issue 277, 6b): each scenario is one
+    Base UI test's tree. A Base UI useState is a field of this component; "external" is the test's button. Every
+    OnValueChange value and every validate call is recorded.
+*@
+@switch (Scenario)
+{
+    case AutofillScenario.ValidateOnChange:
+        <FieldRoot Name="quantity" ValidationMode="ValidationMode.OnChange" Validate="Record">
+            <NumberFieldRoot Culture="s_enUs" OnValueChange="Change">
+                <NumberFieldInput />
+            </NumberFieldRoot>
+        </FieldRoot>
+        break;
+    case AutofillScenario.LockedInsideField:
+        <Form Errors="errors">
+            <FieldRoot Name="quantity">
+                <NumberFieldRoot DefaultValue="1" ReadOnly="ReadOnly" Disabled="Disabled" Culture="s_enUs" OnValueChange="Change">
+                    <NumberFieldInput />
+                </NumberFieldRoot>
+                <FieldError data-testid="error" />
+            </FieldRoot>
+        </Form>
+        break;
+    case AutofillScenario.LockedOutsideField:
+        <NumberFieldRoot Name="quantity" DefaultValue="1" ReadOnly="ReadOnly" Disabled="Disabled" Culture="s_enUs" OnValueChange="Change">
+            <NumberFieldInput />
+        </NumberFieldRoot>
+        break;
+    case AutofillScenario.OnBlurLatest:
+        <Form>
+            <FieldRoot ValidationMode="ValidationMode.OnBlur" Validate="RecordError" Name="quantity">
+                <NumberFieldRoot Culture="s_enUs">
+                    <NumberFieldInput />
+                </NumberFieldRoot>
+            </FieldRoot>
+        </Form>
+        break;
+    case AutofillScenario.OnBlurClamped:
+        <Form>
+            <FieldRoot ValidationMode="ValidationMode.OnBlur" Validate="Record" Name="quantity">
+                <NumberFieldRoot Max="10" Culture="s_enUs">
+                    <NumberFieldInput />
+                </NumberFieldRoot>
+            </FieldRoot>
+        </Form>
+        break;
+    case AutofillScenario.ExternalAfterBlur:
+        <Form>
+            <FieldRoot ValidationMode="ValidationMode.OnBlur" Validate="ErrorAtFive" Name="quantity">
+                <NumberFieldRoot Value="value" OnValueChange="SetValue" Max="5" Culture="s_enUs">
+                    <NumberFieldInput />
+                </NumberFieldRoot>
+            </FieldRoot>
+            <button type="button" @onclick="() => value = 3">external</button>
+        </Form>
+        break;
+    case AutofillScenario.Plain:
+        <NumberFieldRoot DefaultValue="DefaultValue" Culture="s_enUs" OnValueChange="Change">
+            <NumberFieldInput />
+        </NumberFieldRoot>
+        break;
+    case AutofillScenario.CanceledInField:
+        <FieldRoot Validate="Record" ValidationMode="ValidationMode.OnChange">
+            <NumberFieldRoot Culture="s_enUs" OnValueChange="Cancel">
+                <NumberFieldInput />
+            </NumberFieldRoot>
+        </FieldRoot>
+        break;
+}
+
+@code {
+    private static readonly CultureInfo s_enUs = CultureInfo.GetCultureInfo("en-US");
+
+    private readonly FormErrors errors = new() { ["quantity"] = "test" };
+    private double? value = 5;
+
+    public enum AutofillScenario
+    {
+        ValidateOnChange,
+        LockedInsideField,
+        LockedOutsideField,
+        OnBlurLatest,
+        OnBlurClamped,
+        ExternalAfterBlur,
+        Plain,
+        CanceledInField,
+    }
+
+    [Parameter]
+    public AutofillScenario Scenario { get; set; }
+
+    [Parameter]
+    public bool ReadOnly { get; set; }
+
+    [Parameter]
+    public bool Disabled { get; set; }
+
+    [Parameter]
+    public double? DefaultValue { get; set; }
+
+    public List<double?> Changes { get; } = [];
+
+    public List<FieldValidationArguments> Validations { get; } = [];
+
+    private void Change(ValueChangeEventArgs<double?> e) => Changes.Add(e.Value);
+
+    private void SetValue(ValueChangeEventArgs<double?> e) => value = e.Value;
+
+    private static void Cancel(ValueChangeEventArgs<double?> e) => e.Details.Cancel();
+
+    private ValueTask<FieldValidationResult?> Record(FieldValidationArguments arguments)
+    {
+        Validations.Add(arguments);
+        return default;
+    }
+
+    private ValueTask<FieldValidationResult?> RecordError(FieldValidationArguments arguments)
+    {
+        Validations.Add(arguments);
+        return ValueTask.FromResult<FieldValidationResult?>("error");
+    }
+
+    private static ValueTask<FieldValidationResult?> ErrorAtFive(FieldValidationArguments arguments) =>
+        ValueTask.FromResult<FieldValidationResult?>(arguments.Value is 5d ? "error" : null);
+}

@@ -1,0 +1,49 @@
+@namespace Iodine.Headless.Tests.Components
+@* DrawerProvider.test.tsx's MultipleDrawers and DrawerIndent.test.tsx's TestCase: two controlled roots under a provider,
+   with an indent background and an indent; ShowSecond removes the second root. NoProvider renders the indent parts alone
+   ("allows indent parts to render without a provider"). *@
+@if (NoProvider)
+{
+    <DrawerIndent data-testid="indent" />
+    <DrawerIndentBackground data-testid="background" />
+}
+else
+{
+    <DrawerProvider>
+        <DrawerIndentBackground data-testid="background" />
+        <DrawerIndent data-testid="indent">
+            <DrawerRoot TPayload="NoPayload" Open="FirstOpen">
+                <DrawerTrigger>Open first</DrawerTrigger>
+            </DrawerRoot>
+            @if (ShowSecond && SecondDefaultOpen)
+            {
+                <DrawerRoot TPayload="NoPayload" DefaultOpen="true">
+                    <DrawerTrigger>Open second</DrawerTrigger>
+                </DrawerRoot>
+            }
+            else if (ShowSecond)
+            {
+                <DrawerRoot TPayload="NoPayload" Open="SecondOpen">
+                    <DrawerTrigger>Open second</DrawerTrigger>
+                </DrawerRoot>
+            }
+        </DrawerIndent>
+    </DrawerProvider>
+}
+
+@code {
+    [Parameter]
+    public bool NoProvider { get; set; }
+
+    [Parameter]
+    public bool FirstOpen { get; set; }
+
+    [Parameter]
+    public bool SecondOpen { get; set; }
+
+    [Parameter]
+    public bool SecondDefaultOpen { get; set; }
+
+    [Parameter]
+    public bool ShowSecond { get; set; } = true;
+}

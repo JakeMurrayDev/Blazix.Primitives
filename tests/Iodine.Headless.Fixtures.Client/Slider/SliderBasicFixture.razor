@@ -1,0 +1,33 @@
+@namespace Iodine.Headless.Fixtures.Client.SliderFixtures
+@using Iodine.Headless
+@inherits SliderFixtureBase
+
+@*
+    The `slider-basic` fixture (tests/browser/slider.root.spec.ts, slider.control.spec.ts): one single-thumb slider,
+    DefaultValue 25 (or `?value=`), a 100 px Control with a 10 px thumb, a Value part, and recorders of OnValueChange
+    (`data-changes`), OnValueCommitted (`data-commits`) and the Root's data-dragging (`data-dragging-log`).
+*@
+<FixtureContainer Name="slider-basic" data-attached="@(Attached ? "true" : "false")" data-sync="@Sync"
+                  data-changes="@string.Join(" ", Changes)" data-commits="@string.Join(" ", Commits)">
+    <button type="button" data-sync-button @onclick="() => Sync++">Sync</button>
+    <SliderRoot @ref="Root" DefaultValue="@defaultValue" Culture="@System.Globalization.CultureInfo.GetCultureInfo("en-US")"
+                OnValueChange="RecordChange" OnValueCommitted="RecordCommit" data-testid="root">
+        <SliderValue data-testid="value" />
+        <SliderControl data-testid="control" style="width: 100px; height: 10px; position: relative">
+            <SliderTrack data-testid="track" style="width: 100%; height: 100%">
+                <SliderIndicator data-testid="indicator" />
+                <SliderThumb data-testid="thumb" aria-label="Volume" style="width: 10px; height: 10px; background: red" />
+            </SliderTrack>
+        </SliderControl>
+    </SliderRoot>
+</FixtureContainer>
+
+@code {
+    private double? defaultValue;
+
+    /// <inheritdoc />
+    protected override void OnInitialized()
+    {
+        defaultValue = double.Parse(Query("value", "25"), System.Globalization.CultureInfo.InvariantCulture);
+    }
+}

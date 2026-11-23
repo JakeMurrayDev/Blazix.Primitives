@@ -1,6 +1,6 @@
 # Third-party notices
 
-Blazix.Primitives is an unofficial Blazor port of MUI Base UI. The port's own licence is in `LICENSE` (MIT). The notices below cover the third-party work it reproduces or bundles; they ship with every copy of the package and apply in addition to `LICENSE`. Rule (decision record 07): any source that is transcribed or vendored carries its notice here.
+Iodine.Headless is an unofficial Blazor port of MUI Base UI. The port's own licence is in `LICENSE` (MIT). The notices below cover the third-party work it reproduces or bundles; they ship with every copy of the package and apply in addition to `LICENSE`. Rule (decision record 07): any source that is transcribed or vendored carries its notice here.
 
 ## Base UI (`@base-ui/react` v1.9.0, tag `v1.9.0`, commit `ad7ecda`)
 

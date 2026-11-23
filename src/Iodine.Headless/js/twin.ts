@@ -1,0 +1,232 @@
+// The JavaScript half of the twin contract: what every module receives from `attach` and what it
+// hands back. No module-level registries: everything a handle needs lives in the handle's closure. The one page-global
+// state is the map of shadow roots the `portal` module moved nodes into, on `globalThis` (`registerShadowRoot`).
+import { eventInfo } from './event-info';
+
+/** The twin's `DotNetObjectReference`, as Blazor's JS interop revives it. */
+export interface DotNetTwin {
+  invokeMethod<T>(methodName: string, ...args: unknown[]): T;
+  invokeMethodAsync<T>(methodName: string, ...args: unknown[]): Promise<T>;
+}
+
+// Mirrors `DecisionPolicy` in C# and its `ToLiteral()`, member by member.
+/** The literal of every verdict, in the order of the C# members. */
+export const decisionPolicies = ['run', 'stop', 'start', 'prevent-and-stop', 'prevent'] as const;
+
+/**
+ * The verdict of a decision point, and the fallback policies a module applies when C# cannot be asked synchronously:
+ * `prevent-and-stop` calls `preventDefault()` and `stopPropagation()` on the event, `prevent` only `preventDefault()`.
+ */
+export type DecisionPolicy = (typeof decisionPolicies)[number];
+
+// ADR 04 Amendments 2026-10-27 (element-typed option values cross as interop arguments): mirrors `TwinReferences` in C#.
+/**
+ * The references `attach(elementOrId, options, self, references)` and `update(options, references)` receive after the
+ * options string: the elements and script-held objects (a closed shadow root, say) that the options' element-typed
+ * values name by index, revived by Blazor. Absent when the twin sent none.
+ */
+export type TwinReferences = readonly unknown[] | null | undefined;
+
+// ADR 04 Amendments 2026-10-28 (design point 9 of M4 track 8): mirrors the capture ids `TwinBase` sends.
+/**
+ * The capture ids C# sends after the references whenever an `ElementReference` crosses: the attached element's first
+ * (`null` for an id or the token form), then one per reference in order (`null` for one that is not an element). Blazor
+ * revives an `ElementReference` with a document query for `[_bl_<id>]`, which pierces no shadow root, so an element the
+ * `portal` module moved into one arrives as `null` and is found again by its capture id. Absent when none crossed.
+ */
+export type TwinCaptures = readonly (string | null)[] | null | undefined;
+
+/** What `attach` returns to C#: the per-element handle with `update(optionsJson, references, captures)` and `dispose()`. */
+export interface TwinHandle {
+  update(optionsJson: string, references?: TwinReferences, captures?: TwinCaptures): void;
+  dispose(): void;
+}
+
+/** The fields every options record carries; mirrors `TwinOptions` in C#. */
+export interface TwinOptions {
+  style?: string | null;
+}
+
+/** The module's channel to its twin: decision points and callbacks, one message per state change. */
+export interface TwinChannel {
+  /**
+   * Resolves a decision point. On WebAssembly the twin's C# chain runs synchronously inside the dispatch and its
+   * verdict is returned; elsewhere the fallback policy is returned without a call. The mode is detected from the
+   * runtime, per channel, by one probe (`Ping`) on the first decision: Blazor Server's dispatcher throws
+   * synchronously on `invokeMethod`, WebAssembly's answers.
+   */
+  decide(point: string, event: Event | undefined, fallback: DecisionPolicy): DecisionPolicy;
+  /**
+   * Whether the twin answers synchronous invocations (WebAssembly), from the same probe `decide` uses. A module reads it
+   * to hand state over through a synchronous `[JSInvokable]` method just before it asks a decision point.
+   */
+  readonly synchronous: boolean;
+  /** Whether `decide` ran the C# chain on the last call (`true`) or returned the fallback (`false`). */
+  readonly lastDecisionWasSynchronous: boolean;
+  /** Sends one callback payload to the twin's `[JSInvokable]` method; never awaited by the module. */
+  report(methodName: string, payload: unknown): void;
+}
+
+/**
+ * Creates a module's channel to its twin.
+ * @param twin The twin's `DotNetObjectReference` received with `attach`.
+ * @returns The channel; its synchronous-invoke detection is cached for the channel's lifetime.
+ */
+export function createTwinChannel(twin: DotNetTwin): TwinChannel {
+  let synchronous: boolean | undefined;
+  let lastSynchronous = false;
+
+  function supportsSynchronousInvoke(): boolean {
+    if (synchronous === undefined) {
+      try {
+        synchronous = twin.invokeMethod<boolean>('Ping') === true;
+      } catch {
+        synchronous = false;
+      }
+    }
+    return synchronous;
+  }
+
+  return {
+    decide(point, event, fallback) {
+      if (!supportsSynchronousInvoke()) {
+        lastSynchronous = false;
+        return fallback;
+      }
+      lastSynchronous = true;
+      return twin.invokeMethod<DecisionPolicy>('Decide', point, JSON.stringify(eventInfo(event)));
+    },
+    get synchronous() {
+      return supportsSynchronousInvoke();
+    },
+    get lastDecisionWasSynchronous() {
+      return lastSynchronous;
+    },
+    report(methodName, payload) {
+      void twin.invokeMethodAsync<void>(methodName, JSON.stringify(payload));
+    },
+  };
+}
+
+// ADR 04 Amendments 2026-10-28 (design point 9 of M4 track 8): the shadow roots the `portal` module moved nodes into,
+// counted per registration and kept on `globalThis`, so every bundle of the library reads the one page-global map.
+const shadowRootsKey = Symbol.for('iodine.shadowRoots');
+
+function shadowRoots(): Map<ShadowRoot, number> {
+  const global = globalThis as unknown as Record<symbol, Map<ShadowRoot, number> | undefined>;
+  return (global[shadowRootsKey] ??= new Map<ShadowRoot, number>());
+}
+
+/**
+ * Registers a shadow root the `portal` module moved a node into, so the elements C# references inside it resolve.
+ * @param root The shadow root.
+ * @returns A function that releases this registration; the root is forgotten once every registration is released.
+ */
+export function registerShadowRoot(root: ShadowRoot): () => void {
+  const roots = shadowRoots();
+  roots.set(root, (roots.get(root) ?? 0) + 1);
+  let released = false;
+  return () => {
+    if (released) {
+      return;
+    }
+    released = true;
+    const remaining = (roots.get(root) ?? 1) - 1;
+    if (remaining > 0) {
+      roots.set(root, remaining);
+    } else {
+      roots.delete(root);
+    }
+  };
+}
+
+function findInShadowRoots(find: (root: ShadowRoot) => Element | null): Element | null {
+  for (const root of shadowRoots().keys()) {
+    const found = find(root);
+    if (found !== null) {
+      return found;
+    }
+  }
+  return null;
+}
+
+function findCaptured(captureId: string | null | undefined): Element | null {
+  return captureId ? findInShadowRoots((root) => root.querySelector(`[_bl_${captureId}]`)) : null;
+}
+
+// A substitute callback leaves the part without an ElementReference, so the generated id is passed instead.
+/**
+ * Resolves `attach`'s first argument: the element itself, or the id of the element in the document. An element Blazor
+ * revived as `null` (inside a shadow root) is found by its capture id, and an id no document element carries is looked
+ * up in the registered shadow roots.
+ * @param elementOrId The element, its `id` attribute, or `null` when Blazor could not revive the reference.
+ * @param captureId The element's capture id, when C# sent one.
+ * @returns The HTML element.
+ * @throws When no element has that id or capture id, or the reference is not an HTML element.
+ */
+export function resolveElement(elementOrId: Element | string | null, captureId?: string | null): HTMLElement {
+  const element =
+    typeof elementOrId === 'string'
+      ? (document.getElementById(elementOrId) ?? findInShadowRoots((root) => root.getElementById(elementOrId)))
+      : (elementOrId ?? findCaptured(captureId));
+  if (!(element instanceof HTMLElement)) {
+    throw new Error(`Iodine: no element for ${typeof elementOrId === 'string' ? `id '${elementOrId}'` : 'the reference'}`);
+  }
+  return element;
+}
+
+/** `attach`'s first argument: the element, its id, or `null` for the token form (a handle without an element). */
+export type AttachTarget = Element | string | null;
+
+/**
+ * Resolves `attach`'s first argument, the token form included: `null` with no capture id attaches a handle that has no
+ * element (a part that renders none, keyed by a token in its options), otherwise the element itself, the element its
+ * capture id names inside a registered shadow root, or the id of the element in the document.
+ * @param elementOrId The element, its `id` attribute, or `null`.
+ * @param captures The capture ids `attach` received, whose first entry is the element's.
+ * @returns The HTML element, or `null` for the token form.
+ * @throws When an id or a capture id names no element or the reference is not an HTML element.
+ */
+export function attachTarget(elementOrId: AttachTarget, captures?: TwinCaptures): HTMLElement | null {
+  const captureId = captures?.[0] ?? null;
+  return elementOrId === null && captureId === null ? null : resolveElement(elementOrId, captureId);
+}
+
+/**
+ * Resolves an element-typed option: the option holds the index of its reference in the array `attach` or `update`
+ * received after the options string, in an `int?` field the module names (`containerRef` on the portal's options). A
+ * reference Blazor revived as `null` is found by its capture id inside a registered shadow root.
+ * @param references The references received with the options; `null` or `undefined` when the twin sent none.
+ * @param index The option's value: the index, or `null` or `undefined` when the option is absent.
+ * @param captures The capture ids received with the references, whose entry `index + 1` is this reference's.
+ * @returns The revived reference (an element, or the object a script holds), or `null` when there is none at the index.
+ */
+export function resolveReference<T = unknown>(references: TwinReferences, index: number | null | undefined, captures?: TwinCaptures): T | null {
+  if (index == null || index < 0) {
+    return null;
+  }
+  const revived = references != null && index < references.length ? references[index] : undefined;
+  if (revived != null) {
+    return revived as T;
+  }
+  return (findCaptured(captures?.[index + 1]) as T | null) ?? null;
+}
+
+/**
+ * Parses the options JSON received with `attach` or `update`.
+ * @param optionsJson The JSON string the twin serialised.
+ * @returns The options record.
+ */
+export function parseOptions<T extends TwinOptions>(optionsJson: string): T {
+  return JSON.parse(optionsJson) as T;
+}
+
+/**
+ * Applies the consumer's merged style string. From `attach` on, JavaScript owns `element.style` and composes it from
+ * this string plus the module's own declarations, which the caller applies after this.
+ * @param element The host element.
+ * @param options The options received with `attach` or `update`.
+ */
+export function applyConsumerStyle(element: HTMLElement, options: TwinOptions): void {
+  element.style.cssText = options.style ?? '';
+}

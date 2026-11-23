@@ -1,0 +1,35 @@
+@namespace Iodine.Headless.Fixtures.Client.ToastFixtures
+@using Iodine.Headless
+@inherits ToastFixtureBase
+
+@*
+    The `toast-dialog` fixture (tests/browser/toast.viewport.spec.ts): useToastManager.test.tsx's
+    "high priority toasts in dialogs have correct accessibility structure", a modal dialog open from the start whose popup's
+    `add` adds a high-priority toast to the viewport outside it (TST-EDGE-12, TST-A11Y-01; DP4 (a) of the Toast track).
+*@
+<FixtureContainer Name="toast-dialog" data-attached="@(Attached ? "true" : "false")" data-sync="@Sync">
+    <style>[data-base-ui-portal] [role="dialog"] { position: relative; z-index: 1; }</style>
+    <ToastProvider TData="NoPayload" @ref="Provider">
+        <ToastViewport @ref="Viewport" data-testid="viewport">
+            <ToastsContent Context="toasts">
+                @foreach (ToastObject<NoPayload> toast in toasts)
+                {
+                    <ToastRoot @key="toast.Id" Toast="toast" data-testid="toast-root" data-toast-id="@toast.Id" data-height="@toast.Height">
+                        <ToastTitle data-testid="toast-title" />
+                        <ToastDescription data-testid="toast-description" />
+                        <ToastClose data-testid="toast-close" aria-label="close" />
+                    </ToastRoot>
+                }
+            </ToastsContent>
+        </ToastViewport>
+        <DialogRoot TPayload="NoPayload" DefaultOpen="true">
+            <DialogPortal>
+                <DialogBackdrop />
+                <DialogPopup data-testid="dialog">
+                    <button type="button" data-testid="add"
+                            @onclick="@(() => Manager.Add(Recorded() with { Title = "High priority toast", Description = "This is urgent", Priority = ToastPriority.High }))">add</button>
+                </DialogPopup>
+            </DialogPortal>
+        </DialogRoot>
+    </ToastProvider>
+</FixtureContainer>

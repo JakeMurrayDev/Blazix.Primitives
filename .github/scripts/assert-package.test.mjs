@@ -6,14 +6,14 @@ import { checkEngineBanner, checkPackageEntries, engineOutput, engineVersions } 
 // package `dotnet pack` produces (listed with `unzip -Z1`).
 const complete = [
   '_rels/.rels',
-  'Blazix.Primitives.nuspec',
+  'Iodine.Headless.nuspec',
   'LICENSE',
   'THIRD-PARTY-NOTICES.md',
-  'analyzers/dotnet/cs/Blazix.Primitives.Generators.dll',
-  'build/Blazix.Primitives.targets',
-  'lib/net11.0/Blazix.Primitives.dll',
-  'lib/net11.0/Blazix.Primitives.xml',
-  'staticwebassets/Blazix.Primitives.5055uwdyua.lib.module.js',
+  'analyzers/dotnet/cs/Iodine.Headless.Generators.dll',
+  'build/Iodine.Headless.targets',
+  'lib/net11.0/Iodine.Headless.dll',
+  'lib/net11.0/Iodine.Headless.xml',
+  'staticwebassets/Iodine.Headless.5055uwdyua.lib.module.js',
   'staticwebassets/js/dom.js',
   'staticwebassets/js/positioning.js',
   '[Content_Types].xml',
@@ -27,9 +27,9 @@ describe('package content', () => {
   it.each([
     ['LICENSE', 'LICENSE'],
     ['THIRD-PARTY-NOTICES.md', 'THIRD-PARTY-NOTICES.md'],
-    ['analyzers/dotnet/cs/Blazix.Primitives.Generators.dll', 'the generator under analyzers/dotnet/cs'],
-    ['lib/net11.0/Blazix.Primitives.dll', 'the library assembly'],
-    ['staticwebassets/Blazix.Primitives.5055uwdyua.lib.module.js', 'the JavaScript initializer under staticwebassets'],
+    ['analyzers/dotnet/cs/Iodine.Headless.Generators.dll', 'the generator under analyzers/dotnet/cs'],
+    ['lib/net11.0/Iodine.Headless.dll', 'the library assembly'],
+    ['staticwebassets/Iodine.Headless.5055uwdyua.lib.module.js', 'the JavaScript initializer under staticwebassets'],
     ['staticwebassets/js/positioning.js', 'staticwebassets/js/positioning.js'],
   ])('reports a package without %s', (entry, expected) => {
     const problems = checkPackageEntries(complete.filter((name) => name !== entry));
@@ -43,9 +43,9 @@ describe('package content', () => {
   });
 
   it('reports the internal analyzers assembly, which is never packed', () => {
-    const problems = checkPackageEntries([...complete, 'analyzers/dotnet/cs/Blazix.Primitives.Analyzers.dll']);
+    const problems = checkPackageEntries([...complete, 'analyzers/dotnet/cs/Iodine.Headless.Analyzers.dll']);
     expect(problems).toHaveLength(1);
-    expect(problems[0]).toContain('Blazix.Primitives.Analyzers.dll');
+    expect(problems[0]).toContain('Iodine.Headless.Analyzers.dll');
   });
 });
 

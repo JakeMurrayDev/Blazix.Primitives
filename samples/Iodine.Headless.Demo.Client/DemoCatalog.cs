@@ -1,0 +1,54 @@
+using Iodine.Headless.Demo.Client.Demos;
+
+namespace Iodine.Headless.Demo.Client;
+
+/// <summary>One demo page: the address segment, the heading, one line about it and the component the host renders.</summary>
+public sealed record DemoEntry(string Slug, string Title, string Summary, Type Component);
+
+/// <summary>Every family with a demo page, in the order the pages list them.</summary>
+public static class DemoCatalog
+{
+    public static IReadOnlyList<DemoEntry> Entries { get; } =
+    [
+        new("separator", "Separator", "A separator between the links of a navigation bar.", typeof(SeparatorDemo)),
+        new("meter", "Meter", "A graphical display of a numeric value within a known range.", typeof(MeterDemo)),
+        new("progress", "Progress", "The progress of a task, here a simulated export.", typeof(ProgressDemo)),
+        new("button", "Button", "A button that works as a native button or as another element.", typeof(ButtonDemo)),
+        new("avatar", "Avatar", "A user's image with a fallback of their initials.", typeof(AvatarDemo)),
+        new("collapsible", "Collapsible", "A panel that a trigger shows and hides.", typeof(CollapsibleDemo)),
+        new("accordion", "Accordion", "A stack of sections whose panels open and close.", typeof(AccordionDemo)),
+        new("input", "Input", "A native input element that works with a field.", typeof(InputDemo)),
+        new("field", "Field", "A form control with a label, a description and its validity.", typeof(FieldDemo)),
+        new("fieldset", "Fieldset", "Related fields grouped under a legend.", typeof(FieldsetDemo)),
+        new("form", "Form", "A form that validates its fields and shows errors from a server.", typeof(FormDemo)),
+        new("switch", "Switch", "A control that turns a setting on or off.", typeof(SwitchDemo)),
+        new("checkbox", "Checkbox", "A box that the user ticks or clears, and that can be shown as mixed.", typeof(CheckboxDemo)),
+        new("checkbox-group", "Checkbox Group", "A set of checkboxes that share one value, with an optional parent box.", typeof(CheckboxGroupDemo)),
+        new("radio-group", "Radio Group", "Radio buttons (Radio) in a group (Radio Group) that holds the one value selected.", typeof(RadioGroupDemo)),
+        new("toggle", "Toggle", "A two-state button that is pressed or not.", typeof(ToggleDemo)),
+        new("toggle-group", "Toggle Group", "A set of toggles that share one value, here the text alignment.", typeof(ToggleGroupDemo)),
+        new("tabs", "Tabs", "Tabs that switch between related panels on the same page.", typeof(TabsDemo)),
+        new("toolbar", "Toolbar", "A set of buttons, toggles, an input and a link that the arrow keys move between.", typeof(ToolbarDemo)),
+        new("dialog", "Dialog", "A popup that opens on top of the page and keeps focus inside it until it closes.", typeof(DialogDemo)),
+        new("alert-dialog", "Alert Dialog", "A dialog that asks for a response before the user goes on, here to discard a draft.", typeof(AlertDialogDemo)),
+        new("drawer", "Drawer", "A panel that slides in from an edge of the screen and is swiped away, with snap points for a bottom sheet.", typeof(DrawerDemo)),
+        new("popover", "Popover", "An accessible popup anchored to a button, here the notifications of an account.", typeof(PopoverDemo)),
+        new("tooltip", "Tooltip", "A popup that names a button when the pointer rests on it or the keyboard focuses it.", typeof(TooltipDemo)),
+        new("preview-card", "Preview Card", "A card that previews a link's content when the pointer rests on it or the keyboard focuses it.", typeof(PreviewCardDemo)),
+        new("navigation-menu", "Navigation Menu", "A menu bar of links whose triggers open panels of further links, here the documentation's sections.", typeof(NavigationMenuDemo)),
+        new("menu", "Menu", "A list of actions in a popup anchored to a button, with checkbox items and a submenu of radio items.", typeof(MenuDemo)),
+        new("combobox", "Combobox", "An input that filters a list of options as the user types, here a list of fruits.", typeof(ComboboxDemo)),
+        new("autocomplete", "Autocomplete", "An input whose text is the value, with suggestions filtered as the user types, here a list of tags.", typeof(AutocompleteDemo)),
+        new("context-menu", "Context Menu", "A menu that opens at the pointer on a right click or a long press, with a submenu.", typeof(ContextMenuDemo)),
+        new("menubar", "Menubar", "A bar of menus: once one is open, hovering or focusing another trigger opens it.", typeof(MenubarDemo)),
+        new("select", "Select", "A button that opens a list of options to choose one from, placed over the button with the chosen option aligned.", typeof(SelectDemo)),
+        new("scroll-area", "Scroll Area", "A native scroll container with custom scrollbars, here two paragraphs of text.", typeof(ScrollAreaDemo)),
+        new("toast", "Toast", "Notifications stacked in a corner that expand on hover, swipe away and close on a timer.", typeof(ToastDemo)),
+        new("slider", "Slider", "An input for a value or a range of values, chosen by dragging a thumb along a track or with the arrow keys.", typeof(SliderDemo)),
+        new("number-field", "Number Field", "A numeric input with increment and decrement buttons and a scrub area that changes the value by dragging.", typeof(NumberFieldDemo)),
+        new("otp-field", "OTP Field", "A one-time code entered one character per slot, with paste, keyboard navigation and autofill.", typeof(OtpFieldDemo)),
+    ];
+
+    public static DemoEntry? Find(string slug) =>
+        Entries.FirstOrDefault(entry => string.Equals(entry.Slug, slug, StringComparison.OrdinalIgnoreCase));
+}

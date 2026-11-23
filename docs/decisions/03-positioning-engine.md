@@ -35,3 +35,7 @@ FLT-ALG-01..08 are satisfied by the dependency and are not re-implemented or re-
 
 * **Reimplement the engine from §5.1.** No dependency and no bundler, but the DOM platform layer (clipping rects, offset-parent and scale conversion, the `IntersectionObserver` layout-shift trick in `autoUpdate`, iframes, `position: sticky`) is where floating-ui's accumulated fixes live, §5.1 transcribes the core more fully than that layer, and the port's tests would catch only what they assert.
 * **Reimplement in C#.** Excluded by ADR 01 C1 and unworkable on Server at scroll frequency.
+
+## Amendments
+
+**2026-11-23, the identity rename ([ADR 17](17-product-name-and-package-identity.md), chosen by the user the same day).** The product is Iodine and this package `Iodine.Headless`. Every live name in this record that carries Blazix (`Blazix.Primitives` as project, package, namespace or path, `AddBlazixPrimitives`, `BlazixSkipJsBuild`, the `Blazix: ` message prefix, `blazix-*` names, `BLZX` diagnostic ids) reads in the form ADR 17 decision 3's table gives; the text above is kept as written.

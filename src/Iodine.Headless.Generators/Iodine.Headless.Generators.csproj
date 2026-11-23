@@ -1,0 +1,36 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- The [PartState] projection and [StoreState] Copy/ShallowEquals generators and their consumer-facing diagnostics (ADR 09 §1).
+       Packed into the library's package as an analyzer asset (see src/Iodine.Headless). -->
+  <PropertyGroup>
+    <TargetFramework>netstandard2.0</TargetFramework>
+    <!-- netstandard2.0 defaults to C# 7.3; Nullable and the rest of the style need a current language. -->
+    <LangVersion>latest</LangVersion>
+    <IsRoslynComponent>true</IsRoslynComponent>
+    <EnforceExtendedAnalyzerRules>true</EnforceExtendedAnalyzerRules>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.CodeAnalysis.CSharp" PrivateAssets="all" />
+  </ItemGroup>
+
+  <!--
+    The library's convention analyzers check the generator's own code too (member order, field prefix, <inheritdoc />).
+    The boxing rule is off here: it guards the library at run time, and the generator runs inside the compiler.
+  -->
+  <PropertyGroup>
+    <NoWarn>$(NoWarn);IOD2005</NoWarn>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\Iodine.Headless.Analyzers\Iodine.Headless.Analyzers.csproj"
+                      OutputItemType="Analyzer" ReferenceOutputAssembly="false" PrivateAssets="all" />
+  </ItemGroup>
+
+  <!-- Release tracking for the diagnostics (RS2008); the first shipped release moves the rows from Unshipped to Shipped. -->
+  <ItemGroup>
+    <AdditionalFiles Include="AnalyzerReleases.Shipped.md" />
+    <AdditionalFiles Include="AnalyzerReleases.Unshipped.md" />
+  </ItemGroup>
+
+</Project>

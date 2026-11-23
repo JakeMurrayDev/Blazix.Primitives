@@ -8,7 +8,7 @@
 | Docs page | `docs/src/app/(docs)/react/components/fieldset/page.mdx` |
 | Prefix | `FST` |
 | Status | implemented |
-| Revised | 2026-11-19 |
+| Revised | 2026-11-23 |
 | Builds on | none |
 | Derived by | none |
 | Depends on | [rendering-and-composition](../architecture/rendering-and-composition.md), [event-details-and-reasons](../architecture/event-details-and-reasons.md), [field-and-form-infrastructure](../architecture/field-and-form-infrastructure.md) |
@@ -265,7 +265,7 @@ Not applicable — no floating parts.
 
 - **FST-EDGE-01** — MUST. Rendering `Fieldset.Legend` outside a `Fieldset.Root` MUST throw an `Error` whose message is exactly `Base UI: FieldsetRootContext is missing. Fieldset parts must be placed within <Fieldset.Root>.` This is thrown in every build (it is not a dev-only diagnostic) and is the only diagnostic Fieldset emits.
   Source: `fieldset/root/FieldsetRootContext.ts:14-20`, `fieldset/legend/FieldsetLegend.tsx:20`. Test: [L2] `FieldsetLegend.test.tsx` "throws a descriptive error when rendered outside <Fieldset.Root>".
-  Port note 2026-10-22 (PRG-EDGE-01 precedent, ADR 08 Amendments 2026-10-20): the message is ``Blazix: The `FieldsetRoot` context is missing. Fieldset parts must be placed within `<FieldsetRoot>`.``, an `InvalidOperationException` thrown in every build.
+  Port note 2026-10-22 (PRG-EDGE-01 precedent, ADR 08 Amendments 2026-10-20): the message is ``Iodine: The `FieldsetRoot` context is missing. Fieldset parts must be placed within `<FieldsetRoot>`.``, an `InvalidOperationException` thrown in every build.
 - **FST-EDGE-02** — MUST. `Fieldset.Root` itself MUST NOT throw when it has no enclosing `Fieldset.Root` (it performs the optional lookup); its effective disabled state is then simply its own `disabled` prop.
   Source: `fieldset/root/FieldsetRoot.tsx:27`, `fieldset/root/FieldsetRootContext.ts:12,16`. Test: [L2] `FieldsetRoot.test.tsx` (every test renders a top-level root).
 - **FST-EDGE-03** — MUST. If several `Fieldset.Legend`s are mounted under one root, the root's `aria-labelledby` MUST be the id of the legend whose publication ran last (for legends mounted in the same update: the last in document order), and unmounting a legend whose id is not the current one MUST NOT clear the attribute (FFI-ARIA-08).
@@ -378,3 +378,5 @@ Non-normative.
    Resolved 2026-10-22: the port follows Base UI and adds no role to a non-`<fieldset>` substitute.
 6. **Changelog intent.** `CHANGELOG.md` v1.0.0-beta.3 "Fix disabled fieldset form bugs (#4890)" introduced the registration drop and validity neutralization tested by `Form.test.tsx` "excludes disabled fieldset fields…" / "clears invalid UI when a fieldset field becomes disabled"; the behavior itself lives in `Field.Root` (FFI-STR-06), so it is cited rather than restated here.
    Resolved 2026-10-22: informational; the behaviour is `Field.Root`'s (FFI-STR-06), and its `Form.test.tsx` titles land with track 2 and PR 1c.
+
+**Identity rename (2026-11-23, [ADR 17](../decisions/17-product-name-and-package-identity.md)).** Every `Blazix.Primitives` in this document now reads `Iodine.Headless`, the `Blazix: ` message prefix reads `Iodine: `, every other `Blazix`, `blazix` or `BLZX` name reads its `Iodine`, `iodine` or `IOD` form, and links point to `JakeMurrayDev/Iodine.Headless`. No requirement's meaning, level or test changed.

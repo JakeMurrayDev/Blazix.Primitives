@@ -1,0 +1,21 @@
+@namespace Iodine.Headless.Fixtures.Client.ToastFixtures
+@using Iodine.Headless
+
+@* Base UI's `List` parts (toast/utils/test-utils.tsx): the title, the description, a close and an action. *@
+@if (LongTitle)
+{
+    <ToastTitle data-testid="title">This title is much longer than before</ToastTitle>
+}
+else
+{
+    <ToastTitle data-testid="title" />
+}
+<ToastDescription data-testid="description" />
+<ToastClose aria-label="close-press">×</ToastClose>
+<ToastAction data-testid="action" />
+
+@code {
+    /// <summary>Gets or sets a value indicating whether the title is the long one.</summary>
+    [Parameter]
+    public bool LongTitle { get; set; }
+}

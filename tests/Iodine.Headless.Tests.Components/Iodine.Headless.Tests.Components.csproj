@@ -1,0 +1,33 @@
+<Project Sdk="Microsoft.NET.Sdk.Razor">
+
+  <!-- L2 (ADR 06 §1): bUnit, including the twin contract tests. The Razor SDK compiles the .razor test components and fixtures that exercise the consumer-facing forms (substitute elements written as markup). -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <IsPackable>false</IsPackable>
+    <NoWarn>$(NoWarn);BL0006</NoWarn>
+    <!-- ADR 16 Amendments 2026-11-11 (issue 216): the allocation budgets are measured with dynamic PGO off, CI and local runs
+         alike, and each budget class runs in a process of its own (.github/scripts/allocation-budgets.mjs). -->
+    <TieredPGO>false</TieredPGO>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" />
+    <PackageReference Include="xunit.v3" />
+    <PackageReference Include="xunit.runner.visualstudio" />
+    <!-- ADR 06 §1: C# timers under a FakeTimeProvider (the Avatar fallback delay). -->
+    <PackageReference Include="Microsoft.Extensions.TimeProvider.Testing" />
+    <PackageReference Include="bunit" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\Iodine.Headless\Iodine.Headless.csproj" />
+    <!-- The generators run on this project's own state records ([PartState], [StoreState]), as they do in a consumer's project. -->
+    <ProjectReference Include="..\..\src\Iodine.Headless.Generators\Iodine.Headless.Generators.csproj"
+                      OutputItemType="Analyzer" ReferenceOutputAssembly="false" PrivateAssets="all" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Using Include="Xunit" />
+  </ItemGroup>
+
+</Project>

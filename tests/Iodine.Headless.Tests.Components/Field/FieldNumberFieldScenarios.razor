@@ -1,0 +1,81 @@
+@namespace Iodine.Headless.Tests.Components
+@using System.Globalization
+@*
+    Test consumers of the FieldRoot.test.tsx titles that render NumberField (FieldRoot.test.tsx:1011, 1321, 2684), opened
+    to M6 by field.md's notes of 2026-11-18 (FLD-STR-04, FLD-API-04, FLD-STA-14, FLD-EVT-08, FLD-FRM-02, FLD-FRM-14,
+    FLD-FRM-15). Each Base UI test's useState is a parameter; a test changes it through cut.Render.
+*@
+@switch (Scenario)
+{
+    case NumberFieldScenario.AllValues:
+        <Form OnSubmit="Submitted">
+            <FieldRoot Name="input" Validate="Record">
+                <FieldControl data-testid="input" type="url" DefaultValue="https://base-ui.com" />
+            </FieldRoot>
+            <FieldRoot Name="number-field">
+                <NumberFieldRoot DefaultValue="13" Culture="s_enUs">
+                    <NumberFieldInput />
+                </NumberFieldRoot>
+            </FieldRoot>
+        </Form>
+        break;
+    case NumberFieldScenario.NameFallback:
+        <Form OnFormSubmit="FormSubmitted">
+            <FieldRoot>
+                <NumberFieldRoot Name="@Name" DefaultValue="13" Culture="s_enUs">
+                    <NumberFieldInput />
+                </NumberFieldRoot>
+            </FieldRoot>
+        </Form>
+        break;
+    case NumberFieldScenario.Swap:
+        <FieldRoot data-testid="root">
+            @if (Swapped)
+            {
+                <FieldControl data-testid="control" DefaultValue="" />
+            }
+            else
+            {
+                <NumberFieldRoot Culture="s_enUs">
+                    <NumberFieldInput />
+                </NumberFieldRoot>
+            }
+        </FieldRoot>
+        break;
+}
+
+@code {
+    private static readonly CultureInfo s_enUs = CultureInfo.GetCultureInfo("en-US");
+
+    public enum NumberFieldScenario
+    {
+        AllValues,
+        NameFallback,
+        Swap,
+    }
+
+    [Parameter]
+    public NumberFieldScenario Scenario { get; set; }
+
+    [Parameter]
+    public string? Name { get; set; }
+
+    [Parameter]
+    public bool Swapped { get; set; }
+
+    public List<FieldValidationArguments> Validations { get; } = [];
+
+    public List<FormSubmitEventArgs> FormSubmits { get; } = [];
+
+    public int Submits { get; private set; }
+
+    private void Submitted(FormSubmitEventArgs args) => Submits++;
+
+    private void FormSubmitted(FormSubmitEventArgs args) => FormSubmits.Add(args);
+
+    private ValueTask<FieldValidationResult?> Record(FieldValidationArguments arguments)
+    {
+        Validations.Add(arguments);
+        return default;
+    }
+}

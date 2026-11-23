@@ -3,7 +3,7 @@ import { test, expect, gotoFixture } from './helpers';
 // The browser-only Base UI tests of the `dom` module's measurement helpers (UTL-DOM-23 and UTL-DOM-25; skipped in
 // jsdom at L3). The page imports the module the library ships and runs the helper on real layout. The render mode
 // plays no part; the probe fixture only provides a page that serves the library's static assets.
-const domModule = '/_content/Blazix.Primitives/js/dom.js';
+const domModule = '/_content/Iodine.Headless/js/dom.js';
 
 test.describe('getCssDimensions', () => {
   // Parts that accept a `render` prop can be SVG elements, which have no `offsetWidth`/`offsetHeight`.

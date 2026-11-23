@@ -1,0 +1,99 @@
+@namespace Iodine.Headless.Tests.Components
+@*
+    useToastLabelPart.test.tsx's renderInRoot, run for Title and Description (Base UI's describe.each): one Root over the
+    Provider's store, holding the part in the form a test names. `Toast` seeds the store, as Base UI's root prop does.
+*@
+
+<ToastProvider TData="NoPayload">
+    <ToastViewport>
+        <ToastRoot Toast="Toast" data-testid="root">
+            @switch (Form)
+            {
+                @* Base UI's `<Part>{content}</Part>` with a null content: in Razor, null children are no ChildContent. *@
+                case ToastLabelForm.Plain when Description && Children is null:
+                    <ToastDescription id="@PartId" data-testid="description" />
+                    break;
+                case ToastLabelForm.Plain when Description:
+                    <ToastDescription id="@PartId" data-testid="description">@Children</ToastDescription>
+                    break;
+                case ToastLabelForm.Plain when Children is null:
+                    <ToastTitle id="@PartId" data-testid="title" />
+                    break;
+                case ToastLabelForm.Plain:
+                    <ToastTitle id="@PartId" data-testid="title">@Children</ToastTitle>
+                    break;
+                case ToastLabelForm.RenderProp when Description:
+                    <ToastDescription><Render><div>render prop content</div></Render></ToastDescription>
+                    break;
+                case ToastLabelForm.RenderProp:
+                    <ToastTitle><Render><div>render prop content</div></Render></ToastTitle>
+                    break;
+                case ToastLabelForm.RenderFunction when Description:
+                    <ToastDescription><RenderFunction Context="props"><div @attributes="props.Attributes">render fn</div></RenderFunction></ToastDescription>
+                    break;
+                case ToastLabelForm.RenderFunction:
+                    <ToastTitle><RenderFunction Context="props"><div @attributes="props.Attributes">render fn</div></RenderFunction></ToastTitle>
+                    break;
+                case ToastLabelForm.ChildlessRenderProp when Description:
+                    <ToastDescription><Render><div data-testid="part-render" /></Render></ToastDescription>
+                    break;
+                case ToastLabelForm.ChildlessRenderProp:
+                    <ToastTitle><Render><div data-testid="part-render" /></Render></ToastTitle>
+                    break;
+                case ToastLabelForm.EmptyRenderFunction when Description:
+                    <ToastDescription data-testid="part-render"><RenderFunction Context="props"></RenderFunction></ToastDescription>
+                    break;
+                case ToastLabelForm.EmptyRenderFunction:
+                    <ToastTitle data-testid="part-render"><RenderFunction Context="props"></RenderFunction></ToastTitle>
+                    break;
+                case ToastLabelForm.OldAndNew:
+                    @if (ShowOld)
+                    {
+                        @if (Description)
+                        {
+                            <ToastDescription @key="@("old")" id="old-part">Old</ToastDescription>
+                        }
+                        else
+                        {
+                            <ToastTitle @key="@("old")" id="old-part">Old</ToastTitle>
+                        }
+                    }
+                    @if (ShowNew)
+                    {
+                        @if (Description)
+                        {
+                            <ToastDescription @key="@("new")" id="new-part">New</ToastDescription>
+                        }
+                        else
+                        {
+                            <ToastTitle @key="@("new")" id="new-part">New</ToastTitle>
+                        }
+                    }
+                    break;
+            }
+        </ToastRoot>
+    </ToastViewport>
+</ToastProvider>
+
+@code {
+    [Parameter]
+    public bool Description { get; set; }
+
+    [Parameter]
+    public ToastLabelForm Form { get; set; }
+
+    [Parameter]
+    public ToastObject Toast { get; set; } = new() { Id = "test" };
+
+    [Parameter]
+    public RenderFragment? Children { get; set; }
+
+    [Parameter]
+    public string? PartId { get; set; }
+
+    [Parameter]
+    public bool ShowOld { get; set; }
+
+    [Parameter]
+    public bool ShowNew { get; set; }
+}

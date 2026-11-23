@@ -1,6 +1,6 @@
 // L4 for docs/components/select.md (M5 track 9, issue 173), the navigation half of SelectRoot.test.tsx (4470 to the end),
 // SelectPositioner.test.tsx's kept-mounted title and SelectScrollArrow.test.tsx's L4 title: Server then WebAssembly.
-// Fixtures: tests/Blazix.Primitives.Fixtures.Client/Select/SelectNav*Fixture.razor (and `select-positioner`).
+// Fixtures: tests/Iodine.Headless.Fixtures.Client/Select/SelectNav*Fixture.razor (and `select-positioner`).
 import { type Locator, type Page } from '@playwright/test';
 import { delayCircuitMessages, expect, holdCircuit, test } from './helpers';
 import { waitForPositioned } from './helpers/positioner';

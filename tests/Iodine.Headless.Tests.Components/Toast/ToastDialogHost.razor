@@ -1,0 +1,29 @@
+@namespace Iodine.Headless.Tests.Components
+@*
+    useToastManager.test.tsx's "in dialog" block: an open modal dialog beside the toast viewport inside one Provider. The
+    outside marking of a modal dialog is the `focus-manager` module's (L4); at L2 the titles check that Toast sets no
+    aria-hidden of its own beyond TST-ARIA-06.
+*@
+
+<ToastProvider TData="NoPayload">
+    <DialogRoot TPayload="NoPayload" DefaultOpen="true">
+        <DialogPortal>
+            <DialogBackdrop />
+            <DialogPopup data-testid="dialog-popup">
+                <DialogClose />
+            </DialogPopup>
+        </DialogPortal>
+    </DialogRoot>
+    <ToastViewport>
+        <ToastsContent Context="toasts">
+            @foreach (ToastObject<NoPayload> toast in toasts)
+            {
+                <ToastRoot @key="toast.Id" Toast="toast" data-testid="root">
+                    <ToastTitle data-testid="toast-title" />
+                    <ToastDescription data-testid="toast-description" />
+                    <ToastClose data-testid="toast-close" aria-label="close" />
+                </ToastRoot>
+            }
+        </ToastsContent>
+    </ToastViewport>
+</ToastProvider>

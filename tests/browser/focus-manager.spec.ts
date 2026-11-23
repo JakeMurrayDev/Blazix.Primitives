@@ -5,12 +5,12 @@ import type { Locator } from '@playwright/test';
 // item 1: no public part manages focus before Popover and Dialog). The browser-only Base UI titles of
 // FloatingFocusManager.test.tsx (prop: restoreFocus) and tabbable.test.ts run here; the rest of the module is L3. The
 // fixture plays the popup store (FocusManagerFixtureBase); the module reads the open state from the applied batch.
-const focusManagerModule = '/_content/Blazix.Primitives/js/focus-manager.js';
+const focusManagerModule = '/_content/Iodine.Headless/js/focus-manager.js';
 
 async function gotoFocusManager(page: Page, mode: 'server' | 'wasm', name: string, query = ''): Promise<Locator> {
   if (query) {
     await page.goto(`/${mode}/${name}?${query}`, { waitUntil: 'commit' });
-    await page.locator('html[data-blazix-started]').waitFor({ state: 'attached' });
+    await page.locator('html[data-iodine-started]').waitFor({ state: 'attached' });
   }
   const container = query ? page.locator(`[data-fixture="${name}"]`) : await gotoFixture(page, mode, name);
   await expect(container).toHaveAttribute('data-attached', 'true');

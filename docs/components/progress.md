@@ -8,7 +8,7 @@
 | Docs page | `docs/src/app/(docs)/react/components/progress/page.mdx` |
 | Prefix | `PRG` |
 | Status | implemented |
-| Revised | 2026-10-21 |
+| Revised | 2026-11-23 |
 | Builds on | none |
 | Derived by | none |
 | Depends on | [rendering-and-composition](../architecture/rendering-and-composition.md), [field-and-form-infrastructure](../architecture/field-and-form-infrastructure.md) (label-id publication only), [shared-utilities](../architecture/shared-utilities.md) |
@@ -362,7 +362,7 @@ Progress emits no warnings and no dev-only diagnostics of its own.
 
 - **PRG-EDGE-01** — MUST. Rendering `Progress.Track`, `Progress.Indicator`, `Progress.Value` or `Progress.Label` outside a `Progress.Root` MUST throw an error with the message `Base UI: ProgressRootContext is missing. Progress parts must be placed within <Progress.Root>.` (thrown in all builds).
   Source: `progress/root/ProgressRootContext.tsx:28-37`. Test: [L2] `ProgressLabel.test.tsx` "throws a descriptive error when rendered outside <Progress.Root>".
-  Port note 2026-10-21: the message is ``Blazix: The `ProgressRoot` context is missing. Progress parts must be placed within `<ProgressRoot>`.`` (the port's words under ADR 08 Amendments 2026-10-20: it starts `Blazix: ` and quotes code in backticks); the error is an `InvalidOperationException` thrown in every build, by the track as well (unlike Meter's).
+  Port note 2026-10-21: the message is ``Iodine: The `ProgressRoot` context is missing. Progress parts must be placed within `<ProgressRoot>`.`` (the port's words under ADR 08 Amendments 2026-10-20: it starts `Iodine: ` and quotes code in backticks); the error is an `InvalidOperationException` thrown in every build, by the track as well (unlike Meter's).
 - **PRG-EDGE-02** — MUST. With `min === max === value`, the percentage MUST be `0` (the `0/0` NaN case), `aria-valuenow` MUST be `min`, the Indicator width `0%`, the default formatted value the formatted `0` percent, and status `'complete'`.
   Source: `progress/root/ProgressRoot.tsx:50-53`. Test: [L2] `ProgressRoot.test.tsx` "normalizes aria attributes when min equals max" (status not asserted).
 - **PRG-EDGE-03** — MUST. With a finite `value > max`, the percentage MUST be `100`, `aria-valuenow` `max`, the formatted value derived from the clamped value, and status `'complete'`; with `value < min`, the percentage MUST be `0` and `aria-valuenow` `min`. `getAriaValueText` and a Value children function still receive the raw value.
@@ -536,4 +536,6 @@ Non-normative.
     - **Label and `Enabled` (PRG-STA-05).** A `ProgressLabel` with `Enabled="false"` renders no element and publishes no id; a root whose consumer supplies its own `aria-labelledby` ignores the published id (PRG-ARIA-06).
     - **Sharing (PRG-STA-04; ADR 16 rule 9).** All five parts read one computation in an internal fixed-cascade context; a change reaches them through the context's listeners (status for the label and the track, status or style for the indicator, status or text for the value), never through the cascade.
     - **Indicator style (PRG-DOM-04, §14).** The indicator adds a `style` only while determinate; on the transition to indeterminate the attribute's built-in declarations disappear with the part's attribute and the consumer's remain.
-    - **Helpers and tests.** Percentage, clamp, number serialization, the `visuallyHidden` declarations, the formatting and the label-id slot are Meter's, in `src/Blazix.Primitives/Utilities/`; PRG-ALG-01 and PRG-ALG-02 are tested at L1 on the context's derivation over them, the rest at L2 (bUnit) with the browser clauses of PRG-DOM-03 and PRG-DOM-04 at L4 on both render modes; the steady-state render of the root is an allocation budget (ADR 16 rule 7).
+    - **Helpers and tests.** Percentage, clamp, number serialization, the `visuallyHidden` declarations, the formatting and the label-id slot are Meter's, in `src/Iodine.Headless/Utilities/`; PRG-ALG-01 and PRG-ALG-02 are tested at L1 on the context's derivation over them, the rest at L2 (bUnit) with the browser clauses of PRG-DOM-03 and PRG-DOM-04 at L4 on both render modes; the steady-state render of the root is an allocation budget (ADR 16 rule 7).
+
+**Identity rename (2026-11-23, [ADR 17](../decisions/17-product-name-and-package-identity.md)).** Every `Blazix.Primitives` in this document now reads `Iodine.Headless`, the `Blazix: ` message prefix reads `Iodine: `, every other `Blazix`, `blazix` or `BLZX` name reads its `Iodine`, `iodine` or `IOD` form, and links point to `JakeMurrayDev/Iodine.Headless`. No requirement's meaning, level or test changed.

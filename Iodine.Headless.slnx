@@ -1,0 +1,18 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/Iodine.Headless.Analyzers/Iodine.Headless.Analyzers.csproj" />
+    <Project Path="src/Iodine.Headless.Generators/Iodine.Headless.Generators.csproj" />
+    <Project Path="src/Iodine.Headless/Iodine.Headless.csproj" />
+  </Folder>
+  <Folder Name="/samples/">
+    <Project Path="samples/Iodine.Headless.Demo.Client/Iodine.Headless.Demo.Client.csproj" />
+    <Project Path="samples/Iodine.Headless.Demo/Iodine.Headless.Demo.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/Iodine.Headless.Fixtures.Client/Iodine.Headless.Fixtures.Client.csproj" />
+    <Project Path="tests/Iodine.Headless.Fixtures/Iodine.Headless.Fixtures.csproj" />
+    <Project Path="tests/Iodine.Headless.Tests.Components/Iodine.Headless.Tests.Components.csproj" />
+    <Project Path="tests/Iodine.Headless.Tests.Generators/Iodine.Headless.Tests.Generators.csproj" />
+    <Project Path="tests/Iodine.Headless.Tests/Iodine.Headless.Tests.csproj" />
+  </Folder>
+</Solution>

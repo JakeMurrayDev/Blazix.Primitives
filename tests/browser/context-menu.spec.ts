@@ -715,7 +715,7 @@ test.describe('ContextMenu port titles', () => {
       release = resolve;
     });
     // The entry is fingerprinted (`js/interactions.<hash>.js`); the context-menu module reaches the shared code through its chunks.
-    await page.route(/\/_content\/Blazix\.Primitives\/js\/interactions(\.[a-z0-9]+)?\.js$/, async (route) => {
+    await page.route(/\/_content\/Iodine\.Headless\/js\/interactions(\.[a-z0-9]+)?\.js$/, async (route) => {
       await held;
       await route.continue();
     });

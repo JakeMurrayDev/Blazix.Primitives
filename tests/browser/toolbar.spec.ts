@@ -11,7 +11,7 @@ import { gotoPopupFixture, openChanges, settle as settlePopup } from './suites/p
 // barrier.
 
 const MISMATCH_MESSAGE =
-  'Blazix: A component that acts as a button expected a native `<button>` because the `NativeButton` parameter is `true`.';
+  'Iodine: A component that acts as a button expected a native `<button>` because the `NativeButton` parameter is `true`.';
 
 type FixtureName = 'toolbar-orientation' | 'toolbar-keys' | 'toolbar-disabled' | 'toolbar-input' | 'toolbar-button' | 'toolbar-switch' | 'toolbar-toggle' | 'toolbar-dialog';
 
@@ -747,7 +747,7 @@ test.describe('<Toolbar.Button />', () => {
     // ToolbarButton.test.tsx's Select block (M5 track 9, final review B2): a SelectTrigger substituted into the button on the
     // `select-toolbar` fixture, the popup placed against the trigger. The L2 halves are ToolbarSelectTests.
     test.describe('Select', () => {
-      const NON_NATIVE_MISMATCH = 'Blazix: A component that acts as a button expected a non-`<button>` because the `NativeButton` parameter is `false`.';
+      const NON_NATIVE_MISMATCH = 'Iodine: A component that acts as a button expected a non-`<button>` because the `NativeButton` parameter is `false`.';
       const valueChanges = async (fixture: Locator) => ((await fixture.getAttribute('data-value-changes')) ?? '').split(' ').filter(Boolean);
 
       // TLB-STR-05, TLB-ARIA-09
@@ -810,7 +810,7 @@ test.describe('<Toolbar.Button />', () => {
         await settlePopup(fixture);
         expect(await openChanges(fixture)).toEqual([]);
         expect(await valueChanges(fixture)).toEqual([]);
-        const mismatches = (await readDiagnostics(page, mode, fixture)).filter((d) => d.message.startsWith('Blazix: A component that acts as a button'));
+        const mismatches = (await readDiagnostics(page, mode, fixture)).filter((d) => d.message.startsWith('Iodine: A component that acts as a button'));
         expect(mismatches.map((d) => d.message.slice(0, NON_NATIVE_MISMATCH.length))).toEqual([NON_NATIVE_MISMATCH]);
       });
     });
@@ -1004,7 +1004,7 @@ test.describe('<Toolbar.Button />', () => {
       // asserts it was hit, so the stall is real on both modes (issue 133).
       test('port: a disabled toggle substituted into the first toolbar button keeps the initial tab stop when the button handles attach last', async ({ page, mode }) => {
         let stalled = 0;
-        await page.route(/\/_content\/Blazix\.Primitives\/js\/button(\.[0-9a-z]+)?\.js$/, (route) => {
+        await page.route(/\/_content\/Iodine\.Headless\/js\/button(\.[0-9a-z]+)?\.js$/, (route) => {
           stalled += 1;
           setTimeout(() => void route.continue(), 1000);
         });

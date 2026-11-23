@@ -1,0 +1,99 @@
+@namespace Iodine.Headless.Tests.Components
+@* DrawerRoot.test.tsx's snap point cases (the snap points ['100px', '300px', 1]):
+   - `reset`: SnapPointResetCase / SnapPointChangeDetailsCase, open and snap point controlled, the snap point starting at 1;
+   - `default`: DefaultSnapPointResetCase, `DefaultSnapPoint="300px"`, uncontrolled;
+   - `canceled-close`: CanceledCloseSnapPointResetCase, the close canceled in OnOpenChange;
+   - `context`: the "honors canceled snap point changes" root (['100px', '300px'], default '300px'), its probe's buttons
+     requesting '100px' (canceled) and 999;
+   - `bind`: the probe's binding shapes (a number literal, a string, a list of both, @bind-SnapPoint). *@
+@switch (Shape)
+{
+    case "default":
+        <DrawerRoot TPayload="NoPayload" @bind-Open="open" DefaultSnapPoint="@("300px")" SnapPoints="snapPoints" OnSnapPointChange="Record">
+            <DrawerSnapProbe TestId="active-snap" />
+            <DrawerPortal>
+                <DrawerViewport>
+                    <DrawerPopup data-testid="popup" ClassValue="CountPopup">Drawer<DrawerClose data-testid="close">Close</DrawerClose></DrawerPopup>
+                </DrawerViewport>
+            </DrawerPortal>
+        </DrawerRoot>
+        break;
+    case "context":
+        <DrawerRoot TPayload="NoPayload" DefaultSnapPoint="@("300px")" SnapPoints="@(["100px", "300px"])" OnSnapPointChange="CancelHundred">
+            <DrawerSnapProbe Canceled="@("100px")" Invalid="999" />
+        </DrawerRoot>
+        break;
+    case "bind":
+        <DrawerRoot TPayload="NoPayload" Open="true" SnapPoints="@([0.5, "200px", 1])" @bind-SnapPoint="bound">
+            <DrawerSnapProbe TestId="active-snap" />
+            <DrawerPortal>
+                <DrawerViewport>
+                    <DrawerPopup data-testid="popup">Drawer</DrawerPopup>
+                </DrawerViewport>
+            </DrawerPortal>
+        </DrawerRoot>
+        <DrawerRoot TPayload="NoPayload" SnapPoint="0.5">
+            <DrawerSnapProbe TestId="literal-snap" />
+        </DrawerRoot>
+        <DrawerRoot TPayload="NoPayload" DefaultSnapPoint="@(1)">
+            <DrawerSnapProbe TestId="default-snap" />
+        </DrawerRoot>
+        break;
+    default:
+        <span data-testid="active-snap">@DrawerSnapProbe.Display(snapPoint)</span>
+        <DrawerRoot TPayload="NoPayload" @bind-Open="open" SnapPoints="snapPoints" SnapPoint="snapPoint" SnapPointChanged="value => snapPoint = value"
+                    OnSnapPointChange="Record" OnOpenChange="CancelClose">
+            <DrawerPortal>
+                <DrawerViewport>
+                    <DrawerPopup data-testid="popup" ClassValue="CountPopup">Drawer<DrawerClose data-testid="close">Close</DrawerClose></DrawerPopup>
+                </DrawerViewport>
+            </DrawerPortal>
+        </DrawerRoot>
+        break;
+}
+
+@code {
+    private bool open = true;
+    private SnapPointValue? snapPoint = 1;
+    private SnapPointValue? bound = "200px";
+
+    [Parameter] public string Shape { get; set; } = "reset";
+
+    [Parameter] public IReadOnlyList<SnapPointValue> SnapPointList { get; set; } = ["100px", "300px", 1];
+
+    private IReadOnlyList<SnapPointValue> snapPoints => SnapPointList;
+
+    /// <summary>Gets the requests OnSnapPointChange received, in order.</summary>
+    public List<ValueChangeEventArgs<SnapPointValue?>> Requests { get; } = [];
+
+    /// <summary>Gets the number of times the popup computed its class.</summary>
+    public int PopupRenders { get; private set; }
+
+    /// <summary>Gets the bound snap point of the `bind` shape.</summary>
+    public SnapPointValue? Bound => bound;
+
+    private string? CountPopup(DrawerPopupState state)
+    {
+        PopupRenders++;
+        return null;
+    }
+
+    private void Record(ValueChangeEventArgs<SnapPointValue?> args) => Requests.Add(args);
+
+    private void CancelHundred(ValueChangeEventArgs<SnapPointValue?> args)
+    {
+        Requests.Add(args);
+        if (args.Value == "100px")
+        {
+            args.Details.Cancel();
+        }
+    }
+
+    private void CancelClose(ValueChangeEventArgs<bool> args)
+    {
+        if (Shape == "canceled-close" && !args.Value)
+        {
+            args.Details.Cancel();
+        }
+    }
+}

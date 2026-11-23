@@ -296,7 +296,7 @@ test.describe('<Slider.Root />', () => {
     // main's run 44487136692 at e6b4ad9b), each the blur count (`Expected: > 0 / Received: 0`).
     test('explicitly blurs the focused thumb when disabled', {
       tag: '@quarantine',
-      annotation: { type: 'open', description: 'https://github.com/JakeMurrayDev/Blazix.Primitives/issues/328 (expires 2026-12-03)' },
+      annotation: { type: 'open', description: 'https://github.com/JakeMurrayDev/Iodine.Headless/issues/328 (expires 2026-12-03)' },
     }, async ({ page, mode }) => {
       test.fixme(mode === 'server', 'Quarantined on Server until 2026-12-03 (issue 328)');
       const fixture = await open(page, mode, 'slider-label', { value: '30' });

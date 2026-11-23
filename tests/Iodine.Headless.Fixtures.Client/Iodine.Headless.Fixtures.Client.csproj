@@ -1,0 +1,73 @@
+<Project Sdk="Microsoft.NET.Sdk.BlazorWebAssembly">
+
+  <!-- The fixture components, WebAssembly-capable, referenced by the host (ADR 09 §1). -->
+  <PropertyGroup>
+    <IsPackable>false</IsPackable>
+    <NoDefaultLaunchSettingsFile>true</NoDefaultLaunchSettingsFile>
+    <StaticWebAssetProjectMode>Default</StaticWebAssetProjectMode>
+    <BlazorDisableThrowNavigationException>true</BlazorDisableThrowNavigationException>
+    <!-- The [JSImport]/[JSExport] generator of the issue 26 probe (M4 track 3) emits unsafe code. -->
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <!-- Full ICU data on WebAssembly, so NumberField's cultures format and parse as on Server (the M6 plan's decision 11 (a),
+         chosen by the user 2026-11-18; issue 277 design point 5 (a), settled by the orchestrator 2026-11-18). -->
+    <BlazorWebAssemblyLoadAllGlobalizationData>true</BlazorWebAssemblyLoadAllGlobalizationData>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.AspNetCore.Components.WebAssembly" />
+    <!-- The harness clock (ADR 06 §2): a FakeTimeProvider registered as TimeProvider, advanced from the tests. -->
+    <PackageReference Include="Microsoft.Extensions.TimeProvider.Testing" />
+  </ItemGroup>
+
+  <!--
+    The library's development warnings are on in both modes, as in a Debug build of an app, so the specs can read them
+    from the captured diagnostics (ADR 06 §2; first needed by the Collapsible warnings, COL-EDGE-02/03).
+  -->
+  <ItemGroup>
+    <RuntimeHostConfigurationOption Include="Iodine.Headless.DevelopmentWarnings" Value="true" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\Iodine.Headless\Iodine.Headless.csproj" />
+    <!-- The generators run on the test-only popup hosts' state records ([PartState], [StoreState]), as in a consumer's project. -->
+    <ProjectReference Include="..\..\src\Iodine.Headless.Generators\Iodine.Headless.Generators.csproj"
+                      OutputItemType="Analyzer" ReferenceOutputAssembly="false" PrivateAssets="all" />
+  </ItemGroup>
+
+  <!--
+    The probe module (issue 33, deliverable 6) is a test-only module: it is built by the library's esbuild script
+    into this project's wwwroot/js/ (ignored by git) and served at /js/ (the host serves the client project at the site root).
+    The same IodineSkipJsBuild switch applies, so a build without node needs the outputs in place.
+  -->
+  <PropertyGroup>
+    <IodineJsBuildScript>$(MSBuildProjectDirectory)/../../src/Iodine.Headless/js/build.mjs</IodineJsBuildScript>
+  </PropertyGroup>
+  <ItemGroup>
+    <FixtureJsEntry Include="js/probe.ts" Out="js/probe" />
+    <!-- The transport probe of issue 26 (M4 track 3): [JSImport]/[JSExport] against the twin base, WebAssembly only. -->
+    <FixtureJsEntry Include="js/transport-probe.ts" Out="js/transport-probe" />
+    <FixtureJsOutput Include="@(FixtureJsEntry->'wwwroot/%(Out).js')" />
+  </ItemGroup>
+
+  <Target Name="FixtureJsPaths">
+    <PropertyGroup>
+      <FixtureJsManifest>$(IntermediateOutputPath)fixture-js.manifest.txt</FixtureJsManifest>
+    </PropertyGroup>
+  </Target>
+
+  <Target Name="FixtureBuildJs" DependsOnTargets="FixtureJsPaths" Condition="'$(IodineSkipJsBuild)' != 'true' and '$(DesignTimeBuild)' != 'true'">
+    <Exec Command="node &quot;$(IodineJsBuildScript)&quot; --root &quot;$(MSBuildProjectDirectory)&quot; --outdir wwwroot --clean wwwroot/js --configuration $(Configuration) --manifest &quot;$(FixtureJsManifest)&quot; @(FixtureJsEntry->'--entry &quot;%(Identity)=%(Out)&quot;', ' ')" />
+  </Target>
+
+  <Target Name="FixtureRegisterJs" BeforeTargets="ResolveProjectStaticWebAssets" DependsOnTargets="FixtureJsPaths;FixtureBuildJs" Condition="'$(DesignTimeBuild)' != 'true'">
+    <Error Condition="!Exists('%(FixtureJsOutput.Identity)')" Text="The fixture JavaScript output '%(FixtureJsOutput.Identity)' is missing; build with node on PATH." />
+    <ReadLinesFromFile File="$(FixtureJsManifest)" Condition="Exists('$(FixtureJsManifest)')">
+      <Output TaskParameter="Lines" ItemName="_FixtureJsFile" />
+    </ReadLinesFromFile>
+    <ItemGroup Condition="'@(_FixtureJsFile)' != ''">
+      <Content Remove="@(Content)" Condition="!Exists('%(Content.FullPath)')" />
+      <Content Include="@(_FixtureJsFile)" Exclude="@(Content)" />
+    </ItemGroup>
+  </Target>
+
+</Project>

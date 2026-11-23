@@ -1,0 +1,373 @@
+using System.Text.Json;
+using Iodine.Headless.Interop;
+using Bunit;
+using Microsoft.JSInterop;
+
+namespace Iodine.Headless.Tests.Components.Interop;
+
+/// <summary>
+/// Twin contract tests of the <c>button</c> module (ADR 06 §1, L2): bUnit's JS interop mock records the options C# sends
+/// on <c>attach</c> and <c>update</c>, and the tests drive <see cref="ButtonTwin"/>'s <c>[JSInvokable]</c> callbacks.
+/// </summary>
+public sealed class ButtonTwinContractTests
+{
+    private const string KeydownJson = """
+        {"kind":"KeyboardEvent","type":"keydown","key":"Enter","code":"Enter","altKey":false,"ctrlKey":false,
+         "metaKey":false,"shiftKey":true,"pointerType":null,"detail":0,"buttons":0,
+         "target":{"id":"base-ui-1","tagName":"SPAN"},"defaultPrevented":false,"timeStamp":12.5}
+        """;
+
+    private const string PointerdownJson = """
+        {"kind":"PointerEvent","type":"pointerdown","key":null,"code":null,"altKey":false,"ctrlKey":false,
+         "metaKey":false,"shiftKey":true,"pointerType":"mouse","detail":1,"buttons":1,
+         "target":{"id":null,"tagName":"BUTTON"},"defaultPrevented":false,"timeStamp":40}
+        """;
+
+    [Fact]
+    [Trait("Verifies", "ADR06-3")]
+    [Trait("Requirement", "UBT-API-01")]
+    public async Task Attach_imports_the_button_module_and_sends_the_options_on_attach_and_update()
+    {
+        using BunitContext context = new();
+        BunitJSModuleInterop module = context.JSInterop.SetupModule("./_content/Iodine.Headless/js/button.js");
+        BunitJSModuleInterop handle = SetupHandle(module);
+        await using ButtonTwin twin = new(context.JSInterop.JSRuntime);
+
+        TwinHandle<ButtonOptions> attached = await twin.AttachAsync("base-ui-1", new ButtonOptions
+        {
+            Disabled = true,
+            FocusableWhenDisabled = true,
+            Native = false,
+            Composite = true,
+            ReportInteractionType = true,
+            DevelopmentChecks = false,
+        });
+        await attached.UpdateAsync(new ButtonOptions { Native = false, PressAndHold = new PressAndHoldOptions(), DevelopmentChecks = true });
+        await attached.DisposeAsync();
+
+        JSRuntimeInvocation attach = Assert.Single(module.Invocations["attach"]);
+        Assert.Equal("base-ui-1", attach.Arguments[0]);
+        Assert.Equal(
+            """{"disabled":true,"focusableWhenDisabled":true,"native":false,"composite":true,"reportInteractionType":true,"developmentChecks":false}""",
+            attach.Arguments[1]);
+        Assert.IsType<DotNetObjectReference<ButtonTwin>>(attach.Arguments[2]);
+
+        JSRuntimeInvocation update = Assert.Single(handle.Invocations["update"]);
+        Assert.Equal(
+            """{"disabled":false,"native":false,"composite":false,"pressAndHold":{"tickDelay":60,"startDelay":400,"scrollDistance":8},"reportInteractionType":false,"developmentChecks":true}""",
+            update.Arguments[0]);
+        Assert.Single(handle.Invocations["dispose"]);
+    }
+
+    [Fact]
+    [Trait("Requirement", "UBT-API-01")]
+    public void The_options_default_to_the_mechanism_defaults_and_omit_an_unspecified_focusableWhenDisabled()
+    {
+        ButtonOptions options = new() { DevelopmentChecks = false };
+
+        Assert.Equal(
+            """{"disabled":false,"native":true,"composite":false,"reportInteractionType":false,"developmentChecks":false}""",
+            JsonSerializer.Serialize(options, IodineJsonContext.Default.ButtonOptions));
+        Assert.Null(options.FocusableWhenDisabled);
+        Assert.Null(options.PressAndHold);
+        Assert.Null(options.Style);
+    }
+
+    [Fact]
+    [Trait("Requirement", "UBT-ALG-07")]
+    public void The_press_and_hold_options_default_to_a_400_ms_start_a_60_ms_tick_and_an_8_px_scroll_distance()
+    {
+        PressAndHoldOptions options = new();
+
+        Assert.Equal((400, 60, 8), (options.StartDelay, options.TickDelay, options.ScrollDistance));
+    }
+
+    [Fact]
+    [Trait("Requirement", "UBT-EDGE-03")]
+    public void Development_checks_follow_the_development_warnings_switch_unless_set()
+    {
+        Assert.Equal(DevelopmentWarnings.IsEnabled, new ButtonOptions().DevelopmentChecks);
+        Assert.True(new ButtonOptions { DevelopmentChecks = true }.DevelopmentChecks);
+    }
+
+    [Fact]
+    [Trait("Requirement", "UBT-KEY-06")]
+    public void Decide_on_the_activate_point_runs_the_activation_decider_with_the_event_and_returns_its_verdict()
+    {
+        using BunitContext context = new();
+        List<EventSnapshot> seen = [];
+        ButtonTwin twin = new(context.JSInterop.JSRuntime)
+        {
+            ActivationDecider = snapshot =>
+            {
+                seen.Add(snapshot);
+                return DecisionPolicy.Stop;
+            },
+        };
+
+        string verdict = twin.Decide(ButtonTwin.ActivatePoint, KeydownJson);
+
+        Assert.Equal("activate", ButtonTwin.ActivatePoint);
+        Assert.Equal("stop", verdict);
+        EventSnapshot snapshot = Assert.Single(seen);
+        Assert.Equal(EventKind.KeyboardEvent, snapshot.Kind);
+        Assert.Equal("keydown", snapshot.Type);
+        Assert.Equal("Enter", snapshot.Key);
+        Assert.True(snapshot.ShiftKey);
+        Assert.Equal("base-ui-1", snapshot.Target?.Id);
+    }
+
+    [Fact]
+    [Trait("Requirement", "UBT-KEY-06")]
+    public void Without_a_decider_or_on_another_point_the_verdict_is_run()
+    {
+        using BunitContext context = new();
+        ButtonTwin undecided = new(context.JSInterop.JSRuntime);
+        ButtonTwin decided = new(context.JSInterop.JSRuntime) { ActivationDecider = _ => DecisionPolicy.Stop };
+
+        Assert.Equal("run", undecided.Decide(ButtonTwin.ActivatePoint, KeydownJson));
+        Assert.Equal("run", decided.Decide("escape", KeydownJson));
+    }
+
+    [Fact]
+    [Trait("Requirement", "UBT-EVT-08")]
+    public void OnInteraction_raises_InteractionReported_with_the_classification_and_the_event()
+    {
+        using BunitContext context = new();
+        ButtonTwin twin = new(context.JSInterop.JSRuntime);
+        List<ButtonInteraction> reported = [];
+        twin.InteractionReported += reported.Add;
+
+        twin.OnInteraction($$"""{"interactionType":"mouse","event":{{PointerdownJson}}}""");
+        twin.OnInteraction($$"""{"interactionType":"","event":{{PointerdownJson}}}""");
+
+        Assert.Equal(new[] { "mouse", "" }, reported.Select(r => r.InteractionType));
+        Assert.Equal(EventKind.PointerEvent, reported[0].Event.Kind);
+        Assert.Equal("mouse", reported[0].Event.PointerType);
+    }
+
+    [Fact]
+    [Trait("Requirement", "UBT-EVT-10")]
+    public void The_hold_callbacks_raise_their_events_with_the_event_snapshot()
+    {
+        using BunitContext context = new();
+        ButtonTwin twin = new(context.JSInterop.JSRuntime);
+        List<string> log = [];
+        twin.HoldTicked += e => log.Add($"tick:{e.Event.Type}:{e.Event.ShiftKey}");
+        twin.HoldStopped += e => log.Add($"stop:{e.Type}");
+        twin.HoldClicked += e => log.Add($"click:{e.Detail}");
+
+        twin.OnHoldTick($$"""{"event":{{PointerdownJson}}}""");
+        twin.OnHoldTick($$"""{"event":{{PointerdownJson}}}""");
+        twin.OnHoldStop("""{"event":{"kind":"PointerEvent","type":"pointerup"}}""");
+        twin.OnHoldClick("""{"event":{"kind":"PointerEvent","type":"click","detail":0}}""");
+
+        Assert.Equal(new[] { "tick:pointerdown:True", "tick:pointerdown:True", "stop:pointerup", "click:0" }, log);
+    }
+
+    // Issue 277 deliverable 3 (ii) and (iii), decision 16 (a), chosen by the user 2026-11-18: NumberField's steppers send the
+    // input to focus on a mouse press and raise the stop counter after a tick that applied nothing; both are omitted unset.
+    [Fact(DisplayName = "port: the hold focus target and the hold stop are sent only when set")]
+    [Trait("Requirement", "UBT-PTR-20")]
+    [Trait("Requirement", "NUM-PTR-03")]
+    public void The_hold_focus_target_and_the_hold_stop_are_sent_only_when_set()
+    {
+        ButtonOptions options = new() { DevelopmentChecks = false, PressAndHold = new PressAndHoldOptions { FocusTarget = "base-ui-7", Stop = 2 } };
+
+        Assert.Equal(
+            """{"disabled":false,"native":true,"composite":false,"pressAndHold":{"tickDelay":60,"startDelay":400,"scrollDistance":8,"focusTarget":"base-ui-7","stop":2},"reportInteractionType":false,"developmentChecks":false}""",
+            JsonSerializer.Serialize(options, IodineJsonContext.Default.ButtonOptions));
+        Assert.Equal(
+            """{"tickDelay":60,"startDelay":400,"scrollDistance":8}""",
+            JsonSerializer.Serialize(new PressAndHoldOptions(), IodineJsonContext.Default.PressAndHoldOptions));
+    }
+
+    // NUM-PTR-05: the stepper syncs the dirty text once per press, at the first tick of a sequence.
+    [Fact(DisplayName = "port: the first tick of a sequence is reported as its start")]
+    [Trait("Requirement", "UBT-EVT-10")]
+    [Trait("Requirement", "NUM-PTR-05")]
+    public void The_first_tick_of_a_sequence_is_reported_as_its_start()
+    {
+        using BunitContext context = new();
+        ButtonTwin twin = new(context.JSInterop.JSRuntime);
+        List<string> log = [];
+        twin.HoldTicked += e => log.Add($"{e.Event.Type}:{e.Start}");
+
+        twin.OnHoldTick($$"""{"event":{{PointerdownJson}},"start":true}""");
+        twin.OnHoldTick($$"""{"event":{{PointerdownJson}}}""");
+
+        Assert.Equal(["pointerdown:True", "pointerdown:False"], log);
+    }
+
+    // NUM-PTR-02; issue 277 design point 1 (a), the name chosen by the user 2026-11-18.
+    [Fact(DisplayName = "port: the hold-start point runs the activation decider with the press")]
+    [Trait("Requirement", "NUM-PTR-02")]
+    public void The_hold_start_point_runs_its_decider_with_the_press()
+    {
+        using BunitContext context = new();
+        List<EventSnapshot> seen = [];
+        ButtonTwin twin = new(context.JSInterop.JSRuntime)
+        {
+            ActivationDecider = snapshot =>
+            {
+                seen.Add(snapshot);
+                return DecisionPolicy.Stop;
+            },
+        };
+
+        Assert.Equal("hold-start", ButtonTwin.HoldStartPoint);
+        Assert.Equal("stop", twin.Decide(ButtonTwin.HoldStartPoint, PointerdownJson));
+        Assert.Equal("pointerdown", Assert.Single(seen).Type);
+        Assert.Equal("run", new ButtonTwin(context.JSInterop.JSRuntime).Decide(ButtonTwin.HoldStartPoint, PointerdownJson));
+    }
+
+    [Fact]
+    [Trait("Requirement", "UBT-EDGE-01")]
+    [Trait("Requirement", "UBT-EDGE-02")]
+    public void OnNativeButtonMismatch_raises_NativeButtonMismatched_with_the_declared_mode()
+    {
+        using BunitContext context = new();
+        ButtonTwin twin = new(context.JSInterop.JSRuntime);
+        List<bool> reported = [];
+        twin.NativeButtonMismatched += reported.Add;
+
+        twin.OnNativeButtonMismatch("""{"expectedNative":true}""");
+        twin.OnNativeButtonMismatch("""{"expectedNative":false}""");
+
+        Assert.Equal(new[] { true, false }, reported);
+    }
+
+    private const string InputClickJson = """
+        {"kind":"PointerEvent","type":"click","key":null,"code":null,"altKey":false,"ctrlKey":true,
+         "metaKey":false,"shiftKey":false,"pointerType":"","detail":0,"buttons":0,
+         "target":{"id":"base-ui-2","tagName":"INPUT"},"defaultPrevented":false,"timeStamp":7}
+        """;
+
+    [Fact]
+    [Trait("Requirement", "UBT-EVT-09")]
+    [Trait("Requirement", "SWT-PTR-07")]
+    [Trait("Requirement", "CHK-KEY-03")]
+    public void The_hidden_input_bridge_options_are_sent_only_when_turned_on()
+    {
+        // ADR 12 Amendments 2026-10-22 item 4: the bridge and the Enter suppression are options of the button module.
+        Assert.Equal(
+            """{"disabled":false,"native":false,"composite":false,"hiddenInput":true,"readOnly":true,"suppressEnter":true,"reportInteractionType":false,"developmentChecks":false}""",
+            JsonSerializer.Serialize(
+                new ButtonOptions { Native = false, HiddenInput = true, ReadOnly = true, SuppressEnter = true, DevelopmentChecks = false },
+                IodineJsonContext.Default.ButtonOptions));
+        Assert.DoesNotContain("hiddenInput", JsonSerializer.Serialize(new ButtonOptions(), IodineJsonContext.Default.ButtonOptions), StringComparison.Ordinal);
+    }
+
+    [Fact]
+    [Trait("Requirement", "UBT-DOM-12")]
+    [Trait("Requirement", "TLB-KEY-13")]
+    public void The_input_item_option_is_sent_only_when_turned_on()
+    {
+        // ADR 04 Amendments 2026-10-26 (the button row): Toolbar.Input's option of the button module.
+        Assert.Equal(
+            """{"disabled":true,"focusableWhenDisabled":true,"native":false,"composite":true,"inputItem":true,"reportInteractionType":false,"developmentChecks":false}""",
+            JsonSerializer.Serialize(
+                new ButtonOptions { Disabled = true, FocusableWhenDisabled = true, Native = false, Composite = true, InputItem = true, DevelopmentChecks = false },
+                IodineJsonContext.Default.ButtonOptions));
+        Assert.DoesNotContain("inputItem", JsonSerializer.Serialize(new ButtonOptions(), IodineJsonContext.Default.ButtonOptions), StringComparison.Ordinal);
+    }
+
+    // MNU-EDGE-06 (settled by the orchestrator 2026-11-10 as option (a); final review F5): the disabled-element check crosses
+    // by its module name only when turned on, and its report raises the twin's event.
+    [Fact(DisplayName = "port: the disabled-element check is sent only when turned on, and its report raises DisabledElementDetected")]
+    [Trait("Requirement", "UBT-EDGE-01")]
+    [Trait("Requirement", "MNU-EDGE-06")]
+    public void The_disabled_element_check_is_sent_only_when_turned_on_and_its_report_raises_the_event()
+    {
+        Assert.Contains(
+            "\"disabledElementCheck\":true",
+            JsonSerializer.Serialize(new ButtonOptions { DisabledElementCheck = true }, IodineJsonContext.Default.ButtonOptions),
+            StringComparison.Ordinal);
+        Assert.DoesNotContain("disabledElementCheck", JsonSerializer.Serialize(new ButtonOptions(), IodineJsonContext.Default.ButtonOptions), StringComparison.Ordinal);
+
+        using BunitContext context = new();
+        ButtonTwin twin = new(context.JSInterop.JSRuntime);
+        int detected = 0;
+        twin.DisabledElementDetected += () => detected++;
+
+        twin.OnDisabledElementDetected("{}");
+
+        Assert.Equal(1, detected);
+    }
+
+    [Fact]
+    [Trait("Requirement", "UBT-EVT-09")]
+    [Trait("Requirement", "SWT-EVT-03")]
+    public void OnToggle_raises_Toggled_with_the_new_checked_value_and_the_input_click()
+    {
+        using BunitContext context = new();
+        ButtonTwin twin = new(context.JSInterop.JSRuntime);
+        List<ButtonToggle> reported = [];
+        twin.Toggled += reported.Add;
+
+        twin.OnToggle($$"""{"checked":true,"event":{{InputClickJson}}}""");
+
+        ButtonToggle toggle = Assert.Single(reported);
+        Assert.True(toggle.Checked);
+        Assert.Equal("click", toggle.Event.Type);
+        Assert.Equal(0, toggle.Event.Detail);
+        Assert.True(toggle.Event.CtrlKey);
+        Assert.Equal("INPUT", toggle.Event.Target?.TagName);
+    }
+
+    [Fact]
+    [Trait("Requirement", "UBT-EVT-09")]
+    [Trait("Requirement", "SWT-EVT-04")]
+    public void Decide_on_the_toggle_point_runs_the_toggle_decider_and_without_one_runs()
+    {
+        using BunitContext context = new();
+        List<EventSnapshot> seen = [];
+        ButtonTwin decided = new(context.JSInterop.JSRuntime)
+        {
+            ToggleDecider = snapshot =>
+            {
+                seen.Add(snapshot);
+                return DecisionPolicy.Stop;
+            },
+            ActivationDecider = _ => DecisionPolicy.Run,
+        };
+        ButtonTwin undecided = new(context.JSInterop.JSRuntime);
+
+        Assert.Equal("toggle", ButtonTwin.TogglePoint);
+        Assert.Equal("stop", decided.Decide(ButtonTwin.TogglePoint, InputClickJson));
+        Assert.Equal("run", decided.Decide(ButtonTwin.ActivatePoint, InputClickJson));
+        Assert.Equal("run", undecided.Decide(ButtonTwin.TogglePoint, InputClickJson));
+        Assert.Equal("click", Assert.Single(seen).Type);
+    }
+
+    [Fact]
+    public void A_callback_without_a_subscriber_is_a_no_op()
+    {
+        using BunitContext context = new();
+        ButtonTwin twin = new(context.JSInterop.JSRuntime);
+
+        twin.OnInteraction($$"""{"interactionType":"pen","event":{{PointerdownJson}}}""");
+        twin.OnHoldTick($$"""{"event":{{PointerdownJson}}}""");
+        twin.OnHoldStop($$"""{"event":{{PointerdownJson}}}""");
+        twin.OnHoldClick($$"""{"event":{{PointerdownJson}}}""");
+        twin.OnNativeButtonMismatch("""{"expectedNative":true}""");
+    }
+
+    [Fact]
+    public void A_malformed_payload_is_rejected()
+    {
+        using BunitContext context = new();
+        ButtonTwin twin = new(context.JSInterop.JSRuntime);
+
+        Assert.Throws<JsonException>(() => twin.OnHoldTick("null"));
+    }
+
+    /// <summary>The module's <c>attach</c> answers with a handle whose <c>update</c> and <c>dispose</c> complete and are recorded.</summary>
+    private static BunitJSModuleInterop SetupHandle(BunitJSModuleInterop module)
+    {
+        BunitJSModuleInterop handle = module.SetupModule("attach", _ => true);
+        handle.SetupVoid("update", _ => true).SetVoidResult();
+        handle.SetupVoid("dispose", _ => true).SetVoidResult();
+        return handle;
+    }
+}

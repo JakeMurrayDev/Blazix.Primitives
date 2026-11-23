@@ -1,0 +1,329 @@
+@namespace Iodine.Headless.Fixtures.Client.NumberFieldFixtures
+@using System.Globalization
+@using Iodine.Headless
+
+@*
+    The `number-field-input` fixture (tests/browser/number-field.input.spec.ts): a root with only its input, the input
+    role's test consumer. `?case=` picks the root's props: `basic` (defaultValue 0), `bounds` (min -10, max 10), `empty`
+    (no defaultValue), `de` (de-DE), `wheel` (defaultValue 5, allowWheelScrub). The `b2-` cases (number-field.input-b2.spec.ts):
+    `b2-five`, `b2-twelve`, `b2-hundred`, `b2-123` (that defaultValue); `b2-wheel-zero`, `b2-wheel-ten` (defaultValue 0 or 10,
+    allowWheelScrub); `b2-wheel-max` (defaultValue 5, max 5, allowWheelScrub); the locked cases `b2-wheel-disabled`,
+    `b2-wheel-readonly` (defaultValue 5, allowWheelScrub, disabled or readOnly), `b2-wheel-off` (defaultValue 5, allowWheelScrub
+    false) and `b2-readonly` (defaultValue 1, readOnly), each with a `b2-unlock` button that lifts its lock (enabled, editable,
+    allowWheelScrub). Every OnValueChange is recorded as
+    `value/reason` in the container's data-changes, and every OnValueCommitted in data-commits; data-attached is rendered once the number-field module is attached. `veto` (defaultValue 5): the input's onkeydown and onblur call PreventPartHandler(), counted in data-vetoes.
+    The `a-` cases (tests/browser/number-field.input-a.spec.ts, NumberFieldInput.test.tsx) render the root below instead:
+    `a-alt` (defaultValue 0.15, smallStep 0.1, snapOnStep), `a-precise` (defaultValue 1.23456), `a-mirror` (value null,
+    mirrored from OnValueChange), `a-cancel` (value 0, mirrored unless the "cancel" button armed a cancel, an "external"
+    button that sets 10, the "cancel" button reading "armed" once armed), `a-lag` (value 0, never mirrored), `a-lag-inc` (`a-lag` with an Increment), `a-percent` (a percent
+    format), `a-pl` (pl-PL), `a-signed` (min -10, max 10, defaultValue -5), `a-hundred` (defaultValue 100 inside a
+    FieldRoot, whose data-focused marks the focus report) and `a-twelve` (defaultValue 12).
+    Batch B1's cases (tests/browser/number-field.input-b1.spec.ts) start with `b1-` and render the B1Root fragment instead:
+    `b1-step` (min 0, step 0.1), `b1-step-any` (min 0, step any), `b1-overflow` (max 5, allowOutOfRange) and `b1-clamp`
+    (max 5), each named `quantity` inside a form; `b1-overflow-step` (defaultValue 5, max 5, allowOutOfRange, named, in a
+    form, with the steppers); `b1-decimal` (defaultValue 12.3); `b1-brl` (pt-BR, BRL currency, defaultValue 1234.56);
+    `b1-scientific` (scientific notation); `b1-eur` (de-DE, EUR currency with two fraction digits, defaultValue 12.34);
+    `b1-min0` (min 0, allowOutOfRange); `b1-stepper` (defaultValue 0, with the steppers); `b1-pinned` (value 0, which
+    onValueChange never updates, with the steppers). data-attached then also waits for the steppers' button modules.
+    Batch C's cases (tests/browser/number-field.form-c.spec.ts) start with `c-` and render the CaseC fragment instead, each a
+    root named `quantity` inside a native form whose submission is prevented: `c-step-default` (min 0, the default step)
+    and `c-step-submit` (defaultValue 0, min 0, step 0.1).
+*@
+<FixtureContainer Name="number-field-input" data-attached="@(attached ? "true" : "false")" data-changes="@string.Join(' ', changes)" data-commits="@string.Join(' ', commits)" data-vetoes="@vetoes">
+    @if (Case == "veto")
+    {
+        @* The consumer-veto row (ADR 01): onkeydown and onblur call PreventPartHandler() and count in data-vetoes. *@
+        <NumberFieldRoot DefaultValue="5" Culture="Culture" OnValueChange="Change" OnValueCommitted="Commit">
+            <NumberFieldInput @ref="input" data-testid="input" @onkeydown="e => Veto(e)" @onblur="e => Veto(e)" />
+        </NumberFieldRoot>
+    }
+    else if (Case?.StartsWith("a-", StringComparison.Ordinal) == true)
+    {
+        @CaseA
+    }
+    else if (Case?.StartsWith("c-", StringComparison.Ordinal) == true)
+    {
+        @CaseC
+    }
+    else if (!IsB1)
+    {
+        <NumberFieldRoot DefaultValue="DefaultValue" Min="Min" Max="Max" AllowWheelScrub="Wheel" Disabled="@(Locked("b2-wheel-disabled"))" ReadOnly="@(Locked("b2-wheel-readonly") || Locked("b2-readonly"))" Culture="Culture" OnValueChange="Change" OnValueCommitted="Commit">
+            <NumberFieldInput @ref="input" data-testid="input" />
+        </NumberFieldRoot>
+        @if (Case is "b2-wheel-disabled" or "b2-wheel-readonly" or "b2-wheel-off" or "b2-readonly")
+        {
+            <button type="button" data-testid="b2-unlock" @onclick="() => unlocked = true">unlock</button>
+        }
+    }
+    else if (B1InForm)
+    {
+        <form data-testid="form" @onsubmit:preventDefault>
+            @B1Root
+            <button type="submit">Submit</button>
+        </form>
+    }
+    else
+    {
+        @B1Root
+    }
+</FixtureContainer>
+
+@code {
+    private readonly List<string> changes = [];
+    private readonly List<string> commits = [];
+    private NumberFieldInput? input;
+    private NumberFieldDecrement? decrement;
+    private NumberFieldIncrement? increment;
+    private bool attached;
+    private bool unlocked;
+    private int vetoes;
+
+    private void Veto(EventArgs e)
+    {
+        vetoes++;
+        e.PreventPartHandler();
+    }
+
+    [SupplyParameterFromQuery(Name = "case")]
+    public string? Case { get; set; }
+
+    private double? DefaultValue => Case switch
+    {
+        "basic" or "b2-wheel-zero" => 0,
+        "wheel" or "b2-five" or "b2-wheel-max" or "b2-wheel-disabled" or "b2-wheel-readonly" or "b2-wheel-off" => 5,
+        "b2-readonly" => 1,
+        "b2-wheel-ten" => 10,
+        "b2-twelve" => 12,
+        "b2-hundred" => 100,
+        "b2-123" => 123,
+        _ => null,
+    };
+
+    private double? Min => Case == "bounds" ? -10 : null;
+
+    private double? Max => Case switch
+    {
+        "bounds" => 10,
+        "b2-wheel-max" => 5,
+        _ => null,
+    };
+
+    private bool Wheel => Case is "wheel" or "b2-wheel-zero" or "b2-wheel-ten" or "b2-wheel-max" or "b2-wheel-disabled" or "b2-wheel-readonly"
+        || (Case == "b2-wheel-off" && unlocked);
+
+    private bool Locked(string lockCase) => Case == lockCase && !unlocked;
+
+    private CultureInfo Culture => CultureInfo.GetCultureInfo(Case switch
+    {
+        "de" or "b1-eur" => "de-DE",
+        "b1-brl" => "pt-BR",
+        _ => "en-US",
+    });
+
+    private bool IsB1 => Case?.StartsWith("b1-", StringComparison.Ordinal) == true;
+
+    private bool B1InForm => Case is "b1-step" or "b1-step-any" or "b1-overflow" or "b1-overflow-step" or "b1-clamp";
+
+    private bool B1Steppers => Case is "b1-overflow-step" or "b1-stepper" or "b1-pinned";
+
+    private double? B1DefaultValue => Case switch
+    {
+        "b1-overflow-step" => 5,
+        "b1-decimal" => 12.3,
+        "b1-brl" => 1234.56,
+        "b1-eur" => 12.34,
+        "b1-stepper" => 0,
+        _ => null,
+    };
+
+    private double? B1Min => Case is "b1-step" or "b1-step-any" or "b1-min0" ? 0 : null;
+
+    private double? B1Max => Case is "b1-overflow" or "b1-overflow-step" or "b1-clamp" ? 5 : null;
+
+    private StepValue? B1Step => Case switch
+    {
+        "b1-step" => 0.1,
+        "b1-step-any" => StepValue.Any,
+        _ => null,
+    };
+
+    private bool B1AllowOutOfRange => Case is "b1-overflow" or "b1-overflow-step" or "b1-min0";
+
+    private string? B1Name => B1InForm ? "quantity" : null;
+
+    private NumberFormatOptions? B1Format => Case switch
+    {
+        "b1-brl" => new NumberFormatOptions { Style = NumberFormatStyle.Currency, Currency = "BRL" },
+        "b1-scientific" => new NumberFormatOptions { Notation = NumberFormatNotation.Scientific },
+        "b1-eur" => new NumberFormatOptions { Style = NumberFormatStyle.Currency, Currency = "EUR", MinimumFractionDigits = 2, MaximumFractionDigits = 2 },
+        _ => null,
+    };
+
+    private RenderFragment B1Parts => @<text>
+        @if (B1Steppers)
+        {
+            <NumberFieldDecrement @ref="decrement" data-testid="decrement" />
+        }
+        <NumberFieldInput @ref="input" data-testid="input" />
+        @if (B1Steppers)
+        {
+            <NumberFieldIncrement @ref="increment" data-testid="increment" />
+        }
+    </text>;
+
+    private RenderFragment B1Root => @<text>
+        @if (Case == "b1-pinned")
+        {
+            <NumberFieldRoot Value="0" Culture="Culture" OnValueChange="Change" OnValueCommitted="Commit">
+                @B1Parts
+            </NumberFieldRoot>
+        }
+        else
+        {
+            <NumberFieldRoot DefaultValue="B1DefaultValue" Min="B1Min" Max="B1Max" Step="B1Step" AllowOutOfRange="B1AllowOutOfRange" Format="B1Format" Name="@B1Name" Culture="Culture" OnValueChange="Change" OnValueCommitted="Commit">
+                @B1Parts
+            </NumberFieldRoot>
+        }
+    </text>;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender || !RendererInfo.IsInteractive)
+        {
+            return;
+        }
+
+        await input!.TwinAttached;
+        if (decrement is not null && increment is not null)
+        {
+            await Task.WhenAll(decrement.TwinAttached, increment.TwinAttached);
+        }
+
+        attached = true;
+        StateHasChanged();
+    }
+
+    private void Change(ValueChangeEventArgs<double?> e)
+    {
+        string value = e.Value is double number ? number.ToString(CultureInfo.InvariantCulture) : "null";
+        changes.Add($"{value}/{e.Details.Reason.ToLiteral()}");
+    }
+
+    private void Commit(ValueCommittedEventArgs<double?> e)
+    {
+        string value = e.Value is double number ? number.ToString(CultureInfo.InvariantCulture) : "null";
+        commits.Add($"{value}/{e.Details.Reason.ToLiteral()}");
+    }
+}
+
+@code {
+    // The `a-` cases: NumberFieldInput.test.tsx's roots (number-field.input-a.spec.ts).
+    private static readonly NumberFormatOptions s_percent = new() { Style = NumberFormatStyle.Percent };
+    private static readonly CultureInfo s_aEnUs = CultureInfo.GetCultureInfo("en-US");
+    private double? aValue;
+    private bool aValueSet;
+    private bool aCancel;
+
+    // The controlled value: the case's initial value until the parent sets its own.
+    private double? AValue => aValueSet ? aValue : Case == "a-mirror" ? null : 0;
+
+    private double? AMin => Case == "a-signed" ? -10 : null;
+
+    private double? AMax => Case == "a-signed" ? 10 : null;
+
+    private bool ASnapOnStep => Case == "a-alt";
+
+    private NumberFormatOptions? AFormat => Case == "a-percent" ? s_percent : null;
+
+    private CultureInfo ACulture => Case == "a-pl" ? CultureInfo.GetCultureInfo("pl-PL") : s_aEnUs;
+
+    private bool AControlled => Case is "a-mirror" or "a-cancel" or "a-lag" or "a-lag-inc";
+
+    private double? ADefaultValue => Case switch
+    {
+        "a-alt" => 0.15,
+        "a-precise" => 1.23456,
+        "a-signed" => -5,
+        "a-hundred" => 100,
+        "a-twelve" => 12,
+        _ => null,
+    };
+
+    private RenderFragment CaseA => @<text>
+        @if (Case == "a-hundred")
+        {
+            <FieldRoot data-testid="field">
+                <NumberFieldRoot DefaultValue="ADefaultValue" Culture="s_aEnUs" OnValueChange="Change" OnValueCommitted="Commit">
+                    <NumberFieldInput @ref="input" data-testid="input" />
+                </NumberFieldRoot>
+            </FieldRoot>
+        }
+        else if (AControlled)
+        {
+            <NumberFieldRoot Value="AValue" Culture="s_aEnUs" OnValueChange="ChangeA" OnValueCommitted="Commit">
+                <NumberFieldInput @ref="input" data-testid="input" />
+                @if (Case == "a-lag-inc")
+                {
+                    <NumberFieldIncrement />
+                }
+            </NumberFieldRoot>
+            @if (Case == "a-cancel")
+            {
+                <button type="button" @onclick="() => SetA(10)">external</button>
+                <button type="button" @onclick="() => aCancel = true">@(aCancel ? "armed" : "cancel")</button>
+            }
+        }
+        else
+        {
+            <NumberFieldRoot DefaultValue="ADefaultValue" Min="AMin" Max="AMax"
+                             SmallStep="0.1" SnapOnStep="ASnapOnStep" Format="AFormat"
+                             Culture="ACulture" OnValueChange="Change" OnValueCommitted="Commit">
+                <NumberFieldInput @ref="input" data-testid="input" />
+            </NumberFieldRoot>
+        }
+    </text>;
+
+    // Records the change, then cancels it when armed, else stores it when the case mirrors (React's useState parent).
+    private void ChangeA(ValueChangeEventArgs<double?> e)
+    {
+        Change(e);
+        if (aCancel)
+        {
+            e.Details.Cancel();
+            return;
+        }
+
+        if (Case is "a-mirror" or "a-cancel")
+        {
+            SetA(e.Value);
+        }
+    }
+
+    private void SetA(double? value)
+    {
+        aValue = value;
+        aValueSet = true;
+    }
+}
+
+@code {
+    // The `c-` cases: NumberFieldRoot.test.tsx's native step-mismatch roots (number-field.form-c.spec.ts).
+    private RenderFragment CaseC => @<form data-testid="form" @onsubmit:preventDefault>
+        @if (Case == "c-step-submit")
+        {
+            <NumberFieldRoot Name="quantity" DefaultValue="0" Min="0" Step="0.1" Culture="s_aEnUs" OnValueChange="Change" OnValueCommitted="Commit">
+                <NumberFieldInput @ref="input" data-testid="input" />
+            </NumberFieldRoot>
+            <button type="submit">submit</button>
+        }
+        else
+        {
+            <NumberFieldRoot Name="quantity" Min="0" Culture="s_aEnUs" OnValueChange="Change" OnValueCommitted="Commit">
+                <NumberFieldGroup>
+                    <NumberFieldInput @ref="input" data-testid="input" />
+                </NumberFieldGroup>
+            </NumberFieldRoot>
+            <button type="submit">Submit</button>
+        }
+    </form>;
+}

@@ -65,7 +65,7 @@ public sealed class SliderTriplesRoot : ComponentBase
 
         if (single is not null && many is not null)
         {
-            throw new InvalidOperationException($"Blazix: `SliderRoot` received `{single}` and `{many}`. Use `Value`, `ValueChanged` (or `@bind-Value`), `DefaultValue` and `OnValueChange` for one thumb, or `Values`, `ValuesChanged` (or `@bind-Values`), `DefaultValues` and `OnValuesChange` for a range.");
+            throw new InvalidOperationException($"Iodine: `SliderRoot` received `{single}` and `{many}`. Use `Value`, `ValueChanged` (or `@bind-Value`), `DefaultValue` and `OnValueChange` for one thumb, or `Values`, `ValuesChanged` (or `@bind-Values`), `DefaultValues` and `OnValuesChange` for a range.");
         }
 
         return base.SetParametersAsync(parameters);

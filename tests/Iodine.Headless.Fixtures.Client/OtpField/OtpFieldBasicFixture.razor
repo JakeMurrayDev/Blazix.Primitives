@@ -1,0 +1,123 @@
+@namespace Iodine.Headless.Fixtures.Client.OtpFieldFixtures
+@using Iodine.Headless
+@inherits OtpFieldFixtureBase
+
+@*
+    The `otp-field-basic` fixture (tests/browser/otp-field*.spec.ts): a `before` button, a `<label for="otp">`, one root with
+    id `otp` and `?length=` slots (6), each `slot-{i}` with `aria-label="Character {i+1} of {length}"` from slot 1 on, then an
+    `outside` button. `?value=` the default value, `?type=` numeric (default), alpha, alphanumeric or none, `?readonly`,
+    `?disabled`, `?mask`, `?name=` (the root's Name), `?required`; `?form` puts the label, the root and a submit and a `reset`
+    button in a `<form data-testid="form">` whose submit is prevented; `?cancel=` cancels every OnValueChange whose reason is that literal, or `all`. `?veto=` gives every
+    slot onkeydown, oninput, onpaste, onmousedown, onfocus and onblur handlers; those of the listed types (comma-separated:
+    keydown, input, paste, mousedown, focus, blur; `?veto` alone lists all) call PreventPartHandler() and are recorded in
+    data-vetoes (`keydown:{key}` for a key). The `make-disabled` and `make-readonly` buttons
+    set those props (Base UI's `setProps`). The recorders are data-changes, data-invalids and data-completes; data-attached marks the module's attach.
+*@
+<FixtureContainer Name="otp-field-basic" data-attached="@(Attached ? "true" : "false")" data-changes="@string.Join(" ", Changes)"
+                  data-invalids="@string.Join(" ", Invalids)" data-completes="@string.Join(" ", Completes)" data-vetoes="@string.Join(" ", vetoes)">
+    <button type="button" data-testid="before">Before</button>
+    @if (inForm)
+    {
+        <form data-testid="form" onsubmit="event.preventDefault()">
+            @Field
+            <button type="submit">Submit</button>
+            <button type="reset" data-testid="reset">Reset</button>
+        </form>
+    }
+    else
+    {
+        @Field
+    }
+    <button type="button" data-testid="outside">Outside</button>
+    <button type="button" data-testid="make-disabled" @onclick="() => disabled = true">Disable</button>
+    <button type="button" data-testid="make-readonly" @onclick="() => readOnly = true">Make read-only</button>
+</FixtureContainer>
+
+@code {
+    private readonly List<string> vetoes = [];
+    private bool inForm;
+    private string? name;
+    private bool required;
+
+    private RenderFragment Field => @<text>
+        <label for="otp">Verification code</label>
+        <OtpFieldRoot @ref="Root" Id="otp" Length="length" DefaultValue="@defaultValue" ValidationType="validationType" ReadOnly="readOnly"
+                      Disabled="disabled" Mask="mask" Name="@name" Required="required" OnValueChange="Change" OnValueInvalid="RecordInvalid"
+                      OnValueComplete="RecordComplete" data-testid="root">
+            @for (int i = 0; i < length; i++)
+            {
+                int index = i;
+                string? label = index == 0 ? null : $"Character {index + 1} of {length}";
+                @if (veto)
+                {
+                    <OtpFieldInput data-testid="@($"slot-{index}")" aria-label="@label" @onkeydown="Veto" @oninput="Veto" @onpaste="Veto" @onmousedown="Veto" @onfocus="Veto" @onblur="Veto" />
+                }
+                else
+                {
+                    <OtpFieldInput data-testid="@($"slot-{index}")" aria-label="@label" />
+                }
+            }
+        </OtpFieldRoot>
+    </text>;
+    private int length;
+    private string? defaultValue;
+    private OtpFieldValidationType validationType;
+    private bool readOnly;
+    private bool disabled;
+    private bool mask;
+    private bool veto;
+    private HashSet<string> vetoTypes = [];
+    private string cancel = string.Empty;
+
+    /// <inheritdoc />
+    protected override void OnInitialized()
+    {
+        length = int.Parse(Query("length", "6"), System.Globalization.CultureInfo.InvariantCulture);
+        defaultValue = Query("value", string.Empty);
+        validationType = Query("type", "numeric") switch
+        {
+            "alpha" => OtpFieldValidationType.Alpha,
+            "alphanumeric" => OtpFieldValidationType.Alphanumeric,
+            "none" => OtpFieldValidationType.None,
+            _ => OtpFieldValidationType.Numeric,
+        };
+        readOnly = Flag("readonly");
+        disabled = Flag("disabled");
+        mask = Flag("mask");
+        inForm = Flag("form");
+        name = Query("name", string.Empty) is { Length: > 0 } given ? given : null;
+        required = Flag("required");
+        string vetoList = Query("veto", "false");
+        veto = vetoList != "false";
+        vetoTypes = vetoList.Length == 0 ? ["keydown", "input", "paste", "mousedown", "focus", "blur"] : [.. vetoList.Split(',')];
+        cancel = Query("cancel", string.Empty);
+    }
+
+    private void Change(ValueChangeEventArgs<string> args)
+    {
+        RecordChange(args);
+        if (cancel == "all" || cancel == args.Details.Reason.ToLiteral())
+        {
+            args.Details.Cancel();
+        }
+    }
+
+    private void Veto(EventArgs args)
+    {
+        string type = args switch
+        {
+            Microsoft.AspNetCore.Components.Web.KeyboardEventArgs => "keydown",
+            Microsoft.AspNetCore.Components.Web.FocusEventArgs focus => focus.Type is "blur" or "focusout" ? "blur" : "focus",
+            Microsoft.AspNetCore.Components.Web.ClipboardEventArgs => "paste",
+            Microsoft.AspNetCore.Components.Web.MouseEventArgs => "mousedown",
+            _ => "input",
+        };
+        if (!vetoTypes.Contains(type))
+        {
+            return;
+        }
+
+        vetoes.Add(args is Microsoft.AspNetCore.Components.Web.KeyboardEventArgs key ? $"keydown:{key.Key}" : type);
+        args.PreventPartHandler();
+    }
+}

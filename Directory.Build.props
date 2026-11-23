@@ -15,19 +15,19 @@
 
   <!-- The two shipped assemblies produce XML documentation; under warnings-as-errors a public or protected member without a
        documentation comment (CS1591) or a cref, paramref or typeparamref that does not resolve fails the build. -->
-  <PropertyGroup Condition="'$(MSBuildProjectName)' == 'Blazix.Primitives' Or '$(MSBuildProjectName)' == 'Blazix.Primitives.Generators'">
+  <PropertyGroup Condition="'$(MSBuildProjectName)' == 'Iodine.Headless' Or '$(MSBuildProjectName)' == 'Iodine.Headless.Generators'">
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
   </PropertyGroup>
 
   <!-- The library only. -->
-  <PropertyGroup Condition="'$(MSBuildProjectName)' == 'Blazix.Primitives'">
+  <PropertyGroup Condition="'$(MSBuildProjectName)' == 'Iodine.Headless'">
     <!-- ADR 16 rule 1: reflection or dynamic code in the library fails the build. -->
     <IsTrimmable>true</IsTrimmable>
     <IsAotCompatible>true</IsAotCompatible>
     <MinVerTagPrefix>v</MinVerTagPrefix>
   </PropertyGroup>
 
-  <ItemGroup Condition="'$(MSBuildProjectName)' == 'Blazix.Primitives'">
+  <ItemGroup Condition="'$(MSBuildProjectName)' == 'Iodine.Headless'">
     <PackageReference Include="MinVer" PrivateAssets="all" />
   </ItemGroup>
 

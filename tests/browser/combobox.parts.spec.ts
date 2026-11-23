@@ -5,7 +5,7 @@ import { pressControl, settle } from './suites/popupFixture';
 
 // The titles of ComboboxClear, ComboboxItem, ComboboxItemIndicator, ComboboxList, ComboboxPopup, ComboboxPositioner, createItems
 // (the "serializes" ones) and parts.test.ts, ported at L4 (M5 track 10, issue 174): Base UI's titles verbatim, on the
-// `combobox-parts` fixture (tests/Blazix.Primitives.Fixtures.Client/Combobox/L4/ComboboxPartsL4Fixture.razor), every title on
+// `combobox-parts` fixture (tests/Iodine.Headless.Fixtures.Client/Combobox/L4/ComboboxPartsL4Fixture.razor), every title on
 // both render modes. The fixture's `case` picks the test's rendering; its callbacks are recorded as the container's `data-*`
 // attributes.
 //

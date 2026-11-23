@@ -11,12 +11,12 @@ export type FixtureOptions = Record<string, string | number | boolean | undefine
 
 /**
  * Opens a Combobox fixture and waits for its `data-attached` marker (the session's and the parts' handles), so the first
- * gesture is never lost. With `BLAZIX_DELAY_CIRCUIT_MS` set, a Server page's circuit is delayed by that many milliseconds
+ * gesture is never lost. With `IODINE_DELAY_CIRCUIT_MS` set, a Server page's circuit is delayed by that many milliseconds
  * each way before the page loads, so one run takes every title through a slow round trip (the orchestrator's rule for
  * track 10's pointer and keyboard titles, 2026-11-10).
  */
 export async function gotoCombobox(page: Page, mode: RenderMode, fixture: string, options: FixtureOptions = {}): Promise<Locator> {
-  const delay = Number(process.env.BLAZIX_DELAY_CIRCUIT_MS ?? 0);
+  const delay = Number(process.env.IODINE_DELAY_CIRCUIT_MS ?? 0);
   if (mode === 'server' && delay > 0) {
     await delayCircuit(page, delay);
   }

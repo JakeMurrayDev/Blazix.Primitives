@@ -183,13 +183,13 @@ for (const { name, triggers } of triggerModes) {
       // DLG-STR-04, API-18, DIS-06: the parts inside the portal moved into the shadow root resolve through the portal's
       // registered shadow roots (ADR 04 Amendments 2026-10-28, design point 9 of M4 track 8, PR 144).
       // Base UI attaches an open shadow root; the port's portal takes a closed one a page script holds
-      // (blazixFixtureDom.lastClosedShadowRoot), whose elements the test reaches through that script, as Base UI's do through
+      // (iodineFixtureDom.lastClosedShadowRoot), whose elements the test reaches through that script, as Base UI's do through
       // the root it holds.
       const inShadow = (page: Page, selector: string) =>
-        page.evaluate((s) => (globalThis as unknown as { blazixFixtureDom: { lastClosedShadowRoot: ShadowRoot | null } }).blazixFixtureDom.lastClosedShadowRoot?.querySelector(s) != null, selector);
+        page.evaluate((s) => (globalThis as unknown as { iodineFixtureDom: { lastClosedShadowRoot: ShadowRoot | null } }).iodineFixtureDom.lastClosedShadowRoot?.querySelector(s) != null, selector);
       const clickInShadow = (page: Page, selector: string) =>
         page.evaluate((s) => {
-          const element = (globalThis as unknown as { blazixFixtureDom: { lastClosedShadowRoot: ShadowRoot } }).blazixFixtureDom.lastClosedShadowRoot.querySelector(s) as HTMLElement;
+          const element = (globalThis as unknown as { iodineFixtureDom: { lastClosedShadowRoot: ShadowRoot } }).iodineFixtureDom.lastClosedShadowRoot.querySelector(s) as HTMLElement;
           element.dispatchEvent(new MouseEvent('click', { bubbles: true, composed: true, cancelable: true }));
         }, selector);
 
@@ -198,7 +198,7 @@ for (const { name, triggers } of triggerModes) {
       // own handle attached, beside the others, so the modal titles press once focus is in the popup (a stable end state,
       // ADR 06 §2), with the circuit delayed 100 ms each way on Server, which loses the press without that wait.
       const focusInShadow = (page: Page, selector: string) =>
-        page.evaluate((s) => (globalThis as unknown as { blazixFixtureDom: { lastClosedShadowRoot: ShadowRoot | null } }).blazixFixtureDom.lastClosedShadowRoot?.activeElement?.closest(s) != null, selector);
+        page.evaluate((s) => (globalThis as unknown as { iodineFixtureDom: { lastClosedShadowRoot: ShadowRoot | null } }).iodineFixtureDom.lastClosedShadowRoot?.activeElement?.closest(s) != null, selector);
 
       test('closing via intentional outside press with user backdrop (modal=true): works when portaled into a shadow DOM', async ({ page, mode }) => {
         if (mode === 'server') {
@@ -218,7 +218,7 @@ for (const { name, triggers } of triggerModes) {
         const fixture = await root(page, mode, { defaultOpen: true, modal: false, container: 'shadow' });
         await expect.poll(() => inShadow(page, '[role="dialog"]')).toBe(true);
         await page.evaluate(() => {
-          const shadow = (globalThis as unknown as { blazixFixtureDom: { lastClosedShadowRoot: ShadowRoot } }).blazixFixtureDom.lastClosedShadowRoot;
+          const shadow = (globalThis as unknown as { iodineFixtureDom: { lastClosedShadowRoot: ShadowRoot } }).iodineFixtureDom.lastClosedShadowRoot;
           const button = document.createElement('button');
           button.dataset.testid = 'shadow-outside';
           button.textContent = 'Outside';
@@ -805,7 +805,7 @@ test.describe('closed shadow root', () => {
   const exists = (page: Page, testId: string) =>
     page.evaluate((id) => {
       const selector = `[data-testid="${id}"]`;
-      const root = (globalThis as unknown as { blazixFixtureDom: { lastClosedShadowRoot: ShadowRoot | null } }).blazixFixtureDom.lastClosedShadowRoot;
+      const root = (globalThis as unknown as { iodineFixtureDom: { lastClosedShadowRoot: ShadowRoot | null } }).iodineFixtureDom.lastClosedShadowRoot;
       return (root?.querySelector(selector) ?? document.querySelector(selector)) != null;
     }, testId);
 
@@ -819,7 +819,7 @@ test.describe('closed shadow root', () => {
    */
   const focusIn = (page: Page, testId: string) =>
     page.evaluate((id) => {
-      const root = (globalThis as unknown as { blazixFixtureDom: { lastClosedShadowRoot: ShadowRoot | null } }).blazixFixtureDom.lastClosedShadowRoot;
+      const root = (globalThis as unknown as { iodineFixtureDom: { lastClosedShadowRoot: ShadowRoot | null } }).iodineFixtureDom.lastClosedShadowRoot;
       return (root?.activeElement ?? document.activeElement)?.closest(`[data-testid="${id}"]`) != null;
     }, testId);
 
@@ -827,7 +827,7 @@ test.describe('closed shadow root', () => {
   const click = (page: Page, testId: string) =>
     page.evaluate((id) => {
       const selector = `[data-testid="${id}"]`;
-      const root = (globalThis as unknown as { blazixFixtureDom: { lastClosedShadowRoot: ShadowRoot | null } }).blazixFixtureDom.lastClosedShadowRoot;
+      const root = (globalThis as unknown as { iodineFixtureDom: { lastClosedShadowRoot: ShadowRoot | null } }).iodineFixtureDom.lastClosedShadowRoot;
       ((root?.querySelector(selector) ?? document.querySelector(selector)) as HTMLElement).click();
     }, testId);
 
@@ -874,7 +874,7 @@ test.describe('closed shadow root', () => {
             // A nested root's Backdrop renders only with ForceRender (DLG-STR-05): its backdrop is the internal one, the
             // first child of its portal node in the shadow root.
             await page.evaluate(() => {
-              const root = (globalThis as unknown as { blazixFixtureDom: { lastClosedShadowRoot: ShadowRoot } }).blazixFixtureDom.lastClosedShadowRoot;
+              const root = (globalThis as unknown as { iodineFixtureDom: { lastClosedShadowRoot: ShadowRoot } }).iodineFixtureDom.lastClosedShadowRoot;
               const node = root.querySelector('[data-testid="nested"]')!.closest('[data-base-ui-portal]')!;
               (node.querySelector(':scope > [role="presentation"]') as HTMLElement).click();
             });
@@ -911,7 +911,7 @@ test.describe('closed shadow root', () => {
           await expect.poll(() => focusIn(page, 'nested')).toBe(true);
           if (kind === 'modal') {
             await page.evaluate(() => {
-              const root = (globalThis as unknown as { blazixFixtureDom: { lastClosedShadowRoot: ShadowRoot } }).blazixFixtureDom.lastClosedShadowRoot;
+              const root = (globalThis as unknown as { iodineFixtureDom: { lastClosedShadowRoot: ShadowRoot } }).iodineFixtureDom.lastClosedShadowRoot;
               const node = root.querySelector('[data-testid="nested"]')!.closest('[data-base-ui-portal]')!;
               (node.querySelector(':scope > [role="presentation"][data-base-ui-inert]') as HTMLElement).click();
             });
@@ -1201,7 +1201,7 @@ test.describe('attach order', () => {
     const held: Route[] = [];
     let hits = 0;
     let released = false;
-    await page.route(new RegExp(`/_content/Blazix\\.Primitives/js/${module}(\\.[0-9a-z]+)?\\.js$`), (route) => {
+    await page.route(new RegExp(`/_content/Iodine\\.Headless/js/${module}(\\.[0-9a-z]+)?\\.js$`), (route) => {
       hits += 1;
       return released ? route.continue() : held.push(route);
     });

@@ -1,0 +1,12 @@
+@namespace Iodine.Headless.Fixtures.Client.ScrollAreaFixtures
+
+@*
+    A sync barrier that re-renders only itself (tests/browser/scroll-area.relaxations.spec.ts): its button's click is
+    counted in `data-sync` once C# has handled every earlier message of the page, and the render that counts it touches
+    nothing else, so the spec can subtract its traffic from a figure.
+*@
+<span data-sync-barrier data-sync="@count"><button type="button" data-sync-button @onclick="() => count++">Sync</button></span>
+
+@code {
+    private int count;
+}

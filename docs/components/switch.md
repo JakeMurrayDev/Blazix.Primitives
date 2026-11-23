@@ -8,7 +8,7 @@
 | Docs page | `docs/src/app/(docs)/react/components/switch/page.mdx` |
 | Prefix | `SWT` |
 | Status | implemented |
-| Revised | 2026-10-23 |
+| Revised | 2026-11-23 |
 | Builds on | none |
 | Derived by | none |
 | Depends on | [rendering-and-composition](../architecture/rendering-and-composition.md), [event-details-and-reasons](../architecture/event-details-and-reasons.md), [button-behavior](../architecture/button-behavior.md), [field-and-form-infrastructure](../architecture/field-and-form-infrastructure.md), [shared-utilities](../architecture/shared-utilities.md) |
@@ -519,7 +519,7 @@ All messages below are emitted only in non-production builds, through `console.e
 
 - **SWT-EDGE-01** — MUST. Rendering `Switch.Thumb` outside a `Switch.Root` MUST throw an error with the message `Base UI: SwitchRootContext is missing. Switch parts must be placed within <Switch.Root>.`
   Source: `switch/root/SwitchRootContext.ts:11-15`. Test: [L2] `SwitchThumb.test.tsx` "throws a descriptive error when rendered outside <Switch.Root>".
-  Port note 2026-10-22: the message is ``Blazix: The `SwitchRoot` context is missing. Switch parts must be placed within `<SwitchRoot>`.`` (the port's words under ADR 08 Amendments 2026-10-20; the PRG-EDGE-01 precedent); the error is an `InvalidOperationException` thrown in every build.
+  Port note 2026-10-22: the message is ``Iodine: The `SwitchRoot` context is missing. Switch parts must be placed within `<SwitchRoot>`.`` (the port's words under ADR 08 Amendments 2026-10-20; the PRG-EDGE-01 precedent); the error is an `InvalidOperationException` thrown in every build.
 - **SWT-EDGE-02** — SHOULD. If `checked` switches between `undefined` and a boolean after the first render, a dev error SHOULD be logged: `A component is changing the uncontrolled checked state of Switch to be controlled.` (or `…the controlled checked state of Switch to be uncontrolled.`) followed by `Elements should not switch from uncontrolled to controlled (or vice versa).`, `Decide between using a controlled or uncontrolled Switch element for the lifetime of the component.`, `The nature of the state is determined during the first render. It's considered controlled if the value is not `undefined`.`, `More info: https://fb.me/react-controlled-components` (newline-separated).
   Source: `packages/utils/src/useControlled.ts:48-64`. Test: none.
 - **SWT-EDGE-03** — SHOULD. If `defaultChecked` changes after the first render of a component-owned switch, a dev error SHOULD be logged: `A component is changing the default checked state of an uncontrolled Switch after being initialized. To suppress this warning opt to use a controlled Switch.` The rendered state is unaffected.
@@ -769,3 +769,5 @@ Non-normative.
    Resolved 2026-10-23 (M2 track 4, with track 1's term): the switch registers its **own name** (`FieldControlRegistration.Name`: the `Name` parameter, else the `CheckedExpression` identifier's field name, ADR 05 Amendments 2026-10-22), and the field's **effective name** is FFI-STA-10's `Field.Root.name ?? <name registered by the active control>`, which errors are looked up and cleared by and the hidden input carries. SWT-API-07 and SWT-FRM-18 use these two terms.
 6. **Fallback label id format.** The assigned id `"<hidden input id>-label"` (`useAriaLabelledBy.ts:16`) is only tested for non-emptiness (`SwitchRoot.test.tsx:137,162`). SWT-ARIA-07 states the exact format as implemented; a port may treat the format as SHOULD if the FFI document relaxes it. Resolved: FFI-ARIA-06 (`docs/architecture/field-and-form-infrastructure.md`) states the `${controlId}-label` format as MUST, so SWT-ARIA-07 stays MUST.
 7. **Docs vs. source on root element.** `components/switch/page.mdx` §Rendering as a native button says a native `<button>` is preferred for sibling labels; the source does not warn when a sibling `<label htmlFor>` targets a non-native switch (it works via the hidden input's id, tested at line 491). No discrepancy in behavior; the guidance is advisory.
+
+**Identity rename (2026-11-23, [ADR 17](../decisions/17-product-name-and-package-identity.md)).** Every `Blazix.Primitives` in this document now reads `Iodine.Headless`, the `Blazix: ` message prefix reads `Iodine: `, every other `Blazix`, `blazix` or `BLZX` name reads its `Iodine`, `iodine` or `IOD` form, and links point to `JakeMurrayDev/Iodine.Headless`. No requirement's meaning, level or test changed.

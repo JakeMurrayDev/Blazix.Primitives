@@ -1,0 +1,239 @@
+@namespace Iodine.Headless.Fixtures.Client.ScrollAreaFixtures
+@using System.Globalization
+@using Iodine.Headless
+@inherits ScrollAreaFixtureBase
+
+@*
+    The `scroll-area-parts` fixture (tests/browser/scroll-area*.spec.ts): every part, configured by the query, so each Base UI
+    title's tree is one URL. Sizes are exact pixels.
+    - Root: `rootWidth`, `rootHeight` (200), `dir` (`ltr` | `rtl`: a DirectionProvider and `direction` on the root's style),
+      `threshold` (`20` or `xStart:20,yStart:5`), `thresholdAfter` (applied by `set-threshold`), `deferRoot` (the root mounts on
+      `mount-root`), `hidden` (inside a `display: none` wrapper until `show`).
+    - Viewport: `viewport=false` omits it; `viewportStyle`; `unmount-viewport` removes it.
+    - Content: `content=false` puts the inner element straight in the viewport; `lateContent` mounts the Content on
+      `show-content`; the inner element is `width` × `height` (1,000 × 1,000), `resize` sets it to `resizeWidth` ×
+      `resizeHeight`; `items=N` replaces it with a row of N 200 × 100 px snap items.
+    - Scrollbars: `bars` (`both`, `vertical`, `horizontal`, `none`), `keepMounted`, `thumb=false`, the consumer styles `vStyle`
+      (`width: 10px`), `hStyle` (`height: 10px`), `vThumbStyle` (`width: 100%`), `hThumbStyle` (`height: 100%`).
+    - Corner: `corner`.
+    Test ids: root, viewport, content, inner, scrollbar-vertical, scrollbar-horizontal, thumb-vertical, thumb-horizontal, corner.
+*@
+<FixtureContainer Name="scroll-area-parts" data-attached="@(Attached ? "true" : "false")" data-measured="@(Measured ? "true" : "false")"
+                  data-reports="@Reports" data-sync="@Sync">
+    <div>
+        <button type="button" data-sync-button @onclick="() => Sync++">Sync</button>
+        <button type="button" data-testid="toggle-dir" @onclick="() => rtl = !rtl">Toggle direction</button>
+        <button type="button" data-testid="mount-root" @onclick="() => rootMounted = true">Mount root</button>
+        <button type="button" data-testid="show" @onclick="() => hidden = false">Show</button>
+        <button type="button" data-testid="show-content" @onclick="() => contentMounted = true">Show content</button>
+        <button type="button" data-testid="resize" @onclick="Resize">Resize</button>
+        <button type="button" data-testid="set-threshold" @onclick="SetThreshold">Set threshold</button>
+        <button type="button" data-testid="unmount-viewport" @onclick="() => viewportMounted = false">Unmount viewport</button>
+    </div>
+    <div style="@WrapperStyle">
+        @if (rootMounted)
+        {
+            <DirectionProvider Direction="@(rtl ? TextDirection.Rtl : TextDirection.Ltr)">
+                <ScrollAreaRoot @ref="Root" data-testid="root" OverflowEdgeThreshold="threshold"
+                                style="@RootStyle">
+                    @if (viewportMounted)
+                    {
+                        <ScrollAreaViewport @ref="Viewport" data-testid="viewport" style="@Style("width: 100%; height: 100%", viewportStyle)">
+                            @if (!withContent)
+                            {
+                                @Inner
+                            }
+                            else if (contentMounted)
+                            {
+                                <ScrollAreaContent @ref="Content" data-testid="content">@Inner</ScrollAreaContent>
+                            }
+                        </ScrollAreaViewport>
+                    }
+                    @if (bars is "both" or "vertical")
+                    {
+                        <ScrollAreaScrollbar @ref="VerticalBar" Orientation="Orientation.Vertical" KeepMounted="keepMounted"
+                                             data-testid="scrollbar-vertical" style="@Style(vStyle)">
+                            @if (withThumb)
+                            {
+                                <ScrollAreaThumb @ref="VerticalThumb" data-testid="thumb-vertical" style="@Style(vThumbStyle)" />
+                            }
+                        </ScrollAreaScrollbar>
+                    }
+                    @if (bars is "both" or "horizontal")
+                    {
+                        <ScrollAreaScrollbar @ref="HorizontalBar" Orientation="Orientation.Horizontal" KeepMounted="keepMounted"
+                                             data-testid="scrollbar-horizontal" style="@Style(hStyle)">
+                            @if (withThumb)
+                            {
+                                <ScrollAreaThumb @ref="HorizontalThumb" data-testid="thumb-horizontal" style="@Style(hThumbStyle)" />
+                            }
+                        </ScrollAreaScrollbar>
+                    }
+                    @if (corner)
+                    {
+                        <ScrollAreaCorner data-testid="corner" />
+                    }
+                </ScrollAreaRoot>
+            </DirectionProvider>
+        }
+    </div>
+</FixtureContainer>
+
+@code {
+    private int rootWidth;
+    private int rootHeight;
+    private bool rtl;
+    private bool rootMounted;
+    private bool hidden;
+    private bool viewportMounted;
+    private string viewportStyle = string.Empty;
+    private bool withContent;
+    private bool contentMounted;
+    private int innerWidth;
+    private int innerHeight;
+    private int items;
+    private string bars = "both";
+    private bool keepMounted;
+    private bool withThumb;
+    private string vStyle = string.Empty;
+    private string hStyle = string.Empty;
+    private string vThumbStyle = string.Empty;
+    private string hThumbStyle = string.Empty;
+    private bool corner;
+    private OverflowEdgeThresholdValue? threshold;
+
+    // A scrollbar or thumb is tracked for `data-attached` only while it renders at the first interactive render: a kept
+    // mounted one. One that appears with the overflow attaches later, and a title waits for its own marker.
+    private ScrollAreaScrollbar? VerticalBar
+    {
+        set
+        {
+            if (keepMounted)
+            {
+                Scrollbar = value;
+            }
+        }
+    }
+
+    private ScrollAreaScrollbar? HorizontalBar
+    {
+        set
+        {
+            if (keepMounted)
+            {
+                Scrollbar = value;
+            }
+        }
+    }
+
+    private ScrollAreaThumb? VerticalThumb
+    {
+        set
+        {
+            if (keepMounted)
+            {
+                Thumb = value;
+            }
+        }
+    }
+
+    private ScrollAreaThumb? HorizontalThumb
+    {
+        set
+        {
+            if (keepMounted)
+            {
+                Thumb = value;
+            }
+        }
+    }
+
+    private string RootStyle => string.Create(CultureInfo.InvariantCulture, $"width: {rootWidth}px; height: {rootHeight}px; direction: {(rtl ? "rtl" : "ltr")}");
+
+    private string InnerStyle => string.Create(CultureInfo.InvariantCulture, $"width: {innerWidth}px; height: {innerHeight}px");
+
+    private RenderFragment Inner => __builder =>
+    {
+        if (items > 0)
+        {
+            <div data-testid="inner" style="display: flex">
+                @for (int i = 0; i < items; i++)
+                {
+                    <div style="flex-shrink: 0; width: 200px; height: 100px; scroll-snap-align: start"></div>
+                }
+            </div>
+        }
+        else
+        {
+            <div data-testid="inner" style="@InnerStyle"></div>
+        }
+    };
+
+    /// <inheritdoc />
+    protected override void OnInitialized()
+    {
+        rootWidth = Int("rootWidth", 200);
+        rootHeight = Int("rootHeight", 200);
+        rtl = Query("dir", "ltr") == "rtl";
+        rootMounted = !Bool("deferRoot", false);
+        hidden = Bool("hidden", false);
+        viewportMounted = Bool("viewport", true);
+        viewportStyle = Query("viewportStyle", string.Empty);
+        withContent = Bool("content", true);
+        contentMounted = !Bool("lateContent", false);
+        innerWidth = Int("width", 1000);
+        innerHeight = Int("height", 1000);
+        items = Int("items", 0);
+        bars = Query("bars", "both");
+        keepMounted = Bool("keepMounted", false);
+        withThumb = Bool("thumb", true);
+        vStyle = Query("vStyle", "width: 10px");
+        hStyle = Query("hStyle", "height: 10px");
+        vThumbStyle = Query("vThumbStyle", "width: 100%");
+        hThumbStyle = Query("hThumbStyle", "height: 100%");
+        corner = Bool("corner", false);
+        threshold = Parse(Query("threshold", string.Empty));
+    }
+
+    private static string? Style(params string[] parts)
+    {
+        string joined = string.Join("; ", parts.Where(part => !string.IsNullOrWhiteSpace(part)));
+        return joined.Length == 0 ? null : joined;
+    }
+
+    // `20`, or `xStart:20,yStart:5`.
+    private static OverflowEdgeThresholdValue? Parse(string value)
+    {
+        if (value.Length == 0)
+        {
+            return null;
+        }
+
+        if (double.TryParse(value, NumberStyles.Float, CultureInfo.InvariantCulture, out double number))
+        {
+            return number;
+        }
+
+        Dictionary<string, double> edges = value.Split(',').Select(pair => pair.Split(':'))
+            .ToDictionary(pair => pair[0].Trim(), pair => double.Parse(pair[1], CultureInfo.InvariantCulture), StringComparer.Ordinal);
+        return new ScrollAreaOverflowEdges(
+            edges.TryGetValue("xStart", out double xStart) ? xStart : null,
+            edges.TryGetValue("xEnd", out double xEnd) ? xEnd : null,
+            edges.TryGetValue("yStart", out double yStart) ? yStart : null,
+            edges.TryGetValue("yEnd", out double yEnd) ? yEnd : null);
+    }
+
+    private string WrapperStyle => hidden ? "display: none" : "display: block";
+
+    private void SetThreshold() => threshold = Parse(Query("thresholdAfter", string.Empty));
+
+    private void Resize()
+    {
+        innerWidth = Int("resizeWidth", innerWidth);
+        innerHeight = Int("resizeHeight", innerHeight);
+    }
+
+    private int Int(string name, int fallback) => int.Parse(Query(name, fallback.ToString(CultureInfo.InvariantCulture)), CultureInfo.InvariantCulture);
+
+    private bool Bool(string name, bool fallback) => Query(name, fallback ? "true" : "false") == "true";
+}

@@ -10,7 +10,7 @@ export interface Diagnostic {
 
 declare global {
   interface Window {
-    blazixFixture: {
+    iodineFixture: {
       advanceTime(token: string, milliseconds: number): Promise<void>;
       diagnostics(token: string): Promise<Diagnostic[]>;
     };
@@ -32,7 +32,7 @@ export async function sessionToken(container: Locator): Promise<string> {
  */
 export async function advanceTime(page: Page, container: Locator, milliseconds: number): Promise<void> {
   const token = await sessionToken(container);
-  await page.evaluate(([t, ms]) => window.blazixFixture.advanceTime(t, ms), [token, milliseconds] as const);
+  await page.evaluate(([t, ms]) => window.iodineFixture.advanceTime(t, ms), [token, milliseconds] as const);
 }
 
 /**
@@ -48,5 +48,5 @@ export async function readDiagnostics(page: Page, mode: RenderMode, container: L
     }
     return (await response.json()) as Diagnostic[];
   }
-  return page.evaluate((t) => window.blazixFixture.diagnostics(t), token);
+  return page.evaluate((t) => window.iodineFixture.diagnostics(t), token);
 }

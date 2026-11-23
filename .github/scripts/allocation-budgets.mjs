@@ -6,7 +6,7 @@
 //
 //   node .github/scripts/allocation-budgets.mjs
 //       every budget class of the two projects that hold budgets, one `dotnet test` process each
-//   node .github/scripts/allocation-budgets.mjs --exclusions tests/Blazix.Primitives.Tests
+//   node .github/scripts/allocation-budgets.mjs --exclusions tests/Iodine.Headless.Tests
 //       prints the `--filter-not-class` arguments a main run of that project passes (nothing for a project without budgets)
 //
 // A class belongs to the collection when its declaration carries `[Collection(AllocationBudgetsCollection.Name)]` or
@@ -19,7 +19,7 @@ import { basename, join } from 'node:path';
 import { pathToFileURL } from 'node:url';
 
 /** The test projects that hold allocation budgets. */
-export const budgetProjects = ['tests/Blazix.Primitives.Tests', 'tests/Blazix.Primitives.Tests.Components'];
+export const budgetProjects = ['tests/Iodine.Headless.Tests', 'tests/Iodine.Headless.Tests.Components'];
 
 const collectionAttribute = /\[\s*Collection\s*\(\s*(?:AllocationBudgetsCollection\s*\.\s*Name|"AllocationBudgets")\s*\)\s*\]/g;
 const namespaceDeclaration = /^\s*namespace\s+([\w.]+)\s*[;{]/m;

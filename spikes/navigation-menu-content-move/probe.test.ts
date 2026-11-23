@@ -4,8 +4,8 @@
 // target) and replays the DOM operations Blazor performs (`removeChild` on the topmost removed element, attribute edits
 // on the node wherever it is). Run: npx vitest run --config spikes/navigation-menu-content-move/vitest.config.ts
 import { afterEach, describe, expect, it } from 'vitest';
-import { attach } from '../../src/Blazix.Primitives/js/portal';
-import { createFakeTwin } from '../../src/Blazix.Primitives/js/test-support/fake-twin';
+import { attach } from '../../src/Iodine.Headless/js/portal';
+import { createFakeTwin } from '../../src/Iodine.Headless/js/test-support/fake-twin';
 
 interface Content {
   wrapper: HTMLElement;

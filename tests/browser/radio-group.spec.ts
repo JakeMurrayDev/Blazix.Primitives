@@ -1110,7 +1110,7 @@ test.describe('<RadioGroup />', () => {
 
   test.describe('allocation', () => {
     // ADR 08 Amendments 2026-10-22 ("does not box … the primitives"), ADR 16 rule 7: the WebAssembly half of the radio's
-    // allocation probe (tests/Blazix.Primitives.Tests/Radio/RadioAllocationProbeTests.cs is the CoreCLR half, 0 bytes for
+    // allocation probe (tests/Iodine.Headless.Tests/Radio/RadioAllocationProbeTests.cs is the CoreCLR half, 0 bytes for
     // every type). A round is what a radio and its group compare on the render path: two StrictEquals, one null test and
     // two ValueChangedObserver.Observe. Design point R8 of M2 tracks 7-8, option (a), settled by the orchestrator
     // 2026-10-23 (the user's no-boxing rule): the BCL primitives and their nullables compare without EqualityComparer<T>,

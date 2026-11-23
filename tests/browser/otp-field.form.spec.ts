@@ -157,7 +157,7 @@ test.describe('OtpField autoSubmit', () => {
   test('port: auto-submits a Base UI Form once without an exception (Base UI: "does not call flushSync inside a layout effect")', async ({ page, mode }) => {
     const errors: string[] = [];
     page.on('pageerror', (error) => errors.push(error.message));
-    const field = await gotoOtp(page, mode, 'case=blazix', 'otp-field-autosubmit');
+    const field = await gotoOtp(page, mode, 'case=iodine', 'otp-field-autosubmit');
 
     await change(field.slot(0), '123456');
 
@@ -169,7 +169,7 @@ test.describe('OtpField autoSubmit', () => {
   test('port: blocks an invalid Base UI Form auto-submit without an exception (Base UI: "... without calling flushSync inside a layout effect")', async ({ page, mode }) => {
     const errors: string[] = [];
     page.on('pageerror', (error) => errors.push(error.message));
-    const field = await gotoOtp(page, mode, 'case=blazix-invalid', 'otp-field-autosubmit');
+    const field = await gotoOtp(page, mode, 'case=iodine-invalid', 'otp-field-autosubmit');
 
     await change(field.slot(0), '123456');
 

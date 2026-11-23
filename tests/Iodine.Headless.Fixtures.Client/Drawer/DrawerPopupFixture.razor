@@ -1,0 +1,126 @@
+@namespace Iodine.Headless.Fixtures.Client.DrawerFixtures
+@using Iodine.Headless
+@using Iodine.Headless.Fixtures.Client.PopupFixtures
+@inherits PopupSuiteFixtureBase
+
+@*
+    The `drawer-popup` fixture (tests/browser/drawer.spec.ts): DrawerPopup.test.tsx's focus and key trees.
+    - `case=focus`: the page's input, then a non-modal drawer, trigger "Open", popup `popup` holding the input `popup-input`
+      ("defaults initial focus to the popup element");
+    - `case=focus-disabled`: the same drawer with `InitialFocus="false"` ("leaves focus on the trigger when initial focus is
+      disabled");
+    - `case=composite`: an open non-modal drawer whose portal's container is the page's `wrapper` element, so its keydowns
+      bubble to the wrapper's native listener as React's portal bubbles them to the wrapper's `onKeyDown` ("stops composite
+      navigation keys from escaping the popup"); the popup holds the input "Field".
+    - `case=watcher` (M6 track 8c, added 2026-11-21): DrawerRoot.test.tsx's CloseWatcher trees. An open drawer whose popup
+      (`popup`) reads "step N" (N from 2). `cancel` names what `OnOpenChange` does: `always` cancels every request, `first`
+      only the first, `steps` cancels while N > 0 and steps N down (a cancel that does not take, a request that cannot be
+      prevented, ends the steps). `controlled` makes the root controlled. `data-last-canceled` is `IsCanceled` after the
+      last request's handler. "Unmount" (`unmount`) removes the root.
+*@
+<FixtureContainer Name="drawer-popup" data-attached="@(Attached ? "true" : "false")" data-sync="@Sync" data-case="@Case"
+                  data-open-changes="@OpenChanges" data-open-change-completes="@OpenChangeCompletes">
+    <button type="button" data-sync-button data-key-control @onclick="() => Sync++" @onkeydown="OnShift(() => Sync++)">Sync</button>
+    @if (Case == "watcher")
+    {
+        @if (watcherMounted)
+        {
+            @if (QueryFlag("controlled") == true)
+            {
+                <DrawerRoot TPayload="NoPayload" @ref="root" Open="@watcherOpen" OnOpenChange="OnWatcherOpenChange">
+                    @WatcherParts
+                </DrawerRoot>
+            }
+            else
+            {
+                <DrawerRoot TPayload="NoPayload" @ref="root" DefaultOpen="true" OnOpenChange="OnWatcherOpenChange">
+                    @WatcherParts
+                </DrawerRoot>
+            }
+        }
+        <button type="button" data-testid="unmount" data-last-canceled="@lastCanceled" @onclick="() => watcherMounted = false">Unmount</button>
+    }
+    else if (Case == "composite")
+    {
+        <div id="drawer-wrapper" data-testid="wrapper"></div>
+        <DrawerRoot TPayload="NoPayload" @ref="root" Open="true" Modal="false" OnOpenChange="RecordOpenChange">
+            <DrawerPortal Container="@("#drawer-wrapper")">
+                <DrawerViewport>
+                    <DrawerPopup @ref="popup" data-testid="popup">
+                        <input aria-label="Field" />
+                    </DrawerPopup>
+                </DrawerViewport>
+            </DrawerPortal>
+        </DrawerRoot>
+    }
+    else
+    {
+        <input data-testid="page-input" />
+        <DrawerRoot TPayload="NoPayload" @ref="root" Modal="false" OnOpenChange="RecordOpenChange">
+            <DrawerTrigger @ref="trigger">Open</DrawerTrigger>
+            <DrawerPortal>
+                <DrawerViewport>
+                    @if (Case == "focus-disabled")
+                    {
+                        <DrawerPopup data-testid="popup" InitialFocus="false">Drawer</DrawerPopup>
+                    }
+                    else
+                    {
+                        <DrawerPopup data-testid="popup">
+                            <input data-testid="popup-input" />
+                        </DrawerPopup>
+                    }
+                </DrawerViewport>
+            </DrawerPortal>
+        </DrawerRoot>
+    }
+</FixtureContainer>
+
+@code {
+    private DrawerRoot<NoPayload>? root;
+    private DrawerTrigger<NoPayload>? trigger;
+    private DrawerPopup? popup;
+    private bool watcherMounted = true;
+    private bool watcherOpen = true;
+    private int step = 2;
+    private int requests;
+    private string lastCanceled = "";
+
+    protected override IEnumerable<Task> Attachments =>
+        [trigger?.TwinAttached ?? Task.CompletedTask, root?.SessionAttached ?? Task.CompletedTask, popup?.TwinAttached ?? Task.CompletedTask];
+
+    private RenderFragment WatcherParts => @<DrawerPortal>
+        <DrawerViewport>
+            <DrawerPopup @ref="popup" data-testid="popup">step @step</DrawerPopup>
+        </DrawerViewport>
+    </DrawerPortal>;
+
+    private void OnWatcherOpenChange(ValueChangeEventArgs<bool> args)
+    {
+        RecordOpenChange(args);
+        requests++;
+        bool cancel = Query("cancel") switch
+        {
+            "always" => true,
+            "first" => requests == 1,
+            "steps" => step > 0,
+            _ => false,
+        };
+        if (cancel)
+        {
+            args.Details.Cancel();
+        }
+
+        // A cancel that does not take is a request that cannot be prevented (Base UI's `details.event.cancelable`).
+        if (Query("cancel") == "steps" && args.Details.IsCanceled)
+        {
+            step--;
+        }
+        else if (!args.Details.IsCanceled)
+        {
+            watcherOpen = args.Value;
+        }
+
+        lastCanceled = args.Details.IsCanceled ? "true" : "false";
+    }
+}

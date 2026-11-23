@@ -5,7 +5,7 @@ name: ci
 #   modes (browser-server over two shards, browser-wasm over four, browser-report), red-check; gate collects them into
 #   one required check.
 #   push to main: all of the above with full L4 over four shards in both modes, plus pack (the package as an artifact).
-# The nightly full L4 run is nightly.yml; the BlazixSkipJsBuild check is skip-js-build.yml (manual).
+# The nightly full L4 run is nightly.yml; the IodineSkipJsBuild check is skip-js-build.yml (manual).
 on:
   pull_request:
     # labeled and unlabeled: the label full-l4 forces a full L4 run (ADR 11 section 1).
@@ -79,9 +79,9 @@ jobs:
     env:
       # L1, L2 and the generator tests. The fixture host is not built here (ADR 09 section 3); the browser jobs build it.
       TEST_PROJECTS: >-
-        tests/Blazix.Primitives.Tests
-        tests/Blazix.Primitives.Tests.Components
-        tests/Blazix.Primitives.Tests.Generators
+        tests/Iodine.Headless.Tests
+        tests/Iodine.Headless.Tests.Components
+        tests/Iodine.Headless.Tests.Generators
     steps:
       - uses: actions/checkout@v7
         with:
@@ -95,7 +95,7 @@ jobs:
         run: for project in $TEST_PROJECTS; do dotnet build "$project" -c Release --no-restore; done
       - name: Build (sample application)
         # ADR 09 Amendments 2026-10-22: one build of the sample host and its client, no tests; it is never packed.
-        run: dotnet build samples/Blazix.Primitives.Demo -c Release
+        run: dotnet build samples/Iodine.Headless.Demo -c Release
       - name: Test (.NET)
         # ADR 16 Amendments 2026-11-11 (issue 216): without the allocation-budget classes, which the next step runs.
         run: for project in $TEST_PROJECTS; do dotnet test --project "$project" -c Release --no-build $(node .github/scripts/allocation-budgets.mjs --exclusions "$project"); done
@@ -106,8 +106,8 @@ jobs:
       - name: Ownership lint (families checked and skipped)
         # Already ran with L1; run alone it prints how many families have a folder and were compared with the registry.
         run: >-
-          dotnet test --project tests/Blazix.Primitives.Tests -c Release --no-build
-          --filter-method Blazix.Primitives.Tests.Lints.OwnershipLintTests.The_documents_and_the_ownership_registry_agree
+          dotnet test --project tests/Iodine.Headless.Tests -c Release --no-build
+          --filter-method Iodine.Headless.Tests.Lints.OwnershipLintTests.The_documents_and_the_ownership_registry_agree
           --show-test-results all
       - name: Typecheck (TypeScript)
         # ADR 11 section 5 (Amendments 2026-10-21): tsc over the modules, the vitest files and the browser specs.
@@ -241,11 +241,11 @@ jobs:
           fetch-depth: 0 # MinVer
       - uses: ./.github/actions/setup
       - name: Pack
-        run: dotnet pack src/Blazix.Primitives -c Release -o artifacts/packages -p:IncludeSymbols=true -p:SymbolPackageFormat=snupkg
+        run: dotnet pack src/Iodine.Headless -c Release -o artifacts/packages -p:IncludeSymbols=true -p:SymbolPackageFormat=snupkg
       - name: Assert the package content
         run: |
           ls -l artifacts/packages
-          node .github/scripts/assert-package.mjs artifacts/packages/*.nupkg --inputs src/Blazix.Primitives/obj/Release/net11.0/blazix-js.inputs.json
+          node .github/scripts/assert-package.mjs artifacts/packages/*.nupkg --inputs src/Iodine.Headless/obj/Release/net11.0/iodine-js.inputs.json
       - uses: actions/upload-artifact@v6
         with:
           name: packages
@@ -256,7 +256,7 @@ jobs:
       - uses: actions/upload-artifact@v6
         with:
           name: js-outputs
-          path: src/Blazix.Primitives/wwwroot
+          path: src/Iodine.Headless/wwwroot
           retention-days: 30
 
   # The one required check: the jobs ADR 11 lists (docs-lint, build-and-test, browser-server, browser-wasm, red-check)

@@ -1,0 +1,278 @@
+using System.Text.Json.Serialization;
+using Microsoft.AspNetCore.Components.Web;
+
+namespace Iodine.Headless;
+
+// ADR 04 §3, EVD-API-04/05; EVD-API-04
+/// <summary>
+/// Represents a snapshot of the native event that caused a request, taken in JavaScript inside the dispatch.
+/// </summary>
+/// <remarks>
+/// <para>JavaScript serializes the snapshot with exactly these JSON property names:</para>
+/// <list type="table">
+/// <item><term><c>kind</c></term><description><see cref="Kind"/>, the DOM interface name as a string (<c>"PointerEvent"</c>).</description></item>
+/// <item><term><c>type</c></term><description><see cref="Type"/>, <c>event.type</c>.</description></item>
+/// <item><term><c>key</c>, <c>code</c></term><description><see cref="Key"/> and <see cref="Code"/>; <see langword="null"/> on non-keyboard events.</description></item>
+/// <item><term><c>altKey</c>, <c>ctrlKey</c>, <c>metaKey</c>, <c>shiftKey</c></term><description>The modifier flags; <see langword="false"/> where the event has none.</description></item>
+/// <item><term><c>pointerType</c></term><description><see cref="PointerType"/>; <see langword="null"/> on non-pointer events.</description></item>
+/// <item><term><c>detail</c></term><description><see cref="Detail"/>, <c>UIEvent.detail</c> (0 for a keyboard-generated click).</description></item>
+/// <item><term><c>buttons</c></term><description><see cref="Buttons"/>, <c>MouseEvent.buttons</c>.</description></item>
+/// <item><term><c>target</c></term><description><see cref="Target"/>, an object with <c>id</c> and <c>tagName</c>, or <see langword="null"/>.</description></item>
+/// <item><term><c>defaultPrevented</c></term><description><see cref="DefaultPrevented"/>.</description></item>
+/// <item><term><c>cancelable</c></term><description><see cref="Cancelable"/>, <c>event.cancelable</c>.</description></item>
+/// <item><term><c>timeStamp</c></term><description><see cref="TimeStamp"/>, in milliseconds as <c>event.timeStamp</c>.</description></item>
+/// </list>
+/// <para>
+/// A request with no native event carries a placeholder: a snapshot whose <see cref="Type"/> is <c>"base-ui"</c> and whose
+/// <see cref="Kind"/> is <see cref="EventKind.Event"/>, made fresh per request by <see cref="CreatePlaceholder"/>.
+/// </para>
+/// </remarks>
+public sealed record EventSnapshot
+{
+    // EVD-API-04
+    /// <summary>
+    /// Represents the <see cref="Type"/> of the placeholder snapshot, <c>base-ui</c>.
+    /// </summary>
+    public const string PlaceholderType = "base-ui";
+
+    /// <summary>
+    /// Gets or sets the most derived DOM interface of the native event.
+    /// </summary>
+    /// <value>The event's interface; <see cref="EventKind.Event"/> for the placeholder.</value>
+    [JsonPropertyName("kind")]
+    public EventKind Kind { get; init; }
+
+    /// <summary>
+    /// Gets or sets the type of the native event, <c>event.type</c>.
+    /// </summary>
+    /// <value>The event type, such as <c>click</c>; <c>base-ui</c> for the placeholder. The default is the empty string.</value>
+    [JsonPropertyName("type")]
+    public string Type { get; init; } = "";
+
+    /// <summary>
+    /// Gets or sets the key value of a keyboard event, <c>KeyboardEvent.key</c>.
+    /// </summary>
+    /// <value>The key value, or <see langword="null"/> on non-keyboard events.</value>
+    [JsonPropertyName("key")]
+    public string? Key { get; init; }
+
+    /// <summary>
+    /// Gets or sets the physical key code of a keyboard event, <c>KeyboardEvent.code</c>.
+    /// </summary>
+    /// <value>The key code, or <see langword="null"/> on non-keyboard events.</value>
+    [JsonPropertyName("code")]
+    public string? Code { get; init; }
+
+    /// <summary>
+    /// Gets or sets a value indicating whether the Alt key was down.
+    /// </summary>
+    /// <value><see langword="true"/> if the Alt modifier was active; otherwise, <see langword="false"/>.</value>
+    [JsonPropertyName("altKey")]
+    public bool AltKey { get; init; }
+
+    /// <summary>
+    /// Gets or sets a value indicating whether the Control key was down.
+    /// </summary>
+    /// <value><see langword="true"/> if the Control modifier was active; otherwise, <see langword="false"/>.</value>
+    [JsonPropertyName("ctrlKey")]
+    public bool CtrlKey { get; init; }
+
+    /// <summary>
+    /// Gets or sets a value indicating whether the Meta key was down.
+    /// </summary>
+    /// <value><see langword="true"/> if the Meta modifier was active; otherwise, <see langword="false"/>.</value>
+    [JsonPropertyName("metaKey")]
+    public bool MetaKey { get; init; }
+
+    /// <summary>
+    /// Gets or sets a value indicating whether the Shift key was down.
+    /// </summary>
+    /// <value><see langword="true"/> if the Shift modifier was active; otherwise, <see langword="false"/>.</value>
+    [JsonPropertyName("shiftKey")]
+    public bool ShiftKey { get; init; }
+
+    /// <summary>
+    /// Gets or sets the kind of pointer, <c>PointerEvent.pointerType</c>.
+    /// </summary>
+    /// <value><c>mouse</c>, <c>touch</c> or <c>pen</c>, or <see langword="null"/> on non-pointer events.</value>
+    [JsonPropertyName("pointerType")]
+    public string? PointerType { get; init; }
+
+    // EVD-EVT-27
+    /// <summary>
+    /// Gets or sets the event detail, <c>UIEvent.detail</c>.
+    /// </summary>
+    /// <value>The click count for a click; 0 for a keyboard-generated click.</value>
+    [JsonPropertyName("detail")]
+    public int Detail { get; init; }
+
+    /// <summary>
+    /// Gets or sets the mouse buttons that were down, <c>MouseEvent.buttons</c>.
+    /// </summary>
+    /// <value>A bit mask of the pressed buttons.</value>
+    [JsonPropertyName("buttons")]
+    public int Buttons { get; init; }
+
+    /// <summary>
+    /// Gets or sets the event target.
+    /// </summary>
+    /// <value>The target's id and tag name, or <see langword="null"/> when the event had no element target.</value>
+    [JsonPropertyName("target")]
+    public EventTargetInfo? Target { get; init; }
+
+    /// <summary>
+    /// Gets or sets a value indicating whether the native event's default action had been prevented when the snapshot was taken.
+    /// </summary>
+    /// <value><see langword="true"/> if <c>event.defaultPrevented</c> was set; otherwise, <see langword="false"/>.</value>
+    [JsonPropertyName("defaultPrevented")]
+    public bool DefaultPrevented { get; init; }
+
+    // M6 track 8c (issue 279), design point D3 (b), chosen by the user 2026-11-21: DRW-DIS-01 reads it.
+    /// <summary>
+    /// Gets or sets a value indicating whether the native event's default action could be prevented, <c>event.cancelable</c>.
+    /// </summary>
+    /// <value>
+    /// <see langword="true"/> if the event was cancelable; otherwise, <see langword="false"/>, which is also the value of the
+    /// placeholder and of a snapshot built from Blazor's event arguments, which carry no such flag.
+    /// </value>
+    [JsonPropertyName("cancelable")]
+    public bool Cancelable { get; init; }
+
+    /// <summary>
+    /// Gets or sets the time at which the native event was created, <c>event.timeStamp</c>.
+    /// </summary>
+    /// <value>The time stamp in milliseconds.</value>
+    [JsonPropertyName("timeStamp")]
+    public double TimeStamp { get; init; }
+
+    // EVD-API-04
+    /// <summary>
+    /// Creates a placeholder snapshot for a request that has no native event.
+    /// </summary>
+    /// <returns>A new snapshot whose <see cref="Type"/> is <c>base-ui</c> and whose <see cref="Kind"/> is <see cref="EventKind.Event"/>.</returns>
+    public static EventSnapshot CreatePlaceholder() => new() { Kind = EventKind.Event, Type = PlaceholderType };
+
+    /// <summary>
+    /// Determines whether the native event is an instance of a DOM interface, following the DOM's inheritance.
+    /// </summary>
+    /// <param name="kind">The interface to test.</param>
+    /// <returns><see langword="true"/> if the event is an instance of <paramref name="kind"/>; otherwise, <see langword="false"/>.</returns>
+    /// <remarks>
+    /// Every snapshot is an <see cref="EventKind.Event"/>; focus, mouse, pointer, wheel, touch, keyboard and input events are
+    /// <see cref="EventKind.UIEvent"/>s; pointer and wheel events are <see cref="EventKind.MouseEvent"/>s.
+    /// </remarks>
+    public bool IsInstanceOf(EventKind kind)
+    {
+        return kind switch
+        {
+            EventKind.Event => true,
+            EventKind.UIEvent => Kind is EventKind.UIEvent or EventKind.FocusEvent or EventKind.MouseEvent or EventKind.PointerEvent
+                or EventKind.WheelEvent or EventKind.TouchEvent or EventKind.KeyboardEvent or EventKind.InputEvent,
+            EventKind.MouseEvent => Kind is EventKind.MouseEvent or EventKind.PointerEvent or EventKind.WheelEvent,
+            _ => Kind == kind,
+        };
+    }
+
+    // ADR 04 Amendments 2026-10-21: the details.event of a request a C# handler starts (a C#-dispatched click or key),
+    // which JavaScript did not snapshot. Blazor's arguments carry no target, no default-prevented flag and no time
+    // stamp, so those read null, false and 0; Kind is the argument type's interface (MouseEvent where Chromium's click is
+    // a PointerEvent, which IsInstanceOf(EventKind.MouseEvent) treats alike).
+    /// <summary>Creates a snapshot of a mouse, pointer or wheel event from the arguments Blazor dispatched.</summary>
+    /// <param name="e">The event arguments.</param>
+    /// <returns>A snapshot with the event's type, detail, buttons, modifier keys and pointer type; no target.</returns>
+    internal static EventSnapshot FromEventArgs(MouseEventArgs e)
+    {
+        ArgumentNullException.ThrowIfNull(e);
+        return new EventSnapshot
+        {
+            Kind = e switch
+            {
+                PointerEventArgs => EventKind.PointerEvent,
+                WheelEventArgs => EventKind.WheelEvent,
+                _ => EventKind.MouseEvent,
+            },
+            Type = e.Type ?? "",
+            AltKey = e.AltKey,
+            CtrlKey = e.CtrlKey,
+            MetaKey = e.MetaKey,
+            ShiftKey = e.ShiftKey,
+            PointerType = (e as PointerEventArgs)?.PointerType,
+            Detail = (int)e.Detail,
+            Buttons = (int)e.Buttons,
+        };
+    }
+
+    /// <summary>Creates a snapshot of a keyboard event from the arguments Blazor dispatched.</summary>
+    /// <param name="e">The event arguments.</param>
+    /// <returns>A snapshot with the event's type, key, code and modifier keys; no target.</returns>
+    internal static EventSnapshot FromEventArgs(KeyboardEventArgs e)
+    {
+        ArgumentNullException.ThrowIfNull(e);
+        return new EventSnapshot
+        {
+            Kind = EventKind.KeyboardEvent,
+            Type = e.Type ?? "",
+            Key = e.Key,
+            Code = e.Code,
+            AltKey = e.AltKey,
+            CtrlKey = e.CtrlKey,
+            MetaKey = e.MetaKey,
+            ShiftKey = e.ShiftKey,
+        };
+    }
+
+    // The inverse, for a decision point that runs a consumer's C# key handler inside the dispatch (ButtonTwin's activate).
+    /// <summary>Creates the keyboard event arguments a consumer's handler receives for this snapshot.</summary>
+    /// <returns>Arguments with the snapshot's type, key, code and modifier keys; an absent key or code is the empty string.</returns>
+    internal KeyboardEventArgs ToKeyboardEventArgs()
+    {
+        return new KeyboardEventArgs
+        {
+            Type = Type,
+            Key = Key ?? "",
+            Code = Code ?? "",
+            AltKey = AltKey,
+            CtrlKey = CtrlKey,
+            MetaKey = MetaKey,
+            ShiftKey = ShiftKey,
+        };
+    }
+}
+
+/// <summary>
+/// Represents the target of an <see cref="EventSnapshot"/>, serialized as <c>{ "id": …, "tagName": … }</c>, with
+/// <c>"value"</c> and <c>"name"</c> when a part redefines the target as the value it requests.
+/// </summary>
+public sealed record EventTargetInfo
+{
+    /// <summary>
+    /// Gets or sets the target element's <c>id</c>.
+    /// </summary>
+    /// <value>The id, or <see langword="null"/> when the element has none.</value>
+    [JsonPropertyName("id")]
+    public string? Id { get; init; }
+
+    /// <summary>
+    /// Gets or sets the target element's tag name as the DOM reports it.
+    /// </summary>
+    /// <value>The tag name, upper case for HTML elements, or <see langword="null"/>.</value>
+    [JsonPropertyName("tagName")]
+    public string? TagName { get; init; }
+
+    // SLD-EVT-04 (design point 6 (a) of M6 track 4, settled by the orchestrator 2026-11-18): a slider's request redefines its
+    // event's target as `{ value, name }`, so form libraries read them; other families' snapshots leave both null.
+    /// <summary>
+    /// Gets or sets the value a request redefines its target with: a slider's candidate, as JSON text (a number, or an array
+    /// of numbers).
+    /// </summary>
+    /// <value>The value, or <see langword="null"/> for a target that is the element.</value>
+    [JsonPropertyName("value")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? Value { get; init; }
+
+    /// <summary>Gets or sets the form name a request redefines its target with.</summary>
+    /// <value>The name, or <see langword="null"/>.</value>
+    [JsonPropertyName("name")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? Name { get; init; }
+}

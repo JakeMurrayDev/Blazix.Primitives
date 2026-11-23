@@ -1,13 +1,13 @@
 # Samples
 
-`Blazix.Primitives.Demo` is a Blazor Web App for trying the ported families by hand: one page per family, each porting the hero demo of the [Base UI documentation](https://base-ui.com/), in Blazor Server and in Blazor WebAssembly. It is built in CI and never packed. Its contract is [CONTEXT.md](CONTEXT.md).
+`Iodine.Headless.Demo` is a Blazor Web App for trying the ported families by hand: one page per family, each porting the hero demo of the [Base UI documentation](https://base-ui.com/), in Blazor Server and in Blazor WebAssembly. It is built in CI and never packed. Its contract is [CONTEXT.md](CONTEXT.md).
 
 ## Run it
 
 You need the .NET 11 SDK and Node, as for the rest of the repository (see the root [README](../README.md)). Run `npm ci` once at the repository root: the library's build runs esbuild from it and the sample's build runs the Tailwind CLI from it.
 
 ```bash
-dotnet run --project samples/Blazix.Primitives.Demo
+dotnet run --project samples/Iodine.Headless.Demo
 ```
 
 Open <http://localhost:5290>. The home page lists every family with both links.
@@ -34,6 +34,6 @@ Open <http://localhost:5290>. The home page lists every family with both links.
 
 ```
 samples/
-  Blazix.Primitives.Demo/          the host: routes, layout, the page chrome's styles (wwwroot/app.css), Program.cs
-  Blazix.Primitives.Demo.Client/   the pages (Demos/<Family>Demo.razor), the catalog, the frame, Styles/tailwind.css
+  Iodine.Headless.Demo/          the host: routes, layout, the page chrome's styles (wwwroot/app.css), Program.cs
+  Iodine.Headless.Demo.Client/   the pages (Demos/<Family>Demo.razor), the catalog, the frame, Styles/tailwind.css
 ```

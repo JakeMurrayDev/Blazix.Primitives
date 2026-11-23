@@ -187,7 +187,7 @@ export function playwrightOutcomes(text) {
  * @returns {string[]} git pathspecs, relative to the repository root
  */
 export function headPathspecsOnBase() {
-  return [':(glob)src/Blazix.Primitives/js/**/*.test.ts', ':(glob)src/Blazix.Primitives/js/test-support/**'];
+  return [':(glob)src/Iodine.Headless/js/**/*.test.ts', ':(glob)src/Iodine.Headless/js/test-support/**'];
 }
 
 // ---- verdict -----------------------------------------------------------------------------------------------------
@@ -305,10 +305,10 @@ export function summarize(layers) {
 // ---- driving the tools -------------------------------------------------------------------------------------------
 
 const layers = {
-  l1: { kind: 'dotnet', project: 'tests/Blazix.Primitives.Tests', changedUnder: ['tests/Blazix.Primitives.Tests/'] },
-  l2: { kind: 'dotnet', project: 'tests/Blazix.Primitives.Tests.Components', changedUnder: ['tests/Blazix.Primitives.Tests.Components/'] },
-  generators: { kind: 'dotnet', project: 'tests/Blazix.Primitives.Tests.Generators', changedUnder: ['tests/Blazix.Primitives.Tests.Generators/'] },
-  l3: { kind: 'vitest', changedUnder: ['src/Blazix.Primitives/js/'], changedSuffix: '.test.ts' },
+  l1: { kind: 'dotnet', project: 'tests/Iodine.Headless.Tests', changedUnder: ['tests/Iodine.Headless.Tests/'] },
+  l2: { kind: 'dotnet', project: 'tests/Iodine.Headless.Tests.Components', changedUnder: ['tests/Iodine.Headless.Tests.Components/'] },
+  generators: { kind: 'dotnet', project: 'tests/Iodine.Headless.Tests.Generators', changedUnder: ['tests/Iodine.Headless.Tests.Generators/'] },
+  l3: { kind: 'vitest', changedUnder: ['src/Iodine.Headless/js/'], changedSuffix: '.test.ts' },
   l4: { kind: 'playwright', changedUnder: ['tests/browser/'] },
 };
 
@@ -333,7 +333,7 @@ function listLayer(layer, cwd) {
   }
   if (config.kind === 'vitest') {
     const report = join(cwd, 'red-check-list.json');
-    run('npx', ['vitest', 'run', 'src/Blazix.Primitives/js', '--reporter=json', `--outputFile=${report}`], { cwd, allowFailure: true });
+    run('npx', ['vitest', 'run', 'src/Iodine.Headless/js', '--reporter=json', `--outputFile=${report}`], { cwd, allowFailure: true });
     const names = existsSync(report) ? parseVitestList(readFileSync(report, 'utf8'), cwd) : [];
     rmSync(report, { force: true });
     return names;
@@ -351,7 +351,7 @@ function listCoverage(layer, cwd) {
   }
   if (config.kind === 'vitest') {
     const report = join(cwd, 'red-check-coverage.json');
-    run('npx', ['vitest', 'run', 'src/Blazix.Primitives/js', '--reporter=json', `--outputFile=${report}`], { cwd, allowFailure: true });
+    run('npx', ['vitest', 'run', 'src/Iodine.Headless/js', '--reporter=json', `--outputFile=${report}`], { cwd, allowFailure: true });
     const keys = existsSync(report) ? vitestCoverage(readFileSync(report, 'utf8'), cwd) : [];
     rmSync(report, { force: true });
     return keys;
@@ -377,13 +377,13 @@ function runLayer(layer, added, resultsDir) {
   }
   if (config.kind === 'vitest') {
     const report = join(resultsDir, `${layer}.json`);
-    run('npx', ['vitest', 'run', 'src/Blazix.Primitives/js', '--reporter=json', `--outputFile=${report}`], { allowFailure: true });
+    run('npx', ['vitest', 'run', 'src/Iodine.Headless/js', '--reporter=json', `--outputFile=${report}`], { allowFailure: true });
     if (!existsSync(report)) return { buildFailed: false, outcomes: new Map(), failedFiles: [] };
     const text = readFileSync(report, 'utf8');
     return { buildFailed: false, outcomes: vitestOutcomes(text, cwd), failedFiles: vitestFailedFiles(text, cwd) };
   }
   // The fixture host is part of what the base branch's src/ must build for.
-  if (!dotnetBuild('tests/Blazix.Primitives.Fixtures', cwd)) return { buildFailed: true, outcomes: new Map() };
+  if (!dotnetBuild('tests/Iodine.Headless.Fixtures', cwd)) return { buildFailed: true, outcomes: new Map() };
   const files = [...new Set(added.map((key) => key.split('::')[0]))];
   const report = join(resultsDir, `${layer}.json`);
   spawnSync('npx', ['playwright', 'test', ...files, '--reporter=json'], {

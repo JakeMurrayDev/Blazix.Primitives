@@ -1,0 +1,59 @@
+@namespace Iodine.Headless.Fixtures.Client.ScrollAreaFixtures
+@using Iodine.Headless
+@using Iodine.Headless.Fixtures.Client.PopupFixtures
+@inherits PopupSuiteFixtureBase
+
+@*
+    The `scroll-area-probe-dialog` fixture (tests/browser/scroll-area.probes.spec.ts; design point 12 (a) of the ScrollArea
+    track, a probe no requirement row covers): Base UI's Dialog demo `inside-scroll`, its Tailwind classes as inline styles.
+    A modal Dialog whose Viewport centres a 400 px tall flex-column Popup: a header (Title, Description), a ScrollArea body
+    whose Viewport is the scroll container of twelve sections of 80 px (960 px), with a vertical scrollbar and its thumb,
+    and a footer with the Close button. Test ids: `trigger`, `dialog-viewport`, `popup`, `root`, `viewport`, `scrollbar`,
+    `thumb`, `close`.
+*@
+<FixtureContainer Name="scroll-area-probe-dialog" data-attached="@(Attached ? "true" : "false")" data-sync="@Sync"
+                  data-open-changes="@OpenChanges">
+    <DialogRoot TPayload="NoPayload" @ref="root" OnOpenChange="RecordOpenChange">
+        <DialogTrigger TPayload="NoPayload" @ref="trigger" data-testid="trigger">Open dialog</DialogTrigger>
+        <DialogPortal>
+            <DialogBackdrop style="position: fixed; inset: 0; background: rgb(0 0 0 / 20%)" />
+            <DialogViewport data-testid="dialog-viewport" style="position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; overflow: hidden; padding-block: 24px">
+                <DialogPopup data-testid="popup" style="position: relative; display: flex; flex-direction: column; box-sizing: border-box; width: 400px; height: 400px; max-height: 100%; min-height: 0; background: white; border: 1px solid black">
+                    <div style="display: flex; flex-direction: column; gap: 4px; padding: 16px; border-bottom: 1px solid black">
+                        <DialogTitle style="margin: 0; font-size: 16px">Dialog</DialogTitle>
+                        <DialogDescription style="margin: 0; font-size: 14px">This layout keeps the popup fully on screen while allowing its content to scroll.</DialogDescription>
+                    </div>
+                    <ScrollAreaRoot data-testid="root" style="position: relative; display: flex; min-height: 0; flex: 1 1 auto; overflow: hidden">
+                        <ScrollAreaViewport data-testid="viewport" style="flex: 1 1 auto; min-height: 0; overscroll-behavior: contain">
+                            <ScrollAreaContent style="display: flex; flex-direction: column">
+                                @for (int i = 1; i <= 12; i++)
+                                {
+                                    int n = i;
+                                    <section @key="n" style="box-sizing: border-box; height: 80px; padding: 16px">
+                                        <h3 style="margin: 0; font-size: 14px">Section @n</h3>
+                                        <p style="margin: 0; font-size: 14px">The body of section @n.</p>
+                                    </section>
+                                }
+                            </ScrollAreaContent>
+                        </ScrollAreaViewport>
+                        <ScrollAreaScrollbar data-testid="scrollbar" style="display: flex; justify-content: center; width: 16px; background: rgb(0 0 0 / 12%)">
+                            <ScrollAreaThumb data-testid="thumb" style="width: 100%; background: black" />
+                        </ScrollAreaScrollbar>
+                    </ScrollAreaRoot>
+                    <div style="display: flex; justify-content: flex-end; gap: 12px; padding: 16px; border-top: 1px solid black">
+                        <DialogClose data-testid="close">Close</DialogClose>
+                    </div>
+                </DialogPopup>
+            </DialogViewport>
+        </DialogPortal>
+    </DialogRoot>
+    <button type="button" tabindex="-1" data-sync-button data-key-control @onclick="() => Sync++" @onkeydown="OnShift(() => Sync++)">Sync</button>
+</FixtureContainer>
+
+@code {
+    private DialogRoot<NoPayload>? root;
+    private DialogTrigger<NoPayload>? trigger;
+
+    /// <inheritdoc />
+    protected override IEnumerable<Task> Attachments => [root!.SessionAttached, trigger!.TwinAttached];
+}

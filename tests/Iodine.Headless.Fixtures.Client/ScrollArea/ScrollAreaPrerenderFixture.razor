@@ -1,0 +1,28 @@
+@namespace Iodine.Headless.Fixtures.Client.ScrollAreaFixtures
+@using Iodine.Headless
+@inherits ScrollAreaFixtureBase
+
+@*
+    The prerendered `scroll-area-prerender` fixture (tests/browser/scroll-area.dom.spec.ts; SCR-EDGE-13, SCR-STA-08): a
+    200 × 200 px root over 1,000 × 1,000 px of content, a kept-mounted vertical scrollbar, a horizontal scrollbar that is
+    not kept mounted, each with its thumb, and a Corner. The spec reads the server-rendered markup before the runtime
+    starts, then the measured page.
+*@
+<FixtureContainer Name="scroll-area-prerender" data-attached="@(Attached ? "true" : "false")" data-measured="@(Measured ? "true" : "false")"
+                  data-reports="@Reports" data-sync="@Sync">
+    <button type="button" data-sync-button @onclick="() => Sync++">Sync</button>
+    <ScrollAreaRoot @ref="Root" data-testid="root" style="width: 200px; height: 200px">
+        <ScrollAreaViewport @ref="Viewport" data-testid="viewport" style="width: 100%; height: 100%">
+            <ScrollAreaContent @ref="Content" data-testid="content">
+                <div data-testid="inner" style="width: 1000px; height: 1000px"></div>
+            </ScrollAreaContent>
+        </ScrollAreaViewport>
+        <ScrollAreaScrollbar @ref="Scrollbar" Orientation="Orientation.Vertical" KeepMounted="true" data-testid="scrollbar-vertical" style="width: 10px">
+            <ScrollAreaThumb @ref="Thumb" data-testid="thumb-vertical" style="width: 100%" />
+        </ScrollAreaScrollbar>
+        <ScrollAreaScrollbar Orientation="Orientation.Horizontal" data-testid="scrollbar-horizontal" style="height: 10px">
+            <ScrollAreaThumb data-testid="thumb-horizontal" style="height: 100%" />
+        </ScrollAreaScrollbar>
+        <ScrollAreaCorner data-testid="corner" />
+    </ScrollAreaRoot>
+</FixtureContainer>

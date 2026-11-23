@@ -8,7 +8,7 @@
 | Docs page | `docs/src/app/(docs)/react/components/checkbox/page.mdx` |
 | Prefix | `CHK` |
 | Status | implemented |
-| Revised | 2026-10-23 |
+| Revised | 2026-11-23 |
 | Builds on | none |
 | Derived by | [checkbox-group](checkbox-group.md) (composes `Checkbox.Root` as its members and parent) |
 | Depends on | [rendering-and-composition](../architecture/rendering-and-composition.md), [event-details-and-reasons](../architecture/event-details-and-reasons.md), [button-behavior](../architecture/button-behavior.md), [field-and-form-infrastructure](../architecture/field-and-form-infrastructure.md), [transitions-and-mounting](../architecture/transitions-and-mounting.md), [shared-utilities](../architecture/shared-utilities.md) |
@@ -659,7 +659,7 @@ All messages below are emitted only in non-production builds, through `console.e
 
 - **CHK-EDGE-01** — MUST. Rendering `Checkbox.Indicator` outside a `Checkbox.Root` MUST throw an error with the message `Base UI: CheckboxRootContext is missing. Checkbox parts must be placed within <Checkbox.Root>.`
   Source: `checkbox/root/CheckboxRootContext.ts:11-15`. Test: [L2] `CheckboxIndicator.test.tsx` "throws a descriptive error when rendered outside <Checkbox.Root>".
-  Port note 2026-10-23: the port's words, thrown in every build: ``Blazix: The `CheckboxRoot` context is missing. Checkbox parts must be placed within `<CheckboxRoot>`.`` (the Switch precedent, SWT-EDGE-01).
+  Port note 2026-10-23: the port's words, thrown in every build: ``Iodine: The `CheckboxRoot` context is missing. Checkbox parts must be placed within `<CheckboxRoot>`.`` (the Switch precedent, SWT-EDGE-01).
 - **CHK-EDGE-02** — SHOULD. If the ownership input of `checked` (CHK-STA-03) switches between `undefined` and a boolean after the first render, the dev error of [UTL-EDGE-22](../architecture/shared-utilities.md) SHOULD be logged with `name: 'Checkbox'`, `state: 'checked'`. (For a group member the ownership input is the group membership boolean, which is never `undefined`.)
   Source: `checkbox/root/CheckboxRoot.tsx:142-143`, `packages/utils/src/useControlled.ts:48-64`. Test: none.
 - **CHK-EDGE-03** — SHOULD. If `defaultChecked` changes after the first render of a component-owned box, the dev error of [UTL-EDGE-23](../architecture/shared-utilities.md) SHOULD be logged with `name: 'Checkbox'`, `state: 'checked'`. The rendered state is unaffected.
@@ -1003,3 +1003,5 @@ Non-normative.
 11. **Docs vs. source on `parent`.** The JSDoc (`checkbox/root/CheckboxRoot.tsx:495`) says the prop "Must be used in a Checkbox Group"; the source tolerates a parent outside a group or without `allValues` (CHK-EDGE-11). The guidance is advisory.
    Resolved 2026-10-23 (M2 track 5): kept as CHK-EDGE-11 (`CheckboxRootTests` "port: a parent box outside a group keeps its own state, carries data-parent and submits nothing").
 12. **Owner of the Enter-submission path in the port.** The Enter handling of CHK-KEY-03..05 (`checkbox/root/CheckboxRoot.tsx:320-362`) needs a native-only `preventDefault()`, propagation-wide observation of later `preventDefault()` calls and a microtask before clicking the default submitter. decisions/01-hosting-model-and-timing.md §Decision item 3 puts the microtask in JavaScript and decisions/04-js-interop-boundary.md §3 covers the consumer veto, but the module table in decisions/04-js-interop-boundary.md §1 names no module for this checkbox-specific path (the `button` module covers only generic key-to-click synthesis). Needs a decision on which module owns it. Decided (2026-10-18): the `form` mechanism module (ADR 04 Amendments, module placement rule).
+
+**Identity rename (2026-11-23, [ADR 17](../decisions/17-product-name-and-package-identity.md)).** Every `Blazix.Primitives` in this document now reads `Iodine.Headless`, the `Blazix: ` message prefix reads `Iodine: `, every other `Blazix`, `blazix` or `BLZX` name reads its `Iodine`, `iodine` or `IOD` form, and links point to `JakeMurrayDev/Iodine.Headless`. No requirement's meaning, level or test changed.

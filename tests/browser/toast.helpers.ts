@@ -3,7 +3,7 @@ import type { Locator } from '@playwright/test';
 
 // One-family helpers of the Toast specs (issue 280, M6 track 9b), beside them as the brief asks. The `toast-basic` fixture
 // is Base UI's `List` and `Button` (toast/utils/test-utils.tsx); its query switches are documented in
-// tests/Blazix.Primitives.Fixtures.Client/Toast/ToastBasicFixture.razor. `animations=1` is the host's switch for Base UI's
+// tests/Iodine.Headless.Fixtures.Client/Toast/ToastBasicFixture.razor. `animations=1` is the host's switch for Base UI's
 // `BASE_UI_ANIMATIONS_DISABLED = false`.
 
 export type Query = Record<string, string>;

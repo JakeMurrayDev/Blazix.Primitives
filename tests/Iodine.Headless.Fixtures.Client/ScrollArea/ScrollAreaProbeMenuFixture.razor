@@ -1,0 +1,46 @@
+@namespace Iodine.Headless.Fixtures.Client.ScrollAreaFixtures
+@using Iodine.Headless
+@using Iodine.Headless.Fixtures.Client.PopupFixtures
+@inherits PopupSuiteFixtureBase
+
+@*
+    The `scroll-area-probe-menu` fixture (tests/browser/scroll-area.probes.spec.ts; design point 12 (a) of the ScrollArea
+    track, a probe no requirement row covers): Base UI's experiment `scroll-area/inside-menu.tsx` without its submenu. A
+    Menu whose Positioner sits 8 px from the trigger, and in the Popup a ScrollArea whose Viewport (`tabindex="-1"`, 200 px
+    at most) is the scroll container of 50 items of 30 px ("Item 1" .. "Item 50"), with a vertical scrollbar and its thumb.
+    Test ids: `trigger`, `positioner`, `popup`, `root`, `viewport`, `scrollbar`, `thumb`.
+*@
+<FixtureContainer Name="scroll-area-probe-menu" data-attached="@(Attached ? "true" : "false")" data-sync="@Sync"
+                  data-open-changes="@OpenChanges">
+    <MenuRoot TPayload="NoPayload" @ref="root" OnOpenChange="RecordOpenChange">
+        <MenuTrigger TPayload="NoPayload" @ref="trigger" data-testid="trigger">Song</MenuTrigger>
+        <MenuPortal>
+            <MenuPositioner data-testid="positioner" SideOffset="8">
+                <MenuPopup data-testid="popup" style="position: relative; z-index: 1; box-sizing: border-box; padding-block: 4px; background: white; outline: 1px solid #ccc; max-height: var(--available-height)">
+                    <ScrollAreaRoot data-testid="root">
+                        <ScrollAreaViewport data-testid="viewport" tabindex="-1" style="max-height: 200px">
+                            @for (int i = 1; i <= ItemCount; i++)
+                            {
+                                int n = i;
+                                <MenuItem @key="n" style="box-sizing: border-box; height: 30px; padding: 0 16px; scroll-margin-block: 16px">Item @n</MenuItem>
+                            }
+                        </ScrollAreaViewport>
+                        <ScrollAreaScrollbar data-testid="scrollbar" style="width: 4px; margin: 8px; background: #ddd">
+                            <ScrollAreaThumb data-testid="thumb" style="width: 100%; background: gray" />
+                        </ScrollAreaScrollbar>
+                    </ScrollAreaRoot>
+                </MenuPopup>
+            </MenuPositioner>
+        </MenuPortal>
+    </MenuRoot>
+    <button type="button" tabindex="-1" data-sync-button data-key-control @onclick="() => Sync++" @onkeydown="OnShift(() => Sync++)">Sync</button>
+</FixtureContainer>
+
+@code {
+    private const int ItemCount = 50;
+    private MenuRoot<NoPayload>? root;
+    private MenuTrigger<NoPayload>? trigger;
+
+    /// <inheritdoc />
+    protected override IEnumerable<Task> Attachments => [root!.SessionAttached, trigger!.TwinsAttached];
+}
