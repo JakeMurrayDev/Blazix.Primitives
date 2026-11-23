@@ -46,3 +46,7 @@ The old port's four verdict classes, the symptom-restatement rule, the default-p
 
 * Re-pin at every milestone boundary (six documents passes with citation migration during implementation; approved documents change under the people implementing them).
 * Monthly re-pin as the old port did (the highest churn, each cycle a documents amendment pass plus an ADR impact review, on a specification that is the project's main asset).
+
+## Amendments
+
+**2026-11-23, the identity rename ([ADR 17](17-product-name-and-package-identity.md), chosen by the user the same day).** The product is Iodine and this package `Iodine.Headless`. Every live name in this record that carries Blazix (`Blazix.Primitives` as project, package, namespace or path, `AddBlazixPrimitives`, `BlazixSkipJsBuild`, the `Blazix: ` message prefix, `blazix-*` names, `BLZX` diagnostic ids) reads in the form ADR 17 decision 3's table gives; the text above is kept as written.
