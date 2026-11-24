@@ -1379,8 +1379,31 @@ const PORTAL_ATTRIBUTE = 'data-base-ui-portal';
 // `escape` for a keydown, so a session's document listener skips a keydown its floating or reference listener handled.
 const escapeHandled = Symbol('iodine.interactions.escapeHandled');
 
+// Issue 251 (design point 2 (a) of M6 track 10, chosen by the user 2026-11-24; ADR 04 Amendments 2026-11-24): the token
+// of the session whose close took an Escape that does not bubble. Base UI stops only React's propagation, after the
+// consumer's merged onKeyDown ran (useDismiss.ts:216-228); the port leaves the native keydown running, so Blazor's
+// delegated handler and the page hear it, and every other session's listener reads this mark and skips the key. The mark
+// is on the event, so a synchronous close that clears the taking session before an outer listener runs keeps it.
+const escapeTaken = Symbol('iodine.interactions.escapeTaken');
+
+// Issue 251: the innermost session whose floating element or trigger the keydown passed. Those listeners only claim the
+// key; the close runs from the document listener, after Blazor's delegated handler (registered on the document when the
+// first element with a C# key handler rendered, so before any session's), because on WebAssembly a close in the
+// floating element's own listener unmounts the popup before Blazor dispatches the keydown to it. The first session
+// listener on the document runs the claimant's decision before its own, so the innermost popup still decides first.
+const escapeClaimed = Symbol('iodine.interactions.escapeClaimed');
+
 interface EscapeMarkedEvent extends KeyboardEvent {
   [escapeHandled]?: Set<string>;
+  [escapeTaken]?: string;
+  [escapeClaimed]?: { token: string; ran: boolean };
+}
+
+/** Claims an Escape for the session whose floating element or trigger it passed first (the innermost). */
+function claimEscapeKeyDown(record: SessionRecord, event: KeyboardEvent): void {
+  if (event.key === 'Escape') {
+    (event as EscapeMarkedEvent)[escapeClaimed] ??= { token: record.token, ran: false };
+  }
 }
 
 // useDismiss.ts:151-157.
@@ -1587,8 +1610,8 @@ function isEventWithinOwnElements(record: SessionRecord, event: Event): boolean 
 
 /**
  * Closes the popup on Escape: an open, enabled, not composing popup with no open descendant that keeps Escape asks
- * `escape` on its session's twin, then prevents and stops the keydown as the verdict says (never stopping it when
- * Escape bubbles), and on Server reports the close itself. A keydown this session already handled, or a second Escape
+ * `escape` on its session's twin, then prevents the keydown and marks it taken as the verdict says (never marking it when
+ * Escape bubbles), and on Server reports the close itself. A keydown another session took is left alone. A keydown this session already handled, or a second Escape
  * before the next open arrives, is left alone.
  */
 function closeOnEscapeKeyDown(record: SessionRecord, event: KeyboardEvent): void {
@@ -1601,8 +1624,20 @@ function closeOnEscapeKeyDown(record: SessionRecord, event: KeyboardEvent): void
   if (!isOpenForDismissal(record) || options === null || options.escapeKey === false) {
     return;
   }
+  const claim = (event as EscapeMarkedEvent)[escapeClaimed];
+  if (claim !== undefined && !claim.ran) {
+    claim.ran = true;
+    const claimant = sessions.get(claim.token);
+    if (claimant !== undefined && claimant !== record) {
+      closeOnEscapeKeyDown(claimant, event);
+    }
+  }
   const handled = (event as EscapeMarkedEvent)[escapeHandled];
   if (handled?.has(record.token)) {
+    return;
+  }
+  const taken = (event as EscapeMarkedEvent)[escapeTaken];
+  if (taken !== undefined && taken !== record.token) {
     return;
   }
   // Wait until IME is settled: Escape while composing closes the compose menu, not the popup. The flag covers Safari,
@@ -1642,7 +1677,7 @@ function closeOnEscapeKeyDown(record: SessionRecord, event: KeyboardEvent): void
     event.preventDefault();
   }
   if (!escapeKeyBubbles && (verdict === 'prevent-and-stop' || verdict === 'stop')) {
-    event.stopPropagation();
+    (event as EscapeMarkedEvent)[escapeTaken] = record.token;
   }
   // A close is pending until the relay brings the next open or C# answers the request; a cancel the verdict reports
   // leaves the session armed.
@@ -2201,7 +2236,7 @@ function createFloatingDismissController(context: HandleContext): Controller {
     return chain.filter((session) => dismissState(session).options !== null);
   };
 
-  const onKeyDown = (event: KeyboardEvent) => closeOnEscapeKeyDown(record, event);
+  const onKeyDown = (event: KeyboardEvent) => claimEscapeKeyDown(record, event);
 
   // `onPointerDown`/`onMouseDown`: the latter may be blocked when `preventDefault()` is called in the former (a
   // NumberField scrub area).
@@ -2254,7 +2289,7 @@ function createReferenceDismissController(context: HandleContext): Controller {
     requestOpenChange(record, channel, false, 'trigger-press', event);
   };
 
-  const onKeyDown = (event: KeyboardEvent) => closeOnEscapeKeyDown(record, event);
+  const onKeyDown = (event: KeyboardEvent) => claimEscapeKeyDown(record, event);
 
   const cleanup = mergeCleanups(
     listen(element, 'keydown', onKeyDown),
