@@ -2,7 +2,6 @@ using Iodine.Headless.Rendering;
 using Iodine.Headless.Utilities;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Rendering;
-using Microsoft.AspNetCore.Components.RenderTree;
 
 namespace Iodine.Headless;
 
@@ -12,12 +11,6 @@ namespace Iodine.Headless;
 /// <summary>The diagnostics the combobox-family parts share.</summary>
 internal static class ComboboxParts
 {
-    /// <summary>Reads the consumer's <c>id</c> from its attributes.</summary>
-    /// <param name="consumerAttributes">The part's unmatched attributes, or <see langword="null"/>.</param>
-    /// <returns>The id, or <see langword="null"/> when the consumer gave none.</returns>
-    public static string? ConsumerId(IReadOnlyDictionary<string, object>? consumerAttributes) =>
-        consumerAttributes is not null && consumerAttributes.TryGetValue("id", out object? supplied) ? supplied as string : null;
-
     /// <summary>Determines whether the cascaded reading direction is right to left.</summary>
     /// <param name="direction">The cascaded direction provider, or <see langword="null"/>.</param>
     /// <returns><see langword="true"/> for <see cref="TextDirection.Rtl"/>.</returns>

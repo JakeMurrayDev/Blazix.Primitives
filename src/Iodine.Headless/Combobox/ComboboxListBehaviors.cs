@@ -792,7 +792,7 @@ internal sealed class ComboboxItemBehavior<TValue> : IAsyncDisposable
             index = root.FilteredIndexOf(value, NullItem);
         }
 
-        id = index == -1 ? ComboboxParts.ConsumerId(consumerAttributes) : partId;
+        id = index == -1 ? RenderedId.ConsumerId(consumerAttributes) : partId;
         item!.SetRegistration(id, consumerAttributes, Disabled, focusableWhenDisabled: true, omitTabIndex: true, label: root.LabelOf(value), index: index);
         root.RegisterRenderedValue(item, value, valueSupplied || ComboboxStore<TValue>.ValueAcceptsNull);
         context.Set(Selected, index ?? -1);

@@ -94,7 +94,7 @@ public sealed class MenuFilterAriaTests : BunitContext
         Assert.False(cut.Find("[role=menu]").HasAttribute("aria-labelledby"));
     }
 
-    // Base UI's in-popup button is a parameter change here.
+    // Issue 250: Base UI's title removes the id with a button inside the popup; here the host's PopupId parameter is cleared.
     [Fact(DisplayName = "releases a popup id override when the prop is removed")]
     [Trait("Requirement", "MNU-API-32")]
     public void Releases_a_popup_id_override()
