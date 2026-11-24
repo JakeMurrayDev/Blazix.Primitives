@@ -22,9 +22,12 @@
     The container records `data-open-changes` (`open:reason`), `data-open-events` (the event types), `data-open-triggers`
     (`none` or `set`: whether the details name a trigger), `data-item-clicks`,
     `data-submenu-open-changes`, `data-inner-open-changes` and `data-plain-open-changes`, and `data-attached` once the roots' sessions and the
-    triggers' handles attached, and `data-trigger-attached` once the trigger's handle alone did.
+    triggers' handles attached, and `data-trigger-attached` once the trigger's handle alone did. `data-positioner-attached`
+    reads `true` once the last mounted Positioner's handles attached (outside press arms with its floating handle, ADR 01's
+    row of 2026-11-24; issue 268); the titles read it on Server only, since on WebAssembly it stayed `false` (2026-11-24, a
+    finding reported to the orchestrator).
 *@
-<FixtureContainer Name="context-menu-root" data-attached="@(Attached ? "true" : "false")" data-sync="@Sync"
+<FixtureContainer Name="context-menu-root" data-attached="@(Attached ? "true" : "false")" data-sync="@Sync" data-positioner-attached="@(positionerAttached ? "true" : "false")"
                   data-open-changes="@OpenChanges" data-open-events="@string.Join(' ', events)"
                   data-submenu-open-changes="@string.Join(' ', submenuChanges)" data-inner-open-changes="@string.Join(' ', innerChanges)"
                   data-plain-open-changes="@string.Join(' ', plainChanges)"
@@ -43,7 +46,7 @@
                     <ContextMenuRoot @ref="innerRoot" OnOpenChange="RecordInnerChange">
                         <ContextMenuTrigger @ref="innerTrigger" data-testid="inner-trigger" style="display: block; width: 100px; height: 50px; margin: 20px">inner</ContextMenuTrigger>
                         <ContextMenuPortal>
-                            <ContextMenuPositioner>
+                            <ContextMenuPositioner @ref="innerPositioner">
                                 <ContextMenuPopup data-testid="inner-menu">
                                     <ContextMenuItem>Inner action</ContextMenuItem>
                                 </ContextMenuPopup>
@@ -52,7 +55,7 @@
                     </ContextMenuRoot>
                 </ContextMenuTrigger>
                 <ContextMenuPortal>
-                    <ContextMenuPositioner>
+                    <ContextMenuPositioner @ref="outerPositioner">
                         <ContextMenuPopup data-testid="outer-menu">
                             <ContextMenuItem>Outer action</ContextMenuItem>
                         </ContextMenuPopup>
@@ -100,7 +103,7 @@
                     {
                         <ContextMenuBackdrop data-testid="backdrop" />
                     }
-                    <ContextMenuPositioner data-testid="positioner" AlignOffset="@AlignOffset" SideOffset="@SideOffset" Side="@SideValue" Align="@AlignValue">
+                    <ContextMenuPositioner @ref="mainPositioner" data-testid="positioner" AlignOffset="@AlignOffset" SideOffset="@SideOffset" Side="@SideValue" Align="@AlignValue">
                         <ContextMenuPopup data-testid="popup">
                             @if (Query("submenu") is { } submenu)
                             {
@@ -141,6 +144,11 @@
     private readonly List<string> clicks = [];
     private readonly List<string> triggers = [];
     private bool triggerAttached;
+    private ContextMenuPositioner? mainPositioner;
+    private ContextMenuPositioner? innerPositioner;
+    private ContextMenuPositioner? outerPositioner;
+    private readonly HashSet<ContextMenuPositioner> trackedPositioners = [];
+    private bool positionerAttached;
     private ContextMenuRoot? root;
     private ContextMenuRoot? innerRoot;
     private ContextMenuTrigger? trigger;
@@ -234,6 +242,25 @@
         }
 
         await attachments;
+        await TrackPositionersAsync();
+    }
+
+    // A Positioner mounted since the last render takes the marker down until its handles attach.
+    private async Task TrackPositionersAsync()
+    {
+        foreach (ContextMenuPositioner? positioner in new[] { mainPositioner, innerPositioner, outerPositioner })
+        {
+            if (positioner is null || !RendererInfo.IsInteractive || !trackedPositioners.Add(positioner))
+            {
+                continue;
+            }
+
+            positionerAttached = false;
+            StateHasChanged();
+            await positioner.TwinAttached;
+            positionerAttached = true;
+            StateHasChanged();
+        }
     }
 
     private void RecordContextChange(ValueChangeEventArgs<bool> args)
