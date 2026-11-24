@@ -807,6 +807,8 @@ export interface CompositeRegistry {
   unregister(element: Element): void;
   /** Rebuilds the item list once if a registration changed since the last rebuild, publishing it when it differs. */
   flush(): void;
+  /** Rebuilds the item list now, dropping elements the DOM no longer has, and publishes it when it differs. */
+  refresh(): void;
   /**
    * Returns an element's index from the last rebuild.
    * @param element The item's element.
@@ -1058,6 +1060,9 @@ export function createCompositeRegistry(): CompositeRegistry {
       if (dirty) {
         rebuild();
       }
+    },
+    refresh() {
+      rebuild();
     },
     indexOf(element) {
       return latest.get(element)?.index ?? -1;
@@ -2946,6 +2951,12 @@ function applyHighlightRequest(state: ListState, handle: ListHandle): void {
     return;
   }
   state.appliedRevision = request.revision;
+  // Issue 267: C# names an index of the items it rendered. An item whose element has left the DOM stays registered until its
+  // handle's dispose arrives (Server), so the registry is rebuilt without it first, and the index reaches the rendered item.
+  const registry = state.floating?.registry;
+  if (registry && hasRemovedElements(registry.elements)) {
+    registry.refresh();
+  }
   const next = request.index ?? null;
   // Decision 6's revision rule (ADR 04 Amendments 2026-11-18, the class of issue 271; MNU-STA-19): a request C# made before
   // it received the module's last act is older than that act, and loses to it, as Base UI's synchronous reset comes before
