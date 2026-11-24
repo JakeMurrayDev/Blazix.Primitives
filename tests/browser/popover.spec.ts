@@ -1181,27 +1181,38 @@ test.describe('<Popover.Close /> modal focus management', () => {
 });
 
 // Issue 268 (design point 3 (a) of M6 track 10, chosen by the user 2026-11-24; ADR 01's row of 2026-11-24): outside press
-// arms only once the popup's floating handle has attached. On Server the attach is a round trip after the open's render;
-// a press inside the popup in that window used to read as outside and closed a non-modal popover. The circuit is held
-// from the floating handle's attach while the press lands (dispatched, as the positioner has not placed the popup yet).
+// arms only once the popup's floating handle has attached, which comes after the open's render on both modes (measured in
+// popover.relaxations.spec.ts). A press inside the popup in that window used to read as outside and closed a non-modal
+// popover. The page dispatches the press from a MutationObserver as the open popup enters the document (the positioner
+// has not placed it yet); on Server the circuit is also held from the floating handle's attach until the press is in.
 test.describe('<Popover.Popup /> before the floating attach', () => {
   test('port: a press inside a non-modal popover before its floating handle attaches leaves it open', async ({ page, mode }) => {
-    test.skip(mode === 'wasm', 'WebAssembly attaches the floating handle in the task of the open\'s render: there is no window to press in');
     const hold = await holdCircuit(page, { from: (text) => text.includes('attach') && text.includes('\\u0022floating\\u0022') });
     const fixture = await gotoPopupFixture(page, mode, 'popover-root', { inside: 'button' });
 
     hold.arm();
+    const pressed = page.evaluate(() => new Promise<void>((resolve) => {
+      const observer = new MutationObserver(() => {
+        const element = document.querySelector('[data-testid="inside"]');
+        if (element === null) {
+          return;
+        }
+        observer.disconnect();
+        const init = { bubbles: true, cancelable: true, composed: true, button: 0, detail: 1 };
+        element.dispatchEvent(new PointerEvent('pointerdown', { ...init, pointerType: 'mouse', isPrimary: true }));
+        element.dispatchEvent(new MouseEvent('mousedown', init));
+        element.dispatchEvent(new PointerEvent('pointerup', { ...init, pointerType: 'mouse', isPrimary: true }));
+        element.dispatchEvent(new MouseEvent('mouseup', init));
+        element.dispatchEvent(new MouseEvent('click', init));
+        resolve();
+      });
+      observer.observe(document.body, { childList: true, subtree: true });
+    }));
     await page.getByTestId('trigger').click();
-    await expect(page.getByTestId('inside')).toBeAttached();
-    await page.getByTestId('inside').evaluate((element) => {
-      const init = { bubbles: true, cancelable: true, composed: true, button: 0, detail: 1 };
-      element.dispatchEvent(new PointerEvent('pointerdown', { ...init, pointerType: 'mouse', isPrimary: true }));
-      element.dispatchEvent(new MouseEvent('mousedown', init));
-      element.dispatchEvent(new PointerEvent('pointerup', { ...init, pointerType: 'mouse', isPrimary: true }));
-      element.dispatchEvent(new MouseEvent('mouseup', init));
-      element.dispatchEvent(new MouseEvent('click', init));
-    });
-    await hold.release();
+    await pressed;
+    if (mode === 'server') {
+      await hold.release();
+    }
     await settle(fixture);
 
     await expect(page.getByTestId('popover-popup')).toBeVisible();
