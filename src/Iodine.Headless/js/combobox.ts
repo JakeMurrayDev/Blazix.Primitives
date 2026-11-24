@@ -19,6 +19,7 @@
 // combobox/popup/ComboboxPopup.tsx:85-99, combobox/item/ComboboxItem.tsx:146-185, combobox/utils/parts.ts:46-58.
 import { closest, contains, getTarget, isHTMLElement, isMouseWithinBounds, isScrollableY, platform as runtimePlatform } from './dom';
 import { eventInfo } from './event-info';
+import { noteReferenceFocusIn, noteReferenceFocusOut } from './focus-manager';
 import { isInteractiveElement } from './interactions';
 import type { Platform } from './platform';
 import {
@@ -392,6 +393,20 @@ function attachInput(element: HTMLInputElement, initial: ComboboxOptions, channe
     }
   };
 
+  // Issue 247 (design point 10c-4 (b) of M6 track 10, chosen by the user 2026-11-24; AUT-KEY-04, CMB-STA-21): a focus-out
+  // while the popup has rendered open is noted for its focus manager, whose handle may not have attached yet (Server); the
+  // focus manager ignores the note while a live handle manages this input.
+  const onFocusOut = (event: FocusEvent): void => {
+    const popup = options.popupId ? doc.getElementById(options.popupId) : null;
+    if (popup !== null && popup.hasAttribute('data-open')) {
+      noteReferenceFocusOut(element, event);
+    }
+  };
+  const onFocusIn = (): void => {
+    noteReferenceFocusIn(element);
+  };
+  element.addEventListener('focusout', onFocusOut);
+  element.addEventListener('focusin', onFocusIn);
   element.addEventListener('compositionstart', onCompositionStart);
   element.addEventListener('compositionend', onCompositionEnd);
   element.addEventListener('input', onInput);
@@ -428,6 +443,8 @@ function attachInput(element: HTMLInputElement, initial: ComboboxOptions, channe
       }
     },
     dispose() {
+      element.removeEventListener('focusout', onFocusOut);
+      element.removeEventListener('focusin', onFocusIn);
       element.removeEventListener('compositionstart', onCompositionStart);
       element.removeEventListener('compositionend', onCompositionEnd);
       element.removeEventListener('input', onInput);
