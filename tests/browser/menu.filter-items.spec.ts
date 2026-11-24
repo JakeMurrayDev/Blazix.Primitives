@@ -287,6 +287,19 @@ test.describe('the filter query over a fruit menu', () => {
     await page.keyboard.press('Enter');
     await expect(fixture).not.toHaveAttribute('data-presses', /Apple/);
   });
+
+  // MNU-STA-18, FOC-12 (issue 249; M5 track 12's held title): the items render through `div`s with their own ids, which win
+  // on the element (RND-DOM-32 (1)); the list highlights and names the ids that land.
+  test('updates the active descendant when filtering replaces a custom-id item', async ({ page, mode }) => {
+    await render(page, mode, { case: 'custom-id' });
+    const filter = fruitInput(page);
+    await expect(filter).toHaveAttribute('aria-activedescendant', 'apple-item');
+
+    await page.getByRole('button', { name: 'query ban' }).click();
+
+    await expect(filter).toHaveAttribute('aria-activedescendant', 'banana-item');
+    await expect(item(page, 'Apple')).toHaveCount(0);
+  });
 });
 
 // MenuFilterRoot.scoping.test.tsx's AppendMenu (MNU-STA-20, EVT-13); Base UI's setProps is the popup's "append" button,

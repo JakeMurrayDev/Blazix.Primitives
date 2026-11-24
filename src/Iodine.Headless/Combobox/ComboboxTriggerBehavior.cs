@@ -153,7 +153,7 @@ internal sealed class ComboboxTriggerBehavior : IAsyncDisposable
     public void Apply(bool nativeButton, bool disabled, string? generatedId, IReadOnlyDictionary<string, object>? consumerAttributes)
     {
         disabledParameter = disabled;
-        consumerId = ComboboxParts.ConsumerId(consumerAttributes);
+        consumerId = RenderedId.ConsumerId(consumerAttributes);
         this.generatedId = generatedId;
         button.Native = nativeButton;
         button.FocusableWhenDisabled = null;

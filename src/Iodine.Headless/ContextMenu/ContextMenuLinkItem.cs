@@ -104,10 +104,10 @@ public sealed class ContextMenuLinkItem : PartBase<ContextMenuLinkItemState>
     }
 
     /// <inheritdoc />
-    protected override void OnParametersSet() => behavior!.Apply(Id, new MenuItemParameters(Disabled: false, Label, NativeButton: false, CloseOnClick), AdditionalAttributes);
+    protected override void OnParametersSet() => behavior!.Apply(LandedId, new MenuItemParameters(Disabled: false, Label, NativeButton: false, CloseOnClick), AdditionalAttributes);
 
     /// <inheritdoc />
-    protected override Task OnAfterRenderAsync(bool firstRender) => behavior!.OnAfterRenderAsync(Enabled, Element, Id);
+    protected override Task OnAfterRenderAsync(bool firstRender) => behavior!.OnAfterRenderAsync(Enabled, Element, LandedId);
 
     /// <inheritdoc />
     protected override void Dispose(bool disposing)

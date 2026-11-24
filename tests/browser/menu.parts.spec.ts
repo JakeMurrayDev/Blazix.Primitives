@@ -321,6 +321,26 @@ test.describe('<Menu.Trigger />', () => {
     });
   });
 
+  // Issue 249 (MNU-STA-18): an item whose Render substitute carries its own id lands with that id (RND-DOM-32 (1)); the list
+  // registers the id that lands, so a keyboard move highlights it and C#'s highlight state follows.
+  test('port: an item whose Render substitute carries its own id is highlighted by the keyboard', async ({ page, mode }) => {
+    const fixture = await gotoPopupFixture(page, mode, 'menu-root', { content: 'items', items: 'Alpha|Beta|Gamma', customIdItems: 'Beta' });
+    await trigger(page).focus();
+    await page.keyboard.press('ArrowDown');
+    const alpha = page.getByRole('menuitem', { name: 'Alpha' });
+    await expect(alpha).toBeFocused();
+
+    await page.keyboard.press('ArrowDown');
+
+    const beta = page.getByRole('menuitem', { name: 'Beta' });
+    await expect(beta).toHaveAttribute('id', 'custom-Beta');
+    await expect(beta).toBeFocused();
+    await expect(beta).toHaveAttribute('data-highlighted', '');
+    await expect(alpha).not.toHaveAttribute('data-highlighted');
+    await settle(fixture);
+    await expect(beta).toHaveAttribute('data-highlighted', '');
+  });
+
   // The attach order of the trigger's handles on one element (the brief's attach-order rule, PR 168's B1: two click listeners
   // in an unpinned order). A route holds one module; the fixture stays unattached until it arrives, and the press then
   // toggles exactly once.

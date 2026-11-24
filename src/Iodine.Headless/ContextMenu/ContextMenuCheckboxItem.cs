@@ -172,13 +172,13 @@ public sealed class ContextMenuCheckboxItem : PartBase<ContextMenuCheckboxItemSt
     /// <inheritdoc />
     protected override void OnParametersSet()
     {
-        behavior!.Apply(Id, new MenuItemParameters(Disabled, Label, NativeButton, CloseOnClick), AdditionalAttributes);
+        behavior!.Apply(LandedId, new MenuItemParameters(Disabled, Label, NativeButton, CloseOnClick), AdditionalAttributes);
         checkable.Apply(CheckedChanged, OnCheckedChange, behavior.Disabled, behavior.Highlighted);
         ChildContent = checkable.CascadeContent(ChildContent);
     }
 
     /// <inheritdoc />
-    protected override Task OnAfterRenderAsync(bool firstRender) => behavior!.OnAfterRenderAsync(Enabled, Element, Id);
+    protected override Task OnAfterRenderAsync(bool firstRender) => behavior!.OnAfterRenderAsync(Enabled, Element, LandedId);
 
     /// <inheritdoc />
     protected override void Dispose(bool disposing)

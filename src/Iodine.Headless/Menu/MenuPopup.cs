@@ -164,7 +164,7 @@ public sealed class MenuPopup : PartBase<MenuPopupState>
     /// <inheritdoc />
     protected override void OnParametersSet()
     {
-        behavior!.SetConsumerAttributes(AdditionalAttributes);
+        behavior!.SetConsumerAttributes(AdditionalAttributes, Render);
         behavior.Apply(FinalFocus, FinalFocusResolver, RenderedId);
         ChildContent = behavior.CascadeContent(ChildContent);
     }

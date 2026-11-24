@@ -155,10 +155,10 @@ public sealed class ContextMenuSubmenuTrigger : PartBase<ContextMenuSubmenuTrigg
 
     /// <inheritdoc />
     protected override void OnParametersSet() =>
-        behavior!.Apply(Id, Element, new MenuSubmenuTriggerParameters(OpenOnHover, Delay, CloseDelay, new MenuItemParameters(Disabled, Label, NativeButton, CloseOnClick: false)), AdditionalAttributes);
+        behavior!.Apply(LandedId, Element, new MenuSubmenuTriggerParameters(OpenOnHover, Delay, CloseDelay, new MenuItemParameters(Disabled, Label, NativeButton, CloseOnClick: false)), AdditionalAttributes);
 
     /// <inheritdoc />
-    protected override Task OnAfterRenderAsync(bool firstRender) => behavior!.OnAfterRenderAsync(Enabled, Element, Id);
+    protected override Task OnAfterRenderAsync(bool firstRender) => behavior!.OnAfterRenderAsync(Enabled, Element, LandedId);
 
     /// <inheritdoc />
     protected override void Dispose(bool disposing)

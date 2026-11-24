@@ -167,6 +167,15 @@ public abstract class PartBase<TState> : ComponentBase, IPartHost, IDisposable
     /// </value>
     protected string? Id => AdditionalAttributes is not null && AdditionalAttributes.TryGetValue("id", out object? supplied) && supplied is string text ? text : generatedId;
 
+    // RND-DOM-32 precedence (1)–(3) as the element shows it (issue 249, M6 track 10): a part registered or published by id uses
+    // the id that lands, so a Render substitute element's own id wins; a RenderFunction substitute is opaque and takes Id.
+    /// <summary>Gets the id that lands on the part's element.</summary>
+    /// <value>
+    /// The <see cref="Render"/> substitute element's own <c>id</c> when it has one, including the empty string; otherwise,
+    /// <see cref="Id"/>.
+    /// </value>
+    protected string? LandedId => RenderedId.Resolve(Render, AdditionalAttributes, generatedId);
+
     /// <inheritdoc />
     string? IPartHost.HostWrapperTagName => HostWrapperTagName;
 

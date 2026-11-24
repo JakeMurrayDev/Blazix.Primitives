@@ -181,10 +181,10 @@ public sealed class MenuTrigger<TPayload> : PartBase<MenuTriggerState>
     /// <inheritdoc />
     /// <exception cref="InvalidOperationException">The trigger is neither inside a <see cref="MenuRoot{TPayload}"/> nor given a <see cref="Handle"/>.</exception>
     protected override void OnParametersSet() =>
-        behavior!.Apply(RootStore, Handle, ParentContext, BarRoot, Id, Element, payloadSupplied, Payload, new MenuTriggerParameters(NativeButton, Disabled, OpenOnHover, Delay, CloseDelay), AdditionalAttributes);
+        behavior!.Apply(RootStore, Handle, ParentContext, BarRoot, LandedId, Element, payloadSupplied, Payload, new MenuTriggerParameters(NativeButton, Disabled, OpenOnHover, Delay, CloseDelay), AdditionalAttributes);
 
     /// <inheritdoc />
-    protected override Task OnAfterRenderAsync(bool firstRender) => behavior!.OnAfterRenderAsync(Enabled, Element, Id);
+    protected override Task OnAfterRenderAsync(bool firstRender) => behavior!.OnAfterRenderAsync(Enabled, Element, LandedId);
 
     /// <inheritdoc />
     protected override void Dispose(bool disposing)
