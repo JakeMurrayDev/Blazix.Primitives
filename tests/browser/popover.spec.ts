@@ -1,5 +1,5 @@
 import { type Locator, type Route } from '@playwright/test';
-import { delayCircuit, expect, Fixture, fixtureUrl, isScrollLocked, pointOf, test, testWithTouch, throttleCpu, touchDrag, type Page, type RenderMode } from './helpers';
+import { delayCircuit, expect, Fixture, fixtureUrl, holdCircuit, isScrollLocked, pointOf, test, testWithTouch, throttleCpu, touchDrag, type Page, type RenderMode } from './helpers';
 import { finishSwitchTransitions, recordSwitchTransitions, switchTransitions } from './helpers/switchTransitions';
 import { detachedTriggersConformanceTests } from './suites/detachedTriggersConformanceTests';
 import { popupConformanceTests } from './suites/popupConformanceTests';
@@ -1221,6 +1221,46 @@ test.describe('<Popover.Popup /> consumer key handler', () => {
     await expect(page.getByTestId('popover-popup')).toHaveCount(0);
     await settle(fixture);
     await expect(fixture).toHaveAttribute('data-popup-keydowns', '1');
+  });
+});
+
+// Issue 268 (design point 3 (a) of M6 track 10, chosen by the user 2026-11-24; ADR 01's row of 2026-11-24): outside press
+// arms only once the popup's floating handle has attached, which comes after the open's render on both modes (measured in
+// popover.relaxations.spec.ts). A press inside the popup in that window used to read as outside and closed a non-modal
+// popover. The page dispatches the press from a MutationObserver as the open popup enters the document (the positioner
+// has not placed it yet); on Server the circuit is also held from the floating handle's attach until the press is in.
+test.describe('<Popover.Popup /> before the floating attach', () => {
+  test('port: a press inside a non-modal popover before its floating handle attaches leaves it open', async ({ page, mode }) => {
+    const hold = await holdCircuit(page, { from: (text) => text.includes('attach') && text.includes('\\u0022floating\\u0022') });
+    const fixture = await gotoPopupFixture(page, mode, 'popover-root', { inside: 'button' });
+
+    hold.arm();
+    const pressed = page.evaluate(() => new Promise<void>((resolve) => {
+      const observer = new MutationObserver(() => {
+        const element = document.querySelector('[data-testid="inside"]');
+        if (element === null) {
+          return;
+        }
+        observer.disconnect();
+        const init = { bubbles: true, cancelable: true, composed: true, button: 0, detail: 1 };
+        element.dispatchEvent(new PointerEvent('pointerdown', { ...init, pointerType: 'mouse', isPrimary: true }));
+        element.dispatchEvent(new MouseEvent('mousedown', init));
+        element.dispatchEvent(new PointerEvent('pointerup', { ...init, pointerType: 'mouse', isPrimary: true }));
+        element.dispatchEvent(new MouseEvent('mouseup', init));
+        element.dispatchEvent(new MouseEvent('click', init));
+        resolve();
+      });
+      observer.observe(document.body, { childList: true, subtree: true });
+    }));
+    await page.getByTestId('trigger').click();
+    await pressed;
+    if (mode === 'server') {
+      await hold.release();
+    }
+    await settle(fixture);
+
+    await expect(page.getByTestId('popover-popup')).toBeVisible();
+    expect(await openChanges(fixture)).toEqual(['true:trigger-press']);
   });
 });
 

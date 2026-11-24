@@ -1381,6 +1381,28 @@ describe('useDismiss', () => {
       expect(popup.open).toBe(false);
     });
 
+    // Issue 268 (design point 3 (a) of M6 track 10, chosen by the user 2026-11-24): outside press arms only once the
+    // session's floating element is set. Before the attach, a press inside the popup's element, which the session cannot
+    // yet tell from outside, and a press elsewhere both leave the popup open (on Server an ADR 01 row).
+    it('port: outside press arms only once the floating element attaches, so a press inside the popup before it leaves the popup open', () => {
+      const popup = harness({ open: true });
+      popup.attachSession({ session: { dismiss: {} } });
+      const floating = element('div');
+      const inside = document.createElement('button');
+      floating.append(inside);
+
+      userClick(inside);
+      expect(popup.open).toBe(true);
+      userClick(document.body);
+      expect(popup.open).toBe(true);
+
+      popup.attachFloating(floating);
+      userClick(inside);
+      expect(popup.open).toBe(true);
+      userClick(document.body);
+      expect(popup.open).toBe(false);
+    });
+
     // Combobox's exemptions (AriaCombobox.tsx:1396-1410; CMB-DIS-01), M5 track 2: a press inside the Trigger, the Clear, the
     // Chips or the InputGroup, named by id, is not outside.
     it('port: a press inside an element the exemption list names is not outside, and a press elsewhere is', () => {
