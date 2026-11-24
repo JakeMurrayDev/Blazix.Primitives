@@ -902,6 +902,45 @@ function nearestInsideGuard(element: Element, direction: 'previousElementSibling
   return isInsideGuard(sibling) ? sibling : null;
 }
 
+// Issue 247 (design point 10c-4 (b) of M6 track 10, chosen by the user 2026-11-24; FLT-FOC-11's focus-out close, AUT-KEY-04,
+// CMB-STA-21): a reopened popup's handle attaches a round trip after its render on Server, and a focus-out of its reference
+// in that window meets no listener. A component module that outlives the popup (the combobox input) notes the focus-out
+// here while no live handle manages the reference; the next handle's first open sync replays the close once, if focus is
+// still outside. A focus-in of the reference, or the end of the open before any handle attached, drops the note.
+const managedReferences = new Map<Element, number>();
+const pendingFocusOuts = new WeakMap<Element, EventInfo>();
+
+function manageReference(reference: Element | null, delta: 1 | -1): void {
+  if (reference === null) {
+    return;
+  }
+  const count = (managedReferences.get(reference) ?? 0) + delta;
+  if (count > 0) {
+    managedReferences.set(reference, count);
+  } else {
+    managedReferences.delete(reference);
+  }
+}
+
+/**
+ * Notes a focus-out of a popup's reference that no live focus-manager handle observes, for the next handle to replay.
+ * @param reference The reference element focus left.
+ * @param event The `focusout` event.
+ */
+export function noteReferenceFocusOut(reference: Element, event: FocusEvent): void {
+  if (!managedReferences.has(reference)) {
+    pendingFocusOuts.set(reference, eventInfo(event));
+  }
+}
+
+/**
+ * Drops a noted focus-out of a reference: it took focus again, or its popup's open ended before a handle attached.
+ * @param reference The reference element.
+ */
+export function dropReferenceFocusOut(reference: Element): void {
+  pendingFocusOuts.delete(reference);
+}
+
 // Feature-detects `focus({ preventScroll })` by focusing a detached element with a getter (FLT-FOC-08).
 function supportsPreventScroll(doc: Document): boolean {
   let supported = false;
@@ -1698,6 +1737,7 @@ export function attach(
 
   // Reconciles every effect with the current inputs: the open state of the last batch and the latest options. The
   // layout effects run before the others, as React commits them.
+  let managedReference: HTMLElement | null = null;
   const sync = (): void => {
     const disabled = disposed || removed || options.disabled === true;
     const modal = options.modal !== false;
@@ -1747,6 +1787,23 @@ export function attach(
       () => markingEffect(floating!, reference, portal, modal, untrapped),
     );
     syncGuards(disabled);
+    // Issue 247: the handle manages its reference from here on, and a focus-out it could not observe is replayed once.
+    const nextManagedReference = disposed || removed ? null : reference;
+    if (nextManagedReference !== managedReference) {
+      manageReference(managedReference, -1);
+      managedReference = nextManagedReference;
+      manageReference(managedReference, 1);
+    }
+    // The first open sync consumes the note whether or not it replays it.
+    const pendingFocusOut = open && reference !== null ? pendingFocusOuts.get(reference) : undefined;
+    if (pendingFocusOut !== undefined && reference !== null) {
+      pendingFocusOuts.delete(reference);
+      const focused = activeElement(ownerDocument(reference));
+      if (!disabled && closeOnFocusOut && !contains(reference, focused) && !contains(floating, focused) && !contains(portal, focused)) {
+        preventReturnFocus = true;
+        requestFocusOutClose(pendingFocusOut);
+      }
+    }
   };
 
   // The inside focus guards (FLT-DOM-15, KEY-05, KEY-06), :1003-1054. C# renders them; the module listens on them and
