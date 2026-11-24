@@ -54,13 +54,7 @@ test.describe('Toast.Viewport', () => {
     await expect(page.getByTestId('root')).toBeFocused();
   });
 
-  // Quarantined (ADR 11 §4) on Server until 2026-12-03, issue 318: failed twice in CI on Server (PR 305's run 44463962534;
-  // PR 325's run 44468298715, browser-server 2). WebAssembly runs it.
-  test('returns focus to previous element when pressing shift+Tab on first toast', {
-    tag: '@quarantine',
-    annotation: { type: 'open', description: 'https://github.com/JakeMurrayDev/Iodine.Headless/issues/318 (expires 2026-12-03)' },
-  }, async ({ page, mode }) => {
-    test.fixme(mode === 'server', 'Quarantined on Server until 2026-12-03 (issue 318)');
+  test('returns focus to previous element when pressing shift+Tab on first toast', async ({ page, mode }) => {
     await openToast(page, mode);
     await addToast(page);
 
