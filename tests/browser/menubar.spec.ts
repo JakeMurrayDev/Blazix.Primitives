@@ -410,12 +410,10 @@ test.describe('<Menubar />', () => {
 
     test('port: a focus-opened bar menu closes when its trigger blurs to an element outside it', async ({ page, mode }) => {
       // MBR-EVT-03 (FLT-FOC-04; MNU-FOC-16's bar clause). A bar menu takes its initial focus (MenuPopup.tsx:84-85), so the
-      // title focuses the trigger again before the blur; the open is the focus switch of the touch titles above. The close's
-      // reason differs by mode, open by ID (design point 7 (a) of track 8, settled 2026-11-11): the focus manager's focusout on the trigger
-      // closes with `focus-out` in a microtask (FloatingFocusManager.tsx:446-566, :587), before the trigger's 0 ms blur
-      // timer's `trigger-focus` (useFocus.ts:185-233), so Base UI likely records `focus-out`, as the port does on Server;
-      // WebAssembly records `trigger-focus`. The title asserts the close. M6 track 11's real-browser probe (2026-11-19)
-      // confirmed `focus-out` in Base UI; WebAssembly's `trigger-focus` is issue 298 (track 10).
+      // title focuses the trigger again before the blur; the open is the focus switch of the touch titles above. The focus
+      // manager's focusout on the trigger closes with `focus-out` in a microtask (FloatingFocusManager.tsx:446-566, :587),
+      // before the trigger's 0 ms blur timer's `trigger-focus` (useFocus.ts:185-233): M6 track 11's real-browser probe of
+      // Base UI recorded `focus-out` (2026-11-19), and the title asserts it on both modes (issue 298).
       const fixture = await render(page, mode);
       await userClick(page.getByTestId('file-trigger'));
       await expect(page.getByTestId('file-menu')).toBeVisible();
@@ -430,7 +428,7 @@ test.describe('<Menubar />', () => {
       await expect(editTrigger).toBeFocused();
       await page.getByTestId('before').focus();
       await expect(page.getByTestId('edit-menu')).toHaveCount(0);
-      await expect(fixture).toHaveAttribute('data-edit-changes', /(^| )false:(trigger-focus|focus-out)$/);
+      await expect(fixture).toHaveAttribute('data-edit-changes', /(^| )false:focus-out$/);
     });
 
     test('port: focusable content inside the bar that is no trigger keeps its own tab stop and is skipped by the bar\'s arrow keys', async ({ page, mode }) => {
