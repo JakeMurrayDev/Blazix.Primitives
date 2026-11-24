@@ -5925,6 +5925,24 @@ describe('Menu', () => {
       expect(changesSince(canceled.submenu, 0)).toEqual([]);
     });
 
+    // Issue 296 (MNU-PTR-11): Base UI emits `itemhover` and moves the list's hover focus in one React dispatch, so the
+    // focus-out close a hover focus queues finds the submenu already closed with `sibling-open`. Here the list's
+    // `mousemove` is a listener of the popup inside the floating element, and the browser runs microtasks between
+    // listeners: the tree must hear the hover before the list's listener moves focus.
+    it('port: the tree hears an item hover before a listener of the item\'s popup, so the sibling close precedes the list\'s hover focus', () => {
+      const tree = itemTree(0);
+      const parentPopup = tree.sibling.parentElement as HTMLElement;
+      const seenByList: unknown[][] = [];
+      parentPopup.addEventListener('mousemove', () => {
+        seenByList.push(...changesSince(tree.submenu, 0));
+      });
+
+      hoverMouse(tree.sibling, 'mousemove');
+
+      expect(seenByList).toEqual([[false, 'sibling-open']]);
+      expect(changesSince(tree.submenu, 0)).toEqual([[false, 'sibling-open']]);
+    });
+
     it('port: an item hover inside the submenu itself, or while the submenu is closed, closes nothing; reopened, it closes again', () => {
       const tree = itemTree(0);
 
