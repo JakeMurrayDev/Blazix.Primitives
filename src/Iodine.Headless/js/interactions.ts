@@ -2114,7 +2114,7 @@ function createSessionDismissController(context: HandleContext): Controller {
           listen(doc, 'compositionstart', handleCompositionStart),
           listen(doc, 'compositionend', handleCompositionEnd),
         ),
-      // Issue 268 (design point 3 (a) of M6 track 10, chosen by the user 2026-11-24): outside press arms only once the
+      // FLT-DIS-01, FLT-DIS-08 (issue 268; design point 3 (a) of M6 track 10, chosen by the user 2026-11-24): outside press arms only once the
       // floating element is set, so a press inside the popup is never read as outside before its handle attaches (on
       // Server, no outside dismissal before the floating attach: ADR 01's row of 2026-11-24).
       options.outsidePress !== false &&
@@ -2158,7 +2158,7 @@ function createSessionDismissController(context: HandleContext): Controller {
 
   record.events.on('openchange', onOpenChange);
   state.resync = sync;
-  // The floating element attaching or detaching arms or disarms outside press (issue 268).
+  // FLT-DIS-01 (issue 268): the floating element attaching or detaching arms or disarms outside press.
   const stopListening = onSessionChange(record, sync);
   sync();
 
