@@ -21,7 +21,7 @@
       `subOrientation=horizontal`, `subOpenOnHover=false`, `subDelay`, `subCloseDelay`.
     - The portal, positioner and popup: `keepMounted`, `sideOffset`, `positionerStyle`, `popupClass`.
     - `content`, the test's `popupProps.children`: absent for the default tree; `items` (`items`, `|`-separated, with
-      `hiddenItems`, `nativeDisabledItems` and `itemLabels`, the last `|`-separated `text=label`), `grouped`, `non-string`,
+      `hiddenItems`, `nativeDisabledItems`, `customIdItems` (each rendered through a `div` with the id `custom-<text>`) and `itemLabels`, the last `|`-separated `text=label`), `grouped`, `non-string`,
       `typeahead-submenu`, `item-submenu`, `keep-mounted-submenu`, `lone-submenu`, `disabled-kinds`, `highlight`, `reporting` (`[data-insert-item]` adds an item first),
       `dynamic`, `deferred`.
     - The page around it: `inputs` (`before` and `after`), `opener` (a button that sets a controlled root open),
@@ -133,6 +133,7 @@
     private string[] items = [];
     private HashSet<string> hiddenItems = [];
     private HashSet<string> nativeDisabledItems = [];
+    private HashSet<string> customIdItems = [];
     private Dictionary<string, string> itemLabels = [];
     private MenuHandle<NoPayload>? handle;
     private bool detached;
@@ -323,6 +324,7 @@
 
         hiddenItems = Set("hiddenItems");
         nativeDisabledItems = Set("nativeDisabledItems");
+        customIdItems = Set("customIdItems");
         itemLabels = Set("itemLabels").Select(pair => pair.Split('=')).ToDictionary(pair => pair[0], pair => pair[1]);
         if (QueryFlag("unobserved") != true)
         {
@@ -518,6 +520,9 @@
         <MenuItem data-testid="item-5" @onclick="@(e => Click(e, "Item 5"))">Item 5</MenuItem>
     </text>;
 
+    // Issue 249: an item rendered through a `div` with its own id, which wins on the element (RND-DOM-32 (1)).
+    private static RenderFragment CustomIdElement(string text) => @<div id="@($"custom-{text}")"></div>;
+
     private RenderFragment ItemsContent => @<text>
         @foreach (string text in items)
         {
@@ -525,6 +530,10 @@
             @if (nativeDisabledItems.Contains(text))
             {
                 <MenuItem @key="text" data-testid="@($"item-{text}")" NativeButton="true" Render="@s_disabledButton">@text</MenuItem>
+            }
+            else if (customIdItems.Contains(text))
+            {
+                <MenuItem @key="text" data-testid="@($"item-{text}")" Render="@CustomIdElement(text)" @onclick="@(e => Click(e, captured))">@text</MenuItem>
             }
             else
             {
