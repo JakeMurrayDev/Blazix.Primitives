@@ -25,7 +25,9 @@
       `calc(100vw - 10px)`);
     - `container=shadow`: the portal renders nothing until a page script attaches an open shadow root to
       `[data-shadow-host]` after the first render and hands it to C# (Base UI's `container: shadowRoot`).
-    - `count=true`: a consumer `onkeydown` on the popup counts its calls in `data-popup-keydowns` (issue 251).
+    - `count=true`: a consumer `onkeydown` on the popup counts its calls in `data-popup-keydowns` (issue 251);
+      `keyless=true`: the page has no other C# key handler: the root is controlled, a plain button `open-plain` (a click
+      handler only) opens it in place of the trigger, and the controls below carry no key handler.
     `[data-unmount]` calls the root's Unmount. The sync button and the controls are out of the tab order, so a Tab from the
     popover's last element leaves the page as in Base UI's test.
 *@
@@ -70,8 +72,15 @@
         }
     </div>
     <div data-shadow-host @ref="shadowHost"></div>
-    <button type="button" tabindex="-1" data-sync-button data-key-control @onclick="() => Sync++" @onkeydown="OnShift(() => Sync++)">Sync</button>
-    <button type="button" tabindex="-1" data-unmount data-key-control @onclick="() => root?.Unmount()" @onkeydown="OnShift(() => root?.Unmount())">Unmount</button>
+    @if (keyless)
+    {
+        <button type="button" tabindex="-1" data-sync-button @onclick="() => Sync++">Sync</button>
+    }
+    else
+    {
+        <button type="button" tabindex="-1" data-sync-button data-key-control @onclick="() => Sync++" @onkeydown="OnShift(() => Sync++)">Sync</button>
+        <button type="button" tabindex="-1" data-unmount data-key-control @onclick="() => root?.Unmount()" @onkeydown="OnShift(() => root?.Unmount())">Unmount</button>
+    }
 </FixtureContainer>
 
 @code {
@@ -99,6 +108,7 @@
     private PortalContainerValue? container;
     private ElementReference shadowHost;
     private bool count;
+    private bool keyless;
     private int popupKeyDowns;
 
     protected override IEnumerable<Task> Attachments =>
@@ -187,7 +197,7 @@
             _ => null,
         };
         defaultOpen = QueryFlag("defaultOpen") == true;
-        controlled = QueryFlag("open") is not null;
+        controlled = QueryFlag("open") is not null || QueryFlag("keyless") == true;
         open = QueryFlag("open") == true;
         awaitInCallback = QueryFlag("awaitInCallback") == true;
         keepMounted = QueryFlag("keepMounted") == true;
@@ -199,6 +209,7 @@
         popupClass = Query("popupClass");
         backdrop = QueryFlag("backdrop") == true;
         count = QueryFlag("count") == true;
+        keyless = QueryFlag("keyless") == true;
         positionerStyle = Query("positionerWidth") switch
         {
             null => null,
@@ -231,8 +242,9 @@
         }
     }
 
-    private RenderFragment Trigger(PopoverHandle<NoPayload>? triggerHandle) =>
-        @<PopoverTrigger TPayload="NoPayload" @ref="trigger" Handle="@triggerHandle" data-testid="trigger">Toggle</PopoverTrigger>;
+    private RenderFragment Trigger(PopoverHandle<NoPayload>? triggerHandle) => keyless
+        ? @<button type="button" data-testid="open-plain" @onclick="() => open = true">Open</button>
+        : @<PopoverTrigger TPayload="NoPayload" @ref="trigger" Handle="@triggerHandle" data-testid="trigger">Toggle</PopoverTrigger>;
 
     private static RenderFragment? Input(string? testId) =>
         testId is null ? null : @<input data-testid="@(testId == "plain" ? null : testId)" />;
