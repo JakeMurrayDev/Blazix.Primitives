@@ -809,18 +809,49 @@ test.describe('<Menubar />', () => {
       });
 
       test('should allow clicking a menu trigger then navigating to another menu with keyboard', async ({ page, mode }) => {
-        // File opens through user-event's dispatched sequence, as Base UI's `user.click` does, so no pointer rests on its
-        // trigger: the port's internal backdrop is cut a render (WebAssembly) or a round trip (Server) after it mounts, and a
-        // pointer resting on File while Edit's backdrop mounts re-enters File's trigger and hover-opens it again (issue 242;
-        // MBR-DOM-08, PSH-ALG-21).
+        // A real click leaves the pointer resting on File while Edit's backdrop mounts. The backdrop arrives cut (issue 242,
+        // design point 4 (b), chosen by the user 2026-11-24; MBR-DOM-08, PSH-ALG-21), so the pointer gets no boundary events
+        // and File does not hover-open again.
         await render(page, mode);
-        await userClick(page.getByTestId('file-trigger'));
+        await page.getByTestId('file-trigger').click();
         await expect(page.getByTestId('file-menu')).toBeVisible();
         await focusInside(page, 'file-menu');
 
         await page.keyboard.press('ArrowRight');
         await expect(page.getByTestId('file-menu')).toHaveCount(0);
         await expect(page.getByTestId('edit-menu')).toBeVisible();
+      });
+
+      // Issue 242: the backdrop a keyboard move to the next menu mounts is cut before the next frame, so a hit test where the
+      // pointer rests (File's trigger) finds the bar, not the backdrop. The page records the hit test in the first animation
+      // frame after a backdrop enters the document.
+      test('port: a bar menu\'s backdrop mounted under a resting pointer is cut before the next frame\'s hit test', async ({ page, mode }) => {
+        await render(page, mode);
+        await page.getByTestId('file-trigger').click();
+        await expect(page.getByTestId('file-menu')).toBeVisible();
+        await focusInside(page, 'file-menu');
+        const box = (await page.getByTestId('file-trigger').boundingBox())!;
+        const hit = page.evaluate(({ x, y }) => new Promise<string>((resolve) => {
+          const observer = new MutationObserver((records) => {
+            for (const record of records) {
+              for (const node of record.addedNodes) {
+                if (node instanceof HTMLElement && node.getAttribute('role') === 'presentation' && node.hasAttribute('data-base-ui-inert')) {
+                  observer.disconnect();
+                  requestAnimationFrame(() => {
+                    const element = document.elementFromPoint(x, y);
+                    resolve(element === node ? 'backdrop' : (element?.closest('[data-testid]')?.getAttribute('data-testid') ?? 'none'));
+                  });
+                  return;
+                }
+              }
+            }
+          });
+          observer.observe(document.body, { childList: true, subtree: true });
+        }), { x: box.x + box.width / 2, y: box.y + box.height / 2 });
+
+        await page.keyboard.press('ArrowRight');
+        await expect(page.getByTestId('edit-menu')).toBeVisible();
+        expect(await hit).toBe('file-trigger');
       });
     });
 
