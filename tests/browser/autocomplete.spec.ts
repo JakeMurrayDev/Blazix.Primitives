@@ -408,8 +408,8 @@ test.describe('<Autocomplete.Root />', () => {
   });
 
   // Issue 247 (AUT-KEY-04, KEY-08, KEY-09, STA-12): on Server, with the circuit delayed 150 ms each way, a Tab pressed as
-  // soon as a typed reopen's list is visible, before the session's update for that reopen lands, closes the popup.
-  test('port: on Server a Tab right after a typed reopen, before the session update, closes the popup', async ({ page, mode }) => {
+  // soon as a typed reopen's list is visible, before the reopened popup's focus-manager handle attaches, closes the popup.
+  test('port: on Server a Tab right after a typed reopen, before the popup\'s focus manager attaches, closes the popup', async ({ page, mode }) => {
     test.skip(mode === 'wasm', 'WebAssembly applies the reopen and its session update in one task: there is no window');
     await delayCircuit(page, 150);
     const fixture = await goto(page, mode);
