@@ -1379,14 +1379,15 @@ const PORTAL_ATTRIBUTE = 'data-base-ui-portal';
 // `escape` for a keydown, so a session's document listener skips a keydown its floating or reference listener handled.
 const escapeHandled = Symbol('iodine.interactions.escapeHandled');
 
-// Issue 251 (design point 2 (a) of M6 track 10, chosen by the user 2026-11-24; ADR 04 Amendments 2026-11-24): the token
-// of the session whose close took an Escape that does not bubble. Base UI stops only React's propagation, after the
+// FLT-KEY-01, FLT-KEY-02; MNU-EVT-14, MNU-EVT-15 (issue 251; design points 2 (a) and 10c-2b (a′) of M6 track 10, chosen
+// by the user 2026-11-24; ADR 04 Amendments 2026-11-24): the token of the session whose close took an Escape that does not
+// bubble. Base UI stops only React's propagation, after the
 // consumer's merged onKeyDown ran (useDismiss.ts:216-228); the port leaves the native keydown running, so Blazor's
 // delegated handler and the page hear it, and every other session's listener reads this mark and skips the key. The mark
 // is on the event, so a synchronous close that clears the taking session before an outer listener runs keeps it.
 const escapeTaken = Symbol('iodine.interactions.escapeTaken');
 
-// Issue 251: the innermost session whose floating element the keydown passed. That listener only claims the key; the
+// FLT-KEY-01, FLT-KEY-02 (issue 251): the innermost session whose floating element the keydown passed. That listener only claims the key; the
 // close runs from the document listener, after Blazor's delegated handler (registered on the document when the
 // first element with a C# key handler rendered, so before any session's), because on WebAssembly a close in the
 // floating element's own listener unmounts the popup before Blazor dispatches the keydown to it. The first session
@@ -1608,6 +1609,7 @@ function isEventWithinOwnElements(record: SessionRecord, event: Event): boolean 
   return isEventTargetWithin(event, record.floatingElement) || isEventTargetWithin(event, record.domReferenceElement);
 }
 
+// FLT-KEY-01, FLT-KEY-02, FLT-EVT-05; ADR 04 Amendments 2026-10-27 and 2026-11-24 (issue 251).
 /**
  * Closes the popup on Escape: an open, enabled, not composing popup with no open descendant that keeps Escape asks
  * `escape` on its session's twin, then prevents the keydown and marks it taken as the verdict says (never marking it when
@@ -1624,6 +1626,7 @@ function closeOnEscapeKeyDown(record: SessionRecord, event: KeyboardEvent): void
   if (!isOpenForDismissal(record) || options === null || options.escapeKey === false) {
     return;
   }
+  // FLT-KEY-02 (issue 251): the innermost popup decides first, whichever session's document listener runs first.
   const claim = (event as EscapeMarkedEvent)[escapeClaimed];
   if (claim !== undefined && !claim.ran) {
     claim.ran = true;
@@ -1677,8 +1680,9 @@ function closeOnEscapeKeyDown(record: SessionRecord, event: KeyboardEvent): void
     event.preventDefault();
   }
   if (!escapeKeyBubbles && (verdict === 'prevent-and-stop' || verdict === 'stop')) {
-    // The trigger's listener and the document listener run after Blazor's dispatch reached the popup's parts, so the
-    // native stop keeps the key from the window and from the trigger's ancestors, as React's does in Base UI.
+    // FLT-KEY-01 (design point 10c-2b (a′), chosen by the user 2026-11-24): the trigger's listener and the document listener
+    // run after Blazor's dispatch reached the popup's parts, so the native stop keeps the key from the window and from the
+    // trigger's ancestors, as React's does in Base UI.
     (event as EscapeMarkedEvent)[escapeTaken] = record.token;
     event.stopPropagation();
   }
