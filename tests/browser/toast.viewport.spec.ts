@@ -26,6 +26,15 @@ async function leave(page: Page): Promise<void> {
   await page.mouse.move(2, 2, { steps: 2 });
 }
 
+/**
+ * Waits for the three focus guards after F6 (issue 318). Base UI renders them in F6's own state update; here C# renders
+ * them once the `f6` report has made its round trip (TST-DOM-04), so a Shift+Tab or Tab before then leaves the viewport in
+ * the document's tab order instead of meeting a guard that returns focus to the element focused before F6.
+ */
+async function guardsRendered(page: Page): Promise<void> {
+  await expect(page.locator('[data-base-ui-focus-guard]')).toHaveCount(3);
+}
+
 test.describe('Toast.Viewport', () => {
   test('sets the measured frontmost toast height CSS variable', async ({ page, mode }) => {
     await openToast(page, mode);
@@ -54,17 +63,12 @@ test.describe('Toast.Viewport', () => {
     await expect(page.getByTestId('root')).toBeFocused();
   });
 
-  // Quarantined (ADR 11 §4) on Server until 2026-12-03, issue 318: failed twice in CI on Server (PR 305's run 44463962534;
-  // PR 325's run 44468298715, browser-server 2). WebAssembly runs it.
-  test('returns focus to previous element when pressing shift+Tab on first toast', {
-    tag: '@quarantine',
-    annotation: { type: 'open', description: 'https://github.com/JakeMurrayDev/Iodine.Headless/issues/318 (expires 2026-12-03)' },
-  }, async ({ page, mode }) => {
-    test.fixme(mode === 'server', 'Quarantined on Server until 2026-12-03 (issue 318)');
+  test('returns focus to previous element when pressing shift+Tab on first toast', async ({ page, mode }) => {
     await openToast(page, mode);
     await addToast(page);
 
     await page.keyboard.press('F6');
+    await guardsRendered(page);
     await page.keyboard.press('Tab');
     await expect(page.getByTestId('root')).toBeFocused();
     await page.keyboard.press('Shift+Tab');
@@ -78,6 +82,7 @@ test.describe('Toast.Viewport', () => {
     await addToast(page);
 
     await page.keyboard.press('F6');
+    await guardsRendered(page);
     await page.keyboard.press('Tab'); // first toast
     await expect(page.locator('[data-toast-id="t2"]')).toBeFocused();
     await page.keyboard.press('Tab'); // first toast close button

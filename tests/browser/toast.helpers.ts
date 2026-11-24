@@ -50,6 +50,11 @@ export async function centreOf(locator: Locator): Promise<{ x: number; y: number
  * Drags with the real mouse the way Base UI's `simulateSwipe` does (ToastRoot.test.tsx:15-76): a press at `start`, a move
  * one pixel toward the end (the gesture's first move re-anchors), the move to the end in `steps`, and the release, on the
  * element under the pointer.
+ *
+ * The document's selection is cleared before the press (issue 318). `simulateSwipe` fires synthetic events, which select
+ * nothing; a real drag selects the text it crosses, and a later press on that selection, once Chromium's text-drag delay
+ * has passed before the first move (as a loaded runner's gap between steps does), starts a native drag whose
+ * `pointercancel` snaps the gesture back (TST-PTR-19) instead of dismissing.
  */
 export async function mouseSwipe(
   page: Page,
@@ -57,6 +62,7 @@ export async function mouseSwipe(
   delta: { x: number; y: number },
   options: { steps?: number; beforeRelease?: () => Promise<void> } = {},
 ): Promise<void> {
+  await page.evaluate(() => window.getSelection()?.removeAllRanges());
   await page.mouse.move(start.x, start.y);
   await page.mouse.down();
   await page.mouse.move(start.x + Math.sign(delta.x), start.y + Math.sign(delta.y));
