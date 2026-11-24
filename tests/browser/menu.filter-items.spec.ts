@@ -163,6 +163,34 @@ test.describe('filtered Menu items', () => {
     await expect(fixture).toHaveAttribute('data-presses', 'Banana');
   });
 
+  // MNU-STA-19 (issue 271; ADR 04 Amendments 2026-11-18, decision 6's revision rule): the query's highlight reset is C#'s
+  // and lands a round trip after the filtered list on Server. Held here until the page has reported a user ArrowDown, it
+  // reaches the module after that newer highlight, and loses to it, as Base UI's synchronous reset comes before the key.
+  test('port: a C# highlight reset held past a user ArrowDown keeps the user\'s highlight', async ({ page, mode }) => {
+    test.skip(mode !== 'server', 'Server only: on WebAssembly the reset is applied in the dispatch of the key that typed the query');
+    const hold = await holdCircuit(page, { from: (text) => text.includes('highlight') && text.includes('revision') });
+    const fixture = await render(page, mode, { case: 'fruit' });
+    const trigger = page.getByRole('button', { name: 'Fruit' });
+    await trigger.click();
+    const fruitInput = input(page, 'Filter fruit');
+    await expect(fruitInput).toBeFocused();
+    await expect(page.getByText('Banana')).toHaveAttribute('tabindex', '-1');
+
+    hold.arm();
+    await page.keyboard.type('ban');
+    await expect(item(page, 'Apple')).toHaveCount(0);
+    await page.keyboard.press('ArrowDown');
+    // The module's own highlight, before C# has answered anything since the query (the server's messages are held).
+    await expect(item(page, 'Banana')).toHaveAttribute('data-highlighted', '');
+    await hold.release();
+
+    const activeItem = item(page, 'Banana');
+    await expect(activeItem).toHaveAttribute('data-highlighted', '');
+    await expect(fruitInput).toHaveAttribute('aria-activedescendant', (await activeItem.getAttribute('id')) ?? 'missing');
+    await page.keyboard.press('Enter');
+    await expect(fixture).toHaveAttribute('data-presses', 'Banana');
+  });
+
   // MNU-STA-17 (MenuFilterRoot.test.tsx).
   test('keeps component-rendered item text after the item is filtered out', async ({ page, mode }) => {
     await render(page, mode, { case: 'label' });
