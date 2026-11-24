@@ -338,7 +338,8 @@ public sealed class PopoverPositioner : PartBase<PopoverPositionerState>
     {
         if (mounted!.Value && modal!.Value == PopoverModalKind.Modal && !hoverOpened!.Value)
         {
-            PopupInternalBackdrop.Render(builder, RootContext!.State.FloatingId + "-backdrop", inert: !open!.Value);
+            // Issue 242: the active trigger's cut-out, named for the popup module's cut at insertion.
+            PopupInternalBackdrop.Render(builder, RootContext!.State.FloatingId + "-backdrop", inert: !open!.Value, cutoutId: activeTriggerId!.Value);
         }
     }
 

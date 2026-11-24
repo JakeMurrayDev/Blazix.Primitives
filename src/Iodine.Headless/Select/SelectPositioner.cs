@@ -424,7 +424,8 @@ public sealed class SelectPositioner : PartBase<SelectPositionerState>
     {
         if (mounted!.Value && modal!.Value)
         {
-            PopupInternalBackdrop.Render(builder, store!.State.Lifecycle.FloatingId + "-backdrop", inert: !open!.Value);
+            // Issue 242: the trigger's cut-out, named for the popup module's cut at insertion.
+            PopupInternalBackdrop.Render(builder, store!.State.Lifecycle.FloatingId + "-backdrop", inert: !open!.Value, cutoutId: triggerId!.Value);
         }
     }
 

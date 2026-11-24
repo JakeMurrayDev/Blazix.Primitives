@@ -75,6 +75,9 @@ internal static class PopupMarkerAttributes
     /// <summary>Represents the marker of a trigger that opens on click: <c>data-base-ui-click-trigger</c>.</summary>
     public const string ClickTrigger = "data-base-ui-click-trigger";
 
+    /// <summary>Represents the attribute naming the element an internal backdrop leaves uncovered: <c>data-iodine-cutout</c>.</summary>
+    public const string Cutout = "data-iodine-cutout";
+
     /// <summary>Represents the marker of a portal node: <c>data-base-ui-portal</c>.</summary>
     public const string Portal = "data-base-ui-portal";
 

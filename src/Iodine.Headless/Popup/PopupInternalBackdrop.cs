@@ -7,7 +7,9 @@ namespace Iodine.Headless;
 // PSH-STR-09, PSH-DOM-14, PSH-ARIA-06 (utils/InternalBackdrop.tsx): the invisible element that covers the page under a
 // modal popup, rendered by Dialog's Portal and Popover's Positioner (design point 3 of M4 track 8: one shared internal
 // writer in Popup/, settled by the orchestrator 2026-10-28). Popover's cut-out is the `popup` module's `clip-path` write (ADR 04
-// Amendments 2026-10-27), so no cut-out is rendered here. The outside press names it by its id.
+// Amendments 2026-10-27), so no cut-out is rendered here. The outside press names it by its id. Issue 242 (design point 4 (b)
+// of M6 track 10, chosen by the user 2026-11-24; PSH-ALG-21): the backdrop names its cut-out element's id, which the module
+// cuts at insertion, before any hit test.
 /// <summary>Renders a modal popup's internal backdrop.</summary>
 internal static class PopupInternalBackdrop
 {
@@ -18,7 +20,8 @@ internal static class PopupInternalBackdrop
     /// <param name="id">The id the backdrop renders.</param>
     /// <param name="inert">Whether the backdrop carries <c>inert</c>, as while its popup closes.</param>
     /// <param name="capture">Receives the backdrop's element reference, or <see langword="null"/> when the owner needs none.</param>
-    public static void Render(RenderTreeBuilder builder, string id, bool inert, Action<ElementReference>? capture = null)
+    /// <param name="cutoutId">The id of the element the backdrop leaves uncovered, or <see langword="null"/> for none.</param>
+    public static void Render(RenderTreeBuilder builder, string id, bool inert, Action<ElementReference>? capture = null, string? cutoutId = null)
     {
         ArgumentNullException.ThrowIfNull(builder);
         builder.OpenRegion(0);
@@ -34,9 +37,14 @@ internal static class PopupInternalBackdrop
             builder.AddAttribute(5, "inert", true);
         }
 
+        if (cutoutId is not null)
+        {
+            builder.AddAttribute(6, PopupMarkerAttributes.Cutout, cutoutId);
+        }
+
         if (capture is not null)
         {
-            builder.AddElementReferenceCapture(6, capture);
+            builder.AddElementReferenceCapture(7, capture);
         }
 
         builder.CloseElement();

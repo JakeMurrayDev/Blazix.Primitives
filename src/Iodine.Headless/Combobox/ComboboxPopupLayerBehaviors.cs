@@ -370,7 +370,9 @@ internal sealed class ComboboxPositionerBehavior : IAsyncDisposable
         ComboboxStoreState state = Store.State;
         if (state.Lifecycle.Mounted && state.Modal)
         {
-            PopupInternalBackdrop.Render(builder, state.Lifecycle.FloatingId + "-backdrop", inert: !state.Lifecycle.EffectiveOpen);
+            // Issue 242: the input group's (or input's, or trigger's) cut-out, named for the popup module's cut at insertion.
+            ComboboxElementIds ids = state.ElementIds;
+            PopupInternalBackdrop.Render(builder, state.Lifecycle.FloatingId + "-backdrop", inert: !state.Lifecycle.EffectiveOpen, cutoutId: ids.InputGroup ?? ids.Input ?? ids.Trigger);
         }
     }
 
