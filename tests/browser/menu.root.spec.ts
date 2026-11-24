@@ -943,40 +943,41 @@ test.describe('<Menu.Root />', () => {
         });
       });
 
-      // MNU-PTR-11, L4 open (settled by the orchestrator 2026-11-04; menu.md's port notes): in a real browser the parent item's
-      // hover moves DOM focus and the hover-opened submenu closes with `focus-out` before its close delay. Dispatched as Base
-      // UI does (MenuRoot.test.tsx:2496), which the safe polygon's `pointer-events: none` also asks for. M6 track 11's
-      // real-browser probe of Base UI (2026-11-19) found Base UI's parent items take no pointer events while the submenu is
-      // hover-open, so it closes after the delay: a port defect, issue 296 (track 10).
+      // MNU-PTR-11 (issue 296, M6 track 10): a real pointer, as M6 track 11's probe of Base UI in Chromium moved it (2026-11-19),
+      // where Base UI's titles fire `mouseMove` (MenuRoot.test.tsx:2496). While the submenu is hover-open the safe polygon's
+      // `blockPointerEvents` makes the parent's items take no pointer events, so the move reaches the positioner, no item
+      // takes focus, and the submenu closes after its `closeDelay`. `moveTo` moves to the item's centre with no actionability
+      // check, as the probe's `force` did.
       test.describe('prop: closeDelay, a sibling item', () => {
-        const openRow = 'MNU-PTR-11 (issue 296): the port closes the submenu at once with `focus-out`; Base UI in Chromium blocks the parent\'s pointer events and closes after the delay (probe 2026-11-19)';
-
         test('should close submenu after delay when hovering a sibling item', async ({ page, mode }) => {
-          test.info().annotations.push({ type: 'open', description: openRow });
-          test.fixme(true, openRow);
-          await render(page, mode, { ...base, openOnHover: true, delay: 0, subDelay: 0, subCloseDelay: 100 });
+          const fixture = await render(page, mode, { ...base, openOnHover: true, delay: 0, subDelay: 0, subCloseDelay: 100 });
           await moveTo(page, trigger(page));
           await expect(popup(page)).toBeVisible();
           await moveTo(page, item(page, 'Item 4'));
           await expect(submenu(page)).toBeVisible();
 
+          const before = (await recorded(fixture, 'data-submenu-open-changes')).length;
+
           await withClock(page, async () => {
-            await fire(item(page, 'Item 1'), 'mousemove');
+            await moveTo(page, item(page, 'Item 1'));
+            await expect(item(page, 'Item 4')).toBeFocused();
 
             // Submenu should still be open after partial delay.
             await page.clock.runFor(50);
             await expect(submenu(page)).toBeAttached();
+            await expect(item(page, 'Item 4')).toHaveAttribute('aria-expanded', 'true');
 
             // Submenu should close after the full delay.
             await page.clock.runFor(60);
             await page.clock.resume();
             await expect(submenu(page)).toHaveCount(0);
           });
+          const changes = (await recorded(fixture, 'data-submenu-open-changes')).slice(before);
+          expect(changes).toHaveLength(1);
+          expect(changes[0]).toMatch(/^false:(trigger-hover|sibling-open)$/);
         });
 
         test('should not restart closeDelay on repeated mousemove over sibling items', async ({ page, mode }) => {
-          test.info().annotations.push({ type: 'open', description: openRow });
-          test.fixme(true, openRow);
           await render(page, mode, { ...base, openOnHover: true, delay: 0, subDelay: 0, subCloseDelay: 100 });
           await moveTo(page, trigger(page));
           await expect(popup(page)).toBeVisible();
@@ -984,14 +985,17 @@ test.describe('<Menu.Root />', () => {
           await expect(submenu(page)).toBeVisible();
 
           await withClock(page, async () => {
-            await fire(item(page, 'Item 1'), 'mousemove');
+            await moveTo(page, item(page, 'Item 1'));
 
             // Most of the delay, then move again over the sibling.
             await page.clock.runFor(80);
             await expect(submenu(page)).toBeAttached();
+            await expect(item(page, 'Item 4')).toHaveAttribute('aria-expanded', 'true');
+            await expect(item(page, 'Item 4')).toBeFocused();
 
             // Move again: this should NOT restart the timer.
-            await fire(item(page, 'Item 1'), 'mousemove');
+            const point = await center(item(page, 'Item 1'));
+            await page.mouse.move(point.x + 4, point.y, { steps: 2 });
 
             // 100 ms from the first move, the submenu should close.
             await page.clock.runFor(30);

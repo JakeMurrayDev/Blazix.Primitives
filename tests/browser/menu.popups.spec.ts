@@ -533,12 +533,6 @@ test.describe('<Menu.Root /> without a trigger', () => {
 
   for (const method of ['click', 'hover'] as const) {
     test(`closes a sibling submenu without closing the root on ${method}`, async ({ page, mode }) => {
-      if (method === 'click') {
-        // M6 track 11's real-browser probe (2026-11-19): Base UI's title passes unchanged in Chromium with `sibling-open`.
-        const openRow = 'MNU-PTR-11 (issue 296): the first submenu closes with `focus-out`, where Base UI in Chromium gives `sibling-open` (probe 2026-11-19)';
-        test.info().annotations.push({ type: 'open', description: openRow });
-        test.fixme(true, openRow);
-      }
       const fixture = await render(page, mode, { case: 'siblings', method });
       await expect(fixture).toHaveAttribute('data-popup-attached', 'true');
       const act = async (locator: Locator) => {
