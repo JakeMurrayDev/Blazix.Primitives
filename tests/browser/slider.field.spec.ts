@@ -1,4 +1,4 @@
-import { test, expect, Fixture, fixtureUrl, type Page, type RenderMode } from './helpers';
+import { test, expect, Fixture, fixtureUrl, holdCircuit, type Page, type RenderMode } from './helpers';
 import type { Locator } from '@playwright/test';
 
 // SLD §8, SLD-FOC-04..08, SLD-ARIA-12, SLD-EDGE-10, SLD-ANI-05 (docs/components/slider.md): the Field, Form, label and
@@ -291,14 +291,11 @@ test.describe('<Slider.Root />', () => {
   });
 
   test.describe('prop: disabled', () => {
-    // SLD-FOC-05: Base UI spies on the input's `blur`; here the page wraps it.
-    // Quarantined (ADR 11 §4) on Server until 2026-12-03, issue 328: failed twice in CI on Server (PR 320's run 44464038543;
-    // main's run 44487136692 at e6b4ad9b), each the blur count (`Expected: > 0 / Received: 0`).
-    test('explicitly blurs the focused thumb when disabled', {
-      tag: '@quarantine',
-      annotation: { type: 'open', description: 'https://github.com/JakeMurrayDev/Iodine.Headless/issues/328 (expires 2026-12-03)' },
-    }, async ({ page, mode }) => {
-      test.fixme(mode === 'server', 'Quarantined on Server until 2026-12-03 (issue 328)');
+    // SLD-FOC-05: Base UI spies on the input's `blur`; here the page wraps it. Base UI runs it under JSDOM only
+    // (SliderRoot.test.tsx:287); in Chromium the blur is read once the sync barrier has passed, after the render's own task.
+    // Issue 328 (quarantined on Server from 2026-11-19 to 2026-12-03; CI runs 44464038543 and 44487136692): the module blurred
+    // only from its update, a message after the render on Server, so a frame between them let the focus fixup blur first.
+    test('explicitly blurs the focused thumb when disabled', async ({ page, mode }) => {
       const fixture = await open(page, mode, 'slider-label', { value: '30' });
       const input = fixture.getByRole('slider');
       await input.focus();
@@ -315,7 +312,42 @@ test.describe('<Slider.Root />', () => {
       await toggle(fixture, 'disabled');
 
       await expect(input).toBeDisabled();
-      await expect.poll(() => page.evaluate(() => (window as unknown as { blurCalls: number[] }).blurCalls.length)).toBeGreaterThan(0);
+      expect(await page.evaluate(() => (window as unknown as { blurCalls: number[] }).blurCalls.length)).toBeGreaterThan(0);
+    });
+
+    // SLD-FOC-05's "post-commit, pre-paint" (issue 328; design point 10k-1 (a), chosen by the user 2026-11-24). On Server the
+    // render that sets `disabled` and the module's update arrive as two messages; held apart across two frames, Chromium's
+    // focus fixup moves focus to <body> first (firing `blur` itself), so a blur run only from the update never calls
+    // `blur()`. The module blurs in the render batch's own task, before any frame, as Base UI's layout effect does.
+    test('port: a focused thumb is blurred explicitly before the next frame when a render disables the slider', async ({ page, mode }) => {
+      test.skip(mode !== 'server', 'Server only: on WebAssembly the render and the module update are not split by the circuit');
+      const hold = await holdCircuit(page, {
+        // The module's `update` with `"disabled":true`, its JSON escaped as `\u0022` inside the invocation.
+        from: (text) => text.includes('BeginInvokeJS') && text.includes('\\u0022disabled\\u0022:true'),
+      });
+      const fixture = await open(page, mode, 'slider-label', { value: '30' });
+      const input = fixture.getByRole('slider');
+      await input.focus();
+      await expect(input).toBeFocused();
+      await input.evaluate((element) => {
+        const calls: number[] = [];
+        (window as unknown as { blurCalls: number[] }).blurCalls = calls;
+        element.blur = function blur(this: HTMLElement) {
+          calls.push(1);
+          HTMLElement.prototype.blur.call(this);
+        };
+      });
+
+      hold.arm();
+      await fixture.locator('[data-toggle="disabled"]').evaluate((button) => (button as HTMLButtonElement).click());
+      await expect(input).toBeDisabled();
+      await page.evaluate(() => new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve()))));
+      await hold.release();
+      await hold.released();
+      await settle(fixture);
+
+      expect(await page.evaluate(() => (window as unknown as { blurCalls: number[] }).blurCalls.length)).toBe(1);
+      await expect(input).not.toBeFocused();
     });
   });
 
