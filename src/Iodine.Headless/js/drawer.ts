@@ -671,6 +671,12 @@ function attachSwipeArea(
       if (event?.type === 'click' && (event as MouseEvent).detail !== 0 && !isVirtualClick(event as MouseEvent)) {
         return;
       }
+      // DRW-DIS-02, FLT-DIS-01 (issue 332; design point 3 (a) of M6 track 10, chosen by the user 2026-11-24): outside press arms only once the
+      // Popup's floating handle attaches (issue 268), so a press before it is not spent: the first press after the attach
+      // reopens the gate here, in capture before the outside-press check, and dismisses.
+      if (event !== undefined && session()?.floatingElement === null) {
+        return;
+      }
       releaseGuard = null;
       doc.removeEventListener('pointerdown', restore, true);
       doc.removeEventListener('click', restore, true);

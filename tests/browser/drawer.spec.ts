@@ -2855,8 +2855,8 @@ test.describe('<Drawer.SwipeArea /> interruptions, thresholds and quick flicks',
   });
 
   // DRW-PTR-25, DIS-02 (DrawerSwipeArea.test.tsx:1466-1513): the only move arrives with no button held.
-  // On Server the first outside press after the open is swallowed until the popup's floating handle attaches (issue 332,
-  // track 10; drawer.md §9): the barrier below waits out that documented window.
+  // On Server no outside press dismisses until the popup's floating handle attaches (issues 268 and 332; ADR 01's row of
+  // 2026-11-24, drawer.md §9): the barrier below waits out that documented window.
   test('opens on a quick flick whose only move is already released (buttons: 0)', {
     annotation: { type: 'issue', description: 'https://github.com/JakeMurrayDev/Iodine.Headless/issues/332' },
   }, async ({ page, mode }) => {
@@ -2866,8 +2866,8 @@ test.describe('<Drawer.SwipeArea /> interruptions, thresholds and quick flicks',
     const area = page.getByTestId('swipe-area');
     await expect(area).toHaveAttribute('data-open', '');
     await expect(area).not.toHaveAttribute('data-swiping');
-    // The popup's dismissal listeners come with its floating handle's attach, after the open's render: a press before them
-    // finds none, and the area's release guard spends it reopening the gate (slice 5, added 2026-11-21; issue 332).
+    // The popup's outside-press listeners arm with its floating handle's attach, after the open's render: a press before
+    // it does not dismiss, and the area's release guard waits for the first press after it (issues 268 and 332).
     await expect(fixture).toHaveAttribute('data-popup-attached', 'true');
 
     await pressOutsideInPage(page);
