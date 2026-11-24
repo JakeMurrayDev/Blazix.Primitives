@@ -291,26 +291,26 @@ test.describe('<Menu.Trigger />', () => {
       });
     });
 
-    // Quarantined (ADR 11 §4) on Server until 2026-12-03, issue 303: its second CI sighting was PR 289's run at 49c137d8,
-    // after PR 290's.
-    test('port: a leave between the hover commit and the press commit keeps the menu open', {
-      tag: '@quarantine',
-      annotation: { type: 'issue', description: 'https://github.com/JakeMurrayDev/Iodine.Headless/issues/303 (expires 2026-12-03)' },
-    }, async ({ page, mode }) => {
+    // Issue 303 (quarantined on Server from 2026-11-19 to 2026-12-03): the title resumed the page's clock before it waited
+    // for the open, so the patient-click window (500 ms from the relayed hover open, MNU-PTR-06) ran in real time while
+    // Playwright polled under load, and the press then toggled the menu closed (`false:trigger-press`). A real-time gap
+    // before the press fails that form (600 ms: 3 of 3; 300 ms: 2 of 3). As the four impatient-click titles (the row's 2026-11-10 note), the clock
+    // is now held from before the hover and stepped until the open shows, and runs again only once the pointer has left.
+    test('port: a leave between the hover commit and the press commit keeps the menu open', async ({ page, mode }) => {
       test.skip(mode !== 'server', 'Server only: the window between the hover request and its commit');
-      test.fixme(mode === 'server', 'Quarantined on Server until 2026-12-03 (issue 303)');
       await parkPointer(page);
       await delayCircuit(page, 150);
       await withClock(page, async () => {
         const fixture = await gotoPopupFixture(page, mode, 'menu-root', { openOnHover: true, content: 'items', items: 'Item' });
+        await holdClock(page);
         await moveTo(page, trigger(page));
-        await page.clock.runFor(110);
-        await page.clock.resume();
+        await runClockUntil(page, async () => (await trigger(page).getAttribute('aria-expanded')) === 'true', 5_000);
         await expect(trigger(page)).toHaveAttribute('aria-expanded', 'true');
 
         await page.mouse.down();
         await page.mouse.up();
         await page.mouse.move(1, 1, { steps: 2 });
+        await page.clock.resume();
         await settle(fixture);
         await waitMs(page, 300);
         await settle(fixture);
