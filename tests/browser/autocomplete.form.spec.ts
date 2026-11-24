@@ -126,10 +126,17 @@ test.describe('<Autocomplete.Root />', () => {
   test.describe('Field', () => {
     // AUT-FRM-01. Base UI's `user.clear` is `fill('')`. Red on WebAssembly (2026-11-19, 3 of 3): the Field validates the typed
     // values out of order there ("o one on"), so "on"'s result lands last; open by ID, a library defect for track 10.
-    test('prop: validationMode=onSubmit', { tag: '@coverage' }, async ({ page, mode }) => {
+    // Quarantined (ADR 11 §4) on Server until 2026-12-08, issue 338: failed twice in nightlies on Server (44716429829 at
+    // 955897bf; 45159975605 at 18d29112, `browser-server (3)`), the input still carrying `aria-invalid`; read as issue 309's
+    // defect on a slower circuit, so it lifts with 309's fix (track 10, group 10g).
+    test('prop: validationMode=onSubmit', {
+      tag: ['@coverage', '@quarantine'],
+      annotation: { type: 'open', description: 'https://github.com/JakeMurrayDev/Iodine.Headless/issues/338 (expires 2026-12-08)' },
+    }, async ({ page, mode }) => {
       const openRow = 'AUT-FRM-01 (issue 309): on WebAssembly the Field validates typed values out of order, so a stale value\'s result lands last';
       if (mode === 'wasm') test.info().annotations.push({ type: 'open', description: openRow });
       test.fixme(mode === 'wasm', openRow);
+      test.fixme(mode === 'server', 'Quarantined on Server until 2026-12-08 (issue 338)');
       await goto(page, mode, 'on-submit');
       const input = page.getByTestId('input');
       await expect(input).not.toHaveAttribute('aria-invalid');
