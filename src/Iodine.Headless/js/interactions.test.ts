@@ -3642,6 +3642,31 @@ describe('useHoverReferenceInteraction', () => {
       expect(still.popup.open).toBe(false);
     });
 
+    // Issue 269 (FLT-STA hover rows): a closed session drops the placement of its last positioning pass, so a reopened popup's
+    // leave is judged against its own next placement, never the previous open's side.
+    it('port: a closed session drops its placement until the reopened popup is positioned again', () => {
+      const { popup, button, tooltip } = render({ safePolygon: true });
+      button.getBoundingClientRect = () => hoverRect(0, 120, 100, 100);
+      tooltip.getBoundingClientRect = () => hoverRect(0, 240, 100, 100);
+      getSession(popup.token)!.setPlacement('bottom');
+      hoverMouse(button, 'mouseenter');
+      expect(popup.open).toBe(true);
+      hoverMouse(button, 'mouseleave', { clientX: 50, clientY: 120 });
+      hoverMouse(document.body, 'mousemove', { clientX: 300, clientY: 50 });
+      expect(popup.open).toBe(false);
+
+      expect((getSession(popup.token) as unknown as { placement?: string }).placement).toBeUndefined();
+
+      // Reopened above the trigger: once its positioning pass publishes `top`, a leave toward it keeps it open.
+      tooltip.getBoundingClientRect = () => hoverRect(0, 0, 100, 100);
+      hoverMouse(button, 'mouseenter');
+      expect(popup.open).toBe(true);
+      getSession(popup.token)!.setPlacement('top');
+      hoverMouse(button, 'mouseleave', { clientX: 50, clientY: 120 });
+      hoverMouse(document.body, 'mousemove', { clientX: 50, clientY: 110 });
+      expect(popup.open).toBe(true);
+    });
+
     it('port: with safePolygon, leaving the trigger toward the popup keeps it open and moving away closes it', () => {
       const { popup, button, tooltip } = render({ safePolygon: true });
       button.getBoundingClientRect = () => hoverRect(0, 0, 100, 100);
