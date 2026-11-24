@@ -25,11 +25,12 @@
       `calc(100vw - 10px)`);
     - `container=shadow`: the portal renders nothing until a page script attaches an open shadow root to
       `[data-shadow-host]` after the first render and hands it to C# (Base UI's `container: shadowRoot`).
+    - `count=true`: a consumer `onkeydown` on the popup counts its calls in `data-popup-keydowns` (issue 251).
     `[data-unmount]` calls the root's Unmount. The sync button and the controls are out of the tab order, so a Tab from the
     popover's last element leaves the page as in Base UI's test.
 *@
 <FixtureContainer Name="popover-root" data-attached="@(Attached ? "true" : "false")" data-sync="@Sync"
-                  data-open-changes="@OpenChanges" data-open-change-completes="@OpenChangeCompletes">
+                  data-open-changes="@OpenChanges" data-open-change-completes="@OpenChangeCompletes" data-popup-keydowns="@popupKeyDowns">
     <style>
         .fade { transition: opacity 500ms; }
         .fade[data-ending-style] { opacity: 0; }
@@ -97,6 +98,8 @@
     private string? positionerStyle;
     private PortalContainerValue? container;
     private ElementReference shadowHost;
+    private bool count;
+    private int popupKeyDowns;
 
     protected override IEnumerable<Task> Attachments =>
     [
@@ -111,7 +114,7 @@
             <PopoverBackdrop data-testid="backdrop" style="position: fixed; inset: 0" />
         }
         <PopoverPositioner data-testid="positioner" style="@positionerStyle">
-            <PopoverPopup data-testid="popover-popup" class="@popupClass">
+            <PopoverPopup data-testid="popover-popup" class="@popupClass" @attributes="PopupAttributes">
                 @if (inside == "input")
                 {
                     <input data-testid="input-inside" />
@@ -147,6 +150,11 @@
             </PopoverPopup>
         </PopoverPositioner>
     </PopoverPortal>;
+
+    // `count=true`: the popup carries a consumer keydown handler that counts its calls.
+    private Dictionary<string, object>? PopupAttributes => count
+        ? new() { ["onkeydown"] = EventCallback.Factory.Create<KeyboardEventArgs>(this, () => popupKeyDowns++) }
+        : null;
 
     // A controlled root receives Open only when the query names it, so an uncontrolled root never sees the parameter.
     private Dictionary<string, object> RootAttributes => controlled ? new() { ["Open"] = open } : [];
@@ -190,6 +198,7 @@
         inside = Query("inside");
         popupClass = Query("popupClass");
         backdrop = QueryFlag("backdrop") == true;
+        count = QueryFlag("count") == true;
         positionerStyle = Query("positionerWidth") switch
         {
             null => null,
