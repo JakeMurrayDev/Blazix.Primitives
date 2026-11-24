@@ -267,6 +267,9 @@ describe('drawer module: the swipe area (DrawerSwipeArea.test.tsx)', () => {
     handles.push(attachInteractions(null, JSON.stringify({ sessionToken, session: { open: false } }), createFakeTwin().twin));
     const session = getSession(sessionToken) as unknown as { outsidePressEnabled: boolean };
     const { area, opened } = swipeArea({ sessionToken });
+    const floating = document.createElement('div');
+    document.body.append(floating);
+    handles.push(attachInteractions(floating, JSON.stringify({ sessionToken, floating: {} }), createFakeTwin().twin));
 
     pointer('pointerdown', area, 200, 0);
     pointer('pointermove', area, 150, 0);
@@ -279,6 +282,31 @@ describe('drawer module: the swipe area (DrawerSwipeArea.test.tsx)', () => {
     document.body.dispatchEvent(new MouseEvent('click', { bubbles: true, detail: 1 }));
     expect(session.outsidePressEnabled).toBe(false);
     document.body.dispatchEvent(new MouseEvent('click', { bubbles: true, detail: 0 }));
+    expect(session.outsidePressEnabled).toBe(true);
+  });
+
+  // Issue 332 (design point 3 (a) of M6 track 10, chosen by the user 2026-11-24): while the session has no floating
+  // element, outside press is not armed (issue 268), so the release guard does not spend a press there; the first press
+  // after the floating attach reopens the gate, in capture before the outside-press check, so it still dismisses.
+  it('port: the release guard keeps the gate closed through a press before the floating attach and reopens it on the first press after', () => {
+    const sessionToken = `swipe-area-session-${++tokenCount}`;
+    handles.push(attachInteractions(null, JSON.stringify({ sessionToken, session: { open: false } }), createFakeTwin().twin));
+    const session = getSession(sessionToken) as unknown as { outsidePressEnabled: boolean };
+    const { area, opened } = swipeArea({ sessionToken });
+
+    pointer('pointerdown', area, 200, 0);
+    pointer('pointermove', area, 150, 0);
+    opened();
+    pointer('pointermove', area, 100, 0);
+    pointer('pointerup', area, 100, 0);
+
+    document.body.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true }));
+    expect(session.outsidePressEnabled).toBe(false);
+
+    const floating = document.createElement('div');
+    document.body.append(floating);
+    handles.push(attachInteractions(floating, JSON.stringify({ sessionToken, floating: {} }), createFakeTwin().twin));
+    document.body.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true }));
     expect(session.outsidePressEnabled).toBe(true);
   });
 

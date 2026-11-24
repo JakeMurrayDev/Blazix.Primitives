@@ -1,5 +1,5 @@
 import { type Locator, type Route } from '@playwright/test';
-import { delayCircuit, expect, Fixture, fixtureUrl, isScrollLocked, pointOf, test, testWithTouch, throttleCpu, touchDrag, type Page, type RenderMode } from './helpers';
+import { delayCircuit, expect, Fixture, fixtureUrl, holdCircuit, isScrollLocked, pointOf, test, testWithTouch, throttleCpu, touchDrag, type Page, type RenderMode } from './helpers';
 import { finishSwitchTransitions, recordSwitchTransitions, switchTransitions } from './helpers/switchTransitions';
 import { detachedTriggersConformanceTests } from './suites/detachedTriggersConformanceTests';
 import { popupConformanceTests } from './suites/popupConformanceTests';
@@ -1177,6 +1177,35 @@ test.describe('<Popover.Close /> modal focus management', () => {
     await settle(fixture);
 
     expect(await isElementOrAncestorInert(page.getByTestId('outside'))).toBe(false);
+  });
+});
+
+// Issue 268 (design point 3 (a) of M6 track 10, chosen by the user 2026-11-24; ADR 01's row of 2026-11-24): outside press
+// arms only once the popup's floating handle has attached. On Server the attach is a round trip after the open's render;
+// a press inside the popup in that window used to read as outside and closed a non-modal popover. The circuit is held
+// from the floating handle's attach while the press lands (dispatched, as the positioner has not placed the popup yet).
+test.describe('<Popover.Popup /> before the floating attach', () => {
+  test('port: a press inside a non-modal popover before its floating handle attaches leaves it open', async ({ page, mode }) => {
+    test.skip(mode === 'wasm', 'WebAssembly attaches the floating handle in the task of the open\'s render: there is no window to press in');
+    const hold = await holdCircuit(page, { from: (text) => text.includes('attach') && text.includes('\\u0022floating\\u0022') });
+    const fixture = await gotoPopupFixture(page, mode, 'popover-root', { inside: 'button' });
+
+    hold.arm();
+    await page.getByTestId('trigger').click();
+    await expect(page.getByTestId('inside')).toBeAttached();
+    await page.getByTestId('inside').evaluate((element) => {
+      const init = { bubbles: true, cancelable: true, composed: true, button: 0, detail: 1 };
+      element.dispatchEvent(new PointerEvent('pointerdown', { ...init, pointerType: 'mouse', isPrimary: true }));
+      element.dispatchEvent(new MouseEvent('mousedown', init));
+      element.dispatchEvent(new PointerEvent('pointerup', { ...init, pointerType: 'mouse', isPrimary: true }));
+      element.dispatchEvent(new MouseEvent('mouseup', init));
+      element.dispatchEvent(new MouseEvent('click', init));
+    });
+    await hold.release();
+    await settle(fixture);
+
+    await expect(page.getByTestId('popover-popup')).toBeVisible();
+    expect(await openChanges(fixture)).toEqual(['true:trigger-press']);
   });
 });
 
