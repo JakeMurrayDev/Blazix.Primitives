@@ -1180,6 +1180,50 @@ test.describe('<Popover.Close /> modal focus management', () => {
   });
 });
 
+// Issue 251 (ADR 04's dismissal line of 2026-11-24): the dismissal marks Escape instead of stopping it, so a consumer
+// onkeydown on the popup hears it once, as Base UI's merged onKeyDown does, and the popup still closes.
+test.describe('<Popover.Popup /> consumer key handler', () => {
+  test("port: a popup's consumer onkeydown hears Escape once and the popup still dismisses", async ({ page, mode }) => {
+    const fixture = await gotoPopupFixture(page, mode, 'popover-root', { defaultOpen: true, inside: 'button', count: true });
+    await page.getByTestId('inside').focus();
+
+    await page.keyboard.press('Escape');
+    await expect(page.getByTestId('popover-popup')).toHaveCount(0);
+    await settle(fixture);
+    await expect(fixture).toHaveAttribute('data-popup-keydowns', '1');
+    expect(await openChanges(fixture)).toEqual(['false:escape-key']);
+  });
+
+  // The listener order the close rests on (ADR 04 Amendments 2026-11-24): a click-opened popover, whose session installs its
+  // document listener at the open, after Blazor's document listener for keydown, which the trigger's key handler added.
+  test("port: a click-opened popover's consumer onkeydown hears Escape once and the popup still dismisses", async ({ page, mode }) => {
+    const fixture = await gotoPopupFixture(page, mode, 'popover-root', { inside: 'button', count: true });
+    await page.getByTestId('trigger').click();
+    await expect(page.getByTestId('popover-popup')).toBeVisible();
+    await page.getByTestId('inside').focus();
+
+    await page.keyboard.press('Escape');
+    await expect(page.getByTestId('popover-popup')).toHaveCount(0);
+    await settle(fixture);
+    await expect(fixture).toHaveAttribute('data-popup-keydowns', '1');
+    expect(await openChanges(fixture)).toEqual(['true:trigger-press', 'false:escape-key']);
+  });
+
+  // The worst order: the popup's consumer onkeydown is the page's first C# key handler, rendered with the open, so Blazor
+  // adds its document listener for keydown only then; the popover is opened programmatically (`keyless=true`).
+  test("port: a popup whose consumer onkeydown is the page's first C# key handler hears Escape once and still dismisses", async ({ page, mode }) => {
+    const fixture = await gotoPopupFixture(page, mode, 'popover-root', { inside: 'button', count: true, keyless: true });
+    await page.getByTestId('open-plain').click();
+    await expect(page.getByTestId('popover-popup')).toBeVisible();
+    await page.getByTestId('inside').focus();
+
+    await page.keyboard.press('Escape');
+    await expect(page.getByTestId('popover-popup')).toHaveCount(0);
+    await settle(fixture);
+    await expect(fixture).toHaveAttribute('data-popup-keydowns', '1');
+  });
+});
+
 // Issue 268 (design point 3 (a) of M6 track 10, chosen by the user 2026-11-24; ADR 01's row of 2026-11-24): outside press
 // arms only once the popup's floating handle has attached, which comes after the open's render on both modes (measured in
 // popover.relaxations.spec.ts). A press inside the popup in that window used to read as outside and closed a non-modal

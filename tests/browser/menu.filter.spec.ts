@@ -294,11 +294,9 @@ test.describe('filterable menu initial highlight', () => {
     }, init);
   }
 
-  // MNU-API-59, EVT-14, EVT-15 (MenuFilterRoot.test.tsx): Base UI's fireEvent.keyDown is a dispatched keydown.
-  // Base UI's title then presses Escape, which must reach the popup's handler once. The port's dismissal stops Escape on
-  // the floating element before Blazor dispatches it, so no C# popup handler hears it (open by ID, issue 251);
-  // this port title keeps the title's other steps.
-  test('port: runs a consumer handler once per interaction on the trigger and the input, and keeps an editing key from the popup', async ({ page, mode }) => {
+  // MNU-API-59, EVT-14, EVT-15 (MenuFilterRoot.test.tsx): Base UI's fireEvent.keyDown is a dispatched keydown. Escape
+  // reaches the popup's handler once (issue 251: the dismissal marks the key instead of stopping it).
+  test('runs a consumer handler once per interaction on each composed part', async ({ page, mode }) => {
     const fixture = page.locator(Fixture.interactive('menu-filter-initial'));
     await page.goto(`/${mode}/menu-filter-initial?count=true`, { waitUntil: 'commit' });
     await page.locator(Fixture.started).waitFor({ state: 'attached' });
@@ -313,6 +311,25 @@ test.describe('filterable menu initial highlight', () => {
     await expect(fixture).toHaveAttribute('data-input-keydowns', '1');
     await expect(fixture).toHaveAttribute('data-popup-keydowns', '0');
 
+    // Escape is not consumed by the input, so it reaches the popup exactly once.
+    await input(page).evaluate((element) => element.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true })));
+    await expect(fixture).toHaveAttribute('data-popup-keydowns', '1');
+  });
+
+  // Issue 251 (MNU-EVT-14, EVT-15; ADR 04's dismissal line of 2026-11-24): a real Escape in the input closes the menu and
+  // the popup's consumer handler hears it once, as Base UI's merged onKeyDown does.
+  test("port: a popup's consumer onkeydown hears Escape once and the popup still dismisses", async ({ page, mode }) => {
+    const fixture = page.locator(Fixture.interactive('menu-filter-initial'));
+    await page.goto(`/${mode}/menu-filter-initial?count=true`, { waitUntil: 'commit' });
+    await page.locator(Fixture.started).waitFor({ state: 'attached' });
+    await expect(fixture).toHaveAttribute('data-attached', 'true');
+    await trigger(page).click();
+    await expect(input(page)).toBeFocused();
+
+    await page.keyboard.press('Escape');
+    await expect(page.getByTestId('popup')).toHaveCount(0);
+    await expect(fixture).toHaveAttribute('data-popup-keydowns', '1');
+    await expect(fixture).toHaveAttribute('data-input-keydowns', '1');
   });
 
   // MNU-API-04, EVT-06, ANI-06 (MenuFilterRoot.test.tsx); the fixture records each completion in data-open-completes.

@@ -764,7 +764,8 @@ async function waitMsReal(page: Page): Promise<void> {
 // CTX-EDGE-05 and MNU-EDGE-15: a plain Menu.Root inside a context menu's popup applies the context menu's release rules
 // (useMenuItemCommonProps.ts:107-131 tests for the ContextMenu context, not the parent kind): a release activates an item
 // only with the right button, and only on macOS. The press on the plain trigger arms it after 200 ms, waited in real time
-// with no clock held. The Trigger's half of the clause is open (context-menu.md CTX-EDGE-05's note).
+// with no clock held. Inside the Trigger (issue 258) the context menu stays closed: the plain menu keeps its own armed
+// flag (its parent kind is none) and applies the context menu's rules all the same.
 test.describe('ContextMenu port titles: a plain menu inside a context menu', () => {
   async function pressPlainTrigger(page: Page, mode: RenderMode): Promise<void> {
     await rightClick(page, page.getByTestId('trigger'), { x: 20, y: 20 });
@@ -800,6 +801,48 @@ test.describe('ContextMenu port titles: a plain menu inside a context menu', () 
   test("port: on other platforms a right-button release over an item of a plain menu inside the context menu's popup does not activate it", async ({ page, mode }) => {
     const fixture = await render(page, mode, { plainMenu: 'popup' }, 'other');
     await pressPlainTrigger(page, mode);
+    await page.mouse.up({ button: 'right' });
+    await settle(fixture);
+
+    await expect(page.getByTestId('plain-popup')).toBeVisible();
+    expect(await fixture.getAttribute('data-item-clicks')).toBe('');
+  });
+
+  async function pressPlainTriggerInTrigger(page: Page, mode: RenderMode): Promise<void> {
+    const start = await center(page.getByTestId('plain-trigger'));
+    await page.mouse.move(start.x, start.y);
+    await page.mouse.down();
+    await positioned(page.getByTestId('plain-item'), mode);
+    await page.waitForTimeout(300);
+    await moveTo(page, page.getByTestId('plain-item'));
+  }
+
+  test("port: a primary-button press-drag-release over an item of a plain menu inside the context menu's Trigger does not activate it", async ({ page, mode }) => {
+    const fixture = await render(page, mode, { plainMenu: 'trigger' }, 'mac');
+    await pressPlainTriggerInTrigger(page, mode);
+    await page.mouse.up();
+    await settle(fixture);
+
+    await expect(page.getByTestId('plain-popup')).toBeVisible();
+    await expect(page.getByTestId('popup')).toHaveCount(0);
+    expect(await fixture.getAttribute('data-item-clicks')).toBe('');
+  });
+
+  test("port: on macOS a right-button release over an item of a plain menu inside the context menu's Trigger activates it", {
+    tag: ['@coverage'],
+  }, async ({ page, mode }) => {
+    const fixture = await render(page, mode, { plainMenu: 'trigger' }, 'mac');
+    await pressPlainTriggerInTrigger(page, mode);
+    await page.mouse.up({ button: 'right' });
+
+    await expect(page.getByTestId('plain-popup')).toHaveCount(0);
+    expect(await fixture.getAttribute('data-item-clicks')).toBe('Plain');
+    expect((await fixture.getAttribute('data-plain-open-changes'))!.split(' ').at(-1)).toBe('false:item-press');
+  });
+
+  test("port: on other platforms a right-button release over an item of a plain menu inside the context menu's Trigger does not activate it", async ({ page, mode }) => {
+    const fixture = await render(page, mode, { plainMenu: 'trigger' }, 'other');
+    await pressPlainTriggerInTrigger(page, mode);
     await page.mouse.up({ button: 'right' });
     await settle(fixture);
 

@@ -2491,8 +2491,11 @@ describe('useDismiss', () => {
   // -------------------------------------------------------------------------------------------------------------
 
   describe('the escape point', () => {
-    it('port: an accepted close is prevented and stopped, prevented only with allowPropagation(), stopped only when canceled, and neither when canceled with allowPropagation(); on Server every close takes the prevent-and-stop fallback and is reported', async () => {
-      // [name, consumer, defaultPrevented, reached a later document listener] on WebAssembly.
+    // Issue 251 (design point 2 (a) of M6 track 10, chosen by the user 2026-11-24): the stop half of the verdict marks the
+    // keydown as taken, which an outer session that lets Escape bubble then skips; the keydown itself always reaches the
+    // document.
+    it('port: an accepted close is prevented and taken, prevented only with allowPropagation(), taken only when canceled, and neither when canceled with allowPropagation(); the keydown reaches the document; on Server every close takes the prevent-and-stop fallback and is reported', async () => {
+      // [name, consumer, defaultPrevented, not taken: an outer session that lets Escape bubble closes too] on WebAssembly.
       const consumers: [string, (details: { cancel(): void; allowPropagation(): void }) => void, boolean, boolean][] = [
         ['accepted', () => {}, true, false],
         ['accepted with allowPropagation()', allowPropagation, true, true],
@@ -2501,8 +2504,11 @@ describe('useDismiss', () => {
       ];
       await inBothModes((synchronous) => {
         for (const [name, consumer, prevented, propagated] of consumers) {
+          const outer = harness({ open: true, synchronous });
+          outer.attachSession({ session: { dismiss: { bubblesEscapeKey: true } } });
+          outer.attachFloating(element('div'));
           const popup = harness({ open: true, synchronous, onOpenChange: (_open, details) => consumer(details) });
-          popup.attachSession({ session: { dismiss: {} } });
+          popup.attachSession({ session: { dismiss: {}, parentToken: outer.token } });
           const floating = element('div');
           popup.attachFloating(floating);
           const reachedDocument = vi.fn();
@@ -2511,14 +2517,16 @@ describe('useDismiss', () => {
           const event = keyDown(floating);
           document.removeEventListener('keydown', reachedDocument);
 
+          // An outer session that closes on a key the popup did not take prevents it too.
           const accepted = name.startsWith('accepted');
-          expect([name, event.defaultPrevented, reachedDocument.mock.calls.length > 0, popup.open]).toEqual(
-            synchronous ? [name, prevented, propagated, !accepted] : [name, true, false, !accepted],
+          expect([name, event.defaultPrevented, !outer.open, popup.open, reachedDocument.mock.calls.length]).toEqual(
+            synchronous ? [name, prevented || propagated, propagated, !accepted, 1] : [name, true, false, !accepted, 1],
           );
           expect(popup.changes.map((change) => change.details.reason)).toEqual(['escape-key']);
           expect(popup.decisions.map((decision) => decision.point)).toEqual(synchronous ? ['escape'] : []);
           expect(popup.requests.map((request) => request.payload.reason)).toEqual(synchronous ? [] : ['escape-key']);
           popup.dispose();
+          outer.dispose();
         }
       });
     });
@@ -2544,6 +2552,36 @@ describe('useDismiss', () => {
           expect(popup.changes).toHaveLength(1);
           popup.dispose();
         }
+      });
+    });
+
+    // Issue 251 (design point 2 (a) of M6 track 10, chosen by the user 2026-11-24, with design point 10c-2b (a′) of the same day): the
+    // floating element's listener only claims Escape, so Blazor's delegated handler on the document reaches the popup's
+    // parts; the close runs from the document listener and marks the keydown as taken, which an outer session's document
+    // listener reads to skip the key, even after a synchronous close took the inner session out of the forest.
+    it('port: an Escape in the inner popup closes it from the document, marked as taken: the document hears it and the outer session skips it', async () => {
+      await inBothModes((synchronous) => {
+        const outer = harness({ open: true, synchronous });
+        outer.attachSession({ session: { dismiss: {} } });
+        outer.attachFloating(element('div'));
+        const inner = harness({ open: true, synchronous });
+        inner.attachSession({ session: { dismiss: {}, parentToken: outer.token } });
+        const floating = element('div');
+        inner.attachFloating(floating);
+        const reachedDocument = vi.fn();
+        document.addEventListener('keydown', reachedDocument);
+
+        const event = keyDown(floating);
+        document.removeEventListener('keydown', reachedDocument);
+
+        expect(reachedDocument).toHaveBeenCalledTimes(1);
+        expect(event.defaultPrevented).toBe(true);
+        expect(inner.open).toBe(false);
+        expect(outer.open).toBe(true);
+        expect(outer.decisions).toEqual([]);
+        expect(outer.requests).toEqual([]);
+        outer.dispose();
+        inner.dispose();
       });
     });
 
@@ -2714,8 +2752,8 @@ describe('useDismiss', () => {
           keyDown(floating);
           document.removeEventListener('keydown', reachedDocument);
 
-          // On Server the fallback stops the keydown; on WebAssembly the verdict lets it reach the document.
-          expect([name, reachedDocument.mock.calls.length, popup.changes.length]).toEqual([name, synchronous ? 1 : 0, 1]);
+          // The keydown reaches the document in both modes (issue 251: the fallback marks it, it does not stop it).
+          expect([name, reachedDocument.mock.calls.length, popup.changes.length]).toEqual([name, 1, 1]);
           popup.dispose();
         }
       });
@@ -6150,6 +6188,40 @@ describe('Menu', () => {
 
       mouse(tree.outside, 'mouseup', { clientX: 300, clientY: 300 });
       expect(changesSince(tree.menu, mark)).toEqual([[false, 'cancel-open']]);
+    });
+
+    // Issue 258 (CTX-EDGE-05, MNU-EDGE-15): a plain menu inside a context menu's Trigger is no part of the context menu's
+    // tree while that menu is closed (its Positioner unmounted), so it keeps its own armed flag, as Base UI's own
+    // `allowMouseUpTriggerRef` (MenuStore.ts:173-181, parent kind none); but it applies the context menu's rules and
+    // consumes its gesture point, which useMenuItemCommonProps.ts:107-131 reads from the ContextMenu context.
+    it('port: a plain menu inside a closed context menu applies the context menu\'s release rules with its own armed flag', () => {
+      const contextMenu = harness();
+      contextMenu.attachSession();
+      armMenuRelease(contextMenu.token, false, { button: 2, skipButton: null, slop: 1, initialPoint: { x: 10, y: 40 } });
+      const plain = harness({ open: true });
+      plain.attachSession({ session: { parentToken: contextMenu.token } });
+      const positioner = element('div');
+      const popup = document.createElement('div');
+      popup.setAttribute('data-rootownerid', `${plain.token}-root`);
+      positioner.append(popup);
+      const item = document.createElement('div');
+      item.setAttribute('role', 'menuitem');
+      popup.append(item);
+      plain.attachFloating(positioner, { floating: { hover: null, menu: { itemHover: true, release: true } } });
+      const clicks: number[] = [];
+      item.addEventListener('click', (event) => clicks.push(event.button));
+      armMenuRelease(plain.token, true);
+
+      mouse(item, 'mouseup', { button: 2, clientX: 11, clientY: 41 });
+      mouse(item, 'mouseup', { button: 0, clientX: 30, clientY: 40 });
+      expect(clicks).toEqual([]);
+      mouse(item, 'mouseup', { button: 2, clientX: 30, clientY: 40 });
+      expect(clicks).toHaveLength(1);
+
+      armMenuRelease(contextMenu.token, false, { button: 2, skipButton: 2, slop: 1, initialPoint: null });
+      mouse(item, 'mouseup', { button: 2, clientX: 30, clientY: 40 });
+      mouse(item, 'mouseup', { button: 0, clientX: 30, clientY: 40 });
+      expect(clicks).toHaveLength(1);
     });
 
     it('port: a context menu\'s rules: the first release within the slop of the gesture\'s point, another button and the skipped button click nothing', () => {
