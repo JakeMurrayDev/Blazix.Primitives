@@ -197,14 +197,21 @@ function cutAtInsertion(backdrop: HTMLElement): void {
   }
 }
 
+// ADR 16 (the observer sees every insertion on the page): an added element is the backdrop itself, or holds at most one
+// (a portal's subtree), so a leaf is checked by its attribute alone and a subtree by its first match.
 function cutInserted(node: Node): void {
   if (!(node instanceof HTMLElement)) {
     return;
   }
   if (node.hasAttribute(CUTOUT_ATTRIBUTE)) {
     cutAtInsertion(node);
+    return;
   }
-  for (const backdrop of node.querySelectorAll<HTMLElement>(`[${CUTOUT_ATTRIBUTE}]`)) {
+  if (node.firstElementChild === null) {
+    return;
+  }
+  const backdrop = node.querySelector<HTMLElement>(`[${CUTOUT_ATTRIBUTE}]`);
+  if (backdrop !== null) {
     cutAtInsertion(backdrop);
   }
 }
