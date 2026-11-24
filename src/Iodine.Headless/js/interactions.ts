@@ -2114,8 +2114,12 @@ function createSessionDismissController(context: HandleContext): Controller {
           listen(doc, 'compositionstart', handleCompositionStart),
           listen(doc, 'compositionend', handleCompositionEnd),
         ),
+      // Issue 268 (design point 3 (a) of M6 track 10, chosen by the user 2026-11-24): outside press arms only once the
+      // floating element is set, so a press inside the popup is never read as outside before its handle attaches (on
+      // Server, no outside dismissal before the floating attach: ADR 01's row of 2026-11-24).
       options.outsidePress !== false &&
         record.open &&
+        record.floatingElement !== null &&
         mergeCleanups(
           listen(doc, 'click', closeOnPressOutsideCapture, true),
           listen(doc, 'pointerdown', closeOnPressOutsideCapture, true),
@@ -2143,7 +2147,7 @@ function createSessionDismissController(context: HandleContext): Controller {
     state.owner = context;
     const bubbles = normalizeBubbles({ escapeKey: options?.bubblesEscapeKey, outsidePress: options?.bubblesOutsidePress });
     // The effect's inputs that can change here (useDismiss.ts:754-773); the stable callbacks read `state.options`.
-    const key = [record.open, isOpenForDismissal(record), options !== null, options?.escapeKey !== false, options?.outsidePress !== false, bubbles.escapeKey, bubbles.outsidePress].join();
+    const key = [record.open, isOpenForDismissal(record), record.floatingElement !== null, options !== null, options?.escapeKey !== false, options?.outsidePress !== false, bubbles.escapeKey, bubbles.outsidePress].join();
     if (key === effectKey) {
       return;
     }
@@ -2154,11 +2158,14 @@ function createSessionDismissController(context: HandleContext): Controller {
 
   record.events.on('openchange', onOpenChange);
   state.resync = sync;
+  // The floating element attaching or detaching arms or disarms outside press (issue 268).
+  const stopListening = onSessionChange(record, sync);
   sync();
 
   return {
     update: sync,
     dispose() {
+      stopListening();
       record.events.off('openchange', onOpenChange);
       if (state.resync === sync) {
         state.resync = null;
