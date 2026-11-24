@@ -180,7 +180,7 @@ Facts the port found against context-menu.md, each recorded on its row:
 ## 2026-11-19, the real-browser probe of Base UI (M6 track 11, [issue 281](https://github.com/JakeMurrayDev/Iodine.Headless/issues/281))
 
 Base UI v1.9.0 run in Chromium through its own vitest browser mode, from a copy of the pinned checkout outside the repository, with real keyboard and pointer input. The copy used the headless shell the repository's Playwright already installed, not a separate download.
-- MBR-EVT-03's statement names `trigger-focus`, `useFocus`'s 0 ms blur timer. In a browser the focus manager's `focusout` close runs first, and Base UI records `focus-out` (5 of 5). The row keeps its text; its note records the observed reason (issue 298 for the port's WebAssembly).
+- MBR-EVT-03's statement names `trigger-focus`, `useFocus`'s 0 ms blur timer. In a browser the focus manager's `focusout` close runs first, and Base UI records `focus-out` (5 of 5). The row keeps its text; its note records the observed reason (issue 298 for the port's WebAssembly). 2026-11-24 (M6 track 10): the port records `focus-out` on both modes; issue 298 did not reproduce, and the row's port title asserts the observed reason.
 - MNU-PTR-11's statement describes the `sibling-open` path of an item's mousemove. With a real pointer that path does not run while a hover-opened submenu is open, because the safe polygon blocks the parent's pointer events, and the submenu closes after `closeDelay` with `trigger-hover`. Base UI's titles, which dispatch the mousemove directly, pass in Chromium as in jsdom (issue 296).
 
 ## 2026-11-19, Slider port (M6 track 4, [issue 275](https://github.com/JakeMurrayDev/Iodine.Headless/issues/275))
