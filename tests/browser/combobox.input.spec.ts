@@ -139,7 +139,14 @@ test.describe('<Combobox.Input />', () => {
       await expect(listbox(page)).toBeVisible();
     });
 
-    test('should move focus to clear button when pressing Escape and popup is closed', async ({ page, mode }) => {
+    // Quarantined (ADR 11 §4) on Server until 2026-12-08, issue 353: failed twice in CI on Server (PR 325's run of
+    // 2026-11-19, `browser-server (2)`, a CI-only change; PR 351's run 45383218319, `browser-server (1)`, `Expected: ""`,
+    // `Received: "apple"`: the first Escape's clear had not landed). Diagnosis and lift: track 10, by 2026-12-08.
+    test('should move focus to clear button when pressing Escape and popup is closed', {
+      tag: ['@quarantine'],
+      annotation: { type: 'open', description: 'https://github.com/JakeMurrayDev/Iodine.Headless/issues/353 (expires 2026-12-08)' },
+    }, async ({ page, mode }) => {
+      test.fixme(mode === 'server', 'Quarantined on Server until 2026-12-08 (issue 353)');
       await goto(page, mode, 'escape-clear');
 
       await input(page).focus();
