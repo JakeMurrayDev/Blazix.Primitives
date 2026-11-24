@@ -404,8 +404,8 @@ test.describe('filterable menu initial highlight', () => {
   test('resets the query and highlight across a close and reopen', async ({ page, mode }) => {
     // Issue 261: on Server the highlight the query change asks for (C#'s, MNU-STA-18/19; ADR 01's "JS-owned values that
     // originate in C# state" row) leaves C# after the render batch that filtered the list: the circuit's messages are held
-    // from that request until the page reports the next ArrowDown.
-    const hold = await holdCircuit(page, { from: (text) => text.includes('highlight') && text.includes('revision'), until: (text) => text.includes('ArrowDown') });
+    // from that request until the title has pressed the next ArrowDown.
+    const hold = await holdCircuit(page, { from: (text) => text.includes('highlight') && text.includes('revision') });
     await page.goto(`/${mode}/menu-filter-initial?plain=true&keepMounted=true`, { waitUntil: 'commit' });
     await page.locator(Fixture.started).waitFor({ state: 'attached' });
     const fixture = page.locator(Fixture.interactive('menu-filter-initial'));
@@ -415,16 +415,13 @@ test.describe('filterable menu initial highlight', () => {
     hold.arm();
     await page.keyboard.type('ren');
     await expect(item(page, 'Delete')).toHaveCount(0);
-    // The query's highlight reset is C#'s and lands after the filtered list on Server, where it overwrites an arrow pressed
-    // before it. ADR 01's row covers the reset's latency, not a stale reset winning over a newer key: a defect, issue 271.
-    // Until it is fixed, the arrow waits for the reset's report, Base UI's synchronous state: the held server answers
-    // first (release), and the title waits for that answer before the arrow.
-    if (mode === 'server') {
-      await hold.release();
-    }
-    await expect(fixture).toHaveAttribute('data-highlights', /(^|\|)none$/);
+    // The query's highlight reset is C#'s and lands after the filtered list on Server. The arrow goes first; the reset,
+    // released after it, loses to the newer highlight (decision 6's revision rule, issue 271).
     await page.keyboard.press('ArrowDown');
+    await expect(item(page, 'Rename')).toHaveAttribute('data-highlighted', '');
+    await hold.release();
     await expect(input(page)).toHaveAttribute('aria-activedescendant', await idOf(item(page, 'Rename')));
+    await expect(item(page, 'Rename')).toHaveAttribute('data-highlighted', '');
 
     await page.keyboard.press('Escape');
     await trigger(page).click();

@@ -327,6 +327,11 @@ public sealed class CompositeTwinContractTests
         Assert.Equal(
             """{"enabled":false,"loopFocus":true,"orientation":"horizontal","triggerOrientation":"vertical","rtl":true,"virtual":true,"nested":true,"parentOrientation":"both","focusItemOnOpen":false,"allowEscape":true,"openOnArrowKeyDown":false,"focusItemOnHover":false,"resetOnPointerLeave":false,"disabledIndices":[],"deriveDisabledIndices":true,"selectedIndex":2,"grid":true,"keepOpenOnCrossOrientationKey":true,"nestedReturnFocusElement":0,"relayElement":1,"highlight":{"revision":3},"typeahead":{"resetMs":500,"skip":"element","labels":["one",null]},"cols":3,"itemCount":40}""",
             JsonSerializer.Serialize(every, IodineJsonContext.Default.CompositeListOptions));
+        // Decision 6 (issue 271): a request's act crosses even when it is 0, since the module reads its absence as "outside the rule".
+        Assert.Contains(""""
+            "highlight":{"index":1,"revision":2,"act":0}
+            """", JsonSerializer.Serialize(new CompositeListOptions { Highlight = new CompositeHighlightRequest(1, 2, 0) }, IodineJsonContext.Default.CompositeListOptions), StringComparison.Ordinal);
+        Assert.Equal(4, JsonSerializer.Deserialize("""{"index":1,"itemId":"a","event":null,"revision":2,"act":4}""", IodineJsonContext.Default.CompositeListHighlight)!.Act);
         Assert.Contains(""","reference":{}}""", JsonSerializer.Serialize(new CompositeOptions { Reference = new CompositeReferenceOptions() }, IodineJsonContext.Default.CompositeOptions), StringComparison.Ordinal);
         Assert.Contains(""","trigger":{}}""", JsonSerializer.Serialize(new CompositeOptions { Trigger = new CompositeTriggerOptions() }, IodineJsonContext.Default.CompositeOptions), StringComparison.Ordinal);
     }

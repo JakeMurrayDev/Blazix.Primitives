@@ -117,8 +117,8 @@ test.describe('filtered Menu items', () => {
   test('filters items and selects the active item while focus remains on the input', async ({ page, mode }) => {
     // Issue 261: on Server the highlight a query change asks for (C#'s, MNU-STA-18/19; ADR 01's "JS-owned values that
     // originate in C# state" row) leaves C# after the render batch that filtered the list, a gap a busy server widens: the
-    // circuit's messages are held from that request until the page reports the next ArrowDown.
-    const hold = await holdCircuit(page, { from: (text) => text.includes('highlight') && text.includes('revision'), until: (text) => text.includes('ArrowDown') });
+    // circuit's messages are held from that request until the title has pressed the next ArrowDown.
+    const hold = await holdCircuit(page, { from: (text) => text.includes('highlight') && text.includes('revision') });
     const fixture = await render(page, mode, { case: 'fruit' });
     const trigger = page.getByRole('button', { name: 'Fruit' });
 
@@ -139,16 +139,11 @@ test.describe('filtered Menu items', () => {
     await page.keyboard.type('ban');
     await expect(item(page, 'Apple')).toHaveCount(0);
     await expect(page.getByText('Banana')).toBeVisible();
-    // The query's highlight reset is C#'s and lands after the filtered list on Server, where it overwrites an arrow pressed
-    // before it. ADR 01's row covers the reset's latency, not a stale reset winning over a newer key: a defect, issue 271.
-    // Until it is fixed, the arrow waits for the reset's report, Base UI's synchronous state: the held server answers
-    // first (release), and the title waits for that answer before the arrow.
-    if (mode === 'server') {
-      await hold.release();
-    }
-    await expect(fixture).toHaveAttribute('data-highlights', 'none');
-
+    // The query's highlight reset is C#'s and lands after the filtered list on Server. The arrow goes first; the reset,
+    // released after it, loses to the newer highlight (decision 6's revision rule, issue 271).
     await page.keyboard.press('ArrowDown');
+    await expect(item(page, 'Banana')).toHaveAttribute('data-highlighted', '');
+    await hold.release();
 
     await expect(fruitInput).toBeFocused();
     const activeItem = item(page, 'Banana');
@@ -160,6 +155,34 @@ test.describe('filtered Menu items', () => {
 
     await page.keyboard.press('Enter');
 
+    await expect(fixture).toHaveAttribute('data-presses', 'Banana');
+  });
+
+  // MNU-STA-19 (issue 271; ADR 04 Amendments 2026-11-18, decision 6's revision rule): the query's highlight reset is C#'s
+  // and lands a round trip after the filtered list on Server. Held here until the page has reported a user ArrowDown, it
+  // reaches the module after that newer highlight, and loses to it, as Base UI's synchronous reset comes before the key.
+  test('port: a C# highlight reset held past a user ArrowDown keeps the user\'s highlight', async ({ page, mode }) => {
+    test.skip(mode !== 'server', 'Server only: on WebAssembly the reset is applied in the dispatch of the key that typed the query');
+    const hold = await holdCircuit(page, { from: (text) => text.includes('highlight') && text.includes('revision') });
+    const fixture = await render(page, mode, { case: 'fruit' });
+    const trigger = page.getByRole('button', { name: 'Fruit' });
+    await trigger.click();
+    const fruitInput = input(page, 'Filter fruit');
+    await expect(fruitInput).toBeFocused();
+    await expect(page.getByText('Banana')).toHaveAttribute('tabindex', '-1');
+
+    hold.arm();
+    await page.keyboard.type('ban');
+    await expect(item(page, 'Apple')).toHaveCount(0);
+    await page.keyboard.press('ArrowDown');
+    // The module's own highlight, before C# has answered anything since the query (the server's messages are held).
+    await expect(item(page, 'Banana')).toHaveAttribute('data-highlighted', '');
+    await hold.release();
+
+    const activeItem = item(page, 'Banana');
+    await expect(activeItem).toHaveAttribute('data-highlighted', '');
+    await expect(fruitInput).toHaveAttribute('aria-activedescendant', (await activeItem.getAttribute('id')) ?? 'missing');
+    await page.keyboard.press('Enter');
     await expect(fixture).toHaveAttribute('data-presses', 'Banana');
   });
 

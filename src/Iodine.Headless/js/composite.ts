@@ -1172,6 +1172,11 @@ export interface CompositeHighlightRequest {
   index?: number | null | undefined;
   /** The request's number, which grows with each request. */
   revision: number;
+  /**
+   * The last act (`CompositeListHighlightReport.act`) C# had received when it made the request; absent for a request that
+   * does not take part in the revision rule. A request older than the module's last act loses to it.
+   */
+  act?: number | undefined;
 }
 
 /** The typeahead of a list. */
@@ -1282,6 +1287,11 @@ export interface CompositeListHighlightReport {
   event: EventInfo | null;
   /** The revision of the last C# highlight request applied; 0 before any. */
   revision: number;
+  /**
+   * The number of the list's last user-origin highlight (one committed by an event) in the module-wide act sequence; 0
+   * before any: decision 6's acts (MNU-STA-19, CMP-STA-32; issue 271).
+   */
+  act: number;
   // Design point 9 (a) of M5 track 6 (settled by the orchestrator 2026-11-04): Menu's onItemHighlighted label.
   /** The highlighted item's label, its registered label else its text; absent when no item is highlighted or it has none. */
   label?: string;
@@ -2361,6 +2371,11 @@ interface ListState {
   handles: Set<ListHandle>;
   /** The revision of the last C# highlight request applied. */
   appliedRevision: number;
+  /**
+   * The number of the list's last user-origin highlight in the module-wide act sequence, 0 before any: decision 6's acts
+   * (MNU-STA-19, CMP-STA-32; issue 271).
+   */
+  acts: number;
   /** A navigation key pressed on an open reference before the list attached, the newest only; `null` otherwise. */
   pendingKey: { readonly handle: ListHandle; readonly event: KeyboardEvent } | null;
   /** The highlight last reported, so a report goes out once per change; `undefined` before any. */
@@ -2595,6 +2610,7 @@ function reportHighlight(state: ListState, handle: ListHandle, event: Event | un
     itemId: state.floating?.idOf(element) ?? null,
     event: event ? eventInfo(event) : null,
     revision: state.appliedRevision,
+    act: state.acts,
     ...(label != null ? { label } : {}),
   };
   (state.floating?.channel ?? handle.channel).report(LIST_HIGHLIGHT_REPORT, payload);
@@ -2655,11 +2671,23 @@ function focusItem(state: ListState, handle: ListHandle): void {
 
 // The consumer's `activeIndex` update and the effect that follows it (useListNavigation.ts:405-477): the module is
 // Base UI's consumer, so a change of the highlight is written, reported and synchronized with the focus in one task.
+// Decision 6's acts are numbered from one sequence for the whole module (PR 348's verification, 2026-11-24): a list attached
+// again starts a new list state, while C# keeps the highest act it received, so a new state's acts must still come after
+// every earlier one for an older request to lose to them.
+let actSequence = 0;
+
 function commitHighlight(state: ListState, handle: ListHandle, next: number | null, event: Event | undefined): void {
   if (next === state.activeIndex) {
     return;
   }
   state.activeIndex = next;
+  // Decision 6's revision rule (ADR 04 Amendments 2026-11-18; MNU-STA-19, issue 271): a highlight an event commits is an act,
+  // counted here, where it takes effect, since its report can wait for the registry (below); every report carries the
+  // count, and C# stamps the highest it received on its next highlight request.
+  if (event !== undefined) {
+    actSequence += 1;
+    state.acts = actSequence;
+  }
   state.staleHighlight = next !== null && hasRemovedElements(state.floating?.registry.elements ?? []);
   writeHighlight(state, handle);
   if (state.staleHighlight) {
@@ -2867,6 +2895,7 @@ function createListState(session: InteractionSession, list: CompositeListOptions
     references: new Set(),
     handles: new Set(),
     appliedRevision: 0,
+    acts: 0,
     pendingKey: null,
     reportedIndex: null,
     reportedElement: null,
@@ -2918,6 +2947,14 @@ function applyHighlightRequest(state: ListState, handle: ListHandle): void {
   }
   state.appliedRevision = request.revision;
   const next = request.index ?? null;
+  // Decision 6's revision rule (ADR 04 Amendments 2026-11-18, the class of issue 271; MNU-STA-19): a request C# made before
+  // it received the module's last act is older than that act, and loses to it, as Base UI's synchronous reset comes before
+  // the key. The module reports its own highlight under the request's revision, so C#'s mirror takes it.
+  if (request.act !== undefined && request.act < state.acts) {
+    state.reportedIndex = undefined;
+    reportHighlight(state, handle, undefined);
+    return;
+  }
   if (next === state.activeIndex) {
     // The revision moved: report it, so C# knows its request was applied.
     state.reportedIndex = undefined;
