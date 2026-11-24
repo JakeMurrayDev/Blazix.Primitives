@@ -26,6 +26,15 @@ async function leave(page: Page): Promise<void> {
   await page.mouse.move(2, 2, { steps: 2 });
 }
 
+/**
+ * Waits for the three focus guards after F6 (issue 318). Base UI renders them in F6's own state update; here C# renders
+ * them once the `f6` report has made its round trip (TST-DOM-04), so a Shift+Tab or Tab before then leaves the viewport in
+ * the document's tab order instead of meeting a guard that returns focus to the element focused before F6.
+ */
+async function guardsRendered(page: Page): Promise<void> {
+  await expect(page.locator('[data-base-ui-focus-guard]')).toHaveCount(3);
+}
+
 test.describe('Toast.Viewport', () => {
   test('sets the measured frontmost toast height CSS variable', async ({ page, mode }) => {
     await openToast(page, mode);
@@ -59,6 +68,7 @@ test.describe('Toast.Viewport', () => {
     await addToast(page);
 
     await page.keyboard.press('F6');
+    await guardsRendered(page);
     await page.keyboard.press('Tab');
     await expect(page.getByTestId('root')).toBeFocused();
     await page.keyboard.press('Shift+Tab');
@@ -72,6 +82,7 @@ test.describe('Toast.Viewport', () => {
     await addToast(page);
 
     await page.keyboard.press('F6');
+    await guardsRendered(page);
     await page.keyboard.press('Tab'); // first toast
     await expect(page.locator('[data-toast-id="t2"]')).toBeFocused();
     await page.keyboard.press('Tab'); // first toast close button
