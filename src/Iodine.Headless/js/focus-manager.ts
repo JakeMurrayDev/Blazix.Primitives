@@ -902,7 +902,7 @@ function nearestInsideGuard(element: Element, direction: 'previousElementSibling
   return isInsideGuard(sibling) ? sibling : null;
 }
 
-// Issue 247 (design point 10c-4 (b) of M6 track 10, chosen by the user 2026-11-24; FLT-FOC-14's focus-out close, AUT-KEY-04,
+// Issue 247 (design point 10c-4 (b) of M6 track 10, chosen by the user 2026-11-24; FLT-FOC-11's focus-out close, AUT-KEY-04,
 // CMB-STA-21): a reopened popup's handle attaches a round trip after its render on Server, and a focus-out of its reference
 // in that window meets no listener. A component module that outlives the popup (the combobox input) notes the focus-out
 // here while no live handle manages the reference; the next handle's first open sync replays the close once, if focus is
