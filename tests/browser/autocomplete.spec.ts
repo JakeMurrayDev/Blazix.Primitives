@@ -1,5 +1,5 @@
 import { type Locator, type Route } from '@playwright/test';
-import { expect, fixtureUrl, gotoFixture, holdCircuit, test, type Page, type RenderMode } from './helpers';
+import { delayCircuit, expect, fixtureUrl, gotoFixture, holdCircuit, test, type Page, type RenderMode } from './helpers';
 import { center, gotoCombobox, recorded } from './combobox.helpers';
 import { openChangeCompletes, openChanges, pressControl, settle } from './suites/popupFixture';
 
@@ -405,6 +405,28 @@ test.describe('<Autocomplete.Root />', () => {
     await input(page).press('Tab');
     await expect(page.getByRole('listbox')).toHaveCount(0);
     await expect(input(page)).toHaveValue('appl');
+  });
+
+  // Issue 247 (AUT-KEY-04, KEY-08, KEY-09, STA-12): on Server, with the circuit delayed 150 ms each way, a Tab pressed as
+  // soon as a typed reopen's list is visible, before the session's update for that reopen lands, closes the popup.
+  test('port: on Server a Tab right after a typed reopen, before the session update, closes the popup', async ({ page, mode }) => {
+    test.skip(mode === 'wasm', 'WebAssembly applies the reopen and its session update in one task: there is no window');
+    await delayCircuit(page, 150);
+    const fixture = await goto(page, mode);
+    await typeText(page, 'a');
+    await expect(options(page)).toHaveCount(2);
+    await input(page).press('ArrowDown');
+    await expect(page.getByTestId('item-apple')).toHaveAttribute('data-highlighted', '');
+    await input(page).press('Enter');
+    await expect(page.getByRole('listbox')).toHaveCount(0);
+
+    await input(page).press('Backspace');
+    await expect(page.getByRole('listbox')).toBeVisible();
+    await input(page).press('Tab');
+    await settle(fixture);
+
+    await expect(page.getByRole('listbox')).toHaveCount(0);
+    expect((await openChanges(fixture)).at(-1)).toBe('false:focus-out');
   });
 
   test('opens the list with the arrow keys but does not commit on item press when readOnly', async ({ page, mode }) => {
