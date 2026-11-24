@@ -6130,6 +6130,40 @@ describe('Menu', () => {
       expect(changesSince(tree.menu, mark)).toEqual([[false, 'cancel-open']]);
     });
 
+    // Issue 258 (CTX-EDGE-05, MNU-EDGE-15): a plain menu inside a context menu's Trigger is no part of the context menu's
+    // tree while that menu is closed (its Positioner unmounted), so it keeps its own armed flag, as Base UI's own
+    // `allowMouseUpTriggerRef` (MenuStore.ts:173-181, parent kind none); but it applies the context menu's rules and
+    // consumes its gesture point, which useMenuItemCommonProps.ts:107-131 reads from the ContextMenu context.
+    it('port: a plain menu inside a closed context menu applies the context menu\'s release rules with its own armed flag', () => {
+      const contextMenu = harness();
+      contextMenu.attachSession();
+      armMenuRelease(contextMenu.token, false, { button: 2, skipButton: null, slop: 1, initialPoint: { x: 10, y: 40 } });
+      const plain = harness({ open: true });
+      plain.attachSession({ session: { parentToken: contextMenu.token } });
+      const positioner = element('div');
+      const popup = document.createElement('div');
+      popup.setAttribute('data-rootownerid', `${plain.token}-root`);
+      positioner.append(popup);
+      const item = document.createElement('div');
+      item.setAttribute('role', 'menuitem');
+      popup.append(item);
+      plain.attachFloating(positioner, { floating: { hover: null, menu: { itemHover: true, release: true } } });
+      const clicks: number[] = [];
+      item.addEventListener('click', (event) => clicks.push(event.button));
+      armMenuRelease(plain.token, true);
+
+      mouse(item, 'mouseup', { button: 2, clientX: 11, clientY: 41 });
+      mouse(item, 'mouseup', { button: 0, clientX: 30, clientY: 40 });
+      expect(clicks).toEqual([]);
+      mouse(item, 'mouseup', { button: 2, clientX: 30, clientY: 40 });
+      expect(clicks).toHaveLength(1);
+
+      armMenuRelease(contextMenu.token, false, { button: 2, skipButton: 2, slop: 1, initialPoint: null });
+      mouse(item, 'mouseup', { button: 2, clientX: 30, clientY: 40 });
+      mouse(item, 'mouseup', { button: 0, clientX: 30, clientY: 40 });
+      expect(clicks).toHaveLength(1);
+    });
+
     it('port: a context menu\'s rules: the first release within the slop of the gesture\'s point, another button and the skipped button click nothing', () => {
       const tree = releaseTree();
       tree.menu.setOpen(true, 'trigger-press', tree.trigger.id);
