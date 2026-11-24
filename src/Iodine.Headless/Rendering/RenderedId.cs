@@ -38,7 +38,13 @@ internal static class RenderedId
     /// <summary>Reads the root element of a part's <c>Render</c> fragment: the first element frame, or the start tag of a markup block Razor folded.</summary>
     /// <param name="render">The part's <c>Render</c> fragment.</param>
     /// <returns>The root's tag name and its <c>id</c> attribute; both are <see langword="null"/> for a fragment whose root is a component.</returns>
-    public static (string? TagName, string? Id) SubstituteRoot(RenderFragment render)
+    public static (string? TagName, string? Id) SubstituteRoot(RenderFragment render) => SubstituteRootAttribute(render, "id");
+
+    /// <summary>Reads an attribute of the root element of a part's <c>Render</c> fragment.</summary>
+    /// <param name="render">The part's <c>Render</c> fragment.</param>
+    /// <param name="name">The attribute's name, such as <c>aria-label</c>.</param>
+    /// <returns>The root's tag name and the attribute's string value; both are <see langword="null"/> for a fragment whose root is a component, and the value is <see langword="null"/> when the root has no such attribute.</returns>
+    public static (string? TagName, string? Value) SubstituteRootAttribute(RenderFragment render, string name)
     {
         ArgumentNullException.ThrowIfNull(render);
         using RenderTreeBuilder builder = new();
@@ -52,7 +58,7 @@ internal static class RenderedId
             {
                 for (int j = i + 1; j < frames.Count && frames.Array[j].FrameType == RenderTreeFrameType.Attribute; j++)
                 {
-                    if (string.Equals(frames.Array[j].AttributeName, "id", StringComparison.Ordinal))
+                    if (string.Equals(frames.Array[j].AttributeName, name, StringComparison.Ordinal))
                     {
                         return (frame.ElementName, frames.Array[j].AttributeValue as string);
                     }
@@ -70,7 +76,7 @@ internal static class RenderedId
 
                 foreach (KeyValuePair<string, string> attribute in root.Attributes)
                 {
-                    if (string.Equals(attribute.Key, "id", StringComparison.Ordinal))
+                    if (string.Equals(attribute.Key, name, StringComparison.Ordinal))
                     {
                         return (root.TagName, attribute.Value);
                     }
