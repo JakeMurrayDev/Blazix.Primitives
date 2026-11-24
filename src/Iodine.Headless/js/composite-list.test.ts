@@ -2633,6 +2633,29 @@ describe('list navigation rows without a Base UI title (port)', () => {
     expect(second.highlights.at(-1)).toMatchObject({ index: 1, revision: 1, event: null });
   });
 
+  // Issue 267: on Server an item the DOM no longer has stays registered until its handle's dispose arrives. A C# highlight
+  // request in that window names an index of the items C# rendered, which no longer include it, so it highlights and focuses
+  // the item at that index among the connected ones, never the detached element, and the report names the same item.
+  it('port: a C# highlight request made after an item left the DOM highlights the rendered item at its index', async () => {
+    const harness = app();
+    keyDown(harness.reference, 'ArrowDown');
+    await waitFor(() => {
+      expect(document.activeElement).toBe(harness.item(0));
+    });
+    const removed = harness.item(1);
+    const third = harness.item(2);
+    removed.remove();
+
+    harness.update({ highlight: { index: 1, revision: 1 } });
+
+    await waitFor(() => {
+      expect(document.activeElement).toBe(third);
+    });
+    expect(highlighted(third)).toBe(true);
+    expect(removed.hasAttribute('data-highlighted')).toBe(false);
+    expect(harness.highlights.at(-1)).toMatchObject({ index: 1, itemId: third.id, revision: 1 });
+  });
+
   // CMP-STA-32 with CMP-EDGE-15: a requested highlight out of bounds moves neither the focus nor the cursor; once the
   // items reach it, the next key resynchronizes the cursor to it before it steps.
   it('port: the next key resynchronizes the cursor to a C# highlight it could not follow while the highlight was out of bounds', async () => {
