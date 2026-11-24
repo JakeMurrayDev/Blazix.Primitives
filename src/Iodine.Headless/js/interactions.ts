@@ -4267,6 +4267,24 @@ function menuReleaseSlot(record: SessionRecord): MenuReleaseSlot {
   return slot;
 }
 
+// CTX-EDGE-05 and MNU-EDGE-15 (issue 258): useMenuItemCommonProps.ts:107-131 reads the ContextMenu context, which every
+// menu inside a ContextMenu.Root sees, while the armed flag stays the menu's own tree's. A plain menu inside a closed
+// context menu's Trigger is no part of that menu's tree (its Positioner is unmounted), so its rules are those of the
+// nearest session up its chain of parents, of any family, whose slot holds rules: the context menu's.
+function menuReleaseRulesSlot(record: SessionRecord): MenuReleaseSlot | null {
+  let current: SessionRecord | undefined = menuTreeRoot(record);
+  const seen = new Set<SessionRecord>();
+  while (current !== undefined && !seen.has(current)) {
+    seen.add(current);
+    const slot = current.dataRef.current[MENU_RELEASE_KEY] as MenuReleaseSlot | undefined;
+    if (slot !== undefined && slot.rules !== null) {
+      return slot;
+    }
+    current = current.parentToken === null ? undefined : sessions.get(current.parentToken);
+  }
+  return null;
+}
+
 interface MenuSessionState {
   hoverEnabled: boolean;
   allowMouseEnter: boolean;
@@ -4536,10 +4554,11 @@ function createMenuFloatingController(context: HandleContext): Controller {
       return;
     }
     const slot = menuReleaseSlot(record);
-    const rules = slot.rules;
-    if (rules !== null) {
-      const point = slot.initialPoint;
-      slot.initialPoint = null;
+    const rulesSlot = menuReleaseRulesSlot(record);
+    const rules = rulesSlot?.rules ?? null;
+    if (rulesSlot !== null && rules !== null) {
+      const point = rulesSlot.initialPoint;
+      rulesSlot.initialPoint = null;
       if (point !== null && Math.abs(event.clientX - point.x) <= rules.slop && Math.abs(event.clientY - point.y) <= rules.slop) {
         return;
       }
