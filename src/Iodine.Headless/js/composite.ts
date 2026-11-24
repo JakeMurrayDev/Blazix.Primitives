@@ -1288,8 +1288,8 @@ export interface CompositeListHighlightReport {
   /** The revision of the last C# highlight request applied; 0 before any. */
   revision: number;
   /**
-   * The number of user-origin highlights (each committed by an event) the module has made; 0 before any:
-   * decision 6's acts (MNU-STA-19, CMP-STA-32; issue 271).
+   * The number of the list's last user-origin highlight (one committed by an event) in the module-wide act sequence; 0
+   * before any: decision 6's acts (MNU-STA-19, CMP-STA-32; issue 271).
    */
   act: number;
   // Design point 9 (a) of M5 track 6 (settled by the orchestrator 2026-11-04): Menu's onItemHighlighted label.
@@ -2371,7 +2371,10 @@ interface ListState {
   handles: Set<ListHandle>;
   /** The revision of the last C# highlight request applied. */
   appliedRevision: number;
-  /** The number of user-origin highlights committed: decision 6's acts (MNU-STA-19, CMP-STA-32; issue 271). */
+  /**
+   * The number of the list's last user-origin highlight in the module-wide act sequence, 0 before any: decision 6's acts
+   * (MNU-STA-19, CMP-STA-32; issue 271).
+   */
   acts: number;
   /** A navigation key pressed on an open reference before the list attached, the newest only; `null` otherwise. */
   pendingKey: { readonly handle: ListHandle; readonly event: KeyboardEvent } | null;
@@ -2668,6 +2671,11 @@ function focusItem(state: ListState, handle: ListHandle): void {
 
 // The consumer's `activeIndex` update and the effect that follows it (useListNavigation.ts:405-477): the module is
 // Base UI's consumer, so a change of the highlight is written, reported and synchronized with the focus in one task.
+// Decision 6's acts are numbered from one sequence for the whole module (PR 348's verification, 2026-11-24): a list attached
+// again starts a new list state, while C# keeps the highest act it received, so a new state's acts must still come after
+// every earlier one for an older request to lose to them.
+let actSequence = 0;
+
 function commitHighlight(state: ListState, handle: ListHandle, next: number | null, event: Event | undefined): void {
   if (next === state.activeIndex) {
     return;
@@ -2677,7 +2685,8 @@ function commitHighlight(state: ListState, handle: ListHandle, next: number | nu
   // counted here, where it takes effect, since its report can wait for the registry (below); every report carries the
   // count, and C# stamps the highest it received on its next highlight request.
   if (event !== undefined) {
-    state.acts += 1;
+    actSequence += 1;
+    state.acts = actSequence;
   }
   state.staleHighlight = next !== null && hasRemovedElements(state.floating?.registry.elements ?? []);
   writeHighlight(state, handle);

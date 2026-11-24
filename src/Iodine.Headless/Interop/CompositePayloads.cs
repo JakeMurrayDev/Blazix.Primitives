@@ -37,7 +37,7 @@ internal sealed record CompositeItemsChange(IReadOnlyList<string> Ids, int? Publ
 /// or the item has none (design point 9 (a) of M5 track 6, Menu's highlight label).
 /// </param>
 /// <param name="Act">
-/// The number of user-origin highlights (each committed by an event) the module had made; 0 before any
+/// The number of the list's last user-origin highlight (one committed by an event) in the module's act sequence, which a re-attached list continues; 0 before any
 /// (decision 6's acts, issue 271).
 /// </param>
 internal sealed record CompositeListHighlight(int? Index, string? ItemId, EventSnapshot? Event, int Revision, string? Label = null, int Act = 0);
