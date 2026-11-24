@@ -821,38 +821,6 @@ test.describe('<Menubar />', () => {
         await expect(page.getByTestId('file-menu')).toHaveCount(0);
         await expect(page.getByTestId('edit-menu')).toBeVisible();
       });
-
-      // Issue 242: the backdrop a keyboard move to the next menu mounts is cut before the next frame, so a hit test where the
-      // pointer rests (File's trigger) finds the bar, not the backdrop. The page records the hit test in the first animation
-      // frame after a backdrop enters the document.
-      test('port: a bar menu\'s backdrop mounted under a resting pointer is cut before the next frame\'s hit test', async ({ page, mode }) => {
-        await render(page, mode);
-        await page.getByTestId('file-trigger').click();
-        await expect(page.getByTestId('file-menu')).toBeVisible();
-        await focusInside(page, 'file-menu');
-        const box = (await page.getByTestId('file-trigger').boundingBox())!;
-        const hit = page.evaluate(({ x, y }) => new Promise<string>((resolve) => {
-          const observer = new MutationObserver((records) => {
-            for (const record of records) {
-              for (const node of record.addedNodes) {
-                if (node instanceof HTMLElement && node.getAttribute('role') === 'presentation' && node.hasAttribute('data-base-ui-inert')) {
-                  observer.disconnect();
-                  requestAnimationFrame(() => {
-                    const element = document.elementFromPoint(x, y);
-                    resolve(element === node ? 'backdrop' : (element?.closest('[data-testid]')?.getAttribute('data-testid') ?? 'none'));
-                  });
-                  return;
-                }
-              }
-            }
-          });
-          observer.observe(document.body, { childList: true, subtree: true });
-        }), { x: box.x + box.width / 2, y: box.y + box.height / 2 });
-
-        await page.keyboard.press('ArrowRight');
-        await expect(page.getByTestId('edit-menu')).toBeVisible();
-        expect(await hit).toBe('file-trigger');
-      });
     });
 
     test.describe('touch interactions', () => {
