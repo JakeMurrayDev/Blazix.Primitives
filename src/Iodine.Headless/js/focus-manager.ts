@@ -906,7 +906,7 @@ function nearestInsideGuard(element: Element, direction: 'previousElementSibling
 // CMB-STA-21): a reopened popup's handle attaches a round trip after its render on Server, and a focus-out of its reference
 // in that window meets no listener. A component module that outlives the popup (the combobox input) notes the focus-out
 // here while no live handle manages the reference; the next handle's first open sync replays the close once, if focus is
-// still outside. A focus-in of the reference drops the note.
+// still outside. A focus-in of the reference, or the end of the open before any handle attached, drops the note.
 const managedReferences = new Map<Element, number>();
 const pendingFocusOuts = new WeakMap<Element, EventInfo>();
 
@@ -934,10 +934,10 @@ export function noteReferenceFocusOut(reference: Element, event: FocusEvent): vo
 }
 
 /**
- * Drops a noted focus-out of a reference that took focus again.
+ * Drops a noted focus-out of a reference: it took focus again, or its popup's open ended before a handle attached.
  * @param reference The reference element.
  */
-export function noteReferenceFocusIn(reference: Element): void {
+export function dropReferenceFocusOut(reference: Element): void {
   pendingFocusOuts.delete(reference);
 }
 
@@ -1794,11 +1794,12 @@ export function attach(
       managedReference = nextManagedReference;
       manageReference(managedReference, 1);
     }
-    if (open && !disabled && closeOnFocusOut && reference !== null) {
-      const pendingFocusOut = pendingFocusOuts.get(reference);
+    // The first open sync consumes the note whether or not it replays it.
+    const pendingFocusOut = open && reference !== null ? pendingFocusOuts.get(reference) : undefined;
+    if (pendingFocusOut !== undefined && reference !== null) {
       pendingFocusOuts.delete(reference);
       const focused = activeElement(ownerDocument(reference));
-      if (pendingFocusOut !== undefined && !contains(reference, focused) && !contains(floating, focused) && !contains(portal, focused)) {
+      if (!disabled && closeOnFocusOut && !contains(reference, focused) && !contains(floating, focused) && !contains(portal, focused)) {
         preventReturnFocus = true;
         requestFocusOutClose(pendingFocusOut);
       }

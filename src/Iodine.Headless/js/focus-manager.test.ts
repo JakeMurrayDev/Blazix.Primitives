@@ -14,7 +14,7 @@ import {
   getTabbableNearElement,
   isTabbable,
   markOthers,
-  noteReferenceFocusIn,
+  dropReferenceFocusOut,
   noteReferenceFocusOut,
   resetFocusManagerState,
   tabbable,
@@ -1640,7 +1640,7 @@ describe('FloatingFocusManager', () => {
       await unmount(manager);
 
       noteReferenceFocusOut(app.reference, new FocusEvent('focusout', { relatedTarget: app.last }));
-      noteReferenceFocusIn(app.reference);
+      dropReferenceFocusOut(app.reference);
       const reopened = app.open();
       await settle();
       expect(reopened.fake.reported(FOCUS_OUT_CLOSE_REPORT)).toHaveLength(0);
