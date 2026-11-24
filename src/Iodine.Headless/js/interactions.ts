@@ -1379,8 +1379,56 @@ const PORTAL_ATTRIBUTE = 'data-base-ui-portal';
 // `escape` for a keydown, so a session's document listener skips a keydown its floating or reference listener handled.
 const escapeHandled = Symbol('iodine.interactions.escapeHandled');
 
+// FLT-KEY-01, FLT-KEY-02; MNU-EVT-14, MNU-EVT-15 (issue 251; design points 2 (a) and 10c-2b (a′) of M6 track 10, chosen
+// by the user 2026-11-24; ADR 04 Amendments 2026-11-24): the token of the session whose close took an Escape that does not
+// bubble. Base UI stops only React's propagation, after the
+// consumer's merged onKeyDown ran (useDismiss.ts:216-228); the port leaves the native keydown running, so Blazor's
+// delegated handler and the page hear it, and every other session's listener reads this mark and skips the key. The mark
+// is on the event, so a synchronous close that clears the taking session before an outer listener runs keeps it.
+const escapeTaken = Symbol('iodine.interactions.escapeTaken');
+
+// FLT-KEY-01, FLT-KEY-02 (issue 251): the innermost session whose floating element the keydown passed. That listener only claims the key; the
+// close runs from the document listener, after Blazor's delegated handler (registered on the document when the
+// first element with a C# key handler rendered, so before any session's), because on WebAssembly a close in the
+// floating element's own listener unmounts the popup before Blazor dispatches the keydown to it. The first session
+// listener on the document runs the claimant's decision before its own, so the innermost popup still decides first.
+const escapeClaimed = Symbol('iodine.interactions.escapeClaimed');
+
 interface EscapeMarkedEvent extends KeyboardEvent {
   [escapeHandled]?: Set<string>;
+  [escapeTaken]?: string;
+  [escapeClaimed]?: { token: string; ran: boolean };
+}
+
+// FLT-KEY-01, FLT-KEY-02 (issue 251; design point 10c-2c (vii) of M6 track 10, chosen by the user 2026-11-24): the
+// sessions' document keydown listeners, in the order they were added. A claim re-adds them in that order, so they run after
+// Blazor's document listener, which the popup's render may have added after them (a popup whose consumer key handler is
+// the page's first C# key handler).
+const escapeDocumentListeners: { doc: Document; listener: (event: KeyboardEvent) => void }[] = [];
+
+function listenEscapeOnDocument(doc: Document, listener: (event: KeyboardEvent) => void): Cleanup {
+  const entry = { doc, listener };
+  escapeDocumentListeners.push(entry);
+  doc.addEventListener('keydown', listener);
+  return () => {
+    const index = escapeDocumentListeners.indexOf(entry);
+    if (index >= 0) {
+      escapeDocumentListeners.splice(index, 1);
+    }
+    doc.removeEventListener('keydown', listener);
+  };
+}
+
+/** Claims an Escape for the session whose floating element it passed first (the innermost). */
+function claimEscapeKeyDown(record: SessionRecord, event: KeyboardEvent): void {
+  if (event.key !== 'Escape' || (event as EscapeMarkedEvent)[escapeClaimed] !== undefined) {
+    return;
+  }
+  (event as EscapeMarkedEvent)[escapeClaimed] = { token: record.token, ran: false };
+  for (const { doc, listener } of escapeDocumentListeners) {
+    doc.removeEventListener('keydown', listener);
+    doc.addEventListener('keydown', listener);
+  }
 }
 
 // useDismiss.ts:151-157.
@@ -1585,10 +1633,11 @@ function isEventWithinOwnElements(record: SessionRecord, event: Event): boolean 
   return isEventTargetWithin(event, record.floatingElement) || isEventTargetWithin(event, record.domReferenceElement);
 }
 
+// FLT-KEY-01, FLT-KEY-02, FLT-EVT-05; ADR 04 Amendments 2026-10-27 and 2026-11-24 (issue 251).
 /**
  * Closes the popup on Escape: an open, enabled, not composing popup with no open descendant that keeps Escape asks
- * `escape` on its session's twin, then prevents and stops the keydown as the verdict says (never stopping it when
- * Escape bubbles), and on Server reports the close itself. A keydown this session already handled, or a second Escape
+ * `escape` on its session's twin, then prevents the keydown and marks it taken as the verdict says (never marking it when
+ * Escape bubbles), and on Server reports the close itself. A keydown another session took is left alone. A keydown this session already handled, or a second Escape
  * before the next open arrives, is left alone.
  */
 function closeOnEscapeKeyDown(record: SessionRecord, event: KeyboardEvent): void {
@@ -1601,8 +1650,21 @@ function closeOnEscapeKeyDown(record: SessionRecord, event: KeyboardEvent): void
   if (!isOpenForDismissal(record) || options === null || options.escapeKey === false) {
     return;
   }
+  // FLT-KEY-02 (issue 251): the innermost popup decides first, whichever session's document listener runs first.
+  const claim = (event as EscapeMarkedEvent)[escapeClaimed];
+  if (claim !== undefined && !claim.ran) {
+    claim.ran = true;
+    const claimant = sessions.get(claim.token);
+    if (claimant !== undefined && claimant !== record) {
+      closeOnEscapeKeyDown(claimant, event);
+    }
+  }
   const handled = (event as EscapeMarkedEvent)[escapeHandled];
   if (handled?.has(record.token)) {
+    return;
+  }
+  const taken = (event as EscapeMarkedEvent)[escapeTaken];
+  if (taken !== undefined && taken !== record.token) {
     return;
   }
   // Wait until IME is settled: Escape while composing closes the compose menu, not the popup. The flag covers Safari,
@@ -1642,6 +1704,10 @@ function closeOnEscapeKeyDown(record: SessionRecord, event: KeyboardEvent): void
     event.preventDefault();
   }
   if (!escapeKeyBubbles && (verdict === 'prevent-and-stop' || verdict === 'stop')) {
+    // FLT-KEY-01 (design point 10c-2b (a′), chosen by the user 2026-11-24): the trigger's listener and the document listener
+    // run after Blazor's dispatch reached the popup's parts, so the native stop keeps the key from the window and from the
+    // trigger's ancestors, as React's does in Base UI.
+    (event as EscapeMarkedEvent)[escapeTaken] = record.token;
     event.stopPropagation();
   }
   // A close is pending until the relay brings the next open or C# answers the request; a cancel the verdict reports
@@ -2110,7 +2176,7 @@ function createSessionDismissController(context: HandleContext): Controller {
     const unsubscribe = mergeCleanups(
       options.escapeKey !== false &&
         mergeCleanups(
-          listen(doc, 'keydown', (event: KeyboardEvent) => closeOnEscapeKeyDown(record, event)),
+          listenEscapeOnDocument(doc, (event: KeyboardEvent) => closeOnEscapeKeyDown(record, event)),
           listen(doc, 'compositionstart', handleCompositionStart),
           listen(doc, 'compositionend', handleCompositionEnd),
         ),
@@ -2201,7 +2267,7 @@ function createFloatingDismissController(context: HandleContext): Controller {
     return chain.filter((session) => dismissState(session).options !== null);
   };
 
-  const onKeyDown = (event: KeyboardEvent) => closeOnEscapeKeyDown(record, event);
+  const onKeyDown = (event: KeyboardEvent) => claimEscapeKeyDown(record, event);
 
   // `onPointerDown`/`onMouseDown`: the latter may be blocked when `preventDefault()` is called in the former (a
   // NumberField scrub area).

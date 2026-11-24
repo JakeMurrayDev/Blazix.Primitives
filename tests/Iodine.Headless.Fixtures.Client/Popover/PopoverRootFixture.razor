@@ -25,11 +25,14 @@
       `calc(100vw - 10px)`);
     - `container=shadow`: the portal renders nothing until a page script attaches an open shadow root to
       `[data-shadow-host]` after the first render and hands it to C# (Base UI's `container: shadowRoot`).
+    - `count=true`: a consumer `onkeydown` on the popup counts its calls in `data-popup-keydowns` (issue 251);
+      `keyless=true`: the page has no other C# key handler: the root is controlled, a plain button `open-plain` (a click
+      handler only) opens it in place of the trigger, and the controls below carry no key handler.
     `[data-unmount]` calls the root's Unmount. The sync button and the controls are out of the tab order, so a Tab from the
     popover's last element leaves the page as in Base UI's test.
 *@
 <FixtureContainer Name="popover-root" data-attached="@(Attached ? "true" : "false")" data-sync="@Sync"
-                  data-open-changes="@OpenChanges" data-open-change-completes="@OpenChangeCompletes">
+                  data-open-changes="@OpenChanges" data-open-change-completes="@OpenChangeCompletes" data-popup-keydowns="@popupKeyDowns">
     <style>
         .fade { transition: opacity 500ms; }
         .fade[data-ending-style] { opacity: 0; }
@@ -69,8 +72,15 @@
         }
     </div>
     <div data-shadow-host @ref="shadowHost"></div>
-    <button type="button" tabindex="-1" data-sync-button data-key-control @onclick="() => Sync++" @onkeydown="OnShift(() => Sync++)">Sync</button>
-    <button type="button" tabindex="-1" data-unmount data-key-control @onclick="() => root?.Unmount()" @onkeydown="OnShift(() => root?.Unmount())">Unmount</button>
+    @if (keyless)
+    {
+        <button type="button" tabindex="-1" data-sync-button @onclick="() => Sync++">Sync</button>
+    }
+    else
+    {
+        <button type="button" tabindex="-1" data-sync-button data-key-control @onclick="() => Sync++" @onkeydown="OnShift(() => Sync++)">Sync</button>
+        <button type="button" tabindex="-1" data-unmount data-key-control @onclick="() => root?.Unmount()" @onkeydown="OnShift(() => root?.Unmount())">Unmount</button>
+    }
 </FixtureContainer>
 
 @code {
@@ -97,6 +107,9 @@
     private string? positionerStyle;
     private PortalContainerValue? container;
     private ElementReference shadowHost;
+    private bool count;
+    private bool keyless;
+    private int popupKeyDowns;
 
     protected override IEnumerable<Task> Attachments =>
     [
@@ -111,7 +124,7 @@
             <PopoverBackdrop data-testid="backdrop" style="position: fixed; inset: 0" />
         }
         <PopoverPositioner data-testid="positioner" style="@positionerStyle">
-            <PopoverPopup data-testid="popover-popup" class="@popupClass">
+            <PopoverPopup data-testid="popover-popup" class="@popupClass" @attributes="PopupAttributes">
                 @if (inside == "input")
                 {
                     <input data-testid="input-inside" />
@@ -148,6 +161,11 @@
         </PopoverPositioner>
     </PopoverPortal>;
 
+    // `count=true`: the popup carries a consumer keydown handler that counts its calls.
+    private Dictionary<string, object>? PopupAttributes => count
+        ? new() { ["onkeydown"] = EventCallback.Factory.Create<KeyboardEventArgs>(this, () => popupKeyDowns++) }
+        : null;
+
     // A controlled root receives Open only when the query names it, so an uncontrolled root never sees the parameter.
     private Dictionary<string, object> RootAttributes => controlled ? new() { ["Open"] = open } : [];
 
@@ -179,7 +197,7 @@
             _ => null,
         };
         defaultOpen = QueryFlag("defaultOpen") == true;
-        controlled = QueryFlag("open") is not null;
+        controlled = QueryFlag("open") is not null || QueryFlag("keyless") == true;
         open = QueryFlag("open") == true;
         awaitInCallback = QueryFlag("awaitInCallback") == true;
         keepMounted = QueryFlag("keepMounted") == true;
@@ -190,6 +208,8 @@
         inside = Query("inside");
         popupClass = Query("popupClass");
         backdrop = QueryFlag("backdrop") == true;
+        count = QueryFlag("count") == true;
+        keyless = QueryFlag("keyless") == true;
         positionerStyle = Query("positionerWidth") switch
         {
             null => null,
@@ -222,8 +242,9 @@
         }
     }
 
-    private RenderFragment Trigger(PopoverHandle<NoPayload>? triggerHandle) =>
-        @<PopoverTrigger TPayload="NoPayload" @ref="trigger" Handle="@triggerHandle" data-testid="trigger">Toggle</PopoverTrigger>;
+    private RenderFragment Trigger(PopoverHandle<NoPayload>? triggerHandle) => keyless
+        ? @<button type="button" data-testid="open-plain" @onclick="() => open = true">Open</button>
+        : @<PopoverTrigger TPayload="NoPayload" @ref="trigger" Handle="@triggerHandle" data-testid="trigger">Toggle</PopoverTrigger>;
 
     private static RenderFragment? Input(string? testId) =>
         testId is null ? null : @<input data-testid="@(testId == "plain" ? null : testId)" />;
