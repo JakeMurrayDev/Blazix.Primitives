@@ -1400,10 +1400,34 @@ interface EscapeMarkedEvent extends KeyboardEvent {
   [escapeClaimed]?: { token: string; ran: boolean };
 }
 
+// FLT-KEY-01, FLT-KEY-02 (issue 251; design point 10c-2c (vii) of M6 track 10, chosen by the user 2026-11-24): the
+// sessions' document keydown listeners, in the order they were added. A claim re-adds them in that order, so they run after
+// Blazor's document listener, which the popup's render may have added after them (a popup whose consumer key handler is
+// the page's first C# key handler).
+const escapeDocumentListeners: { doc: Document; listener: (event: KeyboardEvent) => void }[] = [];
+
+function listenEscapeOnDocument(doc: Document, listener: (event: KeyboardEvent) => void): Cleanup {
+  const entry = { doc, listener };
+  escapeDocumentListeners.push(entry);
+  doc.addEventListener('keydown', listener);
+  return () => {
+    const index = escapeDocumentListeners.indexOf(entry);
+    if (index >= 0) {
+      escapeDocumentListeners.splice(index, 1);
+    }
+    doc.removeEventListener('keydown', listener);
+  };
+}
+
 /** Claims an Escape for the session whose floating element it passed first (the innermost). */
 function claimEscapeKeyDown(record: SessionRecord, event: KeyboardEvent): void {
-  if (event.key === 'Escape') {
-    (event as EscapeMarkedEvent)[escapeClaimed] ??= { token: record.token, ran: false };
+  if (event.key !== 'Escape' || (event as EscapeMarkedEvent)[escapeClaimed] !== undefined) {
+    return;
+  }
+  (event as EscapeMarkedEvent)[escapeClaimed] = { token: record.token, ran: false };
+  for (const { doc, listener } of escapeDocumentListeners) {
+    doc.removeEventListener('keydown', listener);
+    doc.addEventListener('keydown', listener);
   }
 }
 
@@ -2152,7 +2176,7 @@ function createSessionDismissController(context: HandleContext): Controller {
     const unsubscribe = mergeCleanups(
       options.escapeKey !== false &&
         mergeCleanups(
-          listen(doc, 'keydown', (event: KeyboardEvent) => closeOnEscapeKeyDown(record, event)),
+          listenEscapeOnDocument(doc, (event: KeyboardEvent) => closeOnEscapeKeyDown(record, event)),
           listen(doc, 'compositionstart', handleCompositionStart),
           listen(doc, 'compositionend', handleCompositionEnd),
         ),
