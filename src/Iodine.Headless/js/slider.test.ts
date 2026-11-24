@@ -3,7 +3,7 @@
 // files verbatim (`slider/utils/{roundValueToStep,getSliderValue,getPushedThumbValues,resolveThumbCollision}.test.ts`,
 // 2 + 4 + 6 + 12 titles), then the port titles of SLD-STA-13 and SLD-STA-15, whose Base UI titles drive the algorithms
 // through a rendered slider (`SliderRoot.test.tsx`), and of SLD-STA-17.
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
   KEY_POINT,
   PRESS_POINT,
@@ -482,6 +482,22 @@ describe('slider module', () => {
     pointer(control, 'pointerdown', 80, { pointerId: 0 });
 
     expect(captured).toEqual([0]);
+  });
+
+  // SLD-FOC-05, "post-commit, pre-paint" (issue 328): the render that disables the slider writes the root's
+  // `data-disabled`, and the focused thumb is blurred in that render's task, before the module's update arrives.
+  it('port: a render that marks the root disabled blurs the focused thumb before the update', async () => {
+    const { root, inputs } = mount();
+    inputs[0]!.focus();
+    expect(document.activeElement).toBe(inputs[0]);
+    const blur = vi.spyOn(inputs[0]!, 'blur');
+
+    root.setAttribute('data-disabled', '');
+    inputs[0]!.disabled = true;
+    await new Promise<void>((resolve) => setTimeout(resolve, 0));
+
+    // jsdom ignores blur() on a disabled input; the focus leaving is the L4 title's (slider.field.spec.ts).
+    expect(blur).toHaveBeenCalledTimes(1);
   });
 
   // SLD §16 Q6, fixed (decision 23).
