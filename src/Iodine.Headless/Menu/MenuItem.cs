@@ -128,7 +128,7 @@ public sealed class MenuItem : PartBase<MenuItemState>
     }
 
     /// <inheritdoc />
-    protected override void OnParametersSet() => behavior!.Apply(Id, new MenuItemParameters(Disabled, Label, NativeButton, CloseOnClick), AdditionalAttributes);
+    protected override void OnParametersSet() => behavior!.Apply(LandedId, new MenuItemParameters(Disabled, Label, NativeButton, CloseOnClick), AdditionalAttributes);
 
     // MNU-STA-15 (M5 track 12): an item the menu's filter hides renders nothing.
     /// <inheritdoc />
@@ -139,7 +139,7 @@ public sealed class MenuItem : PartBase<MenuItemState>
     }
 
     /// <inheritdoc />
-    protected override Task OnAfterRenderAsync(bool firstRender) => behavior!.OnAfterRenderAsync(Enabled, Element, Id);
+    protected override Task OnAfterRenderAsync(bool firstRender) => behavior!.OnAfterRenderAsync(Enabled, Element, LandedId);
 
     /// <inheritdoc />
     protected override void Dispose(bool disposing)

@@ -77,6 +77,7 @@ internal sealed class MenuPopupBehavior : IAsyncDisposable
     private FocusTargetValue? resolvedFinal;
     private string? renderedId;
     private IReadOnlyDictionary<string, object>? consumerAttributes;
+    private RenderFragment? render;
     private ElementReference? element;
     private bool announcedRetain;
     private bool warnedFinalFocus;
@@ -299,7 +300,7 @@ internal sealed class MenuPopupBehavior : IAsyncDisposable
         if (menu.Filter is not null)
         {
             attributes.Set("role", "dialog");
-            if (PopupLabel.Resolve(consumerAttributes, activeTriggerId!.Value) is { } dialogLabel)
+            if (PopupLabel.Resolve(consumerAttributes, activeTriggerId!.Value, render) is { } dialogLabel)
             {
                 attributes.Set("aria-labelledby", dialogLabel);
             }
@@ -318,7 +319,7 @@ internal sealed class MenuPopupBehavior : IAsyncDisposable
                 attributes.Set("aria-orientation", "horizontal");
             }
 
-            if (PopupLabel.Resolve(consumerAttributes, activeTriggerId!.Value) is { } label)
+            if (PopupLabel.Resolve(consumerAttributes, activeTriggerId!.Value, render) is { } label)
             {
                 attributes.Set("aria-labelledby", label);
             }
@@ -394,9 +395,11 @@ internal sealed class MenuPopupBehavior : IAsyncDisposable
 
     /// <summary>Takes the consumer's attributes, whose own handler and label the popup reads.</summary>
     /// <param name="attributes">The consumer's attributes.</param>
-    public void SetConsumerAttributes(IReadOnlyDictionary<string, object>? attributes)
+    /// <param name="renderFragment">The popup's <c>Render</c> fragment, whose substitute element's own label counts too, or <see langword="null"/>.</param>
+    public void SetConsumerAttributes(IReadOnlyDictionary<string, object>? attributes, RenderFragment? renderFragment = null)
     {
         consumerAttributes = attributes;
+        render = renderFragment;
         if (root?.Filter is { } filter)
         {
             filter.PopupHandlesKeyDown = attributes?.ContainsKey("onkeydown") == true;

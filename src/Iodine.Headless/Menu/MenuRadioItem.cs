@@ -159,7 +159,7 @@ public sealed class MenuRadioItem<TValue> : PartBase<MenuRadioItemState>
     protected override void OnParametersSet()
     {
         bool disabled = Disabled || radio.GroupDisabled;
-        behavior!.Apply(Id, new MenuItemParameters(disabled, Label, NativeButton, CloseOnClick), AdditionalAttributes);
+        behavior!.Apply(LandedId, new MenuItemParameters(disabled, Label, NativeButton, CloseOnClick), AdditionalAttributes);
         radio.Apply(Value, disabled, behavior.Highlighted);
         ChildContent = radio.CascadeContent(ChildContent);
     }
@@ -174,7 +174,7 @@ public sealed class MenuRadioItem<TValue> : PartBase<MenuRadioItemState>
     }
 
     /// <inheritdoc />
-    protected override Task OnAfterRenderAsync(bool firstRender) => behavior!.OnAfterRenderAsync(Enabled, Element, Id);
+    protected override Task OnAfterRenderAsync(bool firstRender) => behavior!.OnAfterRenderAsync(Enabled, Element, LandedId);
 
     /// <inheritdoc />
     protected override void Dispose(bool disposing)
