@@ -576,7 +576,7 @@ internal sealed class ComboboxPopupBehavior : IAsyncDisposable
         // CMB-DOM-24 (ComboboxPopup.tsx:56-62): the store's popup id is the rendered element's, so a substitute element's own
         // id wins over the consumer's (RND-DOM-32 precedence (1)). A substitute callback is opaque to C#: its id is not read.
         string? consumer = consumerAttributes is not null && consumerAttributes.TryGetValue("id", out object? supplied) ? supplied as string : null;
-        consumerId = render is not null && ComboboxParts.SubstituteRoot(render).Id is { Length: > 0 } own ? own : consumer;
+        consumerId = render is not null && RenderedId.SubstituteRoot(render).Id is { Length: > 0 } own ? own : consumer;
         Resolve();
         focus.SetInputs(FocusInputs());
     }

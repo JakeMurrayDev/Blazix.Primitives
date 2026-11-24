@@ -75,10 +75,15 @@ public sealed class FieldTestContext : IDisposable
     public void CompleteExits<TComponent>(IRenderedComponent<TComponent> cut)
         where TComponent : IComponent
     {
+        // Issue 345: the dispatches are awaited, so a caller's next read sees every completion's render (PR 157's rule: read
+        // bUnit's records after the dispatcher has run the work).
+        List<Task> dispatches = [];
         foreach (TransitionsTwin twin in LiveTransitionsTwins())
         {
-            cut.InvokeAsync(() => twin.OnTransitionComplete("""{"open":false}"""));
+            dispatches.Add(cut.InvokeAsync(() => twin.OnTransitionComplete("""{"open":false}""")));
         }
+
+        Task.WhenAll(dispatches).GetAwaiter().GetResult();
     }
 
     /// <summary>Reports a status change from every live transitions twin, as the module's frame step does.</summary>
@@ -86,10 +91,13 @@ public sealed class FieldTestContext : IDisposable
         where TComponent : IComponent
     {
         string literal = status is null ? "null" : $"\"{status}\"";
+        List<Task> dispatches = [];
         foreach (TransitionsTwin twin in LiveTransitionsTwins())
         {
-            cut.InvokeAsync(() => twin.OnStatusChange($$"""{"status":{{literal}},"mounted":true}"""));
+            dispatches.Add(cut.InvokeAsync(() => twin.OnStatusChange($$"""{"status":{{literal}},"mounted":true}""")));
         }
+
+        Task.WhenAll(dispatches).GetAwaiter().GetResult();
     }
 
     internal static FormOptions Parse(string json) => JsonSerializer.Deserialize(json, IodineJsonContext.Default.FormOptions)!;

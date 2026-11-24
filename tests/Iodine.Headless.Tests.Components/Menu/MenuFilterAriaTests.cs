@@ -94,6 +94,35 @@ public sealed class MenuFilterAriaTests : BunitContext
         Assert.False(cut.Find("[role=menu]").HasAttribute("aria-labelledby"));
     }
 
+    // Base UI's in-popup button is a parameter change here.
+    [Fact(DisplayName = "releases a popup id override when the prop is removed")]
+    [Trait("Requirement", "MNU-API-32")]
+    public void Releases_a_popup_id_override()
+    {
+        IRenderedComponent<MenuFilterAriaHost> cut = Render<MenuFilterAriaHost>(p => p.Add(x => x.Case, "popup-id").Add(x => x.PopupId, "custom-popup"));
+        Assert.Equal("custom-popup", cut.Find("[role=dialog]").Id);
+
+        cut.Render(p => p.Add(x => x.PopupId, null));
+
+        cut.WaitForAssertion(() => Assert.NotEqual("custom-popup", cut.Find("[role=dialog]").Id));
+        IElement popup = cut.Find("[role=dialog]");
+        Assert.False(string.IsNullOrEmpty(popup.Id), popup.OuterHtml[..Math.Min(200, popup.OuterHtml.Length)]);
+        Assert.Equal(popup.Id, cut.Find("button").GetAttribute("aria-controls"));
+        Assert.False(string.IsNullOrEmpty(cut.Find("[role=menuitem]").Id));
+    }
+
+    // Issue 244: the list's substitute element keeps its explicitly empty id (RND-DOM-32 (1)), and the input's IDREF follows it.
+    [Fact(DisplayName = "omits aria-controls when the list renders with an explicitly empty id")]
+    [Trait("Requirement", "MNU-API-62")]
+    public void Omits_aria_controls_when_the_list_renders_with_an_explicitly_empty_id()
+    {
+        IRenderedComponent<MenuFilterAriaHost> cut = Render<MenuFilterAriaHost>(p => p.Add(x => x.Case, "empty-list-id"));
+
+        IElement list = cut.Find("[role=menu]");
+        Assert.Equal(string.Empty, list.GetAttribute("id"));
+        cut.WaitForAssertion(() => Assert.False(cut.Find("input").HasAttribute("aria-controls"), cut.Find("input").OuterHtml));
+    }
+
     [Fact(DisplayName = "lets a consumer override aria-haspopup on the root trigger")]
     [Trait("Requirement", "MNU-ARIA-01")]
     public void Lets_a_consumer_override_the_root_trigger()

@@ -475,18 +475,21 @@ internal sealed class MenuListBehavior : IDisposable
 
     /// <summary>Applies the list's rendered id and publishes it to the store.</summary>
     /// <param name="id">The id the list renders.</param>
+    /// <param name="renderedId">The id that lands on the list's element: a substitute element's own id, including the empty string, else <paramref name="id"/>.</param>
     /// <param name="attributes">The consumer's attributes, whose own label wins.</param>
-    public void Apply(string? id, IReadOnlyDictionary<string, object>? attributes)
+    public void Apply(string? id, string? renderedId, IReadOnlyDictionary<string, object>? attributes)
     {
         this.id = id;
         this.attributes = attributes;
 
         // MenuList.tsx:23-33 (MNU-EDGE-09): the trigger's aria-controls follows the list's id. In a filterable menu the
         // list is Base UI's MenuFilterList, which publishes no list element, so the triggers control the dialog (MNU-ARIA-13)
-        // and the input's aria-controls follows the list (FilterDropdownList.tsx:23-27, MNU-API-62; M5 track 12).
+        // and the input's aria-controls follows the list (FilterDropdownList.tsx:23-27, MNU-API-62; M5 track 12). The
+        // filterable list publishes the id that lands (useRenderedId, RND-DOM-54), so an explicitly empty one removes the
+        // input's aria-controls (issue 244, M6 track 10).
         if (root!.Filter is { } filter)
         {
-            filter.SetListId(id);
+            filter.SetListId(renderedId);
         }
         else
         {

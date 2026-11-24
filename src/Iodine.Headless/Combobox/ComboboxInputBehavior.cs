@@ -209,7 +209,7 @@ internal sealed class ComboboxInputBehavior : IAsyncDisposable
     public void Apply(bool disabled, string? generatedId, IReadOnlyDictionary<string, object>? consumerAttributes, DirectionProviderContext? direction, RenderFragment? render)
     {
         disabledParameter = disabled;
-        nonInputControl = render is not null && ComboboxParts.SubstituteRoot(render).TagName is { } tag && !string.Equals(tag, "input", StringComparison.OrdinalIgnoreCase);
+        nonInputControl = render is not null && RenderedId.SubstituteRoot(render).TagName is { } tag && !string.Equals(tag, "input", StringComparison.OrdinalIgnoreCase);
         Rtl = ComboboxParts.IsRtl(direction);
         consumerId = ComboboxParts.ConsumerId(consumerAttributes);
         this.generatedId = generatedId;
