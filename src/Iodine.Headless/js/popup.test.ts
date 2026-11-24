@@ -654,6 +654,27 @@ describe('the positioner', () => {
     expect(backdrop.style.clipPath).toBe(cutoutPolygon({ left: 10, top: 20, right: 40, bottom: 60 }));
   });
 
+  // Issue 242 (design point 4 (b) of M6 track 10, chosen by the user 2026-11-24; PSH-ALG-21, MBR-DOM-08): the backdrop names
+  // its cut-out (`data-iodine-cutout`), and the module cuts it from one document-level MutationObserver, in the microtask
+  // after the batch inserted it, before its positioner's handle attaches and so before any hit test.
+  it('port: a backdrop inserted under a resting pointer is cut before the next hit test', async () => {
+    const other = document.createElement('div');
+    document.body.appendChild(other);
+    attachTo(other, { positioner: {} }, createFakeTwin());
+    const trigger = withRect(document.createElement('button'), 10, 20, 30, 40);
+    trigger.id = 'edit-trigger';
+    const backdrop = document.createElement('div');
+    backdrop.setAttribute('role', 'presentation');
+    backdrop.setAttribute('data-base-ui-inert', '');
+    backdrop.setAttribute('data-iodine-cutout', 'edit-trigger');
+    backdrop.setAttribute('style', 'position: fixed; inset: 0');
+    const positioner = document.createElement('div');
+    document.body.append(trigger, backdrop, positioner);
+
+    await Promise.resolve();
+    expect(backdrop.style.clipPath).toBe(cutoutPolygon({ left: 10, top: 20, right: 40, bottom: 60 }));
+  });
+
   it('port: a backdrop inserted after attach is cut out in the same batch', async () => {
     const { positioner, backdrop, trigger } = renderPositioner();
     backdrop.remove();

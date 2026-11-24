@@ -809,12 +809,11 @@ test.describe('<Menubar />', () => {
       });
 
       test('should allow clicking a menu trigger then navigating to another menu with keyboard', async ({ page, mode }) => {
-        // File opens through user-event's dispatched sequence, as Base UI's `user.click` does, so no pointer rests on its
-        // trigger: the port's internal backdrop is cut a render (WebAssembly) or a round trip (Server) after it mounts, and a
-        // pointer resting on File while Edit's backdrop mounts re-enters File's trigger and hover-opens it again (issue 242;
-        // MBR-DOM-08, PSH-ALG-21).
+        // A real click leaves the pointer resting on File while Edit's backdrop mounts. The backdrop arrives cut (issue 242,
+        // design point 4 (b), chosen by the user 2026-11-24; MBR-DOM-08, PSH-ALG-21), so the pointer gets no boundary events
+        // and File does not hover-open again.
         await render(page, mode);
-        await userClick(page.getByTestId('file-trigger'));
+        await page.getByTestId('file-trigger').click();
         await expect(page.getByTestId('file-menu')).toBeVisible();
         await focusInside(page, 'file-menu');
 

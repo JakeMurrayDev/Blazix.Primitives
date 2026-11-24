@@ -7,7 +7,7 @@
 | Tests | `packages/react/test/popupConformanceTests.tsx`, `test/detachedTriggersConformanceTests.tsx`, `test/viewportConformanceTests.tsx`, `test/popupFocusPropsTests.tsx`; `utils/popups/{store,popupTriggerMap,popupHandle,inlineRect}.test.ts`, `utils/popups/{popupStoreUtils,useTriggerFocusGuards}.test.tsx`, `utils/popups/popupStoreUtils.spec.ts` (type-level only), `utils/{useSwipeDismiss,usePopupViewport}.test.tsx`, `utils/popupStateMapping.test.ts` |
 | Prefix | `PSH` |
 | Status | approved |
-| Revised | 2026-11-23 |
+| Revised | 2026-11-24 |
 | Used by | `dialog.md` (DLG), `alert-dialog.md` (ADL), `drawer.md` (DRW), `popover.md` (POP), `menu.md` (MNU), `context-menu.md` (CTX), `menubar.md` (MBR), `tooltip.md` (TIP), `preview-card.md` (PRV), `select.md` (SEL), `combobox.md` (CMB), `autocomplete.md` (AUT), `navigation-menu.md` (NAV), `toast.md` (TST). See §6 for which pieces each uses. |
 
 ## 1. Purpose
@@ -1063,6 +1063,7 @@ clip-path ← polygon(0% 0%, 100% 0%, 100% 100%, 0% 100%, 0% 0%, r.left r.top, r
 
   Source: `utils/InternalBackdrop.tsx:13-16`. Test: none.
   Note (2026-11-04, M5 track 2, [issue 160](https://github.com/JakeMurrayDev/Iodine.Headless/issues/160); ADR 04 Amendments 2026-11-03 (7)): the cut-out element is built. `PopupPositionerOptions.CutoutElementId` names it, looked up in the positioner's own root first, then the document; without it the active trigger is cut out as before. Green at L3 (`popup.test.ts` "port: with a cut-out element, the backdrop cuts that element out instead of the active trigger"). Menubar (MBR-DOM-08, MBR-PTR-09) and Combobox use it.
+  Port note (2026-11-24, M6 track 10, [issue 242](https://github.com/JakeMurrayDev/Iodine.Headless/issues/242); design point 4 (b), chosen by the user 2026-11-24): the internal backdrop names its cut-out element in `data-iodine-cutout` (`PopupInternalBackdrop.Render`'s `cutoutId`: the Menu positioner's active trigger, or a bar menu's bar; Popover's and Select's trigger; Combobox's input group, input or trigger), and the `popup` module cuts it from one document-level `MutationObserver` in the microtask after the batch inserted it, before any hit test; the positioner's cut follows each pass as before. The observer is installed at the module's first attach, so the first popup of a page whose module has not loaded yet is still cut at its positioner's attach. [L3] "port: a backdrop inserted under a resting pointer is cut before the next hit test" (`js/popup.test.ts`); [L4] `menubar.spec.ts` "should allow clicking a menu trigger then navigating to another menu with keyboard" opens File with a real click.
 
 - **PSH-ALG-22** — MUST. The implementation reproduces the following procedure exactly for the popup-id and trigger-ownership selectors.
 

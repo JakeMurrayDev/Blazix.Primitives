@@ -259,7 +259,16 @@ internal sealed class MenuPositionerBehavior : IAsyncDisposable
         backdropRendered = RendersBackdrop;
         if (backdropRendered)
         {
-            PopupInternalBackdrop.Render(builder, root!.State.FloatingId + "-backdrop", inert: !open!.Value, Kind == MenuParentKind.ContextMenu ? captureInternalBackdrop : null);
+            // Issue 242: the cut-out the popup module's positioner role writes (MenuPositioner.tsx:271-276), named for its cut
+            // at insertion: a bar menu's bar, a top-level menu's trigger.
+            MenuParentKind? kind = Kind;
+            string? cutoutId = kind switch
+            {
+                null => activeTriggerId!.Value,
+                MenuParentKind.Menubar => root!.Parent.Context!.CutoutElementId ?? activeTriggerId!.Value,
+                _ => null,
+            };
+            PopupInternalBackdrop.Render(builder, root!.State.FloatingId + "-backdrop", inert: !open!.Value, kind == MenuParentKind.ContextMenu ? captureInternalBackdrop : null, cutoutId);
         }
     }
 

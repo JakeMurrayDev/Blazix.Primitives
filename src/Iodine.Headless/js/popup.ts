@@ -178,6 +178,61 @@ export function cutoutPolygon(rect: { left: number; top: number; right: number; 
   return `polygon(0% 0%,100% 0%,100% 100%,0% 100%,0% 0%,${left}px ${top}px,${left}px ${bottom}px,${right}px ${bottom}px,${right}px ${top}px,${left}px ${top}px)`;
 }
 
+// Issue 242 (design point 4 (b) of M6 track 10, chosen by the user 2026-11-24; PSH-ALG-21, MBR-DOM-08): Base UI computes the
+// backdrop's cut-out during render (InternalBackdrop.tsx:13-16). The port's backdrop names its cut-out element in
+// `data-iodine-cutout`, and one document-level MutationObserver cuts it in the microtask after the batch inserted it,
+// before any hit test and before its positioner's handle attaches; the positioner's own cut then follows each pass.
+const CUTOUT_ATTRIBUTE = 'data-iodine-cutout';
+const cutoutObservers = new WeakMap<Document, MutationObserver>();
+
+function cutAtInsertion(backdrop: HTMLElement): void {
+  const id = backdrop.getAttribute(CUTOUT_ATTRIBUTE);
+  if (id === null || id === '') {
+    return;
+  }
+  const root = backdrop.getRootNode();
+  const target = (isShadowRoot(root) ? root.getElementById(id) : null) ?? ownerDocument(backdrop).getElementById(id);
+  if (target !== null) {
+    styleWriter(backdrop).layer('positioning-measured').set('clip-path', cutoutPolygon(target.getBoundingClientRect()));
+  }
+}
+
+// ADR 16 (the observer sees every insertion on the page): an added element is the backdrop itself, or holds at most one
+// (a portal's subtree), so a leaf is checked by its attribute alone and a subtree by its first match.
+function cutInserted(node: Node): void {
+  if (!(node instanceof HTMLElement)) {
+    return;
+  }
+  if (node.hasAttribute(CUTOUT_ATTRIBUTE)) {
+    cutAtInsertion(node);
+    return;
+  }
+  if (node.firstElementChild === null) {
+    return;
+  }
+  const backdrop = node.querySelector<HTMLElement>(`[${CUTOUT_ATTRIBUTE}]`);
+  if (backdrop !== null) {
+    cutAtInsertion(backdrop);
+  }
+}
+
+/** Installs the document's backdrop observer once, and cuts the backdrops already in it. */
+function observeBackdropInsertions(doc: Document): void {
+  if (cutoutObservers.has(doc)) {
+    return;
+  }
+  const observer = new MutationObserver((records) => {
+    for (const record of records) {
+      for (const node of record.addedNodes) {
+        cutInserted(node);
+      }
+    }
+  });
+  observer.observe(doc.documentElement, { childList: true, subtree: true });
+  cutoutObservers.set(doc, observer);
+  cutInserted(doc.documentElement);
+}
+
 // useAnchoredPopupScrollLock.ts:6-10: up to 20 px of total gutter still counts as full width.
 /**
  * Determines whether a touch-opened popup is wide enough to lock the page's scroll.
@@ -235,6 +290,7 @@ export function attach(
 
   const channel = createTwinChannel(twinReference);
   const options = parseOptions<PopupOptions>(optionsJson);
+  observeBackdropInsertions(ownerDocument(element));
   const role: RoleHandle = options.viewport
     ? attachViewport(element, options, channel)
     : options.positioner
