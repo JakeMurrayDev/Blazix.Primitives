@@ -2606,6 +2606,33 @@ describe('list navigation rows without a Base UI title (port)', () => {
     expect(harness.highlights.at(-1)).toMatchObject({ index: 2, revision: 2 });
   });
 
+  // Issue 271 (PR 348's verification): a list attached again starts a new list state, while C# keeps the highest act it
+  // received from the earlier one; a request stamped with that act, made before C# saw the new list's act, still loses to it.
+  it('port: a C# highlight request stamped before a re-attached list\'s first user highlight loses to it', async () => {
+    const first = app();
+    keyDown(first.reference, 'ArrowDown');
+    await waitFor(() => {
+      expect(document.activeElement).toBe(first.item(0));
+    });
+    keyDown(menu(first), 'ArrowDown');
+    keyDown(menu(first), 'ArrowDown');
+    const seen = (first.highlights.at(-1) as { act?: number }).act ?? 0;
+    first.dispose();
+
+    const second = app();
+    keyDown(second.reference, 'ArrowDown');
+    await waitFor(() => {
+      expect(document.activeElement).toBe(second.item(0));
+    });
+    keyDown(menu(second), 'ArrowDown');
+    expect(highlighted(second.item(1))).toBe(true);
+    second.update({ highlight: { index: 2, revision: 1, act: seen } } as never);
+
+    expect(document.activeElement).toBe(second.item(1));
+    expect(highlighted(second.item(1))).toBe(true);
+    expect(second.highlights.at(-1)).toMatchObject({ index: 1, revision: 1, event: null });
+  });
+
   // CMP-STA-32 with CMP-EDGE-15: a requested highlight out of bounds moves neither the focus nor the cursor; once the
   // items reach it, the next key resynchronizes the cursor to it before it steps.
   it('port: the next key resynchronizes the cursor to a C# highlight it could not follow while the highlight was out of bounds', async () => {
