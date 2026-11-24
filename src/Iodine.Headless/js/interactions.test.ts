@@ -2489,18 +2489,16 @@ describe('useDismiss', () => {
           popup.attachSession({ session: { dismiss: {}, parentToken: outer.token } });
           const floating = element('div');
           popup.attachFloating(floating);
-          // Read after the popup's own listener and before the outer session's, which prevents what it closes.
-          let preventedByPopup = false;
-          floating.addEventListener('keydown', (event) => (preventedByPopup = event.defaultPrevented));
           const reachedDocument = vi.fn();
           document.addEventListener('keydown', reachedDocument);
 
-          keyDown(floating);
+          const event = keyDown(floating);
           document.removeEventListener('keydown', reachedDocument);
 
+          // An outer session that closes on a key the popup did not take prevents it too.
           const accepted = name.startsWith('accepted');
-          expect([name, preventedByPopup, !outer.open, popup.open, reachedDocument.mock.calls.length]).toEqual(
-            synchronous ? [name, prevented, propagated, !accepted, 1] : [name, true, false, !accepted, 1],
+          expect([name, event.defaultPrevented, !outer.open, popup.open, reachedDocument.mock.calls.length]).toEqual(
+            synchronous ? [name, prevented || propagated, propagated, !accepted, 1] : [name, true, false, !accepted, 1],
           );
           expect(popup.changes.map((change) => change.details.reason)).toEqual(['escape-key']);
           expect(popup.decisions.map((decision) => decision.point)).toEqual(synchronous ? ['escape'] : []);
