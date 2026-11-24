@@ -394,11 +394,11 @@ function attachInput(element: HTMLInputElement, initial: ComboboxOptions, channe
   };
 
   // Issue 247 (design point 10c-4 (b) of M6 track 10, chosen by the user 2026-11-24; AUT-KEY-04, CMB-STA-21): a focus-out
-  // while the popup has rendered open is noted for its focus manager, whose handle may not have attached yet (Server); the
-  // focus manager ignores the note while a live handle manages this input.
+  // while the popup has rendered open (the input's `aria-expanded`, which C# renders in the open's batch) is noted for its
+  // focus manager, whose handle may not have attached yet (Server); the focus manager ignores the note while a live handle
+  // manages this input.
   const onFocusOut = (event: FocusEvent): void => {
-    const popup = options.popupId ? doc.getElementById(options.popupId) : null;
-    if (popup !== null && popup.hasAttribute('data-open')) {
+    if (element.getAttribute('aria-expanded') === 'true') {
       noteReferenceFocusOut(element, event);
     }
   };
