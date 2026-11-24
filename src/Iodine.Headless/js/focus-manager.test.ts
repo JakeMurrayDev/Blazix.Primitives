@@ -14,6 +14,8 @@ import {
   getTabbableNearElement,
   isTabbable,
   markOthers,
+  dropReferenceFocusOut,
+  noteReferenceFocusOut,
   resetFocusManagerState,
   tabbable,
   type FocusManagerOptions,
@@ -1619,6 +1621,47 @@ describe('FloatingFocusManager', () => {
       expect(manager.fake.reported<FocusOutCloseRequest>(FOCUS_OUT_CLOSE_REPORT)).toHaveLength(1);
       expect(manager.fake.reported<FocusOutCloseRequest>(FOCUS_OUT_CLOSE_REPORT)[0]!.event).toMatchObject({ kind: 'FocusEvent', type: 'focusout' });
       expect(document.activeElement).toBe(app.last);
+    });
+
+    // Issue 247 (design point 10c-4 (b) of M6 track 10, chosen by the user 2026-11-24): a reopened popup's handle attaches
+    // after its render on Server; a focus-out of the reference in between, noted by the combobox input's module, is
+    // replayed once by the handle's first open sync while focus is still outside, and a focus-in of the reference drops it.
+    it('port: a reference focus-out noted while no handle manages it is replayed once by the next open handle, and a focus-in drops it', async () => {
+      const app = renderApp({ modal: false });
+      noteReferenceFocusOut(app.reference, new FocusEvent('focusout', { relatedTarget: app.last }));
+      app.last.focus();
+      const manager = app.open();
+      await settle();
+      expect(manager.fake.reported<FocusOutCloseRequest>(FOCUS_OUT_CLOSE_REPORT)).toHaveLength(1);
+      expect(manager.fake.reported<FocusOutCloseRequest>(FOCUS_OUT_CLOSE_REPORT)[0]!.event).toMatchObject({ type: 'focusout' });
+      manager.update({});
+      await settle();
+      expect(manager.fake.reported(FOCUS_OUT_CLOSE_REPORT)).toHaveLength(1);
+      await unmount(manager);
+
+      noteReferenceFocusOut(app.reference, new FocusEvent('focusout', { relatedTarget: app.last }));
+      dropReferenceFocusOut(app.reference);
+      const reopened = app.open();
+      await settle();
+      expect(reopened.fake.reported(FOCUS_OUT_CLOSE_REPORT)).toHaveLength(0);
+    });
+
+    // Issue 247: the first open sync consumes a noted focus-out whether or not it replays it, so a handle that does not close
+    // on focus-out (closeOnFocusOut: false) leaves no note for the next one.
+    it('port: an open handle that does not close on focus-out still consumes a noted focus-out, so the next open handle replays nothing', async () => {
+      const app = renderApp({ modal: false });
+      noteReferenceFocusOut(app.reference, new FocusEvent('focusout', { relatedTarget: app.last }));
+      app.last.focus();
+      const kept = app.open({ closeOnFocusOut: false, initialFocus: false });
+      await settle();
+      expect(document.activeElement).toBe(app.last);
+      expect(kept.fake.reported(FOCUS_OUT_CLOSE_REPORT)).toHaveLength(0);
+      await unmount(kept);
+
+      const reopened = app.open({ initialFocus: false });
+      await settle();
+      expect(reopened.popup.hasAttribute('data-open')).toBe(true);
+      expect(reopened.fake.reported(FOCUS_OUT_CLOSE_REPORT)).toHaveLength(0);
     });
 
     it('closeOnFocusOut: false keeps a non-modal element open when focus leaves', async () => {
