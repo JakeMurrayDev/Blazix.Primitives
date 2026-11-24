@@ -1646,6 +1646,24 @@ describe('FloatingFocusManager', () => {
       expect(reopened.fake.reported(FOCUS_OUT_CLOSE_REPORT)).toHaveLength(0);
     });
 
+    // Issue 247: the first open sync consumes a noted focus-out whether or not it replays it, so a handle that does not close
+    // on focus-out (closeOnFocusOut: false) leaves no note for the next one.
+    it('port: an open handle that does not close on focus-out still consumes a noted focus-out, so the next open handle replays nothing', async () => {
+      const app = renderApp({ modal: false });
+      noteReferenceFocusOut(app.reference, new FocusEvent('focusout', { relatedTarget: app.last }));
+      app.last.focus();
+      const kept = app.open({ closeOnFocusOut: false, initialFocus: false });
+      await settle();
+      expect(document.activeElement).toBe(app.last);
+      expect(kept.fake.reported(FOCUS_OUT_CLOSE_REPORT)).toHaveLength(0);
+      await unmount(kept);
+
+      const reopened = app.open({ initialFocus: false });
+      await settle();
+      expect(reopened.popup.hasAttribute('data-open')).toBe(true);
+      expect(reopened.fake.reported(FOCUS_OUT_CLOSE_REPORT)).toHaveLength(0);
+    });
+
     it('closeOnFocusOut: false keeps a non-modal element open when focus leaves', async () => {
       const app = renderApp({ modal: false });
 

@@ -16,6 +16,7 @@ import {
   type ComboboxInputChange,
   type ComboboxOptions,
 } from './combobox';
+import { FOCUS_OUT_CLOSE_REPORT, attach as attachFocusManager } from './focus-manager';
 import { detectPlatform } from './platform';
 import type { TwinHandle } from './twin';
 import { createFakeTwin, type FakeTwin } from './test-support/fake-twin';
@@ -53,6 +54,42 @@ function typeInto(input: HTMLInputElement, text: string, inputType = 'insertText
 }
 
 describe('the input', () => {
+  // Issue 247 (design point 10c-4 (b) of M6 track 10, chosen by the user 2026-11-24): the input notes a focus-out while its
+  // popup has rendered open, for the popup's focus manager to replay; an open that ends before any focus manager attached
+  // (canceled, or closed again) drops the note, so a later open with focus elsewhere is not closed at once.
+  it('port: a focus-out noted while the popup rendered open is replayed by its focus manager, and dropped when the open ends first', async () => {
+    const openFocusManager = (referenceId: string) => {
+      const popup = document.createElement('div');
+      popup.setAttribute('data-open', '');
+      document.body.append(popup);
+      const fake = createFakeTwin();
+      handles.push(attachFocusManager(popup, JSON.stringify({ treatPopupAsFloatingElement: true, domReferenceId: referenceId, modal: false }), fake.twin));
+      return fake;
+    };
+    const elsewhere = document.createElement('button');
+    document.body.append(elsewhere);
+
+    const { input: kept } = setupInput();
+    kept.id = 'kept-input';
+    kept.setAttribute('aria-expanded', 'true');
+    kept.focus();
+    elsewhere.focus();
+    const replayed = openFocusManager('kept-input');
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(replayed.reported(FOCUS_OUT_CLOSE_REPORT)).toHaveLength(1);
+
+    const { input: canceled } = setupInput();
+    canceled.id = 'canceled-input';
+    canceled.setAttribute('aria-expanded', 'true');
+    canceled.focus();
+    elsewhere.focus();
+    canceled.setAttribute('aria-expanded', 'false');
+    await Promise.resolve();
+    const later = openFocusManager('canceled-input');
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(later.reported(FOCUS_OUT_CLOSE_REPORT)).toHaveLength(0);
+  });
+
   it('ComboboxChip: an input that attaches with focusOnAttach takes the focus, and one without it does not', () => {
     const { input: focused } = setupInput('', { focusOnAttach: true });
     expect(document.activeElement).toBe(focused);
