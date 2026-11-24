@@ -2533,11 +2533,11 @@ describe('useDismiss', () => {
       });
     });
 
-    // Issue 251 (design point 2 (a) of M6 track 10, chosen by the user 2026-11-24): the floating element's Escape close
-    // marks the keydown as taken instead of stopping it, so Blazor's delegated handler and the page hear it; an outer
-    // session's document listener reads the mark and skips the key, even after a synchronous close took the inner
-    // session out of the forest.
-    it('port: an Escape the inner popup takes is marked, not stopped: the document hears it and the outer session skips it', async () => {
+    // Issue 251 (design point 2 (a) of M6 track 10, chosen by the user 2026-11-24; its refinement pending the user): the
+    // floating element's listener only claims Escape, so Blazor's delegated handler on the document reaches the popup's
+    // parts; the close runs from the document listener and marks the keydown as taken, which an outer session's document
+    // listener reads to skip the key, even after a synchronous close took the inner session out of the forest.
+    it('port: an Escape in the inner popup closes it from the document, marked as taken: the document hears it and the outer session skips it', async () => {
       await inBothModes((synchronous) => {
         const outer = harness({ open: true, synchronous });
         outer.attachSession({ session: { dismiss: {} } });
