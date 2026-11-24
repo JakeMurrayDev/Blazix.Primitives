@@ -1288,7 +1288,7 @@ export interface CompositeListHighlightReport {
   /** The revision of the last C# highlight request applied; 0 before any. */
   revision: number;
   /**
-   * The number of user-origin highlights (a report with an event) the module has made, this one included; 0 before any:
+   * The number of user-origin highlights (each committed by an event) the module has made; 0 before any:
    * decision 6's acts (MNU-STA-19, CMP-STA-32; issue 271).
    */
   act: number;
@@ -2371,7 +2371,7 @@ interface ListState {
   handles: Set<ListHandle>;
   /** The revision of the last C# highlight request applied. */
   appliedRevision: number;
-  /** The number of user-origin highlights reported: decision 6's acts (MNU-STA-19, CMP-STA-32; issue 271). */
+  /** The number of user-origin highlights committed: decision 6's acts (MNU-STA-19, CMP-STA-32; issue 271). */
   acts: number;
   /** A navigation key pressed on an open reference before the list attached, the newest only; `null` otherwise. */
   pendingKey: { readonly handle: ListHandle; readonly event: KeyboardEvent } | null;
@@ -2599,11 +2599,6 @@ function reportHighlight(state: ListState, handle: ListHandle, event: Event | un
   }
   state.reportedIndex = state.activeIndex;
   state.reportedElement = element;
-  // Decision 6's revision rule (ADR 04 Amendments 2026-11-18; issue 271): a user-origin highlight is an act, numbered on its
-  // report, which C# stamps on its next highlight request.
-  if (event !== undefined) {
-    state.acts += 1;
-  }
   // Design point 9 (a) of M5 track 6 (settled by the orchestrator 2026-11-04): the registry's label, resolved on every
   // rebuild (CMP-STA-06/07), sent only for a highlighted item that has one.
   const label = state.activeIndex != null ? state.floating?.registry.labels[state.activeIndex] : null;
@@ -2678,6 +2673,12 @@ function commitHighlight(state: ListState, handle: ListHandle, next: number | nu
     return;
   }
   state.activeIndex = next;
+  // Decision 6's revision rule (ADR 04 Amendments 2026-11-18; MNU-STA-19, issue 271): a highlight an event commits is an act,
+  // counted here, where it takes effect, since its report can wait for the registry (below); every report carries the
+  // count, and C# stamps the highest it received on its next highlight request.
+  if (event !== undefined) {
+    state.acts += 1;
+  }
   state.staleHighlight = next !== null && hasRemovedElements(state.floating?.registry.elements ?? []);
   writeHighlight(state, handle);
   if (state.staleHighlight) {
