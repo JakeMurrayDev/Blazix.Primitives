@@ -1070,6 +1070,9 @@ function applySessionOptions(record: SessionRecord, options: InteractionsOptions
     record.openOrder = openCounter;
   } else if (!open) {
     record.openOrder = 0;
+    // Issue 269: the placement belongs to an open's positioning; a reopened popup's leave waits for its own pass (until then
+    // it takes the plain close, G6 of PR 168) instead of a safe polygon drawn on the previous open's side.
+    record.placement = undefined;
   }
   record.open = open;
   // Design point 13.4 (1): C#'s answer replaces a hand-off's pending anchor with the active trigger it committed, or
@@ -1141,6 +1144,7 @@ function replayClose(record: SessionRecord, reason: string): void {
   record.events.emit('openchange', details);
   record.open = false;
   record.openOrder = 0;
+  record.placement = undefined;
 }
 
 // ---------------------------------------------------------------------------------------------------------------
