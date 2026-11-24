@@ -66,7 +66,7 @@ public sealed class MenuList : PartBase<EmptyState>
     /// <inheritdoc />
     protected override void OnParametersSet()
     {
-        behavior!.Apply(Id, AdditionalAttributes);
+        behavior!.Apply(Id, RenderedId.Resolve(Render, AdditionalAttributes, GeneratedId), AdditionalAttributes);
 
         // MNU-STA-24 (FilterDropdownList.tsx:58-66): the list's groups and items belong to this root's query, so a filterable
         // submenu's list inside an enclosing group of its parent does not count them as that group's members.

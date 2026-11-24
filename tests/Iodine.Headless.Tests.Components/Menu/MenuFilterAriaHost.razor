@@ -10,7 +10,9 @@
      `aria-haspopup="menu"` (a list of Projects, no input);
    - `override-root`: a closed filterable menu whose trigger sets `aria-haspopup="menu"` (a list of Rename);
    - `popup-label`: an open filterable menu, trigger "Fruit", whose popup sets `aria-label="Available commands"`;
-   - `triggerless`: an open filterable menu with no trigger (an input and a list of Rename). *@
+   - `triggerless`: an open filterable menu with no trigger (an input and a list of Rename);
+   - `popup-id`: an open filterable menu, trigger "Fruit", whose popup takes `PopupId` (input, a list of Apple);
+   - `empty-list-id`: an open filterable menu, trigger "Actions", whose list renders a substitute `<div id="">` (input, a list of Rename). *@
 @switch (Case)
 {
     case "plain":
@@ -121,6 +123,36 @@
             </MenuRoot>
         </MenuFilterProvider>
         break;
+    case "popup-id":
+        <MenuFilterProvider>
+            <MenuRoot TPayload="NoPayload" DefaultOpen="true">
+                <MenuTrigger TPayload="NoPayload">Fruit</MenuTrigger>
+                <MenuPortal>
+                    <MenuPositioner>
+                        <MenuPopup id="@PopupId">
+                            <MenuInput aria-label="Filter fruit" />
+                            <MenuList><MenuItem>Apple</MenuItem></MenuList>
+                        </MenuPopup>
+                    </MenuPositioner>
+                </MenuPortal>
+            </MenuRoot>
+        </MenuFilterProvider>
+        break;
+    case "empty-list-id":
+        <MenuFilterProvider>
+            <MenuRoot TPayload="NoPayload" DefaultOpen="true">
+                <MenuTrigger TPayload="NoPayload">Actions</MenuTrigger>
+                <MenuPortal>
+                    <MenuPositioner>
+                        <MenuPopup>
+                            <MenuInput aria-label="Filter actions" />
+                            <MenuList Render="EmptyIdElement"><MenuItem>Rename</MenuItem></MenuList>
+                        </MenuPopup>
+                    </MenuPositioner>
+                </MenuPortal>
+            </MenuRoot>
+        </MenuFilterProvider>
+        break;
     case "override-root":
         <MenuFilterProvider>
             <MenuRoot TPayload="NoPayload">
@@ -136,4 +168,15 @@
 
     [Parameter]
     public string? Case { get; set; }
+
+    [Parameter]
+    public string? PopupId { get; set; }
+
+    // Base UI's `render={<div id="" />}`.
+    private static readonly RenderFragment EmptyIdElement = builder =>
+    {
+        builder.OpenElement(0, "div");
+        builder.AddAttribute(1, "id", string.Empty);
+        builder.CloseElement();
+    };
 }
