@@ -38,6 +38,7 @@ internal sealed class ListNavigationBehavior : IDisposable
     private readonly List<CompositeRootBehavior> handles = [];
     private CompositeListOptions? options;
     private CompositeHighlightRequest? highlightRequest;
+    private int seenAct;
     private bool enabled = true;
     private bool loopFocus;
     private string? orientation = Vertical;
@@ -281,7 +282,9 @@ internal sealed class ListNavigationBehavior : IDisposable
     /// <returns>A task that completes when the handles have the request.</returns>
     public Task RequestHighlightAsync(int? index)
     {
-        highlightRequest = new CompositeHighlightRequest(index, (highlightRequest?.Revision ?? 0) + 1);
+        // Decision 6's revision rule (ADR 04 Amendments 2026-11-18; MNU-STA-19, issue 271): the request carries the last act
+        // received, so the module drops it when the user has highlighted since.
+        highlightRequest = new CompositeHighlightRequest(index, (highlightRequest?.Revision ?? 0) + 1, seenAct);
         options = null;
         return FlushAsync();
     }
@@ -330,7 +333,15 @@ internal sealed class ListNavigationBehavior : IDisposable
     /// <returns><see langword="true"/> when the mirror took the report.</returns>
     internal bool OnHighlight(CompositeListHighlight report)
     {
-        if (disposed || report.Revision < (highlightRequest?.Revision ?? 0))
+        if (disposed)
+        {
+            return false;
+        }
+
+        // Decision 6: every report's act counts, a stale one's too; the highest wins, so a report lost to a disposed handle
+        // is made up by the next.
+        seenAct = Math.Max(seenAct, report.Act);
+        if (report.Revision < (highlightRequest?.Revision ?? 0))
         {
             return false;
         }

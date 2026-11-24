@@ -168,7 +168,12 @@ internal sealed record CompositeListOptions
 /// <summary>A highlight C# asks the list for, such as an automatic highlight, a clear or the selected item.</summary>
 /// <param name="Index">The index to highlight, or <see langword="null"/> to clear the highlight.</param>
 /// <param name="Revision">The request's number, which grows with each request; the module applies each revision once.</param>
-internal sealed record CompositeHighlightRequest(int? Index, int Revision);
+/// <param name="Act">
+/// The highest act (<see cref="CompositeListHighlight.Act"/>) C# had received when it made the request, or
+/// <see langword="null"/> for a request outside the revision rule. A request older than the module's last act loses to it
+/// (decision 6, issue 271).
+/// </param>
+internal sealed record CompositeHighlightRequest(int? Index, int Revision, int? Act = null);
 
 // CMP §6.9 (useTypeahead): Menu passes its elements, so invisible and natively disabled items are skipped; Select passes
 // the `isElementDisabled` predicate, so force-mounted hidden items still match; Combobox's trigger passes neither and,

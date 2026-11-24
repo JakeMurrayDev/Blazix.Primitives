@@ -147,7 +147,7 @@ public sealed class ListNavigationTests : IDisposable
         cut.InvokeAsync(() => cut.Instance.List.RequestHighlightAsync(2));
 
         Assert.Equal(2, host.UpdateOptions.Count);
-        Assert.All(host.UpdateOptions, json => Assert.Contains("\"highlight\":{\"index\":2,\"revision\":1}", json, StringComparison.Ordinal));
+        Assert.All(host.UpdateOptions, json => Assert.Contains("\"highlight\":{\"index\":2,\"revision\":1,\"act\":0}", json, StringComparison.Ordinal));
 
         // A move the module reported before it had the request answers revision 0: stale.
         cut.InvokeAsync(() => FloatingTwin().OnListHighlight($$"""{"index":0,"itemId":"{{ids[0]}}","event":null,"revision":0}"""));

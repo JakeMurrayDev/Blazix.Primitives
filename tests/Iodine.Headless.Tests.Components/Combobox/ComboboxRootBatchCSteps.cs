@@ -310,7 +310,7 @@ internal static class ComboboxRootBatchCSteps
         int revision = 0;
         foreach (string options in test.ListOptions())
         {
-            Match match = Regex.Match(options, "\"highlight\":\\{(?:\"index\":(null|\\d+),)?\"revision\":(\\d+)\\}");
+            Match match = Regex.Match(options, "\"highlight\":\\{(?:\"index\":(null|\\d+),)?\"revision\":(\\d+)(?:,\"act\":\\d+)?\\}");
             int next = match.Success ? int.Parse(match.Groups[2].Value, CultureInfo.InvariantCulture) : 0;
             if (next > revision)
             {

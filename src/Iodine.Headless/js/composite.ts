@@ -1287,7 +1287,10 @@ export interface CompositeListHighlightReport {
   event: EventInfo | null;
   /** The revision of the last C# highlight request applied; 0 before any. */
   revision: number;
-  /** The number of user-origin highlights (a report with an event) the module has made, this one included; 0 before any. */
+  /**
+   * The number of user-origin highlights (a report with an event) the module has made, this one included; 0 before any:
+   * decision 6's acts (MNU-STA-19, CMP-STA-32; issue 271).
+   */
   act: number;
   // Design point 9 (a) of M5 track 6 (settled by the orchestrator 2026-11-04): Menu's onItemHighlighted label.
   /** The highlighted item's label, its registered label else its text; absent when no item is highlighted or it has none. */
@@ -2368,7 +2371,7 @@ interface ListState {
   handles: Set<ListHandle>;
   /** The revision of the last C# highlight request applied. */
   appliedRevision: number;
-  /** The number of user-origin highlights reported (decision 6's acts). */
+  /** The number of user-origin highlights reported: decision 6's acts (MNU-STA-19, CMP-STA-32; issue 271). */
   acts: number;
   /** A navigation key pressed on an open reference before the list attached, the newest only; `null` otherwise. */
   pendingKey: { readonly handle: ListHandle; readonly event: KeyboardEvent } | null;
