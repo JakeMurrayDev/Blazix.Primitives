@@ -12,7 +12,9 @@
    - `popup-label`: an open filterable menu, trigger "Fruit", whose popup sets `aria-label="Available commands"`;
    - `triggerless`: an open filterable menu with no trigger (an input and a list of Rename);
    - `popup-id`: an open filterable menu, trigger "Fruit", whose popup takes `PopupId` (input, a list of Apple);
-   - `empty-list-id`: an open filterable menu, trigger "Actions", whose list renders a substitute `<div id="">` (input, a list of Rename). *@
+   - `empty-list-id`: an open filterable menu, trigger "Actions", whose list renders a substitute `<div id="">` (input, a list of Rename);
+   - `trigger-render-id`: an open filterable menu whose trigger renders through `<button id="custom-trigger">`;
+   - `popup-render-label`: an open filterable menu whose popup renders through `<section aria-label="Available commands">`. *@
 @switch (Case)
 {
     case "plain":
@@ -153,6 +155,22 @@
             </MenuRoot>
         </MenuFilterProvider>
         break;
+    case "trigger-render-id":
+    case "popup-render-label":
+        <MenuFilterProvider>
+            <MenuRoot TPayload="NoPayload" DefaultOpen="true">
+                <MenuTrigger TPayload="NoPayload" Render="@(Case == "trigger-render-id" ? s_customTrigger : null)">Fruit</MenuTrigger>
+                <MenuPortal>
+                    <MenuPositioner>
+                        <MenuPopup Render="@(Case == "popup-render-label" ? s_labelledSection : null)">
+                            <MenuInput aria-label="Filter fruit" />
+                            <MenuList><MenuItem>Apple</MenuItem></MenuList>
+                        </MenuPopup>
+                    </MenuPositioner>
+                </MenuPortal>
+            </MenuRoot>
+        </MenuFilterProvider>
+        break;
     case "override-root":
         <MenuFilterProvider>
             <MenuRoot TPayload="NoPayload">
@@ -164,6 +182,8 @@
 }
 
 @code {
+    private static readonly RenderFragment s_customTrigger = @<button id="custom-trigger"></button>;
+    private static readonly RenderFragment s_labelledSection = @<section aria-label="Available commands"></section>;
     private readonly MenuHandle<NoPayload> handle = new();
 
     [Parameter]

@@ -123,6 +123,28 @@ public sealed class MenuFilterAriaTests : BunitContext
         cut.WaitForAssertion(() => Assert.False(cut.Find("input").HasAttribute("aria-controls"), cut.Find("input").OuterHtml));
     }
 
+    // Issue 249: Base UI's titles open the menu with a click; the host's starts open.
+    [Fact(DisplayName = "uses the id from a custom trigger render element for popup labelling")]
+    [Trait("Requirement", "MNU-ARIA-19")]
+    [Trait("Requirement", "MNU-API-18")]
+    public void Uses_the_trigger_render_element_id()
+    {
+        IRenderedComponent<MenuFilterAriaHost> cut = Render<MenuFilterAriaHost>(p => p.Add(x => x.Case, "trigger-render-id"));
+
+        Assert.Equal("custom-trigger", cut.Find("[role=dialog]").GetAttribute("aria-labelledby"));
+    }
+
+    [Fact(DisplayName = "uses an explicit label from the popup render element")]
+    [Trait("Requirement", "MNU-ARIA-19")]
+    public void Uses_the_popup_render_element_label()
+    {
+        IRenderedComponent<MenuFilterAriaHost> cut = Render<MenuFilterAriaHost>(p => p.Add(x => x.Case, "popup-render-label"));
+
+        IElement popup = cut.Find("[role=dialog]");
+        Assert.Equal("Available commands", popup.GetAttribute("aria-label"));
+        Assert.False(popup.HasAttribute("aria-labelledby"));
+    }
+
     [Fact(DisplayName = "lets a consumer override aria-haspopup on the root trigger")]
     [Trait("Requirement", "MNU-ARIA-01")]
     public void Lets_a_consumer_override_the_root_trigger()
