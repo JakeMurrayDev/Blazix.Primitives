@@ -1288,6 +1288,21 @@ export function attach(
   root.addEventListener('change', onInput);
   root.addEventListener('focusin', onFocusIn);
   root.addEventListener('focusout', onFocusOut);
+  // SLD-FOC-05, "post-commit, pre-paint" (SliderRoot.tsx:255-272, a layout effect; issue 328, design point 10k-1 (a) of M6
+  // track 10, chosen by the user 2026-11-24): the render that disables the slider writes the root's `data-disabled`, and
+  // the focused element inside the root is blurred in that render's own task, before any frame. On Server the module's
+  // `update` comes a message later; a frame between them would let the browser's focus fixup take focus first, without the
+  // explicit blur Firefox and Safari need. The update's blur below stays, and finds nothing once this one ran.
+  const disabledObserver = new MutationObserver((records) => {
+    if (disposed || !records.some((record) => record.oldValue === null) || !root.hasAttribute('data-disabled')) {
+      return;
+    }
+    const focused = activeElement(ownerDocument(root));
+    if (focused instanceof HTMLElement && contains(root, focused)) {
+      focused.blur();
+    }
+  });
+  disabledObserver.observe(root, { attributes: true, attributeFilter: ['data-disabled'], attributeOldValue: true });
   resolve();
   refresh();
   // SLD-ANI-01, SLD §16 Q12 (replicated): one more inset pass a microtask after mount.
@@ -1313,6 +1328,7 @@ export function attach(
         return;
       }
       disposed = true;
+      disabledObserver.disconnect();
       stopListening();
       focusFrame.cancel();
       for (const stop of unobserveResize) {
