@@ -1386,8 +1386,8 @@ const escapeHandled = Symbol('iodine.interactions.escapeHandled');
 // is on the event, so a synchronous close that clears the taking session before an outer listener runs keeps it.
 const escapeTaken = Symbol('iodine.interactions.escapeTaken');
 
-// Issue 251: the innermost session whose floating element or trigger the keydown passed. Those listeners only claim the
-// key; the close runs from the document listener, after Blazor's delegated handler (registered on the document when the
+// Issue 251: the innermost session whose floating element the keydown passed. That listener only claims the key; the
+// close runs from the document listener, after Blazor's delegated handler (registered on the document when the
 // first element with a C# key handler rendered, so before any session's), because on WebAssembly a close in the
 // floating element's own listener unmounts the popup before Blazor dispatches the keydown to it. The first session
 // listener on the document runs the claimant's decision before its own, so the innermost popup still decides first.
@@ -1399,7 +1399,7 @@ interface EscapeMarkedEvent extends KeyboardEvent {
   [escapeClaimed]?: { token: string; ran: boolean };
 }
 
-/** Claims an Escape for the session whose floating element or trigger it passed first (the innermost). */
+/** Claims an Escape for the session whose floating element it passed first (the innermost). */
 function claimEscapeKeyDown(record: SessionRecord, event: KeyboardEvent): void {
   if (event.key === 'Escape') {
     (event as EscapeMarkedEvent)[escapeClaimed] ??= { token: record.token, ran: false };
@@ -1677,7 +1677,10 @@ function closeOnEscapeKeyDown(record: SessionRecord, event: KeyboardEvent): void
     event.preventDefault();
   }
   if (!escapeKeyBubbles && (verdict === 'prevent-and-stop' || verdict === 'stop')) {
+    // The trigger's listener and the document listener run after Blazor's dispatch reached the popup's parts, so the
+    // native stop keeps the key from the window and from the trigger's ancestors, as React's does in Base UI.
     (event as EscapeMarkedEvent)[escapeTaken] = record.token;
+    event.stopPropagation();
   }
   // A close is pending until the relay brings the next open or C# answers the request; a cancel the verdict reports
   // leaves the session armed.
@@ -2289,7 +2292,7 @@ function createReferenceDismissController(context: HandleContext): Controller {
     requestOpenChange(record, channel, false, 'trigger-press', event);
   };
 
-  const onKeyDown = (event: KeyboardEvent) => claimEscapeKeyDown(record, event);
+  const onKeyDown = (event: KeyboardEvent) => closeOnEscapeKeyDown(record, event);
 
   const cleanup = mergeCleanups(
     listen(element, 'keydown', onKeyDown),
