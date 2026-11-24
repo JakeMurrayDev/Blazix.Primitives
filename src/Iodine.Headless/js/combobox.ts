@@ -19,7 +19,7 @@
 // combobox/popup/ComboboxPopup.tsx:85-99, combobox/item/ComboboxItem.tsx:146-185, combobox/utils/parts.ts:46-58.
 import { closest, contains, getTarget, isHTMLElement, isMouseWithinBounds, isScrollableY, platform as runtimePlatform } from './dom';
 import { eventInfo } from './event-info';
-import { noteReferenceFocusIn, noteReferenceFocusOut } from './focus-manager';
+import { dropReferenceFocusOut, noteReferenceFocusOut } from './focus-manager';
 import { isInteractiveElement } from './interactions';
 import type { Platform } from './platform';
 import {
@@ -403,8 +403,15 @@ function attachInput(element: HTMLInputElement, initial: ComboboxOptions, channe
     }
   };
   const onFocusIn = (): void => {
-    noteReferenceFocusIn(element);
+    dropReferenceFocusOut(element);
   };
+  // An open that ends (canceled, or closed again) before a focus manager attached drops its note.
+  const expandedObserver = new MutationObserver(() => {
+    if (element.getAttribute('aria-expanded') !== 'true') {
+      dropReferenceFocusOut(element);
+    }
+  });
+  expandedObserver.observe(element, { attributes: true, attributeFilter: ['aria-expanded'] });
   element.addEventListener('focusout', onFocusOut);
   element.addEventListener('focusin', onFocusIn);
   element.addEventListener('compositionstart', onCompositionStart);
@@ -443,6 +450,7 @@ function attachInput(element: HTMLInputElement, initial: ComboboxOptions, channe
       }
     },
     dispose() {
+      expandedObserver.disconnect();
       element.removeEventListener('focusout', onFocusOut);
       element.removeEventListener('focusin', onFocusIn);
       element.removeEventListener('compositionstart', onCompositionStart);
