@@ -19,7 +19,7 @@
 // useHoverInteractionSharedState.ts; safePolygon.ts; utils/createEventEmitter.ts, event.ts, element.ts, nodes.ts.
 import { classifyClick, dispatchClickWithModifiers, type InteractionType } from './button';
 import { decide } from './decide';
-import { activeElement, closest, contains, getTarget, isElement, isHTMLElement, isMouseWithinBounds, ownerDocument, ownerWindow, platform } from './dom';
+import { activeElement, closest, contains, getTarget, isElement, isHTMLElement, isMouseWithinBounds, observeBackdropInsertions, ownerDocument, ownerWindow, platform } from './dom';
 import { eventInfo } from './event-info';
 import { cancelFrame, requestFrame } from './transitions';
 import {
@@ -4487,6 +4487,10 @@ function createMenuTriggerController(context: HandleContext): Controller {
   const onOpenChange = (details: SessionOpenChangeDetails) => {
     lastReason = details.reason;
   };
+
+  // Issue 363: the backdrop of this trigger's menu is cut at insertion from its first open (the `popup` module's own install
+  // waits for its first attach).
+  observeBackdropInsertions(ownerDocument(element));
 
   // A menubar's trigger: the session its menu names as parent is the bar's, whose slot the bar's menus share.
   const markForestRoot = () => {
