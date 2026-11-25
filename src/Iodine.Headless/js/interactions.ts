@@ -5306,7 +5306,14 @@ function createFocusController(context: HandleContext): Controller {
   return {
     update() {
       if (focusOptions() === null) {
-        uninstall();
+        // Issue 297 (design point 10e-1 (a), chosen by the user 2026-11-25): React applies the props a re-render brings
+        // after the handler that caused it, so a focus inside that handler still meets this listener; on WebAssembly C#
+        // turns the option off inside it. The uninstall waits for the end of the task and checks again.
+        queueMicrotask(() => {
+          if (focusOptions() === null) {
+            uninstall();
+          }
+        });
       } else {
         install();
       }
