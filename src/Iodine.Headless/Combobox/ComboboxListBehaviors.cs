@@ -243,6 +243,13 @@ internal sealed class ComboboxListBehavior<TValue> : IAsyncDisposable
         if (!composite.TwinAttached.IsCompleted)
         {
             await PopupPortalContext.WhenMoved(portal);
+
+            // Issue 149's class (design point 10-353a (a), chosen by the user 2026-11-25): on Server a close inside the move's
+            // round trip disposes the list first; its handles would attach to the removed element.
+            if (disposed)
+            {
+                return;
+            }
         }
 
         Task compositeSync = composite.AfterRenderAsync(true, element, id);
