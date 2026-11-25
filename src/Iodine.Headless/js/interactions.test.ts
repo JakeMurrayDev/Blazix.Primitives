@@ -510,6 +510,31 @@ describe('useFocus', () => {
     expect(delayed.popup.open).toBe(true);
   });
 
+  // Issue 297 (design point 10e-1 (a), chosen by the user 2026-11-25): React applies a re-render's props after the event
+  // handler that caused it, so a focus inside that handler still meets the old listener (useListNavigation.ts:771-792
+  // focuses a bar trigger after its menu's close, while the trigger still has its bar-open `useFocus`). On WebAssembly
+  // C# turns the option off inside the same handler: the listener stays until the end of the task.
+  it('port: an update that turns the focus off inside a task keeps the listener until the task ends', async () => {
+    const popup = harness();
+    popup.attachSession();
+    const button = element('button');
+    const handle = popup.attachTrigger(button, { trigger: { focus: {} } });
+    popup.setReference(button);
+    popup.attachFloating(element('div'));
+
+    handle.update(JSON.stringify({ sessionToken: popup.token, trigger: {} }));
+    button.focus();
+    expect(popup.open).toBe(true);
+    expect(popup.changes.at(-1)?.details.reason).toBe('trigger-focus');
+
+    popup.setOpen(false, 'none');
+    button.blur();
+    await vi.advanceTimersByTimeAsync(0);
+    button.dispatchEvent(new MouseEvent('mouseleave'));
+    button.focus();
+    expect(popup.open).toBe(false);
+  });
+
   it('port: a press or Escape close relayed to the session blocks the next focus on that reference until the pointer leaves it', () => {
     const { popup, button } = setup();
     popup.setOpen(true, 'trigger-press', button.id);

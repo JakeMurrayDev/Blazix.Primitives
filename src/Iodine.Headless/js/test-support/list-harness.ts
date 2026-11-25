@@ -56,6 +56,11 @@ export interface ListHarnessOptions {
   keepMounted?: boolean;
   /** `true` behaves like WebAssembly (synchronous invoke and the deciders); `false`, the default, like Blazor Server. */
   synchronous?: boolean;
+  /**
+   * `true` makes `leave`'s close on WebAssembly unmount the popup as C# does, clearing the active trigger (PSH-STA-45;
+   * issue 297, settled by the orchestrator 2026-11-25).
+   */
+  unmountClearsTrigger?: boolean;
   /** The verdict `navigate` returns on WebAssembly; `run` by default. */
   navigateVerdict?: DecisionPolicy | ((event: EventInfo) => DecisionPolicy);
   /** Whether C# reports the items' order. */
@@ -185,7 +190,7 @@ export function createListHarness(options: ListHarnessOptions = {}): ListHarness
         const event = JSON.parse(args[1] as string) as EventInfo;
         decisions.push({ point, event });
         if (point === 'leave') {
-          popup.setOpen(false, 'focus-out');
+          popup.setOpen(false, 'focus-out', null, undefined, { clearTrigger: options.unmountClearsTrigger === true });
           const change = popup.changes.at(-1);
           render();
           return (change?.details.isCanceled ? 'stop' : 'run') as T;

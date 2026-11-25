@@ -306,12 +306,14 @@ test.describe('<Menubar />', () => {
       await expect(page.getByRole('menubar')).toHaveAttribute('data-has-submenu-open', '');
 
       await page.keyboard.press('Shift+Tab');
-      // The close and its reason. What follows differs by mode, an open question (design point 6 of M5 track 8): the focus
-      // the close returns to File's trigger reaches it while the flag is still set on Server, and the trigger's focus open
-      // reopens the menu (`true:trigger-focus`); on WebAssembly the flag clears inside the keydown and the menu stays closed.
-      // M6 track 11's real-browser probe (2026-11-19): Base UI reopens it (`false:focus-out` then `true:trigger-focus`), as
-      // Server does; WebAssembly's difference is issue 297 (track 10).
-      await expect(fixture).toHaveAttribute('data-file-changes', /^true:trigger-press false:focus-out/);
+      // The close and its reason, then the reopen: the close returns the focus to File's trigger while the bar's flag is
+      // still set, and the trigger's focus open reopens the menu (`useListNavigation.ts:771-792`; M6 track 11's
+      // real-browser probe of 2026-11-19 recorded `false:focus-out` then `true:trigger-focus`). Issue 297 (design point
+      // 10e-1 (a), chosen by the user 2026-11-25): WebAssembly had cleared the flag and the trigger's focus listener inside
+      // the keydown, so the menu stayed closed. Where the focus ends after the reopen (Base UI: the trigger) is issue
+      // 372: on Server under load the reopened menu can take it.
+      await expect(fixture).toHaveAttribute('data-file-changes', 'true:trigger-press false:focus-out true:trigger-focus');
+      await expect(page.getByTestId('file-menu')).toBeVisible();
     });
 
     test('port: the bar has no typeahead, and an open bar menu runs its own', async ({ page, mode }) => {
