@@ -1226,6 +1226,9 @@ function requestOpenChange(
   trigger?: Element | null,
   extra?: Record<string, unknown>,
 ): boolean {
+  if (open) {
+    noteBarMenuOpenRequest(record);
+  }
   // ADR 04 Amendments 2026-10-28 (design point 13.9 of M4 track 6, settled by the orchestrator 2026-10-28), widened from
   // the handle to the session by ADR 04 Amendments 2026-10-29 (gap 14): one close request in flight per session. Base UI's
   // second close (the reference press's `click` after its `pointerdown`, or the outside press after a focus-out close) is
@@ -2444,6 +2447,7 @@ function createClickController(context: HandleContext): Controller {
     record.pending = request;
     if (nextOpen) {
       recordOptimisticOpenEvent(record, request);
+      noteBarMenuOpenRequest(record);
     }
     // ADR 04 Amendments 2026-11-11: before the call, which WebAssembly answers inside.
     if (nextOpen && !record.open) {
@@ -3226,6 +3230,28 @@ interface HoverEntry {
   readonly event: MouseEvent;
   readonly target: Element;
   readonly pointerType: string | undefined;
+  /** The entry's place in the document's sequence of recorded entries (issue 363). */
+  readonly seq: number;
+}
+
+// Issue 363: the number of entries recorded so far, which orders an entry against a bar menu's open.
+let hoverEntrySeq = 0;
+
+// Issue 363: bar menus whose open the module requested and whose relay has not arrived yet.
+const barMenuOpenRequests = new WeakSet<SessionRecord>();
+
+/**
+ * Notes a bar menu's open request on its bar's session: Base UI commits the open, and with it its siblings' hover, in the
+ * event that requested it, so an entry recorded since counts for a sibling whose hover arrives later. The relay, which can
+ * reach the module after the sibling's update, then leaves the note as it is.
+ */
+function noteBarMenuOpenRequest(record: SessionRecord): void {
+  const parent = record.parentToken === null ? undefined : sessions.get(record.parentToken);
+  if (parent === undefined || !menuForestRoots.has(parent)) {
+    return;
+  }
+  menuSessionState(parent).childOpenedSeq = hoverEntrySeq;
+  barMenuOpenRequests.add(record);
 }
 
 const hoverEntries = new WeakMap<Document, HoverEntry>();
@@ -3243,7 +3269,8 @@ function trackHoverEntries(doc: Document): void {
   doc.addEventListener('mouseover', (event) => {
     const target = getTarget(event);
     if (isElement(target)) {
-      hoverEntries.set(doc, { event, target, pointerType });
+      hoverEntrySeq += 1;
+      hoverEntries.set(doc, { event, target, pointerType, seq: hoverEntrySeq });
     }
   }, true);
   doc.addEventListener('mouseout', (event) => {
@@ -3958,6 +3985,20 @@ function createHoverReferenceController(context: HandleContext): Controller {
     onMouseMove(move);
   };
 
+  // Issue 363 (design point 5's replay, at an enable): Base UI commits a menubar's flag and its triggers' hover together, so
+  // a pointer that enters a sibling trigger once a bar menu opened finds its hover on. On Server the hover arrives with the
+  // trigger's update, a round trip after the open: an entry recorded since a menu of the bar opened runs when it does.
+  const replayBarEntry = () => {
+    const parent = record.parentToken === null ? undefined : sessions.get(record.parentToken);
+    if (parent === undefined || !menuForestRoots.has(parent)) {
+      return;
+    }
+    const entry = takeHoverEntry(element, false);
+    if (entry !== null && entry.seq > menuSessionState(parent).childOpenedSeq) {
+      replayEntry();
+    }
+  };
+
   syncGate();
   refreshHandleClose();
   installHover();
@@ -3965,8 +4006,12 @@ function createHoverReferenceController(context: HandleContext): Controller {
   replayEntry();
   return {
     update() {
+      const installed = hoverCleanup !== null;
       syncGate();
       refreshHover();
+      if (!installed && hoverCleanup !== null) {
+        replayBarEntry();
+      }
       if ((context.options.trigger?.cancelPendingOpenOnPress === true) !== (pressCleanup !== null)) {
         uninstallPress();
         installPress();
@@ -4361,13 +4406,15 @@ function menuReleaseRulesSlot(record: SessionRecord): MenuReleaseSlot | null {
 interface MenuSessionState {
   hoverEnabled: boolean;
   allowMouseEnter: boolean;
+  /** A menubar's session: the entry sequence when one of its menus last opened, `Infinity` before any (issue 363). */
+  childOpenedSeq: number;
   /** Told when `hoverEnabled` changes, so a hover handle that requires it re-runs as on an `update`. */
   readonly gateListeners: Set<() => void>;
 }
 
 function menuSessionState(record: SessionRecord): MenuSessionState {
   return sessionSlot(record, 'menu', () => {
-    const state: MenuSessionState = { hoverEnabled: true, allowMouseEnter: false, gateListeners: new Set() };
+    const state: MenuSessionState = { hoverEnabled: true, allowMouseEnter: false, childOpenedSeq: Infinity, gateListeners: new Set() };
     record.events.on('openchange', (details: SessionOpenChangeDetails) => {
       if (details.open) {
         // MenuPositioner.tsx:134-140: a menu opening turns its parent menu's hover off.
@@ -4474,7 +4521,14 @@ function createMenuTriggerController(context: HandleContext): Controller {
   };
 
   const onMouseDown = () => {
-    if (menuOptions()?.release !== true || record.open) {
+    if (record.open) {
+      return;
+    }
+    // Issue 363: a bar trigger's press opens its menu through C# (`mouseDownAction`), so the press is the request.
+    if (menuOptions()?.keepArmedWhenClosed === true) {
+      noteBarMenuOpenRequest(record);
+    }
+    if (menuOptions()?.release !== true) {
       return;
     }
     // A press and a release over an item within 200 ms does not activate it.
@@ -4486,6 +4540,12 @@ function createMenuTriggerController(context: HandleContext): Controller {
 
   const onOpenChange = (details: SessionOpenChangeDetails) => {
     lastReason = details.reason;
+    // Issue 363: a bar menu's open that no request of the module made (C# opened it), for the replay a sibling trigger's
+    // hover enable makes; a requested one was noted at its request.
+    const parent = details.open && record.parentToken !== null ? sessions.get(record.parentToken) : undefined;
+    if (parent !== undefined && menuForestRoots.has(parent) && !barMenuOpenRequests.delete(record)) {
+      menuSessionState(parent).childOpenedSeq = hoverEntrySeq;
+    }
   };
 
   // Issue 363: the backdrop of this trigger's menu is cut at insertion from its first open (the `popup` module's own install
