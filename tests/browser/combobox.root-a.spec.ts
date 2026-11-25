@@ -236,17 +236,14 @@ test.describe('<Combobox.Root />', () => {
       await expect(banana).toHaveAttribute('data-highlighted', '');
     });
 
-    // Quarantined (ADR 11 §4) on Server until 2026-12-08, issue 346: failed twice in CI on Server (PR 286's run on
-    // 2026-11-19; main's run 45363681544 on 2026-11-24).
-    test('discards an uncommitted query on Escape and preserves the selection', {
-      tag: '@quarantine',
-      annotation: { type: 'open', description: 'https://github.com/JakeMurrayDev/Iodine.Headless/issues/346 (expires 2026-12-08)' },
-    }, async ({ page, mode }) => {
-      test.fixme(mode === 'server', 'Quarantined on Server until 2026-12-08 (issue 346)');
+    test('discards an uncommitted query on Escape and preserves the selection', async ({ page, mode }) => {
       const fixture = await gotoRoot(page, mode, { case: 'popup-input', items: 'Apple|Banana|Cherry', defaultValue: 'Apple', label: 'Fruits' });
 
       const trigger = page.getByTestId('trigger');
       await trigger.click();
+      // Base UI's `user.type` clicks the input first (issue 346): on Server the popup's node is `display: none` until its
+      // portal has moved it, so typing at once went to the trigger and the query never reached the input.
+      await input(page).click();
       await input(page).pressSequentially('ban');
       await expect(page.getByRole('option')).toHaveCount(1);
       await page.keyboard.press('Escape');
