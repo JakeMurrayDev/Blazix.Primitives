@@ -132,6 +132,79 @@ public sealed class ComboboxPopupLayerTests : IDisposable
         runtime.Release();
     }
 
+    // Issue 353's class, its follow-up 10-353a (design point 10-353a (a), chosen by the user 2026-11-25): the backdrop
+    // creates its transitions twin once its portal has moved the node; a close inside that round trip disposes it first.
+    [Fact(DisplayName = "port: a backdrop disposed while its portal's move is pending creates no transitions twin")]
+    [Trait("Requirement", "TRN-ALG-01")]
+    public async Task A_backdrop_disposed_while_its_portals_move_is_pending_creates_no_transitions_twin()
+    {
+        HeldAttachRuntime runtime = new(test.Context.JSInterop.JSRuntime, "portal.js");
+        test.Context.Services.AddSingleton<IJSRuntime>(runtime);
+        RenderFragment content = builder =>
+        {
+            builder.OpenComponent<ComboboxPortal>(0);
+            builder.AddAttribute(1, nameof(ComboboxPortal.ChildContent), (RenderFragment)(portal =>
+            {
+                portal.OpenComponent<ComboboxBackdrop>(0);
+                portal.AddAttribute(1, "data-testid", "backdrop");
+                portal.CloseComponent();
+            }));
+            builder.CloseComponent();
+        };
+        test.Context.Render<ComboboxRoot<string>>(p => p.Add(x => x.DefaultOpen, true).Add(x => x.ChildContent, content));
+        int transitions = runtime.Imports.Count(path => path.EndsWith("/transitions.js", StringComparison.Ordinal));
+
+        await test.Context.DisposeComponentsAsync();
+        runtime.Release();
+        await Task.Delay(100, Xunit.TestContext.Current.CancellationToken);
+
+        Assert.Equal(transitions, runtime.Imports.Count(path => path.EndsWith("/transitions.js", StringComparison.Ordinal)));
+    }
+
+    // 10-353a: the list attaches its composite and combobox handles once its portal has moved the node; a close inside that
+    // round trip disposes it first, and its disposed twin threw `ObjectDisposedException` at the late attach.
+    [Fact(DisplayName = "port: a list disposed while its portal's move is pending attaches nothing and throws nothing")]
+    [Trait("Requirement", "CMB-KEY-05")]
+    public async Task A_list_disposed_while_its_portals_move_is_pending_attaches_nothing_and_throws_nothing()
+    {
+        HeldAttachRuntime runtime = new(test.Context.JSInterop.JSRuntime, "portal.js");
+        test.Context.Services.AddSingleton<IJSRuntime>(runtime);
+        test.Context.Render<ComboboxHarness>(p => p.Add(x => x.RootParameters, new Dictionary<string, object?> { ["DefaultOpen"] = true }));
+        int composites = test.CompositeHandle.Invocations["attach"].Count;
+
+        await test.Context.DisposeComponentsAsync();
+        Task<Exception> unhandled = test.Context.Renderer.UnhandledException;
+        runtime.Release();
+        if (await Task.WhenAny(unhandled, Task.Delay(TimeSpan.FromMilliseconds(500), Xunit.TestContext.Current.CancellationToken)) == unhandled)
+        {
+            Exception caught = await unhandled;
+            Assert.Fail($"The renderer caught {caught.GetType().Name}: {caught.Message}");
+        }
+
+        Assert.Equal(composites, test.CompositeHandle.Invocations["attach"].Count);
+    }
+
+    // 10-353a: a render while the popup's transitions handle attaches found the twin created and its handle not yet set, so
+    // its options were dropped; with no later render the module kept the attach's (an open popup that had closed).
+    [Fact(DisplayName = "port: a close while the popup's transitions handle attaches reaches the module")]
+    [Trait("Requirement", "TRN-ALG-01")]
+    public async Task A_close_while_the_popups_transitions_handle_attaches_reaches_the_module()
+    {
+        BunitJSModuleInterop transitions = test.Context.JSInterop.SetupModule("./_content/Iodine.Headless/js/transitions.js");
+        BunitJSModuleInterop handle = transitions.SetupModule("attach", _ => true);
+        handle.SetupVoid("update", _ => true).SetVoidResult();
+        handle.SetupVoid("dispose", _ => true).SetVoidResult();
+        HeldAttachRuntime runtime = new(test.Context.JSInterop.JSRuntime, "transitions.js");
+        test.Context.Services.AddSingleton<IJSRuntime>(runtime);
+        IRenderedComponent<ComboboxHarness> cut = test.Context.Render<ComboboxHarness>(p => p.Add(x => x.RootParameters, new Dictionary<string, object?> { ["Open"] = true }));
+        await runtime.WaitForHeldAttachAsync(options => options.Contains("\"reportOpenComplete\":true", StringComparison.Ordinal));
+
+        cut.Render(p => p.Add(x => x.RootParameters, new Dictionary<string, object?> { ["Open"] = false }));
+        runtime.Release();
+
+        Assert.True(await HeldAttachRuntime.SentUpdateAsync(test.Context.Renderer.Dispatcher, handle, options => options.Contains("\"reportOpenComplete\":true", StringComparison.Ordinal) && options.Contains("\"open\":false", StringComparison.Ordinal)));
+    }
+
 #pragma warning restore BL0016
 
     private static void Arrow(RenderTreeBuilder builder)
