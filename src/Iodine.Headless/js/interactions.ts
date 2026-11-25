@@ -4524,8 +4524,10 @@ function createMenuTriggerController(context: HandleContext): Controller {
     if (record.open) {
       return;
     }
-    // Issue 363: a bar trigger's press opens its menu through C# (`mouseDownAction`), so the press is the request.
+    // Issue 363: a bar trigger's press opens its menu through C# (`mouseDownAction`), so the press is the request. The
+    // bar's session can register after this handle's attach, so it is marked here, before the note reads it.
     if (menuOptions()?.keepArmedWhenClosed === true) {
+      markForestRoot();
       noteBarMenuOpenRequest(record);
     }
     if (menuOptions()?.release !== true) {
@@ -4541,7 +4543,8 @@ function createMenuTriggerController(context: HandleContext): Controller {
   const onOpenChange = (details: SessionOpenChangeDetails) => {
     lastReason = details.reason;
     // Issue 363: a bar menu's open that no request of the module made (C# opened it), for the replay a sibling trigger's
-    // hover enable makes; a requested one was noted at its request.
+    // hover enable makes; a requested one was noted at its request. The bar's session can register after the attach.
+    markForestRoot();
     const parent = details.open && record.parentToken !== null ? sessions.get(record.parentToken) : undefined;
     if (parent !== undefined && menuForestRoots.has(parent) && !barMenuOpenRequests.delete(record)) {
       menuSessionState(parent).childOpenedSeq = hoverEntrySeq;
