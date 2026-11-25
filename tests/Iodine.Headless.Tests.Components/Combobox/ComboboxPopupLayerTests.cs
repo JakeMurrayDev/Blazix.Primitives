@@ -83,6 +83,9 @@ public sealed class ComboboxPopupLayerTests : IDisposable
         Assert.Equal("Iodine: `<ComboboxPopup>` and `<ComboboxArrow>` must be used within the `<ComboboxPositioner>` component.", error.Message);
     }
 
+    // The held runtime is a test double, not interop: the analyzer reads its members as JS interop calls.
+#pragma warning disable BL0016
+
     // Issue 353, issue 149's class: the popup creates its combobox and transitions twins once its portal has moved the node.
     // On Server a close inside that round trip disposes the popup first, and a twin created after the disposal attached to
     // the removed element: the module threw "no element for the reference" and the circuit ended.
@@ -99,18 +102,12 @@ public sealed class ComboboxPopupLayerTests : IDisposable
 
         await test.Context.DisposeComponentsAsync();
 
-        // The held runtime is a test double, not interop: the analyzer reads its members as JS interop calls.
-#pragma warning disable BL0016
         runtime.Release();
-#pragma warning restore BL0016
         await Task.Delay(100, Xunit.TestContext.Current.CancellationToken);
 
         Assert.Equal(combobox, runtime.Imports.Count(path => path.EndsWith("/combobox.js", StringComparison.Ordinal)));
         Assert.Equal(transitions, runtime.Imports.Count(path => path.EndsWith("/transitions.js", StringComparison.Ordinal)));
     }
-
-    // The held runtime is a test double, not interop: the analyzer reads its members as JS interop calls.
-#pragma warning disable BL0016
 
     // Issue 353: each render while the popup's first attach awaited the module created another combobox twin, which the
     // popup's disposal never reached. On Server such a twin's attach went out after a close had removed the element.

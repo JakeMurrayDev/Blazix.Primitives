@@ -173,25 +173,26 @@ test.describe('<Combobox.Input />', () => {
     // and the reconnect reloaded the page (DefaultValue "apple"). Here the client's object-reference replies (the module
     // imports and attaches) are held 300 ms on Server, so the close always lands inside the popup's first attach.
     test('port: a close inside the popup\'s first attach keeps the Server circuit', async ({ page, mode }) => {
+      // ADR 11 Amendments 2026-11-19 (issue 301): the circuit and its held replies exist on Server only; WebAssembly attaches
+      // inside the render, so the title proves nothing there.
+      test.skip(mode !== 'server', 'Server only: the held circuit replies have no WebAssembly counterpart');
       let held = 0;
-      if (mode === 'server') {
-        await page.routeWebSocket(/_blazor/, (socket) => {
-          const server = socket.connectToServer();
-          socket.onMessage((message) => {
-            const text = typeof message === 'string' ? message : message.toString('latin1');
-            if (!text.includes('__jsObjectId')) {
-              server.send(message);
-              return;
-            }
-            held += 1;
-            setTimeout(() => {
-              held -= 1;
-              server.send(message);
-            }, 300);
-          });
-          server.onMessage((message) => socket.send(message));
+      await page.routeWebSocket(/_blazor/, (socket) => {
+        const server = socket.connectToServer();
+        socket.onMessage((message) => {
+          const text = typeof message === 'string' ? message : message.toString('latin1');
+          if (!text.includes('__jsObjectId')) {
+            server.send(message);
+            return;
+          }
+          held += 1;
+          setTimeout(() => {
+            held -= 1;
+            server.send(message);
+          }, 300);
         });
-      }
+        server.onMessage((message) => socket.send(message));
+      });
       await goto(page, mode, 'escape-clear');
       await page.evaluate(() => {
         (window as unknown as { kept353: boolean }).kept353 = true;
