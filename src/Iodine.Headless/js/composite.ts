@@ -3439,11 +3439,14 @@ function floatingKeyDown(state: ListState, handle: ListHandle, dispatch: KeyDisp
     stopDispatch(dispatch);
     // CMP-KEY-24, CMP-EVT-08 (ADR 04 Amendments 2026-11-03 (3)): on WebAssembly C# runs the close inside `leave` and
     // answers whether it was canceled; on Server the close is requested and the focus returns (fallback run).
+    // Issue 297 (design point 10e-1 (a), chosen by the user 2026-11-25): the return element is read before the decision,
+    // as useListNavigation.ts:771-792 reads it in the same handler; on WebAssembly C#'s close inside `leave` unmounts the
+    // popup, and the unmount clears the active trigger the read falls back to (PSH-STA-45).
+    const returnElement = handle.returnFocusElement() ?? referenceElementOf(state, handle.session);
     const verdict = decide(handle.channel, LEAVE_POINT, event, 'run');
     if (!handle.channel.lastDecisionWasSynchronous) {
       requestOpen(handle, false, 'focus-out', event, null);
     }
-    const returnElement = handle.returnFocusElement() ?? referenceElementOf(state, handle.session);
     if (verdict === 'run' && isHTMLElement(returnElement)) {
       returnElement.focus();
     }
