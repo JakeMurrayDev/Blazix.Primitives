@@ -134,8 +134,13 @@ public sealed class ComboboxPopupLayerTests : IDisposable
 
     // Issue 353's class, its follow-up 10-353a (design point 10-353a (a), chosen by the user 2026-11-25): the backdrop
     // creates its transitions twin once its portal has moved the node; a close inside that round trip disposes it first.
+    // A coverage title (ADR 11 Amendments 2026-11-19; settled by the orchestrator 2026-11-25): red against the base locally
+    // (macOS, the red check's own command, 3 of 3), but CI's red check found it passing against the base in runs 45547738401,
+    // 45628315034 and 45629951784, and the cause on the runner is not known. Its red is the planted fault: the backdrop's
+    // `disposed` check after `WhenMoved` removed.
     [Fact(DisplayName = "port: a backdrop disposed while its portal's move is pending creates no transitions twin")]
     [Trait("Requirement", "TRN-ALG-01")]
+    [Trait("Coverage", "issue-353")]
     public async Task A_backdrop_disposed_while_its_portals_move_is_pending_creates_no_transitions_twin()
     {
         HeldAttachRuntime runtime = new(test.Context.JSInterop.JSRuntime, "portal.js");
