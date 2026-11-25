@@ -48,6 +48,8 @@ internal sealed class ComboboxFieldBehavior<TValue> : IDisposable
 
     private int observedSelection;
 
+    private int changeRevision;
+
     private string observedInput = string.Empty;
 
     private int boxedFor = -1;
@@ -280,16 +282,22 @@ internal sealed class ComboboxFieldBehavior<TValue> : IDisposable
         field.ClearErrors();
         field.SetDirty(IsDirty(none));
         participation.NotifyChanged();
-        field.Observe(ChangeAfterRefreshAsync(value));
+        field.Observe(ChangeAfterRefreshAsync(value, ++changeRevision));
     }
 
     // The element a blocked submission focuses: the input outside the popup, else the trigger.
     private static string? ControlId(ComboboxStoreState state) => state.InputInsidePopup ? state.ElementIds.Trigger : state.ElementIds.Input;
 
-    private async Task ChangeAfterRefreshAsync(object? value)
+    // Issue 309 (AUT-FRM-01): the refreshes pending until the form module's next report complete together, in no guaranteed
+    // order, so a change a later one overtook is dropped; the last value's change runs whatever the order (the revision rule
+    // of ADR 04 Amendments 2026-11-18, decision 6, in C#).
+    private async Task ChangeAfterRefreshAsync(object? value, int revision)
     {
         await refresh().ConfigureAwait(true);
-        field?.Validation.Change(value);
+        if (revision == changeRevision)
+        {
+            field?.Validation.Change(value);
+        }
     }
 
     private async Task CommitAfterRefreshAsync()
