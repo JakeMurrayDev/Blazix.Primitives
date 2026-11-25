@@ -896,6 +896,26 @@ describe('list highlight writer (port)', () => {
     expect(document.activeElement).toBe(harness.reference);
   });
 
+  // Issue 297 (design point 10e-1 (a), chosen by the user 2026-11-25): useListNavigation.ts:771-792 reads the return
+  // element and focuses it in the same keydown as the close; on WebAssembly C# runs the close, and unmounts the list,
+  // inside `leave`.
+  it('port: on WebAssembly a Shift+Tab close that runs inside leave still returns the focus to a trigger-role reference', async () => {
+    // A menubar's trigger is the list's trigger, not its reference: the return element is the session's anchor, which the
+    // close's unmount clears (PSH-STA-45).
+    const harness = app({ synchronous: true, unmountClearsTrigger: true, referenceExtra: { reference: undefined, trigger: {} } });
+
+    keyDown(harness.reference, 'ArrowDown');
+    await waitFor(() => {
+      expect(document.activeElement).toBe(harness.item(0));
+    });
+
+    keyDown(harness.item(0), 'Tab', { shiftKey: true });
+
+    expect(harness.decisions.map((decision) => decision.point)).toContain(LEAVE_POINT);
+    expect(harness.floating).toBeNull();
+    expect(document.activeElement).toBe(harness.reference);
+  });
+
   it('port: on WebAssembly a canceled Shift+Tab close leaves the focus where it was', async () => {
     const harness = app({
       synchronous: true,
