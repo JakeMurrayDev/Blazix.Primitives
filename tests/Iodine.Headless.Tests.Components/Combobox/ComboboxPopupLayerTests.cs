@@ -140,25 +140,31 @@ public sealed class ComboboxPopupLayerTests : IDisposable
     {
         HeldAttachRuntime runtime = new(test.Context.JSInterop.JSRuntime, "portal.js");
         test.Context.Services.AddSingleton<IJSRuntime>(runtime);
+        bool withBackdrop = true;
         RenderFragment content = builder =>
         {
             builder.OpenComponent<ComboboxPortal>(0);
             builder.AddAttribute(1, nameof(ComboboxPortal.ChildContent), (RenderFragment)(portal =>
             {
-                portal.OpenComponent<ComboboxBackdrop>(0);
-                portal.AddAttribute(1, "data-testid", "backdrop");
-                portal.CloseComponent();
+                if (withBackdrop)
+                {
+                    portal.OpenComponent<ComboboxBackdrop>(0);
+                    portal.AddAttribute(1, "data-testid", "backdrop");
+                    portal.CloseComponent();
+                }
             }));
             builder.CloseComponent();
         };
-        test.Context.Render<ComboboxRoot<string>>(p => p.Add(x => x.DefaultOpen, true).Add(x => x.ChildContent, content));
+        IRenderedComponent<ComboboxRoot<string>> cut = test.Context.Render<ComboboxRoot<string>>(p => p.Add(x => x.DefaultOpen, true).Add(x => x.ChildContent, content));
         int transitions = runtime.Imports.Count(path => path.EndsWith("/transitions.js", StringComparison.Ordinal));
 
-        await test.Context.DisposeComponentsAsync();
+        // The backdrop alone leaves while the portal stays, its move still held: the move completes only at the release
+        // (a whole-tree disposal completes it from the portal's own disposal, in an order that differs by runner).
+        withBackdrop = false;
+        cut.Render(p => p.Add(x => x.ChildContent, content));
+        Assert.Empty(cut.FindAll("[data-testid=backdrop]"));
         runtime.Release();
 
-        // Polled for two seconds, not slept: on a slow runner the late twin's import lands after any fixed wait, and the
-        // title then passed against the base (CI run 45547738401's red check).
         for (int poll = 0; poll < 200 && runtime.Imports.Count(path => path.EndsWith("/transitions.js", StringComparison.Ordinal)) == transitions; poll++)
         {
             await Task.Delay(10, Xunit.TestContext.Current.CancellationToken);
