@@ -70,8 +70,9 @@ export interface PopupHarness {
   /**
    * Commits a change C# started (a controlled flip, a handle's `OpenAsync`), relayed like any commit; `eventType` relays
    * the type of the event C# saw (a hover open's `mouseenter`), which the session records as a stand-in open event.
+   * `close.clearTrigger` plays a close whose render unmounts the popup, which clears the active trigger (PSH-STA-45).
    */
-  setOpen(open: boolean, reason?: string, triggerId?: string | null, eventType?: string): void;
+  setOpen(open: boolean, reason?: string, triggerId?: string | null, eventType?: string, close?: { clearTrigger?: boolean }): void;
   /**
    * Runs `changes` as one C# batch: the commits inside it send one session `update`, whose relay carries the last
    * change and, when a close preceded a final open, that close's revision and reason.
@@ -163,6 +164,11 @@ export function createPopupHarness(options: HarnessOptions = {}): PopupHarness {
     revision += 1;
     if (next && change.triggerId !== null) {
       activeTriggerId = change.triggerId;
+    }
+    // 2026-11-25, issue 297 (settled by the orchestrator 2026-11-25): PSH-STA-45 (popupStoreUtils.ts:586-595), the unmount
+    // clears the active trigger in the lifecycle's write; a close played with `clearTrigger` is such an unmount.
+    if (!next && payload.clearTrigger === true) {
+      activeTriggerId = null;
     }
     if (batching && !next) {
       batchClose = { revision, reason: change.reason };
@@ -293,9 +299,9 @@ export function createPopupHarness(options: HarnessOptions = {}): PopupHarness {
       activeTriggerId = element.id;
       sendSession();
     },
-    setOpen(next, reason = 'none', triggerId = null, eventType) {
+    setOpen(next, reason = 'none', triggerId = null, eventType, close) {
       const event = eventType === undefined ? null : { kind: 'MouseEvent', type: eventType, pointerType: 'mouse' };
-      commit({ open: next, reason, event, triggerId });
+      commit({ open: next, reason, event, triggerId, ...(close?.clearTrigger === true ? { clearTrigger: true } : {}) });
     },
     coalesce(run) {
       batching = true;
