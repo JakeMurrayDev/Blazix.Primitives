@@ -4481,6 +4481,14 @@ function createMenuTriggerController(context: HandleContext): Controller {
   let focusReturnedThroughGuard = false;
   const menuOptions = () => context.options.trigger?.menu ?? null;
 
+  // A menubar's trigger: the session its menu names as parent is the bar's, whose slot the bar's menus share.
+  const markForestRoot = () => {
+    const parent = menuOptions()?.keepArmedWhenClosed === true && record.parentToken !== null ? sessions.get(record.parentToken) : undefined;
+    if (parent !== undefined) {
+      menuForestRoots.add(parent);
+    }
+  };
+
   const onMouseMove = () => {
     const isActive = record.domReferenceElement === null || record.domReferenceElement === element;
     if (menuOptions()?.trackMouseEnter === true && isActive) {
@@ -4554,14 +4562,6 @@ function createMenuTriggerController(context: HandleContext): Controller {
   // Issue 363: the backdrop of this trigger's menu is cut at insertion from its first open (the `popup` module's own install
   // waits for its first attach).
   observeBackdropInsertions(ownerDocument(element));
-
-  // A menubar's trigger: the session its menu names as parent is the bar's, whose slot the bar's menus share.
-  const markForestRoot = () => {
-    const parent = menuOptions()?.keepArmedWhenClosed === true && record.parentToken !== null ? sessions.get(record.parentToken) : undefined;
-    if (parent !== undefined) {
-      menuForestRoots.add(parent);
-    }
-  };
 
   // The guard is observed on the positioner, as the trigger's focus event can report a shadow host as `relatedTarget`.
   const onGuardFocusOut = (event: FocusEvent) => {
