@@ -756,6 +756,13 @@ internal sealed class ComboboxPopupBehavior : IAsyncDisposable
             sentTransitions = options;
             transitionsHandle = await transitions.AttachAsync(element, options);
 
+            // Disposed while the attach was in flight: the handle is TwinBase's no-op (ADR 04 Amendments 2026-10-29, gap 17),
+            // so nothing more is read or sent.
+            if (disposed)
+            {
+                return;
+            }
+
             // 10-353a (design point 10-353a (a), chosen by the user 2026-11-25): a render during the attach found no handle and
             // sent nothing, so the options it would have sent (a close, say) go once the handle exists.
             options = TransitionsOptionsNow();
