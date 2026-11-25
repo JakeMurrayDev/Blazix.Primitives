@@ -3425,6 +3425,84 @@ describe('useHoverReferenceInteraction', () => {
       expect(first.popup.open).toBe(true);
       expect(second.popup.open).toBe(false);
     });
+
+    // Issue 363: a menubar's sibling trigger gets its hover with an update a round trip after a bar menu opened (Base UI
+    // commits both together); an entry recorded since that open runs then, and one from before it does not.
+    function bar(barSessionLast = false) {
+      const root = harness();
+      if (!barSessionLast) {
+        root.attachSession();
+      }
+      const menu = { rootId: 'root', release: true, keepArmedWhenClosed: true };
+      const barMenu = (name: string) => {
+        const popup = harness();
+        popup.attachSession({ session: { parentToken: root.token } });
+        const button = element('button', `${popup.token}-${name}`);
+        const handle = popup.attachTrigger(button, { trigger: { menu } });
+        const hoverOn = () => handle.update(JSON.stringify({ sessionToken: popup.token, trigger: { hover: { mouseOnly: true, move: false }, menu } }));
+        return { popup, button, hoverOn };
+      };
+      const menus = { file: barMenu('file'), edit: barMenu('edit') };
+      if (barSessionLast) {
+        root.attachSession();
+      }
+      return menus;
+    }
+
+    it('port: a bar trigger whose hover an update turns on runs an entry recorded since a menu of the bar opened', async () => {
+      tracked();
+      const { file, edit } = bar();
+      file.popup.setOpen(true, 'trigger-press', file.button.id);
+      enter(edit.button);
+
+      edit.hoverOn();
+      await vi.advanceTimersByTimeAsync(0);
+
+      expect(edit.popup.open).toBe(true);
+      expect(edit.popup.changes.at(-1)?.details.reason).toBe('trigger-hover');
+    });
+
+    it('port: a bar trigger whose hover an update turns on runs an entry recorded since a sibling bar trigger was pressed, before that menu\'s open arrives', async () => {
+      tracked();
+      const { file, edit } = bar();
+      // A bar trigger's press opens its menu through C# (`mouseDownAction`); the relay can reach the module after the
+      // sibling's update.
+      file.button.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, cancelable: true, button: 0 }));
+      enter(edit.button);
+
+      edit.hoverOn();
+      await vi.advanceTimersByTimeAsync(0);
+
+      expect(edit.popup.open).toBe(true);
+    });
+
+    it('port: a bar trigger whose hover an update turns on runs an entry recorded since a menu of the bar opened, when the bar\'s session attached after its triggers', async () => {
+      tracked();
+      // On Server the bar's triggers attach before the bar's own session, so the bar is known as a menubar only later.
+      const { file, edit } = bar(true);
+      file.popup.setOpen(true, 'trigger-press', file.button.id);
+      enter(edit.button);
+
+      edit.hoverOn();
+      await vi.advanceTimersByTimeAsync(0);
+
+      expect(edit.popup.open).toBe(true);
+      expect(edit.popup.changes.at(-1)?.details.reason).toBe('trigger-hover');
+    });
+
+    // The guard holds on the base too (no replay at an update there), so it is coverage; its red is the replay without the
+    // bound (ADR 11 Amendments 2026-11-19).
+    it('port: a bar trigger whose hover an update turns on leaves an entry recorded before the bar\'s menu opened', { tags: ['coverage'] }, async () => {
+      tracked();
+      const { file, edit } = bar();
+      enter(edit.button);
+      file.popup.setOpen(true, 'trigger-press', file.button.id);
+
+      edit.hoverOn();
+      await vi.advanceTimersByTimeAsync(0);
+
+      expect(edit.popup.open).toBe(false);
+    });
   });
 
   describe('hover semantics', () => {

@@ -1,5 +1,5 @@
-import { type CDPSession, type Locator } from '@playwright/test';
-import { advanceTime, delayCircuit, expect, Fixture, isScrollLocked, test, type Page, type RenderMode } from './helpers';
+import { type CDPSession, type Locator, type Route } from '@playwright/test';
+import { advanceTime, delayCircuit, delayCircuitMessages, expect, Fixture, isScrollLocked, test, type Page, type RenderMode } from './helpers';
 import { center, clickThrough, moveTo, parkPointer } from './menu.helpers';
 import { gotoPopupFixture, settle, type PopupFixtureOptions } from './suites/popupFixture';
 
@@ -249,6 +249,24 @@ test.describe('<Menubar />', () => {
       await expect(page.getByTestId('share-menu').getByRole('menu')).toHaveAttribute('data-rootownerid', barId!);
     });
 
+    test('port: a sibling trigger hovers open as soon as a bar menu shows open', async ({ page, mode }) => {
+      // MBR-PTR-04 (issue 363): Base UI commits the bar's flag and the triggers' hover together, so a pointer
+      // entering a sibling once the menu shows opens it. On Server the client's render acknowledgements are held 500 ms,
+      // which holds every after-render: the sibling's hover must not wait for its own. WebAssembly has no such window, so
+      // the title would pass there on the base too (ADR 11 Amendments 2026-11-19).
+      test.skip(mode !== 'server', 'the round trip exists on Server only');
+      await delayCircuitMessages(page, SERVER_DELAY_MS, 'OnRenderCompleted', 500);
+      await parkPointer(page);
+      await gotoPopupFixture(page, mode, FIXTURE);
+      await page.getByTestId('file-trigger').click();
+      await expect(page.getByTestId('file-menu')).toBeVisible();
+      await expect(page.getByRole('menubar')).toHaveAttribute('data-has-submenu-open', '');
+
+      await moveTo(page, page.getByTestId('edit-trigger'));
+
+      await expect(page.getByTestId('edit-menu')).toBeVisible();
+    });
+
     test('port: a bar trigger renders no focus guards, closed or open', async ({ page, mode }) => {
       // MBR-DOM-07. A trigger's guards carry no `data-type`; the open menu's portal keeps its `outside` guards around its
       // owner in the bar, as Base UI's FloatingPortal does.
@@ -338,6 +356,10 @@ test.describe('<Menubar />', () => {
       const fixture = await render(page, mode);
       await page.getByTestId('file-trigger').click();
       await expect(page.getByTestId('file-menu')).toBeVisible();
+      // Issue 367 (2026-11-25, design point 10-363a (1), chosen by the user): on Server the menu is cut out of its backdrop
+      // before its popup takes the initial focus, and a blur of the trigger in that window closes it with `trigger-focus`;
+      // the title acts once the popup has the focus, as in Base UI.
+      await expect(page.getByTestId('file-menu').getByRole('menu')).toBeFocused();
 
       const hitAt = async (target: Locator) => {
         const { x, y } = await center(target);
@@ -352,6 +374,38 @@ test.describe('<Menubar />', () => {
       await clickThrough(page, page.getByTestId('before'));
       await expect(page.getByTestId('file-menu')).toHaveCount(0);
       await expect(fixture).toHaveAttribute('data-file-changes', /(^| )false:outside-press$/);
+    });
+
+    test('port: with js/popup.js stalled the first bar menu of a page is cut out of its backdrop at insertion', async ({ page, mode }) => {
+      // MBR-DOM-08, PSH-ALG-21 (issue 363; issue 242's residual): the `popup` module installs the document's backdrop
+      // observer at its first attach, so the page's first menu, inserted before that module has loaded, was cut only at its
+      // positioner's attach. The menu trigger's handle, attached before any open, installs the observer too.
+      const held: Route[] = [];
+      let hits = 0;
+      let released = false;
+      await page.route(/\/_content\/Iodine\.Headless\/js\/popup(\.[0-9a-z]+)?\.js$/, (route) => {
+        hits += 1;
+        return released ? route.continue() : held.push(route);
+      });
+      await render(page, mode);
+      await page.getByTestId('file-trigger').click();
+      await expect(page.getByTestId('file-menu')).toBeAttached();
+      await expect.poll(() => hits).toBeGreaterThan(0);
+
+      const edit = await center(page.getByTestId('edit-trigger'));
+      const at = (point: { x: number; y: number }) => page.evaluate(({ x, y }) => {
+        const element = document.elementFromPoint(x, y);
+        return element?.getAttribute('data-testid') ?? element?.getAttribute('role') ?? element?.tagName ?? '';
+      }, point);
+      await expect.poll(() => at(edit)).toBe('edit-trigger');
+      expect(held.length).toBeGreaterThan(0);
+
+      released = true;
+      for (const route of held.splice(0)) {
+        await route.continue();
+      }
+      await expect(page.getByTestId('file-menu')).toBeVisible();
+      await expect.poll(() => at(edit)).toBe('edit-trigger');
     });
 
     test('port: a bar menu of a modal bar marks nothing outside it', async ({ page, mode }) => {
@@ -402,6 +456,10 @@ test.describe('<Menubar />', () => {
       await render(page, mode, { cancelSibling: true });
       await page.getByTestId('file-trigger').click();
       await expect(page.getByTestId('file-menu')).toBeVisible();
+      // Issue 367 (2026-11-25, design point 10-363a (1), chosen by the user): on Server the menu is cut out of its backdrop
+      // before its popup takes the initial focus, and a blur of the trigger in that window closes it with `trigger-focus`;
+      // the title acts once the popup has the focus, as in Base UI.
+      await expect(page.getByTestId('file-menu').getByRole('menu')).toBeFocused();
 
       await moveTo(page, page.getByTestId('edit-trigger'));
       await expect(page.getByTestId('edit-menu')).toBeVisible();
@@ -630,14 +688,7 @@ test.describe('<Menubar />', () => {
       });
     });
 
-    // Quarantined (ADR 11 §4) on Server until 2026-12-08, issue 363: failed in CI on Server at the second
-    // `moveTo(editTrigger)`, where edit-menu was not visible (main 2849011f, a rerun passed; main 9b0edf54; PR 361's run
-    // 45446358550; PR 362's run 45447983700). Suspected: PR 360. Diagnosis and lift: track 10, by 2026-12-08.
-    test('correctly opens new menu on hover after clicking on its trigger and entering from hover (#2222)', {
-      tag: ['@quarantine'],
-      annotation: { type: 'open', description: 'https://github.com/JakeMurrayDev/Iodine.Headless/issues/363 (expires 2026-12-08)' },
-    }, async ({ page, mode }) => {
-      test.fixme(mode === 'server', 'Quarantined on Server until 2026-12-08 (issue 363)');
+    test('correctly opens new menu on hover after clicking on its trigger and entering from hover (#2222)', async ({ page, mode }) => {
       await render(page, mode);
       const fileTrigger = page.getByTestId('file-trigger');
       const editTrigger = page.getByTestId('edit-trigger');
