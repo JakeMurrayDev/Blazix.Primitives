@@ -1,5 +1,5 @@
 import { type CDPSession, type Locator, type Route } from '@playwright/test';
-import { advanceTime, delayCircuit, expect, Fixture, isScrollLocked, test, type Page, type RenderMode } from './helpers';
+import { advanceTime, delayCircuit, delayCircuitMessages, expect, Fixture, isScrollLocked, test, type Page, type RenderMode } from './helpers';
 import { center, clickThrough, moveTo, parkPointer } from './menu.helpers';
 import { gotoPopupFixture, settle, type PopupFixtureOptions } from './suites/popupFixture';
 
@@ -247,6 +247,24 @@ test.describe('<Menubar />', () => {
 
       await expect(page.getByTestId('file-menu').getByRole('menu').first()).toHaveAttribute('data-rootownerid', barId!);
       await expect(page.getByTestId('share-menu').getByRole('menu')).toHaveAttribute('data-rootownerid', barId!);
+    });
+
+    test('port: a sibling trigger hovers open as soon as a bar menu shows open', async ({ page, mode }) => {
+      // MBR-PTR-04 (issue 363): Base UI commits the bar's flag and the triggers' hover together, so a pointer
+      // entering a sibling once the menu shows opens it. On Server the client's render acknowledgements are held 500 ms,
+      // which holds every after-render: the sibling's hover must not wait for its own. WebAssembly has no such window, so
+      // the title would pass there on the base too (ADR 11 Amendments 2026-11-19).
+      test.skip(mode !== 'server', 'the round trip exists on Server only');
+      await delayCircuitMessages(page, SERVER_DELAY_MS, 'OnRenderCompleted', 500);
+      await parkPointer(page);
+      await gotoPopupFixture(page, mode, FIXTURE);
+      await page.getByTestId('file-trigger').click();
+      await expect(page.getByTestId('file-menu')).toBeVisible();
+      await expect(page.getByRole('menubar')).toHaveAttribute('data-has-submenu-open', '');
+
+      await moveTo(page, page.getByTestId('edit-trigger'));
+
+      await expect(page.getByTestId('edit-menu')).toBeVisible();
     });
 
     test('port: a bar trigger renders no focus guards, closed or open', async ({ page, mode }) => {
