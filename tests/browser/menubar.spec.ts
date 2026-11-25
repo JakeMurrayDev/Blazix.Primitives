@@ -630,7 +630,14 @@ test.describe('<Menubar />', () => {
       });
     });
 
-    test('correctly opens new menu on hover after clicking on its trigger and entering from hover (#2222)', async ({ page, mode }) => {
+    // Quarantined (ADR 11 §4) on Server until 2026-12-08, issue 363: failed in CI on Server at the second
+    // `moveTo(editTrigger)`, where edit-menu was not visible (main 2849011f, a rerun passed; main 9b0edf54; PR 361's run
+    // 45446358550; PR 362's run 45447983700). Suspected: PR 360. Diagnosis and lift: track 10, by 2026-12-08.
+    test('correctly opens new menu on hover after clicking on its trigger and entering from hover (#2222)', {
+      tag: ['@quarantine'],
+      annotation: { type: 'open', description: 'https://github.com/JakeMurrayDev/Iodine.Headless/issues/363 (expires 2026-12-08)' },
+    }, async ({ page, mode }) => {
+      test.fixme(mode === 'server', 'Quarantined on Server until 2026-12-08 (issue 363)');
       await render(page, mode);
       const fileTrigger = page.getByTestId('file-trigger');
       const editTrigger = page.getByTestId('edit-trigger');

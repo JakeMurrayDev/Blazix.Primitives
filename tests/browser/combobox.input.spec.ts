@@ -139,14 +139,7 @@ test.describe('<Combobox.Input />', () => {
       await expect(listbox(page)).toBeVisible();
     });
 
-    // Quarantined (ADR 11 §4) on Server until 2026-12-08, issue 353: failed twice in CI on Server (PR 325's run of
-    // 2026-11-19, `browser-server (2)`, a CI-only change; PR 351's run 45383218319, `browser-server (1)`, `Expected: ""`,
-    // `Received: "apple"`: the first Escape's clear had not landed). Diagnosis and lift: track 10, by 2026-12-08.
-    test('should move focus to clear button when pressing Escape and popup is closed', {
-      tag: ['@quarantine'],
-      annotation: { type: 'open', description: 'https://github.com/JakeMurrayDev/Iodine.Headless/issues/353 (expires 2026-12-08)' },
-    }, async ({ page, mode }) => {
-      test.fixme(mode === 'server', 'Quarantined on Server until 2026-12-08 (issue 353)');
+    test('should move focus to clear button when pressing Escape and popup is closed', async ({ page, mode }) => {
       await goto(page, mode, 'escape-clear');
 
       await input(page).focus();
@@ -172,6 +165,54 @@ test.describe('<Combobox.Input />', () => {
 
       await input(page).press('Escape');
       await expect(input(page)).toHaveValue('');
+    });
+
+    // Issue 353: the title above failed on Server with "apple" after its last Escape. Each popup render while the popup's
+    // first attach awaited its module created another twin, which the popup's disposal never reached; a close then removed
+    // the element before such a twin's attach went out, the module threw "no element for the reference", the circuit ended
+    // and the reconnect reloaded the page (DefaultValue "apple"). Here the client's object-reference replies (the module
+    // imports and attaches) are held 300 ms on Server, so the close always lands inside the popup's first attach.
+    test('port: a close inside the popup\'s first attach keeps the Server circuit', async ({ page, mode }) => {
+      // ADR 11 Amendments 2026-11-19 (issue 301): the circuit and its held replies exist on Server only; WebAssembly attaches
+      // inside the render, so the title proves nothing there.
+      test.skip(mode !== 'server', 'Server only: the held circuit replies have no WebAssembly counterpart');
+      let held = 0;
+      await page.routeWebSocket(/_blazor/, (socket) => {
+        const server = socket.connectToServer();
+        socket.onMessage((message) => {
+          const text = typeof message === 'string' ? message : message.toString('latin1');
+          if (!text.includes('__jsObjectId')) {
+            server.send(message);
+            return;
+          }
+          held += 1;
+          setTimeout(() => {
+            held -= 1;
+            server.send(message);
+          }, 300);
+        });
+        server.onMessage((message) => socket.send(message));
+      });
+      await goto(page, mode, 'escape-clear');
+      await page.evaluate(() => {
+        (window as unknown as { kept353: boolean }).kept353 = true;
+      });
+
+      await input(page).focus();
+      await input(page).press('Escape');
+      await expect(input(page)).toHaveValue('');
+      await input(page).pressSequentially('a');
+      await expect(listbox(page)).toBeAttached();
+      await input(page).press('Escape');
+      await expect(input(page)).toHaveAttribute('aria-expanded', 'false');
+      // Every held reply has reached the server, so every attach the popup started has gone out.
+      await expect.poll(() => held).toBe(0);
+
+      await input(page).pressSequentially('b');
+      await expect(listbox(page)).toBeVisible();
+      await page.getByRole('option', { name: 'banana' }).click();
+      await expect(input(page)).toHaveValue('banana');
+      expect(await page.evaluate(() => (window as unknown as { kept353?: boolean }).kept353)).toBe(true);
     });
 
     test('pressing Home moves caret to start', async ({ page, mode }) => {

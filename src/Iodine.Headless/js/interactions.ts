@@ -4591,17 +4591,28 @@ function createMenuFloatingController(context: HandleContext): Controller {
   // The menu's own popup, whose items are this menu's (a nested popup inside the floating element has its own).
   const ownPopup = (): Element | null => (floatingElement.matches('[data-rootownerid]') ? floatingElement : floatingElement.querySelector('[data-rootownerid]'));
 
-  // useMenuItemCommonProps.ts:89-101: the item's move first, then the popup's (React's bubbling order).
-  const onMouseMove = (event: MouseEvent) => {
+  // useMenuItemCommonProps.ts:89-101: the item's move tells the tree. Issue 296 (MNU-PTR-11): in the capture phase, so
+  // the tree hears it before the list's own `mousemove` (a listener of the popup inside this element) moves the hover
+  // focus. Base UI runs both in one React dispatch, so a submenu the move closes with `sibling-open` is closed before the
+  // focus-out its focus manager queues runs; here the browser runs microtasks between the two listeners.
+  const onItemMouseMove = (event: MouseEvent) => {
     const options = menuOptions();
-    if (options === null) {
+    if (options === null || options.itemHover !== true) {
       return;
     }
     const target = getTarget(event);
-    const item = options.itemHover === true && isElement(target) ? target.closest(MENU_ITEM_SELECTOR) : null;
+    const item = isElement(target) ? target.closest(MENU_ITEM_SELECTOR) : null;
     if (item !== null && contains(floatingElement, item) && item.closest('[data-rootownerid]') === ownPopup()) {
       const hover: MenuItemHoverEvent = { nodeId: record.token, target: item };
       record.tree.events.emit('itemhover', hover);
+    }
+  };
+
+  // MenuRoot.tsx:665-690: then the popup's move (React's bubbling order).
+  const onMouseMove = () => {
+    const options = menuOptions();
+    if (options === null) {
+      return;
     }
     const state = menuSessionState(record);
     state.allowMouseEnter = true;
@@ -4693,6 +4704,7 @@ function createMenuFloatingController(context: HandleContext): Controller {
   record.events.on('openchange', onOpenChange);
   const stopListening = onSessionChange(record, syncTreeEvents);
   const cleanup = mergeCleanups(
+    listen(floatingElement, 'mousemove', onItemMouseMove, true),
     listen(floatingElement, 'mousemove', onMouseMove),
     listen(floatingElement, 'click', onClick),
     listen(floatingElement, 'mouseup', onMouseUp),
