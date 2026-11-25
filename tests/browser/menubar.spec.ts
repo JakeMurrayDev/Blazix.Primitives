@@ -1,4 +1,4 @@
-import { type CDPSession, type Locator } from '@playwright/test';
+import { type CDPSession, type Locator, type Route } from '@playwright/test';
 import { advanceTime, delayCircuit, expect, Fixture, isScrollLocked, test, type Page, type RenderMode } from './helpers';
 import { center, clickThrough, moveTo, parkPointer } from './menu.helpers';
 import { gotoPopupFixture, settle, type PopupFixtureOptions } from './suites/popupFixture';
@@ -338,6 +338,10 @@ test.describe('<Menubar />', () => {
       const fixture = await render(page, mode);
       await page.getByTestId('file-trigger').click();
       await expect(page.getByTestId('file-menu')).toBeVisible();
+      // Issue 367 (2026-11-25, design point 10-363a (1), chosen by the user): on Server the menu is cut out of its backdrop
+      // before its popup takes the initial focus, and a blur of the trigger in that window closes it with `trigger-focus`;
+      // the title acts once the popup has the focus, as in Base UI.
+      await expect(page.getByTestId('file-menu').getByRole('menu')).toBeFocused();
 
       const hitAt = async (target: Locator) => {
         const { x, y } = await center(target);
@@ -352,6 +356,38 @@ test.describe('<Menubar />', () => {
       await clickThrough(page, page.getByTestId('before'));
       await expect(page.getByTestId('file-menu')).toHaveCount(0);
       await expect(fixture).toHaveAttribute('data-file-changes', /(^| )false:outside-press$/);
+    });
+
+    test('port: with js/popup.js stalled the first bar menu of a page is cut out of its backdrop at insertion', async ({ page, mode }) => {
+      // MBR-DOM-08, PSH-ALG-21 (issue 363; issue 242's residual): the `popup` module installs the document's backdrop
+      // observer at its first attach, so the page's first menu, inserted before that module has loaded, was cut only at its
+      // positioner's attach. The menu trigger's handle, attached before any open, installs the observer too.
+      const held: Route[] = [];
+      let hits = 0;
+      let released = false;
+      await page.route(/\/_content\/Iodine\.Headless\/js\/popup(\.[0-9a-z]+)?\.js$/, (route) => {
+        hits += 1;
+        return released ? route.continue() : held.push(route);
+      });
+      await render(page, mode);
+      await page.getByTestId('file-trigger').click();
+      await expect(page.getByTestId('file-menu')).toBeAttached();
+      await expect.poll(() => hits).toBeGreaterThan(0);
+
+      const edit = await center(page.getByTestId('edit-trigger'));
+      const at = (point: { x: number; y: number }) => page.evaluate(({ x, y }) => {
+        const element = document.elementFromPoint(x, y);
+        return element?.getAttribute('data-testid') ?? element?.getAttribute('role') ?? element?.tagName ?? '';
+      }, point);
+      await expect.poll(() => at(edit)).toBe('edit-trigger');
+      expect(held.length).toBeGreaterThan(0);
+
+      released = true;
+      for (const route of held.splice(0)) {
+        await route.continue();
+      }
+      await expect(page.getByTestId('file-menu')).toBeVisible();
+      await expect.poll(() => at(edit)).toBe('edit-trigger');
     });
 
     test('port: a bar menu of a modal bar marks nothing outside it', async ({ page, mode }) => {
@@ -402,6 +438,10 @@ test.describe('<Menubar />', () => {
       await render(page, mode, { cancelSibling: true });
       await page.getByTestId('file-trigger').click();
       await expect(page.getByTestId('file-menu')).toBeVisible();
+      // Issue 367 (2026-11-25, design point 10-363a (1), chosen by the user): on Server the menu is cut out of its backdrop
+      // before its popup takes the initial focus, and a blur of the trigger in that window closes it with `trigger-focus`;
+      // the title acts once the popup has the focus, as in Base UI.
+      await expect(page.getByTestId('file-menu').getByRole('menu')).toBeFocused();
 
       await moveTo(page, page.getByTestId('edit-trigger'));
       await expect(page.getByTestId('edit-menu')).toBeVisible();
