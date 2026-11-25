@@ -195,6 +195,14 @@ internal sealed class ComboboxBackdropBehavior : IAsyncDisposable
         }
 
         await PopupPortalContext.WhenMoved(portal);
+
+        // Issue 149's class (design point 10-353a (a), chosen by the user 2026-11-25): on Server a close inside the move's
+        // round trip disposes the backdrop first, and a twin created then would attach to the removed element.
+        if (disposed)
+        {
+            return;
+        }
+
         PopupLifecycleState lifecycle = Store.Lifecycle;
         TransitionsOptions options = new() { Open = lifecycle.EffectiveOpen, Mounted = lifecycle.Mounted, Status = lifecycle.DerivedTransitionStatus, OpenSelector = "[data-open]" };
         if (transitions is null)
@@ -739,8 +747,38 @@ internal sealed class ComboboxPopupBehavior : IAsyncDisposable
 
     private async Task SyncTransitionsAsync(ElementReference element)
     {
+        TransitionsOptions options = TransitionsOptionsNow();
+        if (transitions is null)
+        {
+            transitions = new TransitionsTwin(services.JSRuntime);
+            transitions.StatusChanged += change => Store.MirrorStatus(change.Status);
+            transitions.TransitionCompleted += opened => _ = Observe(services.InvokeAsync(() => Store.CompleteTransitionAsync(opened)));
+            sentTransitions = options;
+            transitionsHandle = await transitions.AttachAsync(element, options);
+
+            // Disposed while the attach was in flight: the handle is TwinBase's no-op (ADR 04 Amendments 2026-10-29, gap 17),
+            // so nothing more is read or sent.
+            if (disposed)
+            {
+                return;
+            }
+
+            // 10-353a (design point 10-353a (a), chosen by the user 2026-11-25): a render during the attach found no handle and
+            // sent nothing, so the options it would have sent (a close, say) go once the handle exists.
+            options = TransitionsOptionsNow();
+        }
+
+        if (transitionsHandle is not null && options != sentTransitions)
+        {
+            sentTransitions = options;
+            await transitionsHandle.UpdateAsync(options);
+        }
+    }
+
+    private TransitionsOptions TransitionsOptionsNow()
+    {
         PopupLifecycleState lifecycle = Store.Lifecycle;
-        TransitionsOptions options = new()
+        return new()
         {
             Open = lifecycle.EffectiveOpen,
             Mounted = lifecycle.Mounted,
@@ -750,21 +788,6 @@ internal sealed class ComboboxPopupBehavior : IAsyncDisposable
             UnmountRequests = lifecycle.UnmountRequests,
             DisableTransitionWhileStarting = true,
         };
-        if (transitions is null)
-        {
-            transitions = new TransitionsTwin(services.JSRuntime);
-            transitions.StatusChanged += change => Store.MirrorStatus(change.Status);
-            transitions.TransitionCompleted += opened => _ = Observe(services.InvokeAsync(() => Store.CompleteTransitionAsync(opened)));
-            sentTransitions = options;
-            transitionsHandle = await transitions.AttachAsync(element, options);
-            return;
-        }
-
-        if (transitionsHandle is not null && options != sentTransitions)
-        {
-            sentTransitions = options;
-            await transitionsHandle.UpdateAsync(options);
-        }
     }
 
     private async Task SyncTwinAsync(ElementReference element)
