@@ -21,6 +21,52 @@ public sealed class AutocompleteFieldTests : IDisposable
     /// <inheritdoc />
     public void Dispose() => test.Dispose();
 
+    // Issue 309 (AUT-FRM-01): each keystroke's change is validated after the hidden input's refresh. The refreshes pending
+    // until the form module's next report complete together, in no guaranteed order (on WebAssembly a stale value's
+    // continuation ran last), and the last `Change` wins: the field showed an older value's result. The refreshes here
+    // complete in reverse; the field must end on the last typed value.
+    [Fact(DisplayName = "port: keystroke validations whose refreshes complete out of order end on the last typed value")]
+    [Trait("Requirement", "AUT-FRM-01")]
+    public async Task Keystroke_validations_whose_refreshes_complete_out_of_order_end_on_the_last_typed_value()
+    {
+        IRenderedComponent<AutocompleteRoot<string>> cut = test.Context.Render<AutocompleteRoot<string>>();
+        ComboboxStore<string> store = cut.Instance.Store;
+        List<string?> validated = [];
+        using FieldRootContext field = new("base-ui-1", new DefaultFormScope(), TimeProvider.System, action => { action(); return Task.CompletedTask; }, _ => Task.CompletedTask);
+        field.SetParameters(null, false, false, null, null, args =>
+        {
+            validated.Add(args.Value as string);
+            return ValueTask.FromResult<FieldValidationResult?>(null);
+        }, ValidationMode.OnChange, 0);
+        List<TaskCompletionSource> refreshes = [];
+        ComboboxFieldBehavior<string> behavior = new(store, () => store.State.InputValue, () => { }, () =>
+        {
+            TaskCompletionSource refresh = new(TaskCreationOptions.RunContinuationsAsynchronously);
+            refreshes.Add(refresh);
+            return refresh.Task;
+        });
+        behavior.Apply(field, null, null, new ComboboxRootInputs<string> { SelectionMode = ComboboxSelectionMode.None });
+        await cut.InvokeAsync(() => behavior.AfterRender(null, null, null));
+
+        foreach (string text in new[] { "t", "tw", "two" })
+        {
+            await cut.InvokeAsync(async () =>
+            {
+                await store.SetInputValueAsync(text, new ChangeEventDetails(EventReason.InputChange), typed: true);
+                behavior.AfterRender(null, null, null);
+            });
+        }
+
+        Assert.Equal(3, refreshes.Count);
+        for (int index = refreshes.Count - 1; index >= 0; index--)
+        {
+            await cut.InvokeAsync(refreshes[index].SetResult);
+            await cut.InvokeAsync(() => Task.Delay(20, Xunit.TestContext.Current.CancellationToken));
+        }
+
+        Assert.Equal("two", validated[^1]);
+    }
+
     [Fact(DisplayName = "Field.Label")]
     [Trait("Requirement", "AUT-FRM-07")]
     public void Field_label_points_at_the_input()
