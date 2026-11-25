@@ -156,7 +156,13 @@ public sealed class ComboboxPopupLayerTests : IDisposable
 
         await test.Context.DisposeComponentsAsync();
         runtime.Release();
-        await Task.Delay(100, Xunit.TestContext.Current.CancellationToken);
+
+        // Polled for two seconds, not slept: on a slow runner the late twin's import lands after any fixed wait, and the
+        // title then passed against the base (CI run 45547738401's red check).
+        for (int poll = 0; poll < 200 && runtime.Imports.Count(path => path.EndsWith("/transitions.js", StringComparison.Ordinal)) == transitions; poll++)
+        {
+            await Task.Delay(10, Xunit.TestContext.Current.CancellationToken);
+        }
 
         Assert.Equal(transitions, runtime.Imports.Count(path => path.EndsWith("/transitions.js", StringComparison.Ordinal)));
     }
@@ -175,7 +181,7 @@ public sealed class ComboboxPopupLayerTests : IDisposable
         await test.Context.DisposeComponentsAsync();
         Task<Exception> unhandled = test.Context.Renderer.UnhandledException;
         runtime.Release();
-        if (await Task.WhenAny(unhandled, Task.Delay(TimeSpan.FromMilliseconds(500), Xunit.TestContext.Current.CancellationToken)) == unhandled)
+        if (await Task.WhenAny(unhandled, Task.Delay(TimeSpan.FromSeconds(2), Xunit.TestContext.Current.CancellationToken)) == unhandled)
         {
             Exception caught = await unhandled;
             Assert.Fail($"The renderer caught {caught.GetType().Name}: {caught.Message}");
