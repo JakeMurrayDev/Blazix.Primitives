@@ -444,6 +444,8 @@ internal sealed class ComboboxPopupBehavior : IAsyncDisposable
 
     private readonly FocusManagerBehavior focus;
 
+    private readonly ComboboxHandleSync<ComboboxTwin, ComboboxOptions> twinSync = new();
+
     private ComboboxStore? store;
 
     private PositionerContext? positioner;
@@ -457,9 +459,6 @@ internal sealed class ComboboxPopupBehavior : IAsyncDisposable
     private TransitionsOptions? sentTransitions;
 
     private ComboboxTwin? twin;
-
-    private TwinHandle<ComboboxOptions>? twinHandle;
-    private ComboboxOptions? sentTwinOptions;
 
     private IDisposable? boundaryPart;
 
@@ -637,7 +636,13 @@ internal sealed class ComboboxPopupBehavior : IAsyncDisposable
         if (element is { } target)
         {
             await PopupPortalContext.WhenMoved(portal);
-            await Task.WhenAll(SyncTransitionsAsync(target), SyncTwinAsync(target));
+
+            // Issue 149's class (issue 353): on Server a close inside the move's round trip disposes the popup first, and a
+            // twin created then would attach to the removed element ("no element for the reference" ends the circuit).
+            if (!disposed)
+            {
+                await Task.WhenAll(SyncTransitionsAsync(target), SyncTwinAsync(target));
+            }
         }
 
         await focusSync;
@@ -774,22 +779,18 @@ internal sealed class ComboboxPopupBehavior : IAsyncDisposable
             TouchOpened = state.Lifecycle.OpenMethod == InteractionType.Touch,
             DismissId = state.ElementIds.EndDismiss,
         };
-        if (twinHandle is null)
+        // Issue 353: a render while the first attach awaits the module created another twin here, which the disposal never
+        // reached; its attach then went out after a close had removed the element and ended the circuit on Server. One twin,
+        // attached once, as the input's and the list's.
+        if (twin is null)
         {
             // ComboboxInternalDismissButton.tsx:28: close-press with the button as its trigger.
             twin = new ComboboxTwin(services.JSRuntime);
             twin.DismissPressed += snapshot => _ = Observe(services.InvokeAsync(
                 () => Store.RequestOpenAsync(false, new OpenChangeEventDetails(EventReason.ClosePress, snapshot, new EventTrigger(Store.State.ElementIds.EndDismiss, null)))));
-            sentTwinOptions = options;
-            twinHandle = await twin.AttachAsync(element, options);
-            return;
         }
 
-        if (options != sentTwinOptions)
-        {
-            sentTwinOptions = options;
-            await twinHandle.UpdateAsync(options);
-        }
+        await twinSync.SyncAsync(twin, element, options);
     }
 
     private async Task Observe(Task task)
