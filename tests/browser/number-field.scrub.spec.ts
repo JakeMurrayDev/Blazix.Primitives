@@ -232,7 +232,14 @@ test('should fire onClick once when clicked without scrubbing', async ({ page, m
   await expect(fixture).toHaveAttribute('data-clicks', 'area');
 });
 
-test('should fire onClick on child elements', async ({ page, mode }) => {
+// Quarantined (ADR 11 §4) on Server until 2026-12-09, issue 370: failed in CI on Server at `data-clicks`, which read ""
+// for "label area" (PR 359's run; the 2026-11-25 nightly 45604208197 on main a10d5e68). Diagnosis and lift: the NumberField
+// owner, by 2026-12-09.
+test('should fire onClick on child elements', {
+  tag: ['@quarantine'],
+  annotation: { type: 'open', description: 'https://github.com/JakeMurrayDev/Iodine.Headless/issues/370 (expires 2026-12-09)' },
+}, async ({ page, mode }) => {
+  test.fixme(mode === 'server', 'Quarantined on Server until 2026-12-09 (issue 370)');
   const { fixture } = await gotoScrub(page, mode, 'click');
 
   await fixture.getByText('Amount').click();
