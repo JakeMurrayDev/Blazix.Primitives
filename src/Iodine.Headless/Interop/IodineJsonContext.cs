@@ -51,6 +51,7 @@ namespace Iodine.Headless.Interop;
 [JsonSerializable(typeof(CompositeListHighlight))]
 [JsonSerializable(typeof(CompositeListOpenRequest))]
 [JsonSerializable(typeof(CompositeListMatch))]
+[JsonSerializable(typeof(CompositeListLabels))]
 [JsonSerializable(typeof(FormOptions))]
 [JsonSerializable(typeof(FormControlReport))]
 [JsonSerializable(typeof(FormAutofillReport))]
