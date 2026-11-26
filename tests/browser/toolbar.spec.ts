@@ -1120,7 +1120,13 @@ test.describe('<Toolbar.Button />', () => {
       // DLG-KEY-09, the port title the stop needs (issue 123): with the popup portaled into a container inside the
       // ToolbarRoot its keydowns bubble into the toolbar, so only the popup's own stop (the popup module's
       // StopCompositeKeys) keeps the toolbar's focus where it is.
-      test('port: a dialog popup portaled into a container inside the toolbar stops the composite keydowns', async ({ page, mode }) => {
+      // Quarantined (ADR 11 §4) on Server until 2026-12-10, issue 381: its second CI sighting was PR 380's run 45808222950,
+      // after PR 305's run 44820467190 (after End, the popup is not focused).
+      test('port: a dialog popup portaled into a container inside the toolbar stops the composite keydowns', {
+        tag: '@quarantine',
+        annotation: { type: 'issue', description: 'https://github.com/JakeMurrayDev/Iodine.Headless/issues/381 (expires 2026-12-10)' },
+      }, async ({ page, mode }) => {
+        test.fixme(mode === 'server', 'Quarantined on Server until 2026-12-10 (issue 381)');
         await dialogCase(page, mode, 'composite-inside');
         const trigger = page.getByRole('button', { name: 'dialog', exact: true });
 
