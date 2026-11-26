@@ -10,6 +10,8 @@
     - `renders`: "renders a switch".
     - `interactions`: "handles interactions", the consumer's onclick and the switch's OnCheckedChange.
     - `disabled`: "disabled state", the same on a disabled button.
+    - `direct`: a native SwitchRoot directly under the ToolbarRoot, no toolbar button, so the only button handle is the
+      switch's own (issue 107, chosen by the user 2026-11-26): it infers composite mode from the root.
 *@
 <FixtureContainer Name="toolbar-switch" data-attached="@(Attached ? "true" : "false")" data-sync="@Sync">
     <button type="button" data-sync-button @onclick="() => Sync++">Sync</button>
@@ -31,6 +33,12 @@
             <ToolbarButton @ref="Button" Disabled="true" Render="DisabledSwitch" data-item="button" @onclick="() => disabled.Click(ButtonSource)" />
         </ToolbarRoot>
     </ToolbarCaseFrame>
+
+    <ToolbarCaseFrame Name="direct" Case="direct">
+        <ToolbarRoot @ref="Root" data-root>
+            <SwitchRoot @ref="Switch" NativeButton="true" DefaultChecked="false" OnCheckedChange="direct.CheckedChange" data-item="switch"><Render><button></button></Render></SwitchRoot>
+        </ToolbarRoot>
+    </ToolbarCaseFrame>
 </FixtureContainer>
 
 @code {
@@ -39,6 +47,7 @@
     private readonly ToolbarCase renders = new();
     private readonly ToolbarCase interactions = new();
     private readonly ToolbarCase disabled = new();
+    private readonly ToolbarCase direct = new();
 
     private RenderFragment RendersSwitch => @<SwitchRoot @ref="Switch" NativeButton="true"><Render><button></button></Render></SwitchRoot>;
 

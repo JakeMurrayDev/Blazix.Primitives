@@ -1225,6 +1225,25 @@ test.describe('<Toolbar.Button />', () => {
         await expect(switchElement).toHaveAttribute('data-checked');
       });
 
+      // UBT-STA-01, UBT-KEY-12, UBT-DOM-05 (issue 107; the fixture case chosen by the user 2026-11-26): a Switch directly under
+      // the toolbar root has no toolbar button whose handle clicks on keydown, so its own handle must infer composite mode:
+      // no tabindex of its own, and Space activates on keydown (once: the keyup is the composite branch's, no second click).
+      test('port: Space on a Switch directly under a toolbar root activates on keydown (issue 107)', async ({ page, mode }) => {
+        const fixture = await gotoToolbar(page, mode, 'toolbar-switch');
+        const { container, item } = toolbarCase(fixture, 'direct');
+        const switchElement = item('switch');
+        await expect(switchElement).toHaveAttribute('data-unchecked');
+        await expect(switchElement).not.toHaveAttribute('tabindex');
+
+        await switchElement.focus();
+        await page.keyboard.down(' ');
+        await expect(container).toHaveAttribute('data-changes', '1');
+        await expect(switchElement).toHaveAttribute('data-checked');
+        await page.keyboard.up(' ');
+        await settle(fixture);
+        await expect(container).toHaveAttribute('data-changes', '1');
+      });
+
       // TLB-DOM-08, TLB-KEY-13, TLB-PTR-01, TLB-FOC-03: the native switch renders `disabled`, which the toolbar button's
       // handle clears while it is focusable when disabled (design point 14.1).
       test('disabled state', async ({ page, mode }) => {
