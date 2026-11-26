@@ -414,11 +414,10 @@ test.describe('<ContextMenu.Trigger />', () => {
         await page.clock.runFor(500);
         // The grace counts from the open the session applies, which the render brings.
         await runUntil(page, () => page.getByRole('menu').isVisible());
-        // On Server outside press arms with the Positioner's floating handle, a circuit round trip after the open's render
-        // (ADR 01's row of 2026-11-24, issue 268), waited in real time so the grace's clock does not run meanwhile.
-        if (mode === 'server') {
-          await expect(fixture).toHaveAttribute('data-positioner-attached', 'true');
-        }
+        // Outside press arms with the Positioner's floating handle, on Server a circuit round trip after the open's render
+        // (ADR 01's row of 2026-11-24, issue 268), waited in real time so the grace's clock does not run meanwhile. On
+        // WebAssembly the handle attaches within the open's tasks; the marker is read on both modes (issue 358).
+        await expect(fixture).toHaveAttribute('data-positioner-attached', 'true');
 
         await page.mouse.move(5, 5);
         await page.mouse.down();
@@ -442,11 +441,9 @@ test.describe('<ContextMenu.Trigger />', () => {
     await rightClick(page, page.getByTestId('inner-trigger'));
     await expect(page.getByTestId('inner-menu')).toBeVisible();
     await expect(page.getByTestId('outer-menu')).toHaveCount(0);
-    // On Server outside press arms with the Positioner's floating handle, a circuit round trip after the open's render
-    // (ADR 01's row of 2026-11-24, issue 268).
-    if (mode === 'server') {
-      await expect(fixture).toHaveAttribute('data-positioner-attached', 'true');
-    }
+    // Outside press arms with the Positioner's floating handle, on Server a circuit round trip after the open's render
+    // (ADR 01's row of 2026-11-24, issue 268); the marker is read on both modes (issue 358).
+    await expect(fixture).toHaveAttribute('data-positioner-attached', 'true');
 
     await page.mouse.move(5, 5);
     await page.mouse.down();
