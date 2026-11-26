@@ -45,6 +45,21 @@ public sealed class CompositeButtonInferenceTests : IDisposable
         AssertComposite(cut.Find("[role=switch]"));
     }
 
+    [Fact(DisplayName = "port: a CheckboxRoot under a composite root infers composite button mode: no tabindex of its own, and its button twin attaches in composite mode")]
+    [Trait("Requirement", "UBT-STA-01")]
+    [Trait("Requirement", "UBT-DOM-05")]
+    [Trait("Requirement", "UBT-KEY-12")]
+    public void A_checkbox_root_under_a_composite_root_infers_composite_button_mode()
+    {
+        IRenderedComponent<TestCompositeRoot> cut = RenderInComposite(builder =>
+        {
+            builder.OpenComponent<CheckboxRoot>(0);
+            builder.CloseComponent();
+        });
+
+        AssertComposite(cut.Find("[role=checkbox]"));
+    }
+
     private IRenderedComponent<TestCompositeRoot> RenderInComposite(RenderFragment content) =>
         context.Render<TestCompositeRoot>(p => p.AddChildContent(content));
 
