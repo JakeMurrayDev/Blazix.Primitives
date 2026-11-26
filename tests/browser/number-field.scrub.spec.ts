@@ -249,6 +249,22 @@ test('should fire onClick on child elements', {
   await expect(fixture).toHaveAttribute('data-clicks', 'label area');
 });
 
+// Issue 370: under load the lock can engage between the press and the release, so the browser targets its click at the
+// lock element and only the module's synthetic click reaches the child. The `click` case renders the input after the area,
+// so the module must have received the input after its attach; the probe of 2026-11-26 failed this on both modes.
+test('port: a press on a child that the pointer lock overtakes before the release focuses the input and still clicks the child (issue 370)', async ({ page, mode }) => {
+  const { fixture, input } = await gotoScrub(page, mode, 'click');
+
+  await press(page, fixture.getByText('Amount'));
+  await waitForLock(page);
+  await expect(input).toBeFocused();
+  await page.mouse.up();
+
+  await expect(fixture).toHaveAttribute('data-clicks', 'label area');
+  await page.evaluate(() => new Promise((resolve) => setTimeout(resolve, 50)));
+  await expect(fixture).toHaveAttribute('data-clicks', 'label area');
+});
+
 test('ignores non-primary pointer buttons', async ({ page, mode }) => {
   const { fixture, area, root, input } = await gotoScrub(page, mode);
 
