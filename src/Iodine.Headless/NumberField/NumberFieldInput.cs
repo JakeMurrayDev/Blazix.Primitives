@@ -196,7 +196,7 @@ public sealed class NumberFieldInput : PartBase<NumberFieldInputState>
         }
 
         NumberFieldRoot root = context!.Root;
-        root.InputElement = element;
+        context.PublishInput(element);
         string text = root.InputValue;
         int revision = root.EchoedRevision;
         string allowed = root.AllowedCharacters();
@@ -254,9 +254,9 @@ public sealed class NumberFieldInput : PartBase<NumberFieldInputState>
         {
             context?.RemoveListener(stateChanged);
             context?.Root.SetInputMounted(false);
-            if (context is not null && Nullable.Equals(context.Root.InputElement, Element))
+            if (context is not null && NumberFieldRootContext.SameElement(context.Root.InputElement, Element))
             {
-                context.Root.InputElement = null;
+                context.PublishInput(null);
             }
 
             if (twin is not null)

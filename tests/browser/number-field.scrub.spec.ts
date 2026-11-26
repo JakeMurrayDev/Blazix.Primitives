@@ -232,17 +232,29 @@ test('should fire onClick once when clicked without scrubbing', async ({ page, m
   await expect(fixture).toHaveAttribute('data-clicks', 'area');
 });
 
-// Quarantined (ADR 11 §4) on Server until 2026-12-09, issue 370: failed in CI on Server at `data-clicks`, which read ""
-// for "label area" (PR 359's run; the 2026-11-25 nightly 45604208197 on main a10d5e68). Diagnosis and lift: the NumberField
-// owner, by 2026-12-09.
-test('should fire onClick on child elements', {
-  tag: ['@quarantine'],
-  annotation: { type: 'open', description: 'https://github.com/JakeMurrayDev/Iodine.Headless/issues/370 (expires 2026-12-09)' },
-}, async ({ page, mode }) => {
-  test.fixme(mode === 'server', 'Quarantined on Server until 2026-12-09 (issue 370)');
+// Issue 370, lifted 2026-11-26: it failed in CI on Server at `data-clicks` "" (PR 359's run; the 2026-11-25 nightly
+// 45604208197) when the lock engaged before the release and the module, attached before the input rendered, had no input
+// to click through with. The title below pins that path.
+test('should fire onClick on child elements', async ({ page, mode }) => {
   const { fixture } = await gotoScrub(page, mode, 'click');
 
   await fixture.getByText('Amount').click();
+
+  await expect(fixture).toHaveAttribute('data-clicks', 'label area');
+  await page.evaluate(() => new Promise((resolve) => setTimeout(resolve, 50)));
+  await expect(fixture).toHaveAttribute('data-clicks', 'label area');
+});
+
+// Issue 370: under load the lock can engage between the press and the release, so the browser targets its click at the
+// lock element and only the module's synthetic click reaches the child. The `click` case renders the input after the area,
+// so the module must have received the input after its attach; the probe of 2026-11-26 failed this on both modes.
+test('port: a press on a child that the pointer lock overtakes before the release focuses the input and still clicks the child (issue 370)', async ({ page, mode }) => {
+  const { fixture, input } = await gotoScrub(page, mode, 'click');
+
+  await press(page, fixture.getByText('Amount'));
+  await waitForLock(page);
+  await expect(input).toBeFocused();
+  await page.mouse.up();
 
   await expect(fixture).toHaveAttribute('data-clicks', 'label area');
   await page.evaluate(() => new Promise((resolve) => setTimeout(resolve, 50)));
