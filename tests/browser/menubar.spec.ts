@@ -505,11 +505,8 @@ test.describe('<Menubar />', () => {
 
     test('port: a Button inside the bar infers composite mode: no tabindex of its own, and Space activates on keydown', async ({ page, mode }) => {
       // BTN-EDGE-02's Menubar example (UBT-STA-01, UBT-DOM-05, UBT-KEY-12): Base UI's useButton reads the composite root's
-      // context (useButton.ts:25-26). Red on both modes (2026-11-11): the port's Button passes `composite: false`
-      // (Button/Button.cs, "composite inference is M2's composite module"), so it renders tabindex="0" under any composite
-      // root. Open by ID, a Button-family gap, not the bar's: issue 238.
-      test.info().annotations.push({ type: 'open', description: 'BTN-EDGE-02 (issue 238): the Button never infers composite mode under a composite root' });
-      test.fixme(true, 'BTN-EDGE-02 (issue 238): the Button never infers composite mode under a composite root');
+      // context (useButton.ts:25-26). Red on both modes from 2026-11-11 until issue 238 (2026-11-26): the Button infers
+      // composite mode from the optional composite root, as Toggle does.
       const fixture = await render(page, mode, { case: 'button' });
       const button = page.getByTestId('bar-button');
       await expect(button).not.toHaveAttribute('tabindex');

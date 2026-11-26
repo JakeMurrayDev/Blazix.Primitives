@@ -60,6 +60,11 @@ public sealed class Button : PartBase<ButtonState>
     [Inject]
     private PartIdGenerator IdGenerator { get; set; } = null!;
 
+    // BTN-EDGE-02, UBT-STA-01 (issue 238): composite button mode is inferred from the optional composite root, as Toggle
+    // infers it (ADR 04 Amendments 2026-10-26).
+    [CascadingParameter]
+    private CompositeRootContext? CompositeContext { get; set; }
+
     // BTN-API-01
     /// <summary>Gets or sets a value indicating whether the button ignores user interaction.</summary>
     /// <value>
@@ -115,7 +120,7 @@ public sealed class Button : PartBase<ButtonState>
     /// <inheritdoc />
     protected override void OnParametersSet()
     {
-        // BTN-API-02: focusableWhenDisabled always explicit; BTN-EDGE-02: composite inference is M2's composite module.
+        // BTN-API-02: focusableWhenDisabled always explicit.
         behavior!.Disabled = Disabled;
         behavior.FocusableWhenDisabled = FocusableWhenDisabled;
         behavior.Native = NativeButton;
@@ -125,7 +130,7 @@ public sealed class Button : PartBase<ButtonState>
     /// <inheritdoc />
     protected override Task OnAfterRenderAsync(bool firstRender)
     {
-        return behavior!.AfterRenderAsync(Enabled, Element, Id, composite: false);
+        return behavior!.AfterRenderAsync(Enabled, Element, Id, composite: CompositeContext is not null);
     }
 
     /// <inheritdoc />
@@ -142,7 +147,7 @@ public sealed class Button : PartBase<ButtonState>
     /// <inheritdoc />
     protected override void AddPartAttributes(AttributeList attributes)
     {
-        behavior!.AddAttributes(attributes, Id, composite: false);
+        behavior!.AddAttributes(attributes, Id, composite: CompositeContext is not null);
     }
 
     /// <inheritdoc />
