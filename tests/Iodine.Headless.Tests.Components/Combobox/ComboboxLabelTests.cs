@@ -142,6 +142,32 @@ public sealed class ComboboxLabelTests : IDisposable
         Assert.Contains("\"controlId\":\"" + inputId + "\"", LabelOptions(), StringComparison.Ordinal);
     }
 
+    // Issue 310: ComboboxTrigger.tsx:89 (useLabelableId({ id: inputInsidePopup ? idProp : undefined })) claims the trigger's
+    // id as the field's control while the input is inside the popup, so useLabel.ts:28's contextControlId is the trigger.
+    [Fact(DisplayName = "port: inside a Field with the input inside the popup, the label focuses the trigger, whose id the trigger claims in the field")]
+    [Trait("Requirement", "CMB-ARIA-16")]
+    [Trait("Requirement", "FFI-PTR-01")]
+    public void Inside_a_field_with_the_input_inside_the_label_focuses_the_trigger()
+    {
+        void Extra(RenderTreeBuilder builder)
+        {
+            builder.OpenComponent<ComboboxLabel>(0);
+            builder.CloseComponent();
+            builder.OpenComponent<ComboboxTrigger>(1);
+            builder.AddComponentParameter(2, "data-testid", "trigger");
+            builder.AddComponentParameter(3, "id", "country");
+            builder.CloseComponent();
+        }
+
+        IRenderedComponent<FieldRoot> cut = test.Context.Render<FieldRoot>(p => p.AddChildContent<ComboboxHarness>(h => h
+            .Add(x => x.RootParameters, new Dictionary<string, object?>())
+            .Add(x => x.InputInsidePopup, true)
+            .Add(x => x.Extra, (RenderFragment)Extra)));
+
+        Assert.Equal("country", cut.Find("[data-testid=trigger]").Id);
+        Assert.Contains("\"controlId\":\"country\"", LabelOptions(), StringComparison.Ordinal);
+    }
+
     // Base UI renders the tree with renderToString, which runs no layout effect, so the label's registration never reaches
     // the trigger. HtmlRenderer renders the same HTML a prerender does: no OnAfterRender runs.
     [Fact(DisplayName = "does not link Combobox.Label to trigger before hydration")]
