@@ -473,6 +473,33 @@ describe('the scrub role', () => {
     expect(clicks).toEqual([label, label]);
   });
 
+  // Issue 370: Base UI reads inputRef at the press and at the release; a scrub area rendered before its input attaches
+  // without one, and C# sends the input with a later update.
+  it('port: the input an update sends after the attach is the one a press focuses and a locked release clicks through (NUM-FOC-04, NUM-PTR-14)', () => {
+    vi.useFakeTimers();
+    stubLock();
+    const area = document.createElement('span');
+    const label = document.createElement('label');
+    area.append(label);
+    document.body.append(area);
+    const json = JSON.stringify({ part: 'scrub' } satisfies NumberFieldScrubOptions);
+    const handle = attach(area, json, createFakeTwin().twin);
+    handles.push(handle);
+    const input = document.createElement('input');
+    input.type = 'text';
+    document.body.append(input);
+    handle.update(json, [input]);
+    const clicks: EventTarget[] = [];
+    area.addEventListener('click', (event) => clicks.push(event.target!));
+
+    pointerDown(label, { pointerType: 'mouse' });
+    expect(document.activeElement).toBe(input);
+    pointerUp();
+    vi.advanceTimersByTime(0);
+
+    expect(clicks).toEqual([label]);
+  });
+
   it('blocks scrolling for a single-touch scrub', () => {
     const { area } = mountScrub();
 
