@@ -595,7 +595,10 @@ function writeCursor(cursor: HTMLElement, x: number, y: number): void {
 
 function attachScrubArea(area: ScrubElement, initial: NumberFieldScrubOptions, twinReference: DotNetTwin, references?: TwinReferences): TwinHandle {
   const twin = createTwinChannel(twinReference);
-  const input = references?.[0] instanceof HTMLInputElement ? (references[0] as RevisionedInput) : null;
+  // Issue 370: Base UI reads inputRef at the press and at the release, so the input is the one the last attach or update
+  // sent: a scrub area rendered before its input attaches without one, and C# sends it once the input renders.
+  const inputOf = (sent?: TwinReferences) => (sent?.[0] instanceof HTMLInputElement ? (sent[0] as RevisionedInput) : null);
+  let input = inputOf(references);
   let options = initial;
   let disposed = false;
   // NumberFieldScrubArea.tsx:59-64: the scrub's refs.
@@ -609,6 +612,7 @@ function attachScrubArea(area: ScrubElement, initial: NumberFieldScrubOptions, t
   let press = { clientX: 0, clientY: 0 };
   let cursor: HTMLElement | null = null;
   let listening = false;
+  let listeningWindow: Window = ownerWindow(area);
   let releaseTimer: ReturnType<typeof setTimeout> | undefined;
   let clickTimer: ReturnType<typeof setTimeout> | undefined;
 
@@ -755,8 +759,10 @@ function attachScrubArea(area: ScrubElement, initial: NumberFieldScrubOptions, t
     }
     listening = true;
     cumulativeDelta = 0;
-    win().addEventListener('pointerup', onUp, true);
-    win().addEventListener('pointermove', onMove, true);
+    // The window the listeners went on, so an update that changes the input mid-scrub removes them from that one.
+    listeningWindow = win();
+    listeningWindow.addEventListener('pointerup', onUp, true);
+    listeningWindow.addEventListener('pointermove', onMove, true);
   };
   const stopListening = () => {
     if (!listening) {
@@ -765,8 +771,8 @@ function attachScrubArea(area: ScrubElement, initial: NumberFieldScrubOptions, t
     listening = false;
     clearTimeout(releaseTimer);
     releaseTimer = undefined;
-    win().removeEventListener('pointerup', onUp, true);
-    win().removeEventListener('pointermove', onMove, true);
+    listeningWindow.removeEventListener('pointerup', onUp, true);
+    listeningWindow.removeEventListener('pointermove', onMove, true);
   };
 
   const onClickCapture = () => {
@@ -837,11 +843,12 @@ function attachScrubArea(area: ScrubElement, initial: NumberFieldScrubOptions, t
   area.addEventListener('touchstart', onTouchStart, { passive: false });
 
   return {
-    update(nextOptionsJson: string) {
+    update(nextOptionsJson: string, nextReferences?: TwinReferences) {
       if (disposed) {
         return;
       }
       options = parseOptions<NumberFieldScrubOptions>(nextOptionsJson);
+      input = inputOf(nextReferences);
       // NumberFieldScrubArea.tsx:262-276: becoming disabled or read-only mid-scrub tears the listeners down.
       if (inactive()) {
         stopListening();
