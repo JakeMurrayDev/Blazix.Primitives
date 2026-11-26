@@ -112,6 +112,14 @@
     private string? handleError;
     private bool throws = true;
     private string phase = "outgoing";
+    private readonly FixturePopupTrigger<string>?[] triggerRefs = new FixturePopupTrigger<string>?[8];
+
+    // Issue 306: the triggers' registrations with the store, the first render of each instance (a reparented trigger is a
+    // new instance), so the readiness marker re-arms across a reparent as the families' fixtures do.
+    protected override IEnumerable<Task> Attachments =>
+        !rootMounted || Case == "overlap"
+            ? []
+            : [.. triggerRefs.Take(triggerCount).Select(trigger => trigger?.Attached ?? Task.CompletedTask)];
 
     protected override void OnInitialized()
     {
@@ -140,7 +148,8 @@
         {
             string id = $"trigger-{number}";
             string payload = number.ToString(System.Globalization.CultureInfo.InvariantCulture);
-            <FixturePopupTrigger TPayload="string" @key="number" Handle="@(detached ? handle : null)" id="@id" data-testid="@id" Payload="@payload">Trigger @payload</FixturePopupTrigger>
+            int index = number - 1;
+            <FixturePopupTrigger TPayload="string" @key="number" @ref="triggerRefs[index]" Handle="@(detached ? handle : null)" id="@id" data-testid="@id" Payload="@payload">Trigger @payload</FixturePopupTrigger>
         }
     </text>;
 
