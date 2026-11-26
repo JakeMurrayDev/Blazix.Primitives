@@ -416,7 +416,11 @@ test.describe('<ContextMenu.Trigger />', () => {
         await runUntil(page, () => page.getByRole('menu').isVisible());
         // Outside press arms with the Positioner's floating handle, on Server a circuit round trip after the open's render
         // (ADR 01's row of 2026-11-24, issue 268), waited in real time so the grace's clock does not run meanwhile. On
-        // WebAssembly the handle attaches within the open's tasks; the marker is read on both modes (issue 358).
+        // WebAssembly the attach's continuations are page timers, so the held clock is stepped until the marker shows,
+        // a few steps of the grace (issue 358).
+        if (mode === 'wasm') {
+          await runUntil(page, async () => (await fixture.getAttribute('data-positioner-attached')) === 'true');
+        }
         await expect(fixture).toHaveAttribute('data-positioner-attached', 'true');
 
         await page.mouse.move(5, 5);
