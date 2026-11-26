@@ -60,6 +60,26 @@ public sealed class CompositeButtonInferenceTests : IDisposable
         AssertComposite(cut.Find("[role=checkbox]"));
     }
 
+    [Fact(DisplayName = "port: a CollapsibleTrigger under a composite root infers composite button mode: no tabindex of its own, and its button twin attaches in composite mode")]
+    [Trait("Requirement", "UBT-STA-01")]
+    [Trait("Requirement", "UBT-DOM-05")]
+    [Trait("Requirement", "UBT-KEY-12")]
+    public void A_collapsible_trigger_under_a_composite_root_infers_composite_button_mode()
+    {
+        IRenderedComponent<TestCompositeRoot> cut = RenderInComposite(builder =>
+        {
+            builder.OpenComponent<CollapsibleRoot>(0);
+            builder.AddComponentParameter(1, nameof(CollapsibleRoot.ChildContent), (RenderFragment)(root =>
+            {
+                root.OpenComponent<CollapsibleTrigger>(0);
+                root.CloseComponent();
+            }));
+            builder.CloseComponent();
+        });
+
+        AssertComposite(cut.Find("button"));
+    }
+
     private IRenderedComponent<TestCompositeRoot> RenderInComposite(RenderFragment content) =>
         context.Render<TestCompositeRoot>(p => p.AddChildContent(content));
 
