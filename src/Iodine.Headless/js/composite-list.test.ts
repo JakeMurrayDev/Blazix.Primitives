@@ -16,6 +16,7 @@ import {
   relayKeyboardEvent,
   skipListNavigation,
   type CompositeListHighlightReport,
+  type CompositeListTwinHandle,
   type CompositeOptions,
 } from './composite';
 import { resetFocusManagerState } from './focus-manager';
@@ -878,6 +879,24 @@ describe('list highlight writer (port)', () => {
       [0, 'one'],
       [1, 'Second'],
     ]);
+  });
+
+  // ADR 04 Amendments 2026-11-26 (issue 312, chosen by the user 2026-11-26): SEL-FRM-18's third priority reads the
+  // floating handle's labels (CMP-STA-06/07), each beside its item's id, in the order the module reports the ids.
+  it('port: the floating handle reads its items\' ids and labels in rendered order, a registered label else the text', async () => {
+    const harness = app({ items: ['one', 'two', 'three'], itemRegistration: (index) => (index === 1 ? { label: 'Second' } : {}) });
+
+    keyDown(harness.reference, 'ArrowDown');
+    await waitFor(() => {
+      expect(document.activeElement).toBe(harness.item(0));
+    });
+    // The module hands back the live handle of an element it already attached.
+    const floatingHandle = attach(menu(harness), JSON.stringify({ list: {} }), createFakeTwin().twin) as CompositeListTwinHandle;
+
+    expect(JSON.parse(floatingHandle.labels())).toEqual({
+      ids: [harness.item(0).id, harness.item(1).id, harness.item(2).id],
+      labels: ['one', 'Second', 'three'],
+    });
   });
 
   it('port: requests the open with the reason list-navigation and the trigger, and the leave close with focus-out', async () => {
