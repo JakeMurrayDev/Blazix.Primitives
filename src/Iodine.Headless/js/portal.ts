@@ -32,6 +32,7 @@ import { platform } from './platform';
 import {
   applyConsumerStyle,
   parseOptions,
+  registerDocument,
   registerShadowRoot,
   resolveElement,
   resolveReference,
@@ -179,14 +180,16 @@ export function attach(
   let currentCaptures = captures;
   // ADR 04 Amendments 2026-10-28 (design point 9 of M4 track 8): the parts inside the node attach after the move, and
   // Blazor revives their references as null inside a shadow root, so the root the node is in is registered for the lookup.
-  let shadowRoot: ShadowRoot | null = null;
+  // ADR 04 Amendments 2026-11-26 (issue 316; design point 5 (a), chosen by the user 2026-11-26): likewise the document of a
+  // same-origin frame. Both are told apart by node type, since a frame's nodes belong to the frame's realm.
+  let shadowRoot: ShadowRoot | Document | null = null;
   let releaseShadowRoot: (() => void) | null = null;
-  const trackShadowRoot = (next: ShadowRoot | null) => {
+  const trackShadowRoot = (next: ShadowRoot | Document | null) => {
     if (next === shadowRoot) {
       return;
     }
     releaseShadowRoot?.();
-    releaseShadowRoot = next === null ? null : registerShadowRoot(next);
+    releaseShadowRoot = next === null ? null : next.nodeType === Node.DOCUMENT_NODE ? registerDocument(next as Document) : registerShadowRoot(next as ShadowRoot);
     shadowRoot = next;
   };
   const wrapper = node.parentElement;
@@ -282,7 +285,9 @@ export function attach(
       node.style.display = 'none';
     }
     const root = node.getRootNode();
-    trackShadowRoot(root instanceof ShadowRoot ? root : null);
+    const isShadowRoot = root.nodeType === Node.DOCUMENT_FRAGMENT_NODE && 'host' in root;
+    const isFrameDocument = root.nodeType === Node.DOCUMENT_NODE && root !== document;
+    trackShadowRoot(isShadowRoot || isFrameDocument ? (root as ShadowRoot | Document) : null);
   };
 
   const swapGuards = () => {
