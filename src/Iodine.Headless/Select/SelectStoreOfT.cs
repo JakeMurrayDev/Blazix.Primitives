@@ -344,6 +344,32 @@ internal sealed class SelectStore<TValue> : SelectStore
         return byText ?? byLabel;
     }
 
+    // SEL-FRM-18 (SelectRoot.tsx:551-561; issue 312, ADR 04 Amendments 2026-11-26, chosen by the user 2026-11-26): the third
+    // priority, the first item in rendered order whose rendered label equals the filled text case-insensitively, read from
+    // the popup's list handle; that item decides, and a null value matches nothing.
+    /// <summary>Finds the item value a browser autofill names by an item's rendered label.</summary>
+    /// <param name="text">The text the browser filled in.</param>
+    /// <param name="rendered">The items' ids and rendered labels, in rendered order.</param>
+    /// <returns>The matching value, or <see langword="null"/> when no item matches.</returns>
+    public ItemSlot<TValue>? MatchRenderedLabel(string text, CompositeListLabels rendered)
+    {
+        int count = Math.Min(rendered.Ids.Count, rendered.Labels.Count);
+        for (int i = 0; i < count; i++)
+        {
+            if (rendered.Labels[i] is not { } label
+                || !string.Equals(label, text, StringComparison.OrdinalIgnoreCase)
+                || Find(rendered.Ids[i]) is not { } registration)
+            {
+                continue;
+            }
+
+            ItemSlot<TValue> slot = registration.Slot;
+            return slot.Present && !ValueNull.IsNull(slot.Value) ? slot : null;
+        }
+
+        return null;
+    }
+
     // SEL-KEY-04 (SelectRoot.tsx:392-406): the closed trigger's match is a value request with reason `none`.
     /// <inheritdoc />
     public override Task MatchItemAsync(int index, EventSnapshot snapshot)

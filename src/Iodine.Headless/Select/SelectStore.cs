@@ -52,6 +52,11 @@ internal abstract class SelectStore : PopupLifecycleStore<SelectStoreState>, IFl
     /// <value><see langword="true"/> from the handle's attach until the popup leaves.</value>
     public bool PopupListAttached { get; set; }
 
+    // SEL-FRM-18 (issue 312): the autofill's third priority reads the rendered labels from the popup's list handle.
+    /// <summary>Gets or sets the popup's list behavior, whose handle reads the items' rendered labels.</summary>
+    /// <value>The behavior from the popup's initialization until it leaves; otherwise <see langword="null"/>.</value>
+    public CompositeRootBehavior? PopupList { get; set; }
+
     /// <summary>Gets or sets the action the positioner runs after each render, once its element shows the open state.</summary>
     /// <value>The root's deferred session update; <see langword="null"/> before the root set it.</value>
     public Action? PositionerRendered { get; set; }

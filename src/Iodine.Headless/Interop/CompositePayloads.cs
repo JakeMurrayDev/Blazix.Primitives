@@ -56,3 +56,10 @@ internal sealed record CompositeListOpenRequest(bool Open, string Reason, EventS
 /// <param name="Index">The index of the matching item.</param>
 /// <param name="Event">The snapshot of the <c>keydown</c>.</param>
 internal sealed record CompositeListMatch(int Index, EventSnapshot Event);
+
+// ADR 04 Amendments 2026-11-26 (issue 312, chosen by the user 2026-11-26): the answer of the floating list handle's
+// `labels` read (CMP-STA-06/07), which SEL-FRM-18's third priority matches against.
+/// <summary>The rendered labels of a floating list handle's items, each beside its item's id.</summary>
+/// <param name="Ids">The items' ids, in rendered order.</param>
+/// <param name="Labels">Each item's label, aligned with <paramref name="Ids"/>; <see langword="null"/> for an item with no label.</param>
+internal sealed record CompositeListLabels(IReadOnlyList<string> Ids, IReadOnlyList<string?> Labels);

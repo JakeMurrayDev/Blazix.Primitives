@@ -200,6 +200,7 @@ public sealed class SelectPopup : PartBase<SelectPopupState>
         SelectPositionerContext.Require(PositionerContext);
         list = new CompositeRootBehavior(JSRuntime, IdGenerator, StateHasChanged, DispatchExceptionAsync, onKeyDown) { ReportItems = true };
         list.ItemsChanged += OnItemsChanged;
+        store.PopupList = list;
         focus = new FocusManagerBehavior(JSRuntime, InvokeAsync, snapshot => store.RequestOpenAsync(false, new OpenChangeEventDetails(EventReason.FocusOut) { Event = snapshot }));
         popupModule = new PopupModuleAttachment(JSRuntime);
         boundaryPart = store.RegisterBoundaryPart();
@@ -275,6 +276,10 @@ public sealed class SelectPopup : PartBase<SelectPopupState>
             if (store is not null)
             {
                 store.PopupListAttached = false;
+                if (ReferenceEquals(store.PopupList, list))
+                {
+                    store.PopupList = null;
+                }
             }
 
             PositionerContext?.Positioning.RemoveListener(positionerChanged);
