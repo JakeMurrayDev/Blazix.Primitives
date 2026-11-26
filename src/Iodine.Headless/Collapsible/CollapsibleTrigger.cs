@@ -92,6 +92,11 @@ public sealed class CollapsibleTrigger : PartBase<CollapsibleTriggerState>
     [CascadingParameter]
     private CollapsibleRootContext? RootContext { get; set; }
 
+    // UBT-STA-01 (issue 107): composite button mode is inferred from the optional composite root, as Toggle and Button
+    // infer it (ADR 04 Amendments 2026-10-26).
+    [CascadingParameter]
+    private CompositeRootContext? CompositeContext { get; set; }
+
     // COL-API-05
     /// <summary>Gets or sets a value indicating whether the rendered element is a native <c>button</c>.</summary>
     /// <value>
@@ -166,7 +171,7 @@ public sealed class CollapsibleTrigger : PartBase<CollapsibleTriggerState>
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
         button!.Disabled = EffectiveDisabled;
-        await button.AfterRenderAsync(Enabled, Element, Id, composite: false);
+        await button.AfterRenderAsync(Enabled, Element, Id, composite: CompositeContext is not null);
         if (!Enabled)
         {
             if (transitionsHandle is { } released)
@@ -246,7 +251,7 @@ public sealed class CollapsibleTrigger : PartBase<CollapsibleTriggerState>
 
         attributes.Set("aria-expanded", isOpen ? "true" : "false");
         attributes.Set("onclick", onClick);
-        button.AddAttributes(attributes, Id, composite: false);
+        button.AddAttributes(attributes, Id, composite: CompositeContext is not null);
     }
 
     /// <inheritdoc />
