@@ -47,6 +47,11 @@ internal sealed class ComboboxTriggerBehavior : IAsyncDisposable
 
     private string? generatedId;
 
+    // The trigger's claim in the field's labelable scope (issue 310): whether it ever had an explicit id, and the id claimed.
+    private bool hadExplicitControlId;
+
+    private string? claimedControlId;
+
     private bool disposed;
 
     /// <summary>Initializes a new instance of the <see cref="ComboboxTriggerBehavior"/> class.</summary>
@@ -102,6 +107,11 @@ internal sealed class ComboboxTriggerBehavior : IAsyncDisposable
         }
 
         fieldScope?.RemoveListener(services.RequestRender);
+        if (claimedControlId is not null)
+        {
+            fieldScope?.Labelable.UnregisterControlId(this);
+        }
+
         button.Dispose();
         typeahead.Dispose();
         Task twinDisposal = twin?.DisposeAsync().AsTask() ?? Task.CompletedTask;
@@ -290,11 +300,53 @@ internal sealed class ComboboxTriggerBehavior : IAsyncDisposable
 
         button.Disabled = Disabled;
         interactions.SessionToken = Store.SessionToken;
+        ClaimFieldControlId();
         Task pressed = interactions.AfterRenderAsync(true, element, id);
         Task twinSync = SyncTwinAsync(element);
         Task typeaheadSync = typeahead.AfterRenderAsync(true, element, id);
         await button.AfterRenderAsync(true, element, id, composite: false);
         await Task.WhenAll(pressed, twinSync, typeaheadSync);
+    }
+
+    // Issue 310, FFI-PTR-01: ComboboxTrigger.tsx:89 (useLabelableId({ id: inputInsidePopup ? idProp : undefined }),
+    // useLabelableId.ts) claims the id the consumer gave the trigger as the field's control while the input is inside the
+    // popup, so a label inside the field focuses the trigger (useLabel.ts:28). Without one it claims its default id once it
+    // had one, as Base UI does, and otherwise resets the scope to its default; a claim survives the root's reset.
+    private void ClaimFieldControlId()
+    {
+        if (fieldScope is null)
+        {
+            return;
+        }
+
+        LabelableScope scope = fieldScope.Labelable;
+        string? next = Store.State.InputInsidePopup ? consumerId : null;
+        if (next is not null)
+        {
+            hadExplicitControlId = true;
+        }
+        else if (hadExplicitControlId)
+        {
+            next = generatedId;
+        }
+
+        if (next is null)
+        {
+            if (claimedControlId is not null)
+            {
+                claimedControlId = null;
+                scope.UnregisterControlId(this);
+            }
+
+            scope.ResetControlId();
+            return;
+        }
+
+        if (!string.Equals(next, claimedControlId, StringComparison.Ordinal))
+        {
+            claimedControlId = next;
+            scope.RegisterControlId(this, next);
+        }
     }
 
     // CMB-API-45 (ComboboxTrigger.tsx:89-90, derived at every render): the root's id with the input inside the popup, else
