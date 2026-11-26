@@ -2210,11 +2210,8 @@ for (const [variant, name] of [['contained', 'contained triggers'], ['detached',
     test.describe('with the popup following immediately the only trigger', () => {
       // POP-DOM-25, POP-KEY-07, POP-FOC-13
       test('closes a nested combobox popup when tabbing out of the popover', { tag: '@coverage' }, async ({ page, mode }) => {
-        // Red on Server under latency (issue 326): the popover closes but the nested Combobox stays open. Open by ID on Server,
-        // a library defect for track 10 (ADR 11 §4: test.fixme with an open annotation, not a quarantine).
-        const openRow = 'POP-KEY-06/07 (issue 326): on Server under circuit latency, Tab or Shift+Tab out of the popover leaves the nested Combobox open (40 ms one way: 29 of 30 failed; CI run 44464289141)';
-        if (mode === 'server') test.info().annotations.push({ type: 'open', description: openRow });
-        test.fixme(mode === 'server', openRow);
+        // Red on Server under latency from 2026-11-19 until issue 326 (2026-11-26): the Tab left the Combobox input before the
+        // nested popup's focus-manager handle attached; issue 247's input note (PR 359) closes it now.
         const fixture = await gotoPopupFixture(page, mode, 'popover-nested-combobox', { variant, afterTrigger: true });
         await expect(fixture).toHaveAttribute('data-child-attached', 'true');
         const comboboxInput = page.getByTestId('combobox-input');
@@ -2232,11 +2229,8 @@ for (const [variant, name] of [['contained', 'contained triggers'], ['detached',
 
       // POP-ARIA-09, POP-KEY-06, POP-FOC-13
       test('closes a nested combobox popup when tabbing backward to the trigger', { tag: '@coverage' }, async ({ page, mode }) => {
-        // Red on Server under latency (issue 326): the popover closes but the nested Combobox stays open. Open by ID on Server,
-        // a library defect for track 10 (ADR 11 §4: test.fixme with an open annotation, not a quarantine).
-        const openRow = 'POP-KEY-06/07 (issue 326): on Server under circuit latency, Tab or Shift+Tab out of the popover leaves the nested Combobox open (40 ms one way: 29 of 30 failed; CI run 44464289141)';
-        if (mode === 'server') test.info().annotations.push({ type: 'open', description: openRow });
-        test.fixme(mode === 'server', openRow);
+        // Red on Server under latency from 2026-11-19 until issue 326 (2026-11-26): the Tab left the Combobox input before the
+        // nested popup's focus-manager handle attached; issue 247's input note (PR 359) closes it now.
         const fixture = await gotoPopupFixture(page, mode, 'popover-nested-combobox', { variant });
         await expect(fixture).toHaveAttribute('data-child-attached', 'true');
         const comboboxInput = page.getByTestId('combobox-input');
