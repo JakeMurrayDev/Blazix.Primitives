@@ -17,7 +17,8 @@ namespace Iodine.Headless;
 /// <see cref="TryGetValue(out VirtualAnchor)"/>. <see cref="Value"/> exists because <see cref="IUnion"/> requires it.
 /// </para>
 /// <para>
-/// In Razor, an element id is written as plain text, such as <c>Anchor="my-anchor"</c>; an element as
+/// In Razor, an element id is written as an expression, such as <c>Anchor="@("my-anchor")"</c>: a bare
+/// <c>Anchor="my-anchor"</c> is read as C# and does not compile. An element is written as
 /// <c>Anchor="@anchorElement"</c>. The default instance, a <see langword="null"/> id and a <see langword="null"/> virtual
 /// anchor have no value. Two instances are equal when they hold the same case and value; elements compare by
 /// <see cref="ElementReference.Id"/>.
