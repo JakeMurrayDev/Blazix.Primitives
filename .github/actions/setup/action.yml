@@ -37,10 +37,11 @@ runs:
         key: playwright-${{ runner.os }}-${{ steps.playwright.outputs.version }}-${{ hashFiles('global.json', 'package-lock.json') }}
     - name: Install the Playwright browser
       # The browser alone, from Playwright's CDN; its system libraries are the next step, which apt can fail without
-      # failing the job.
+      # failing the job. Bounded at 5 minutes (issue 99): a stalled download fails the job here, with this step named,
+      # instead of at the job's 30-45 minutes. A composite step takes no `timeout-minutes`, hence `timeout`.
       if: inputs.playwright == 'true' && steps.playwright-cache.outputs.cache-hit != 'true'
       shell: bash
-      run: npx playwright install chromium
+      run: timeout --kill-after=10 300 npx playwright install chromium
     - name: Install the Playwright browser's system dependencies
       # apt-get, on a cache hit or a miss: three attempts of at most 120 s each (a healthy run takes 11-34 s), 15 s and
       # 30 s apart, so about 7 minutes at worst. When the Ubuntu mirrors cannot be reached (they failed to resolve from
