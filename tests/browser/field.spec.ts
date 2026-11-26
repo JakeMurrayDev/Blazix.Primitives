@@ -895,13 +895,8 @@ test.describe('useLabel', () => {
     test.describe(labelType, () => {
       // FFI-PTR-01
       test('focuses the trigger without opening the popup in the document', async ({ page, mode }) => {
-        // Red on both modes (2026-11-19, 2 of 2 each, and with 1.5 s before the click): a click on Combobox.Label leaves the
-        // focus on the body. Open by ID, a library defect for track 10.
-        if (labelType === 'Combobox.Label') {
-          const openRow = 'FFI-PTR-01 (issue 310): a click on Combobox.Label in a Field does not focus the trigger';
-          test.info().annotations.push({ type: 'open', description: openRow });
-          test.fixme(true, openRow);
-        }
+        // Combobox.Label: red on both modes from 2026-11-19 until issue 310 (2026-11-26), when the trigger began claiming its
+        // id as the field's control while the input is inside the popup (ComboboxTrigger.tsx:89).
         const fixture = await gotoPopupFixture(page, mode, fixtureName, label ? { label } : {});
         const trigger = page.getByRole('combobox', { name: 'Country' });
 
