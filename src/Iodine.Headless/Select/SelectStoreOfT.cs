@@ -38,6 +38,11 @@ internal sealed class SelectStore<TValue> : SelectStore
     private bool initialPresent;
     private IReadOnlyList<TValue> initialValues = s_empty;
     private string? selectedTextId;
+
+    // Issue 311: the index of the item whose text aligned placement measures, the value's match (Base UI's
+    // selectedItemTextRef: SelectItem.tsx:108-114 sets it for the claiming item, SelectRoot.tsx:264-270 clears it when the
+    // value matches nothing), recomputed when the value, the order or an item's value changes, whether or not open.
+    private int? textIndex;
     private string? firstTextId;
 
     /// <summary>Initializes a new instance of the <see cref="SelectStore{TValue}"/> class.</summary>
@@ -230,6 +235,11 @@ internal sealed class SelectStore<TValue> : SelectStore
 
         slots[index] = registration.Slot;
         Claim(index, registration.Slot);
+
+        // Issue 311: a re-valued item may make the value match another item or none (SelectItem.tsx:108-114's claim and
+        // SelectRoot.tsx:264-270's clear), whether or not the selected index moved.
+        textIndex = FindSelectionIndex();
+        RefreshTexts();
     }
 
     /// <inheritdoc />
@@ -266,6 +276,7 @@ internal sealed class SelectStore<TValue> : SelectStore
         }
 
         SyncSelectedIndex();
+        textIndex = FindSelectionIndex();
         RefreshTexts();
         if (changed)
         {
@@ -428,8 +439,20 @@ internal sealed class SelectStore<TValue> : SelectStore
     public void ValueApplied()
     {
         SelectStoreState state = State;
-        int? index = state.Lifecycle.EffectiveOpen ? state.SelectedIndex : FindSelectionIndex();
+        bool open = state.Lifecycle.EffectiveOpen;
+        int? match = FindSelectionIndex();
+        int? index = open ? state.SelectedIndex : match;
         Write(state with { ValueVersion = state.ValueVersion + 1, HasSelectedValue = ComputeHasSelectedValue(), SelectedIndex = index });
+        textIndex = match;
+
+        // While open the texts move without the counter: placement runs once per open (SelectPopup.tsx:407-419 does not
+        // depend on the texts), and the next open's sync sends them; a value change renders no positioner.
+        if (open)
+        {
+            UpdateTexts();
+            return;
+        }
+
         RefreshTexts();
     }
 
@@ -448,6 +471,7 @@ internal sealed class SelectStore<TValue> : SelectStore
         if (state.SelectedIndex != index)
         {
             Write(state with { SelectedIndex = index });
+            textIndex = index;
             RefreshTexts();
         }
     }
@@ -457,7 +481,17 @@ internal sealed class SelectStore<TValue> : SelectStore
     private protected override SelectStoreState WithCommittedOpen(SelectStoreState state, SelectStoreState applied, in PopupLifecycleState lifecycle, bool open, OpenChangeEventDetails details)
     {
         SelectStoreState next = applied with { Lifecycle = lifecycle };
-        return open ? next : next with { SelectedIndex = FindSelectionIndex() };
+
+        // Issue 311: the closed sync moves the selected index a value changed while open left behind, and the text the next
+        // aligned placement measures moves with it, in the same write.
+        if (open)
+        {
+            return next;
+        }
+
+        int? index = FindSelectionIndex();
+        textIndex = index;
+        return WithTexts(next with { SelectedIndex = index });
     }
 
     private async Task<bool> CommitAndRunAsync(SelectItemRegistration<TValue> registration, EventSnapshot snapshot)
@@ -601,6 +635,7 @@ internal sealed class SelectStore<TValue> : SelectStore
         if (State.SelectedIndex is not null)
         {
             Write(State with { SelectedIndex = null });
+            textIndex = null;
             RefreshTexts();
         }
     }
@@ -656,15 +691,33 @@ internal sealed class SelectStore<TValue> : SelectStore
     // positioner to send them again.
     private void RefreshTexts()
     {
-        int? index = State.SelectedIndex;
+        SelectStoreState state = State;
+        SelectStoreState next = WithTexts(state);
+        if (!ReferenceEquals(next, state))
+        {
+            Write(next);
+        }
+    }
+
+    // The texts of the value's match and of the first item; a state with the text counter moved when either changed, else
+    // `state` itself (issue 311: a write that moves the selected index carries its texts).
+    private SelectStoreState WithTexts(SelectStoreState state) =>
+        UpdateTexts() ? state with { TextVersion = state.TextVersion + 1 } : state;
+
+    // Resolves the two texts; whether either changed.
+    private bool UpdateTexts()
+    {
+        int? index = textIndex;
         string? selected = index is int at && at >= 0 && at < orderedIds.Length ? Find(orderedIds[at])?.TextId : null;
         string? first = orderedIds.Length > 0 ? Find(orderedIds[0])?.TextId : null;
-        if (!string.Equals(selected, selectedTextId, StringComparison.Ordinal) || !string.Equals(first, firstTextId, StringComparison.Ordinal))
+        if (string.Equals(selected, selectedTextId, StringComparison.Ordinal) && string.Equals(first, firstTextId, StringComparison.Ordinal))
         {
-            selectedTextId = selected;
-            firstTextId = first;
-            TouchText();
+            return false;
         }
+
+        selectedTextId = selected;
+        firstTextId = first;
+        return true;
     }
 }
 
