@@ -177,6 +177,11 @@ public sealed class SwitchRoot : PartBase<SwitchRootState>
     [CascadingParameter]
     private EditContext? CascadedEditContext { get; set; }
 
+    // UBT-STA-01 (issue 107): composite button mode is inferred from the optional composite root, as Toggle and Button
+    // infer it (ADR 04 Amendments 2026-10-26).
+    [CascadingParameter]
+    private CompositeRootContext? CompositeContext { get; set; }
+
     // SWT-API-01; ADR 05 §2
     /// <summary>Gets or sets a value indicating whether the switch is on, when the consumer owns the value.</summary>
     /// <value>
@@ -351,7 +356,7 @@ public sealed class SwitchRoot : PartBase<SwitchRootState>
     /// <inheritdoc />
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
-        await behavior!.AfterRenderAsync(Enabled, Element, RootId, composite: false);
+        await behavior!.AfterRenderAsync(Enabled, Element, RootId, composite: CompositeContext is not null);
         await AttachInputAsync();
         await fieldBehavior!.AfterRenderAsync(Element, RootId, GeneratedId!, input, InputId);
     }
@@ -377,7 +382,7 @@ public sealed class SwitchRoot : PartBase<SwitchRootState>
     /// <inheritdoc />
     protected override void AddPartAttributes(AttributeList attributes)
     {
-        behavior!.AddAttributes(attributes, RootId, composite: false);
+        behavior!.AddAttributes(attributes, RootId, composite: CompositeContext is not null);
 
         // SWT-ARIA-01..04: the writer's role is replaced, and the consumer's role still wins at the merge.
         attributes.Set("role", "switch");
