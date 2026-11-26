@@ -1193,9 +1193,9 @@ test.describe('<Toolbar.Button />', () => {
         expect(mismatches).toHaveLength(0);
       });
 
-      // TLB-KEY-12, TLB-PTR-01, TLB-DOM-05. Over the native switch, Enter is the browser's activation and Space the toolbar
-      // button's keydown click (composite mode); the switch's own handle (composite: false on main, issue 107) leaves
-      // both to them, so one click per press.
+      // TLB-KEY-12, TLB-PTR-01, TLB-DOM-05. Over the native switch, Enter is the browser's activation and Space a keydown
+      // click (composite mode). Since issue 107 (2026-11-26) the switch's own handle is composite too: the first handle
+      // marks the keydown activated and the other skips it (js/button.ts), so one click per press.
       test('handles interactions', async ({ page, mode }) => {
         const fixture = await gotoToolbar(page, mode, 'toolbar-switch');
         const { container, item, before } = toolbarCase(fixture, 'interactions');
