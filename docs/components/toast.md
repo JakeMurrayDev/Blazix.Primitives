@@ -8,7 +8,7 @@
 | Docs page | `docs/src/app/(docs)/react/components/toast/page.mdx` |
 | Prefix | `TST` |
 | Status | approved |
-| Revised | 2026-11-24 |
+| Revised | 2026-11-26 |
 | Builds on | none |
 | Derived by | none |
 | Depends on | [rendering-and-composition](../architecture/rendering-and-composition.md), [event-details-and-reasons](../architecture/event-details-and-reasons.md), [transitions-and-mounting](../architecture/transitions-and-mounting.md), [button-behavior](../architecture/button-behavior.md), [popup-store-and-handles](../architecture/popup-store-and-handles.md), [floating-and-positioning](../architecture/floating-and-positioning.md), [shared-utilities](../architecture/shared-utilities.md) |
@@ -89,6 +89,7 @@ The consumer, not the library, decides which Roots exist: it reads `toasts` from
 
 **Consumed (not forwarded to any element):** all of them (there is no element).
 
+  Port note (2026-11-26, M6 track 10, [issue 316](https://github.com/JakeMurrayDev/Iodine.Headless/issues/316); design point 5 (a), chosen by the user 2026-11-26, [ADR 04](../decisions/04-js-interop-boundary.md) Amendments 2026-11-26): closed. The `portal` module registers a same-origin frame's document for the twin lookups, so a Viewport portaled into an iframe attaches and binds its listeners to the iframe's window and document. The title runs at L4 on both modes, on the `toast-portal` fixture's iframe case. Deviation, as for a shadow-root container: C# event handlers on elements inside the iframe do not fire (ADR 04 Amendments 2026-11-26). Green.
 - **TST-API-01** — MUST. `timeout` defaults to `5000`. It is the delay used by TST-STA-18 for every toast whose own `timeout` is `undefined`; changing it affects only timers scheduled after the change lands (TST-STA-29).
   Source: `toast/provider/ToastProvider.tsx:16,76-78`; `toast/store.ts:119-138,193`. Test: [L2] `useToastManager.test.tsx` "adds a toast to the viewport that auto-dismisses after 5s by default", "applies a changed timeout to toasts added afterwards".
 - **TST-API-02** — MUST. `limit` defaults to `3`. The newest `limit` non-ending toasts are unlimited; every older non-ending toast is `limited` (TST-STA-03). A change of `limit` re-evaluates the flags of the existing toasts (TST-STA-04). `limit={0}` marks every toast limited.
@@ -1122,6 +1123,7 @@ All three errors below are thrown unconditionally (not development-only) when a 
 - **TST-EDGE-08** — MUST. All global listeners, `activeElement` reads and focus calls use the Viewport element's **owner** window/document (UTL-DOM-18), so a Viewport portaled into an iframe works against that iframe's window/document and ignores the host page's events.
   Source: `toast/viewport/ToastViewport.tsx:54-55,61,83`; `toast/store.ts:481`. Test: [L4] `ToastViewport.test.tsx` "rebinds owner-document listeners once across empty store cycles".
   Port note (2026-11-19, M6 track 9b, [issue 280](https://github.com/JakeMurrayDev/Iodine.Headless/issues/280); DP8 (b), kept open for track 10 by the user 2026-11-19): *Open*, [issue 316](https://github.com/JakeMurrayDev/Iodine.Headless/issues/316), as TST-STR-13's note.
+  Port note (2026-11-26, M6 track 10, [issue 316](https://github.com/JakeMurrayDev/Iodine.Headless/issues/316); design point 5 (a), chosen by the user 2026-11-26, [ADR 04](../decisions/04-js-interop-boundary.md) Amendments 2026-11-26): closed. The `portal` module registers a same-origin frame's document for the twin lookups, so a Viewport portaled into an iframe attaches and binds its listeners to the iframe's window and document. The title runs at L4 on both modes, on the `toast-portal` fixture's iframe case. Deviation, as for a shadow-root container: C# event handlers on elements inside the iframe do not fire (ADR 04 Amendments 2026-11-26). Green.
 - **TST-EDGE-09** — MUST. Provider prop values from a render that never commits are never written to the store (TST-API-04): a toast added while such a render is pending still uses the committed `timeout`.
   Source: `toast/provider/ToastProvider.tsx:67-81` (post-commit sync only). Test: [L2] `ToastProvider.test.tsx` "does not sync provider props from an abandoned render".
   Port note (2026-11-19, M6 track 9a, [issue 280](https://github.com/JakeMurrayDev/Iodine.Headless/issues/280); design point 9, settled by the orchestrator 2026-11-18): the analogue of TST-API-04's third title, [L2] `ToastProviderTests.cs` "port: does not sync provider props from a parameter set that fails before OnParametersSet".
