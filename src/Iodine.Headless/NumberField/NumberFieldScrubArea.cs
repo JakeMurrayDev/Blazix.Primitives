@@ -34,6 +34,7 @@ public sealed class NumberFieldScrubArea : PartBase<NumberFieldScrubAreaState>
     private readonly NumberFieldScrubAreaContext scrubContext = new();
     private readonly TaskCompletionSource attached = new(TaskCreationOptions.RunContinuationsAsynchronously);
     private readonly Action stateChanged;
+    private readonly Action inputPublished;
     private readonly RenderFragment cascadedContent;
     private readonly Action<NumberFieldScrubStartReport> started;
     private readonly Action<NumberFieldScrubLockReport> lockSettled;
@@ -42,6 +43,7 @@ public sealed class NumberFieldScrubArea : PartBase<NumberFieldScrubAreaState>
     private NumberFieldRootContext? context;
     private NumberFieldScrubTwin? twin;
     private TwinHandle<NumberFieldScrubOptions>? handle;
+    private Task? attaching;
     private NumberFieldScrubOptions? sentOptions;
     private ElementReference? sentInput;
     private RenderFragment? consumerContent;
@@ -57,6 +59,7 @@ public sealed class NumberFieldScrubArea : PartBase<NumberFieldScrubAreaState>
     public NumberFieldScrubArea()
     {
         stateChanged = StateHasChanged;
+        inputPublished = OnInputPublished;
         cascadedContent = builder => scrubContext.RenderCascade(builder, consumerContent);
         started = report => _ = InvokeAsync(() => OnStarted(report));
         lockSettled = report => _ = InvokeAsync(() => scrubContext.SetPointerLockDenied(report.Denied));
@@ -131,6 +134,7 @@ public sealed class NumberFieldScrubArea : PartBase<NumberFieldScrubAreaState>
     {
         context = NumberFieldRootContext.Require(RootContext);
         context.AddListener(stateChanged);
+        context.AddInputListener(inputPublished);
         base.OnInitialized();
     }
 
@@ -162,52 +166,31 @@ public sealed class NumberFieldScrubArea : PartBase<NumberFieldScrubAreaState>
         }
 
         scrubContext.Element = element;
-        NumberFieldRoot root = context!.Root;
-        bool disabled = root.EffectiveDisabled;
-        bool readOnly = root.ReadOnly;
-        ElementReference? input = root.InputElement;
-        bool optionsChanged = sentOptions is not { } sent
-            || sent.Vertical != (Direction == Orientation.Vertical ? true : null)
-            || sent.PixelSensitivity != (PixelSensitivity == 2 ? null : PixelSensitivity)
-            || sent.TeleportDistance != TeleportDistance
-            || sent.Disabled != (disabled ? true : null)
-            || sent.ReadOnly != (readOnly ? true : null);
-        bool inputChanged = !Nullable.Equals(input, sentInput);
-        if (handle is not null && !optionsChanged && !inputChanged)
+        if (attaching is null)
+        {
+            attaching = AttachAsync(element);
+            await attaching;
+            return;
+        }
+
+        // Issue 370: one attach however many renders come before it completes; a render meanwhile, such as the one the
+        // input's publication asks for, sends what changed once the attach has.
+        await attaching;
+        if (twin is null || handle is null)
         {
             return;
         }
 
-        if (optionsChanged)
+        NumberFieldScrubOptions? options = ChangedOptions();
+        ElementReference? input = context!.Root.InputElement;
+        if (options is null && NumberFieldRootContext.SameElement(input, sentInput))
         {
-            sentOptions = new NumberFieldScrubOptions
-            {
-                Part = NumberFieldScrubTwin.ScrubPart,
-                Vertical = Direction == Orientation.Vertical ? true : null,
-                PixelSensitivity = PixelSensitivity == 2 ? null : PixelSensitivity,
-                TeleportDistance = TeleportDistance,
-                Disabled = disabled ? true : null,
-                ReadOnly = readOnly ? true : null,
-            };
+            return;
         }
 
-        TwinReferences? references = null;
-        if (input is { } inputElement)
-        {
-            references = new TwinReferences();
-            references.Add(inputElement);
-        }
-
+        sentOptions = options ?? sentOptions;
         sentInput = input;
-        if (handle is null)
-        {
-            twin ??= CreateTwin();
-            handle = await twin.AttachAsync(element, sentOptions!, references);
-            attached.TrySetResult();
-            return;
-        }
-
-        await handle.UpdateAsync(sentOptions!, references);
+        await handle.UpdateAsync(sentOptions!, References(input));
     }
 
     /// <inheritdoc />
@@ -216,6 +199,7 @@ public sealed class NumberFieldScrubArea : PartBase<NumberFieldScrubAreaState>
         if (disposing)
         {
             context?.RemoveListener(stateChanged);
+            context?.RemoveInputListener(inputPublished);
 
             // NUM-PTR-17: an unmount mid-scrub clears the root's scrubbing state; no pointer release, so no commit.
             if (scrubContext.IsScrubbing)
@@ -254,6 +238,67 @@ public sealed class NumberFieldScrubArea : PartBase<NumberFieldScrubAreaState>
         if (consumerPointerDown.IsHandler)
         {
             attributes.Set("onpointerdown", onPointerDown);
+        }
+    }
+
+    // The visible input is the module's only reference: the mouse press focuses it (NUM-FOC-04) and the release clicks
+    // through only with it (NUM-PTR-14).
+    private static TwinReferences? References(ElementReference? input)
+    {
+        if (input is not { } element)
+        {
+            return null;
+        }
+
+        TwinReferences references = new();
+        references.Add(element);
+        return references;
+    }
+
+    private async Task AttachAsync(ElementReference element)
+    {
+        sentOptions = ChangedOptions();
+        sentInput = context!.Root.InputElement;
+        twin ??= CreateTwin();
+        handle = await twin.AttachAsync(element, sentOptions!, References(sentInput));
+        attached.TrySetResult();
+    }
+
+    // The options to send when they differ from the last sent, otherwise null.
+    private NumberFieldScrubOptions? ChangedOptions()
+    {
+        NumberFieldRoot root = context!.Root;
+        bool? vertical = Direction == Orientation.Vertical ? true : null;
+        double? pixelSensitivity = PixelSensitivity == 2 ? null : PixelSensitivity;
+        bool? disabled = root.EffectiveDisabled ? true : null;
+        bool? readOnly = root.ReadOnly ? true : null;
+        if (sentOptions is { } sent
+            && sent.Vertical == vertical
+            && sent.PixelSensitivity == pixelSensitivity
+            && sent.TeleportDistance == TeleportDistance
+            && sent.Disabled == disabled
+            && sent.ReadOnly == readOnly)
+        {
+            return null;
+        }
+
+        return new NumberFieldScrubOptions
+        {
+            Part = NumberFieldScrubTwin.ScrubPart,
+            Vertical = vertical,
+            PixelSensitivity = pixelSensitivity,
+            TeleportDistance = TeleportDistance,
+            Disabled = disabled,
+            ReadOnly = readOnly,
+        };
+    }
+
+    // Issue 370: an input published after this area began attaching is sent by a render; before that, the attach reads it.
+    private void OnInputPublished()
+    {
+        if (attaching is not null && !NumberFieldRootContext.SameElement(context!.Root.InputElement, sentInput))
+        {
+            StateHasChanged();
         }
     }
 

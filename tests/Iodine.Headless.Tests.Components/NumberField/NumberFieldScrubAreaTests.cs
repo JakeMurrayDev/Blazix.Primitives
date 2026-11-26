@@ -74,6 +74,33 @@ public sealed class NumberFieldScrubAreaTests : IDisposable
             test.ScrubOptions);
     }
 
+    // Issue 370: the module focuses the input on a press and clicks through a locked release only with the input's element;
+    // a scrub area rendered before its input attaches without it, so the input's first render must send it.
+    [Fact(DisplayName = "port: a scrub area rendered before its input sends the input to the module once the input renders")]
+    [Trait("Requirement", "NUM-FOC-04")]
+    [Trait("Requirement", "NUM-PTR-14")]
+    public void A_scrub_area_before_its_input_sends_the_input_once_it_renders()
+    {
+        Render(b =>
+        {
+            b.OpenComponent<NumberFieldScrubArea>(0);
+            b.CloseComponent();
+            b.OpenComponent<NumberFieldInput>(1);
+            b.CloseComponent();
+        });
+
+        JSRuntimeInvocation inputAttach = Assert.Single(test.NumberFieldModule.Invocations["attach"], i => !IsScrub(i.Arguments[1]));
+        JSRuntimeInvocation scrubAttach = Assert.Single(test.NumberFieldModule.Invocations["attach"], i => IsScrub(i.Arguments[1]));
+        // The last references the scrub handle received: its last update's, or its attach's when it had no update.
+        List<JSRuntimeInvocation> scrubUpdates = [.. test.NumberFieldHandle.Invocations["update"].Where(i => IsScrub(i.Arguments[0]))];
+        IReadOnlyList<object?> last = scrubUpdates.Count > 0 ? scrubUpdates[^1].Arguments : scrubAttach.Arguments;
+        int index = scrubUpdates.Count > 0 ? 1 : 3;
+        object[] references = Assert.IsType<object[]>(last.Count > index ? last[index] : null);
+        Assert.Equal(inputAttach.Arguments[0], Assert.Single(references));
+
+        static bool IsScrub(object? options) => ((string)options!).Contains("\"part\":\"scrub\"", StringComparison.Ordinal);
+    }
+
     [Fact(DisplayName = "port: a scrub sets data-scrubbing on every part, steps by the delta with reason scrub, and the release commits once")]
     [Trait("Requirement", "NUM-STA-15")]
     [Trait("Requirement", "NUM-DOM-02")]
