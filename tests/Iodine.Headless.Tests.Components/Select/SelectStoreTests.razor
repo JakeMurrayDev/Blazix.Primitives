@@ -132,4 +132,36 @@
         Assert.True(cut.Find("[data-testid=\"item\"]").HasAttribute("data-disabled"));
         Assert.Empty(valueChanges);
     }
+
+    // Issue 311, SEL-POS-07: a value that changed while open (an item clicked, a controlled reset) moves the selected index
+    // only at the close (SEL-STA-04's closed sync); the text the next aligned placement measures must move with it.
+    [Fact(DisplayName = "port: a close after the value changed while open publishes the new selected item's text for the next aligned placement")]
+    [Trait("Requirement", "SEL-POS-07")]
+    [Trait("Requirement", "SEL-STA-04")]
+    public async Task A_close_after_the_value_changed_while_open_publishes_the_new_selected_text()
+    {
+        string? value = "alpha";
+        IRenderedComponent<SelectHost> cut = RenderSelect(@<SelectRoot TValue="string" Value="@value" ValueChanged="@(v => value = v)">
+            <SelectTrigger />
+            <SelectPortal>
+                <SelectPositioner>
+                    <SelectPopup>
+                        <SelectItem Value="@("alpha")"><SelectItemText data-testid="alpha-text">alpha</SelectItemText></SelectItem>
+                        <SelectItem Value="@("beta")"><SelectItemText data-testid="beta-text">beta</SelectItemText></SelectItem>
+                    </SelectPopup>
+                </SelectPositioner>
+            </SelectPortal>
+        </SelectRoot>);
+        SelectStore<string> store = StoreOf<string>(cut);
+        await OpenAsync(cut);
+        await PublishOrderAsync(cut);
+        string betaTextId = cut.Find("[data-testid=\"beta-text\"]").Id!;
+        Assert.Equal(cut.Find("[data-testid=\"alpha-text\"]").Id, store.SelectedTextId);
+
+        value = "beta";
+        await RefreshAsync(cut);
+        await CloseAsync<string>(cut);
+
+        Assert.Equal(betaTextId, store.SelectedTextId);
+    }
 }
