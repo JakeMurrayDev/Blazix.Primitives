@@ -109,20 +109,20 @@ export function createTwinChannel(twin: DotNetTwin): TwinChannel {
 }
 
 // ADR 04 Amendments 2026-10-28 (design point 9 of M4 track 8): the shadow roots the `portal` module moved nodes into,
-// counted per registration and kept on `globalThis`, so every bundle of the library reads the one page-global map.
+// counted per registration and kept on `globalThis`, so every bundle of the library reads the one page-global map. ADR 04
+// Amendments 2026-11-26 (issue 316; design point 5 (a), chosen by the user 2026-11-26): the documents of same-origin frames
+// the module moved nodes into share it, since Blazor's document query misses those elements too.
 const shadowRootsKey = Symbol.for('iodine.shadowRoots');
 
-function shadowRoots(): Map<ShadowRoot, number> {
-  const global = globalThis as unknown as Record<symbol, Map<ShadowRoot, number> | undefined>;
-  return (global[shadowRootsKey] ??= new Map<ShadowRoot, number>());
+/** A root the lookups search beside the host document: a shadow root, or a same-origin frame's document. */
+type RegisteredRoot = ShadowRoot | Document;
+
+function shadowRoots(): Map<RegisteredRoot, number> {
+  const global = globalThis as unknown as Record<symbol, Map<RegisteredRoot, number> | undefined>;
+  return (global[shadowRootsKey] ??= new Map<RegisteredRoot, number>());
 }
 
-/**
- * Registers a shadow root the `portal` module moved a node into, so the elements C# references inside it resolve.
- * @param root The shadow root.
- * @returns A function that releases this registration; the root is forgotten once every registration is released.
- */
-export function registerShadowRoot(root: ShadowRoot): () => void {
+function registerRoot(root: RegisteredRoot): () => void {
   const roots = shadowRoots();
   roots.set(root, (roots.get(root) ?? 0) + 1);
   let released = false;
@@ -140,7 +140,26 @@ export function registerShadowRoot(root: ShadowRoot): () => void {
   };
 }
 
-function findInShadowRoots(find: (root: ShadowRoot) => Element | null): Element | null {
+/**
+ * Registers a shadow root the `portal` module moved a node into, so the elements C# references inside it resolve.
+ * @param root The shadow root.
+ * @returns A function that releases this registration; the root is forgotten once every registration is released.
+ */
+export function registerShadowRoot(root: ShadowRoot): () => void {
+  return registerRoot(root);
+}
+
+/**
+ * Registers the document of a same-origin frame the `portal` module moved a node into, so the elements C# references
+ * inside it resolve.
+ * @param frameDocument The frame's document; the host document is never registered.
+ * @returns A function that releases this registration; the document is forgotten once every registration is released.
+ */
+export function registerDocument(frameDocument: Document): () => void {
+  return frameDocument === document ? () => {} : registerRoot(frameDocument);
+}
+
+function findInShadowRoots(find: (root: RegisteredRoot) => Element | null): Element | null {
   for (const root of shadowRoots().keys()) {
     const found = find(root);
     if (found !== null) {
@@ -148,6 +167,15 @@ function findInShadowRoots(find: (root: ShadowRoot) => Element | null): Element 
     }
   }
   return null;
+}
+
+// An element of a same-origin frame is an HTMLElement of the frame's realm, not of this one.
+function isRealmHTMLElement(element: unknown): element is HTMLElement {
+  if (element instanceof HTMLElement) {
+    return true;
+  }
+  const view = (element as Node | null)?.ownerDocument?.defaultView as (Window & typeof globalThis) | null | undefined;
+  return view != null && element instanceof view.HTMLElement;
 }
 
 function findCaptured(captureId: string | null | undefined): Element | null {
@@ -169,7 +197,7 @@ export function resolveElement(elementOrId: Element | string | null, captureId?:
     typeof elementOrId === 'string'
       ? (document.getElementById(elementOrId) ?? findInShadowRoots((root) => root.getElementById(elementOrId)))
       : (elementOrId ?? findCaptured(captureId));
-  if (!(element instanceof HTMLElement)) {
+  if (!isRealmHTMLElement(element)) {
     throw new Error(`Iodine: no element for ${typeof elementOrId === 'string' ? `id '${elementOrId}'` : 'the reference'}`);
   }
   return element;
