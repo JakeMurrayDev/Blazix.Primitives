@@ -148,6 +148,7 @@
         {
             string id = $"trigger-{number}";
             string payload = number.ToString(System.Globalization.CultureInfo.InvariantCulture);
+            // Issue 306: the reference capture runs after the loop, so it reads a copy of the index, not the loop variable.
             int index = number - 1;
             <FixturePopupTrigger TPayload="string" @key="number" @ref="triggerRefs[index]" Handle="@(detached ? handle : null)" id="@id" data-testid="@id" Payload="@payload">Trigger @payload</FixturePopupTrigger>
         }
