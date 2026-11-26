@@ -10,6 +10,7 @@ namespace Iodine.Headless;
 internal sealed class NumberFieldRootContext
 {
     private readonly List<Action> listeners = [];
+    private readonly List<Action> inputListeners = [];
 
     /// <summary>Initializes a new instance of the <see cref="NumberFieldRootContext"/> class.</summary>
     /// <param name="root">The root.</param>
@@ -26,6 +27,14 @@ internal sealed class NumberFieldRootContext
 
     /// <summary>Gets a counter that grows with every new <see cref="State"/>, so a part rebuilds its own record only then.</summary>
     public int StateVersion { get; private set; }
+
+    // By id, not Nullable.Equals: ElementReference is not IEquatable, so its equality boxes on every input render.
+    /// <summary>Gets a value indicating whether two element references name the same element.</summary>
+    /// <param name="first">The first reference, or <see langword="null"/>.</param>
+    /// <param name="second">The second reference, or <see langword="null"/>.</param>
+    /// <returns><see langword="true"/> when both are <see langword="null"/> or both have the same id.</returns>
+    public static bool SameElement(ElementReference? first, ElementReference? second) =>
+        string.Equals(first?.Id, second?.Id, StringComparison.Ordinal);
 
     /// <summary>Throws the error of a part rendered outside a number field root.</summary>
     /// <param name="context">The cascaded context, or <see langword="null"/>.</param>
@@ -68,6 +77,34 @@ internal sealed class NumberFieldRootContext
     /// <summary>Removes a listener added with <see cref="AddListener"/>.</summary>
     /// <param name="listener">The listener.</param>
     public void RemoveListener(Action listener) => listeners.Remove(listener);
+
+    // Issue 370: a scrub area rendered before the input attaches without it; the input's publication tells it to send it.
+    /// <summary>Publishes the visible input's element and notifies the input listeners when it changed.</summary>
+    /// <param name="element">The input's element, or <see langword="null"/> when the input left.</param>
+    public void PublishInput(ElementReference? element)
+    {
+        if (SameElement(Root.InputElement, element))
+        {
+            return;
+        }
+
+        Root.InputElement = element;
+        for (int i = inputListeners.Count - 1; i >= 0; i--)
+        {
+            if (i < inputListeners.Count)
+            {
+                inputListeners[i]();
+            }
+        }
+    }
+
+    /// <summary>Adds a listener that runs after the visible input's element changed.</summary>
+    /// <param name="listener">The listener.</param>
+    public void AddInputListener(Action listener) => inputListeners.Add(listener);
+
+    /// <summary>Removes a listener added with <see cref="AddInputListener"/>.</summary>
+    /// <param name="listener">The listener.</param>
+    public void RemoveInputListener(Action listener) => inputListeners.Remove(listener);
 
     /// <summary>Gets the fragment that cascades this context to <paramref name="content"/>.</summary>
     /// <param name="content">The content that receives the context.</param>
