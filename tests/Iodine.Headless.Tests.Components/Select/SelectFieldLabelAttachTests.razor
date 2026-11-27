@@ -23,7 +23,8 @@
     [Trait("Requirement", "FFI-PTR-01")]
     public async Task A_trigger_id_claimed_while_the_labels_handle_attaches_reaches_the_module()
     {
-        HeldAttachRuntime runtime = new(JSInterop.JSRuntime, "form.js");
+        // Issue 389: the handles' calls run on the renderer, where the poll below reads bUnit's records.
+        HeldAttachRuntime runtime = new(JSInterop.JSRuntime, "form.js", dispatcher: () => Renderer.Dispatcher);
         Services.AddSingleton<IJSRuntime>(runtime);
         RenderSelect(@<FieldRoot Name="country">
             <FieldLabel NativeLabel="false" Render="@s_div">Country</FieldLabel>
