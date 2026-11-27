@@ -370,6 +370,33 @@ public sealed class NumberFieldScrubAreaTests : IDisposable
         Assert.True(SpinWait.SpinUntil(() => test.ScrubOptions.Count == 1, TimeSpan.FromSeconds(5)));
     }
 
+    // The review of PR 398: a retry whose options did not change since the faulted attempt still attaches with the full
+    // options; the attempt that faulted sent nothing the module kept.
+    [Fact(DisplayName = "port: a scrub area whose attach faulted attaches again with its full options when nothing changed")]
+    [Trait("Requirement", "NUM-API-24")]
+    public async Task A_scrub_area_whose_attach_faulted_attaches_again_with_its_full_options()
+    {
+        FaultOnceRuntime runtime = new(test.Context.JSInterop.JSRuntime);
+        test.Context.Services.AddSingleton<IJSRuntime>(runtime);
+        IRenderedComponent<NumberFieldRoot> cut = Render(ScrubAreaWithClass("a"));
+        Exception fault = await test.Context.Renderer.UnhandledException.WaitAsync(TimeSpan.FromSeconds(5), Xunit.TestContext.Current.CancellationToken);
+        Assert.IsType<JSException>(fault);
+
+        // Only the consumer's class changes: the scrub area renders again with the options of the faulted attempt.
+        RenderTolerating(() => cut.Render(p => p.Add(x => x.ChildContent, ScrubAreaWithClass("b"))));
+
+        Assert.True(SpinWait.SpinUntil(() => runtime.ScrubAttaches == 2, TimeSpan.FromSeconds(5)), $"{runtime.ScrubAttaches} scrub attaches");
+        Assert.True(SpinWait.SpinUntil(() => test.ScrubOptions.Count == 1, TimeSpan.FromSeconds(5)));
+        Assert.Equal(["""{"part":"scrub"}"""], test.ScrubOptions);
+    }
+
+    private static RenderFragment ScrubAreaWithClass(string className) => b =>
+    {
+        b.OpenComponent<NumberFieldScrubArea>(0);
+        b.AddAttribute(1, "class", className);
+        b.CloseComponent();
+    };
+
     private static void RenderTolerating(Action render)
     {
         try
