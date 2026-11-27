@@ -949,6 +949,8 @@ export function releaseSession(session: InteractionSession): void {
   if (record.references <= 0 && sessions.get(record.token) === record) {
     sessions.delete(record.token);
     record.positionListeners.clear();
+    // Issue 367: a bar menu's unarmed window ends with its session.
+    endUnarmedBarOpen(record);
   }
 }
 
@@ -3378,6 +3380,8 @@ function noteBarMenuOpenRequest(record: SessionRecord): void {
 // non-touch `pointerdown` outside the trigger. The arm re-judges the held close from where the focus is before the
 // initial focus moves; any other open change of the session ends the window and drops it (the revision rule).
 interface UnarmedBarOpen {
+  /** The trigger whose press or open change started the window. */
+  readonly element: Element;
   /** The open change that started or adopted the window; `null` while the press's open has not arrived. */
   details: SessionOpenChangeDetails | null;
   /** The last non-touch `pointerdown` outside the trigger in the window, with the composed path of its dispatch. */
@@ -3451,10 +3455,13 @@ function syncUnarmedBarOpen(record: SessionRecord, details: SessionOpenChangeDet
   }
 }
 
-/** Ends the session's unarmed window, if any, dropping a held close. */
-function endUnarmedBarOpen(record: SessionRecord): void {
+/**
+ * Ends the session's unarmed window, if any, dropping a held close; with `element`, only the window that trigger started
+ * (PR 414's verifier: a trigger that detaches, or a session released, before the arm).
+ */
+function endUnarmedBarOpen(record: SessionRecord, element?: Element): void {
   const current = unarmedBarOpens.get(record);
-  if (current !== undefined) {
+  if (current !== undefined && (element === undefined || current.element === element)) {
     current.cleanup();
     unarmedBarOpens.delete(record);
   }
@@ -3467,6 +3474,7 @@ function endUnarmedBarOpen(record: SessionRecord): void {
 function startUnarmedBarOpen(record: SessionRecord, details: SessionOpenChangeDetails | null, element: Element): void {
   endUnarmedBarOpen(record);
   const state: UnarmedBarOpen = {
+    element,
     details,
     press: null,
     held: null,
@@ -4935,6 +4943,8 @@ function createMenuTriggerController(context: HandleContext): Controller {
       guardFocusOut?.();
       removeDocumentMouseUp();
       releaseArmTimeout.clear();
+      // Issue 367: the window this trigger started ends with it.
+      endUnarmedBarOpen(record, element);
     },
   };
 }
