@@ -168,14 +168,38 @@ public sealed class NumberFieldScrubArea : PartBase<NumberFieldScrubAreaState>
         scrubContext.Element = element;
         if (attaching is null)
         {
-            attaching = AttachAsync(element);
-            await attaching;
+            Task pending = attaching = AttachAsync(element);
+            try
+            {
+                await pending;
+            }
+            catch
+            {
+                // Issue 375's review, nit (a): a faulted attach is reported here once, and a later render attaches again.
+                if (ReferenceEquals(attaching, pending))
+                {
+                    attaching = null;
+                }
+
+                throw;
+            }
+
             return;
         }
 
         // Issue 370: one attach however many renders come before it completes; a render meanwhile, such as the one the
         // input's publication asks for, sends what changed once the attach has.
-        await attaching;
+        Task inFlight = attaching;
+        try
+        {
+            await inFlight;
+        }
+        catch
+        {
+            // The render that started the attach reports its fault.
+            return;
+        }
+
         if (twin is null || handle is null)
         {
             return;
@@ -259,8 +283,15 @@ public sealed class NumberFieldScrubArea : PartBase<NumberFieldScrubAreaState>
     {
         sentOptions = ChangedOptions();
         sentInput = context!.Root.InputElement;
-        twin ??= CreateTwin();
-        handle = await twin.AttachAsync(element, sentOptions!, References(sentInput));
+        NumberFieldScrubTwin attachingTwin = twin ??= CreateTwin();
+        TwinHandle<NumberFieldScrubOptions> attachedHandle = await attachingTwin.AttachAsync(element, sentOptions!, References(sentInput));
+
+        // Issue 375's review, nit (b): a dispose during the attach released the twin; the handle it yields is not kept.
+        if (ReferenceEquals(twin, attachingTwin))
+        {
+            handle = attachedHandle;
+        }
+
         attached.TrySetResult();
     }
 
