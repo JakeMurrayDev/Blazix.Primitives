@@ -339,7 +339,10 @@ internal sealed class DialogPopupBehavior : IAsyncDisposable
     // DLG-KEY-09 (DialogPopup.tsx:82-86; issue 381, design point 10m-1 (a), chosen by the user 2026-11-27): Base UI stops the
     // composite keys from the open's commit, so focus never sits in the popup while they reach a toolbar around it. The
     // focus manager's first attach, which applies the initial focus, is sent only after the key stop's attach; later
-    // renders send its options at once.
+    // renders send its options at once. PR 401's verifier nits: the gate waits for the send, not for the attach's answer, so
+    // a popup attach that throws in JavaScript still lets focus proceed, as before the order. It is one-shot per behavior: a
+    // reopen creates the Popup part, and with it this behavior, anew, and a kept-mounted popup keeps its element and its
+    // stop, so a behavior that meets a second element before its stop is not known to happen.
     private async Task FocusOnceKeyStopSentAsync(ElementReference? element, string? id)
     {
         await keyStopSent.Task;
