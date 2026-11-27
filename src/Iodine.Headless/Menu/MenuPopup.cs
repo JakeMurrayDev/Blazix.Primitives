@@ -84,7 +84,7 @@ public sealed class MenuPopup : PartBase<MenuPopupState>
     [Inject]
     private PartIdGenerator IdGenerator { get; set; } = null!;
 
-    // RND-DOM-33, MNU-API-32 (MenuPopup.tsx:72-77; issue 250): an `id` Razor writes as `@null` is a removed id, so the popup
+    // RND-DOM-32, MNU-API-32 (MenuPopup.tsx:72-77; issue 250): an `id` Razor writes as `@null` is a removed id, so the popup
     // falls back to the generated one and the owner's IDREFs follow it.
     private bool HasConsumerId => Rendering.RenderedId.ConsumerId(AdditionalAttributes) is not null;
 

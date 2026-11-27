@@ -76,7 +76,7 @@ public sealed class DialogPopup : PartBase<DialogPopupState>
     [Inject]
     private ILogger<DialogPopup> Logger { get; set; } = null!;
 
-    // RND-DOM-33, DLG-DOM-16 (issue 344, issue 250's shape): an `id` Razor writes as `@null` is a removed id, so the popup
+    // RND-DOM-32, DLG-DOM-16 (issue 344, issue 250's shape): an `id` Razor writes as `@null` is a removed id, so the popup
     // falls back to the generated one and the owner's IDREFs follow it.
     private bool HasConsumerId => Rendering.RenderedId.ConsumerId(AdditionalAttributes) is not null;
 
