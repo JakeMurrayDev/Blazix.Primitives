@@ -3537,8 +3537,14 @@ export function noteInitialFocusArmed(session: InteractionSession): boolean {
   unarmedBarOpens.delete(record);
   unarmed.cleanup();
   const held = unarmed.held;
-  if (held === null || !record.open) {
+  if (!record.open) {
     return false;
+  }
+  // PR 414's CI: on Server a trigger's focus option can arrive after a press in the window, so the press's blur met no
+  // listener and nothing was held. The press the window recorded runs through the outside-press path all the same, whose
+  // gates tell an inside press from an outside one.
+  if (held === null) {
+    return replayUnheldPress(record, unarmed);
   }
   const doc = ownerDocument(held.element);
   const active = activeElement(doc);
@@ -3562,6 +3568,21 @@ export function noteInitialFocusArmed(session: InteractionSession): boolean {
     held.send();
   }
   return true;
+}
+
+/**
+ * Replays the press a window recorded when no blur close was held for it.
+ * @returns `true` when the press moved the focus away from the trigger: the arm then moves no focus.
+ */
+function replayUnheldPress(record: SessionRecord, unarmed: UnarmedBarOpen): boolean {
+  const press = unarmed.press;
+  const dismiss = dismissState(record).options;
+  if (press === null || dismiss === null || dismiss.outsidePress === false) {
+    return false;
+  }
+  replayOutsidePress(record, press);
+  const active = activeElement(ownerDocument(unarmed.element));
+  return !contains(record.domReferenceElement, active) && !contains(unarmed.element, active);
 }
 
 const hoverEntries = new WeakMap<Document, HoverEntry>();
