@@ -735,6 +735,7 @@ interface SessionRecord extends InteractionSession {
   outsidePressEnabled: boolean;
   /** The element the next relayed `focus-out` close without a trigger names (`nameRelayTrigger`). */
   namedTrigger: Element | null;
+  /** Whether a close of the session was requested in the current task (`noteCloseRequest`), until a 0 ms timer clears it. */
   closeRequestedInTask: boolean;
   triggers: Map<string, Element>;
   /** The channel of the session handle (the Root's twin), which answers `escape`. */
@@ -1227,7 +1228,7 @@ function triggerIdOf(record: SessionRecord, element: Element): string | null {
   return element.id || null;
 }
 
-// ADR 04 Amendments 2026-10-27
+// Issue 372 (design point 10l-1 (a), chosen by the user 2026-11-26; ADR 04 Amendments 2026-11-27).
 /**
  * Notes that a close of the session was requested in the current task, by this module or by another that requests the
  * session's close on its own channel (the `composite` list's Shift+Tab `focus-out`), so an open requested before the task
@@ -1256,6 +1257,7 @@ function markCollapsedReopen(record: SessionRecord, event: Event | undefined): v
   }
 }
 
+// ADR 04 Amendments 2026-10-27
 /**
  * A request a handle sends: recorded for the relay's pairing, then reported on the
  * handle's own twin. Nothing is emitted here: `openchange` follows the commit the relay brings.
