@@ -346,7 +346,8 @@ internal sealed class SelectStore<TValue> : SelectStore
 
     // SEL-FRM-18 (SelectRoot.tsx:551-561; issue 312, ADR 04 Amendments 2026-11-26, chosen by the user 2026-11-26): the third
     // priority, the first item in rendered order whose rendered label equals the filled text case-insensitively, read from
-    // the popup's list handle; that item decides, and a null value matches nothing.
+    // the popup's list handle; that item decides, and a null value matches nothing. The first label match decides even when
+    // its item is no longer registered or present, as Base UI's `findIndex` stops there and its values array has a hole.
     /// <summary>Finds the item value a browser autofill names by an item's rendered label.</summary>
     /// <param name="text">The text the browser filled in.</param>
     /// <param name="rendered">The items' ids and rendered labels, in rendered order.</param>
@@ -356,15 +357,12 @@ internal sealed class SelectStore<TValue> : SelectStore
         int count = Math.Min(rendered.Ids.Count, rendered.Labels.Count);
         for (int i = 0; i < count; i++)
         {
-            if (rendered.Labels[i] is not { } label
-                || !string.Equals(label, text, StringComparison.OrdinalIgnoreCase)
-                || Find(rendered.Ids[i]) is not { } registration)
+            if (rendered.Labels[i] is not { } label || !string.Equals(label, text, StringComparison.OrdinalIgnoreCase))
             {
                 continue;
             }
 
-            ItemSlot<TValue> slot = registration.Slot;
-            return slot.Present && !ValueNull.IsNull(slot.Value) ? slot : null;
+            return Find(rendered.Ids[i]) is { Slot: { Present: true } slot } && !ValueNull.IsNull(slot.Value) ? slot : null;
         }
 
         return null;

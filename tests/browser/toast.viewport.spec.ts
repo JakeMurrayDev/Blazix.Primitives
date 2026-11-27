@@ -256,18 +256,46 @@ test.describe('Toast.Viewport', () => {
     expect(await present(page, fixture)).toBe(true);
   });
 
-  // DP8 of the Toast track (chosen by the user 2026-11-19), (a) probed first (2026-11-19, both modes): a Viewport moved into
-  // a same-origin iframe keeps being rendered by Blazor, but Blazor revives an element reference only against the host
-  // document, so every handle inside the iframe fails to attach ("Iodine: no element for the reference"; on Server the
-  // circuit ends). So (b): the iframe clauses of TST-STR-13 and TST-EDGE-08 stay open for track 10, issue 316 (the user's
-  // choice of 2026-11-19); the once-per-cycle binding (TST-FOC-14, TST-EDGE-07) is the port title below, on the host
-  // document.
-  test('rebinds owner-document listeners once across empty store cycles', async () => {
-    test.info().annotations.push({
-      type: 'open',
-      description: 'TST-STR-13, TST-EDGE-08: a Viewport inside an iframe cannot attach its handles (Blazor revives element references only against the host document); open for track 10, issue 316 (DP8 (b), chosen by the user 2026-11-19, "Keep open for track 10").',
+  // TST-STR-13, TST-EDGE-08 (ToastViewport.test.tsx:39): a Viewport portaled into a same-origin iframe binds its global
+  // listeners to the iframe's window and document, once per cycle. DP8 of the Toast track (2026-11-19) kept the clauses open
+  // because Blazor revives element references only against the host document; issue 316 (design point 5 (a), chosen by the
+  // user 2026-11-26, ADR 04 Amendments 2026-11-26) registers the frame's document for the lookups. The fixture's script makes
+  // the iframe and records its listener calls; Base UI's `ReactDOM.createPortal` is the ToastPortal's `Container`. C# event
+  // handlers do not fire inside the iframe (the ADR's deviation), so the controls stay in the host document.
+  test('rebinds owner-document listeners once across empty store cycles', async ({ page, mode }) => {
+    const fixture = await openToast(page, mode, { iframe: 'true' }, 'toast-portal');
+    await expect(fixture).toHaveAttribute('data-iframe-attached', 'true');
+    const frame = page.frameLocator('[data-testid="toast-iframe"]');
+    const calls = (key: string) =>
+      page.evaluate((call) => (globalThis as unknown as { iodineFixtureDom: { iframeListenerCalls: string[] } }).iodineFixtureDom.iframeListenerCalls.filter((entry) => entry === call).length, key);
+
+    await page.getByTestId('add').click();
+    await expect(frame.locator('[data-testid="root"]')).toHaveCount(1);
+    await expect.poll(() => calls('+window:keydown')).toBe(1);
+    expect(await calls('+window:blur')).toBe(1);
+    expect(await calls('+window:focus')).toBe(1);
+    expect(await calls('+document:pointerdown')).toBe(1);
+    // F6 on the iframe's window focuses the viewport in the iframe's document.
+    await page.locator('[data-testid="toast-iframe"]').evaluate((iframe) => {
+      const frameWindow = (iframe as HTMLIFrameElement).contentWindow as Window & typeof globalThis;
+      frameWindow.dispatchEvent(new frameWindow.KeyboardEvent('keydown', { key: 'F6' }));
     });
-    test.fixme(true, 'Open: a Viewport in an iframe cannot attach; issue 316, track 10.');
+    await expect.poll(() =>
+      page.locator('[data-testid="toast-iframe"]').evaluate((iframe) => (iframe as HTMLIFrameElement).contentDocument!.activeElement?.getAttribute('data-testid') ?? null)).toBe('viewport');
+
+    await page.getByTestId('close-all').click();
+    await expect(frame.locator('[data-testid="root"]')).toHaveCount(0);
+    await expect.poll(() => calls('-window:keydown')).toBe(1);
+    expect(await calls('-window:blur')).toBe(1);
+    expect(await calls('-window:focus')).toBe(1);
+    expect(await calls('-document:pointerdown')).toBe(1);
+
+    await page.getByTestId('add').click();
+    await expect(frame.locator('[data-testid="root"]')).toHaveCount(1);
+    await expect.poll(() => calls('+window:keydown')).toBe(2);
+    expect(await calls('+window:blur')).toBe(2);
+    expect(await calls('+window:focus')).toBe(2);
+    expect(await calls('+document:pointerdown')).toBe(2);
   });
 
   test('port: binds the window and document listeners while toasts exist, once per cycle', async ({ page, mode }) => {

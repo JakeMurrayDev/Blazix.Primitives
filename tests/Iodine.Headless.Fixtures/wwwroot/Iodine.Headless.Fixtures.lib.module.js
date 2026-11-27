@@ -23,6 +23,32 @@ globalThis.iodineFixtureDom = {
   createOpenShadowRoot(host) {
     return host.attachShadow({ mode: 'open' });
   },
+  // Issue 316 (toast.viewport.spec.ts's owner-document title): a same-origin iframe inside `host`, and a container in its
+  // body for a portal. The frame window's and document's listener calls are recorded in `iframeListenerCalls`
+  // (`+window:keydown`, `-document:pointerdown`).
+  createIframeContainer(host) {
+    const iframe = host.ownerDocument.createElement('iframe');
+    iframe.setAttribute('data-testid', 'toast-iframe');
+    host.appendChild(iframe);
+    const calls = [];
+    globalThis.iodineFixtureDom.iframeListenerCalls = calls;
+    for (const [target, name] of [[iframe.contentWindow, 'window'], [iframe.contentDocument, 'document']]) {
+      const add = target.addEventListener.bind(target);
+      const remove = target.removeEventListener.bind(target);
+      target.addEventListener = (type, listener, options) => {
+        calls.push(`+${name}:${type}`);
+        add(type, listener, options);
+      };
+      target.removeEventListener = (type, listener, options) => {
+        calls.push(`-${name}:${type}`);
+        remove(type, listener, options);
+      };
+    }
+    const container = iframe.contentDocument.createElement('div');
+    iframe.contentDocument.body.appendChild(container);
+    return container;
+  },
+  iframeListenerCalls: [],
   lastClosedShadowRoot: null,
   // M5 track 1's virtual list host (issue 159, Deliverable 12): the Combobox family's Enter on its input
   // (ComboboxInput.tsx:404-420 at Base UI v1.9.0), which no module of the list mechanism owns: while the input is expanded

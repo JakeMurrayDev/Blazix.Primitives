@@ -249,6 +249,26 @@ describe('the move, the restore and the cleanup', () => {
     expect(() => attachTarget(null, ['9'])).toThrow('Iodine: ');
   });
 
+  // ADR 04 Amendments 2026-11-26 (issue 316; design point 5 (a), chosen by the user 2026-11-26): the same for a node
+  // moved into a same-origin iframe, whose document the module registers.
+  it('port: a node moved into a same-origin iframe registers its document, so a part inside resolves by its capture id until the node leaves', () => {
+    const iframe = document.createElement('iframe');
+    document.body.appendChild(iframe);
+    const frameDocument = iframe.contentDocument!;
+    const container = frameDocument.createElement('div');
+    frameDocument.body.appendChild(container);
+    const { node, floating } = renderPortal();
+    floating.setAttribute('_bl_12', '');
+
+    const handle = attach(node, JSON.stringify({ containerRef: 0 }), createFakeTwin().twin, [container]);
+    expect(node.parentNode).toBe(container);
+    expect(attachTarget(null, ['12'])).toBe(floating);
+
+    handle.dispose();
+    expect(() => attachTarget(null, ['12'])).toThrow('Iodine: ');
+    iframe.remove();
+  });
+
   it('port: a repeated attach of the same node returns the live handle', () => {
     const { node } = renderPortal();
     const twin = createFakeTwin().twin;

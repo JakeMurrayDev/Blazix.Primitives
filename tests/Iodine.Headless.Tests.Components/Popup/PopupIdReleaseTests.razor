@@ -1,0 +1,114 @@
+@namespace Iodine.Headless.Tests.Components
+@inherits BunitContext
+@using AngleSharp.Dom
+@using Bunit
+@using Microsoft.Extensions.DependencyInjection
+@*
+    Issue 344 (M6 track 10; issue 250's shape, PR 343): Razor writes a removed `id` as `id="@null"`, which keeps the key in
+    the unmatched attributes with a null value. A popup that counted the key rendered no id at all where Base UI falls back
+    to the generated id (RND-DOM-32). One title per family: the popup's custom id, then the id removed, then the generated
+    id on the popup. The JS runtime is loose: these titles read rendered attributes only.
+*@
+
+@code {
+    public PopupIdReleaseTests()
+    {
+        JSInterop.Mode = JSRuntimeMode.Loose;
+        Services.AddIodineHeadless();
+    }
+
+    private void ReleasesTheId(RenderFragment<string?> tree, string popupSelector)
+    {
+        IRenderedComponent<PopupIdHost> cut = Render<PopupIdHost>(p => p.Add(x => x.Tree, tree).Add(x => x.PopupId, "custom-popup"));
+        Assert.Equal("custom-popup", cut.Find(popupSelector).Id);
+
+        cut.Render(p => p.Add(x => x.PopupId, null));
+
+        cut.WaitForAssertion(() =>
+        {
+            IElement popup = cut.Find(popupSelector);
+            Assert.False(string.IsNullOrEmpty(popup.Id), popup.OuterHtml[..Math.Min(200, popup.OuterHtml.Length)]);
+            Assert.NotEqual("custom-popup", popup.Id);
+        });
+    }
+
+    [Fact(DisplayName = "port: a Dialog popup whose id is removed falls back to the generated id")]
+    [Trait("Requirement", "DLG-DOM-16")]
+    public void A_dialog_popup_releases_its_id() => ReleasesTheId(
+        popupId => @<DialogRoot TPayload="NoPayload" DefaultOpen="true">
+            <DialogPortal>
+                <DialogPopup id="@popupId" data-testid="popup">Dialog</DialogPopup>
+            </DialogPortal>
+        </DialogRoot>,
+        "[data-testid=popup]");
+
+    [Fact(DisplayName = "port: an AlertDialog popup whose id is removed falls back to the generated id")]
+    [Trait("Requirement", "DLG-DOM-16")]
+    public void An_alert_dialog_popup_releases_its_id() => ReleasesTheId(
+        popupId => @<AlertDialogRoot TPayload="NoPayload" DefaultOpen="true">
+            <AlertDialogPortal>
+                <AlertDialogPopup id="@popupId" data-testid="popup">Alert</AlertDialogPopup>
+            </AlertDialogPortal>
+        </AlertDialogRoot>,
+        "[data-testid=popup]");
+
+    [Fact(DisplayName = "port: a Drawer popup whose id is removed falls back to the generated id")]
+    [Trait("Requirement", "DRW-DOM-16")]
+    public void A_drawer_popup_releases_its_id() => ReleasesTheId(
+        popupId => @<DrawerRoot TPayload="NoPayload" DefaultOpen="true">
+            <DrawerPortal>
+                <DrawerPopup id="@popupId" data-testid="popup">Drawer</DrawerPopup>
+            </DrawerPortal>
+        </DrawerRoot>,
+        "[data-testid=popup]");
+
+    [Fact(DisplayName = "port: a Popover popup whose id is removed falls back to the generated id")]
+    [Trait("Requirement", "POP-DOM-23")]
+    public void A_popover_popup_releases_its_id() => ReleasesTheId(
+        popupId => @<PopoverRoot TPayload="NoPayload" DefaultOpen="true">
+            <PopoverTrigger TPayload="NoPayload">Open</PopoverTrigger>
+            <PopoverPortal>
+                <PopoverPositioner>
+                    <PopoverPopup id="@popupId" data-testid="popup">Popover</PopoverPopup>
+                </PopoverPositioner>
+            </PopoverPortal>
+        </PopoverRoot>,
+        "[data-testid=popup]");
+
+    [Fact(DisplayName = "port: a ContextMenu popup whose id is removed falls back to the generated id")]
+    [Trait("Requirement", "MNU-API-32")]
+    public void A_context_menu_popup_releases_its_id() => ReleasesTheId(
+        popupId => @<ContextMenuRoot DefaultOpen="true">
+            <ContextMenuTrigger>Area</ContextMenuTrigger>
+            <ContextMenuPortal>
+                <ContextMenuPositioner>
+                    <ContextMenuPopup id="@popupId" data-testid="popup">
+                        <ContextMenuItem>Item</ContextMenuItem>
+                    </ContextMenuPopup>
+                </ContextMenuPositioner>
+            </ContextMenuPortal>
+        </ContextMenuRoot>,
+        "[data-testid=popup]");
+
+    [Fact(DisplayName = "port: a NavigationMenu popup whose id is removed falls back to the generated id")]
+    [Trait("Requirement", "NAV-API-17")]
+    public void A_navigation_menu_popup_releases_its_id() => ReleasesTheId(
+        popupId => @<NavigationMenuRoot TValue="string" DefaultValue="@("one")">
+            <NavigationMenuList>
+                <NavigationMenuItem Value="@("one")">
+                    <NavigationMenuTrigger>One</NavigationMenuTrigger>
+                    <NavigationMenuContent>
+                        <NavigationMenuLink href="#one">Link one</NavigationMenuLink>
+                    </NavigationMenuContent>
+                </NavigationMenuItem>
+            </NavigationMenuList>
+            <NavigationMenuPortal>
+                <NavigationMenuPositioner>
+                    <NavigationMenuPopup id="@popupId" data-testid="popup">
+                        <NavigationMenuViewport />
+                    </NavigationMenuPopup>
+                </NavigationMenuPositioner>
+            </NavigationMenuPortal>
+        </NavigationMenuRoot>,
+        "[data-testid=popup]");
+}

@@ -87,6 +87,9 @@ public sealed class ToastViewport<TData> : PartBase<ToastViewportState>
     [CascadingParameter]
     private ToastProviderContext<TData>? ProviderContext { get; set; }
 
+    [CascadingParameter]
+    private PopupPortalContext? Portal { get; set; }
+
     /// <summary>Gets or sets the template that renders the toasts.</summary>
     /// <value>
     /// The template, given the toasts, newest first; or <see langword="null"/> to render
@@ -160,8 +163,17 @@ public sealed class ToastViewport<TData> : PartBase<ToastViewportState>
         base.BuildRenderTree(builder);
     }
 
+    // Issue 316 (ADR 04 Amendments 2026-11-26): the module reads the viewport's owner window and document at its attach, so a
+    // viewport inside a ToastPortal attaches after the portal moved its node (into a same-origin iframe, the frame's own).
     /// <inheritdoc />
-    protected override Task OnAfterRenderAsync(bool firstRender) => disposed ? Task.CompletedTask : SyncAsync();
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        await PopupPortalContext.WhenMoved(Portal);
+        if (!disposed)
+        {
+            await SyncAsync();
+        }
+    }
 
     /// <inheritdoc />
     protected override void Dispose(bool disposing)

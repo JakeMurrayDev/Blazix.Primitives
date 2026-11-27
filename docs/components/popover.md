@@ -8,7 +8,7 @@
 | Docs page | `docs/src/app/(docs)/react/components/popover/page.mdx` |
 | Prefix | `POP` |
 | Status | implemented |
-| Revised | 2026-11-26 |
+| Revised | 2026-11-27 |
 | Builds on | none |
 | Derived by | none (Menu, PreviewCard and Tooltip share the same popup store and floating mechanisms but have their own documents) |
 | Depends on | [rendering-and-composition](../architecture/rendering-and-composition.md), [event-details-and-reasons](../architecture/event-details-and-reasons.md), [popup-store-and-handles](../architecture/popup-store-and-handles.md), [floating-and-positioning](../architecture/floating-and-positioning.md), [transitions-and-mounting](../architecture/transitions-and-mounting.md), [button-behavior](../architecture/button-behavior.md), [shared-utilities](../architecture/shared-utilities.md) |
@@ -635,6 +635,7 @@ The open/close state diagram (mounted flag, transition status) is the shared pop
 
 - **POP-DOM-23** — MUST. The Popup element's `id` is the Root's generated floating id unless the consumer supplies an `id`; the Trigger's `aria-controls` references whichever is rendered (PSH-STA-04, PSH-ARIA-03).
   Source: `popover/popup/PopoverPopup.tsx:51,90`; `utils/popups/store.ts:152-155`. Test: [L2] popupConformanceTests "allows a custom `id` prop", "has the `aria-controls` attribute on the trigger".
+  Port note (2026-11-27, M6 track 10, [issue 344](https://github.com/JakeMurrayDev/Iodine.Headless/issues/344); issue 250's shape, MNU-API-32): Razor writes a removed `id` as `id="@null"`, which keeps the key with a null value; the popup counted the key, so it rendered no id and published none. It now counts only a string id (`RenderedId.ConsumerId`) and falls back to the generated id. [L2] `PopupIdReleaseTests` "port: a Popover popup whose id is removed falls back to the generated id", red on `main` (no id), green.
 - **POP-DOM-24** — MUST. The Popup element has `tabindex="-1"` and `data-base-ui-focusable=""` (PSH-DOM-15); because it already carries an unmanaged `tabindex`, the focus manager's dialog `tabindex` management (FLT-DOM-17) never changes it — the popup stays out of the sequential tab order even when it has no tabbable content.
   Source: `popover/popup/PopoverPopup.tsx:92`; `utils/popups/popupStoreUtils.ts:27-30`; `floating-ui-react/components/FloatingFocusManager.tsx:114-120`. Test: [L2] `PopoverRoot.test.tsx` "does not loop focus between guards when tabbing out of the popup" (popup itself receives initial focus when it has no tabbable content).
 - **POP-DOM-25** — MUST. The Popup element has `data-open=""` when open and `data-closed=""` when closed (PSH-DOM-03).

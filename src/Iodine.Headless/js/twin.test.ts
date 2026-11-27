@@ -2,7 +2,7 @@
 // (WebAssembly) form. Port titles: Base UI has no counterpart.
 import { describe, expect, it } from 'vitest';
 import { createFakeTwin } from './test-support/fake-twin';
-import { attachTarget, createTwinChannel, decisionPolicies, registerShadowRoot, resolveElement, resolveReference, type DotNetTwin } from './twin';
+import { attachTarget, createTwinChannel, decisionPolicies, registerDocument, registerShadowRoot, resolveElement, resolveReference, type DotNetTwin } from './twin';
 
 /** Wraps a fake twin so the test can count the synchronous invocations the channel makes. */
 function counting(twin: DotNetTwin): { twin: DotNetTwin; calls: string[] } {
@@ -116,5 +116,30 @@ describe('elements inside a shadow root', () => {
 
     unregister();
     host.remove();
+  });
+});
+
+// ADR 04 Amendments 2026-11-26 (issue 316; design point 5 (a), chosen by the user 2026-11-26): Blazor's document query
+// misses an element the portal moved into a same-origin iframe too, so the frame's document is registered as a shadow root
+// is, and the element there is an HTML element of the frame's realm.
+describe('elements inside a same-origin iframe', () => {
+  it('port: an element revived as null resolves by its capture id, and an id by itself, in a registered frame document until it is released', () => {
+    const iframe = document.createElement('iframe');
+    document.body.append(iframe);
+    const frameDocument = iframe.contentDocument!;
+    const element = frameDocument.createElement('div');
+    element.setAttribute('_bl_11', '');
+    element.id = 'in-frame';
+    frameDocument.body.append(element);
+    const unregister = registerDocument(frameDocument);
+
+    expect(attachTarget(null, ['11'])).toBe(element);
+    expect(resolveElement('in-frame')).toBe(element);
+    expect(resolveReference([null], 0, [null, '11'])).toBe(element);
+
+    unregister();
+    expect(() => attachTarget(null, ['11'])).toThrow('Iodine: ');
+    expect(() => resolveElement('in-frame')).toThrow('Iodine: ');
+    iframe.remove();
   });
 });

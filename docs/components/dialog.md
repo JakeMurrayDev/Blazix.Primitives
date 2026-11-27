@@ -8,7 +8,7 @@
 | Docs page | `docs/src/app/(docs)/react/components/dialog/page.mdx` |
 | Prefix | `DLG` |
 | Status | implemented |
-| Revised | 2026-11-23 |
+| Revised | 2026-11-27 |
 | Builds on | none |
 | Derived by | [alert-dialog](alert-dialog.md) (`useRenderDialogRoot('alert-dialog', …)`), [drawer](drawer.md) (`useRenderDialogRoot('drawer', …)`) |
 | Depends on | [rendering-and-composition](../architecture/rendering-and-composition.md), [event-details-and-reasons](../architecture/event-details-and-reasons.md), [popup-store-and-handles](../architecture/popup-store-and-handles.md), [transitions-and-mounting](../architecture/transitions-and-mounting.md), [button-behavior](../architecture/button-behavior.md), [shared-utilities](../architecture/shared-utilities.md), [floating-and-positioning](../architecture/floating-and-positioning.md) (owns `useDismiss`, `useClick`, `FloatingFocusManager`, `FloatingPortal`) |
@@ -578,6 +578,7 @@ Port note 2026-10-28 (ADR 04 Amendments 2026-10-27, the Writer table for the por
 
 - **DLG-DOM-16** — MUST. The Popup renders `id` equal to the generated popup id unless the consumer passes `id`, in which case the consumer value wins and becomes the popup id used for `aria-controls` (PSH-STA-04, PSH-ARIA-03).
   Source: `dialog/popup/DialogPopup.tsx:43,76,91`; `utils/popups/store.ts:152-155`. Test: [L2] popupConformanceTests "allows a custom `id` prop", "has the `aria-controls` attribute on the trigger".
+  Port note (2026-11-27, M6 track 10, [issue 344](https://github.com/JakeMurrayDev/Iodine.Headless/issues/344); issue 250's shape, MNU-API-32): Razor writes a removed `id` as `id="@null"`, which keeps the key with a null value; the popup counted the key, so it rendered no id and published none. It now counts only a string id (`RenderedId.ConsumerId`) and falls back to the generated id. [L2] `PopupIdReleaseTests` "port: a Dialog popup whose id is removed falls back to the generated id", "port: an AlertDialog popup whose id is removed falls back to the generated id", red on `main` (no id), green.
 - **DLG-DOM-17** — MUST. The Popup always renders `tabindex="-1"` and `data-base-ui-focusable=""` (PSH-DOM-15): it is programmatically focusable, never in the tab order, and identified as the focus-managed element.
   Source: `dialog/popup/DialogPopup.tsx:80`; `utils/popups/popupStoreUtils.ts:27-30`. Test: [L2] `DialogPopup.test.tsx` "focuses the popup itself rather than inner content when opened by touch"; `DialogRoot.test.tsx` "moves focus to the popup when a focused child is removed on pointerdown…".
 - **DLG-DOM-18** — MUST. The Popup has `hidden` iff `mounted` is `false` (kept-mounted closed state, TRN-DOM-06), making it inaccessible.

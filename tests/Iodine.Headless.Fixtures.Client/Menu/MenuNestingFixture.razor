@@ -8,9 +8,12 @@
     `case`: `dialog` (a modal Dialog holding a modal Menu, DialogRoot.test.tsx), `toolbar` (a ToolbarButton substituting a
     MenuTrigger, ToolbarButton.test.tsx; `disabled`; its clicks in `data-button-clicks`), `popover` (a default-open, kept-mounted
     Popover holding Before, a Menu and After, PopoverRoot.test.tsx). The sync button is last: a Tab from the page's start
-    reaches the toolbar.
+    reaches the toolbar. `data-positioner-attached` reads `true` once the last mounted menu Positioner's handles attached:
+    outside press arms with its floating handle (ADR 01's row of 2026-11-24; issue 268), which on WebAssembly can come
+    after the open menu shows (issue 392). Each Positioner is tracked from its own reference capture, as in
+    `context-menu-root` (issue 358).
 *@
-<FixtureContainer Name="menu-nesting" data-attached="@(Attached ? "true" : "false")" data-sync="@Sync"
+<FixtureContainer Name="menu-nesting" data-attached="@(Attached ? "true" : "false")" data-sync="@Sync" data-positioner-attached="@(positionerAttached ? "true" : "false")"
                   data-open-changes="@OpenChanges" data-button-clicks="@buttonClicks" data-dialog-open-changes="@dialogChanges">
     @switch (Case)
     {
@@ -65,6 +68,11 @@
     private MenuTrigger<NoPayload>? toolbarMenuTrigger;
     private ToolbarRoot? toolbar;
     private ToolbarButton? toolbarButton;
+    private MenuPositioner? menuPositioner;
+    private readonly HashSet<MenuPositioner> trackedPositioners = [];
+    private bool positionerAttached;
+
+    private MenuPositioner? TrackedPositioner { get => menuPositioner; set => menuPositioner = Track(value); }
 
     protected override IEnumerable<Task> Attachments =>
     [
@@ -77,13 +85,34 @@
         toolbarButton?.TwinAttached ?? Task.CompletedTask,
     ];
 
+    // Issue 392: a Positioner mounted takes the marker down until its handles attach. It is tracked from its reference
+    // capture rather than from the fixture's next render, which may never come (the open renders only the menu's subtree).
+    private MenuPositioner? Track(MenuPositioner? positioner)
+    {
+        if (positioner is not null && RendererInfo.IsInteractive && trackedPositioners.Add(positioner))
+        {
+            _ = InvokeAsync(() => WaitForAttachAsync(positioner));
+        }
+
+        return positioner;
+    }
+
+    private async Task WaitForAttachAsync(MenuPositioner positioner)
+    {
+        positionerAttached = false;
+        StateHasChanged();
+        await positioner.TwinAttached;
+        positionerAttached = true;
+        StateHasChanged();
+    }
+
     private void RecordDialogChange(ValueChangeEventArgs<bool> args) =>
         dialogChanges += $"{(args.Value ? "true" : "false")}:{args.Details.Reason.ToLiteral()} ";
 
     private RenderFragment ToolbarTrigger => @<MenuTrigger TPayload="NoPayload" @ref="toolbarMenuTrigger" />;
 
     private RenderFragment MenuContent => @<MenuPortal>
-        <MenuPositioner data-testid="menu-positioner">
+        <MenuPositioner @ref="TrackedPositioner" data-testid="menu-positioner">
             <MenuPopup>
                 <MenuItem>Item</MenuItem>
             </MenuPopup>

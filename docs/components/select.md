@@ -7,8 +7,8 @@
 | Tests | `packages/react/src/select/**/*.test.tsx` (20 files; plus 2 type-level `*.spec.tsx`) |
 | Docs page | `docs/src/app/(docs)/react/components/select/page.mdx` |
 | Prefix | `SEL` |
-| Status | approved |
-| Revised | 2026-11-26 |
+| Status | implemented |
+| Revised | 2026-11-27 |
 | Builds on | none |
 | Derived by | none |
 | Depends on | [rendering-and-composition](../architecture/rendering-and-composition.md), [event-details-and-reasons](../architecture/event-details-and-reasons.md), [button-behavior](../architecture/button-behavior.md), [field-and-form-infrastructure](../architecture/field-and-form-infrastructure.md), [composite-and-list-navigation](../architecture/composite-and-list-navigation.md), [floating-and-positioning](../architecture/floating-and-positioning.md), [popup-store-and-handles](../architecture/popup-store-and-handles.md), [transitions-and-mounting](../architecture/transitions-and-mounting.md), [shared-utilities](../architecture/shared-utilities.md) |
@@ -2113,5 +2113,7 @@ Every ID in this document, grouped by AREA (conventions §3.3 order) and numeric
 12. **TRN §10 Q7 confirmation.** `select/item-indicator/SelectItemIndicator.tsx:20-25` unmounts the indicator in the deselecting commit when `keepMounted` is `false`; the exit phase exists only with `keepMounted` (SEL-STR-11, SEL-ANI-12). Confirmed.
 13. **Scroll-arrow `data-side="none"`.** Scroll arrows read `side` from the Positioner context (`select/scroll-arrow/SelectScrollArrow.tsx:32,76`), so while aligned they carry `data-side="none"` even though the arrows are positioned relative to the popup, not the anchor; harmless, noted for styling.
 14. **`popupListConformanceTests` `modal` default.** Select runs the suite with the default `modal: true` (`test/popupListConformanceTests.tsx:33`); the suite's outside-press test uses a forced click through the backdrop (`test/popupListConformanceTests.tsx:999-1003`). A port whose backdrop swallows the press differently may need the same escape hatch.
+
+- **2026-11-27, `implemented` (chosen by the user 2026-11-26; recorded by M6 track 10; ADR 13).** Every `Test:` row of this document is green at its layer, L4 on both render modes. The last holders closed on 2026-11-26: SEL-POS-07's two aligned selected-text titles with [PR 379](https://github.com/JakeMurrayDev/Iodine.Headless/pull/379) ([issue 311](https://github.com/JakeMurrayDev/Iodine.Headless/issues/311)), and SEL-FRM-18's rendered-label clause with [PR 380](https://github.com/JakeMurrayDev/Iodine.Headless/pull/380) ([issue 312](https://github.com/JakeMurrayDev/Iodine.Headless/issues/312); ADR 04 Amendments 2026-11-26). [Issue 260](https://github.com/JakeMurrayDev/Iodine.Headless/issues/260), which held `implemented`, closed on 2026-11-26. 332 rows, 331 live (SEL-API-18 withdrawn), none open.
 
 **Identity rename (2026-11-23, [ADR 17](../decisions/17-product-name-and-package-identity.md)).** Every `Blazix.Primitives` in this document now reads `Iodine.Headless`, the `Blazix: ` message prefix reads `Iodine: `, every other `Blazix`, `blazix` or `BLZX` name reads its `Iodine`, `iodine` or `IOD` form, and links point to `JakeMurrayDev/Iodine.Headless`. No requirement's meaning, level or test changed.
