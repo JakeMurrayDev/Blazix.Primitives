@@ -1,4 +1,3 @@
-using System.Diagnostics;
 using System.Globalization;
 using System.Text.Json;
 using Bunit;
@@ -351,7 +350,7 @@ public sealed class NumberFieldScrubAreaTests : IDisposable
     // rather than rethrowing the first fault at every render and never attaching.
     [Fact(DisplayName = "port: a scrub area whose attach faulted attaches again at its next render")]
     [Trait("Requirement", "NUM-API-24")]
-    public void A_scrub_area_whose_attach_faulted_attaches_again()
+    public async Task A_scrub_area_whose_attach_faulted_attaches_again()
     {
         FaultOnceRuntime runtime = new(test.Context.JSInterop.JSRuntime);
         test.Context.Services.AddSingleton<IJSRuntime>(runtime);
@@ -360,21 +359,15 @@ public sealed class NumberFieldScrubAreaTests : IDisposable
             b.OpenComponent<NumberFieldScrubArea>(0);
             b.CloseComponent();
         });
-        Assert.True(SpinWait.SpinUntil(() => runtime.Faulted, TimeSpan.FromSeconds(2)));
 
-        // The fault reaches the part a dispatch after the module's rejection, so the renders go on until one attaches again
-        // (a bounded wait on the end state; against the old part none ever does).
-        bool readOnly = false;
-        Stopwatch elapsed = Stopwatch.StartNew();
-        while (runtime.ScrubAttaches < 2 && elapsed.Elapsed < TimeSpan.FromSeconds(2))
-        {
-            readOnly = !readOnly;
-            bool next = readOnly;
-            RenderTolerating(() => cut.Render(p => p.Add(x => x.ReadOnly, next)));
-        }
+        // The renderer receives the fault from the part's after-render, so the part has handled it by then.
+        Exception fault = await test.Context.Renderer.UnhandledException.WaitAsync(TimeSpan.FromSeconds(5), Xunit.TestContext.Current.CancellationToken);
+        Assert.IsType<JSException>(fault);
 
-        Assert.Equal(2, runtime.ScrubAttaches);
-        Assert.Single(test.ScrubOptions);
+        RenderTolerating(() => cut.Render(p => p.Add(x => x.ReadOnly, true)));
+
+        Assert.True(SpinWait.SpinUntil(() => runtime.ScrubAttaches == 2, TimeSpan.FromSeconds(5)), $"{runtime.ScrubAttaches} scrub attaches");
+        Assert.True(SpinWait.SpinUntil(() => test.ScrubOptions.Count == 1, TimeSpan.FromSeconds(5)));
     }
 
     private static void RenderTolerating(Action render)
@@ -414,8 +407,6 @@ public sealed class NumberFieldScrubAreaTests : IDisposable
     {
         public int ScrubAttaches { get; private set; }
 
-        public bool Faulted { get; private set; }
-
         public ValueTask<TValue> InvokeAsync<TValue>(string identifier, object?[]? args) => InvokeAsync<TValue>(identifier, CancellationToken.None, args);
 
         public async ValueTask<TValue> InvokeAsync<TValue>(string identifier, CancellationToken cancellationToken, object?[]? args)
@@ -448,7 +439,6 @@ public sealed class NumberFieldScrubAreaTests : IDisposable
             private async Task<TValue> FaultAsync<TValue>()
             {
                 await Task.Yield();
-                runtime.Faulted = true;
                 throw new JSException("Iodine: the scrub attach failed.");
             }
 
