@@ -340,7 +340,6 @@ public sealed class TwinContractTests
         Assert.Equal(1, roundTrip.Buttons);
     }
 
-    /// <summary>The module's <c>attach</c> answers with a handle whose <c>update</c> and <c>dispose</c> complete and are recorded.</summary>
     // ADR 04 Amendments 2026-11-26 (issue 312, chosen by the user 2026-11-26): a handle may expose a read beside `update`
     // and `dispose`, a call the module answers with a JSON string the twin's context deserializes; a disposed handle, or
     // a module answering `null`, reads nothing.
@@ -368,6 +367,7 @@ public sealed class TwinContractTests
         Assert.Single(handle.Invocations["readCount"]);
     }
 
+    /// <summary>The module's <c>attach</c> answers with a handle whose <c>update</c> and <c>dispose</c> complete and are recorded.</summary>
     private static BunitJSModuleInterop SetupHandle(BunitJSModuleInterop module)
     {
         BunitJSModuleInterop handle = module.SetupModule("attach", _ => true);
