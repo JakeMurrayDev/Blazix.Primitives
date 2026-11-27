@@ -462,7 +462,9 @@ internal sealed class CompositeRootBehavior : IDisposable
     // ADR 04 Amendments 2026-11-26 (issue 312, chosen by the user 2026-11-26): SEL-FRM-18's third priority reads the floating
     // handle's rendered labels (CMP-STA-06/07). The read waits for the first attach, then sends the registrations the module
     // does not have yet, so the module answers over the latest items. The wait ends at the attach, at the behavior's
-    // disposal, or at a faulted attach (PR 380's verifier nit 3); its source exists only once a read waits.
+    // disposal, or at a faulted attach (PR 380's verifier nit 3); its source exists only once a read waits. So a read that
+    // arrives after a faulted attach and before any retry waits for the retry's attach or for the disposal, as before PR 397
+    // (PR 397's verifier nit).
     /// <summary>Reads the rendered labels of the list's items from the module, once the handle has attached.</summary>
     /// <returns>The items' ids and labels, or <see langword="null"/> when the behavior leaves before the read, the attach faults, or the handle is gone.</returns>
     internal async Task<CompositeListLabels?> ReadLabelsAsync()
