@@ -277,8 +277,10 @@ internal sealed class SelectStore<TValue> : SelectStore
             }
         }
 
-        SyncSelectedIndex();
-        textIndex = FindSelectionIndex();
+        // PR 403's verifier nit: one scan for the value's match serves the selected-index sync and the texts.
+        int? match = FindSelectionIndex();
+        SyncSelectedIndex(match);
+        textIndex = match;
         RefreshTexts();
         if (changed)
         {
@@ -485,27 +487,7 @@ internal sealed class SelectStore<TValue> : SelectStore
     // The root's configuration that changes item equality or the mode re-runs the closed sync (its deps: multiple, value,
     // isItemEqualToValue, open).
     /// <summary>Recomputes the selected index after the comparer, the mode or the open state changed.</summary>
-    public void SyncSelectedIndex()
-    {
-        SelectStoreState state = State;
-        if (state.Lifecycle.EffectiveOpen)
-        {
-            // PR 379's verifier nit: the selected index waits for the close (SEL-STA-04), but the text the next aligned
-            // placement measures follows the value's new match while open, as an item's selectedItemTextRef does
-            // (SelectItem.tsx:108-114); without the counter, as ValueApplied's open path.
-            textIndex = FindSelectionIndex();
-            UpdateTexts();
-            return;
-        }
-
-        int? index = FindSelectionIndex();
-        if (state.SelectedIndex != index)
-        {
-            Write(state with { SelectedIndex = index });
-            textIndex = index;
-            RefreshTexts();
-        }
-    }
+    public void SyncSelectedIndex() => SyncSelectedIndex(FindSelectionIndex());
 
     // SEL-STA-04: the closed sync runs again once the popup is closed. PR 379's verifier nit: the close's index and texts are
     // resolved here, between the accepted request and its write, so WithCommittedOpen only reads them.
@@ -570,6 +552,28 @@ internal sealed class SelectStore<TValue> : SelectStore
         }
 
         return true;
+    }
+
+    // The sync over the value's match, already found.
+    private void SyncSelectedIndex(int? index)
+    {
+        SelectStoreState state = State;
+        if (state.Lifecycle.EffectiveOpen)
+        {
+            // PR 379's verifier nit: the selected index waits for the close (SEL-STA-04), but the text the next aligned
+            // placement measures follows the value's new match while open, as an item's selectedItemTextRef does
+            // (SelectItem.tsx:108-114); without the counter, as ValueApplied's open path.
+            textIndex = index;
+            UpdateTexts();
+            return;
+        }
+
+        if (state.SelectedIndex != index)
+        {
+            Write(state with { SelectedIndex = index });
+            textIndex = index;
+            RefreshTexts();
+        }
     }
 
     private int? FindSelectionIndex()

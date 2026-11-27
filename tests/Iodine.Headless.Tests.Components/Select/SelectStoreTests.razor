@@ -194,4 +194,41 @@
 
         Assert.Equal(cut.Find("[data-testid=\"beta-text\"]").Id, store.SelectedTextId);
     }
+
+    // PR 403's verifier nit (M6 track 10): the mode is the other root input that reaches SyncSelectedIndex's open branch.
+    // The port rejects a value parameter of the other mode, so the mode changes only with no value supplied. Single mode's
+    // absent value is null, which an item valued null matches (SelectItem.tsx:80-115); multiple mode's is an empty array,
+    // which matches nothing, so turning multiple on while open clears the text the next aligned placement measures
+    // (SelectRoot.tsx:264-270), and the selected index still waits for the close (SEL-STA-04). PR 403 fixed this path, so the
+    // title is a coverage port.
+    [Fact(DisplayName = "port: a mode change while open publishes the text of the value's new match")]
+    [Trait("Requirement", "SEL-POS-07")]
+    [Trait("Coverage", "pr-403")]
+    public async Task A_mode_change_while_open_publishes_the_text_of_the_new_match()
+    {
+        bool multiple = false;
+        IRenderedComponent<SelectHost> cut = RenderSelect(@<SelectRoot TValue="string" Multiple="@multiple">
+            <SelectTrigger />
+            <SelectPortal>
+                <SelectPositioner>
+                    <SelectPopup>
+                        <SelectItem Value="@((string?)null)"><SelectItemText data-testid="none-text">none</SelectItemText></SelectItem>
+                        <SelectItem Value="@("beta")"><SelectItemText data-testid="beta-text">beta</SelectItemText></SelectItem>
+                    </SelectPopup>
+                </SelectPositioner>
+            </SelectPortal>
+        </SelectRoot>);
+        SelectStore<string> store = StoreOf<string>(cut);
+        await OpenAsync(cut);
+        await PublishOrderAsync(cut);
+        Assert.Equal(cut.Find("[data-testid=\"none-text\"]").Id, store.SelectedTextId);
+        int? openIndex = store.State.SelectedIndex;
+
+        multiple = true;
+        await RefreshAsync(cut);
+
+        Assert.True(store.State.Multiple);
+        Assert.Null(store.SelectedTextId);
+        Assert.Equal(openIndex, store.State.SelectedIndex);
+    }
 }
