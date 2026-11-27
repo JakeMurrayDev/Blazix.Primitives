@@ -11,13 +11,15 @@
     (`AlignItemWithTrigger="false"`). The container records the root's open changes and `data-value-changes` (value and
     reason). The sync button is out of the tab order, so the first Tab from the page reaches the toolbar; `data-attached`
     waits for the toolbar's composite and its button as ToolbarFixtureBase does, so the roving tabindex is in place first.
+    `inside=true` (issue 381, M6 track 10): a ToolbarButton "Last" after the select, and the portal's container inside the
+    ToolbarRoot, so a keydown in the popup bubbles to the toolbar's composite unless the popup stops it (SEL-KEY-14).
 *@
 <FixtureContainer Name="select-toolbar" data-attached="@(Attached ? "true" : "false")" data-sync="@Sync"
                   data-open-changes="@OpenChanges" data-value-changes="@string.Join(' ', valueChanges)">
     <ToolbarRoot @ref="toolbar">
         <SelectRoot TValue="string" @ref="root" DefaultValue="@("a")" OnValueChange="RecordValueChange" OnOpenChange="RecordOpenChange">
             <ToolbarButton @ref="button" data-testid="button" Disabled="@disabled" Render="@Trigger" />
-            <SelectPortal>
+            <SelectPortal Container="@container">
                 <SelectPositioner AlignItemWithTrigger="false">
                     <SelectPopup data-testid="popup">
                         @if (disabled)
@@ -34,6 +36,11 @@
                 </SelectPositioner>
             </SelectPortal>
         </SelectRoot>
+        @if (inside)
+        {
+            <ToolbarButton @ref="last">Last</ToolbarButton>
+            <div id="select-toolbar-host"></div>
+        }
     </ToolbarRoot>
     <button type="button" tabindex="-1" data-sync-button data-key-control @onclick="() => Sync++" @onkeydown="OnShift(() => Sync++)">Sync</button>
 </FixtureContainer>
@@ -44,7 +51,10 @@
     private SelectTrigger<string>? trigger;
     private ToolbarRoot? toolbar;
     private ToolbarButton? button;
+    private ToolbarButton? last;
     private bool disabled;
+    private bool inside;
+    private PortalContainerValue? container;
 
     protected override IEnumerable<Task> Attachments =>
     [
@@ -52,6 +62,7 @@
         root?.SessionAttached ?? Task.CompletedTask,
         toolbar?.TwinAttached ?? Task.CompletedTask,
         button?.TwinAttached ?? Task.CompletedTask,
+        last?.TwinAttached ?? Task.CompletedTask,
     ];
 
     private RenderFragment Trigger => @<SelectTrigger TValue="string" @ref="trigger" NativeButton="@(!disabled)" />;
@@ -60,6 +71,11 @@
     {
         base.OnInitialized();
         disabled = QueryFlag("disabled") == true;
+        inside = QueryFlag("inside") == true;
+        if (inside)
+        {
+            container = new PortalContainerValue("#select-toolbar-host");
+        }
     }
 
     private void RecordValueChange(ValueChangeEventArgs<string> args)

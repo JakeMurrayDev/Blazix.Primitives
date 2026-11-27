@@ -813,6 +813,30 @@ test.describe('<Toolbar.Button />', () => {
         const mismatches = (await readDiagnostics(page, mode, fixture)).filter((d) => d.message.startsWith('Iodine: A component that acts as a button'));
         expect(mismatches.map((d) => d.message.slice(0, NON_NATIVE_MISMATCH.length))).toEqual([NON_NATIVE_MISMATCH]);
       });
+
+      // Issue 381 (design point 10m-1 (a), chosen by the user 2026-11-27; the ADR rule on two handles' attach order): with
+      // `js/popup.js` stalled, the popup module's key stop attaches late, and the popup must not take focus before it. The
+      // portal's container is inside the toolbar, so the popup's keydowns reach the toolbar unless it stops them.
+      test('port: a select popup inside the toolbar takes focus only once its composite keydowns are stopped', async ({ page, mode }) => {
+        let hits = 0;
+        await page.route(/\/js\/popup(\.[0-9a-z]+)?\.js/, async (route) => {
+          hits++;
+          await new Promise((resolve) => setTimeout(resolve, 600));
+          await route.continue();
+        });
+        await gotoPopupFixture(page, mode, 'select-toolbar', { inside: true });
+        const popup = page.getByTestId('popup');
+        const focusInPopup = () => popup.evaluate((element) => element.contains(document.activeElement));
+
+        await page.getByTestId('button').click();
+        await expect.poll(focusInPopup).toBe(true);
+        await page.keyboard.press('ArrowRight');
+        await page.keyboard.press('End');
+
+        await expect(page.getByTestId('item-b')).toBeFocused();
+        await expect(page.getByRole('button', { name: 'Last' })).not.toBeFocused();
+        expect(hits).toBeGreaterThanOrEqual(1);
+      });
     });
 
     test.describe('Toggle and ToggleGroup', () => {
