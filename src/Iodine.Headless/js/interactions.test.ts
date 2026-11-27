@@ -6627,8 +6627,7 @@ describe('a bar trigger\'s blur before its menu\'s initial focus (issue 367)', (
     expect(closes(file.popup)).toEqual(['sibling-open']);
   });
 
-  // Holds on the base too (no hold there), so it is coverage; its red is a hold that outlives the arm.
-  it('port: a bar trigger\'s blur after its menu\'s initial focus armed closes at once with trigger-focus', { tags: ['coverage'] }, async () => {
+  it('port: a bar trigger\'s blur after its menu\'s initial focus armed closes at once with trigger-focus', async () => {
     const { file, outside } = bar();
     noteInitialFocusArmed(file.session());
     file.button.focus();

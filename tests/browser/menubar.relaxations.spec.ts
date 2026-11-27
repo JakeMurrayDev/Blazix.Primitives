@@ -14,7 +14,8 @@ import { gotoPopupFixture } from './suites/popupFixture';
 // close in that window is held until the focus manager arms, so a press on the backdrop as soon as it covers the page
 // closes the menu with `outside-press`, at the arm. The second figure is the page's `performance.now()` from that press's
 // `pointerdown` to a `MutationObserver` seeing File's positioner leave the document, with whether the press came before
-// the popup's `focusin`.
+// the popup's `focusin` and the close's recorded reason. A coverage title too (the base closes the menu as well, with
+// `trigger-focus`); the reason is proven by the `menubar.spec.ts` titles.
 
 const SERVER_DELAYS = [0, 50, 150] as const;
 
@@ -57,7 +58,7 @@ test.describe('Menubar: ADR 01 relaxation rows', () => {
   }
 
   for (const delay of SERVER_DELAYS) {
-    test(`a backdrop press before a click-opened bar menu's popup takes its initial focus closes it with outside-press at the arm (${delay} ms added on Server)`, { tag: '@coverage' }, async ({ page, mode }) => {
+    test(`a backdrop press before a click-opened bar menu's popup takes its initial focus closes the menu (${delay} ms added on Server)`, { tag: '@coverage' }, async ({ page, mode }) => {
       test.skip(mode !== 'server' && delay !== 0, 'WebAssembly has no circuit to delay; its title runs once.');
       if (mode === 'server' && delay > 0) {
         await delayCircuit(page, delay);
@@ -96,12 +97,13 @@ test.describe('Menubar: ADR 01 relaxation rows', () => {
       await expect.poll(hit, { intervals: [5] }).toBe('presentation');
       await page.mouse.click(before.x, before.y);
       await expect(page.getByTestId('file-menu')).toHaveCount(0, { timeout: 10_000 });
-      await expect(fixture).toHaveAttribute('data-file-changes', /(^| )false:outside-press$/);
 
-      const figure = await page.evaluate(() => {
-        const marks = window as unknown as { pressedAt: number; pressedBeforeFocus: boolean; closedAt: number };
-        return { ms: Math.round(marks.closedAt - marks.pressedAt), beforeFocus: marks.pressedBeforeFocus };
+      const marks = await page.evaluate(() => {
+        const recorded = window as unknown as { pressedAt: number; pressedBeforeFocus: boolean; closedAt: number };
+        return { ms: Math.round(recorded.closedAt - recorded.pressedAt), beforeFocus: recorded.pressedBeforeFocus };
       });
+      const reason = ((await fixture.getAttribute('data-file-changes')) ?? '').split(' ').at(-1);
+      const figure = { ...marks, reason };
       test.info().annotations.push({ type: 'figure', description: `bar menu backdrop press ${mode} +${delay} ${JSON.stringify(figure)}` });
       expect(figure.ms).toBeGreaterThanOrEqual(legsFloor(mode === 'server' ? delay : 0, 2));
     });
