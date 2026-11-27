@@ -6498,7 +6498,7 @@ describe('a bar trigger\'s blur before its menu\'s initial focus (issue 367)', (
   const pointerDown = (target: EventTarget) =>
     target.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, cancelable: true, composed: true, button: 0, pointerType: 'mouse' }));
 
-  function bar({ floating = true }: { floating?: boolean } = {}) {
+  function bar({ floating = true, open = true }: { floating?: boolean; open?: boolean } = {}) {
     const root = harness();
     root.attachSession();
     const menu = { rootId: 'root', release: true, keepArmedWhenClosed: true };
@@ -6519,7 +6519,9 @@ describe('a bar trigger\'s blur before its menu\'s initial focus (issue 367)', (
     const edit = barMenu('edit');
     // A press opens File and focuses its trigger; the bar's triggers get their focus with the open.
     file.button.focus();
-    file.popup.setOpen(true, 'trigger-press', file.button.id, 'mousedown');
+    if (open) {
+      file.popup.setOpen(true, 'trigger-press', file.button.id, 'mousedown');
+    }
     file.focusOn();
     edit.focusOn();
     if (floating) {
@@ -6585,6 +6587,25 @@ describe('a bar trigger\'s blur before its menu\'s initial focus (issue 367)', (
     expect(file.popup.open).toBe(true);
 
     file.attachPositioner();
+    await vi.advanceTimersByTimeAsync(0);
+
+    expect(file.popup.open).toBe(false);
+    expect(closes(file.popup)).toEqual(['outside-press']);
+  });
+
+  // On Server the menu is inserted, cut out of its backdrop, before the session's relay brings the open: the window starts
+  // at the bar trigger's press, which requests the open through C# (issue 363's `noteBarMenuOpenRequest`).
+  it('port: a bar trigger\'s blur before its press-requested open arrives is held from the press, and its outside press replayed at the arm', async () => {
+    const { file, backdrop } = bar({ floating: false, open: false });
+    file.button.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, cancelable: true, button: 0 }));
+    pointerDown(backdrop);
+    file.button.blur();
+    await vi.advanceTimersByTimeAsync(0);
+    expect(closes(file.popup)).toEqual([]);
+
+    file.popup.setOpen(true, 'trigger-press', file.button.id, 'mousedown');
+    file.attachPositioner();
+    noteInitialFocusArmed(file.session());
     await vi.advanceTimersByTimeAsync(0);
 
     expect(file.popup.open).toBe(false);
