@@ -6,6 +6,7 @@
 // nodes.test.ts, utils/event.test.ts, hooks/useFloating.test.tsx (FLT-STR-03), and the hook tests named per block.
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
+  claimSessionClose,
   acquireSession,
   armMenuRelease,
   attach,
@@ -534,6 +535,110 @@ describe('useFocus', () => {
     button.focus();
     expect(popup.open).toBe(true);
     expect(session.dataRef.current[COLLAPSED_REOPEN_KEY]).toBeUndefined();
+  });
+
+  // PR 400's verifier nits (issue 372): the mark names only the open it marked. A stand-in of the reopen's event (Server's
+  // relay, once the close's commit ended the request's pairing) keeps it with the request's type and reason, and the mark
+  // then holds the stand-in the session recorded as its open event.
+  it('port: a relayed stand-in of the reopen keeps its collapsed-reopen mark with the request\'s reason, and the mark then names it', async () => {
+    // The reopen's request is held (its commit has not arrived); C#'s commits then arrive in Server's order.
+    const held: { commit: boolean } = { commit: false };
+    const popup = harness(held);
+    popup.attachSession();
+    const button = element('button');
+    popup.attachTrigger(button, { trigger: { focus: {} } });
+    popup.setReference(button);
+    const session = getSession(popup.token)!;
+
+    noteCloseRequest(session);
+    button.focus();
+    const mark = session.dataRef.current[COLLAPSED_REOPEN_KEY] as CollapsedReopen;
+    expect(mark).toBeDefined();
+    held.commit = true;
+    popup.setOpen(false, 'focus-out');
+    popup.setOpen(true, 'trigger-focus', button.id, mark.event.type);
+
+    const openEvent = session.dataRef.current.openEvent;
+    expect(openEvent).not.toBe(mark.event);
+    expect((session.dataRef.current[COLLAPSED_REOPEN_KEY] as CollapsedReopen | undefined)?.event).toBe(openEvent);
+  });
+
+  it('port: an open committed for another reason clears the collapsed-reopen mark it does not name', async () => {
+    const held: { commit: boolean } = { commit: false };
+    const popup = harness(held);
+    popup.attachSession();
+    const button = element('button');
+    popup.attachTrigger(button, { trigger: { focus: {} } });
+    popup.setReference(button);
+    const session = getSession(popup.token)!;
+
+    noteCloseRequest(session);
+    button.focus();
+    const mark = session.dataRef.current[COLLAPSED_REOPEN_KEY] as CollapsedReopen;
+    expect(mark).toBeDefined();
+    held.commit = true;
+    popup.setOpen(false, 'focus-out');
+    popup.setOpen(true, 'imperative-action', null, mark.event.type);
+
+    expect(popup.open).toBe(true);
+    expect(session.dataRef.current[COLLAPSED_REOPEN_KEY]).toBeUndefined();
+  });
+
+  // A reopen C# cancels commits no open, so its mark would wait for a later open it does not name (a C#-controlled or an
+  // imperative one); the answer that commits nothing clears it.
+  it('port: a reopen C# cancels leaves no collapsed-reopen mark for a later open', async () => {
+    let cancelOpen = false;
+    const popup = harness({ onOpenChange: (open, details) => (open && cancelOpen ? details.cancel() : undefined) });
+    popup.attachSession();
+    const button = element('button');
+    popup.attachTrigger(button, { trigger: { focus: {} } });
+    popup.setReference(button);
+    const session = getSession(popup.token)!;
+
+    noteCloseRequest(session);
+    cancelOpen = true;
+    button.focus();
+
+    expect(popup.changes.at(-1)?.details.isCanceled).toBe(true);
+    expect(popup.open).toBe(false);
+    expect(session.dataRef.current[COLLAPSED_REOPEN_KEY]).toBeUndefined();
+  });
+
+  // A close dropped because another close of the session is in flight is not this task's close request, and a close C#
+  // canceled closes nothing, so the open that follows either in the task is no collapsed reopen.
+  it('port: a close request that is dropped or canceled marks no collapsed reopen', async () => {
+    const dropped = setup();
+    const droppedSession = getSession(dropped.popup.token)!;
+    dropped.button.focus();
+    expect(dropped.popup.open).toBe(true);
+    await vi.advanceTimersByTimeAsync(10);
+    expect(claimSessionClose(droppedSession)).not.toBeNull();
+    dropped.button.blur();
+    vi.advanceTimersToNextTimer();
+    expect(dropped.popup.open).toBe(true);
+    dropped.popup.setOpen(false, 'none');
+    dropped.button.focus();
+    expect(dropped.popup.open).toBe(true);
+    expect(droppedSession.dataRef.current[COLLAPSED_REOPEN_KEY]).toBeUndefined();
+    dropped.button.blur();
+    await vi.advanceTimersByTimeAsync(10);
+
+    const canceled = harness({ onOpenChange: (open, details) => (open ? undefined : details.cancel()) });
+    canceled.attachSession();
+    const button = element('button');
+    canceled.attachTrigger(button, { trigger: { focus: {} } });
+    canceled.setReference(button);
+    const canceledSession = getSession(canceled.token)!;
+    button.focus();
+    expect(canceled.open).toBe(true);
+    await vi.advanceTimersByTimeAsync(10);
+    button.blur();
+    vi.advanceTimersToNextTimer();
+    expect(canceled.changes.at(-1)?.details.isCanceled).toBe(true);
+    canceled.setOpen(false, 'none');
+    button.focus();
+    expect(canceled.open).toBe(true);
+    expect(canceledSession.dataRef.current[COLLAPSED_REOPEN_KEY]).toBeUndefined();
   });
 
   // Issue 297 (design point 10e-1 (a), chosen by the user 2026-11-25): React applies a re-render's props after the event
