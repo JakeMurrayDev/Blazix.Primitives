@@ -184,19 +184,17 @@ test.describe('useTriggerFocusGuards', () => {
 });
 
 test.describe('<Dialog.Root /> with a nested menu', () => {
-  // Quarantined (ADR 11 §4) on WebAssembly until 2026-12-10, issue 392: its second CI sighting was PR 390's run
-  // 45858561582, after the nightly run 45806350985 (after the corner press, the menu is still open).
-  test('should not dismiss the dialog when dismissing outside a nested modal menu', {
-    tag: '@quarantine',
-    annotation: { type: 'issue', description: 'https://github.com/JakeMurrayDev/Iodine.Headless/issues/392 (expires 2026-12-10)' },
-  }, async ({ page, mode }) => {
-    test.fixme(mode === 'wasm', 'Quarantined on WebAssembly until 2026-12-10 (issue 392)');
+  // Issue 392 (its CI sightings: the nightly run 45806350985 and PR 390's run 45858561582, both on WebAssembly): the corner
+  // press came 4 ms after the menu showed, before its Positioner's floating handle attached, so it dismissed nothing.
+  // Outside press arms with that handle (ADR 01's row of 2026-11-24, issue 268), so the press waits for the marker.
+  test('should not dismiss the dialog when dismissing outside a nested modal menu', async ({ page, mode }) => {
     const fixture = await gotoPopupFixture(page, mode, 'menu-nesting', { case: 'dialog' });
     await page.getByTestId('dialog-trigger').click();
     await expect(page.getByRole('dialog')).toBeVisible();
 
     await page.getByTestId('menu-trigger').click();
     await expect(page.getByRole('menu')).toBeVisible();
+    await expect(fixture).toHaveAttribute('data-positioner-attached', 'true');
 
     // A real press at the page's corner lands on the topmost internal backdrop: the menu's, then the dialog's.
     await page.mouse.click(2, 2);
