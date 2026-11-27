@@ -3156,6 +3156,38 @@ describe('FloatingFocusManager', () => {
       return popup;
     }
 
+    // Issue 372 (design point 10l-1 (a), chosen by the user 2026-11-26): the `interactions` module marks an open requested
+    // in the task of its session's close request; React's batching never commits that close and reopen, so Base UI's
+    // initial focus does not run again and the focus stays where it is. The mark is spent by the open it names, and a
+    // stand-in of its event (Server's relay, once the close's commit ended the pairing) counts as the same open.
+    it('port: an open marked a collapsed reopen takes no initial focus; the next open does', async () => {
+      const reference = element('button', 'reference', { id: 'reference' });
+      document.body.append(reference);
+      const popup = sessionPopup({ open: true });
+      popup.attachSession();
+      const floating = element('div', undefined, { 'data-open': '' });
+      const one = element('button', 'one');
+      floating.append(one);
+      document.body.append(floating);
+      const data = getSession(popup.token)!.dataRef.current;
+      const reopen = new FocusEvent('focusin');
+      data['iodine.interactions.collapsedReopen'] = { event: reopen };
+      data.openEvent = { type: 'focusin' } as unknown as Event;
+      reference.focus();
+
+      const options: FocusManagerOptions = { modal: false, domReferenceId: 'reference', sessionToken: popup.token };
+      const manager = attachManager(floating, options);
+      await settle();
+      expect(document.activeElement).toBe(reference);
+      expect(data['iodine.interactions.collapsedReopen']).toBeUndefined();
+      manager.handle.dispose();
+
+      const next = attachManager(floating, options);
+      await settle();
+      expect(document.activeElement).toBe(one);
+      next.handle.dispose();
+    });
+
     // F1 of PR 183 (settled by the orchestrator 2026-11-04 as (b)): Base UI records the element focused before the open in a
     // layout effect, before list navigation moves focus in. The port's handle can attach after the `composite` module's
     // open focus moved focus in, so the manager takes the element focus came from, which the module marked in the session.

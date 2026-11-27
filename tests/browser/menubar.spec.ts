@@ -310,10 +310,13 @@ test.describe('<Menubar />', () => {
       // still set, and the trigger's focus open reopens the menu (`useListNavigation.ts:771-792`; M6 track 11's
       // real-browser probe of 2026-11-19 recorded `false:focus-out` then `true:trigger-focus`). Issue 297 (design point
       // 10e-1 (a), chosen by the user 2026-11-25): WebAssembly had cleared the flag and the trigger's focus listener inside
-      // the keydown, so the menu stayed closed. Where the focus ends after the reopen (Base UI: the trigger) is issue
-      // 372: on Server under load the reopened menu can take it.
+      // the keydown, so the menu stayed closed. Issue 372 (design point 10l-1 (a), chosen by the user 2026-11-26): React
+      // batches the close and the reopen, so `FloatingFocusManager`'s initial focus does not run again and the focus stays
+      // on the trigger; the port commits them apart, and the reopen is marked collapsed so its open takes no initial focus.
       await expect(fixture).toHaveAttribute('data-file-changes', 'true:trigger-press false:focus-out true:trigger-focus');
       await expect(page.getByTestId('file-menu')).toBeVisible();
+      await settle(fixture);
+      await expect(page.getByTestId('file-trigger')).toBeFocused();
     });
 
     test('port: the bar has no typeahead, and an open bar menu runs its own', async ({ page, mode }) => {

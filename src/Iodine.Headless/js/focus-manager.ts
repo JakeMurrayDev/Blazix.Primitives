@@ -13,6 +13,8 @@ import { eventInfo, type EventInfo } from './event-info';
 import {
   acquireSession,
   claimSessionClose,
+  COLLAPSED_REOPEN_KEY,
+  type CollapsedReopen,
   getNodeAncestors,
   getNodeChildren,
   isVirtualClick,
@@ -1428,6 +1430,19 @@ export function attach(
 
   // Initial focus on open (FLT-FOC-06, A11Y-04), :679-769.
   const initialFocusEffect = (floatingFocusElement: HTMLElement) => {
+    // Issue 372 (design point 10l-1 (a), chosen by the user 2026-11-26): an open the `interactions` module marked as a
+    // collapsed reopen is one React's batching never commits, so Base UI's initial-focus effect does not run again; the
+    // mark is spent by the open it names. On Server the close's commit arrives first and ends the reopen request's
+    // pairing, so the reopen's commit records the relayed stand-in of its event, of the same type.
+    const collapsed = dataRef().current[COLLAPSED_REOPEN_KEY] as CollapsedReopen | undefined;
+    if (collapsed !== undefined) {
+      delete dataRef().current[COLLAPSED_REOPEN_KEY];
+      const openEvent = dataRef().current.openEvent;
+      if (openEvent === collapsed.event || (openEvent !== undefined && openEvent.type === collapsed.event.type)) {
+        return;
+      }
+    }
+
     // FLT-EDGE-08: the recorded type starts empty in each open session.
     recordInteractionType('');
 

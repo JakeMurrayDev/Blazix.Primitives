@@ -614,6 +614,20 @@ export interface SessionData {
  */
 export const LIST_OPEN_FOCUS_KEY = 'iodine.composite.openFocus';
 
+/**
+ * The key of the session data slot where this module marks a collapsed reopen: an open requested in the same task as a
+ * close request of the same session, which React's batching would collapse into no change at all (issue 372, design point
+ * 10l-1 (a), chosen by the user 2026-11-26). A focus manager reads it at the initial focus of the open whose recorded open
+ * event is the mark's, and leaves the focus where it is, as Base UI's initial-focus effect does not run again.
+ */
+export const COLLAPSED_REOPEN_KEY = 'iodine.interactions.collapsedReopen';
+
+/** The mark of a collapsed reopen. */
+export interface CollapsedReopen {
+  /** The event of the reopen's request. */
+  readonly event: Event;
+}
+
 /** The `composite` module's open-focus mark. */
 export interface ListOpenFocus {
   /** The item the list module last moved focus to while open. */
@@ -721,6 +735,7 @@ interface SessionRecord extends InteractionSession {
   outsidePressEnabled: boolean;
   /** The element the next relayed `focus-out` close without a trigger names (`nameRelayTrigger`). */
   namedTrigger: Element | null;
+  closeRequestedInTask: boolean;
   triggers: Map<string, Element>;
   /** The channel of the session handle (the Root's twin), which answers `escape`. */
   channel: HandleChannel | null;
@@ -820,6 +835,7 @@ function createSessionRecord(token: string): SessionRecord {
     pressOpen: null,
     outsidePressEnabled: true,
     namedTrigger: null,
+    closeRequestedInTask: false,
     triggers,
     channel: null,
     positionListeners: new Set(),
@@ -1213,6 +1229,34 @@ function triggerIdOf(record: SessionRecord, element: Element): string | null {
 
 // ADR 04 Amendments 2026-10-27
 /**
+ * Notes that a close of the session was requested in the current task, by this module or by another that requests the
+ * session's close on its own channel (the `composite` list's Shift+Tab `focus-out`), so an open requested before the task
+ * ends is a collapsed reopen (issue 372).
+ * @param session The session.
+ */
+export function noteCloseRequest(session: InteractionSession): void {
+  const record = session as SessionRecord;
+  if (record.closeRequestedInTask) {
+    return;
+  }
+  record.closeRequestedInTask = true;
+  setTimeout(() => {
+    record.closeRequestedInTask = false;
+  }, 0);
+}
+
+// Issue 372 (design point 10l-1 (a), chosen by the user 2026-11-26): every open request replaces the mark, so it names
+// only the latest open, and only one that follows a close request of the same task.
+function markCollapsedReopen(record: SessionRecord, event: Event | undefined): void {
+  if (record.closeRequestedInTask && event !== undefined) {
+    const mark: CollapsedReopen = { event };
+    record.dataRef.current[COLLAPSED_REOPEN_KEY] = mark;
+  } else {
+    delete record.dataRef.current[COLLAPSED_REOPEN_KEY];
+  }
+}
+
+/**
  * A request a handle sends: recorded for the relay's pairing, then reported on the
  * handle's own twin. Nothing is emitted here: `openchange` follows the commit the relay brings.
  * @returns `false` when a close is dropped because a close request of the session is in flight; otherwise `true`.
@@ -1228,6 +1272,9 @@ function requestOpenChange(
 ): boolean {
   if (open) {
     noteBarMenuOpenRequest(record);
+    markCollapsedReopen(record, event);
+  } else {
+    noteCloseRequest(record);
   }
   // ADR 04 Amendments 2026-10-28 (design point 13.9 of M4 track 6, settled by the orchestrator 2026-10-28), widened from
   // the handle to the session by ADR 04 Amendments 2026-10-29 (gap 14): one close request in flight per session. Base UI's
