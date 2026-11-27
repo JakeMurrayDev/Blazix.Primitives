@@ -164,4 +164,34 @@
 
         Assert.Equal(betaTextId, store.SelectedTextId);
     }
+
+    // PR 379's verifier nit (issue 311's follow-up, M6 track 10): Base UI's item writes selectedItemTextRef when its selected
+    // state changes, open or closed (SelectItem.tsx:108-114), so a comparer change while open moves the text the next aligned
+    // placement measures, though the selected index waits for the close (SEL-STA-04).
+    [Fact(DisplayName = "port: a comparer change while open publishes the text of the value's new match")]
+    [Trait("Requirement", "SEL-POS-07")]
+    public async Task A_comparer_change_while_open_publishes_the_text_of_the_new_match()
+    {
+        Func<string, string, bool>? comparer = null;
+        IRenderedComponent<SelectHost> cut = RenderSelect(@<SelectRoot TValue="string" DefaultValue="@("BETA")" IsItemEqualToValue="@comparer">
+            <SelectTrigger />
+            <SelectPortal>
+                <SelectPositioner>
+                    <SelectPopup>
+                        <SelectItem Value="@("alpha")"><SelectItemText data-testid="alpha-text">alpha</SelectItemText></SelectItem>
+                        <SelectItem Value="@("beta")"><SelectItemText data-testid="beta-text">beta</SelectItemText></SelectItem>
+                    </SelectPopup>
+                </SelectPositioner>
+            </SelectPortal>
+        </SelectRoot>);
+        SelectStore<string> store = StoreOf<string>(cut);
+        await OpenAsync(cut);
+        await PublishOrderAsync(cut);
+        Assert.Null(store.SelectedTextId);
+
+        comparer = (item, value) => string.Equals(item, value, StringComparison.OrdinalIgnoreCase);
+        await RefreshAsync(cut);
+
+        Assert.Equal(cut.Find("[data-testid=\"beta-text\"]").Id, store.SelectedTextId);
+    }
 }
