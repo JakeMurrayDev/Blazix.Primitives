@@ -144,7 +144,9 @@
         {
             string id = $"trigger-{number}";
             string payload = number.ToString(System.Globalization.CultureInfo.InvariantCulture);
-            <MenuTrigger TPayload="string" @key="number" @ref="triggerRefs[number - 1]" Handle="@(detached ? handle : null)" id="@id" data-testid="@id" Payload="@payload">Trigger @payload</MenuTrigger>
+            // Issue 306: the reference capture runs after the loop, so it reads a copy of the index, not the loop variable.
+            int index = number - 1;
+            <MenuTrigger TPayload="string" @key="number" @ref="triggerRefs[index]" Handle="@(detached ? handle : null)" id="@id" data-testid="@id" Payload="@payload">Trigger @payload</MenuTrigger>
         }
     </text>;
 

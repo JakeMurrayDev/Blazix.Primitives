@@ -18,7 +18,10 @@ import {
   nameRelayTrigger,
   releaseSession,
   clearSessionOpenEvent,
+  COLLAPSED_REOPEN_KEY,
+  noteCloseRequest,
   resetInteractionsForTest,
+  type CollapsedReopen,
   setSessionPositionReference,
   type SessionNode,
   type SessionOpenChangeDetails,
@@ -508,6 +511,29 @@ describe('useFocus', () => {
     expect(delayed.popup.open).toBe(false);
     await vi.advanceTimersByTimeAsync(100);
     expect(delayed.popup.open).toBe(true);
+  });
+
+  // Issue 372 (design point 10l-1 (a), chosen by the user 2026-11-26): React batches a close and the reopen of the same
+  // task into no change, so FloatingFocusManager's initial focus does not run again; the open of such a reopen is marked.
+  it('port: a focus open requested in the task of its session\'s close request is marked a collapsed reopen; a later task\'s is not', async () => {
+    const { popup, button } = setup();
+    const session = getSession(popup.token)!;
+
+    noteCloseRequest(session);
+    button.focus();
+    expect(popup.open).toBe(true);
+    const mark = session.dataRef.current[COLLAPSED_REOPEN_KEY] as CollapsedReopen | undefined;
+    expect(mark?.event.type).toBe(session.dataRef.current.openEvent?.type);
+    expect(mark?.event).toBe(session.dataRef.current.openEvent);
+
+    // A later task: the blur's own close request ends with its task, and the next focus open replaces the mark with none.
+    button.blur();
+    await vi.advanceTimersByTimeAsync(10);
+    popup.setOpen(false, 'none');
+    await vi.advanceTimersByTimeAsync(10);
+    button.focus();
+    expect(popup.open).toBe(true);
+    expect(session.dataRef.current[COLLAPSED_REOPEN_KEY]).toBeUndefined();
   });
 
   // Issue 297 (design point 10e-1 (a), chosen by the user 2026-11-25): React applies a re-render's props after the event

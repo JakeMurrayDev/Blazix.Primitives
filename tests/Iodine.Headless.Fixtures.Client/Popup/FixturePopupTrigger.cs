@@ -17,6 +17,7 @@ public sealed class FixturePopupTrigger<TPayload> : PartBase<FixturePopupTrigger
 
     private readonly PopupTriggerBehavior<FixturePopupStore<TPayload>, FixturePopupStoreState<TPayload>, TPayload> behavior;
     private readonly EventCallback onClick;
+    private readonly TaskCompletionSource attached = new(TaskCreationOptions.RunContinuationsAsynchronously);
     private FixturePopupTriggerState state = new(false);
     private bool payloadSupplied;
 
@@ -34,6 +35,9 @@ public sealed class FixturePopupTrigger<TPayload> : PartBase<FixturePopupTrigger
 
     [Parameter]
     public TPayload? Payload { get; set; }
+
+    /// <summary>Gets a task that completes once the trigger has registered its element with the store (issue 306).</summary>
+    public Task Attached => attached.Task;
 
     protected override string DefaultTagName => "button";
 
@@ -66,7 +70,14 @@ public sealed class FixturePopupTrigger<TPayload> : PartBase<FixturePopupTrigger
         behavior.Apply(RootStore, Handle, Id, Element, payloadSupplied, Payload, "Iodine: `FixturePopupTrigger` must be either used within a `FixturePopupRoot` component or provided with a handle.");
     }
 
-    protected override Task OnAfterRenderAsync(bool firstRender) => behavior.OnAfterRenderAsync(Element);
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        await behavior.OnAfterRenderAsync(Element);
+        if (Element is not null)
+        {
+            attached.TrySetResult();
+        }
+    }
 
     protected override void Dispose(bool disposing)
     {
