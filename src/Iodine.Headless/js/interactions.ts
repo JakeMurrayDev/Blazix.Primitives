@@ -3372,13 +3372,14 @@ function noteBarMenuOpenRequest(record: SessionRecord): void {
 // Issue 367 (design point 10-367a (1), chosen by the user 2026-11-27; ADR 04 Amendments 2026-11-27; MBR-EVT-01,
 // MBR-PTR-06, MBR-PTR-09, FLT-FOC-04): a bar menu opened by a press shows, cut out of its backdrop, before its popup's
 // focus manager takes the initial focus, a round trip later on Server. Base UI's popup has the focus from the open's
-// commit, so a blur of the trigger never closes the menu. From the press-opened open's relay until the focus manager's
+// commit, so a blur of the trigger never closes the menu. From the bar trigger's opening press (on Server the menu is
+// inserted before the session's relay brings the open), or from a press-opened open's relay, until the focus manager's
 // initial-focus arm (`noteInitialFocusArmed`), the trigger's blur close is held, and the window records the last
 // non-touch `pointerdown` outside the trigger. The arm re-judges the held close from where the focus is before the
 // initial focus moves; any other open change of the session ends the window and drops it (the revision rule).
 interface UnarmedBarOpen {
-  /** The open change that started the window. */
-  readonly details: SessionOpenChangeDetails;
+  /** The open change that started or adopted the window; `null` while the press's open has not arrived. */
+  details: SessionOpenChangeDetails | null;
   /** The last non-touch `pointerdown` outside the trigger in the window, with the composed path of its dispatch. */
   press: PointerEvent | null;
   /** The trigger's held blur close. */
@@ -3431,20 +3432,40 @@ function isOnBarTrigger(record: SessionRecord, target: Element | null): boolean 
 
 /**
  * Ends the session's unarmed window at another open change, dropping a held close, and starts one at a bar menu's
- * press-opened open. The triggers of one menu each call it with the same change; the first one acts.
+ * press-opened open. A window a press started adopts the press-opened open it requested. The triggers of one menu each
+ * call it with the same change; the first one acts.
  */
 function syncUnarmedBarOpen(record: SessionRecord, details: SessionOpenChangeDetails, element: Element): void {
   const current = unarmedBarOpens.get(record);
   if (current?.details === details) {
     return;
   }
+  const pressOpen = details.open && details.reason === 'trigger-press';
+  if (current !== undefined && current.details === null && pressOpen) {
+    current.details = details;
+    return;
+  }
+  endUnarmedBarOpen(record);
+  if (pressOpen && isBarMenu(record)) {
+    startUnarmedBarOpen(record, details, element);
+  }
+}
+
+/** Ends the session's unarmed window, if any, dropping a held close. */
+function endUnarmedBarOpen(record: SessionRecord): void {
+  const current = unarmedBarOpens.get(record);
   if (current !== undefined) {
     current.cleanup();
     unarmedBarOpens.delete(record);
   }
-  if (!details.open || details.reason !== 'trigger-press' || !isBarMenu(record)) {
-    return;
-  }
+}
+
+/**
+ * Starts the session's unarmed window: at a bar trigger's opening press (`details` `null`, adopted by the open's relay)
+ * or at a press-opened open's relay.
+ */
+function startUnarmedBarOpen(record: SessionRecord, details: SessionOpenChangeDetails | null, element: Element): void {
+  endUnarmedBarOpen(record);
   const state: UnarmedBarOpen = {
     details,
     press: null,
@@ -3467,7 +3488,8 @@ function syncUnarmedBarOpen(record: SessionRecord, details: SessionOpenChangeDet
  */
 function holdBarTriggerBlur(record: SessionRecord, held: HeldTriggerBlur): boolean {
   const unarmed = unarmedBarOpens.get(record);
-  if (unarmed === undefined || !record.open) {
+  // Before the press's open arrives the session is still closed, and the arm drops a close it then finds closed.
+  if (unarmed === undefined || (!record.open && unarmed.details !== null)) {
     return false;
   }
   unarmed.held = held;
@@ -4807,6 +4829,8 @@ function createMenuTriggerController(context: HandleContext): Controller {
     if (menuOptions()?.keepArmedWhenClosed === true) {
       markForestRoot();
       noteBarMenuOpenRequest(record);
+      // Issue 367: the window before the menu's initial focus starts at the press, before the open's relay.
+      startUnarmedBarOpen(record, null, element);
     }
     if (menuOptions()?.release !== true) {
       return;
