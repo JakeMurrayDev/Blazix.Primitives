@@ -1432,13 +1432,13 @@ export function attach(
   const initialFocusEffect = (floatingFocusElement: HTMLElement) => {
     // Issue 372 (design point 10l-1 (a), chosen by the user 2026-11-26): an open the `interactions` module marked as a
     // collapsed reopen is one React's batching never commits, so Base UI's initial-focus effect does not run again; the
-    // mark is spent by the open it names. On Server the close's commit arrives first and ends the reopen request's
-    // pairing, so the reopen's commit records the relayed stand-in of its event, of the same type.
+    // mark is spent by the open it names. PR 400's verifier nit: the module settles the mark at the open's commit (on
+    // Server, onto the relayed stand-in of the reopen's event), so the open it names is the one whose recorded event it
+    // holds.
     const collapsed = dataRef().current[COLLAPSED_REOPEN_KEY] as CollapsedReopen | undefined;
     if (collapsed !== undefined) {
       delete dataRef().current[COLLAPSED_REOPEN_KEY];
-      const openEvent = dataRef().current.openEvent;
-      if (openEvent === collapsed.event || (openEvent !== undefined && openEvent.type === collapsed.event.type)) {
+      if (dataRef().current.openEvent === collapsed.event) {
         return;
       }
     }
