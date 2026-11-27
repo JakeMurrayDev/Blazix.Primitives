@@ -1259,11 +1259,18 @@ public sealed class SliderRoot : PartBase<SliderRootState>
         }
         catch (Exception exception) when (!sending.IsCanceled)
         {
-            // The module never applied them: the next send carries them again, a rollback included.
+            // The module never applied them: the next send carries them again.
             if (ReferenceEquals(sentOptions, options))
             {
                 sentOptions = null;
-                rollbackPending |= options.Rollback;
+            }
+
+            // A rollback is owed even when a later send overtook it (PR 415's verifier): that send cleared the pending flag,
+            // and without it the module keeps the canceled change's optimistic value.
+            if (options.Rollback && !disposed)
+            {
+                rollbackPending = true;
+                Flush();
             }
 
             if (!disposed)
