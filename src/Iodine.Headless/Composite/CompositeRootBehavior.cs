@@ -56,9 +56,9 @@ internal sealed class CompositeRootBehavior : IDisposable
     private readonly Func<Exception, Task> dispatchException;
     private readonly EventCallback onKeyDown;
     private readonly TaskCompletionSource attachedSource = new(TaskCreationOptions.RunContinuationsAsynchronously);
-    private TaskCompletionSource? disposedSource;
     private readonly List<CompositeItemBehavior> items = [];
     private readonly List<CompositeItemBehavior> orderedItems = [];
+    private TaskCompletionSource? readWaitEndedSource;
     private AttributeValue consumerKeyDown;
     private DecidedKey? decidedKeyDown;
     private OnceVerdict? onceVerdict;
@@ -248,7 +248,7 @@ internal sealed class CompositeRootBehavior : IDisposable
         }
 
         disposed = true;
-        disposedSource?.TrySetResult();
+        readWaitEndedSource?.TrySetResult();
         directionContext?.RemoveListener(stateChanged);
         directionContext = null;
         list?.List.Unregister(this);
@@ -405,25 +405,32 @@ internal sealed class CompositeRootBehavior : IDisposable
 
         twin ??= CreateTwin();
         attaching = true;
-        if (list is not null)
-        {
-            // A list handle attaches after the session's handle, so the module reads the session's committed state.
-            await list.List.SessionReady;
-            if (disposed)
-            {
-                attaching = false;
-                return;
-            }
-        }
-
-        CompositeOptions options = BuildOptions();
         try
         {
+            if (list is not null)
+            {
+                // A list handle attaches after the session's handle, so the module reads the session's committed state.
+                await list.List.SessionReady;
+                if (disposed)
+                {
+                    return;
+                }
+            }
+
+            CompositeOptions options = BuildOptions();
+
             // A list handle's element-typed options name the list's references by index.
             TwinReferences? references = list?.List.References;
             handle = elementId is null
                 ? await twin.AttachAsync(element!.Value, options, references)
                 : await twin.AttachAsync(elementId, options, references);
+        }
+        catch
+        {
+            // PR 380's verifier nit 3: a read waiting for this attach ends with nothing; a later attach is waited for anew.
+            readWaitEndedSource?.TrySetResult();
+            readWaitEndedSource = null;
+            throw;
         }
         finally
         {
@@ -454,9 +461,10 @@ internal sealed class CompositeRootBehavior : IDisposable
 
     // ADR 04 Amendments 2026-11-26 (issue 312, chosen by the user 2026-11-26): SEL-FRM-18's third priority reads the floating
     // handle's rendered labels (CMP-STA-06/07). The read waits for the first attach, then sends the registrations the module
-    // does not have yet, so the module answers over the latest items; the disposal source exists only once a read waits.
+    // does not have yet, so the module answers over the latest items. The wait ends at the attach, at the behavior's
+    // disposal, or at a faulted attach (PR 380's verifier nit 3); its source exists only once a read waits.
     /// <summary>Reads the rendered labels of the list's items from the module, once the handle has attached.</summary>
-    /// <returns>The items' ids and labels, or <see langword="null"/> when the behavior leaves before the read or the handle is gone.</returns>
+    /// <returns>The items' ids and labels, or <see langword="null"/> when the behavior leaves before the read, the attach faults, or the handle is gone.</returns>
     internal async Task<CompositeListLabels?> ReadLabelsAsync()
     {
         if (disposed)
@@ -466,8 +474,12 @@ internal sealed class CompositeRootBehavior : IDisposable
 
         if (!attachedSource.Task.IsCompleted)
         {
-            disposedSource ??= new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
-            await Task.WhenAny(attachedSource.Task, disposedSource.Task);
+            readWaitEndedSource ??= new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+            await Task.WhenAny(attachedSource.Task, readWaitEndedSource.Task);
+            if (!attachedSource.Task.IsCompleted)
+            {
+                return null;
+            }
         }
 
         await FlushAsync();

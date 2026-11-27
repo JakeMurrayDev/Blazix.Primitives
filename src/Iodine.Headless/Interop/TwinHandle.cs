@@ -75,8 +75,8 @@ internal sealed class TwinHandle<TOptions> : IAsyncDisposable
     /// <param name="identifier">The name of the handle's method.</param>
     /// <param name="resultTypeInfo">The source-generated type information of <typeparamref name="TResult"/>.</param>
     /// <returns>
-    /// The answer, or <see langword="null"/> when the method answered <see langword="null"/>, once disposed, or once the
-    /// circuit is gone.
+    /// The answer, or <see langword="null"/> when the method answered <see langword="null"/>, once disposed, when a dispose
+    /// overtakes the call, or once the circuit is gone.
     /// </returns>
     public async ValueTask<TResult?> ReadAsync<TResult>(string identifier, JsonTypeInfo<TResult> resultTypeInfo)
         where TResult : class
@@ -102,9 +102,14 @@ internal sealed class TwinHandle<TOptions> : IAsyncDisposable
             // The circuit is gone; the browser has already discarded the module and its handles.
             return null;
         }
+        catch (Exception exception) when (disposed && exception is JSException or ObjectDisposedException)
+        {
+            // PR 380's verifier nit 4: a dispose overtook the read; the module's handle or the reference is gone.
+            return null;
+        }
     }
 
-    /// <summary>Sends new options to the module's <c>update</c>. A no-op once disposed or once the circuit is gone.</summary>
+    /// <summary>Sends new options to the module's <c>update</c>. A no-op once disposed, once the circuit is gone, or when a dispose overtakes it.</summary>
     /// <param name="options">The options record to serialize and send.</param>
     /// <param name="references">
     /// The elements and script-held objects the options name by index, sent after the options string; or
@@ -147,6 +152,10 @@ internal sealed class TwinHandle<TOptions> : IAsyncDisposable
         catch (JSDisconnectedException)
         {
             // The circuit is gone; the browser has already discarded the module and its handles.
+        }
+        catch (Exception exception) when (disposed && exception is JSException or ObjectDisposedException)
+        {
+            // PR 380's verifier nit 4: a dispose overtook the update; the module's handle or the reference is gone.
         }
     }
 }

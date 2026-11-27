@@ -553,4 +553,72 @@
         Assert.Empty(changes);
         Assert.False(OptionNamed(cut, "b").HasAttribute("data-selected"));
     }
+
+    // SEL-FRM-18's third priority (SelectRoot.tsx:551-561; issue 312, ADR 04 Amendments 2026-11-26): the list handle's
+    // `labels` read answers the attached items' ids and rendered labels in rendered order; Base UI's `findIndex` stops at
+    // the first rendered label that matches, and an index with no value there sets nothing.
+    private void AnswerRenderedLabels(string[] ids, string?[] labels) =>
+        CompositeHandle.Setup<string?>("labels", _ => true).SetResult(JsonSerializer.Serialize(new CompositeListLabels(ids, labels), IodineJsonContext.Default.CompositeListLabels));
+
+    [Fact(DisplayName = "port: the first item in rendered order whose rendered label matches the autofill decides, and one with no registered item matches nothing")]
+    [Trait("Requirement", "SEL-FRM-18")]
+    public async Task The_first_rendered_label_match_decides()
+    {
+        List<string> changes = [];
+        IRenderedComponent<SelectHost> cut = RenderSelect(@<SelectRoot TValue="string" Name="country" OnValueChange="e => changes.Add(e.Value)">
+            <SelectTrigger data-testid="trigger">
+                <SelectValue />
+            </SelectTrigger>
+            <SelectPortal>
+                <SelectPositioner>
+                    <SelectPopup>
+                        <SelectItem id="item-us" Value="@("us")">United States</SelectItem>
+                        <SelectItem id="item-um" Value="@("um")">United States</SelectItem>
+                    </SelectPopup>
+                </SelectPositioner>
+            </SelectPortal>
+        </SelectRoot>);
+        await this.SettleFormAsync(cut);
+
+        // The rendered order puts the second item first: it decides.
+        AnswerRenderedLabels(["item-um", "item-us"], ["United States", "United States"]);
+        await AutofillAsync(cut, "united states");
+        Assert.Equal(["um"], changes);
+
+        // A first match whose item is no longer registered matches nothing, as Base UI's hole in its values array does.
+        AnswerRenderedLabels(["item-gone", "item-us"], ["United States", "United States"]);
+        await AutofillAsync(cut, "united states");
+        Assert.Equal(["um"], changes);
+    }
+
+    // Deviation (a) of ADR 04 Amendments 2026-11-26 (issue 312, a consequence of the order chosen by the user 2026-11-26):
+    // the explicit-label pass runs before the rendered-label read, so a later item's explicit `Label` beats an earlier
+    // item's rendered text, where Base UI's one labels array would pick the earlier item.
+    [Fact(DisplayName = "port: a later item's explicit Label beats an earlier item's rendered text in the autofill match")]
+    [Trait("Requirement", "SEL-FRM-18")]
+    [Trait("Coverage", "issue-312")]
+    public async Task A_later_explicit_label_beats_an_earlier_rendered_text()
+    {
+        List<string> changes = [];
+        IRenderedComponent<SelectHost> cut = RenderSelect(@<SelectRoot TValue="string" Name="country" OnValueChange="e => changes.Add(e.Value)">
+            <SelectTrigger data-testid="trigger">
+                <SelectValue />
+            </SelectTrigger>
+            <SelectPortal>
+                <SelectPositioner>
+                    <SelectPopup>
+                        <SelectItem id="item-us" Value="@("us")">United States</SelectItem>
+                        <SelectItem id="item-usa" Value="@("usa")" Label="United States">USA</SelectItem>
+                    </SelectPopup>
+                </SelectPositioner>
+            </SelectPortal>
+        </SelectRoot>);
+        await this.SettleFormAsync(cut);
+        AnswerRenderedLabels(["item-us", "item-usa"], ["United States", "United States"]);
+
+        await AutofillAsync(cut, "united states");
+
+        Assert.Equal(["usa"], changes);
+        Assert.Empty(CompositeHandle.Invocations["labels"]);
+    }
 }
