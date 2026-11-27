@@ -6681,6 +6681,48 @@ describe('a bar trigger\'s blur before its menu\'s initial focus (issue 367)', (
     expect(closes(file.popup)).toEqual(['trigger-focus']);
   });
 
+  // PR 414's verifier (optional items): a touch press is judged at its `touchend`, which no replay reaches; a replay with
+  // the outside-press listener already installed runs at the arm; a session whose outside press is off sends the close.
+  it('port: a touch press outside is not replayed: the held close is sent with trigger-focus at the arm', async () => {
+    const { file, backdrop } = bar();
+    backdrop.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, cancelable: true, composed: true, button: 0, pointerType: 'touch' }));
+    file.button.blur();
+    await vi.advanceTimersByTimeAsync(0);
+    expect(file.popup.open).toBe(true);
+
+    noteInitialFocusArmed(file.session());
+    await vi.advanceTimersByTimeAsync(0);
+
+    expect(closes(file.popup)).toEqual(['trigger-focus']);
+  });
+
+  it('port: a held bar trigger blur that a press outside caused is replayed at the arm when the floating handle attached before it', () => {
+    const { file, backdrop } = bar({ floating: false });
+    pointerDown(backdrop);
+    file.button.blur();
+    vi.advanceTimersByTime(0);
+    file.attachPositioner();
+    expect(file.popup.open).toBe(true);
+
+    noteInitialFocusArmed(file.session());
+
+    expect(file.popup.open).toBe(false);
+    expect(closes(file.popup)).toEqual(['outside-press']);
+  });
+
+  it('port: a held bar trigger blur that a press outside caused is sent with trigger-focus when the session\'s outside press is off', async () => {
+    const { file, backdrop } = bar({ dismiss: { outsidePress: false } });
+    pointerDown(backdrop);
+    file.button.blur();
+    await vi.advanceTimersByTimeAsync(0);
+    expect(file.popup.open).toBe(true);
+
+    noteInitialFocusArmed(file.session());
+    await vi.advanceTimersByTimeAsync(0);
+
+    expect(closes(file.popup)).toEqual(['trigger-focus']);
+  });
+
   it('port: a held bar trigger blur is dropped when the menu closes or reopens before the arm', async () => {
     const { file, outside } = bar();
     outside.focus();
