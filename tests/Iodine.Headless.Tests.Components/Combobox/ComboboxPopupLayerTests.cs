@@ -94,7 +94,7 @@ public sealed class ComboboxPopupLayerTests : IDisposable
     [Trait("Requirement", "CMB-KEY-05")]
     public async Task A_popup_disposed_while_its_portals_move_is_pending_creates_no_twin()
     {
-        HeldAttachRuntime runtime = new(test.Context.JSInterop.JSRuntime, "portal.js");
+        HeldAttachRuntime runtime = new(test.Context.JSInterop.JSRuntime, "portal.js", dispatcher: () => test.Context.Renderer.Dispatcher);
         test.Context.Services.AddSingleton<IJSRuntime>(runtime);
         test.Context.Render<ComboboxHarness>(p => p.Add(x => x.RootParameters, new Dictionary<string, object?> { ["DefaultOpen"] = true }));
         int combobox = runtime.Imports.Count(path => path.EndsWith("/combobox.js", StringComparison.Ordinal));
@@ -115,7 +115,7 @@ public sealed class ComboboxPopupLayerTests : IDisposable
     [Trait("Requirement", "CMB-KEY-05")]
     public async Task Renders_while_the_popups_first_attach_is_pending_create_one_combobox_twin()
     {
-        HeldAttachRuntime runtime = new(test.Context.JSInterop.JSRuntime, "combobox.js");
+        HeldAttachRuntime runtime = new(test.Context.JSInterop.JSRuntime, "combobox.js", dispatcher: () => test.Context.Renderer.Dispatcher);
         test.Context.Services.AddSingleton<IJSRuntime>(runtime);
         IRenderedComponent<ComboboxHarness> cut = test.Context.Render<ComboboxHarness>(p => p.Add(x => x.RootParameters, new Dictionary<string, object?> { ["DefaultOpen"] = true }));
         await runtime.WaitForHeldAttachAsync(options => options.Contains("\"part\":\"popup\"", StringComparison.Ordinal));
@@ -143,7 +143,7 @@ public sealed class ComboboxPopupLayerTests : IDisposable
     [Trait("Coverage", "issue-353")]
     public async Task A_backdrop_disposed_while_its_portals_move_is_pending_creates_no_transitions_twin()
     {
-        HeldAttachRuntime runtime = new(test.Context.JSInterop.JSRuntime, "portal.js");
+        HeldAttachRuntime runtime = new(test.Context.JSInterop.JSRuntime, "portal.js", dispatcher: () => test.Context.Renderer.Dispatcher);
         test.Context.Services.AddSingleton<IJSRuntime>(runtime);
         bool withBackdrop = true;
         RenderFragment content = builder =>
@@ -184,7 +184,7 @@ public sealed class ComboboxPopupLayerTests : IDisposable
     [Trait("Requirement", "CMB-KEY-05")]
     public async Task A_list_disposed_while_its_portals_move_is_pending_attaches_nothing_and_throws_nothing()
     {
-        HeldAttachRuntime runtime = new(test.Context.JSInterop.JSRuntime, "portal.js");
+        HeldAttachRuntime runtime = new(test.Context.JSInterop.JSRuntime, "portal.js", dispatcher: () => test.Context.Renderer.Dispatcher);
         test.Context.Services.AddSingleton<IJSRuntime>(runtime);
         test.Context.Render<ComboboxHarness>(p => p.Add(x => x.RootParameters, new Dictionary<string, object?> { ["DefaultOpen"] = true }));
         int composites = test.CompositeHandle.Invocations["attach"].Count;
@@ -211,7 +211,7 @@ public sealed class ComboboxPopupLayerTests : IDisposable
         BunitJSModuleInterop handle = transitions.SetupModule("attach", _ => true);
         handle.SetupVoid("update", _ => true).SetVoidResult();
         handle.SetupVoid("dispose", _ => true).SetVoidResult();
-        HeldAttachRuntime runtime = new(test.Context.JSInterop.JSRuntime, "transitions.js");
+        HeldAttachRuntime runtime = new(test.Context.JSInterop.JSRuntime, "transitions.js", dispatcher: () => test.Context.Renderer.Dispatcher);
         test.Context.Services.AddSingleton<IJSRuntime>(runtime);
         IRenderedComponent<ComboboxHarness> cut = test.Context.Render<ComboboxHarness>(p => p.Add(x => x.RootParameters, new Dictionary<string, object?> { ["Open"] = true }));
         await runtime.WaitForHeldAttachAsync(options => options.Contains("\"reportOpenComplete\":true", StringComparison.Ordinal));
