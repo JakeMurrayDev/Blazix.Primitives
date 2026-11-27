@@ -11,7 +11,8 @@ namespace Iodine.Headless.Tests.Components;
 /// An <see cref="IJSRuntime"/> over bUnit's that holds one module's <c>attach</c> (or, with <paramref name="holdImport"/>, its
 /// import) until <see cref="Release"/>, as a Server round trip holds it (the portal's move, issue 149; the transitions
 /// module's import, issue 147), and records every module the parts import; every other call goes to bUnit's runtime and its
-/// modules. A held import's module runs its calls on <paramref name="dispatcher"/>'s renderer.
+/// modules. A held import's module runs its calls on <paramref name="dispatcher"/>'s renderer, and so does the handle a held
+/// attach returns.
 /// </summary>
 internal sealed class HeldAttachRuntime(IJSRuntime inner, string module, bool holdImport = false, Func<Dispatcher>? dispatcher = null) : IJSRuntime
 {
@@ -107,7 +108,7 @@ internal sealed class HeldAttachRuntime(IJSRuntime inner, string module, bool ho
         return dispatcher is null ? (TValue)imported : (TValue)(object)new DispatchedModule(dispatcher, imported);
     }
 
-    private async Task<TValue> WrapAsync<TValue>(ValueTask<TValue> import) => (TValue)(object)new HeldModule(this, (IJSObjectReference)(await import)!);
+    private async Task<TValue> WrapAsync<TValue>(ValueTask<TValue> import) => (TValue)(object)new HeldModule(this, (IJSObjectReference)(await import)!, dispatcher);
 
     private sealed class DispatchedModule(Func<Dispatcher> dispatcher, IJSObjectReference inner) : IJSObjectReference
     {
@@ -119,7 +120,7 @@ internal sealed class HeldAttachRuntime(IJSRuntime inner, string module, bool ho
         public ValueTask DisposeAsync() => inner.DisposeAsync();
     }
 
-    private sealed class HeldModule(HeldAttachRuntime runtime, IJSObjectReference inner) : IJSObjectReference
+    private sealed class HeldModule(HeldAttachRuntime runtime, IJSObjectReference inner, Func<Dispatcher>? dispatcher) : IJSObjectReference
     {
         public ValueTask<TValue> InvokeAsync<TValue>(string identifier, object?[]? args) => InvokeAsync<TValue>(identifier, CancellationToken.None, args);
 
@@ -132,7 +133,11 @@ internal sealed class HeldAttachRuntime(IJSRuntime inner, string module, bool ho
         {
             runtime.RecordHeld(args);
             await runtime.released.Task;
-            return await inner.InvokeAsync<TValue>(identifier, cancellationToken, args);
+            TValue attached = await inner.InvokeAsync<TValue>(identifier, cancellationToken, args);
+
+            // Issue 389: a twin handle sends its updates after a ConfigureAwait(false) on the attach, off the renderer, so two
+            // handles' updates reached bUnit's records at once and one was lost. Their calls run on the renderer instead.
+            return dispatcher is not null && attached is IJSObjectReference handle ? (TValue)(object)new DispatchedModule(dispatcher, handle) : attached;
         }
     }
 }
