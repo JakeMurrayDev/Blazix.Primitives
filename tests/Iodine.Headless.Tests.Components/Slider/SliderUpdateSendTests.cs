@@ -76,6 +76,43 @@ public sealed class SliderUpdateSendTests : IDisposable
         Assert.Equal(100, options.GetProperty("max").GetDouble());
     }
 
+    // PR 415's verifier: a rollback whose send faulted after a later send overtook it is still owed to the module, which
+    // otherwise keeps the canceled change's optimistic value (an awaited send could not be overtaken).
+    [Fact(DisplayName = "port: a rollback whose send faults after a later send overtook it is sent again")]
+    [Trait("Requirement", "SLD-EVT-03")]
+    public async Task Port_a_rollback_whose_send_faults_after_a_later_send_overtook_it_is_sent_again()
+    {
+        IRenderedComponent<SliderRoot> cut = Context.Render<SliderRoot>(p => p
+            .Add(x => x.DefaultValue, 0)
+            .Add(x => x.OnValueChange, (ValueChangeEventArgs<double> e) =>
+            {
+                if (e.Value == 70)
+                {
+                    e.Details.Cancel();
+                }
+            })
+            .AddChildContent(Anatomy()));
+        JSRuntimeInvocationHandler rollback = test.SliderHandle.SetupVoid("update", _ => true);
+        Task<Exception> unhandled = Context.Renderer.UnhandledException;
+
+        await test.RequestAsync(cut, "track-press", 0, [70]);
+        Assert.True(JsonDocument.Parse(test.SliderUpdates[^1]).RootElement.GetProperty("rollback").GetBoolean());
+        test.SliderHandle.SetupVoid("update", _ => true).SetVoidResult();
+        await test.RequestAsync(cut, "keyboard", 0, [20]);
+        Assert.False(JsonDocument.Parse(test.SliderUpdates[^1]).RootElement.GetProperty("rollback").GetBoolean());
+        int sent = test.SliderUpdates.Count;
+
+        await cut.InvokeAsync(() => rollback.SetException(new JSException("Iodine: the update failed.")));
+        Exception reported = await unhandled.WaitAsync(TimeSpan.FromSeconds(5), Xunit.TestContext.Current.CancellationToken);
+        Assert.IsType<JSException>(reported);
+
+        await WaitUntilAsync(() => test.SliderUpdates.Count > sent, TimeSpan.FromSeconds(2));
+        Assert.True(test.SliderUpdates.Count > sent, "no update after the faulted rollback");
+        JsonElement options = JsonDocument.Parse(test.SliderUpdates[^1]).RootElement;
+        Assert.True(options.GetProperty("rollback").GetBoolean());
+        Assert.Equal(20, options.GetProperty("values")[0].GetDouble());
+    }
+
     private static void RenderTolerating(Action render)
     {
         try
