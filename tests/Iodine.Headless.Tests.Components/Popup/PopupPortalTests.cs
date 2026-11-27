@@ -295,6 +295,30 @@ public sealed class PopupPortalTests : IDisposable
         Assert.False(behavior.Context.Moved.IsCompleted);
     }
 
+    // Issue 381 (found under design point 10m-1 (a), chosen by the user 2026-11-27): a reopen renders a new portal node while
+    // the portal stays, and the old handle's disposal is a round trip. A render during that round trip attaches the new node,
+    // so the move must already be reset when the replaced node starts detaching; reset after it, the new move never completes
+    // and every part that awaits it (the dialog popup's focus manager on Server under latency) waits until disposal.
+    [Fact(DisplayName = "port: a node replaced while its old handle's disposal is in flight completes the new move once a later render attaches it")]
+    [Trait("Requirement", "FLT-API-13")]
+    public async Task A_node_replaced_while_its_old_handle_disposal_is_in_flight_completes_the_new_move()
+    {
+        DisposeHold hold = new();
+        HeldDisposeRuntime runtime = new(hold);
+        await using PopupPortalBehavior behavior = new(runtime, () => { });
+        await behavior.OnAfterRenderAsync(new ElementReference("first"), null);
+        Assert.True(behavior.Context.Moved.IsCompletedSuccessfully);
+
+        hold.Hold();
+        Task replacing = behavior.OnAfterRenderAsync(new ElementReference("second"), null);
+        await behavior.OnAfterRenderAsync(new ElementReference("second"), null);
+        hold.Release();
+        await replacing;
+
+        Assert.Equal(2, runtime.Attaches);
+        Assert.True(behavior.Context.Moved.IsCompletedSuccessfully);
+    }
+
     /// <summary>A runtime whose module's <c>attach</c> fails as the module does for an element no longer in the document.</summary>
     /// <remarks>BL0016 asks callers of JS interop to guard the call; this is the runtime itself, which only answers.</remarks>
 #pragma warning disable BL0016
@@ -320,4 +344,47 @@ public sealed class PopupPortalTests : IDisposable
         }
     }
 #pragma warning restore BL0016
+
+    /// <summary>A runtime whose module attaches at once and whose handles' <c>dispose</c> can be held.</summary>
+    /// <remarks>BL0016 asks callers of JS interop to guard the call; this is the runtime itself, which only answers.</remarks>
+#pragma warning disable BL0016
+    private sealed class HeldDisposeRuntime(DisposeHold hold) : IJSRuntime, IJSObjectReference
+    {
+        public int Attaches { get; private set; }
+
+        public ValueTask<TValue> InvokeAsync<TValue>(string identifier, object?[]? args) => Answer<TValue>(identifier);
+
+        public ValueTask<TValue> InvokeAsync<TValue>(string identifier, CancellationToken cancellationToken, object?[]? args) => Answer<TValue>(identifier);
+
+        public ValueTask DisposeAsync() => ValueTask.CompletedTask;
+
+        private ValueTask<TValue> Answer<TValue>(string identifier)
+        {
+            switch (identifier)
+            {
+                case "import":
+                    return ValueTask.FromResult((TValue)(object)this);
+                case "attach":
+                    Attaches++;
+                    return ValueTask.FromResult((TValue)(object)this);
+                case "dispose" when hold.Held is { } held:
+                    return new ValueTask<TValue>(held.ContinueWith(_ => default(TValue)!, TaskScheduler.Default));
+                default:
+                    return ValueTask.FromResult(default(TValue)!);
+            }
+        }
+    }
+#pragma warning restore BL0016
+
+    /// <summary>Holds the <c>dispose</c> calls of <see cref="HeldDisposeRuntime"/>'s handles from <see cref="Hold"/> until <see cref="Release"/>.</summary>
+    private sealed class DisposeHold
+    {
+        private TaskCompletionSource? held;
+
+        public Task? Held => held?.Task;
+
+        public void Hold() => held = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        public void Release() => held?.TrySetResult();
+    }
 }

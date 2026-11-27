@@ -267,8 +267,10 @@ internal sealed class PopupPortalBehavior : IAsyncDisposable
     {
         if (attachedNode is { } attached && !SameElement(attached, node))
         {
-            await DetachAsync();
+            // Issue 381: reset before the old handle's disposal round trip. A render during it attaches the new node and
+            // completes the move; reset after it, the move that render completed is replaced by one nothing completes.
             Context.ResetMove();
+            await DetachAsync();
         }
 
         bool guardsBefore = RendersGuards;

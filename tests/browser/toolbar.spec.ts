@@ -1120,13 +1120,10 @@ test.describe('<Toolbar.Button />', () => {
       // DLG-KEY-09, the port title the stop needs (issue 123): with the popup portaled into a container inside the
       // ToolbarRoot its keydowns bubble into the toolbar, so only the popup's own stop (the popup module's
       // StopCompositeKeys) keeps the toolbar's focus where it is.
-      // Quarantined (ADR 11 §4) on Server until 2026-12-10, issue 381: its second CI sighting was PR 380's run 45808222950,
-      // after PR 305's run 44820467190 (after End, the popup is not focused).
-      test('port: a dialog popup portaled into a container inside the toolbar stops the composite keydowns', {
-        tag: '@quarantine',
-        annotation: { type: 'issue', description: 'https://github.com/JakeMurrayDev/Iodine.Headless/issues/381 (expires 2026-12-10)' },
-      }, async ({ page, mode }) => {
-        test.fixme(mode === 'server', 'Quarantined on Server until 2026-12-10 (issue 381)');
+      // Issue 381 (its CI sightings: PR 305's run 44820467190 and PR 380's run 45808222950, both on Server): the focus
+      // manager's attach could focus the popup before the popup module's key stop attached, and End reached the toolbar.
+      // The initial focus now waits for that stop (design point 10m-1 (a), chosen by the user 2026-11-27).
+      test('port: a dialog popup portaled into a container inside the toolbar stops the composite keydowns', async ({ page, mode }) => {
         await dialogCase(page, mode, 'composite-inside');
         const trigger = page.getByRole('button', { name: 'dialog', exact: true });
 
@@ -1138,6 +1135,31 @@ test.describe('<Toolbar.Button />', () => {
 
         await expect(popup).toBeFocused();
         await expect(page.getByRole('button', { name: 'empty', includeHidden: true })).not.toBeFocused();
+      });
+    });
+
+    // Issue 381 (design point 10m-1 (a), chosen by the user 2026-11-27; the ADR rule on two handles' attach order): with
+    // `js/popup.js` stalled, the popup module's key stop attaches late, and the popup must not take focus before it.
+    test.describe('Dialog with the popup module stalled', () => {
+      // AlertDialog shares the Popup's behaviour (DialogPopupBehavior); its toolbar case portals outside the toolbar, so the
+      // keys never reach it there and this title is Dialog's.
+      test('port: a dialog popup inside the toolbar takes focus only once its composite keydowns are stopped', async ({ page, mode }) => {
+        let hits = 0;
+        await page.route(/\/js\/popup(\.[0-9a-z]+)?\.js/, async (route) => {
+          hits++;
+          await new Promise((resolve) => setTimeout(resolve, 600));
+          await route.continue();
+        });
+        await gotoPopupFixture(page, mode, 'toolbar-dialog', { case: 'composite-inside' });
+        await page.getByRole('button', { name: 'dialog', exact: true }).click();
+        const popup = page.locator('[data-portal-target] [role="dialog"]');
+        await expect(popup).toBeFocused();
+        await page.keyboard.press('ArrowRight');
+        await page.keyboard.press('End');
+
+        await expect(popup).toBeFocused();
+        await expect(page.getByRole('button', { name: 'empty', includeHidden: true })).not.toBeFocused();
+        expect(hits).toBeGreaterThanOrEqual(1);
       });
     });
 
