@@ -81,9 +81,11 @@ public sealed class AlertDialogPopup : PartBase<AlertDialogPopupState>
     [Inject]
     private ILogger<AlertDialogPopup> Logger { get; set; } = null!;
 
-    private bool HasConsumerId => AdditionalAttributes is not null && AdditionalAttributes.ContainsKey("id");
+    // RND-DOM-33, DLG-DOM-16 (issue 344, issue 250's shape): an `id` Razor writes as `@null` is a removed id, so the popup
+    // falls back to the generated one and the owner's IDREFs follow it.
+    private bool HasConsumerId => Rendering.RenderedId.ConsumerId(AdditionalAttributes) is not null;
 
-    private string? RenderedId => HasConsumerId ? AdditionalAttributes!["id"] as string : Context!.FloatingId;
+    private string? RenderedId => Rendering.RenderedId.ConsumerId(AdditionalAttributes) ?? Context!.FloatingId;
 
     [CascadingParameter]
     private IDialogRootContext? Context { get; set; }
