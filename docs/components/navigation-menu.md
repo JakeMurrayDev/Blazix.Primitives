@@ -8,7 +8,7 @@
 | Docs page | `docs/src/app/(docs)/react/components/navigation-menu/page.mdx` |
 | Prefix | `NAV` |
 | Status | approved |
-| Revised | 2026-11-23 |
+| Revised | 2026-11-27 |
 | Builds on | none |
 | Derived by | none |
 | Depends on | [rendering-and-composition](../architecture/rendering-and-composition.md), [event-details-and-reasons](../architecture/event-details-and-reasons.md), [button-behavior](../architecture/button-behavior.md), [composite-and-list-navigation](../architecture/composite-and-list-navigation.md), [floating-and-positioning](../architecture/floating-and-positioning.md), [popup-store-and-handles](../architecture/popup-store-and-handles.md), [transitions-and-mounting](../architecture/transitions-and-mounting.md), [shared-utilities](../architecture/shared-utilities.md) |
@@ -488,6 +488,7 @@ Port note (2026-11-04, M5 track 5, [issue 163](https://github.com/JakeMurrayDev/
 - **NAV-API-17** — MUST. `id` defaults to a generated `base-ui-<token>` (RND-DOM-27); a consumer id is used verbatim. The rendered id is what the active Trigger's `aria-controls` references (NAV-ARIA-02).
   Source: `navigation-menu/popup/NavigationMenuPopup.tsx:24,30,54`; `navigation-menu/trigger/NavigationMenuTrigger.tsx:663`. Test: none directly (conformance renders the part; `aria-controls` is not asserted, §16 Q3).
   Port note (2026-11-04, M5 track 5, [issue 163](https://github.com/JakeMurrayDev/Iodine.Headless/issues/163); the review of PR 168, fix 7): [L2] `NavigationMenuPortRowsTests.cs` "port: the Popup's generated id has the base-ui- prefix, and only the active Trigger's aria-controls names it".
+  Port note (2026-11-27, M6 track 10, [issue 344](https://github.com/JakeMurrayDev/Iodine.Headless/issues/344); issue 250's shape, MNU-API-32): Razor writes a removed `id` as `id="@null"`, which keeps the key with a null value; the popup counted the key, so it rendered no id and published none. It now counts only a string id (`RenderedId.ConsumerId`) and falls back to the generated id. [L2] `PopupIdReleaseTests` "port: a NavigationMenu popup whose id is removed falls back to the generated id", red on `main` (no id), green.
 
 #### State object (`NavigationMenu.Popup.State`)
 

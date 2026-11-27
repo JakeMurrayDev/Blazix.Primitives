@@ -8,7 +8,7 @@
 | Docs page | `docs/src/app/(docs)/react/components/drawer/page.mdx` |
 | Prefix | `DRW` |
 | Status | approved |
-| Revised | 2026-11-24 |
+| Revised | 2026-11-27 |
 | Builds on | [dialog](dialog.md) |
 | Derived by | none |
 | Depends on | [rendering-and-composition](../architecture/rendering-and-composition.md), [event-details-and-reasons](../architecture/event-details-and-reasons.md), [popup-store-and-handles](../architecture/popup-store-and-handles.md) (swipe tracker §4.7.5), [transitions-and-mounting](../architecture/transitions-and-mounting.md), [button-behavior](../architecture/button-behavior.md), [floating-and-positioning](../architecture/floating-and-positioning.md), [shared-utilities](../architecture/shared-utilities.md) |
@@ -480,6 +480,7 @@ closed ──SwipeArea drag ≥ 1 px──▶ open (reason swipe) ── release
   Source: `drawer/popup/DrawerPopup.tsx:374-390`. Test: [L2] describeConformance (RND-DOM-16). (L4 for the drag-style ordering clause)
 - **DRW-DOM-16** — MUST. The Popup renders `id` = the consumer `id` when given, else the generated popup id (DLG-DOM-16), plus `role`, `aria-labelledby`, `aria-describedby`, `tabindex="-1"`, `data-base-ui-focusable` and `hidden` (when not mounted) exactly as Dialog.Popup (DLG-DOM-17/18, DLG-ARIA-04…06), and merges the Root's dismissal handlers.
   Source: `drawer/popup/DrawerPopup.tsx:151,360-368`. Test: [L2] `DrawerRoot.test.tsx` "synchronizes trigger aria-controls with the popup id".
+  Port note (2026-11-27, M6 track 10, [issue 344](https://github.com/JakeMurrayDev/Iodine.Headless/issues/344); issue 250's shape, MNU-API-32): Razor writes a removed `id` as `id="@null"`, which keeps the key with a null value; the popup counted the key, so it rendered no id and published none. It now counts only a string id (`RenderedId.ConsumerId`) and falls back to the generated id. [L2] `PopupIdReleaseTests` "port: a Drawer popup whose id is removed falls back to the generated id", red on `main` (no id), green.
 
 ### 5.2 Backdrop element
 
