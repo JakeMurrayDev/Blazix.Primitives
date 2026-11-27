@@ -141,8 +141,14 @@ internal sealed class MenuPopupBehavior : IAsyncDisposable
         if (element is { } target)
         {
             menu.SetPopupElement(target, id);
+
+            // Issue 381 (design point 10m-1 (a), chosen by the user 2026-11-27): inside a toolbar the popup module is imported
+            // while the portal moves, so its key stop's attach is sent before the focus manager's below; calls reach the
+            // module in the order they are sent, so focus never sits in the popup before the stop is armed.
+            ValueTask prepared = toolbar is not null && !module.Attached.IsCompleted ? module.Twin.PrepareAsync() : ValueTask.CompletedTask;
             await PopupPortalContext.WhenMoved(portal);
             Task transitionsSync = SyncTransitionsAsync(target);
+            await prepared;
 
             // MNU-KEY-20 (MenuPopup.tsx:169-173): inside a toolbar the composite keys stop at the popup.
             Task moduleSync = module.SyncAsync(target, toolbar is null ? s_freeKeys : s_stoppedKeys);
