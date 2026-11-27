@@ -6664,6 +6664,23 @@ describe('a bar trigger\'s blur before its menu\'s initial focus (issue 367)', (
     }
   });
 
+  // PR 414's verifier, fix (2): a press whose open never came leaves its window open while the menu is closed; a press
+  // recorded then is not the cause of a blur after a later press-open (a keyboard one, with no `mousedown`) adopts it.
+  it('port: a press recorded while a press-started window waited for an open that never came is not replayed after a later press-open', async () => {
+    const { file, backdrop, outside } = bar({ open: false });
+    file.button.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, cancelable: true, button: 0 }));
+    pointerDown(backdrop);
+    file.popup.setOpen(true, 'trigger-press', file.button.id, 'click');
+
+    outside.focus();
+    await vi.advanceTimersByTimeAsync(0);
+    expect(file.popup.open).toBe(true);
+    noteInitialFocusArmed(file.session());
+    await vi.advanceTimersByTimeAsync(0);
+
+    expect(closes(file.popup)).toEqual(['trigger-focus']);
+  });
+
   it('port: a held bar trigger blur is dropped when the menu closes or reopens before the arm', async () => {
     const { file, outside } = bar();
     outside.focus();
