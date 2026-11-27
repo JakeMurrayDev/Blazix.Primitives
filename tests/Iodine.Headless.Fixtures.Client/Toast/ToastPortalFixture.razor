@@ -1,14 +1,23 @@
 @namespace Iodine.Headless.Fixtures.Client.ToastFixtures
 @using Iodine.Headless
+@using Microsoft.JSInterop
+@inject IJSRuntime JS
 @inherits ToastFixtureBase
 
 @*
     The `toast-portal` fixture (tests/browser/toast.viewport.spec.ts): the hero's shape, the viewport inside a ToastPortal
     whose node the portal appends to the body (TST-STR-09, TST-DOM-20, TST-API-17), with Base UI's `List` and `Button`.
+    With `iframe=true` the portal's container is a node inside a same-origin iframe a fixture script creates after the first
+    render (TST-STR-13, TST-EDGE-08; issue 316), and `data-iframe-attached` reads `true` once the viewport's handle attached
+    there. `close-all` closes every toast.
 *@
-<FixtureContainer Name="toast-portal" data-attached="@(Attached ? "true" : "false")" data-sync="@Sync">
+<FixtureContainer Name="toast-portal" data-attached="@(Attached ? "true" : "false")" data-sync="@Sync" data-iframe-attached="@(iframeAttached ? "true" : "false")">
+    @if (iframe)
+    {
+        <div data-iframe-host @ref="iframeHost"></div>
+    }
     <ToastProvider TData="NoPayload" @ref="Provider">
-        <ToastPortal data-testid="portal" class="toast-portal">
+        <ToastPortal data-testid="portal" class="toast-portal" Container="@(iframe ? container ?? PortalContainerValue.Pending : (PortalContainerValue?)null)">
             <ToastViewport @ref="Viewport" data-testid="viewport" style="position: fixed; right: 16px; bottom: 16px; width: 300px">
                 <ToastsContent Context="toasts">
                     @foreach (ToastObject<NoPayload> toast in toasts)
@@ -22,4 +31,50 @@
         </ToastPortal>
     </ToastProvider>
     <button type="button" data-testid="add" @onclick="@(() => Manager.Add(Recorded() with { Title = "title", Description = "description" }))">add</button>
+    <button type="button" data-testid="close-all" @onclick="() => Manager.Close()">close all</button>
 </FixtureContainer>
+
+@code {
+    private bool iframe;
+    private bool iframeAttached;
+    private ElementReference iframeHost;
+    private PortalContainerValue? container;
+
+    protected override void OnInitialized()
+    {
+        base.OnInitialized();
+        iframe = Query("iframe", "false") == "true";
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        await base.OnAfterRenderAsync(firstRender);
+        if (!iframe || !RendererInfo.IsInteractive)
+        {
+            return;
+        }
+
+        // The iframe exists only after the first render; the viewport renders into it once the container is supplied.
+        if (firstRender)
+        {
+            try
+            {
+                container = new PortalContainerValue(await JS.InvokeAsync<IJSObjectReference>("iodineFixtureDom.createIframeContainer", iframeHost));
+                StateHasChanged();
+            }
+            catch (JSDisconnectedException)
+            {
+                // The circuit went while the page was set up.
+            }
+
+            return;
+        }
+
+        if (!iframeAttached && Viewport is { } viewport)
+        {
+            await viewport.TwinAttached;
+            iframeAttached = true;
+            StateHasChanged();
+        }
+    }
+}
