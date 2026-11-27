@@ -3211,6 +3211,39 @@ describe('FloatingFocusManager', () => {
       manager.handle.dispose();
     });
 
+    // Issue 367 (design point 10-367a (1), chosen by the user 2026-11-27): a bar trigger's blur close before its
+    // press-opened menu's initial focus is held by the `interactions` module until this module's initial-focus arm, which
+    // re-judges it from where the focus is before the initial focus moves: outside the popup and the bar, the held close
+    // is sent with `trigger-focus`.
+    it('port: the initial-focus arm sends a bar trigger\'s held blur close when focus is outside the popup and the bar', async () => {
+      const bar = sessionPopup();
+      bar.attachSession();
+      const popup = sessionPopup();
+      popup.attachSession({ session: { parentToken: bar.token } });
+      const reference = element('button', 'reference', { id: 'reference' });
+      const outside = element('button', 'outside');
+      document.body.append(reference, outside);
+      const menu = { rootId: 'root', release: true, keepArmedWhenClosed: true };
+      const trigger = popup.attachTrigger(reference, { trigger: { menu } });
+      reference.focus();
+      popup.setOpen(true, 'trigger-press', reference.id, 'mousedown');
+      trigger.update(JSON.stringify({ sessionToken: popup.token, trigger: { menu, focus: {} } }));
+
+      outside.focus();
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      expect(popup.open).toBe(true);
+
+      const floating = element('div', undefined, { 'data-open': '' });
+      floating.append(element('button', 'one'));
+      document.body.append(floating);
+      const manager = attachManager(floating, { modal: false, domReferenceId: 'reference', sessionToken: popup.token });
+      await settle();
+
+      expect(popup.open).toBe(false);
+      expect(popup.changes.filter((change) => !change.open).map((change) => change.details.reason)).toEqual(['trigger-focus']);
+      manager.handle.dispose();
+    });
+
     // F1 of PR 183 (settled by the orchestrator 2026-11-04 as (b)): Base UI records the element focused before the open in a
     // layout effect, before list navigation moves focus in. The port's handle can attach after the `composite` module's
     // open focus moved focus in, so the manager takes the element focus came from, which the module marked in the session.
