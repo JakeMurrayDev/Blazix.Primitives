@@ -239,7 +239,12 @@ public sealed class SelectPopup : PartBase<SelectPopupState>
         SelectStore current = store!;
         if (Element is { } element)
         {
+            // Issue 381 (design point 10m-1 (a), chosen by the user 2026-11-27): inside a toolbar the popup module is imported
+            // while the portal moves, so its key stop's attach is sent before the focus manager's below; calls reach the
+            // module in the order they are sent, so focus never sits in the popup before the stop is armed.
+            ValueTask prepared = ToolbarContext is not null && !popupModule!.Attached.IsCompleted ? popupModule.Twin.PrepareAsync() : ValueTask.CompletedTask;
             await PopupPortalContext.WhenMoved(Portal);
+            await prepared;
             if (disposed)
             {
                 return;
