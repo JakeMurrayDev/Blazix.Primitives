@@ -3447,6 +3447,10 @@ function syncUnarmedBarOpen(record: SessionRecord, details: SessionOpenChangeDet
   const pressOpen = details.open && details.reason === 'trigger-press';
   if (current !== undefined && current.details === null && pressOpen) {
     current.details = details;
+    // PR 414's verifier: a press recorded while the open had not arrived and no blur took it belongs to no blur of this
+    // open (an open that never came leaves the window waiting while the menu is closed). A blur before the adoption
+    // took its press already.
+    current.press = null;
     return;
   }
   endUnarmedBarOpen(record);
