@@ -21,6 +21,7 @@ import {
   clearSessionOpenEvent,
   COLLAPSED_REOPEN_KEY,
   noteCloseRequest,
+  noteInitialFocusArmed,
   resetInteractionsForTest,
   type CollapsedReopen,
   setSessionPositionReference,
@@ -6480,5 +6481,293 @@ describe('Menu', () => {
       mouse(tree.plain, 'mouseup', { button: 2, clientX: 30, clientY: 40 });
       expect(tree.clicks).toHaveLength(1);
     });
+  });
+});
+
+// Issue 367 (design point 10-367a (1), chosen by the user 2026-11-27): a bar menu opened by a press shows, cut out of its
+// backdrop, before its popup's focus manager takes the initial focus (a round trip later on Server). Base UI's popup has
+// the focus from the open's commit, so a blur of the trigger in that window never closes the menu. The trigger's blur
+// close is held until the focus manager's initial-focus arm, which re-judges it: dropped when focus is then in the popup
+// or on a sibling trigger of the bar, replayed as an outside press when a press outside moved the focus, sent with
+// `trigger-focus` otherwise, and dropped when the menu closed or reopened meanwhile.
+describe('a bar trigger\'s blur before its menu\'s initial focus (issue 367)', () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+  });
+
+  const pointerDown = (target: EventTarget) =>
+    target.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, cancelable: true, composed: true, button: 0, pointerType: 'mouse' }));
+
+  function bar({ floating = true, open = true, dismiss = {}, focus = true }: { floating?: boolean; open?: boolean; dismiss?: Record<string, unknown>; focus?: boolean } = {}) {
+    const root = harness();
+    root.attachSession();
+    const menu = { rootId: 'root', release: true, keepArmedWhenClosed: true };
+    const barMenu = (name: string) => {
+      const popup = harness();
+      popup.attachSession({ session: { parentToken: root.token, dismiss } });
+      const button = element('button', `${popup.token}-${name}`);
+      const handle = popup.attachTrigger(button, { trigger: { menu } });
+      // C# turns the bar triggers' focus on with a bar menu's open (MBR-FOC-03).
+      const focusOn = () => handle.update(JSON.stringify({ sessionToken: popup.token, trigger: { menu, focus: {} } }));
+      const positioner = element('div', `${popup.token}-${name}-positioner`);
+      const item = element('button', `${popup.token}-${name}-item`);
+      positioner.append(item);
+      const attachPositioner = () => popup.attachFloating(positioner, { floating: { menu: {} } });
+      return { popup, button, trigger: handle, focusOn, positioner, item, attachPositioner, session: () => getSession(popup.token)! };
+    };
+    const file = barMenu('file');
+    const edit = barMenu('edit');
+    // A press opens File and focuses its trigger; the bar's triggers get their focus with the open.
+    file.button.focus();
+    if (open) {
+      file.popup.setOpen(true, 'trigger-press', file.button.id, 'mousedown');
+    }
+    if (focus) {
+      file.focusOn();
+      edit.focusOn();
+    }
+    if (floating) {
+      file.attachPositioner();
+    }
+    const backdrop = element('div', 'backdrop');
+    const outside = element('button', 'outside');
+    return { file, edit, backdrop, outside };
+  }
+
+  const closes = (popup: PopupHarness) => popup.changes.filter((change) => !change.open).map((change) => change.details.reason);
+
+  it('port: a bar trigger\'s blur before its press-opened menu\'s initial focus arms is held, and sent with trigger-focus at the arm when focus is outside', async () => {
+    const { file, outside } = bar();
+    outside.focus();
+    await vi.advanceTimersByTimeAsync(0);
+
+    expect(file.popup.open).toBe(true);
+    expect(closes(file.popup)).toEqual([]);
+
+    noteInitialFocusArmed(file.session());
+    await vi.advanceTimersByTimeAsync(0);
+
+    expect(file.popup.open).toBe(false);
+    expect(closes(file.popup)).toEqual(['trigger-focus']);
+  });
+
+  it('port: a held bar trigger blur is dropped at the arm when focus is then on a sibling trigger of the bar or in the popup', async () => {
+    const sibling = bar();
+    sibling.edit.button.focus();
+    await vi.advanceTimersByTimeAsync(0);
+    expect(sibling.file.popup.open).toBe(true);
+    noteInitialFocusArmed(sibling.file.session());
+    await vi.advanceTimersByTimeAsync(0);
+    expect(sibling.file.popup.open).toBe(true);
+    expect(closes(sibling.file.popup)).toEqual([]);
+
+    for (const created of harnesses.splice(0)) {
+      created.dispose();
+    }
+    resetInteractionsForTest();
+    document.body.replaceChildren();
+
+    const inside = bar();
+    inside.outside.focus();
+    await vi.advanceTimersByTimeAsync(0);
+    inside.file.item.focus();
+    noteInitialFocusArmed(inside.file.session());
+    await vi.advanceTimersByTimeAsync(0);
+    expect(inside.file.popup.open).toBe(true);
+    expect(closes(inside.file.popup)).toEqual([]);
+  });
+
+  it('port: a held bar trigger blur that a press outside caused is replayed as an outside press once the floating handle attaches', async () => {
+    const { file, backdrop } = bar({ floating: false });
+    pointerDown(backdrop);
+    file.button.blur();
+    await vi.advanceTimersByTimeAsync(0);
+    expect(file.popup.open).toBe(true);
+
+    noteInitialFocusArmed(file.session());
+    await vi.advanceTimersByTimeAsync(0);
+    expect(file.popup.open).toBe(true);
+
+    file.attachPositioner();
+    await vi.advanceTimersByTimeAsync(0);
+
+    expect(file.popup.open).toBe(false);
+    expect(closes(file.popup)).toEqual(['outside-press']);
+  });
+
+  // On Server the menu is inserted, cut out of its backdrop, before the session's relay brings the open: the window starts
+  // at the bar trigger's press, which requests the open through C# (issue 363's `noteBarMenuOpenRequest`).
+  it('port: a bar trigger\'s blur before its press-requested open arrives is held from the press, and its outside press replayed at the arm', async () => {
+    const { file, backdrop } = bar({ floating: false, open: false });
+    file.button.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, cancelable: true, button: 0 }));
+    pointerDown(backdrop);
+    file.button.blur();
+    await vi.advanceTimersByTimeAsync(0);
+    expect(closes(file.popup)).toEqual([]);
+
+    file.popup.setOpen(true, 'trigger-press', file.button.id, 'mousedown');
+    file.attachPositioner();
+    noteInitialFocusArmed(file.session());
+    await vi.advanceTimersByTimeAsync(0);
+
+    expect(file.popup.open).toBe(false);
+    expect(closes(file.popup)).toEqual(['outside-press']);
+  });
+
+  // PR 414's verifier: a window whose arm never comes must not outlive its trigger or its session.
+  function windowListener(add: { mock: { calls: unknown[][] } }): unknown {
+    return add.mock.calls.filter(([type, , options]) => type === 'pointerdown' && options === true).at(-1)?.[1];
+  }
+
+  it('port: a bar trigger detached in the window ends it: its press listener is removed and its held close is never sent', async () => {
+    const add = vi.spyOn(document, 'addEventListener');
+    const remove = vi.spyOn(document, 'removeEventListener');
+    try {
+      const { file, outside } = bar({ floating: false });
+      const listener = windowListener(add);
+      expect(listener).toBeTypeOf('function');
+      outside.focus();
+      await vi.advanceTimersByTimeAsync(0);
+      const session = file.session();
+
+      file.trigger.dispose();
+      expect(remove).toHaveBeenCalledWith('pointerdown', listener, true);
+      noteInitialFocusArmed(session);
+      await vi.advanceTimersByTimeAsync(0);
+
+      expect(file.popup.open).toBe(true);
+      expect(closes(file.popup)).toEqual([]);
+    } finally {
+      add.mockRestore();
+      remove.mockRestore();
+    }
+  });
+
+  it('port: a bar menu session released in the window ends it: its press listener is removed and its held close is never sent', async () => {
+    const add = vi.spyOn(document, 'addEventListener');
+    const remove = vi.spyOn(document, 'removeEventListener');
+    try {
+      const { file, outside } = bar({ floating: false });
+      const listener = windowListener(add);
+      expect(listener).toBeTypeOf('function');
+      outside.focus();
+      await vi.advanceTimersByTimeAsync(0);
+      const session = file.session();
+
+      file.popup.dispose();
+      expect(remove).toHaveBeenCalledWith('pointerdown', listener, true);
+      noteInitialFocusArmed(session);
+      await vi.advanceTimersByTimeAsync(0);
+
+      expect(closes(file.popup)).toEqual([]);
+    } finally {
+      add.mockRestore();
+      remove.mockRestore();
+    }
+  });
+
+  // PR 414's verifier, fix (2): a press whose open never came leaves its window open while the menu is closed; a press
+  // recorded then is not the cause of a blur after a later press-open (a keyboard one, with no `mousedown`) adopts it.
+  it('port: a press recorded while a press-started window waited for an open that never came is not replayed after a later press-open', async () => {
+    const { file, backdrop, outside } = bar({ open: false });
+    file.button.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, cancelable: true, button: 0 }));
+    pointerDown(backdrop);
+    file.popup.setOpen(true, 'trigger-press', file.button.id, 'click');
+
+    outside.focus();
+    await vi.advanceTimersByTimeAsync(0);
+    expect(file.popup.open).toBe(true);
+    noteInitialFocusArmed(file.session());
+    await vi.advanceTimersByTimeAsync(0);
+
+    expect(closes(file.popup)).toEqual(['trigger-focus']);
+  });
+
+  // PR 414's verifier (optional items): a touch press is judged at its `touchend`, which no replay reaches; a replay with
+  // the outside-press listener already installed runs at the arm; a session whose outside press is off sends the close.
+  it('port: a touch press outside is not replayed: the held close is sent with trigger-focus at the arm', async () => {
+    const { file, backdrop } = bar();
+    backdrop.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, cancelable: true, composed: true, button: 0, pointerType: 'touch' }));
+    file.button.blur();
+    await vi.advanceTimersByTimeAsync(0);
+    expect(file.popup.open).toBe(true);
+
+    noteInitialFocusArmed(file.session());
+    await vi.advanceTimersByTimeAsync(0);
+
+    expect(closes(file.popup)).toEqual(['trigger-focus']);
+  });
+
+  it('port: a held bar trigger blur that a press outside caused is replayed at the arm when the floating handle attached before it', () => {
+    const { file, backdrop } = bar({ floating: false });
+    pointerDown(backdrop);
+    file.button.blur();
+    vi.advanceTimersByTime(0);
+    file.attachPositioner();
+    expect(file.popup.open).toBe(true);
+
+    noteInitialFocusArmed(file.session());
+
+    expect(file.popup.open).toBe(false);
+    expect(closes(file.popup)).toEqual(['outside-press']);
+  });
+
+  it('port: a held bar trigger blur that a press outside caused is sent with trigger-focus when the session\'s outside press is off', async () => {
+    const { file, backdrop } = bar({ dismiss: { outsidePress: false } });
+    pointerDown(backdrop);
+    file.button.blur();
+    await vi.advanceTimersByTimeAsync(0);
+    expect(file.popup.open).toBe(true);
+
+    noteInitialFocusArmed(file.session());
+    await vi.advanceTimersByTimeAsync(0);
+
+    expect(closes(file.popup)).toEqual(['trigger-focus']);
+  });
+
+  // PR 414's CI (run 46036554991, menubar.relaxations.spec.ts:61 at 50 ms): on Server the open's relay reached the
+  // module before a backdrop press, but the trigger's focus option arrived after it, so the press's blur met no listener
+  // and nothing was held; the outside-press listener was not installed either. The press the window recorded runs at the
+  // arm all the same.
+  it('port: a press outside recorded in the window, whose blur no focus listener saw, is replayed as an outside press at the arm', async () => {
+    const { file, backdrop } = bar({ floating: false, focus: false });
+    pointerDown(backdrop);
+    file.button.blur();
+    await vi.advanceTimersByTimeAsync(0);
+    file.focusOn();
+    file.attachPositioner();
+    expect(file.popup.open).toBe(true);
+
+    noteInitialFocusArmed(file.session());
+    await vi.advanceTimersByTimeAsync(0);
+
+    expect(file.popup.open).toBe(false);
+    expect(closes(file.popup)).toEqual(['outside-press']);
+  });
+
+  it('port: a held bar trigger blur is dropped when the menu closes or reopens before the arm', async () => {
+    const { file, outside } = bar();
+    outside.focus();
+    await vi.advanceTimersByTimeAsync(0);
+    expect(file.popup.open).toBe(true);
+
+    file.popup.setOpen(false, 'sibling-open');
+    file.popup.setOpen(true, 'trigger-hover', file.button.id, 'mouseenter');
+    noteInitialFocusArmed(file.session());
+    await vi.advanceTimersByTimeAsync(0);
+
+    expect(file.popup.open).toBe(true);
+    expect(closes(file.popup)).toEqual(['sibling-open']);
+  });
+
+  it('port: a bar trigger\'s blur after its menu\'s initial focus armed closes at once with trigger-focus', async () => {
+    const { file, outside } = bar();
+    noteInitialFocusArmed(file.session());
+    file.button.focus();
+    outside.focus();
+    await vi.advanceTimersByTimeAsync(0);
+
+    expect(file.popup.open).toBe(false);
+    expect(closes(file.popup)).toEqual(['trigger-focus']);
   });
 });

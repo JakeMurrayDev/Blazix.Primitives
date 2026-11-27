@@ -20,6 +20,7 @@ import {
   isVirtualClick,
   isVirtualPointerEvent,
   LIST_OPEN_FOCUS_KEY,
+  noteInitialFocusArmed,
   releaseSession,
   type InteractionSession,
   type ListOpenFocus,
@@ -1430,6 +1431,14 @@ export function attach(
 
   // Initial focus on open (FLT-FOC-06, A11Y-04), :679-769.
   const initialFocusEffect = (floatingFocusElement: HTMLElement) => {
+    // Issue 367 (design point 10-367a (1), chosen by the user 2026-11-27): the arm ends a press-opened bar menu's window,
+    // and the `interactions` module re-judges a trigger blur close it held there from where the focus is now, before the
+    // initial focus moves. When the focus left the trigger in the window, Base UI's popup had its initial focus before
+    // that move, so no focus moves now.
+    if (session !== null && noteInitialFocusArmed(session)) {
+      return;
+    }
+
     // Issue 372 (design point 10l-1 (a), chosen by the user 2026-11-26): an open the `interactions` module marked as a
     // collapsed reopen is one React's batching never commits, so Base UI's initial-focus effect does not run again; the
     // mark is spent by the open it names. PR 400's verifier nit: the module settles the mark at the open's commit (on

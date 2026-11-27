@@ -361,10 +361,9 @@ test.describe('<Menubar />', () => {
       const fixture = await render(page, mode);
       await page.getByTestId('file-trigger').click();
       await expect(page.getByTestId('file-menu')).toBeVisible();
-      // Issue 367 (2026-11-25, design point 10-363a (1), chosen by the user): on Server the menu is cut out of its backdrop
-      // before its popup takes the initial focus, and a blur of the trigger in that window closes it with `trigger-focus`;
-      // the title acts once the popup has the focus, as in Base UI.
-      await expect(page.getByTestId('file-menu').getByRole('menu')).toBeFocused();
+      // Issue 367 (design point 10-367a (1), chosen by the user 2026-11-27): the title acts as soon as the menu shows. On
+      // Server the menu is cut out of its backdrop before its popup takes the initial focus; the trigger's blur close in
+      // that window is held until the focus manager arms, then dropped or replayed with the reason Base UI records.
 
       const hitAt = async (target: Locator) => {
         const { x, y } = await center(target);
@@ -461,10 +460,9 @@ test.describe('<Menubar />', () => {
       await render(page, mode, { cancelSibling: true });
       await page.getByTestId('file-trigger').click();
       await expect(page.getByTestId('file-menu')).toBeVisible();
-      // Issue 367 (2026-11-25, design point 10-363a (1), chosen by the user): on Server the menu is cut out of its backdrop
-      // before its popup takes the initial focus, and a blur of the trigger in that window closes it with `trigger-focus`;
-      // the title acts once the popup has the focus, as in Base UI.
-      await expect(page.getByTestId('file-menu').getByRole('menu')).toBeFocused();
+      // Issue 367 (design point 10-367a (1), chosen by the user 2026-11-27): the title acts as soon as the menu shows. On
+      // Server the menu is cut out of its backdrop before its popup takes the initial focus; the trigger's blur close in
+      // that window is held until the focus manager arms, then dropped or replayed with the reason Base UI records.
 
       await moveTo(page, page.getByTestId('edit-trigger'));
       await expect(page.getByTestId('edit-menu')).toBeVisible();
