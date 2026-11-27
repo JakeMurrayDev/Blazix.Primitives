@@ -26,7 +26,7 @@
 // - Unless the publication is modal, capture `focusin` and `focusout` on the node make its tabbables untabbable when
 //   focus leaves it for the outside and restore them when focus comes back from the outside (FLT-FOC-17, DOM-18); an
 //   open publication restores them too, before the focus manager's initial focus runs.
-import { ownerDocument } from './dom';
+import { isHTMLElement, ownerDocument } from './dom';
 import { disableFocusInside, enableFocusInside, getNextTabbable, getPreviousTabbable, isOutsideEvent } from './focus-manager';
 import { platform } from './platform';
 import {
@@ -101,8 +101,9 @@ export function getPortalState(node: Element | null): PortalState | null {
   return portal?.[PORTAL_STATE] ?? null;
 }
 
+// PR 385's verifier nit: `isHTMLElement` also recognises a guard of a same-origin iframe's realm (issue 316).
 function isOutsideGuard(element: Element | null): element is HTMLElement {
-  return element instanceof HTMLElement && element.hasAttribute(FOCUS_GUARD_ATTRIBUTE) && element.getAttribute('data-type') === 'outside';
+  return isHTMLElement(element) && element.hasAttribute(FOCUS_GUARD_ATTRIBUTE) && element.getAttribute('data-type') === 'outside';
 }
 
 // The wrapper's siblings by position: before it the guard, then the owner; after it the guard (FLT-DOM-14, FLT-ARIA-04).
