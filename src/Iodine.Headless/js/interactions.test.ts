@@ -6498,7 +6498,7 @@ describe('a bar trigger\'s blur before its menu\'s initial focus (issue 367)', (
   const pointerDown = (target: EventTarget) =>
     target.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, cancelable: true, composed: true, button: 0, pointerType: 'mouse' }));
 
-  function bar({ floating = true, open = true, dismiss = {} }: { floating?: boolean; open?: boolean; dismiss?: Record<string, unknown> } = {}) {
+  function bar({ floating = true, open = true, dismiss = {}, focus = true }: { floating?: boolean; open?: boolean; dismiss?: Record<string, unknown>; focus?: boolean } = {}) {
     const root = harness();
     root.attachSession();
     const menu = { rootId: 'root', release: true, keepArmedWhenClosed: true };
@@ -6522,8 +6522,10 @@ describe('a bar trigger\'s blur before its menu\'s initial focus (issue 367)', (
     if (open) {
       file.popup.setOpen(true, 'trigger-press', file.button.id, 'mousedown');
     }
-    file.focusOn();
-    edit.focusOn();
+    if (focus) {
+      file.focusOn();
+      edit.focusOn();
+    }
     if (floating) {
       file.attachPositioner();
     }
@@ -6721,6 +6723,26 @@ describe('a bar trigger\'s blur before its menu\'s initial focus (issue 367)', (
     await vi.advanceTimersByTimeAsync(0);
 
     expect(closes(file.popup)).toEqual(['trigger-focus']);
+  });
+
+  // PR 414's CI (run 46036554991, menubar.relaxations.spec.ts:61 at 50 ms): on Server the open's relay reached the
+  // module before a backdrop press, but the trigger's focus option arrived after it, so the press's blur met no listener
+  // and nothing was held; the outside-press listener was not installed either. The press the window recorded runs at the
+  // arm all the same.
+  it('port: a press outside recorded in the window, whose blur no focus listener saw, is replayed as an outside press at the arm', async () => {
+    const { file, backdrop } = bar({ floating: false, focus: false });
+    pointerDown(backdrop);
+    file.button.blur();
+    await vi.advanceTimersByTimeAsync(0);
+    file.focusOn();
+    file.attachPositioner();
+    expect(file.popup.open).toBe(true);
+
+    noteInitialFocusArmed(file.session());
+    await vi.advanceTimersByTimeAsync(0);
+
+    expect(file.popup.open).toBe(false);
+    expect(closes(file.popup)).toEqual(['outside-press']);
   });
 
   it('port: a held bar trigger blur is dropped when the menu closes or reopens before the arm', async () => {
