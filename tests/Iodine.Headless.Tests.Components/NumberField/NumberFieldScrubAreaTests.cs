@@ -1,8 +1,11 @@
+using System.Diagnostics;
 using System.Globalization;
 using System.Text.Json;
 using Bunit;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Rendering;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.JSInterop;
 
 // The namespace is the project's root: a namespace named after the family would hide the parts' types.
 namespace Iodine.Headless.Tests.Components;
@@ -344,6 +347,48 @@ public sealed class NumberFieldScrubAreaTests : IDisposable
         b.CloseComponent();
     }
 
+    // Issue 375's review, nit (a): an attach that faults leaves the scrub area free to attach again at its next render,
+    // rather than rethrowing the first fault at every render and never attaching.
+    [Fact(DisplayName = "port: a scrub area whose attach faulted attaches again at its next render")]
+    [Trait("Requirement", "NUM-API-24")]
+    public void A_scrub_area_whose_attach_faulted_attaches_again()
+    {
+        FaultOnceRuntime runtime = new(test.Context.JSInterop.JSRuntime);
+        test.Context.Services.AddSingleton<IJSRuntime>(runtime);
+        IRenderedComponent<NumberFieldRoot> cut = Render(b =>
+        {
+            b.OpenComponent<NumberFieldScrubArea>(0);
+            b.CloseComponent();
+        });
+        Assert.True(SpinWait.SpinUntil(() => runtime.Faulted, TimeSpan.FromSeconds(2)));
+
+        // The fault reaches the part a dispatch after the module's rejection, so the renders go on until one attaches again
+        // (a bounded wait on the end state; against the old part none ever does).
+        bool readOnly = false;
+        Stopwatch elapsed = Stopwatch.StartNew();
+        while (runtime.ScrubAttaches < 2 && elapsed.Elapsed < TimeSpan.FromSeconds(2))
+        {
+            readOnly = !readOnly;
+            bool next = readOnly;
+            RenderTolerating(() => cut.Render(p => p.Add(x => x.ReadOnly, next)));
+        }
+
+        Assert.Equal(2, runtime.ScrubAttaches);
+        Assert.Single(test.ScrubOptions);
+    }
+
+    private static void RenderTolerating(Action render)
+    {
+        try
+        {
+            render();
+        }
+        catch (JSException)
+        {
+            // The first attach's fault surfaces through the renderer once.
+        }
+    }
+
     private IRenderedComponent<NumberFieldRoot> RenderScrub(double? value, bool readOnly = false) => Render(b =>
     {
         b.OpenComponent<NumberFieldInput>(0);
@@ -361,4 +406,54 @@ public sealed class NumberFieldScrubAreaTests : IDisposable
             .Add(x => x.OnValueChange, (ValueChangeEventArgs<double?> e) => changes.Add(e))
             .Add(x => x.OnValueCommitted, (ValueCommittedEventArgs<double?> e) => commits.Add(e))
             .Add(x => x.ChildContent, parts));
+
+    // The `number-field` module's first scrub attach throws, as a module that failed to attach; every other call goes to
+    // bUnit's runtime. A test double, not interop.
+#pragma warning disable BL0016
+    private sealed class FaultOnceRuntime(IJSRuntime inner) : IJSRuntime
+    {
+        public int ScrubAttaches { get; private set; }
+
+        public bool Faulted { get; private set; }
+
+        public ValueTask<TValue> InvokeAsync<TValue>(string identifier, object?[]? args) => InvokeAsync<TValue>(identifier, CancellationToken.None, args);
+
+        public async ValueTask<TValue> InvokeAsync<TValue>(string identifier, CancellationToken cancellationToken, object?[]? args)
+        {
+            TValue result = await inner.InvokeAsync<TValue>(identifier, cancellationToken, args);
+            return identifier == "import" && args is [string path] && path.EndsWith("/number-field.js", StringComparison.Ordinal) && result is IJSObjectReference module
+                ? (TValue)(object)new Module(this, module)
+                : result;
+        }
+
+        private sealed class Module(FaultOnceRuntime runtime, IJSObjectReference inner) : IJSObjectReference
+        {
+            public ValueTask<TValue> InvokeAsync<TValue>(string identifier, object?[]? args) => InvokeAsync<TValue>(identifier, CancellationToken.None, args);
+
+            public ValueTask<TValue> InvokeAsync<TValue>(string identifier, CancellationToken cancellationToken, object?[]? args)
+            {
+                if (identifier == "attach" && args is [_, string options, ..] && options.Contains("\"part\":\"scrub\"", StringComparison.Ordinal))
+                {
+                    runtime.ScrubAttaches++;
+                    if (runtime.ScrubAttaches == 1)
+                    {
+                        return new ValueTask<TValue>(FaultAsync<TValue>());
+                    }
+                }
+
+                return inner.InvokeAsync<TValue>(identifier, cancellationToken, args);
+            }
+
+            // The fault arrives after the render returns, as a module's rejected attach does.
+            private async Task<TValue> FaultAsync<TValue>()
+            {
+                await Task.Yield();
+                runtime.Faulted = true;
+                throw new JSException("Iodine: the scrub attach failed.");
+            }
+
+            public ValueTask DisposeAsync() => inner.DisposeAsync();
+        }
+    }
+#pragma warning restore BL0016
 }
