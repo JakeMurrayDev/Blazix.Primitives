@@ -16,6 +16,7 @@ import {
   contains,
   getElementTransform,
   getTarget,
+  isHTMLElement,
   ownerDocument,
   ownerWindow,
   styleWriter,
@@ -249,8 +250,9 @@ function takeOver(element: HTMLElement, style: string | null | undefined): void 
   styleWriter(element).setConsumer(style ?? null);
 }
 
+// PR 385's verifier nit: `isHTMLElement` also recognises a guard of a same-origin iframe's realm (issue 316).
 function isGuard(element: unknown): element is HTMLElement {
-  return element instanceof HTMLElement && element.hasAttribute(FOCUS_GUARD_ATTRIBUTE);
+  return isHTMLElement(element) && element.hasAttribute(FOCUS_GUARD_ATTRIBUTE);
 }
 
 // The Root's measurement, published on its element so the Content's handle finds it without a module-level registry.
