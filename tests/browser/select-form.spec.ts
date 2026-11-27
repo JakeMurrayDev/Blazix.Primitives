@@ -1,6 +1,6 @@
 // L4 for docs/components/select.md (M5 track 9, issue 173): SelectRoot.test.tsx's `prop: disabled`, `prop: readOnly`, `prop: id`,
 // `with Field.Root parent`, `Form` and `Field` describes (lines 2854-4469), Server then WebAssembly. Titles are Base UI's.
-import { type Locator } from '@playwright/test';
+import { type Locator, type Page } from '@playwright/test';
 import { expect, test } from './helpers';
 import { waitForPositioned } from './helpers/positioner';
 import { gotoPopupFixture, openChanges, pressControl, settle } from './suites/popupFixture';
@@ -567,4 +567,55 @@ test.describe('locked roots', () => {
       await expect(optionB).not.toHaveAttribute('data-selected');
     });
   }
+});
+
+// SelectRoot.test.tsx:1234-1340 (issue 312; SEL-FRM-18's third priority, at L4 because the rendered labels exist only in
+// the browser, where the `composite` module resolves them on every rebuild). Base UI's `fireEvent.change` on the hidden
+// input is the same event in the page, as in `locked roots`; the items are force-mounted by the autofill (SEL-STA-09).
+test.describe('browser autofill by rendered label', () => {
+  /** Fills the hidden input as the browser's autofill does, then opens the select. */
+  async function autofillThenOpen(page: Page, fixture: Locator, text: string): Promise<void> {
+    const input = page.locator('input[name="country"]');
+    await expect(input).toHaveCount(1);
+    await input.evaluate((element, value) => {
+      (element as HTMLInputElement).value = value;
+      element.dispatchEvent(new Event('change', { bubbles: true }));
+    }, text);
+    await settle(fixture);
+
+    await page.getByTestId('trigger').click();
+    await settle(fixture);
+  }
+
+  // SEL-FRM-18, SEL-API-42.
+  test('matches browser autofill against an item rendered label for primitive values regardless of case', async ({ page, mode }) => {
+    const fixture = await gotoPopupFixture(page, mode, 'select-form-state', { name: 'country', countries: 'label' });
+
+    await autofillThenOpen(page, fixture, 'canada');
+
+    await expect(page.getByRole('option', { name: 'Canada' })).toHaveAttribute('data-selected', '');
+    await expect(fixture).toHaveAttribute('data-value-changes', 'CA:none');
+  });
+
+  // SEL-FRM-18: the serialized value (priority 1) wins over an earlier item's rendered label (priority 3). The base already
+  // matches by value, so this is a coverage port (ADR 11 Amendments 2026-11-19); its red is a planted fault, quoted in the PR.
+  test('matches browser autofill by serialized value before an earlier rendered label', { tag: '@coverage' }, async ({ page, mode }) => {
+    const fixture = await gotoPopupFixture(page, mode, 'select-form-state', { name: 'country', countries: 'serialized' });
+
+    await autofillThenOpen(page, fixture, 'US');
+
+    await expect(page.getByRole('option', { name: 'United States' })).toHaveAttribute('data-selected', '');
+    await expect(page.getByRole('option', { name: 'US', exact: true })).not.toHaveAttribute('data-selected');
+    await expect(fixture).toHaveAttribute('data-value-changes', 'US:none');
+  });
+
+  // SEL-FRM-18: an item with no content has the empty label, which matches nothing; the match goes on to later items.
+  test('matches browser autofill when an earlier item has no rendered label', async ({ page, mode }) => {
+    const fixture = await gotoPopupFixture(page, mode, 'select-form-state', { name: 'country', countries: 'empty' });
+
+    await autofillThenOpen(page, fixture, 'Canada');
+
+    await expect(page.getByRole('option', { name: 'Canada' })).toHaveAttribute('data-selected', '');
+    await expect(fixture).toHaveAttribute('data-value-changes', 'CA:none');
+  });
 });

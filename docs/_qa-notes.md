@@ -169,6 +169,7 @@ Facts the port found against context-menu.md, each recorded on its row:
 ## 2026-11-18, M6 shared pieces (M6 track 1, [issue 272](https://github.com/JakeMurrayDev/Iodine.Headless/issues/272))
 
 - The Razor literal rule seen by the union-binding spike under RC2 (a bare attribute value on a union with a `string` case is a string literal) does not hold on SDK 11.0.100: the value is a C# expression (`spikes/m6-value-shapes/`, `Probe/Failing/R01`). Checked against the library: `<PopoverPositioner Anchor="my-anchor" />` gives `CS0103: The name 'my' does not exist in the current context`, and `<PopoverPortal Container="#target" />` gives `CS1024: Preprocessor directive expected`. The XML documentation of `AnchorValue` ("an element id is written as plain text, such as `Anchor="my-anchor"`") and of `PortalContainerValue` (`Container="#target"`) is therefore wrong on this SDK; the forms that compile are `Anchor="@("my-anchor")"` and `Container="@("#target")"`. Reported to the orchestrator; not changed by track 1.
+- 2026-11-26 (M6 lane C, [issue 282](https://github.com/JakeMurrayDev/Iodine.Headless/issues/282)): the XML documentation of `AnchorValue` and `PortalContainerValue` is corrected to the `@("…")` form, pinned at L2 by `UnionStringCaseTests` (ADR 08 Amendments 2026-11-26).
 
 ## 2026-11-19, Toast port, first half (M6 track 9a, [issue 280](https://github.com/JakeMurrayDev/Iodine.Headless/issues/280))
 

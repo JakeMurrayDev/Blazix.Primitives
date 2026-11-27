@@ -608,8 +608,8 @@ public sealed class SelectRoot<TValue> : ComponentBase, IAsyncDisposable
     // SEL-FOC-10, SEL-FRM-03, SEL-FRM-07 (SelectRoot.tsx:303-313).
     private void OnDismissed() => _ = fieldHalf!.HandleDismissAsync(BoxedValue());
 
-    // SEL-FRM-18, SEL-FRM-19 (SelectRoot.tsx:525-568): force-mount, then the match by value or label text; the
-    // force-mount's render runs inside this dispatch, so the items have registered when the match runs.
+    // SEL-FRM-18, SEL-FRM-19 (SelectRoot.tsx:525-568): force-mount, then the match by value or label text, else by rendered
+    // label; the force-mount's render runs inside this dispatch, so the items have registered when the match runs.
     private async Task AutofillAsync(FormAutofillReport report)
     {
         await InvokeAsync(async () =>
@@ -628,9 +628,17 @@ public sealed class SelectRoot<TValue> : ComponentBase, IAsyncDisposable
             {
                 return;
             }
-            if (store.MatchAutofill(report.Text) is { } match)
+            // SEL-FRM-18's third priority (issue 312): the rendered labels exist only in the browser, so the popup's list
+            // handle is asked for them only when the value, label and explicit label matches all missed.
+            ItemSlot<TValue>? match = store.MatchAutofill(report.Text);
+            if (match is null && store.PopupList is { } popupList && await popupList.ReadLabelsAsync() is { } rendered)
             {
-                if (await store.RequestValueAsync(match.Value, new ChangeEventDetails(EventReason.None, report.Event)))
+                match = store.MatchRenderedLabel(report.Text, rendered);
+            }
+
+            if (match is { } found)
+            {
+                if (await store.RequestValueAsync(found.Value, new ChangeEventDetails(EventReason.None, report.Event)))
                 {
                     fieldHalf!.SendValue(ValueLabels.StringifyAsValue(store.Value, ItemToStringValue));
                 }

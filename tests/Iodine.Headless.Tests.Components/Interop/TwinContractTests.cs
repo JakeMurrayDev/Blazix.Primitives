@@ -341,6 +341,33 @@ public sealed class TwinContractTests
     }
 
     /// <summary>The module's <c>attach</c> answers with a handle whose <c>update</c> and <c>dispose</c> complete and are recorded.</summary>
+    // ADR 04 Amendments 2026-11-26 (issue 312, chosen by the user 2026-11-26): a handle may expose a read beside `update`
+    // and `dispose`, a call the module answers with a JSON string the twin's context deserializes; a disposed handle, or
+    // a module answering `null`, reads nothing.
+    [Fact(DisplayName = "port: a handle read calls the module's named method and deserializes its JSON answer; a disposed handle calls nothing")]
+    [Trait("Requirement", "ADR04-handle-reads")]
+    public async Task A_handle_read_calls_the_named_method_and_deserializes_its_answer()
+    {
+        using BunitContext context = new();
+        BunitJSModuleInterop module = context.JSInterop.SetupModule(TestTwin.ModulePath);
+        BunitJSModuleInterop handle = SetupHandle(module);
+        handle.Setup<string?>("readCount", _ => true).SetResult("""{"name":"items","count":2}""");
+        handle.Setup<string?>("readNothing", _ => true).SetResult(null);
+        await using TestTwin twin = new(context.JSInterop.JSRuntime);
+        TwinHandle<TestTwinOptions> attached = await twin.AttachAsync("base-ui-1", new TestTwinOptions());
+
+        TestTwinPayload? read = await attached.ReadAsync("readCount", TestTwinJsonContext.Default.TestTwinPayload);
+        TestTwinPayload? nothing = await attached.ReadAsync("readNothing", TestTwinJsonContext.Default.TestTwinPayload);
+
+        Assert.Equal(new TestTwinPayload("items", 2), read);
+        Assert.Null(nothing);
+        Assert.Empty(Assert.Single(handle.Invocations["readCount"]).Arguments);
+
+        await attached.DisposeAsync();
+        Assert.Null(await attached.ReadAsync("readCount", TestTwinJsonContext.Default.TestTwinPayload));
+        Assert.Single(handle.Invocations["readCount"]);
+    }
+
     private static BunitJSModuleInterop SetupHandle(BunitJSModuleInterop module)
     {
         BunitJSModuleInterop handle = module.SetupModule("attach", _ => true);

@@ -6,8 +6,8 @@ namespace Iodine.Headless.Interop;
 
 /// <summary>
 /// The handle of one attached element: the JavaScript object the module returned from <c>attach</c>, with
-/// <see cref="UpdateAsync"/> to send new options and the references they name, and an idempotent
-/// <see cref="DisposeAsync"/> to detach.
+/// <see cref="UpdateAsync"/> to send new options and the references they name, <see cref="ReadAsync"/> for a value the
+/// module's handle answers, and an idempotent <see cref="DisposeAsync"/> to detach.
 /// </summary>
 /// <typeparam name="TOptions">The options record of the module.</typeparam>
 internal sealed class TwinHandle<TOptions> : IAsyncDisposable
@@ -65,6 +65,42 @@ internal sealed class TwinHandle<TOptions> : IAsyncDisposable
         catch (JSDisconnectedException)
         {
             // The circuit is gone; the browser has already discarded the module and its handles.
+        }
+    }
+
+    // ADR 04 Amendments 2026-11-26 (issue 312, chosen by the user 2026-11-26): a read the handle answers with a JSON string,
+    // deserialized by the source-generated context (ADR 16 rule 4), so the interop result is always a string.
+    /// <summary>Calls a method of the module's handle that answers a JSON string, and deserializes the answer.</summary>
+    /// <typeparam name="TResult">The type of the answer.</typeparam>
+    /// <param name="identifier">The name of the handle's method.</param>
+    /// <param name="resultTypeInfo">The source-generated type information of <typeparamref name="TResult"/>.</param>
+    /// <returns>
+    /// The answer, or <see langword="null"/> when the method answered <see langword="null"/>, once disposed, or once the
+    /// circuit is gone.
+    /// </returns>
+    public async ValueTask<TResult?> ReadAsync<TResult>(string identifier, JsonTypeInfo<TResult> resultTypeInfo)
+        where TResult : class
+    {
+        if (disposed)
+        {
+            return null;
+        }
+
+        IJSObjectReference? handle = await reference.ConfigureAwait(false);
+        if (handle is null)
+        {
+            return null;
+        }
+
+        try
+        {
+            string? json = await handle.InvokeAsync<string?>(identifier).ConfigureAwait(false);
+            return json is null ? null : JsonSerializer.Deserialize(json, resultTypeInfo);
+        }
+        catch (JSDisconnectedException)
+        {
+            // The circuit is gone; the browser has already discarded the module and its handles.
+            return null;
         }
     }
 

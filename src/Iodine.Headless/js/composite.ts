@@ -3576,6 +3576,25 @@ function itemPointerLeave(state: ListState, handle: ListHandle, event: PointerEv
   }
 }
 
+// ADR 04 Amendments 2026-11-26 (issue 312, chosen by the user 2026-11-26): a read beside `update` and `dispose`, which C#
+// calls with `TwinHandle.ReadAsync`. SEL-FRM-18's third priority matches the filled text against these labels.
+/** The rendered labels of a floating list handle's items (CMP-STA-06/07), each beside its item's id, in the order report's order. */
+export interface CompositeListLabels {
+  /** The items' ids, in index order, as the order report names them. */
+  ids: string[];
+  /** Each item's label, aligned with `ids`: its registered label, else its text element's text, else its own text. */
+  labels: Array<string | null>;
+}
+
+/** A list handle: the twin handle with the read of its items' labels. */
+export interface CompositeListTwinHandle extends TwinHandle {
+  /**
+   * Reads the floating handle's items' labels after the registry's pending rebuild; a reference handle, or a disposed
+   * one, reads none.
+   * @returns The `CompositeListLabels` JSON.
+   */
+  labels(): string;
+}
 // ---------------------------------------------------------------------------------------------------------------
 // attachList: a list handle in its role
 // ---------------------------------------------------------------------------------------------------------------
@@ -3902,7 +3921,7 @@ function attachList(
     writeHighlight(state, handle);
   }
 
-  const twinHandle: TwinHandle = {
+  const twinHandle: CompositeListTwinHandle = {
     update(nextOptionsJson: string, nextReferences?: TwinReferences, nextCaptures?: TwinCaptures) {
       if (disposed) {
         return;
@@ -3932,6 +3951,21 @@ function attachList(
       }
       applyHighlightRequest(state, handle);
       writeHighlight(state, handle);
+    },
+    labels() {
+      const ids: string[] = [];
+      const labels: Array<string | null> = [];
+      if (!disposed && registry) {
+        registry.flush();
+        registry.elements.forEach((item, index) => {
+          const attached = item ? itemsByElement.get(item) : undefined;
+          if (attached) {
+            ids.push(attached.id);
+            labels.push(registry.labels[index] ?? null);
+          }
+        });
+      }
+      return JSON.stringify({ ids, labels } satisfies CompositeListLabels);
     },
     dispose() {
       if (disposed) {
