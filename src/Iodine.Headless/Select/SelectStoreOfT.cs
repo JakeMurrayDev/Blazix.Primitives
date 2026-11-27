@@ -44,6 +44,8 @@ internal sealed class SelectStore<TValue> : SelectStore
     // value matches nothing), recomputed when the value, the order or an item's value changes, whether or not open.
     private int? textIndex;
     private string? firstTextId;
+    private int? closingIndex;
+    private bool closingTextsChanged;
 
     /// <summary>Initializes a new instance of the <see cref="SelectStore{TValue}"/> class.</summary>
     /// <param name="floatingId">The generated id of the popup.</param>
@@ -488,6 +490,11 @@ internal sealed class SelectStore<TValue> : SelectStore
         SelectStoreState state = State;
         if (state.Lifecycle.EffectiveOpen)
         {
+            // PR 379's verifier nit: the selected index waits for the close (SEL-STA-04), but the text the next aligned
+            // placement measures follows the value's new match while open, as an item's selectedItemTextRef does
+            // (SelectItem.tsx:108-114); without the counter, as ValueApplied's open path.
+            textIndex = FindSelectionIndex();
+            UpdateTexts();
             return;
         }
 
@@ -500,22 +507,33 @@ internal sealed class SelectStore<TValue> : SelectStore
         }
     }
 
-    // SEL-STA-04: the closed sync runs again once the popup is closed.
+    // SEL-STA-04: the closed sync runs again once the popup is closed. PR 379's verifier nit: the close's index and texts are
+    // resolved here, between the accepted request and its write, so WithCommittedOpen only reads them.
+    /// <inheritdoc />
+    protected override void BeforeDispatch(bool open, OpenChangeEventDetails details)
+    {
+        base.BeforeDispatch(open, details);
+        if (!open)
+        {
+            closingIndex = FindSelectionIndex();
+            textIndex = closingIndex;
+            closingTextsChanged = UpdateTexts();
+        }
+    }
+
+    // Issue 311: the closed sync moves the selected index a value changed while open left behind, and the text the next
+    // aligned placement measures moves with it, in the same write.
     /// <inheritdoc />
     private protected override SelectStoreState WithCommittedOpen(SelectStoreState state, SelectStoreState applied, in PopupLifecycleState lifecycle, bool open, OpenChangeEventDetails details)
     {
         SelectStoreState next = applied with { Lifecycle = lifecycle };
-
-        // Issue 311: the closed sync moves the selected index a value changed while open left behind, and the text the next
-        // aligned placement measures moves with it, in the same write.
         if (open)
         {
             return next;
         }
 
-        int? index = FindSelectionIndex();
-        textIndex = index;
-        return WithTexts(next with { SelectedIndex = index });
+        SelectStoreState closed = next with { SelectedIndex = closingIndex };
+        return closingTextsChanged ? closed with { TextVersion = closed.TextVersion + 1 } : closed;
     }
 
     private async Task<bool> CommitAndRunAsync(SelectItemRegistration<TValue> registration, EventSnapshot snapshot)
