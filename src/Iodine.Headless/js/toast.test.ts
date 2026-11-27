@@ -842,6 +842,38 @@ describe('the viewport', () => {
     expect(document.activeElement).toBe(button);
   });
 
+  // PR 385's verifier nit (issue 316's follow-up): a viewport moved into a same-origin iframe has its guards in the frame's
+  // realm, where `instanceof HTMLElement` of the host window is false.
+  it('port: an inner guard inside a same-origin iframe moves focus to the first focusable toast', () => {
+    const iframe = document.createElement('iframe');
+    document.body.appendChild(iframe);
+    const frameDocument = iframe.contentDocument!;
+    const element = frameDocument.createElement('div');
+    element.tabIndex = -1;
+    frameDocument.body.append(element);
+    const fake = createFakeTwin();
+    const current: Partial<ToastOptions> = { part: 'viewport', empty: false, hovering: false, focused: false, hasEnding: false };
+    const handle = attach(element, options(current), fake.twin);
+    handles.push(handle);
+    const [innerFirst, innerLast] = [0, 1].map(() => {
+      const guard = frameDocument.createElement('span');
+      guard.tabIndex = 0;
+      guard.setAttribute('data-base-ui-focus-guard', '');
+      return guard;
+    });
+    const toast = frameDocument.createElement('div');
+    toast.tabIndex = 0;
+    element.append(innerFirst!, toast, innerLast!);
+    handle.update(options({ ...current, focusTargetRef: 0 }), [toast]);
+
+    // From the viewport, as the F6 shortcut leaves it, so the guard's focus moves on to the toast.
+    element.focus();
+    innerFirst!.focus();
+
+    expect(frameDocument.activeElement).toBe(toast);
+    iframe.remove();
+  });
+
   it('port: a hand-off focuses its target once, and only while focus is inside the viewport (TST-FOC-07..09)', () => {
     const viewport = attachViewport();
     const [closing, next] = [0, 1].map(() => {

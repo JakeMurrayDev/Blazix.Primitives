@@ -269,6 +269,40 @@ describe('the move, the restore and the cleanup', () => {
     iframe.remove();
   });
 
+  // PR 385's verifier nit (issue 316's follow-up): a nested portal's wrapper inside a node moved into a same-origin iframe
+  // has its outside guards in the frame's realm, where `instanceof HTMLElement` of the host window is false.
+  it('port: the outside guards of a wrapper inside a same-origin iframe are found by position, in the frame realm', () => {
+    const iframe = document.createElement('iframe');
+    document.body.appendChild(iframe);
+    const frameDocument = iframe.contentDocument!;
+    const make = (tag: string) => frameDocument.createElement(tag);
+    const guard = () => {
+      const element = make('span');
+      element.tabIndex = 0;
+      element.setAttribute('data-base-ui-focus-guard', '');
+      element.setAttribute('data-type', 'outside');
+      element.setAttribute('aria-hidden', 'true');
+      return element;
+    };
+    const wrapper = make('div');
+    wrapper.style.display = 'contents';
+    const node = make('div');
+    node.id = 'base-ui-7';
+    node.setAttribute('data-base-ui-portal', '');
+    node.setAttribute('style', 'display: none');
+    const floating = make('div');
+    node.appendChild(floating);
+    wrapper.appendChild(node);
+    const [before, after] = [guard(), guard()];
+    frameDocument.body.append(before, wrapper, after);
+
+    const handle = attach(node, '{}', createFakeTwin().twin);
+
+    expect(getPortalState(floating)?.outsideGuards()).toEqual({ before, after });
+    handle.dispose();
+    iframe.remove();
+  });
+
   it('port: a repeated attach of the same node returns the live handle', () => {
     const { node } = renderPortal();
     const twin = createFakeTwin().twin;
