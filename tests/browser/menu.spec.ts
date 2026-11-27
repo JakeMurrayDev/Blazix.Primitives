@@ -29,10 +29,6 @@ detachedTriggersConformanceTests({
   close: false,
   positioner: true,
   viewport: true,
-  fixme: {
-    'port: a reparented trigger takes the readiness marker down until its handles attach again':
-      'Issue 270: the trigger keeps its instance across the reparent and re-attaches without a task the fixture can await; open to issue 306 (M6 track 10, the attach-task seam)',
-  },
 });
 
 viewportConformanceTests({

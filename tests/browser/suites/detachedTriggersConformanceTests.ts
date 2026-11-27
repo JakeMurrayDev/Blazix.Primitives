@@ -463,16 +463,24 @@ export function detachedTriggersConformanceTests(config: DetachedTriggersConfig)
 
         // Issue 270 (M6 track 11): a reparent gives the trigger a new instance whose handles attach after the render that
         // moves it, so the readiness marker the reparent titles wait on drops until they have, rather than keeping the first
-        // render's value. The drop is recorded as it happens (ADR 06 §2). Popup, Popover and Menu keep their trigger
-        // instance and re-attach without a task a fixture can read: open to issue 306 (`fixme` in their specs).
+        // render's value. The drop is recorded as it happens (ADR 06 §2). Every family's fixture lists its triggers' attach
+        // tasks in `Attachments`, each through its own reference capture (issue 306).
         it('port: a reparented trigger takes the readiness marker down until its handles attach again', async ({ page, mode }) => {
           const fixture = await render(page, mode, { mode: 'detached', triggerCount: 1, nesting: 0, rearmAttached: true });
           await expect(fixture).toHaveAttribute('data-attached', 'true');
           await fixture.evaluate((element) => {
             const values: string[] = [];
             (window as unknown as { attachedValues: string[] }).attachedValues = values;
-            new MutationObserver(() => values.push(element.getAttribute('data-attached') ?? '')).observe(element, {
+            // One callback can carry both mutations when Server's two render batches land in one task, so each record's value
+            // is the next record's old value, and the last record's is the current one.
+            new MutationObserver((records) =>
+              records.forEach((_, index) => {
+                const next = records[index + 1];
+                values.push((next ? next.oldValue : element.getAttribute('data-attached')) ?? '');
+              }),
+            ).observe(element, {
               attributes: true,
+              attributeOldValue: true,
               attributeFilter: ['data-attached'],
             });
           });
