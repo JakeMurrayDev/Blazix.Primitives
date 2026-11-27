@@ -102,10 +102,10 @@ internal sealed class DialogPopupBehavior : IAsyncDisposable
 
         Task moved = PopupPortalContext.WhenMoved(portal);
         Task transitioned = transitions.SyncAsync(element, root, root.PortalKeepMounted, moved);
-        Task focused = focus.AfterRenderAsync(element, id);
+        Task stopped = StopCompositeKeysAsync(element, moved);
+        Task focused = keys.Attached.IsCompleted ? focus.AfterRenderAsync(element, id) : FocusOnceKeysStoppedAsync(stopped, element, id);
         Task pressed = floating.AfterRenderAsync(enabled: true, element, id);
         Task locked = scrollLock.ApplyAsync(element, root.Open && root.Modality == DialogModality.Modal);
-        Task stopped = StopCompositeKeysAsync(element, moved);
         await Task.WhenAll(transitioned, focused, pressed, locked, stopped);
         await root.AtBatchBoundaryAsync();
     }
@@ -333,6 +333,15 @@ internal sealed class DialogPopupBehavior : IAsyncDisposable
             warned = true;
             DevelopmentWarnings.Write(logger, $"Iodine: `{partName}` received both `{parameter}` and `{parameter}Resolver`. `{parameter}Resolver` is used; set only one of them.");
         }
+    }
+
+    // DLG-KEY-09 (DialogPopup.tsx:82-86; issue 381, design point 10m-1 (a), chosen by the user 2026-11-27): Base UI stops the
+    // composite keys from the open's commit, so focus never sits in the popup while they reach a toolbar around it. The
+    // focus manager's first attach, which applies the initial focus, waits for the key stop's attach; later renders do not.
+    private async Task FocusOnceKeysStoppedAsync(Task stopped, ElementReference? element, string? id)
+    {
+        await stopped;
+        await focus.AfterRenderAsync(element, id);
     }
 
     // A portaled part attaches once the portal has moved its node (design point 3 of M4 track 1).
