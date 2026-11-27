@@ -471,8 +471,16 @@ export function detachedTriggersConformanceTests(config: DetachedTriggersConfig)
           await fixture.evaluate((element) => {
             const values: string[] = [];
             (window as unknown as { attachedValues: string[] }).attachedValues = values;
-            new MutationObserver(() => values.push(element.getAttribute('data-attached') ?? '')).observe(element, {
+            // One callback can carry both mutations when Server's two render batches land in one task, so each record's value
+            // is the next record's old value, and the last record's is the current one.
+            new MutationObserver((records) =>
+              records.forEach((_, index) => {
+                const next = records[index + 1];
+                values.push((next ? next.oldValue : element.getAttribute('data-attached')) ?? '');
+              }),
+            ).observe(element, {
               attributes: true,
+              attributeOldValue: true,
               attributeFilter: ['data-attached'],
             });
           });
