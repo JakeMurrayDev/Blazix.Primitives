@@ -84,7 +84,8 @@ public static class SliderRootDataAttributes
 //   holds the normalized list (SLD-STA-03), the Root the raw value, as the internal SliderValues, for SLD-STA-09's equality.
 // - Every request comes from the `slider` module (SliderTwin, one handle on this element; design point 1 (a') of track 4):
 //   OnValueChange with SliderChangeEventDetails before anything changes, a cancel stops it, then ValueChanged and the commit
-//   (EVD-ALG-03, SLD-EVT-01..12). Requests run one at a time, in the order the module sent them. The module moves the
+//   (EVD-ALG-03, SLD-EVT-01..12). Requests run one at a time, in the order the module sent them; a request's answering
+//   update is sent, not awaited (issue 411), so the next request does not wait a round trip. The module moves the
 //   thumb before it reports (the optimistic move, ADR 04 Amendments 2026-11-18): the answering update carries the
 //   report's revision, and a refused request rolls the module back.
 // - The thumbs register in a registration-only composite list (SLD §11's CMP row), with their explicit index when given
@@ -961,7 +962,8 @@ public sealed class SliderRoot : PartBase<SliderRootState>
             }
         }
 
-        await FlushAsync();
+        // Issue 411: the answering update is sent, not awaited, so the next request does not wait a round trip on it.
+        Flush();
     }
 
     private static bool SameNormalizedList(IReadOnlyList<double> sent, IReadOnlyList<double> values) => SameList(sent, values);
@@ -1161,7 +1163,7 @@ public sealed class SliderRoot : PartBase<SliderRootState>
             if (!disposed)
             {
                 AfterRenderField();
-                await FlushAsync();
+                Flush();
             }
         });
     }
@@ -1182,7 +1184,7 @@ public sealed class SliderRoot : PartBase<SliderRootState>
 
         if (handle is not null || attaching)
         {
-            await FlushAsync();
+            Flush();
             return;
         }
 
@@ -1219,10 +1221,14 @@ public sealed class SliderRoot : PartBase<SliderRootState>
         attachedSource.TrySetResult();
 
         // Whatever changed while the attach was in flight.
-        await FlushAsync();
+        Flush();
     }
 
-    private async Task FlushAsync()
+    // Issue 411 (M6 track 10; orchestrator 5's grant, 2026-11-27): the update is sent, not awaited. Requests still run one at
+    // a time in the module's order, and the updates reach the module in the order sent (the handle invokes at once, and the
+    // circuit delivers JavaScript calls in order); what no longer waits is the next request, a round trip on Server. The
+    // field behaviors' Observe pattern: a fault is dispatched, and its options count as unsent (PR 398's lesson).
+    private void Flush()
     {
         if (handle is null || disposed)
         {
@@ -1237,7 +1243,41 @@ public sealed class SliderRoot : PartBase<SliderRootState>
 
         sentOptions = options;
         rollbackPending = false;
-        await handle.UpdateAsync(options, references);
+        Task sending = handle.UpdateAsync(options, references).AsTask();
+        if (!sending.IsCompletedSuccessfully)
+        {
+            _ = ObserveUpdateAsync(sending, options);
+        }
+    }
+
+    // A disconnect, or a dispose that overtook the update, ends quietly in the handle.
+    private async Task ObserveUpdateAsync(Task sending, SliderOptions options)
+    {
+        try
+        {
+            await sending;
+        }
+        catch (Exception exception) when (!sending.IsCanceled)
+        {
+            // The module never applied them: the next send carries them again.
+            if (ReferenceEquals(sentOptions, options))
+            {
+                sentOptions = null;
+            }
+
+            // A rollback is owed even when a later send overtook it (PR 415's verifier): that send cleared the pending flag,
+            // and without it the module keeps the canceled change's optimistic value.
+            if (options.Rollback && !disposed)
+            {
+                rollbackPending = true;
+                Flush();
+            }
+
+            if (!disposed)
+            {
+                await DispatchExceptionAsync(exception);
+            }
+        }
     }
 
     private (SliderOptions Options, TwinReferences References) BuildOptions()

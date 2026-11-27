@@ -12,7 +12,8 @@ public static class IodineHeadlessServiceCollectionExtensions
     // (the toggle's missing-value message, chosen by the user 2026-10-26); ADR 05 Amendments 2026-11-18 item 3 (the toast
     // manager, scoped, never a singleton, which would span circuits on the server; chosen by the user 2026-11-18). The
     // remark said "five" while six were registered (PlatformFlags, 2026-11-04, was not counted); it states the count that
-    // ServiceRegistrationTests checks.
+    // ServiceRegistrationTests checks. The second paragraph of the remarks: design point 10-411a (a), chosen by the user
+    // 2026-11-27, its consumer-facing home chosen by the user the same day (issue 411; ADR 01 Amendments 2026-11-27).
     /// <summary>Registers the services every part needs.</summary>
     /// <param name="services">The service collection to add the services to.</param>
     /// <returns>The same service collection, so that calls can be chained.</returns>
@@ -22,6 +23,15 @@ public static class IodineHeadlessServiceCollectionExtensions
     /// button, collapsible and toggle development messages already written in the session; the form scope of the fields
     /// outside a form; the <see cref="ToastManager"/> that toast providers without a manager of their own use; and the set
     /// of the one-time code fields' development messages already written in the session.
+    /// <para>
+    /// On Blazor Server, an input can make more render batches than the circuit sends before the browser acknowledges them
+    /// (<c>CircuitOptions.MaxBufferedUnacknowledgedRenderBatches</c>, 10 by default). A press on a slider makes ten, so a
+    /// render of your own that the press causes, such as a <c>@onpointerdown</c> handler's, waits a further round trip. To
+    /// have it arrive in the first round trip, raise the limit where the host adds the Server render mode, for example
+    /// <c>AddInteractiveServerComponents(options =&gt; options.MaxBufferedUnacknowledgedRenderBatches = 32)</c>. This
+    /// library cannot set it. A higher limit lets more unacknowledged batches queue for a slow client, which holds more
+    /// memory on the server for each circuit.
+    /// </para>
     /// </remarks>
     public static IServiceCollection AddIodineHeadless(this IServiceCollection services)
     {
