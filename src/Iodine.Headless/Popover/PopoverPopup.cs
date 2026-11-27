@@ -136,9 +136,11 @@ public sealed class PopoverPopup : PartBase<PopoverPopupState>
         cascadedContent = RenderCascade;
     }
 
-    private bool HasConsumerId => AdditionalAttributes is not null && AdditionalAttributes.ContainsKey("id");
+    // RND-DOM-33, POP-DOM-23 (issue 344, issue 250's shape): an `id` Razor writes as `@null` is a removed id, so the popup
+    // falls back to the generated one and the owner's IDREFs follow it.
+    private bool HasConsumerId => Rendering.RenderedId.ConsumerId(AdditionalAttributes) is not null;
 
-    private string? RenderedId => HasConsumerId ? AdditionalAttributes!["id"] as string : RootContext!.State.FloatingId;
+    private string? RenderedId => Rendering.RenderedId.ConsumerId(AdditionalAttributes) ?? RootContext!.State.FloatingId;
 
     [Inject]
     private IJSRuntime JSRuntime { get; set; } = null!;
