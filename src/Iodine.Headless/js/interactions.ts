@@ -3554,7 +3554,9 @@ export function noteInitialFocusArmed(session: InteractionSession): boolean {
   ) {
     return true;
   }
-  if (held.press !== null) {
+  // PR 414's verifier: a session whose outside press is off, or has no dismissal, would lose a replayed press.
+  const dismiss = dismissState(record).options;
+  if (held.press !== null && dismiss !== null && dismiss.outsidePress !== false) {
     replayOutsidePress(record, held.press);
   } else {
     held.send();
