@@ -245,7 +245,7 @@ public sealed class PreviewCardPopupPartsTests : IDisposable
     [Trait("Requirement", "TRN-ALG-01")]
     public async Task A_backdrop_disposed_while_its_portals_move_is_pending_creates_no_transitions_twin()
     {
-        HeldAttachRuntime runtime = new(host.Context.JSInterop.JSRuntime, "portal.js");
+        HeldAttachRuntime runtime = new(host.Context.JSInterop.JSRuntime, "portal.js", dispatcher: () => host.Context.Renderer.Dispatcher);
         host.Context.Services.AddSingleton<IJSRuntime>(runtime);
         host.Context.Render<PreviewCardRoot<NoPayload>>(p => p
             .Add(x => x.DefaultOpen, true)
@@ -283,7 +283,7 @@ public sealed class PreviewCardPopupPartsTests : IDisposable
     public async Task A_style_change_while_the_popups_handle_attaches_reaches_the_module()
     {
         BunitJSModuleInterop handle = SetUpTransitions();
-        HeldAttachRuntime runtime = new(host.Context.JSInterop.JSRuntime, "transitions.js");
+        HeldAttachRuntime runtime = new(host.Context.JSInterop.JSRuntime, "transitions.js", dispatcher: () => host.Context.Renderer.Dispatcher);
         host.Context.Services.AddSingleton<IJSRuntime>(runtime);
         string style = "color: red";
         RenderFragment content = builder =>
@@ -320,7 +320,7 @@ public sealed class PreviewCardPopupPartsTests : IDisposable
     public async Task An_unmount_while_the_backdrops_handle_attaches_reaches_the_module()
     {
         BunitJSModuleInterop handle = SetUpTransitions();
-        HeldAttachRuntime runtime = new(host.Context.JSInterop.JSRuntime, "transitions.js");
+        HeldAttachRuntime runtime = new(host.Context.JSInterop.JSRuntime, "transitions.js", dispatcher: () => host.Context.Renderer.Dispatcher);
         host.Context.Services.AddSingleton<IJSRuntime>(runtime);
         IRenderedComponent<PreviewCardRoot<NoPayload>> cut = host.Context.Render<PreviewCardRoot<NoPayload>>(p => p
             .Add(x => x.DefaultOpen, true)

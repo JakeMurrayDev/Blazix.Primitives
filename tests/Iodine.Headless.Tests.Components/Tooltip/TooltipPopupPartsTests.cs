@@ -247,7 +247,7 @@ public sealed class TooltipPopupPartsTests : IDisposable
     public async Task A_style_change_while_the_popups_handle_attaches_reaches_the_module()
     {
         BunitJSModuleInterop handle = SetUpTransitions();
-        HeldAttachRuntime runtime = new(host.Context.JSInterop.JSRuntime, "transitions.js");
+        HeldAttachRuntime runtime = new(host.Context.JSInterop.JSRuntime, "transitions.js", dispatcher: () => host.Context.Renderer.Dispatcher);
         host.Context.Services.AddSingleton<IJSRuntime>(runtime);
         string style = "color: red";
         RenderFragment content = builder =>

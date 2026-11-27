@@ -85,7 +85,7 @@ public sealed class MenuTransitionsAttachTests : BunitContext
 
     private HeldAttachRuntime HoldTransitionsAttach()
     {
-        HeldAttachRuntime runtime = new(JSInterop.JSRuntime, "transitions.js");
+        HeldAttachRuntime runtime = new(JSInterop.JSRuntime, "transitions.js", dispatcher: () => Renderer.Dispatcher);
         Services.AddSingleton<IJSRuntime>(runtime);
         return runtime;
     }

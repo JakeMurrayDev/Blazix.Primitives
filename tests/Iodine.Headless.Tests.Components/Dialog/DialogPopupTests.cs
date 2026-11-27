@@ -184,7 +184,7 @@ public sealed class DialogPopupTests : IDisposable
     [Trait("Requirement", "DLG-ANI-07")]
     public async Task A_dialog_disposed_while_its_portals_move_is_pending_creates_no_transitions_twin()
     {
-        HeldAttachRuntime runtime = new(test.Context.JSInterop.JSRuntime, "portal.js");
+        HeldAttachRuntime runtime = new(test.Context.JSInterop.JSRuntime, "portal.js", dispatcher: () => test.Context.Renderer.Dispatcher);
         test.Context.Services.AddSingleton<IJSRuntime>(runtime);
         test.Context.Render<DialogHarness>(p => p.Add(x => x.DefaultOpen, true).Add(x => x.Modal, false));
         int before = runtime.Imports.Count(path => path.EndsWith("/transitions.js", StringComparison.Ordinal));
@@ -203,7 +203,7 @@ public sealed class DialogPopupTests : IDisposable
     [Trait("Requirement", "DLG-EVT-05")]
     public async Task An_unmount_while_the_popups_handle_attaches_reaches_the_module()
     {
-        HeldAttachRuntime runtime = new(test.Context.JSInterop.JSRuntime, "transitions.js");
+        HeldAttachRuntime runtime = new(test.Context.JSInterop.JSRuntime, "transitions.js", dispatcher: () => test.Context.Renderer.Dispatcher);
         test.Context.Services.AddSingleton<IJSRuntime>(runtime);
         IRenderedComponent<DialogHarness> cut = test.Context.Render<DialogHarness>(p => p
             .Add(x => x.DefaultOpen, true)

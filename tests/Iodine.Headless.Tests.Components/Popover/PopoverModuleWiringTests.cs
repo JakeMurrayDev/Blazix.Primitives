@@ -284,7 +284,7 @@ public sealed class PopoverModuleWiringTests : IDisposable
     [Trait("Requirement", "TRN-ALG-01")]
     public async Task A_popup_disposed_while_its_portals_move_is_pending_creates_no_transitions_twin()
     {
-        HeldAttachRuntime runtime = new(test.Context.JSInterop.JSRuntime, "portal.js");
+        HeldAttachRuntime runtime = new(test.Context.JSInterop.JSRuntime, "portal.js", dispatcher: () => test.Context.Renderer.Dispatcher);
         test.Context.Services.AddSingleton<IJSRuntime>(runtime);
         Render(new PopoverSpec { DefaultOpen = true });
         int before = runtime.Imports.Count(path => path.EndsWith("/transitions.js", StringComparison.Ordinal));
@@ -388,7 +388,7 @@ public sealed class PopoverModuleWiringTests : IDisposable
     [Trait("Requirement", "TRN-ALG-01")]
     public async Task A_backdrop_disposed_while_its_portals_move_is_pending_creates_no_transitions_twin()
     {
-        HeldAttachRuntime runtime = new(test.Context.JSInterop.JSRuntime, "portal.js");
+        HeldAttachRuntime runtime = new(test.Context.JSInterop.JSRuntime, "portal.js", dispatcher: () => test.Context.Renderer.Dispatcher);
         test.Context.Services.AddSingleton<IJSRuntime>(runtime);
         Render(new PopoverSpec { DefaultOpen = true, Backdrop = true, BackdropInPortal = true });
         int before = runtime.Imports.Count(path => path.EndsWith("/transitions.js", StringComparison.Ordinal));
@@ -471,7 +471,7 @@ public sealed class PopoverModuleWiringTests : IDisposable
 
     private HeldAttachRuntime HoldTransitionsAttach()
     {
-        HeldAttachRuntime runtime = new(test.Context.JSInterop.JSRuntime, "transitions.js");
+        HeldAttachRuntime runtime = new(test.Context.JSInterop.JSRuntime, "transitions.js", dispatcher: () => test.Context.Renderer.Dispatcher);
         test.Context.Services.AddSingleton<IJSRuntime>(runtime);
         return runtime;
     }

@@ -352,13 +352,15 @@ public sealed class NumberFieldScrubAreaTests : IDisposable
     [Trait("Requirement", "NUM-API-24")]
     public async Task A_scrub_area_whose_attach_faulted_attaches_again()
     {
-        FaultOnceRuntime runtime = new(test.Context.JSInterop.JSRuntime);
+        FaultGate gate = new();
+        FaultOnceRuntime runtime = new(test.Context.JSInterop.JSRuntime, gate);
         test.Context.Services.AddSingleton<IJSRuntime>(runtime);
         IRenderedComponent<NumberFieldRoot> cut = Render(b =>
         {
             b.OpenComponent<NumberFieldScrubArea>(0);
             b.CloseComponent();
         });
+        gate.Release();
 
         // The renderer receives the fault from the part's after-render, so the part has handled it by then.
         Exception fault = await test.Context.Renderer.UnhandledException.WaitAsync(TimeSpan.FromSeconds(5), Xunit.TestContext.Current.CancellationToken);
@@ -376,9 +378,11 @@ public sealed class NumberFieldScrubAreaTests : IDisposable
     [Trait("Requirement", "NUM-API-24")]
     public async Task A_scrub_area_whose_attach_faulted_attaches_again_with_its_full_options()
     {
-        FaultOnceRuntime runtime = new(test.Context.JSInterop.JSRuntime);
+        FaultGate gate = new();
+        FaultOnceRuntime runtime = new(test.Context.JSInterop.JSRuntime, gate);
         test.Context.Services.AddSingleton<IJSRuntime>(runtime);
         IRenderedComponent<NumberFieldRoot> cut = Render(ScrubAreaWithClass("a"));
+        gate.Release();
         Exception fault = await test.Context.Renderer.UnhandledException.WaitAsync(TimeSpan.FromSeconds(5), Xunit.TestContext.Current.CancellationToken);
         Assert.IsType<JSException>(fault);
 
@@ -430,9 +434,11 @@ public sealed class NumberFieldScrubAreaTests : IDisposable
     // The `number-field` module's first scrub attach throws, as a module that failed to attach; every other call goes to
     // bUnit's runtime. A test double, not interop.
 #pragma warning disable BL0016
-    private sealed class FaultOnceRuntime(IJSRuntime inner) : IJSRuntime
+    private sealed class FaultOnceRuntime(IJSRuntime inner, FaultGate gate) : IJSRuntime
     {
         public int ScrubAttaches { get; private set; }
+
+        public FaultGate Gate => gate;
 
         public ValueTask<TValue> InvokeAsync<TValue>(string identifier, object?[]? args) => InvokeAsync<TValue>(identifier, CancellationToken.None, args);
 
@@ -465,7 +471,7 @@ public sealed class NumberFieldScrubAreaTests : IDisposable
             // The fault arrives after the render returns, as a module's rejected attach does.
             private async Task<TValue> FaultAsync<TValue>()
             {
-                await Task.Yield();
+                await runtime.Gate.Released;
                 throw new JSException("Iodine: the scrub attach failed.");
             }
 
@@ -473,4 +479,16 @@ public sealed class NumberFieldScrubAreaTests : IDisposable
         }
     }
 #pragma warning restore BL0016
+
+    // PR 404's CI run 45957621568: a fault that only yielded could still land while a slow first Render ran, and bUnit
+    // rethrew it from that Render. The test releases the fault once its first Render has returned.
+    /// <summary>Holds <see cref="FaultOnceRuntime"/>'s fault until <see cref="Release"/>.</summary>
+    private sealed class FaultGate
+    {
+        private readonly TaskCompletionSource released = new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        public Task Released => released.Task;
+
+        public void Release() => released.TrySetResult();
+    }
 }
