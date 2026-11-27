@@ -961,7 +961,8 @@ public sealed class SliderRoot : PartBase<SliderRootState>
             }
         }
 
-        await FlushAsync();
+        // Issue 411: the answering update is sent, not awaited, so the next request does not wait a round trip on it.
+        Flush();
     }
 
     private static bool SameNormalizedList(IReadOnlyList<double> sent, IReadOnlyList<double> values) => SameList(sent, values);
@@ -1161,7 +1162,7 @@ public sealed class SliderRoot : PartBase<SliderRootState>
             if (!disposed)
             {
                 AfterRenderField();
-                await FlushAsync();
+                Flush();
             }
         });
     }
@@ -1182,7 +1183,7 @@ public sealed class SliderRoot : PartBase<SliderRootState>
 
         if (handle is not null || attaching)
         {
-            await FlushAsync();
+            Flush();
             return;
         }
 
@@ -1219,10 +1220,14 @@ public sealed class SliderRoot : PartBase<SliderRootState>
         attachedSource.TrySetResult();
 
         // Whatever changed while the attach was in flight.
-        await FlushAsync();
+        Flush();
     }
 
-    private async Task FlushAsync()
+    // Issue 411 (M6 track 10; orchestrator 5's grant, 2026-11-27): the update is sent, not awaited. Requests still run one at
+    // a time in the module's order, and the updates reach the module in the order sent (the handle invokes at once, and the
+    // circuit delivers JavaScript calls in order); what no longer waits is the next request, a round trip on Server. The
+    // field behaviors' Observe pattern: a fault is dispatched, and its options count as unsent (PR 398's lesson).
+    private void Flush()
     {
         if (handle is null || disposed)
         {
@@ -1237,7 +1242,34 @@ public sealed class SliderRoot : PartBase<SliderRootState>
 
         sentOptions = options;
         rollbackPending = false;
-        await handle.UpdateAsync(options, references);
+        Task sending = handle.UpdateAsync(options, references).AsTask();
+        if (!sending.IsCompletedSuccessfully)
+        {
+            _ = ObserveUpdateAsync(sending, options);
+        }
+    }
+
+    // A disconnect, or a dispose that overtook the update, ends quietly in the handle.
+    private async Task ObserveUpdateAsync(Task sending, SliderOptions options)
+    {
+        try
+        {
+            await sending;
+        }
+        catch (Exception exception) when (!sending.IsCanceled)
+        {
+            // The module never applied them: the next send carries them again, a rollback included.
+            if (ReferenceEquals(sentOptions, options))
+            {
+                sentOptions = null;
+                rollbackPending |= options.Rollback;
+            }
+
+            if (!disposed)
+            {
+                await DispatchExceptionAsync(exception);
+            }
+        }
     }
 
     private (SliderOptions Options, TwinReferences References) BuildOptions()
