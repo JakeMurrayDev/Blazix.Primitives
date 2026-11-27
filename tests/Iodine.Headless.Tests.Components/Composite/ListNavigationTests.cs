@@ -249,6 +249,26 @@ public sealed class ListNavigationTests : IDisposable
         Assert.Equal(2, host.Handle.Invocations["update"].Count);
     }
 
+    // ADR 04 Amendments 2026-11-26 (issue 312): a labels read waits for the floating handle's first attach. An attach
+    // that faults (here the session it waits for) ends the wait with nothing, rather than holding the read until disposal
+    // (PR 380's verifier nit 3).
+    [Fact(DisplayName = "port: a labels read waiting for the floating handle's attach ends with nothing when the attach faults")]
+    [Trait("Requirement", "CMP-STA-06")]
+    public async Task A_labels_read_ends_with_nothing_when_the_attach_faults()
+    {
+        TaskCompletionSource ready = new();
+        IRenderedComponent<TestListRoot> cut = Context.Render<TestListRoot>(p => p
+            .Add(x => x.SessionReady, ready.Task)
+            .AddChildContent(Handles(2)));
+        CompositeRootBehavior floating = cut.FindComponents<TestListHandle>().Single(handle => handle.Instance.Role == CompositeListRole.Floating).Instance.Behavior;
+        Task<CompositeListLabels?> read = null!;
+        await cut.InvokeAsync(() => { read = floating.ReadLabelsAsync(); });
+
+        await cut.InvokeAsync(() => ready.SetException(new InvalidOperationException("Iodine: the session failed to attach.")));
+
+        Assert.Null(await read.WaitAsync(TimeSpan.FromSeconds(2), Xunit.TestContext.Current.CancellationToken));
+    }
+
     private static RenderFragment Handles(int count, int[]? renders = null) => builder =>
     {
         builder.OpenComponent<TestListHandle>(0);
