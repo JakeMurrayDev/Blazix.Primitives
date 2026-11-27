@@ -624,8 +624,10 @@ export const COLLAPSED_REOPEN_KEY = 'iodine.interactions.collapsedReopen';
 
 /** The mark of a collapsed reopen. */
 export interface CollapsedReopen {
-  /** The event of the reopen's request. */
+  /** The event of the reopen's request, or, once the reopen committed, the open event the commit recorded. */
   readonly event: Event;
+  /** The reason of the reopen's request. */
+  readonly reason: string;
 }
 
 /** The `composite` module's open-focus mark. */
@@ -1072,6 +1074,9 @@ function applySessionOptions(record: SessionRecord, options: InteractionsOptions
       record.optimisticOpenEvent = null;
       record.pressOpen = null;
       syncOpenEvent(record, open, event);
+      if (open && !record.open) {
+        reconcileCollapsedReopen(record, relay.reason, event);
+      }
       const details: SessionOpenChangeDetails = {
         open,
         reason: relay.reason,
@@ -1121,6 +1126,26 @@ function applySessionOptions(record: SessionRecord, options: InteractionsOptions
     notifyPositionListeners(record);
   }
   notifySessionChange(record);
+}
+
+// PR 400's verifier nits (issue 372): an open's commit spends or settles the collapsed-reopen mark, so it never outlives the
+// open it names. A committed close keeps it: on Server the close commits before the reopen. So does an update that only
+// moves the answered counter: C# moves it when a request arrives, so on Server such an update can land between the close's
+// commit and the reopen's, and a reopen C# canceled leaves a mark that the next open's commit clears. The reopen's own event keeps
+// the mark; a stand-in (Server's relay, once the close's commit ended the request's pairing) keeps it only with the
+// request's type and reason, and the mark then names the stand-in the focus manager reads; any other open, a C#-controlled
+// or imperative one included, clears it.
+function reconcileCollapsedReopen(record: SessionRecord, reason: string, event: Event | undefined): void {
+  const mark = record.dataRef.current[COLLAPSED_REOPEN_KEY] as CollapsedReopen | undefined;
+  if (mark === undefined || event === mark.event) {
+    return;
+  }
+  if (event !== undefined && event.type === mark.event.type && reason === mark.reason) {
+    const settled: CollapsedReopen = { event, reason };
+    record.dataRef.current[COLLAPSED_REOPEN_KEY] = settled;
+    return;
+  }
+  delete record.dataRef.current[COLLAPSED_REOPEN_KEY];
 }
 
 // ADR 04 Amendments 2026-10-29 (gap 16 of M4 track 5): Base UI's `useClick` writes the open event in its click handler, so
@@ -1248,9 +1273,9 @@ export function noteCloseRequest(session: InteractionSession): void {
 
 // Issue 372 (design point 10l-1 (a), chosen by the user 2026-11-26): every open request replaces the mark, so it names
 // only the latest open, and only one that follows a close request of the same task.
-function markCollapsedReopen(record: SessionRecord, event: Event | undefined): void {
+function markCollapsedReopen(record: SessionRecord, event: Event | undefined, reason: string): void {
   if (record.closeRequestedInTask && event !== undefined) {
-    const mark: CollapsedReopen = { event };
+    const mark: CollapsedReopen = { event, reason };
     record.dataRef.current[COLLAPSED_REOPEN_KEY] = mark;
   } else {
     delete record.dataRef.current[COLLAPSED_REOPEN_KEY];
@@ -1274,9 +1299,7 @@ function requestOpenChange(
 ): boolean {
   if (open) {
     noteBarMenuOpenRequest(record);
-    markCollapsedReopen(record, event);
-  } else {
-    noteCloseRequest(record);
+    markCollapsedReopen(record, event, reason);
   }
   // ADR 04 Amendments 2026-10-28 (design point 13.9 of M4 track 6, settled by the orchestrator 2026-10-28), widened from
   // the handle to the session by ADR 04 Amendments 2026-10-29 (gap 14): one close request in flight per session. Base UI's
@@ -1320,9 +1343,11 @@ function requestOpenChange(
   }
   const release = claimSessionClose(record);
   if (release === null) {
-    // Dropped: the caller does not disarm for a request it did not send.
+    // Dropped: the caller does not disarm for a request it did not send. PR 400's verifier nit: nor is a dropped close a
+    // close request of the task, so an open after it is no collapsed reopen.
     return false;
   }
+  noteCloseRequest(record);
   record.pending = { open, reason, event };
   void channel.request(payload).finally(release);
   return true;

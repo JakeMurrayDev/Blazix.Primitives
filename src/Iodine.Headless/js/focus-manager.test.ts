@@ -3158,8 +3158,8 @@ describe('FloatingFocusManager', () => {
 
     // Issue 372 (design point 10l-1 (a), chosen by the user 2026-11-26): the `interactions` module marks an open requested
     // in the task of its session's close request; React's batching never commits that close and reopen, so Base UI's
-    // initial focus does not run again and the focus stays where it is. The mark is spent by the open it names, and a
-    // stand-in of its event (Server's relay, once the close's commit ended the pairing) counts as the same open.
+    // initial focus does not run again and the focus stays where it is. The mark is spent by the open it names: the one
+    // whose recorded open event it holds (the `interactions` module settles a Server stand-in onto the mark at the commit).
     it('port: an open marked a collapsed reopen takes no initial focus; the next open does', async () => {
       const reference = element('button', 'reference', { id: 'reference' });
       document.body.append(reference);
@@ -3171,8 +3171,8 @@ describe('FloatingFocusManager', () => {
       document.body.append(floating);
       const data = getSession(popup.token)!.dataRef.current;
       const reopen = new FocusEvent('focusin');
-      data['iodine.interactions.collapsedReopen'] = { event: reopen };
-      data.openEvent = { type: 'focusin' } as unknown as Event;
+      data['iodine.interactions.collapsedReopen'] = { event: reopen, reason: 'trigger-focus' };
+      data.openEvent = reopen;
       reference.focus();
 
       const options: FocusManagerOptions = { modal: false, domReferenceId: 'reference', sessionToken: popup.token };
@@ -3186,6 +3186,29 @@ describe('FloatingFocusManager', () => {
       await settle();
       expect(document.activeElement).toBe(one);
       next.handle.dispose();
+    });
+
+    // PR 400's verifier nits (issue 372): a mark that holds another event than the open's recorded one names another open,
+    // even of the same type, so this open takes its initial focus, and the mark is spent all the same.
+    it('port: an open whose recorded event the collapsed-reopen mark does not hold takes its initial focus', async () => {
+      const reference = element('button', 'reference', { id: 'reference' });
+      document.body.append(reference);
+      const popup = sessionPopup({ open: true });
+      popup.attachSession();
+      const floating = element('div', undefined, { 'data-open': '' });
+      const one = element('button', 'one');
+      floating.append(one);
+      document.body.append(floating);
+      const data = getSession(popup.token)!.dataRef.current;
+      data['iodine.interactions.collapsedReopen'] = { event: new FocusEvent('focusin'), reason: 'trigger-focus' };
+      data.openEvent = { type: 'focusin' } as unknown as Event;
+      reference.focus();
+
+      const manager = attachManager(floating, { modal: false, domReferenceId: 'reference', sessionToken: popup.token });
+      await settle();
+      expect(document.activeElement).toBe(one);
+      expect(data['iodine.interactions.collapsedReopen']).toBeUndefined();
+      manager.handle.dispose();
     });
 
     // F1 of PR 183 (settled by the orchestrator 2026-11-04 as (b)): Base UI records the element focused before the open in a
