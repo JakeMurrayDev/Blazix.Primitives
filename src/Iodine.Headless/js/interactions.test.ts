@@ -6498,13 +6498,13 @@ describe('a bar trigger\'s blur before its menu\'s initial focus (issue 367)', (
   const pointerDown = (target: EventTarget) =>
     target.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, cancelable: true, composed: true, button: 0, pointerType: 'mouse' }));
 
-  function bar({ floating = true, open = true }: { floating?: boolean; open?: boolean } = {}) {
+  function bar({ floating = true, open = true, dismiss = {} }: { floating?: boolean; open?: boolean; dismiss?: Record<string, unknown> } = {}) {
     const root = harness();
     root.attachSession();
     const menu = { rootId: 'root', release: true, keepArmedWhenClosed: true };
     const barMenu = (name: string) => {
       const popup = harness();
-      popup.attachSession({ session: { parentToken: root.token, dismiss: {} } });
+      popup.attachSession({ session: { parentToken: root.token, dismiss } });
       const button = element('button', `${popup.token}-${name}`);
       const handle = popup.attachTrigger(button, { trigger: { menu } });
       // C# turns the bar triggers' focus on with a bar menu's open (MBR-FOC-03).
@@ -6513,7 +6513,7 @@ describe('a bar trigger\'s blur before its menu\'s initial focus (issue 367)', (
       const item = element('button', `${popup.token}-${name}-item`);
       positioner.append(item);
       const attachPositioner = () => popup.attachFloating(positioner, { floating: { menu: {} } });
-      return { popup, button, focusOn, positioner, item, attachPositioner, session: () => getSession(popup.token)! };
+      return { popup, button, trigger: handle, focusOn, positioner, item, attachPositioner, session: () => getSession(popup.token)! };
     };
     const file = barMenu('file');
     const edit = barMenu('edit');
@@ -6610,6 +6610,58 @@ describe('a bar trigger\'s blur before its menu\'s initial focus (issue 367)', (
 
     expect(file.popup.open).toBe(false);
     expect(closes(file.popup)).toEqual(['outside-press']);
+  });
+
+  // PR 414's verifier: a window whose arm never comes must not outlive its trigger or its session.
+  function windowListener(add: { mock: { calls: unknown[][] } }): unknown {
+    return add.mock.calls.filter(([type, , options]) => type === 'pointerdown' && options === true).at(-1)?.[1];
+  }
+
+  it('port: a bar trigger detached in the window ends it: its press listener is removed and its held close is never sent', async () => {
+    const add = vi.spyOn(document, 'addEventListener');
+    const remove = vi.spyOn(document, 'removeEventListener');
+    try {
+      const { file, outside } = bar({ floating: false });
+      const listener = windowListener(add);
+      expect(listener).toBeTypeOf('function');
+      outside.focus();
+      await vi.advanceTimersByTimeAsync(0);
+      const session = file.session();
+
+      file.trigger.dispose();
+      expect(remove).toHaveBeenCalledWith('pointerdown', listener, true);
+      noteInitialFocusArmed(session);
+      await vi.advanceTimersByTimeAsync(0);
+
+      expect(file.popup.open).toBe(true);
+      expect(closes(file.popup)).toEqual([]);
+    } finally {
+      add.mockRestore();
+      remove.mockRestore();
+    }
+  });
+
+  it('port: a bar menu session released in the window ends it: its press listener is removed and its held close is never sent', async () => {
+    const add = vi.spyOn(document, 'addEventListener');
+    const remove = vi.spyOn(document, 'removeEventListener');
+    try {
+      const { file, outside } = bar({ floating: false });
+      const listener = windowListener(add);
+      expect(listener).toBeTypeOf('function');
+      outside.focus();
+      await vi.advanceTimersByTimeAsync(0);
+      const session = file.session();
+
+      file.popup.dispose();
+      expect(remove).toHaveBeenCalledWith('pointerdown', listener, true);
+      noteInitialFocusArmed(session);
+      await vi.advanceTimersByTimeAsync(0);
+
+      expect(closes(file.popup)).toEqual([]);
+    } finally {
+      add.mockRestore();
+      remove.mockRestore();
+    }
   });
 
   it('port: a held bar trigger blur is dropped when the menu closes or reopens before the arm', async () => {
