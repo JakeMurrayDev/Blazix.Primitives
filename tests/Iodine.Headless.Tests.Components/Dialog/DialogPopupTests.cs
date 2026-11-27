@@ -158,6 +158,44 @@ public sealed class DialogPopupTests : IDisposable
         Assert.Contains("\"popup\":{\"stopCompositeKeys\":true}", options, StringComparison.Ordinal);
     }
 
+    // PR 401's verifier nit (issue 381, M6 track 10): the send order of DLG-KEY-09's key stop is pinned at L2 as well as by the
+    // L4 stall title. While the popup module's import is held, the focus manager's first attach, which applies the initial
+    // focus, is not sent; once the import answers, the popup module's attach is sent first. PR 401 fixed this, so the title
+    // is a coverage port.
+    [Fact(DisplayName = "port: the focus manager's first attach is sent after the popup module's attach")]
+    [Trait("Requirement", "DLG-KEY-09")]
+    [Trait("Coverage", "pr-401")]
+    public async Task The_focus_managers_first_attach_is_sent_after_the_popup_modules_attach()
+    {
+        SendOrder order = new();
+        test.Context.Services.AddSingleton<IJSRuntime>(new SendOrderRuntime(test.Context.JSInterop.JSRuntime, order));
+        test.Context.Render<DialogHarness>(p => p.Add(x => x.DefaultOpen, true).Add(x => x.Modal, false));
+        Assert.Empty(order.Attaches);
+
+        order.Release();
+
+        await order.FocusAttached.WaitAsync(TimeSpan.FromSeconds(5), Xunit.TestContext.Current.CancellationToken);
+        Assert.Equal("popup.js", order.Attaches[0]);
+    }
+
+    // The fallback of the same order: a popup module whose import fails sends no stop, so the focus manager attaches as it did
+    // before the order rather than waiting for ever.
+    [Fact(DisplayName = "port: a popup module import that fails lets the focus manager attach")]
+    [Trait("Requirement", "DLG-KEY-09")]
+    [Trait("Coverage", "pr-401")]
+    public async Task A_popup_module_import_that_fails_lets_the_focus_manager_attach()
+    {
+        SendOrder order = new();
+        test.Context.Services.AddSingleton<IJSRuntime>(new SendOrderRuntime(test.Context.JSInterop.JSRuntime, order));
+        test.Context.Render<DialogHarness>(p => p.Add(x => x.DefaultOpen, true).Add(x => x.Modal, false));
+        Assert.Empty(order.Attaches);
+
+        order.Fail(new JSException("Iodine: the module failed to load"));
+
+        await order.FocusAttached.WaitAsync(TimeSpan.FromSeconds(5), Xunit.TestContext.Current.CancellationToken);
+        Assert.Equal(["focus-manager.js"], order.Attaches);
+    }
+
     // Issue 134's class on Server (run 40782584447): the popup's handles attach after its render (the Popup role and the
     // floating handle after the portal's move), each behind its module's import, so a close that unmounts the popup can
     // remove its element before an attach answers, and the module then finds no element for the reference. The part has
@@ -290,6 +328,94 @@ public sealed class DialogPopupTests : IDisposable
 
             public ValueTask<TValue> InvokeAsync<TValue>(string identifier, CancellationToken cancellationToken, object?[]? args) =>
                 runtime.Stall<TValue>(identifier, args) ?? inner.InvokeAsync<TValue>(identifier, cancellationToken, args);
+
+            public ValueTask DisposeAsync() => inner.DisposeAsync();
+        }
+    }
+
+    // The popup module's import, held until the test releases or fails it, and the attaches of the popup and focus-manager
+    // modules in the order they were sent. Its control methods live here, not on the runtime (BL0016 at the call site).
+    private sealed class SendOrder
+    {
+        private readonly TaskCompletionSource import = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        private readonly TaskCompletionSource focusAttached = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        private readonly List<string> attaches = [];
+
+        public IReadOnlyList<string> Attaches
+        {
+            get
+            {
+                lock (attaches)
+                {
+                    return [.. attaches];
+                }
+            }
+        }
+
+        public Task Import => import.Task;
+
+        public Task FocusAttached => focusAttached.Task;
+
+        public void Release() => import.SetResult();
+
+        public void Fail(Exception exception) => import.SetException(exception);
+
+        public void Record(string module)
+        {
+            lock (attaches)
+            {
+                attaches.Add(module);
+            }
+
+            if (module == "focus-manager.js")
+            {
+                focusAttached.TrySetResult();
+            }
+        }
+    }
+
+    private sealed class SendOrderRuntime(IJSRuntime inner, SendOrder order) : IJSRuntime
+    {
+        public ValueTask<TValue> InvokeAsync<TValue>(string identifier, object?[]? args) => InvokeAsync<TValue>(identifier, CancellationToken.None, args);
+
+        public ValueTask<TValue> InvokeAsync<TValue>(string identifier, CancellationToken cancellationToken, object?[]? args)
+        {
+            ValueTask<TValue> invocation = inner.InvokeAsync<TValue>(identifier, cancellationToken, args);
+            if (identifier != "import" || args is not [string path])
+            {
+                return invocation;
+            }
+
+            string? module = path.EndsWith("/popup.js", StringComparison.Ordinal) ? "popup.js"
+                : path.EndsWith("/focus-manager.js", StringComparison.Ordinal) ? "focus-manager.js"
+                : null;
+            return module is null ? invocation : new ValueTask<TValue>(WrapAsync(invocation, module));
+        }
+
+        private async Task<TValue> WrapAsync<TValue>(ValueTask<TValue> import, string module)
+        {
+            IJSObjectReference reference = (IJSObjectReference)(await import)!;
+            if (module == "popup.js")
+            {
+                await order.Import;
+            }
+
+            return (TValue)(object)new RecordingModule(order, module, reference);
+        }
+
+        private sealed class RecordingModule(SendOrder order, string module, IJSObjectReference inner) : IJSObjectReference
+        {
+            public ValueTask<TValue> InvokeAsync<TValue>(string identifier, object?[]? args) => InvokeAsync<TValue>(identifier, CancellationToken.None, args);
+
+            public ValueTask<TValue> InvokeAsync<TValue>(string identifier, CancellationToken cancellationToken, object?[]? args)
+            {
+                if (identifier == "attach")
+                {
+                    order.Record(module);
+                }
+
+                return inner.InvokeAsync<TValue>(identifier, cancellationToken, args);
+            }
 
             public ValueTask DisposeAsync() => inner.DisposeAsync();
         }
