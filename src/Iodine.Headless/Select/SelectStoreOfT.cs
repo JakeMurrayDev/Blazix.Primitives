@@ -488,6 +488,11 @@ internal sealed class SelectStore<TValue> : SelectStore
         SelectStoreState state = State;
         if (state.Lifecycle.EffectiveOpen)
         {
+            // PR 379's verifier nit: the selected index waits for the close (SEL-STA-04), but the text the next aligned
+            // placement measures follows the value's new match while open, as an item's selectedItemTextRef does
+            // (SelectItem.tsx:108-114); without the counter, as ValueApplied's open path.
+            textIndex = FindSelectionIndex();
+            UpdateTexts();
             return;
         }
 
