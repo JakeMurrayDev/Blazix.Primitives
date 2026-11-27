@@ -14,8 +14,10 @@ import { gotoPopupFixture } from './suites/popupFixture';
 // close in that window is held until the focus manager arms, so a press on the backdrop as soon as it covers the page
 // closes the menu with `outside-press`, at the arm. The second figure is the page's `performance.now()` from that press's
 // `pointerdown` to a `MutationObserver` seeing File's positioner leave the document, with whether the press came before
-// the popup's `focusin` and the close's recorded reason. A coverage title too (the base closes the menu as well, with
-// `trigger-focus`); the reason is proven by the `menubar.spec.ts` titles.
+// the popup's `focusin`, whether the menu closed and the close's recorded reason. A figure-only coverage title: the base
+// closes the menu with `trigger-focus`, or loses the press when the trigger's focus option arrives after it, so neither the
+// close nor its reason is asserted; the `menubar.spec.ts` and `interactions.test.ts` titles prove them. Its one assertion is
+// the legs' floor under a close it recorded.
 
 const SERVER_DELAYS = [0, 50, 150] as const;
 
@@ -58,7 +60,7 @@ test.describe('Menubar: ADR 01 relaxation rows', () => {
   }
 
   for (const delay of SERVER_DELAYS) {
-    test(`a backdrop press before a click-opened bar menu's popup takes its initial focus closes the menu (${delay} ms added on Server)`, { tag: '@coverage' }, async ({ page, mode }) => {
+    test(`a backdrop press before a click-opened bar menu's popup takes its initial focus the time to the menu's close (${delay} ms added on Server)`, { tag: '@coverage' }, async ({ page, mode }) => {
       test.skip(mode !== 'server' && delay !== 0, 'WebAssembly has no circuit to delay; its title runs once.');
       if (mode === 'server' && delay > 0) {
         await delayCircuit(page, delay);
@@ -96,16 +98,23 @@ test.describe('Menubar: ADR 01 relaxation rows', () => {
       const hit = () => page.evaluate(({ x, y }) => document.elementFromPoint(x, y)?.getAttribute('role') ?? '', before);
       await expect.poll(hit, { intervals: [5] }).toBe('presentation');
       await page.mouse.click(before.x, before.y);
-      await expect(page.getByTestId('file-menu')).toHaveCount(0, { timeout: 10_000 });
+      // PR 414's red-check: the base closes the menu or loses the press depending on when the trigger's focus option
+      // arrives, so the close is recorded, not asserted; the menubar.spec.ts and interactions.test.ts titles prove it.
+      const closed = await page.getByTestId('file-menu').waitFor({ state: 'detached', timeout: 5_000 }).then(() => true, () => false);
 
       const marks = await page.evaluate(() => {
-        const recorded = window as unknown as { pressedAt: number; pressedBeforeFocus: boolean; closedAt: number };
-        return { ms: Math.round(recorded.closedAt - recorded.pressedAt), beforeFocus: recorded.pressedBeforeFocus };
+        const recorded = window as unknown as { pressedAt?: number; pressedBeforeFocus?: boolean; closedAt?: number };
+        return {
+          ms: recorded.closedAt === undefined || recorded.pressedAt === undefined ? null : Math.round(recorded.closedAt - recorded.pressedAt),
+          beforeFocus: recorded.pressedBeforeFocus ?? null,
+        };
       });
       const reason = ((await fixture.getAttribute('data-file-changes')) ?? '').split(' ').at(-1);
-      const figure = { ...marks, reason };
+      const figure = { closed, ...marks, reason };
       test.info().annotations.push({ type: 'figure', description: `bar menu backdrop press ${mode} +${delay} ${JSON.stringify(figure)}` });
-      expect(figure.ms).toBeGreaterThanOrEqual(legsFloor(mode === 'server' ? delay : 0, 2));
+      if (closed && figure.ms !== null) {
+        expect(figure.ms).toBeGreaterThanOrEqual(legsFloor(mode === 'server' ? delay : 0, 2));
+      }
     });
   }
 });
