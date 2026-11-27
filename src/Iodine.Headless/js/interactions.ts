@@ -1544,6 +1544,21 @@ interface DismissState {
   graceTimeout: Timer;
   /** Re-runs the session handle's listener effect when a press-requested open starts or ends; `null` without one. */
   resync: (() => void) | null;
+  /** Issue 367: runs a recorded `pointerdown` through the outside-press listener while it is installed, else `null`. */
+  replayPress: ((event: PointerEvent) => void) | null;
+  /** Issue 367: a recorded `pointerdown` waiting for the outside-press listener; any open change drops it. */
+  pendingPress: PointerEvent | null;
+}
+
+// Issue 367 (design point 10-367a (1), chosen by the user 2026-11-27): a held bar trigger blur that a press outside caused
+// is replayed through the outside-press path, with the same gates, once the listener is installed (the floating attach).
+function replayOutsidePress(record: SessionRecord, event: PointerEvent): void {
+  const state = dismissState(record);
+  if (state.replayPress !== null) {
+    state.replayPress(event);
+  } else {
+    state.pendingPress = event;
+  }
 }
 
 /** Re-arms a session that requested a close: C# answered a request (canceled ones included). */
@@ -1596,6 +1611,8 @@ function dismissState(record: SessionRecord): DismissState {
     disarmed: false,
     graceTimeout: createTimer(),
     resync: null,
+    replayPress: null,
+    pendingPress: null,
     cancelDismissOnEndTimeout: createTimer(),
     clearInsideReactTreeTimeout: createTimer(),
     compositionTimeout: createTimer(),
@@ -1908,6 +1925,8 @@ function createSessionDismissController(context: HandleContext): Controller {
   // FLT-DIS-14: a same-batch close and reopen never renders closed, so only `openchange` observes that boundary; only
   // the closing half ends it, since a redundant open (hovering an inactive trigger) must not drop a press mid-gesture.
   const onOpenChange = (details: SessionOpenChangeDetails) => {
+    // Issue 367: a replay waits for the open it was recorded in.
+    state.pendingPress = null;
     if (!details.open) {
       state.sawPressWhileOpen = false;
       state.graceTimeout.clear();
@@ -2249,6 +2268,20 @@ function createSessionDismissController(context: HandleContext): Controller {
       addTargetEventListenerOnce(event, handleTouchEnd);
     }
 
+    // FLT-DIS-01, FLT-DIS-08 (issue 268; design point 3 (a) of M6 track 10, chosen by the user 2026-11-24): outside press arms only once the
+    // floating element is set, so a press inside the popup is never read as outside before its handle attaches (on
+    // Server, no outside dismissal before the floating attach: ADR 01's row of 2026-11-24).
+    const outsidePressArmed = options.outsidePress !== false && record.open && record.floatingElement !== null;
+
+    // Issue 367: a recorded press runs as the capture listener and the target listener would have run it.
+    const replayPress = (event: PointerEvent) => {
+      if (event.button === 0) {
+        state.sawPressWhileOpen = true;
+      }
+      state.currentPointerType = event.pointerType;
+      handlePointerDown(event);
+    };
+
     // FLT-DIS-01, FLT-DIS-16.
     const unsubscribe = mergeCleanups(
       options.escapeKey !== false &&
@@ -2257,12 +2290,7 @@ function createSessionDismissController(context: HandleContext): Controller {
           listen(doc, 'compositionstart', handleCompositionStart),
           listen(doc, 'compositionend', handleCompositionEnd),
         ),
-      // FLT-DIS-01, FLT-DIS-08 (issue 268; design point 3 (a) of M6 track 10, chosen by the user 2026-11-24): outside press arms only once the
-      // floating element is set, so a press inside the popup is never read as outside before its handle attaches (on
-      // Server, no outside dismissal before the floating attach: ADR 01's row of 2026-11-24).
-      options.outsidePress !== false &&
-        record.open &&
-        record.floatingElement !== null &&
+      outsidePressArmed &&
         mergeCleanups(
           listen(doc, 'click', closeOnPressOutsideCapture, true),
           listen(doc, 'pointerdown', closeOnPressOutsideCapture, true),
@@ -2276,8 +2304,21 @@ function createSessionDismissController(context: HandleContext): Controller {
         ),
     );
 
+    if (outsidePressArmed) {
+      state.replayPress = replayPress;
+      const pending = state.pendingPress;
+      if (pending !== null) {
+        state.pendingPress = null;
+        // After the install that runs inside a session change, so the close request does not re-enter it.
+        queueMicrotask(() => state.replayPress?.(pending));
+      }
+    }
+
     return () => {
       unsubscribe();
+      if (state.replayPress === replayPress) {
+        state.replayPress = null;
+      }
       preventedPressSuppressionTimeout.clear();
       resetPressStartState();
       state.suppressNextOutsideClick = false;
@@ -3326,6 +3367,161 @@ function noteBarMenuOpenRequest(record: SessionRecord): void {
   }
   menuSessionState(parent).childOpenedSeq = hoverEntrySeq;
   barMenuOpenRequests.add(record);
+}
+
+// Issue 367 (design point 10-367a (1), chosen by the user 2026-11-27; ADR 04 Amendments 2026-11-27; MBR-EVT-01,
+// MBR-PTR-06, MBR-PTR-09, FLT-FOC-04): a bar menu opened by a press shows, cut out of its backdrop, before its popup's
+// focus manager takes the initial focus, a round trip later on Server. Base UI's popup has the focus from the open's
+// commit, so a blur of the trigger never closes the menu. From the press-opened open's relay until the focus manager's
+// initial-focus arm (`noteInitialFocusArmed`), the trigger's blur close is held, and the window records the last
+// non-touch `pointerdown` outside the trigger. The arm re-judges the held close from where the focus is before the
+// initial focus moves; any other open change of the session ends the window and drops it (the revision rule).
+interface UnarmedBarOpen {
+  /** The open change that started the window. */
+  readonly details: SessionOpenChangeDetails;
+  /** The last non-touch `pointerdown` outside the trigger in the window, with the composed path of its dispatch. */
+  press: PointerEvent | null;
+  /** The trigger's held blur close. */
+  held: HeldTriggerBlur | null;
+  readonly cleanup: Cleanup;
+}
+
+interface HeldTriggerBlur {
+  /** The trigger whose blur was held. */
+  readonly element: Element;
+  /** The press that moved the focus, read at the blur. */
+  readonly press: PointerEvent | null;
+  /** Requests the close with `trigger-focus`. */
+  readonly send: () => void;
+}
+
+const unarmedBarOpens = new WeakMap<SessionRecord, UnarmedBarOpen>();
+
+/** A view of a dispatched event whose `composedPath()` is the one of its dispatch, which a finished event no longer has. */
+function withComposedPath<T extends Event>(event: T, path: EventTarget[]): T {
+  return new Proxy(event, {
+    get(target, property) {
+      if (property === 'composedPath') {
+        return () => path;
+      }
+      const value: unknown = Reflect.get(target, property, target);
+      return typeof value === 'function' ? (value as (...args: unknown[]) => unknown).bind(target) : value;
+    },
+  });
+}
+
+/** Whether the session's menu belongs to a menubar: its parent is the bar's session. */
+function isBarMenu(record: SessionRecord): boolean {
+  const parent = record.parentToken === null ? undefined : sessions.get(record.parentToken);
+  return parent !== undefined && menuForestRoots.has(parent);
+}
+
+/** Whether an element is inside a trigger of a menu of the session's bar, its own included. */
+function isOnBarTrigger(record: SessionRecord, target: Element | null): boolean {
+  if (target === null || record.parentToken === null) {
+    return false;
+  }
+  for (const sibling of sessions.values()) {
+    if (sibling.parentToken === record.parentToken && sibling.triggerElements.hasMatchingElement((trigger) => contains(trigger, target))) {
+      return true;
+    }
+  }
+  return false;
+}
+
+/**
+ * Ends the session's unarmed window at another open change, dropping a held close, and starts one at a bar menu's
+ * press-opened open. The triggers of one menu each call it with the same change; the first one acts.
+ */
+function syncUnarmedBarOpen(record: SessionRecord, details: SessionOpenChangeDetails, element: Element): void {
+  const current = unarmedBarOpens.get(record);
+  if (current?.details === details) {
+    return;
+  }
+  if (current !== undefined) {
+    current.cleanup();
+    unarmedBarOpens.delete(record);
+  }
+  if (!details.open || details.reason !== 'trigger-press' || !isBarMenu(record)) {
+    return;
+  }
+  const state: UnarmedBarOpen = {
+    details,
+    press: null,
+    held: null,
+    cleanup: listen(ownerDocument(element), 'pointerdown', (event: PointerEvent) => {
+      const target = getTarget(event);
+      // A touch's outside press is judged at its `touchend`, which no replay reaches: its held close is sent as it is.
+      if (event.pointerType === 'touch' || (isElement(target) && contains(record.domReferenceElement ?? element, target))) {
+        return;
+      }
+      state.press = withComposedPath(event, event.composedPath());
+    }, true),
+  };
+  unarmedBarOpens.set(record, state);
+}
+
+/**
+ * Holds a trigger's blur close while its bar menu's press-opened open has not armed its initial focus.
+ * @returns `true` when the close is held.
+ */
+function holdBarTriggerBlur(record: SessionRecord, held: HeldTriggerBlur): boolean {
+  const unarmed = unarmedBarOpens.get(record);
+  if (unarmed === undefined || !record.open) {
+    return false;
+  }
+  unarmed.held = held;
+  return true;
+}
+
+/** The press the session's unarmed window recorded, read by a trigger's blur; `null` outside a window. */
+function takeUnarmedBarPress(record: SessionRecord): PointerEvent | null {
+  const unarmed = unarmedBarOpens.get(record);
+  const press = unarmed?.press ?? null;
+  if (unarmed !== undefined) {
+    unarmed.press = null;
+  }
+  return press;
+}
+
+// Issue 367 (design point 10-367a (1), chosen by the user 2026-11-27; ADR 04 Amendments 2026-11-27).
+/**
+ * Notes that the session's popup armed its initial focus (the `focus-manager` module's initial-focus effect, before
+ * the focus moves), which ends a bar menu's unarmed window. A trigger blur close held in it is dropped when the focus is
+ * now in the popup, on the trigger or on a trigger of the bar; replayed through the outside-press dismissal, once the
+ * floating handle attaches, when a press outside moved the focus; and requested with `trigger-focus` otherwise.
+ * @param session The session.
+ */
+export function noteInitialFocusArmed(session: InteractionSession): void {
+  const record = session as SessionRecord;
+  const unarmed = unarmedBarOpens.get(record);
+  if (unarmed === undefined) {
+    return;
+  }
+  unarmedBarOpens.delete(record);
+  unarmed.cleanup();
+  const held = unarmed.held;
+  if (held === null || !record.open) {
+    return;
+  }
+  const doc = ownerDocument(held.element);
+  const active = activeElement(doc);
+  const named = record.floatingId ? doc.getElementById(record.floatingId) : null;
+  if (
+    contains(record.dataRef.current.floatingContext?.elements.floating, active) ||
+    contains(record.floatingElement, active) ||
+    contains(named, active) ||
+    contains(record.domReferenceElement, active) ||
+    contains(held.element, active) ||
+    isOnBarTrigger(record, active)
+  ) {
+    return;
+  }
+  if (held.press !== null) {
+    replayOutsidePress(record, held.press);
+    return;
+  }
+  held.send();
 }
 
 const hoverEntries = new WeakMap<Document, HoverEntry>();
@@ -4631,6 +4827,8 @@ function createMenuTriggerController(context: HandleContext): Controller {
     if (parent !== undefined && menuForestRoots.has(parent) && !barMenuOpenRequests.delete(record)) {
       menuSessionState(parent).childOpenedSeq = hoverEntrySeq;
     }
+    // Issue 367: a press-opened bar menu's window before its initial focus arms.
+    syncUnarmedBarOpen(record, details, element);
   };
 
   // Issue 363: the backdrop of this trigger's menu is cut at insertion from its first open (the `popup` module's own install
@@ -5327,6 +5525,8 @@ function createFocusController(context: HandleContext): Controller {
 
   const onBlur = (event: FocusEvent) => {
     resetBlockedFocus();
+    // Issue 367: the press that moved the focus, when the menu's initial focus has not armed yet.
+    const press = takeUnarmedBarPress(record);
     const relatedTarget = event.relatedTarget;
     const movedToFocusGuard =
       isElement(relatedTarget) && relatedTarget.hasAttribute(FOCUS_GUARD_ATTRIBUTE) && relatedTarget.getAttribute('data-type') === 'outside';
@@ -5349,7 +5549,12 @@ function createFocusController(context: HandleContext): Controller {
       if (isTargetInsideEnabledTrigger(nextFocusedElement, record.triggerElements)) {
         return;
       }
-      requestOpenChange(record, channel, false, 'trigger-focus', event);
+      const send = () => requestOpenChange(record, channel, false, 'trigger-focus', event);
+      // Issue 367 (design point 10-367a (1), chosen by the user 2026-11-27): held until the menu's initial focus arms.
+      if (holdBarTriggerBlur(record, { element, press, send })) {
+        return;
+      }
+      send();
     });
   };
 
