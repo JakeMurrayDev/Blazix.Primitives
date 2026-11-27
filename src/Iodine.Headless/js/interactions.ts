@@ -1035,8 +1035,7 @@ function applySessionOptions(record: SessionRecord, options: InteractionsOptions
   const relay = options.relay ?? null;
   const reference = record.domReferenceElement;
   const answered = role.answered ?? 0;
-  const revisionMoved = relay !== null && relay.revision !== record.lastRevision;
-  const answeredRequest = revisionMoved || answered !== record.answered;
+  const answeredRequest = (relay !== null && relay.revision !== record.lastRevision) || answered !== record.answered;
   record.parentToken = role.parentToken ?? null;
   record.floatingId = role.floatingId ?? undefined;
   record.ending = role.ending === true;
@@ -1116,13 +1115,6 @@ function applySessionOptions(record: SessionRecord, options: InteractionsOptions
     record.pressOpen = null;
     rollBackOptimisticOpenEvent(record);
     rearmDismiss(record);
-    // PR 400's verifier nits (issue 372): an answer that commits nothing is a request C# canceled or that changed
-    // nothing. A canceled close leaves no close in the task, and a canceled reopen no open for the mark to name; either
-    // way the next open's initial focus runs, as it did before the mark.
-    if (!revisionMoved) {
-      record.closeRequestedInTask = false;
-      delete record.dataRef.current[COLLAPSED_REOPEN_KEY];
-    }
   }
   // A press that landed before this open's commit (a hover open on Server) comes after it, as Base UI's click upgrades
   // the open its store already holds: its click-like open event is recorded again on its request, still pending.
@@ -1137,7 +1129,9 @@ function applySessionOptions(record: SessionRecord, options: InteractionsOptions
 }
 
 // PR 400's verifier nits (issue 372): an open's commit spends or settles the collapsed-reopen mark, so it never outlives the
-// open it names. A committed close keeps it: on Server the close commits before the reopen. The reopen's own event keeps
+// open it names. A committed close keeps it: on Server the close commits before the reopen. So does an update that only
+// moves the answered counter: C# moves it when a request arrives, so on Server such an update can land between the close's
+// commit and the reopen's, and a reopen C# canceled leaves a mark that the next open's commit clears. The reopen's own event keeps
 // the mark; a stand-in (Server's relay, once the close's commit ended the request's pairing) keeps it only with the
 // request's type and reason, and the mark then names the stand-in the focus manager reads; any other open, a C#-controlled
 // or imperative one included, clears it.
