@@ -1433,9 +1433,10 @@ export function attach(
   const initialFocusEffect = (floatingFocusElement: HTMLElement) => {
     // Issue 367 (design point 10-367a (1), chosen by the user 2026-11-27): the arm ends a press-opened bar menu's window,
     // and the `interactions` module re-judges a trigger blur close it held there from where the focus is now, before the
-    // initial focus moves.
-    if (session !== null) {
-      noteInitialFocusArmed(session);
+    // initial focus moves. When the focus left the trigger in the window, Base UI's popup had its initial focus before
+    // that move, so no focus moves now.
+    if (session !== null && noteInitialFocusArmed(session)) {
+      return;
     }
 
     // Issue 372 (design point 10l-1 (a), chosen by the user 2026-11-26): an open the `interactions` module marked as a

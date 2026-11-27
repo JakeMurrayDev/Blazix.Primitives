@@ -3513,37 +3513,41 @@ function takeUnarmedBarPress(record: SessionRecord): PointerEvent | null {
  * now in the popup, on the trigger or on a trigger of the bar; replayed through the outside-press dismissal, once the
  * floating handle attaches, when a press outside moved the focus; and requested with `trigger-focus` otherwise.
  * @param session The session.
+ * @returns `true` when the focus left the trigger in the window and is still away from it: Base UI's popup took its
+ * initial focus before that move, so the arm moves no focus.
  */
-export function noteInitialFocusArmed(session: InteractionSession): void {
+export function noteInitialFocusArmed(session: InteractionSession): boolean {
   const record = session as SessionRecord;
   const unarmed = unarmedBarOpens.get(record);
   if (unarmed === undefined) {
-    return;
+    return false;
   }
   unarmedBarOpens.delete(record);
   unarmed.cleanup();
   const held = unarmed.held;
   if (held === null || !record.open) {
-    return;
+    return false;
   }
   const doc = ownerDocument(held.element);
   const active = activeElement(doc);
+  if (contains(record.domReferenceElement, active) || contains(held.element, active)) {
+    return false;
+  }
   const named = record.floatingId ? doc.getElementById(record.floatingId) : null;
   if (
     contains(record.dataRef.current.floatingContext?.elements.floating, active) ||
     contains(record.floatingElement, active) ||
     contains(named, active) ||
-    contains(record.domReferenceElement, active) ||
-    contains(held.element, active) ||
     isOnBarTrigger(record, active)
   ) {
-    return;
+    return true;
   }
   if (held.press !== null) {
     replayOutsidePress(record, held.press);
-    return;
+  } else {
+    held.send();
   }
-  held.send();
+  return true;
 }
 
 const hoverEntries = new WeakMap<Document, HoverEntry>();
