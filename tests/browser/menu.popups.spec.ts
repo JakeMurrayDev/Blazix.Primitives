@@ -731,6 +731,29 @@ test.describe('<Menu.Popup /> inside a toolbar', () => {
     await popup.evaluate((element) => element.dispatchEvent(new KeyboardEvent('keydown', { bubbles: true, cancelable: true, key: 'F1' })));
     expect(await parentKeys()).toEqual(['F1']);
   });
+
+  // Issue 381 (design point 10m-1 (a), chosen by the user 2026-11-27; the ADR rule on two handles' attach order): with
+  // `js/popup.js` stalled, the popup module's key stop attaches late, and the popup must not take focus before it.
+  test('port: a menu popup inside the toolbar takes focus only once its composite keydowns are stopped', async ({ page, mode }) => {
+    let hits = 0;
+    await page.route(/\/js\/popup(\.[0-9a-z]+)?\.js/, async (route) => {
+      hits++;
+      await new Promise((resolve) => setTimeout(resolve, 600));
+      await route.continue();
+    });
+    await gotoPopupFixture(page, mode, 'menu-toolbar', { case: 'trigger' });
+    const popup = page.getByTestId('popup');
+    const focusInPopup = () => popup.evaluate((element) => element.contains(document.activeElement));
+
+    await page.getByTestId('trigger').click();
+    await expect.poll(focusInPopup).toBe(true);
+    await page.keyboard.press('ArrowRight');
+    await page.keyboard.press('End');
+
+    await expect(page.getByRole('menuitem', { name: 'Two' })).toBeFocused();
+    await expect(page.getByRole('button', { name: 'Last' })).not.toBeFocused();
+    expect(hits).toBeGreaterThanOrEqual(1);
+  });
 });
 
 test.describe('<Menu.Positioner /> with a controlled parent', () => {

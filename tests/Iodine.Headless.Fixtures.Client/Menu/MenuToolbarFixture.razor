@@ -8,20 +8,43 @@
     keys": a kept-mounted menu inside a ToolbarRoot. Base UI renders the toolbar's context alone and relies on React's portal
     bubbling, so the portal's container here is inside the wrapper `parent`, where a keydown in the popup bubbles natively
     (the ToolbarPopoverFixture precedent).
+    - `case=trigger` (issue 381, M6 track 10): toolbar buttons First and Last around a MenuTrigger "Open", the menu (items
+      One and Two, not kept mounted) portaled into a container inside the ToolbarRoot, so a keydown in the popup bubbles to
+      the toolbar's composite unless the popup stops it (MNU-KEY-20).
 *@
 <FixtureContainer Name="menu-toolbar" data-attached="@(Attached ? "true" : "false")" data-sync="@Sync">
     <button type="button" data-sync-button data-key-control @onclick="() => Sync++" @onkeydown="OnShift(() => Sync++)">Sync</button>
-    <ToolbarRoot>
-        <div data-testid="parent">
+    <ToolbarRoot @ref="toolbar">
+        @if (Case == "trigger")
+        {
+            <ToolbarButton @ref="first">First</ToolbarButton>
             <MenuRoot TPayload="NoPayload" @ref="root">
-                <MenuPortal KeepMounted="true" Container="@s_host">
+                <MenuTrigger TPayload="NoPayload" @ref="trigger" data-testid="trigger">Open</MenuTrigger>
+                <MenuPortal Container="@s_host">
                     <MenuPositioner>
-                        <MenuPopup @ref="popup" data-testid="popup"></MenuPopup>
+                        <MenuPopup data-testid="popup">
+                            <MenuItem>One</MenuItem>
+                            <MenuItem>Two</MenuItem>
+                        </MenuPopup>
                     </MenuPositioner>
                 </MenuPortal>
             </MenuRoot>
+            <ToolbarButton @ref="last">Last</ToolbarButton>
             <div id="menu-toolbar-host"></div>
-        </div>
+        }
+        else
+        {
+            <div data-testid="parent">
+                <MenuRoot TPayload="NoPayload" @ref="root">
+                    <MenuPortal KeepMounted="true" Container="@s_host">
+                        <MenuPositioner>
+                            <MenuPopup @ref="popup" data-testid="popup"></MenuPopup>
+                        </MenuPositioner>
+                    </MenuPortal>
+                </MenuRoot>
+                <div id="menu-toolbar-host"></div>
+            </div>
+        }
     </ToolbarRoot>
 </FixtureContainer>
 
@@ -29,6 +52,17 @@
     private static readonly PortalContainerValue s_host = new("#menu-toolbar-host");
     private MenuRoot<NoPayload>? root;
     private MenuPopup? popup;
+    private MenuTrigger<NoPayload>? trigger;
+    private ToolbarRoot? toolbar;
+    private ToolbarButton? first;
+    private ToolbarButton? last;
 
-    protected override IEnumerable<Task> Attachments => [root?.SessionAttached ?? Task.CompletedTask];
+    protected override IEnumerable<Task> Attachments =>
+    [
+        root?.SessionAttached ?? Task.CompletedTask,
+        trigger?.TwinsAttached ?? Task.CompletedTask,
+        toolbar?.TwinAttached ?? Task.CompletedTask,
+        first?.TwinAttached ?? Task.CompletedTask,
+        last?.TwinAttached ?? Task.CompletedTask,
+    ];
 }
