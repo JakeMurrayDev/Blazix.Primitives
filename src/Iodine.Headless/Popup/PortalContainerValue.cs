@@ -20,8 +20,9 @@ namespace Iodine.Headless;
 /// <see cref="IUnion"/> requires it.
 /// </para>
 /// <para>
-/// In Razor, write <c>Container="@element"</c> for an <see cref="ElementReference"/>, <c>Container="#target"</c> for a
-/// selector (matched in the document that holds the portal, first match), <c>Container="@node"</c> for an
+/// In Razor, write <c>Container="@element"</c> for an <see cref="ElementReference"/>, <c>Container="@("#target")"</c> for a
+/// selector (matched in the document that holds the portal, first match; a bare <c>Container="#target"</c> is read as C#
+/// and does not compile), <c>Container="@node"</c> for an
 /// <see cref="IJSObjectReference"/> your script returns, such as a shadow root, or
 /// <c>Container="@PortalContainerValue.Pending"</c>; each converts implicitly. A part's <c>Container</c> parameter is
 /// nullable, and

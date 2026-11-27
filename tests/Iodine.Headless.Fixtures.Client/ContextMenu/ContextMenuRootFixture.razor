@@ -24,8 +24,9 @@
     `data-submenu-open-changes`, `data-inner-open-changes` and `data-plain-open-changes`, and `data-attached` once the roots' sessions and the
     triggers' handles attached, and `data-trigger-attached` once the trigger's handle alone did. `data-positioner-attached`
     reads `true` once the last mounted Positioner's handles attached (outside press arms with its floating handle, ADR 01's
-    row of 2026-11-24; issue 268); the titles read it on Server only, since on WebAssembly it stayed `false` (2026-11-24, a
-    finding reported to the orchestrator).
+    row of 2026-11-24; issue 268). Each Positioner is tracked from its own reference capture, so a Positioner the menu's
+    subtree mounts in a batch the fixture does not render in is still seen (issue 358: on WebAssembly the marker stayed
+    `false`, because a render-driven check never saw the open's Positioner).
 *@
 <FixtureContainer Name="context-menu-root" data-attached="@(Attached ? "true" : "false")" data-sync="@Sync" data-positioner-attached="@(positionerAttached ? "true" : "false")"
                   data-open-changes="@OpenChanges" data-open-events="@string.Join(' ', events)"
@@ -46,7 +47,7 @@
                     <ContextMenuRoot @ref="innerRoot" OnOpenChange="RecordInnerChange">
                         <ContextMenuTrigger @ref="innerTrigger" data-testid="inner-trigger" style="display: block; width: 100px; height: 50px; margin: 20px">inner</ContextMenuTrigger>
                         <ContextMenuPortal>
-                            <ContextMenuPositioner @ref="innerPositioner">
+                            <ContextMenuPositioner @ref="InnerPositioner">
                                 <ContextMenuPopup data-testid="inner-menu">
                                     <ContextMenuItem>Inner action</ContextMenuItem>
                                 </ContextMenuPopup>
@@ -55,7 +56,7 @@
                     </ContextMenuRoot>
                 </ContextMenuTrigger>
                 <ContextMenuPortal>
-                    <ContextMenuPositioner @ref="outerPositioner">
+                    <ContextMenuPositioner @ref="OuterPositioner">
                         <ContextMenuPopup data-testid="outer-menu">
                             <ContextMenuItem>Outer action</ContextMenuItem>
                         </ContextMenuPopup>
@@ -103,7 +104,7 @@
                     {
                         <ContextMenuBackdrop data-testid="backdrop" />
                     }
-                    <ContextMenuPositioner @ref="mainPositioner" data-testid="positioner" AlignOffset="@AlignOffset" SideOffset="@SideOffset" Side="@SideValue" Align="@AlignValue">
+                    <ContextMenuPositioner @ref="MainPositioner" data-testid="positioner" AlignOffset="@AlignOffset" SideOffset="@SideOffset" Side="@SideValue" Align="@AlignValue">
                         <ContextMenuPopup data-testid="popup">
                             @if (Query("submenu") is { } submenu)
                             {
@@ -149,6 +150,12 @@
     private ContextMenuPositioner? outerPositioner;
     private readonly HashSet<ContextMenuPositioner> trackedPositioners = [];
     private bool positionerAttached;
+
+    private ContextMenuPositioner? MainPositioner { get => mainPositioner; set => mainPositioner = Track(value); }
+
+    private ContextMenuPositioner? InnerPositioner { get => innerPositioner; set => innerPositioner = Track(value); }
+
+    private ContextMenuPositioner? OuterPositioner { get => outerPositioner; set => outerPositioner = Track(value); }
     private ContextMenuRoot? root;
     private ContextMenuRoot? innerRoot;
     private ContextMenuTrigger? trigger;
@@ -242,25 +249,27 @@
         }
 
         await attachments;
-        await TrackPositionersAsync();
     }
 
-    // A Positioner mounted since the last render takes the marker down until its handles attach.
-    private async Task TrackPositionersAsync()
+    // Issue 358: a Positioner mounted takes the marker down until its handles attach. It is tracked from its reference
+    // capture rather than from the fixture's next render, which may never come (the open renders only the menu's subtree).
+    private ContextMenuPositioner? Track(ContextMenuPositioner? positioner)
     {
-        foreach (ContextMenuPositioner? positioner in new[] { mainPositioner, innerPositioner, outerPositioner })
+        if (positioner is not null && RendererInfo.IsInteractive && trackedPositioners.Add(positioner))
         {
-            if (positioner is null || !RendererInfo.IsInteractive || !trackedPositioners.Add(positioner))
-            {
-                continue;
-            }
-
-            positionerAttached = false;
-            StateHasChanged();
-            await positioner.TwinAttached;
-            positionerAttached = true;
-            StateHasChanged();
+            _ = InvokeAsync(() => WaitForAttachAsync(positioner));
         }
+
+        return positioner;
+    }
+
+    private async Task WaitForAttachAsync(ContextMenuPositioner positioner)
+    {
+        positionerAttached = false;
+        StateHasChanged();
+        await positioner.TwinAttached;
+        positionerAttached = true;
+        StateHasChanged();
     }
 
     private void RecordContextChange(ValueChangeEventArgs<bool> args)

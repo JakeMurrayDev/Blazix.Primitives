@@ -30,7 +30,7 @@ jobs:
   # browser jobs for the L4 scope .github/scripts/classify-paths.mjs derives from the changed paths and the labels.
   # A job skipped by `if` reports success to a required check; the gate job below is the one required check.
   changes:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     timeout-minutes: 5
     outputs:
       docs: ${{ steps.classify.outputs.docs }}
@@ -56,7 +56,7 @@ jobs:
   docs-lint:
     needs: changes
     if: needs.changes.outputs.docs == 'true'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     timeout-minutes: 5
     steps:
       - uses: actions/checkout@v7
@@ -74,7 +74,7 @@ jobs:
   build-and-test:
     needs: changes
     if: needs.changes.outputs.code == 'true'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     timeout-minutes: 20
     env:
       # L1, L2 and the generator tests. The fixture host is not built here (ADR 09 section 3); the browser jobs build it.
@@ -122,7 +122,7 @@ jobs:
   browser-server:
     needs: changes
     if: needs.changes.outputs.run-l4 == 'true'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     timeout-minutes: 30
     strategy:
       fail-fast: false
@@ -144,7 +144,7 @@ jobs:
   browser-wasm:
     needs: changes
     if: needs.changes.outputs.run-l4 == 'true'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     # 45, not 30 (ADR 11 Amendments 2026-11-19, chosen by the user): the shards take 20-30 min and six were cut off at 30.
     timeout-minutes: 45
     strategy:
@@ -176,7 +176,7 @@ jobs:
   browser-report:
     needs: [changes, browser-server, browser-wasm]
     if: always() && needs.changes.outputs.run-l4 == 'true'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v7
@@ -199,7 +199,7 @@ jobs:
   red-check:
     needs: changes
     if: github.event_name == 'pull_request' && needs.changes.outputs.code == 'true'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     timeout-minutes: 45
     steps:
       - uses: actions/checkout@v7
@@ -233,7 +233,7 @@ jobs:
   pack:
     needs: changes
     if: github.event_name == 'push'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v7
@@ -265,7 +265,7 @@ jobs:
   gate:
     needs: [changes, docs-lint, build-and-test, browser-server, browser-wasm, browser-report, red-check, pack]
     if: always()
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     timeout-minutes: 5
     steps:
       - name: Fail if a job failed or was cancelled

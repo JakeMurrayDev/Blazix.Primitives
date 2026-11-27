@@ -12,6 +12,9 @@
     - `defaultValue`, `defaultOpen`;
     - `list`: the items sit in a Select.List (the listbox role moves to the list);
     - `fruit`: the items are `apple` and `banana` (the typeahead titles);
+    - `countries`: the autofill titles' items (SelectRoot.test.tsx:1234-1340, issue 312): `label` renders `US` "United
+      States" and `CA` "Canada"; `serialized` renders `CA` "US" and `US` "United States"; `empty` renders `US` with no
+      content and `CA` "Canada";
     - `open`: the root is controlled open (`Open` true, no callback updates it), Base UI's forced open;
     - `field`: a Form whose errors name `select` ("test") around a Field named `select` with a Field.Error (test id
       `error`) after the select;
@@ -51,6 +54,7 @@
     private bool toggle;
     private bool list;
     private bool fruit;
+    private string? countries;
     private bool forcedOpen;
     private bool inField;
     private string? name;
@@ -67,6 +71,7 @@
         toggle = QueryFlag("toggle") == true;
         list = QueryFlag("list") == true;
         fruit = QueryFlag("fruit") == true;
+        countries = Query("countries");
         forcedOpen = QueryFlag("open") == true;
         inField = QueryFlag("field") == true;
         name = Query("name");
@@ -104,7 +109,22 @@
     </text>;
 
     private RenderFragment Items => @<text>
-        @if (fruit)
+        @if (countries == "label")
+        {
+            <SelectItem TValue="string" Value="@("US")">United States</SelectItem>
+            <SelectItem TValue="string" Value="@("CA")">Canada</SelectItem>
+        }
+        else if (countries == "serialized")
+        {
+            <SelectItem TValue="string" Value="@("CA")">US</SelectItem>
+            <SelectItem TValue="string" Value="@("US")">United States</SelectItem>
+        }
+        else if (countries == "empty")
+        {
+            <SelectItem TValue="string" Value="@("US")"></SelectItem>
+            <SelectItem TValue="string" Value="@("CA")">Canada</SelectItem>
+        }
+        else if (fruit)
         {
             <SelectItem TValue="string" Value="@("apple")" data-testid="item-apple">apple</SelectItem>
             <SelectItem TValue="string" Value="@("banana")" data-testid="item-banana">banana</SelectItem>

@@ -1,0 +1,12 @@
+@namespace Iodine.Headless.Tests.Components
+@* Issue 282 (ADR 08 Amendments 2026-11-18): on SDK 11.0.100 a bare attribute value on a hand-written [Union] parameter
+   with a string case is compiled as C#, so `Anchor="my-anchor"` gives CS0103 and `Container="#target"` CS1024. The
+   string case is written as an expression, `@("…")`; this harness compiling is half of the pin, the test reading the
+   held case is the other. *@
+<PopoverRoot TPayload="NoPayload" DefaultOpen="true">
+    <PopoverPortal Container="@("#target")">
+        <PopoverPositioner Anchor="@("my-anchor")">
+            <PopoverPopup>Content</PopoverPopup>
+        </PopoverPositioner>
+    </PopoverPortal>
+</PopoverRoot>

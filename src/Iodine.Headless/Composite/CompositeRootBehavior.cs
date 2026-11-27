@@ -56,6 +56,7 @@ internal sealed class CompositeRootBehavior : IDisposable
     private readonly Func<Exception, Task> dispatchException;
     private readonly EventCallback onKeyDown;
     private readonly TaskCompletionSource attachedSource = new(TaskCreationOptions.RunContinuationsAsynchronously);
+    private TaskCompletionSource? disposedSource;
     private readonly List<CompositeItemBehavior> items = [];
     private readonly List<CompositeItemBehavior> orderedItems = [];
     private AttributeValue consumerKeyDown;
@@ -247,6 +248,7 @@ internal sealed class CompositeRootBehavior : IDisposable
         }
 
         disposed = true;
+        disposedSource?.TrySetResult();
         directionContext?.RemoveListener(stateChanged);
         directionContext = null;
         list?.List.Unregister(this);
@@ -448,6 +450,28 @@ internal sealed class CompositeRootBehavior : IDisposable
         }
 
         return consumerKeyDown.InvokeAsync(e);
+    }
+
+    // ADR 04 Amendments 2026-11-26 (issue 312, chosen by the user 2026-11-26): SEL-FRM-18's third priority reads the floating
+    // handle's rendered labels (CMP-STA-06/07). The read waits for the first attach, then sends the registrations the module
+    // does not have yet, so the module answers over the latest items; the disposal source exists only once a read waits.
+    /// <summary>Reads the rendered labels of the list's items from the module, once the handle has attached.</summary>
+    /// <returns>The items' ids and labels, or <see langword="null"/> when the behavior leaves before the read or the handle is gone.</returns>
+    internal async Task<CompositeListLabels?> ReadLabelsAsync()
+    {
+        if (disposed)
+        {
+            return null;
+        }
+
+        if (!attachedSource.Task.IsCompleted)
+        {
+            disposedSource ??= new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+            await Task.WhenAny(attachedSource.Task, disposedSource.Task);
+        }
+
+        await FlushAsync();
+        return disposed || handle is not { } attached ? null : await attached.ReadAsync("labels", IodineJsonContext.Default.CompositeListLabels);
     }
 
     // M5 track 12's design point 6 (a), the orchestrator's 2026-11-12 grant: a part whose own module asks before composite's

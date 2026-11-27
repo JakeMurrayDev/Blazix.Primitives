@@ -21,7 +21,7 @@ env:
 
 jobs:
   browser-server:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     timeout-minutes: 60
     strategy:
       fail-fast: false
@@ -48,7 +48,7 @@ jobs:
           job: ${{ github.job }} (${{ matrix.shard }})
 
   browser-wasm:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     timeout-minutes: 60
     strategy:
       fail-fast: false
@@ -79,7 +79,7 @@ jobs:
   report:
     needs: [browser-server, browser-wasm]
     if: always()
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v7
