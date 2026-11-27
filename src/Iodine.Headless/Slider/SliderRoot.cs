@@ -84,7 +84,8 @@ public static class SliderRootDataAttributes
 //   holds the normalized list (SLD-STA-03), the Root the raw value, as the internal SliderValues, for SLD-STA-09's equality.
 // - Every request comes from the `slider` module (SliderTwin, one handle on this element; design point 1 (a') of track 4):
 //   OnValueChange with SliderChangeEventDetails before anything changes, a cancel stops it, then ValueChanged and the commit
-//   (EVD-ALG-03, SLD-EVT-01..12). Requests run one at a time, in the order the module sent them. The module moves the
+//   (EVD-ALG-03, SLD-EVT-01..12). Requests run one at a time, in the order the module sent them; a request's answering
+//   update is sent, not awaited (issue 411), so the next request does not wait a round trip. The module moves the
 //   thumb before it reports (the optimistic move, ADR 04 Amendments 2026-11-18): the answering update carries the
 //   report's revision, and a refused request rolls the module back.
 // - The thumbs register in a registration-only composite list (SLD §11's CMP row), with their explicit index when given
