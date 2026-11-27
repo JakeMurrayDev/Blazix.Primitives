@@ -42,6 +42,7 @@ internal sealed class DialogPopupBehavior : IAsyncDisposable
     private readonly PopupScrollLockBehavior scrollLock;
     private readonly DialogTransitions transitions;
     private readonly PopupModuleAttachment keys;
+    private readonly TaskCompletionSource keyStopSent = new(TaskCreationOptions.RunContinuationsAsynchronously);
     private IDialogRootContext? context;
     private PopupPortalContext? portal;
     private IDisposable? subscription;
@@ -103,7 +104,7 @@ internal sealed class DialogPopupBehavior : IAsyncDisposable
         Task moved = PopupPortalContext.WhenMoved(portal);
         Task transitioned = transitions.SyncAsync(element, root, root.PortalKeepMounted, moved);
         Task stopped = StopCompositeKeysAsync(element, moved);
-        Task focused = keys.Attached.IsCompleted ? focus.AfterRenderAsync(element, id) : FocusOnceKeysStoppedAsync(stopped, element, id);
+        Task focused = keyStopSent.Task.IsCompleted ? focus.AfterRenderAsync(element, id) : FocusOnceKeyStopSentAsync(element, id);
         Task pressed = floating.AfterRenderAsync(enabled: true, element, id);
         Task locked = scrollLock.ApplyAsync(element, root.Open && root.Modality == DialogModality.Modal);
         await Task.WhenAll(transitioned, focused, pressed, locked, stopped);
@@ -337,26 +338,46 @@ internal sealed class DialogPopupBehavior : IAsyncDisposable
 
     // DLG-KEY-09 (DialogPopup.tsx:82-86; issue 381, design point 10m-1 (a), chosen by the user 2026-11-27): Base UI stops the
     // composite keys from the open's commit, so focus never sits in the popup while they reach a toolbar around it. The
-    // focus manager's first attach, which applies the initial focus, waits for the key stop's attach; later renders do not.
-    private async Task FocusOnceKeysStoppedAsync(Task stopped, ElementReference? element, string? id)
+    // focus manager's first attach, which applies the initial focus, is sent only after the key stop's attach; later
+    // renders send its options at once.
+    private async Task FocusOnceKeyStopSentAsync(ElementReference? element, string? id)
     {
-        await stopped;
+        await keyStopSent.Task;
         await focus.AfterRenderAsync(element, id);
     }
 
-    // A portaled part attaches once the portal has moved its node (design point 3 of M4 track 1).
+    // A portaled part attaches once the portal has moved its node (design point 3 of M4 track 1). Issue 381: the module is
+    // imported while the portal moves, so the attach is sent at once after the move (TwinBase.PrepareAsync, issue 147's
+    // precedent); calls reach the module in the order they are sent, so the stop is armed before the focus manager's attach
+    // runs, at the cost of no round trip of its own.
     private async Task StopCompositeKeysAsync(ElementReference? element, Task moved)
     {
         if (element is not { } target)
         {
+            keyStopSent.TrySetResult();
             return;
         }
 
-        if (!moved.IsCompleted)
+        Task synced;
+        try
         {
-            await moved;
+            ValueTask prepared = keys.Attached.IsCompleted ? ValueTask.CompletedTask : keys.Twin.PrepareAsync();
+            if (!moved.IsCompleted)
+            {
+                await moved;
+            }
+
+            await prepared;
+
+            // Once imported, the attach is sent before SyncAsync returns.
+            synced = keys.SyncAsync(target, s_stoppedKeys);
+        }
+        finally
+        {
+            // A failed import leaves no stop to wait for: the focus manager attaches as it did before the order.
+            keyStopSent.TrySetResult();
         }
 
-        await keys.SyncAsync(target, s_stoppedKeys);
+        await synced;
     }
 }
