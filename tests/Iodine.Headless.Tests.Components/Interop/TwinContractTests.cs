@@ -367,6 +367,37 @@ public sealed class TwinContractTests
         Assert.Single(handle.Invocations["readCount"]);
     }
 
+    // PR 380's verifier nit 4: a dispose that overtakes an update or a read in flight can make the call fail, as a
+    // `JSException` from the module or an `ObjectDisposedException` from the released reference. Once the handle is
+    // disposed that failure is the dispose's, and the call completes with nothing; before it, a failure still surfaces.
+    [Fact(DisplayName = "port: an update or a read that a dispose overtakes completes with nothing; before the dispose its failure surfaces")]
+    [Trait("Requirement", "ADR04-handle-reads")]
+    public async Task An_update_or_a_read_a_dispose_overtakes_completes_with_nothing()
+    {
+        using BunitContext context = new();
+        BunitJSModuleInterop module = context.JSInterop.SetupModule(TestTwin.ModulePath);
+        BunitJSModuleInterop handle = module.SetupModule("attach", _ => true);
+        JSRuntimeInvocationHandler update = handle.SetupVoid("update", _ => true);
+        JSRuntimeInvocationHandler<string?> read = handle.Setup<string?>("readCount", _ => true);
+        handle.SetupVoid("dispose", _ => true).SetVoidResult();
+        await using TestTwin twin = new(context.JSInterop.JSRuntime);
+        TwinHandle<TestTwinOptions> attached = await twin.AttachAsync("base-ui-1", new TestTwinOptions());
+
+        ValueTask updating = attached.UpdateAsync(new TestTwinOptions());
+        ValueTask<TestTwinPayload?> reading = attached.ReadAsync("readCount", TestTwinJsonContext.Default.TestTwinPayload);
+        await attached.DisposeAsync();
+        update.SetException(new JSException("JS object instance with ID 1 does not exist (has it been disposed?)."));
+        read.SetException(new ObjectDisposedException("JSObjectReference"));
+
+        await updating;
+        Assert.Null(await reading);
+
+        TwinHandle<TestTwinOptions> live = await twin.AttachAsync("base-ui-2", new TestTwinOptions());
+        ValueTask failing = live.UpdateAsync(new TestTwinOptions());
+        update.SetException(new JSException("Iodine: the update failed."));
+        await Assert.ThrowsAsync<JSException>(async () => await failing);
+    }
+
     /// <summary>The module's <c>attach</c> answers with a handle whose <c>update</c> and <c>dispose</c> complete and are recorded.</summary>
     private static BunitJSModuleInterop SetupHandle(BunitJSModuleInterop module)
     {
