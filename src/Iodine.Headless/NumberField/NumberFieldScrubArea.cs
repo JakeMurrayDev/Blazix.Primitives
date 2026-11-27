@@ -281,6 +281,11 @@ public sealed class NumberFieldScrubArea : PartBase<NumberFieldScrubAreaState>
 
     private async Task AttachAsync(ElementReference element)
     {
+        // The review of PR 398: an attach sends the full options, so a retry after a faulted attempt does not compare with
+        // what that attempt sent and the module never kept. A faulted import stays cached by the twin (`module ??=`), so
+        // a retry covers a faulted attach, not a faulted import.
+        sentOptions = null;
+        sentInput = null;
         sentOptions = ChangedOptions();
         sentInput = context!.Root.InputElement;
         NumberFieldScrubTwin attachingTwin = twin ??= CreateTwin();
