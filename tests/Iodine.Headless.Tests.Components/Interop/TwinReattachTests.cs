@@ -15,6 +15,10 @@ namespace Iodine.Headless.Tests.Components.Interop;
 /// </summary>
 public sealed class TwinReattachTests
 {
+    // PR 427's red-check (run 46165562153): every await is bounded, so a title whose awaited step never happens on the base
+    // fails with a TimeoutException instead of holding the job until its limit.
+    private static readonly TimeSpan s_bound = TimeSpan.FromSeconds(5);
+
     [Fact(DisplayName = "port: a re-attach of the same element while its attach is in flight completes only after that attach, and sends its changed options as one update")]
     [Trait("Requirement", "ADR04-reattach-in-flight")]
     public async Task A_reattach_in_flight_completes_after_the_attach_and_sends_its_changed_options()
@@ -30,9 +34,9 @@ public sealed class TwinReattachTests
         Assert.Equal(["import", "attach"], runtime.Calls);
 
         runtime.ReleaseAttach();
-        TwinHandle<TestTwinOptions> attached = await first;
+        TwinHandle<TestTwinOptions> attached = await Bounded(first);
 
-        Assert.Same(attached, await second);
+        Assert.Same(attached, await Bounded(second));
         Assert.Equal(["import", "attach", "update"], runtime.Calls);
         Assert.Equal("""{"threshold":2}""", runtime.Updates.Single());
     }
@@ -51,7 +55,7 @@ public sealed class TwinReattachTests
         Assert.False(second.IsCompleted);
 
         runtime.ReleaseAttach();
-        Assert.Same(await first, await second);
+        Assert.Same(await Bounded(first), await Bounded(second));
         Assert.Equal(["import", "attach"], runtime.Calls);
     }
 
@@ -74,7 +78,7 @@ public sealed class TwinReattachTests
         Assert.False(fourth.IsCompleted);
 
         runtime.ReleaseAttach();
-        await Task.WhenAll(first, second, third, fourth);
+        await Bounded(Task.WhenAll(first, second, third, fourth));
 
         Assert.Equal(["import", "attach", "update", "update"], runtime.Calls);
         Assert.Equal(["""{"threshold":2}""", """{"threshold":2,"targetRef":0}"""], runtime.Updates);
@@ -95,8 +99,8 @@ public sealed class TwinReattachTests
         Assert.False(second.IsCompleted);
 
         runtime.FailAttach(new JSException("Iodine: the attach failed."));
-        await Assert.ThrowsAsync<JSException>(() => first);
-        await Assert.ThrowsAsync<JSException>(() => second);
+        await Assert.ThrowsAsync<JSException>(() => Bounded(first));
+        await Assert.ThrowsAsync<JSException>(() => Bounded(second));
         Assert.Equal(["import", "attach"], runtime.Calls);
     }
 
@@ -113,8 +117,8 @@ public sealed class TwinReattachTests
         Task<TwinHandle<TestTwinOptions>> first = twin.AttachAsync("base-ui-1", new TestTwinOptions { Threshold = 1 }).AsTask();
         Task<TwinHandle<TestTwinOptions>> second = twin.AttachAsync("base-ui-1", new TestTwinOptions { Threshold = 2 }).AsTask();
         runtime.ReleaseAttach();
-        await first;
-        await runtime.UpdateStarted;
+        await Bounded(first);
+        await Bounded(runtime.UpdateStarted);
 
         Task<TwinHandle<TestTwinOptions>> third = twin.AttachAsync("base-ui-1", new TestTwinOptions { Threshold = 3 }).AsTask();
 
@@ -122,7 +126,7 @@ public sealed class TwinReattachTests
         Assert.False(third.IsCompleted);
 
         runtime.ReleaseUpdates();
-        await Task.WhenAll(second, third);
+        await Bounded(Task.WhenAll(second, third));
         Assert.Equal(["""{"threshold":2}""", """{"threshold":3}"""], runtime.Updates);
     }
 
@@ -141,7 +145,7 @@ public sealed class TwinReattachTests
         Assert.False(third.IsCompleted);
 
         runtime.ReleaseAttach();
-        await Task.WhenAll(first, second, third);
+        await Bounded(Task.WhenAll(first, second, third));
         Assert.Equal(["""{"threshold":2}""", """{"threshold":1}"""], runtime.Updates);
     }
 
@@ -160,14 +164,18 @@ public sealed class TwinReattachTests
         Assert.False(second.IsCompleted);
 
         runtime.FailAttach(new JSException("Iodine: no element for the reference"));
-        TwinHandle<TestTwinOptions> handle = await second;
-        Assert.Same(await first, handle);
-        await disposing;
-        await handle.UpdateAsync(new TestTwinOptions { Threshold = 4 });
+        TwinHandle<TestTwinOptions> handle = await Bounded(second);
+        Assert.Same(await Bounded(first), handle);
+        await Bounded(disposing.AsTask());
+        await Bounded(handle.UpdateAsync(new TestTwinOptions { Threshold = 4 }).AsTask());
 
         Assert.True(handle.IsDisposed);
         Assert.Equal(["import", "attach"], runtime.Calls);
     }
+
+    private static Task<T> Bounded<T>(Task<T> task) => task.WaitAsync(s_bound, TestContext.Current.CancellationToken);
+
+    private static Task Bounded(Task task) => task.WaitAsync(s_bound, TestContext.Current.CancellationToken);
 
     // The module import completes at once; the first attach waits until the test releases or fails it, later ones
     // complete at once. The module's handle records every update with its options and references.
