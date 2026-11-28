@@ -7,7 +7,7 @@
 | Tests | `packages/utils/src/*.test.ts(x)`, `packages/utils/src/store/*.test.ts(x)`, `internals/{filter,itemEquality,resolveValueLabel,resolvePopupLabel,RequestQueue,TimeoutManager,useInitialLiveRegionTextMutation,useValueChanged}.test.ts(x)`, `utils/{getCssDimensions,getPseudoElementBounds,scrollEdges}.test.ts`, `direction-provider/DirectionProvider.test.tsx`, `csp-provider/CSPProvider.test.tsx`, `unstable-use-media-query/index.test.tsx` |
 | Prefix | `UTL` |
 | Status | approved |
-| Revised | 2026-11-23 |
+| Revised | 2026-11-28 |
 | Used by | Every component document. Specifically: controlled state (§4.1) — ACC, CHK, CKG, COL, CMB, DRW, MNU, NAV, NUM, RDG, SEL, SLD, SWT, TAB, TGL, TGG; store (§4.2) — CMB, AUT, DLG, ADL, DRW, MNU, CTX, MBR, POP, PRV, SEL, TST, TIP, NAV, plus FLT/PSH; scroll lock (§4.8) — DLG, ADL, DRW and every anchored popup through PSH `useAnchoredPopupScrollLock`; number formatting (§4.15) — NUM, SLD, MTR, PRG; locale filter (§4.15, §5) — CMB, AUT, MNU (filter parts); item equality and label resolution (§5) — CMB, AUT, SEL; live-region marker (§4.13) — CMB, AUT; direction (§4.15) — CMB, CMP, FLT, MNU, NAV, OTP, SCR, SEL, SLD, PSH; CSP (§4.12) — SCR, SEL, TRN; platform detection (§4.16) — CMB, DRW, FLT, MNU, NUM, OTP, SCR, SEL, PSH |
 
 ## 1. Purpose
@@ -190,7 +190,11 @@ Every complex component (dialogs, menus, combobox, select, toast, tooltip, popov
 - **UTL-STA-25** — MUST. `useStore(store, selector, a1?, a2?, a3?)` returns `selector(store.state, a1, a2, a3)` on every render of the part, and the subscribing part re-renders whenever a store notification yields a different result by `Object.is`; a notification whose projected result is unchanged does not re-render the subscribing part (render count observed through bUnit, L2).
   Source: `packages/utils/src/store/useStore.ts:16-61,181-194`. Test: [L2] `ReactStore.test.tsx` "supports nested stores as state values" (rendered `output` tracks the selected value).
 - **UTL-STA-26** — MUST. Reads never tear: within one render of the part every reactive read of a store observes the same record, and a change that lands between the part's render and its subscription makes the subscribing part re-render rather than being lost.
-  Source: `packages/utils/src/store/useStore.ts:48-61` (external-store subscription contract). Test: none.
+  Source: `packages/utils/src/store/useStore.ts:48-61` (external-store subscription contract). Test: [L1] `StoreTwoPhaseNotificationTests` "port: a subscription's callback reads a later subscription of the store already refreshed (issue 417)"; [L2] `PopoverModuleWiringTests` "port: a keyboard press that moves the popover between triggers with one payload clears the instant type in the render that applies it (issue 417)".
+  Port note 2026-11-28 ([issue 417](https://github.com/JakeMurrayDev/Iodine.Headless/issues/417); design point 10-142b (c), chosen by the user 2026-11-28; decisions/05-state-store-and-event-details.md Amendments 2026-11-28; conventions §3.5):
+  - *The tear.* Outside a render batch (a JS-invokable twin callback) a part's `StateHasChanged` renders at once. A listener that re-rendered child content therefore rendered a later part before that part's subscription had seen the write. A popover's Popup rendered `data-instant="click"` while the store held `null`.
+  - *As built.* `Store.SetState` refreshes every `SelectorSubscription` of the store for the new record before any listener runs, so every part a synchronous render reaches reads its selections for that record. UTL-ALG-03's nested pass is kept.
+  - *Freeze rule.* The popup parts' style freeze at the transitions handover depended on the old order. They now freeze what C# rendered before the attach, as decisions/04-js-interop-boundary.md Amendments 2026-10-18 requires ("the value C# rendered is frozen"), with an L2 title per family ("port: after the popup's handover a consumer style change keeps the style C# rendered (issue 417)").
 - **UTL-STA-27** — SHOULD. An implementation MAY collapse several reactive reads inside one component into a single subscription per store (Base UI does so on React 19 for components wrapped in `fastComponent`: dialog, menu, popover, preview card, tooltip); the observable behavior (what re-renders and what value is read) must be identical to one subscription per read.
   Source: `packages/utils/src/store/useStore.ts:13-14,79-179`; `packages/utils/src/fastHooks.ts:63-92`. Test: [L2] `ReactStore.test.tsx` "updates useState result when selector arguments change in a fast component".
 
@@ -633,6 +637,8 @@ setState(next):
     if myTick != updateTick: return         // a nested write already notified everyone with newer state
     listener(next)
 ```
+
+  Port note 2026-11-28 ([issue 417](https://github.com/JakeMurrayDev/Iodine.Headless/issues/417); design point 10-142b (c), chosen by the user 2026-11-28; decisions/05-state-store-and-event-details.md Amendments 2026-11-28; conventions §3.5): the port adds a first phase before the listener loop, which this procedure does not have. After `state = next` and the tick, every `SelectorSubscription` of the store re-evaluates its selections for `next`, with no callback. The loop above then runs unchanged, and a subscription's listener calls back only when one of its selections changed, including a change refreshed in an outer pass whose callback was cut off by a nested write. This keeps UTL-STA-26 when a listener renders synchronously outside a render batch. Test: [L1] `StoreTwoPhaseNotificationTests` (the red title of UTL-STA-26, plus "port: a callback reached after a nested write runs once, in the nested pass (issue 417)" and "port: a subscription disposed by an earlier callback of the pass gets no callback (issue 417)").
 
 - **UTL-ALG-04** — MUST. The implementation reproduces the following procedure exactly: Memoized selector (`createSelectorMemoized`): per-state-record cache plus last-call memoization.
   Source: `packages/utils/src/store/createSelectorMemoized.ts:59-155`. Test: [L1] `createSelectorMemoized.test.ts`.

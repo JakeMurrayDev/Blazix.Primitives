@@ -129,6 +129,36 @@ public sealed class PopoverModuleWiringTests : IDisposable
         Assert.All(renders, Assert.Null);
     }
 
+    // Issue 417: with one payload on both triggers the move writes no payload, so nothing but the store's two-phase
+    // notification keeps the Positioner's synchronous re-render from showing the Popup's pre-commit `click`.
+    [Fact(DisplayName = "port: a keyboard press that moves the popover between triggers with one payload clears the instant type in the render that applies it (issue 417)")]
+    [Trait("Requirement", "POP-ANI-07")]
+    [Trait("Requirement", "POP-DOM-28")]
+    [Trait("Requirement", "UTL-STA-26")]
+    public async Task A_move_between_triggers_with_one_payload_clears_the_instant_type_at_commit()
+    {
+        List<PopoverInstantType?> renders = [];
+        IRenderedComponent<PopupTestHost> cut = Render(new PopoverSpec
+        {
+            Triggers = 2,
+            TriggerPayload = 7,
+            PopupClass = state =>
+            {
+                renders.Add(state.Instant);
+                return null;
+            },
+        });
+
+        await test.PressAsync(cut, "trigger-1", open: true, detail: 0);
+        Assert.Equal(PopoverInstantType.Click, renders[^1]);
+        renders.Clear();
+
+        await test.PressAsync(cut, "trigger-2", open: true, detail: 0);
+
+        Assert.NotEmpty(renders);
+        Assert.All(renders, Assert.Null);
+    }
+
     [Fact(DisplayName = "port: a controlled trigger id that moves the open popover clears the instant type in the render that applies it")]
     [Trait("Requirement", "POP-ANI-07")]
     [Trait("Requirement", "POP-DOM-28")]
@@ -499,4 +529,21 @@ public sealed class PopoverModuleWiringTests : IDisposable
         [.. test.Context.JSInterop.Invocations.Where(invocation => invocation.Identifier == "retainExit").Select(invocation => (bool)invocation.Arguments[1]!)];
 
     private IRenderedComponent<PopupTestHost> Render(PopoverSpec spec) => test.Render((builder, _) => PopoverTree.Build(builder, spec));
+
+    // Issue 417, the handover at attach (ADR 04 Amendments 2026-10-18, "the value C# rendered is frozen"): after the
+    // popup's transitions handle attached, a re-render keeps the style C# rendered and sends the consumer's new style through
+    // the module only, so Blazor never rewrites the attribute the modules own. Coverage of the rule: main froze the right
+    // value here too (a planted fault that computes the style on every render fails it).
+    [Fact(DisplayName = "port: after the popup's handover a consumer style change keeps the style C# rendered (issue 417)")]
+    [Trait("Requirement", "POP-DOM-29")]
+    [Trait("Coverage", "issue-417")]
+    public async Task After_the_handover_a_consumer_style_change_keeps_the_rendered_style()
+    {
+        IRenderedComponent<PopupTestHost> cut = test.Render((builder, host) => PopoverTree.Build(builder, new PopoverSpec { DefaultOpen = true, PopupStyle = host.Get<string>("style") ?? "color: red" }));
+        Assert.Equal("color: red", cut.Find("[data-testid=\"popup\"]").GetAttribute("style"));
+
+        await cut.Instance.SetAsync("style", "color: blue");
+
+        Assert.Equal("color: red", cut.Find("[data-testid=\"popup\"]").GetAttribute("style"));
+    }
 }

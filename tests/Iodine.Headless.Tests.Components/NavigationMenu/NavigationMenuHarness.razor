@@ -62,7 +62,7 @@ else
             <NavigationMenuBackdrop data-testid="backdrop" />
         }
         <NavigationMenuPositioner data-testid="positioner">
-            <NavigationMenuPopup data-testid="popup">
+            <NavigationMenuPopup data-testid="popup" style="@PopupStyle">
                 @if (WithArrow)
                 {
                     <NavigationMenuArrow data-testid="arrow" />
@@ -82,6 +82,8 @@ else
     public List<bool> Completions { get; } = [];
 
     [Parameter] public string[] Values { get; set; } = ["item-1", "item-2"];
+
+    [Parameter] public string? PopupStyle { get; set; }
 
     [Parameter] public bool Controlled { get; set; }
 

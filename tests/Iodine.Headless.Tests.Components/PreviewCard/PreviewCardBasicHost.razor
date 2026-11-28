@@ -10,7 +10,7 @@
     <span data-testid="between-trigger-and-portal"></span>
     <PreviewCardPortal KeepMounted="KeepMounted">
         <PreviewCardPositioner data-testid="positioner">
-            <PreviewCardPopup data-testid="popup">
+            <PreviewCardPopup data-testid="popup" style="@PopupStyle">
                 Content
                 <PreviewCardArrow data-testid="arrow" />
             </PreviewCardPopup>
@@ -22,6 +22,9 @@
 @code {
     [Parameter]
     public bool DefaultOpen { get; set; }
+
+    [Parameter]
+    public string? PopupStyle { get; set; }
 
     [Parameter]
     public bool KeepMounted { get; set; }

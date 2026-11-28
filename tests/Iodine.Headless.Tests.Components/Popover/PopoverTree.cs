@@ -25,6 +25,9 @@ internal sealed record PopoverSpec
 
     public int Triggers { get; init; } = 1;
 
+    /// <summary>Gets the payload every trigger carries, or <see langword="null"/> for the trigger's number (issue 417's repro).</summary>
+    public int? TriggerPayload { get; init; }
+
     public bool OpenOnHover { get; init; }
 
     public bool TriggerDisabled { get; init; }
@@ -310,7 +313,7 @@ internal static class PopoverTree
             builder.SetKey(id);
             builder.AddComponentParameter(14, "id", id);
             builder.AddComponentParameter(15, "data-testid", id);
-            builder.AddComponentParameter(16, nameof(PopoverTrigger<int>.Payload), i);
+            builder.AddComponentParameter(16, nameof(PopoverTrigger<int>.Payload), spec.TriggerPayload ?? i);
             builder.AddComponentParameter(17, nameof(PopoverTrigger<int>.OpenOnHover), spec.OpenOnHover);
             builder.AddComponentParameter(18, nameof(PopoverTrigger<int>.Disabled), spec.TriggerDisabled);
             if (handle is not null)
