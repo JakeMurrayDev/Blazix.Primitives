@@ -105,7 +105,8 @@ public sealed class MenuItemTests : BunitContext
         Assert.Equal("true", item.GetAttribute("aria-disabled"));
 
         item.KeyDown(new Microsoft.AspNetCore.Components.Web.KeyboardEventArgs { Key = "Enter" });
-        item.KeyUp(new Microsoft.AspNetCore.Components.Web.KeyboardEventArgs { Key = " " });
+        // Issue 87: a disabled item declines the consumer's keyup and adds no keyup of its own, so none reaches C#.
+        Assert.False(item.HasAttribute("blazor:onkeyup"));
         item.Click();
 
         Assert.Equal((0, 0, 0), (cut.Instance.KeyDowns, cut.Instance.KeyUps, cut.Instance.Clicks));

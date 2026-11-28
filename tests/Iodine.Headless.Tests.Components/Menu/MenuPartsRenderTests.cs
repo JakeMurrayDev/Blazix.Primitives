@@ -157,7 +157,8 @@ public sealed class MenuPartsRenderTests : BunitContext
 
         IElement trigger = cut.Find("[data-testid=submenu-trigger]");
         Assert.True(trigger.HasAttribute("data-disabled"));
-        trigger.Click();
+        // Issue 87: a disabled submenu trigger adds no click handler, so a press reaches no C#.
+        Assert.False(trigger.HasAttribute("blazor:onclick"));
         Assert.Empty(cut.FindAll("[data-testid=submenu]"));
     }
 

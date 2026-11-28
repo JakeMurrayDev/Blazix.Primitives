@@ -104,7 +104,9 @@ public sealed class ComboboxInputTests : IDisposable
             .Add(x => x.StaticItems, ["a", "b"])
             .Add(x => x.Extra, (RenderFragment)Extra));
 
-        await cut.InvokeAsync(() => cut.Find("[data-testid=input]").Click());
+        // Issue 87: a disabled input adds no click handler, so a press reaches no C#.
+        Assert.False(cut.Find("[data-testid=input]").HasAttribute("blazor:onclick"));
+        await cut.InvokeAsync(static () => { });
 
         Assert.False(cut.Instance.Root!.Store.IsOpen);
         Assert.Empty(cut.FindAll("[role=listbox]"));

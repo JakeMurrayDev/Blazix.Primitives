@@ -26,6 +26,9 @@ internal sealed class ComboboxTriggerBehavior : IAsyncDisposable
 
     private readonly InteractionsTriggerBehavior interactions;
 
+    // CMB-STA-32, CMB-PTR-02 (ComboboxTrigger.tsx:182-199): the press's mount and reference, so on the element while enabled.
+    private readonly EventCallback onMouseDown;
+
     // CMB-KEY-12 (ComboboxTrigger.tsx:107-122; option (a), settled by the orchestrator 2026-11-11): the list's typeahead only.
     private readonly CompositeRootBehavior typeahead;
 
@@ -64,6 +67,7 @@ internal sealed class ComboboxTriggerBehavior : IAsyncDisposable
     public ComboboxTriggerBehavior(ComboboxPartServices services, ButtonDevelopmentLog developmentLog, EventCallback onKeyDown, EventCallback onKeyUp, EventCallback onClick, EventCallback onMouseDown)
     {
         this.services = services;
+        this.onMouseDown = onMouseDown;
         button = new ButtonBehavior(services.JSRuntime, services.Logger, developmentLog, services.Ids, services.RequestRender, services.DispatchException, onKeyDown, onKeyUp);
         interactions = new InteractionsTriggerBehavior(services.JSRuntime, RouteAsync, services.DispatchException, onClick, onMouseDown);
         typeahead = new CompositeRootBehavior(services.JSRuntime, services.Ids, services.RequestRender, services.DispatchException, default) { TypeaheadOnly = true };
@@ -186,6 +190,14 @@ internal sealed class ComboboxTriggerBehavior : IAsyncDisposable
         button.Disabled = Disabled;
         button.AddAttributes(attributes, id, composite: false);
         interactions.AddAttributes(attributes);
+
+        // CMB-STA-32, CMB-PTR-02 (ComboboxTrigger.tsx:182-199): the trigger's own mousedown mounts the list and, with the input
+        // outside the popup or none, makes the trigger the floating root's reference; its result is state (ADR 16 rule 6), so it
+        // is added while enabled whatever the consumer supplies (issue 87: a created handler is on the element only when added).
+        if (!Disabled)
+        {
+            attributes.Set("onmousedown", onMouseDown);
+        }
         attributes.Set("id", id);
 
         // CMB-DOM-05, ARIA-07 (ComboboxTrigger.tsx:150-166).
