@@ -1247,6 +1247,26 @@ test.describe('attach order', () => {
     await expect(trigger).toBeFocused();
   });
 
+  // Issue 139 (design point 10-139b (a'), "Portal order", chosen by the user 2026-11-28): Base UI marks a modal's outside
+  // at its open's commit, before a later modal exists. Two modals opened before the module's first load are both rendered
+  // and open when their handles attach, in any order on Server; the one whose portal comes later stays outside the
+  // earlier one's marking and marks it.
+  test('port: with js/focus-manager.js stalled a modal opened from an earlier one before the module arrives stays outside the earlier one\'s marking (issue 139)', async ({ page, mode }) => {
+    const focusManager = await stall(page, 'focus-manager');
+    await gotoPopupFixture(page, mode, 'dialog-root', { defaultOpen: true, case: 'siblings' });
+    await expect.poll(focusManager.hits).toBeGreaterThan(0);
+    await expect(page.getByTestId('level-1')).toBeVisible();
+    await page.getByRole('button', { name: 'Open nested 1' }).click();
+    await expect(page.getByTestId('level-2')).toBeVisible();
+
+    await focusManager.release();
+
+    const marked = (testId: string) => () =>
+      page.getByTestId(testId).evaluate((element) => element.closest('[aria-hidden="true"], [data-base-ui-inert]') !== null);
+    await expect.poll(marked('level-1')).toBe(true);
+    expect(await marked('level-2')()).toBe(false);
+  });
+
   test('port: with js/interactions.js stalled a default-open modal popup traps focus first, and closes on Escape and an outside press once the module arrives', async ({ page, mode }) => {
     const interactions = await stall(page, 'interactions');
     const fixture = await gotoUnready(page, mode, { defaultOpen: true });

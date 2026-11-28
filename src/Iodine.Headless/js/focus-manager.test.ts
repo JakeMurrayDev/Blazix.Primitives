@@ -1771,6 +1771,88 @@ describe('FloatingFocusManager', () => {
       expect(btn2.hasAttribute('aria-hidden')).toBe(false);
     });
 
+    // Issue 139 (design point 10-139b (a'), "Portal order", chosen by the user 2026-11-28): Base UI marks at the open's
+    // commit, before a later modal exists. The port marks at the handle's attach, so two modals opened before the module's
+    // first load are both rendered and open when they attach; the one whose portal comes later stays exposed to the
+    // older's marking, and the older is marked by the newer's.
+    it('port: a modal that attaches after another stays outside the older modal\'s marking (issue 139)', async () => {
+      const referenceA = element('button', 'reference-a', { id: 'reference-a' });
+      const referenceB = element('button', 'reference-b', { id: 'reference-b' });
+      const outside = element('button', 'outside');
+      const floatingA = element('div', 'floating-a', { tabindex: '-1', 'data-open': '' });
+      const floatingB = element('div', 'floating-b', { tabindex: '-1', 'data-open': '' });
+      document.body.append(referenceA, referenceB, outside, floatingA, floatingB);
+
+      const older = attachManager(floatingA, { domReferenceId: 'reference-a' });
+      const newer = attachManager(floatingB, { domReferenceId: 'reference-b' });
+      await settle();
+
+      expect(floatingB.hasAttribute('aria-hidden')).toBe(false);
+      expect(floatingB.hasAttribute('data-base-ui-inert')).toBe(false);
+      expect(floatingA.getAttribute('aria-hidden')).toBe('true');
+      expect(outside.getAttribute('aria-hidden')).toBe('true');
+
+      await unmount(newer);
+
+      expect(floatingB.hasAttribute('aria-hidden')).toBe(false);
+      expect(floatingA.hasAttribute('aria-hidden')).toBe(false);
+      expect(outside.getAttribute('aria-hidden')).toBe('true');
+
+      await unmount(older);
+
+      expect(outside.hasAttribute('aria-hidden')).toBe(false);
+    });
+
+    // Issue 139 (design point 10-139b (a'), "Portal order", chosen by the user 2026-11-28): the newer modal is the one
+    // whose portal comes later in the document, as a modal mounts its portal at its open. On Server the handles of two
+    // modals opened before the module's first load attach in any order once it arrives.
+    it('port: a modal whose portal comes later stays outside an earlier one\'s marking whichever attaches first (issue 139)', async () => {
+      const referenceA = element('button', 'reference-a', { id: 'reference-a' });
+      const referenceB = element('button', 'reference-b', { id: 'reference-b' });
+      const outside = element('button', 'outside');
+      const floatingA = element('div', 'floating-a', { tabindex: '-1', 'data-open': '' });
+      const floatingB = element('div', 'floating-b', { tabindex: '-1', 'data-open': '' });
+      document.body.append(referenceA, referenceB, outside, floatingA, floatingB);
+
+      const newer = attachManager(floatingB, { domReferenceId: 'reference-b' });
+      const older = attachManager(floatingA, { domReferenceId: 'reference-a' });
+      await settle();
+
+      expect(floatingB.hasAttribute('aria-hidden')).toBe(false);
+      expect(floatingB.hasAttribute('data-base-ui-inert')).toBe(false);
+      expect(floatingA.getAttribute('aria-hidden')).toBe('true');
+      expect(outside.getAttribute('aria-hidden')).toBe('true');
+
+      await unmount(newer);
+      await unmount(older);
+
+      expect(outside.hasAttribute('aria-hidden')).toBe(false);
+      expect(floatingA.hasAttribute('aria-hidden')).toBe(false);
+    });
+
+    // PR 420's verifier: with the module loaded, a kept-mounted modal whose element comes earlier in the document and
+    // opens from inside an open modal is the newer one; it marks the open modal, as on main and in Base UI. Coverage: it
+    // passes on main and guards against ordering by document position alone (10-139c), which fails it.
+    it('port: a kept-mounted modal earlier in the document that opens after another marks it (issue 139)', { tags: ['coverage'] }, async () => {
+      const referenceA = element('button', 'reference-a', { id: 'reference-a' });
+      const referenceB = element('button', 'reference-b', { id: 'reference-b' });
+      const floatingB = element('div', 'floating-b', { tabindex: '-1' });
+      const floatingA = element('div', 'floating-a', { tabindex: '-1', 'data-open': '' });
+      document.body.append(referenceA, referenceB, floatingB, floatingA);
+
+      const older = attachManager(floatingA, { domReferenceId: 'reference-a' });
+      await settle();
+      floatingB.setAttribute('data-open', '');
+      const newer = attachManager(floatingB, { domReferenceId: 'reference-b' });
+      await settle();
+
+      expect(floatingA.getAttribute('aria-hidden')).toBe('true');
+      expect(floatingA.hasAttribute('data-base-ui-inert')).toBe(true);
+
+      await unmount(newer);
+      await unmount(older);
+    });
+
     // `getInsideElements` crosses as references (or ids) the options name.
     it('true - keeps supplied inside elements outside the floating node exposed to assistive tech', async () => {
       const reference = element('input', 'reference', { id: 'reference' });
