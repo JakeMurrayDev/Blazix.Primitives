@@ -541,31 +541,38 @@ function resetOutsideMarking(): void {
   lockCount = 0;
 }
 
-// Issue 139 (design point 10-139b (a'), "Portal order", chosen by the user 2026-11-28, replacing 10-139a (a)): Base UI
-// marks a modal's outside in a layout effect at its open's commit, before a later modal exists. The port marks once the
-// handle has attached, so two modals opened before the module's first load are both rendered when they attach. The newer
-// is the one whose portal (else floating element) comes later in the document, as a modal mounts its portal at its open;
-// a handle's marking keeps every newer live marking's element inside and re-runs the older ones with its own inside, so
-// the newer stays outside the older's marking and marks it. Page-global with the counters above (ADR 04 Amendments
-// 2026-10-27).
+// Issue 139 (design point 10-139b (a'), "Portal order", narrowed by 10-139c, "Approve narrowing", both chosen by the user
+// 2026-11-28): Base UI marks a modal's outside in a layout effect at its open's commit, before a later modal exists. The
+// port marks once the handle has attached, so two modals opened before the module's first load are both rendered and open
+// when they attach, in any order on Server. Of two live markings the one that started later is the newer, unless the
+// other's popup was already open (rendered `data-open`) when the earlier one started: then the one whose portal (else
+// floating element) comes later in the document is the newer, as a modal mounts its portal at its open; a position
+// neither before nor after (another tree or realm) keeps the start order. A marking keeps the newer ones' elements inside,
+// and an older one whose walk marked the newer's element applies again with it inside, so the newer stays outside the
+// older's marking and marks it. Page-global with the counters above (ADR 04 Amendments 2026-10-27).
 /** A live outside marking of one handle. */
 interface LiveMarking {
-  /** The element whose document position orders the marking, and which an older marking keeps inside. */
+  /** The element that orders the marking by document position, and which an older marking keeps inside. */
   readonly own: Element;
+  /** The handle's floating element, looked up in another marking's open popups at its start. */
+  readonly floating: Element;
+  /** The elements rendered `data-open` when the marking started. */
+  readonly openAtStart: ReadonlySet<Element>;
+  /** The elements of the markings ordered newer than this one. */
+  readonly newer: Set<Element>;
   /** Applies the marking again, with the current newer markings' elements inside. */
   readonly reapply: () => void;
 }
 
 let liveMarkings: LiveMarking[] = [];
 
-/** Whether `other` comes after `own` in the document, so its marking is the newer. */
-function isNewerMarking(own: Element, other: Element): boolean {
-  return other !== own && (own.compareDocumentPosition(other) & Node.DOCUMENT_POSITION_FOLLOWING) !== 0;
-}
-
-/** The elements of the live markings newer than the one ordered by `own`. */
-function newerOwnElements(own: Element): Element[] {
-  return liveMarkings.filter((marking) => isNewerMarking(own, marking.own)).map((marking) => marking.own);
+/** Whether a marking starting now with `own` and `floating` is newer than the live marking `live`. */
+function startsNewer(live: LiveMarking, own: Element, floating: Element): boolean {
+  if (!live.openAtStart.has(floating)) {
+    return true;
+  }
+  const position = live.own.compareDocumentPosition(own);
+  return (position & Node.DOCUMENT_POSITION_PRECEDING) === 0;
 }
 
 /**
@@ -1448,35 +1455,52 @@ export function attach(
       untrapped ? reference : null,
     ].filter((x): x is Element => x != null);
 
-    // Issue 139: newer handles' elements stay inside; the new marks apply before the old release, so the lock count
+    // Issue 139: the newer markings' elements stay inside; the new marks apply before the old release, so the lock count
     // never reaches zero in between.
     const own = portal ?? floating;
+    const newer = new Set<Element>();
     const apply = (): (() => void) => {
-      const newer = newerOwnElements(own);
-      const ariaHiddenCleanup = markOthers([...inside, ...newer], { ariaHidden: modal || untrapped, mark: false });
-      const markerCleanup = markOthers([floating, ...portalNodes, ...newer]);
+      const kept = Array.from(newer);
+      const ariaHiddenCleanup = markOthers([...inside, ...kept], { ariaHidden: modal || untrapped, mark: false });
+      const markerCleanup = markOthers([floating, ...portalNodes, ...kept]);
       return () => {
         markerCleanup();
         ariaHiddenCleanup();
       };
     };
+    const reapplied: LiveMarking[] = [];
+    for (const marking of liveMarkings) {
+      if (startsNewer(marking, own, floating)) {
+        marking.newer.add(own);
+        if (!marking.own.contains(own)) {
+          reapplied.push(marking);
+        }
+      } else {
+        newer.add(marking.own);
+      }
+    }
     let release = apply();
     const live: LiveMarking = {
       own,
+      floating,
+      openAtStart: new Set(ownerDocument(floating).querySelectorAll('[data-open]')),
+      newer,
       reapply: () => {
         const next = apply();
         release();
         release = next;
       },
     };
-    const older = liveMarkings.filter((marking) => isNewerMarking(marking.own, own));
     liveMarkings = [...liveMarkings, live];
-    for (const marking of older) {
+    for (const marking of reapplied) {
       marking.reapply();
     }
 
     return () => {
       liveMarkings = liveMarkings.filter((marking) => marking !== live);
+      for (const marking of liveMarkings) {
+        marking.newer.delete(own);
+      }
       release();
     };
   };
