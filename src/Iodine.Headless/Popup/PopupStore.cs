@@ -34,6 +34,7 @@ internal class PopupStore<TState, TPayload> : PopupLifecycleStore<TState>, IPopu
 {
     private readonly PopupTriggerRegistry triggers = new();
     private readonly Controlled<string?> triggerId;
+    private Dictionary<object, TriggerData>? triggerData;
     private TPayload? payload;
     private bool hasPayload;
     private string? resolvedActiveTriggerId;
@@ -219,6 +220,27 @@ internal class PopupStore<TState, TPayload> : PopupLifecycleStore<TState>, IPopu
 
             WritePopup(State.Popup with { ActiveTriggerId = id, ActiveTriggerElement = element });
         }
+    }
+
+    // PSH-STA-30/31 as built (issue 142, design point 10-142a (1), chosen by the user 2026-11-28): every registered trigger
+    // records its forwarded values here at its parameter set, so the write that makes a trigger the owner of the mounted
+    // popup carries its payload in the same record (PublishWrite), as Base UI's layout effect writes it in the commit.
+    /// <summary>Records a registered trigger's forwarded values, which the write that makes it the owner applies.</summary>
+    /// <param name="owner">The part that registered the trigger, its <see cref="PopupTriggerElement.Owner"/>.</param>
+    /// <param name="payloadSupplied">Whether the trigger supplies a payload.</param>
+    /// <param name="triggerPayload">The trigger's payload.</param>
+    public void RecordTriggerData(object owner, bool payloadSupplied, TPayload? triggerPayload)
+    {
+        ArgumentNullException.ThrowIfNull(owner);
+        (triggerData ??= new Dictionary<object, TriggerData>(ReferenceEqualityComparer.Instance))[owner] = new TriggerData(payloadSupplied, triggerPayload);
+    }
+
+    /// <summary>Forgets the forwarded values a trigger recorded, when it unregisters.</summary>
+    /// <param name="owner">The part that registered the trigger.</param>
+    public void ForgetTriggerData(object owner)
+    {
+        ArgumentNullException.ThrowIfNull(owner);
+        triggerData?.Remove(owner);
     }
 
     // PSH-ALG-05's second half, PSH-STA-30: while the trigger owns the mounted popup, a change of its forwarded values is
@@ -446,6 +468,8 @@ internal class PopupStore<TState, TPayload> : PopupLifecycleStore<TState>, IPopu
     /// <inheritdoc />
     private protected override void PublishWrite(TState current, TState next)
     {
+        next = WithOwnerPayload(current, next);
+
         // The nested record compares by reference in the family's ShallowEquals, so it is compared here member by member
         // first, keeping a write that changes nothing a no-op (UTL-STA-11).
         if (ReferenceEquals(current.Popup, next.Popup) || PopupStoreState<TPayload>.ShallowEquals(current.Popup, next.Popup))
@@ -547,6 +571,30 @@ internal class PopupStore<TState, TPayload> : PopupLifecycleStore<TState>, IPopu
         return triggers.TryGetById(trigger.Id, out PopupTriggerElement registered) ? registered : new PopupTriggerElement(trigger, trigger.Element);
     }
 
+    // Issue 142 (design point 10-142a (1), chosen by the user 2026-11-28; on issue 417's two-phase notification, ADR 05
+    // Amendments 2026-11-28): a write that makes a registered trigger the owner of the mounted popup (a request's commit,
+    // the reconciliation's claim, a controlled trigger id) carries that trigger's recorded payload in the same record, so
+    // the popup renders it in the batch of the change. The trigger wrote it from OnAfterRender before, a batch late: on
+    // Server two round trips in a hand-off.
+    private TState WithOwnerPayload(TState current, TState next)
+    {
+        PopupStoreState<TPayload> popup = next.Popup;
+        string? id = popup.EffectiveActiveTriggerId;
+        if (triggerData is null
+            || !popup.IsMountedByTrigger(id)
+            || current.Popup.IsMountedByTrigger(id)
+            || !triggers.TryGetById(id!, out PopupTriggerElement element)
+            || !triggerData.TryGetValue(element.Owner, out TriggerData data)
+            || (data.PayloadSupplied ? hasPayload && Equality.Is(payload, data.Payload) : !hasPayload))
+        {
+            return next;
+        }
+
+        payload = data.PayloadSupplied ? data.Payload : default;
+        hasPayload = data.PayloadSupplied;
+        return TState.WithPopup(next, popup with { PayloadVersion = popup.PayloadVersion + 1 });
+    }
+
     // The reconciliation's own result needs no further boundary: running it again on that state changes nothing.
     private void WriteReconciled(PopupStoreState<TPayload> next)
     {
@@ -576,4 +624,9 @@ internal class PopupStore<TState, TPayload> : PopupLifecycleStore<TState>, IPopu
             WritePopup(State.Popup with { ActiveTriggerId = null, ActiveTriggerElement = null });
         }
     }
+
+    /// <summary>A registered trigger's forwarded values.</summary>
+    /// <param name="PayloadSupplied">Whether the trigger supplies a payload.</param>
+    /// <param name="Payload">The trigger's payload.</param>
+    private readonly record struct TriggerData(bool PayloadSupplied, TPayload? Payload);
 }
