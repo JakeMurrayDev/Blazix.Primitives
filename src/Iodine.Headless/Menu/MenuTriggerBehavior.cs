@@ -57,11 +57,13 @@ internal sealed class MenuTriggerBehavior<TPayload> : IAsyncDisposable, IMenuTri
     private readonly Func<Func<Task>, Task> invokeAsync;
     private readonly EventCallback onKeyDown;
     private readonly Action requestRender;
+    private readonly Func<Exception, Task> dispatchException;
     private readonly Action<ElementReference> capturePreGuard;
     private readonly Action<ElementReference> captureFocusTarget;
     private CompositeItemBehavior? barItem;
     private IMenuParentContext? parent;
     private IDisposable? parentSubscription;
+    private IDisposable? flagSubscription;
     private StoreSelection<MenuStoreState<TPayload>, string?, bool>? focusGuards;
     private StoreSelection<MenuStoreState<TPayload>, string?, string?>? controlsId;
     private StoreSelection<MenuStoreState<TPayload>, bool>? rootDisabled;
@@ -69,6 +71,10 @@ internal sealed class MenuTriggerBehavior<TPayload> : IAsyncDisposable, IMenuTri
     private string? id;
     private ElementReference? preGuard;
     private ElementReference? focusTarget;
+    private bool rendered;
+    private bool renderedEnabled;
+    private ElementReference? renderedElement;
+    private string? renderedId;
     private bool disposed;
 
     /// <summary>Initializes a new instance of the <see cref="MenuTriggerBehavior{TPayload}"/> class.</summary>
@@ -105,6 +111,7 @@ internal sealed class MenuTriggerBehavior<TPayload> : IAsyncDisposable, IMenuTri
         this.invokeAsync = invokeAsync;
         this.onKeyDown = onKeyDown;
         this.requestRender = requestRender;
+        this.dispatchException = dispatchException;
         // The registration's owner is the behavior, which the popup reads the guards through (IMenuTriggerPart).
         _ = owner;
         trigger = new(this, familyName + "Trigger", requestRender, AddSelections);
@@ -157,6 +164,10 @@ internal sealed class MenuTriggerBehavior<TPayload> : IAsyncDisposable, IMenuTri
     /// <returns>A task that completes when the handles have their options.</returns>
     public async Task OnAfterRenderAsync(bool enabled, ElementReference? element, string? id)
     {
+        rendered = true;
+        renderedEnabled = enabled;
+        renderedElement = element;
+        renderedId = id;
         await trigger.OnAfterRenderAsync(element);
         MenuStore<TPayload> store = trigger.Store;
         if (trigger.IsMountedByTrigger)
@@ -225,6 +236,7 @@ internal sealed class MenuTriggerBehavior<TPayload> : IAsyncDisposable, IMenuTri
         reference.Dispose();
         barItem?.Dispose();
         parentSubscription?.Dispose();
+        flagSubscription?.Dispose();
         guards.Twin.GuardFocused -= OnGuardFocused;
         ValueTask interactionsDisposed = interactions.DisposeAsync();
         ValueTask guardsDisposed = guards.DisposeAsync();
@@ -266,8 +278,10 @@ internal sealed class MenuTriggerBehavior<TPayload> : IAsyncDisposable, IMenuTri
         if (!ReferenceEquals(this.parent, bar))
         {
             parentSubscription?.Dispose();
+            flagSubscription?.Dispose();
             this.parent = bar;
             parentSubscription = bar?.Subscribe(OnParentChanged);
+            flagSubscription = bar?.SubscribeToFlag(OnFlagChanged);
         }
 
         if (InBar && barItem is null)
@@ -496,6 +510,36 @@ internal sealed class MenuTriggerBehavior<TPayload> : IAsyncDisposable, IMenuTri
     {
         SyncInteractions();
         requestRender();
+    }
+
+    // Issue 239 (chosen by the user 2026-11-28): the bar's flag changes the interactions options only, never the trigger's
+    // markup, so they go to the module without a render, with what the last render showed; a render of the bar that reaches
+    // the trigger then finds them sent. Before the first render the attach sends them.
+    private void OnFlagChanged()
+    {
+        SyncInteractions();
+        if (!rendered || disposed)
+        {
+            return;
+        }
+
+        Task sync = interactions.AfterRenderAsync(renderedEnabled, renderedElement, renderedId);
+        if (!sync.IsCompletedSuccessfully)
+        {
+            _ = ReportFailureAsync(sync);
+        }
+    }
+
+    private async Task ReportFailureAsync(Task sync)
+    {
+        try
+        {
+            await sync;
+        }
+        catch (Exception exception)
+        {
+            await dispatchException(exception);
+        }
     }
 }
 
