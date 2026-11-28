@@ -79,6 +79,51 @@ describe('one citation', () => {
     expect(migrateCitation('onValueChange', diff, existsInOld).kind).toBe('not-a-citation');
   });
 
+  // Issue 391: the forms of conventions section 3.1 that the first version did not resolve.
+  it('resolves a docs page from the docs root, CHANGELOG.md from the clone root and a reference/base-ui/ path from the clone root, skips reference/vendor/', () => {
+    const pages = parseDiff(
+      [
+        'diff --git a/docs/src/app/(docs)/react/components/menu/page.mdx b/docs/src/app/(docs)/react/components/menu-new/page.mdx',
+        'similarity index 95%',
+        'rename from docs/src/app/(docs)/react/components/menu/page.mdx',
+        'rename to docs/src/app/(docs)/react/components/menu-new/page.mdx',
+        'diff --git a/test/setupVitest.ts b/test/setup/setupVitest.ts',
+        'similarity index 95%',
+        'rename from test/setupVitest.ts',
+        'rename to test/setup/setupVitest.ts',
+      ].join('\n'),
+    );
+    const tree = new Set([
+      'docs/src/app/(docs)/react/components/menu/page.mdx',
+      'docs/src/app/(docs)/react/handbook/customization/page.mdx',
+      'CHANGELOG.md',
+      'test/setupVitest.ts',
+      'packages/react/package.json',
+    ]);
+    const inTree = (path) => tree.has(path);
+    expect(migrateCitation('components/menu/page.mdx', pages, inTree)).toEqual({ kind: 'moved', text: 'components/menu-new/page.mdx' });
+    expect(migrateCitation('handbook/customization/page.mdx:59-75', pages, inTree).kind).toBe('unchanged');
+    expect(migrateCitation('docs/src/app/(docs)/react/handbook/customization/page.mdx:6-37', pages, inTree).kind).toBe('unchanged');
+    expect(migrateCitation('CHANGELOG.md', pages, inTree).kind).toBe('unchanged');
+    expect(migrateCitation('reference/base-ui/test/setupVitest.ts:30-43', pages, inTree)).toEqual({
+      kind: 'moved',
+      text: 'reference/base-ui/test/setup/setupVitest.ts:30-43',
+    });
+    expect(migrateCitation('reference/base-ui/packages/react/package.json:112-119', pages, inTree).kind).toBe('unchanged');
+    expect(migrateCitation('reference/vendor/@floating-ui_utils/dist/floating-ui.utils.dom.mjs:13-16', pages, inTree).kind).toBe('skipped');
+  });
+
+  it('reads a code identifier or a port document name in backticks as no citation', () => {
+    for (const span of ['Object.is', 'console.error', 'Field.Control', 'Select.Trigger', 'RadioGroup.onValueChange', 'Toast.Close']) {
+      expect(migrateCitation(span, diff, existsInOld).kind).toBe('not-a-citation');
+    }
+    expect(migrateCitation('rendering-and-composition.md', diff, existsInOld).kind).toBe('not-a-citation');
+    expect(migrateCitation('popup-store-and-handles.md', diff, existsInOld).kind).toBe('not-a-citation');
+    // Base UI's own file kinds stay citations.
+    expect(migrateCitation('a/A.d.ts', diff, existsInOld).kind).toBe('unresolved');
+    expect(migrateCitation('a/A.css:3', diff, existsInOld).kind).toBe('unresolved');
+  });
+
   it('rewrites only the Source part of a line, never its Test part', () => {
     const markdown = '- **X-01** — MUST. `a/A.tsx:5` in prose.\n  Source: `a/A.tsx:5`. Test: `a/A.tsx:5` "title".';
     const { text, results } = migrateMarkdown(markdown, diff, existsInOld);

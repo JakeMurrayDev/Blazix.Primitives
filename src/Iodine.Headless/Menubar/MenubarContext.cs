@@ -9,6 +9,8 @@ namespace Iodine.Headless;
 //   is `sibling-open` or `list-navigation`. Only a menu whose parent is the bar reports, so submenus never touch it.
 // - The sibling close (MenuPositioner.tsx:134-154): on an open, every other bar menu the bar heard open is asked to close
 //   with `sibling-open` and no event; a consumer's veto leaves two open.
+// - Issue 239 (chosen by the user 2026-11-28): the flag has subscribers of its own. It changes only the triggers'
+//   interactions options, so the bar's menus and the value subscribers do not hear it.
 // - The cut-out is the bar's own element, by its id (Base UI's `contentElement`); the relay target is the bar's element.
 //   No backdrop is kept: a consumer Backdrop finds a context menu past the bar with `MenuParent.Find`.
 // It is also the bar's floating node: a detached Root held by a bar trigger names its session as its parent.
@@ -16,12 +18,13 @@ namespace Iodine.Headless;
 internal sealed class MenubarContext : IMenuParentContext, IFloatingNodeContext
 {
     private readonly List<Action> listeners = [];
+    private readonly List<Action> flagListeners = [];
     private readonly List<MenuRootContext> openMenus = [];
     private readonly Action flagChanged;
     private readonly Func<Exception, Task> dispatchException;
 
     /// <summary>Initializes a new instance of the <see cref="MenubarContext"/> class.</summary>
-    /// <param name="flagChanged">Called after <see cref="HasSubmenuOpen"/> changed, after the subscribers.</param>
+    /// <param name="flagChanged">Called after <see cref="HasSubmenuOpen"/> changed, after the flag's subscribers.</param>
     /// <param name="dispatchException">Reports an exception of a sibling's close request to the renderer.</param>
     public MenubarContext(Action flagChanged, Func<Exception, Task> dispatchException)
     {
@@ -91,7 +94,7 @@ internal sealed class MenubarContext : IMenuParentContext, IFloatingNodeContext
         Disabled = disabled;
         Orientation = orientation;
         RootId = rootId;
-        Notify();
+        Notify(listeners);
     }
 
     /// <summary>Writes the bar's element, notifying the subscribers when it changed.</summary>
@@ -104,7 +107,7 @@ internal sealed class MenubarContext : IMenuParentContext, IFloatingNodeContext
         }
 
         RelayTarget = element;
-        Notify();
+        Notify(listeners);
     }
 
     /// <inheritdoc />
@@ -127,7 +130,7 @@ internal sealed class MenubarContext : IMenuParentContext, IFloatingNodeContext
                 openMenus.Add(menu);
             }
 
-            SetFlag(true);
+            SetFlag(menu, true);
             foreach (MenuRootContext other in openMenus.ToArray())
             {
                 if (!ReferenceEquals(other, menu))
@@ -141,7 +144,7 @@ internal sealed class MenubarContext : IMenuParentContext, IFloatingNodeContext
             openMenus.Remove(menu);
             if (reason is not (EventReason.SiblingOpen or EventReason.ListNavigation))
             {
-                SetFlag(false);
+                SetFlag(menu, false);
             }
         }
     }
@@ -153,7 +156,14 @@ internal sealed class MenubarContext : IMenuParentContext, IFloatingNodeContext
         return new Subscription(listeners, changed);
     }
 
-    private void SetFlag(bool value)
+    /// <inheritdoc />
+    public IDisposable SubscribeToFlag(Action changed)
+    {
+        flagListeners.Add(changed);
+        return new Subscription(flagListeners, changed);
+    }
+
+    private void SetFlag(MenuRootContext menu, bool value)
     {
         if (HasSubmenuOpen == value)
         {
@@ -163,7 +173,13 @@ internal sealed class MenubarContext : IMenuParentContext, IFloatingNodeContext
         // The triggers hear the flag before the bar renders it, so their hover and focus options are on their way before
         // `data-has-submenu-open` shows (Base UI commits both together).
         HasSubmenuOpen = value;
-        Notify();
+        Notify(flagListeners);
+
+        // The flag flips inside a listener of the menu's commit, and the bar's render can run at once and re-render the
+        // menu's parts through its child content. The menu's own listeners hear the commit first, so its session sends the
+        // commit before its popup sends what it read from it (Base UI commits them in one batch). The bar's other menus
+        // did not change and are not notified.
+        menu.NotifyListeners();
         flagChanged();
     }
 
@@ -179,9 +195,9 @@ internal sealed class MenubarContext : IMenuParentContext, IFloatingNodeContext
         }
     }
 
-    private void Notify()
+    private static void Notify(List<Action> subscribers)
     {
-        foreach (Action listener in listeners.ToArray())
+        foreach (Action listener in subscribers.ToArray())
         {
             listener();
         }
