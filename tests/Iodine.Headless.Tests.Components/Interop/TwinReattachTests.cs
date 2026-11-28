@@ -100,11 +100,82 @@ public sealed class TwinReattachTests
         Assert.Equal(["import", "attach"], runtime.Calls);
     }
 
+    // PR 427's verifier, finding 1: the attach has completed but an earlier forward's update is still on its way; a call in
+    // that window joins the chain, so its options are not dropped and it does not return before the update ran.
+    [Fact(DisplayName = "port: a re-attach after the attach completed while an earlier forward is still sending waits for that forward and sends its own options after it")]
+    [Trait("Requirement", "ADR04-reattach-in-flight")]
+    public async Task A_reattach_while_a_forward_is_sending_joins_the_chain()
+    {
+        HeldAttachRuntime runtime = new() { HoldUpdates = true };
+        await using TestTwin twin = new(runtime);
+        using IDisposable unblock = runtime.UnblockOnExit();
+
+        Task<TwinHandle<TestTwinOptions>> first = twin.AttachAsync("base-ui-1", new TestTwinOptions { Threshold = 1 }).AsTask();
+        Task<TwinHandle<TestTwinOptions>> second = twin.AttachAsync("base-ui-1", new TestTwinOptions { Threshold = 2 }).AsTask();
+        runtime.ReleaseAttach();
+        await first;
+        await runtime.UpdateStarted;
+
+        Task<TwinHandle<TestTwinOptions>> third = twin.AttachAsync("base-ui-1", new TestTwinOptions { Threshold = 3 }).AsTask();
+
+        Assert.False(second.IsCompleted);
+        Assert.False(third.IsCompleted);
+
+        runtime.ReleaseUpdates();
+        await Task.WhenAll(second, third);
+        Assert.Equal(["""{"threshold":2}""", """{"threshold":3}"""], runtime.Updates);
+    }
+
+    [Fact(DisplayName = "port: re-attaches in flight that go A, B, A send B and then A, so the module ends on the last render's options")]
+    [Trait("Requirement", "ADR04-reattach-in-flight")]
+    public async Task Reattaches_A_B_A_end_on_A()
+    {
+        HeldAttachRuntime runtime = new();
+        await using TestTwin twin = new(runtime);
+        using IDisposable unblock = runtime.UnblockOnExit();
+
+        Task<TwinHandle<TestTwinOptions>> first = twin.AttachAsync("base-ui-1", new TestTwinOptions { Threshold = 1 }).AsTask();
+        Task<TwinHandle<TestTwinOptions>> second = twin.AttachAsync("base-ui-1", new TestTwinOptions { Threshold = 2 }).AsTask();
+        Task<TwinHandle<TestTwinOptions>> third = twin.AttachAsync("base-ui-1", new TestTwinOptions { Threshold = 1 }).AsTask();
+
+        Assert.False(third.IsCompleted);
+
+        runtime.ReleaseAttach();
+        await Task.WhenAll(first, second, third);
+        Assert.Equal(["""{"threshold":2}""", """{"threshold":1}"""], runtime.Updates);
+    }
+
+    [Fact(DisplayName = "port: a re-attach in flight whose twin is disposed before the attach ends gets the no-op handle once it ends, and sends no update")]
+    [Trait("Requirement", "ADR04-reattach-in-flight")]
+    public async Task A_reattach_in_flight_of_a_disposed_twin_sends_nothing()
+    {
+        HeldAttachRuntime runtime = new();
+        TestTwin twin = new(runtime);
+        using IDisposable unblock = runtime.UnblockOnExit();
+
+        Task<TwinHandle<TestTwinOptions>> first = twin.AttachAsync("base-ui-1", new TestTwinOptions { Threshold = 1 }).AsTask();
+        Task<TwinHandle<TestTwinOptions>> second = twin.AttachAsync("base-ui-1", new TestTwinOptions { Threshold = 2 }).AsTask();
+        ValueTask disposing = twin.DisposeAsync();
+
+        Assert.False(second.IsCompleted);
+
+        runtime.FailAttach(new JSException("Iodine: no element for the reference"));
+        TwinHandle<TestTwinOptions> handle = await second;
+        Assert.Same(await first, handle);
+        await disposing;
+        await handle.UpdateAsync(new TestTwinOptions { Threshold = 4 });
+
+        Assert.True(handle.IsDisposed);
+        Assert.Equal(["import", "attach"], runtime.Calls);
+    }
+
     // The module import completes at once; the first attach waits until the test releases or fails it, later ones
     // complete at once. The module's handle records every update with its options and references.
     private sealed class HeldAttachRuntime : IJSRuntime, IJSObjectReference
     {
         private readonly TaskCompletionSource<IJSObjectReference> attach = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        private readonly TaskCompletionSource updates = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        private readonly TaskCompletionSource updateStarted = new(TaskCreationOptions.RunContinuationsAsynchronously);
         private readonly ModuleHandle handle;
 
         public HeldAttachRuntime()
@@ -120,10 +191,17 @@ public sealed class TwinReattachTests
 
         public void ReleaseAttach() => attach.SetResult(handle);
 
+        // When set, every update waits until ReleaseUpdates; UpdateStarted completes when the first one arrives.
+        public bool HoldUpdates { get; init; }
+
+        public Task UpdateStarted => updateStarted.Task;
+
+        public void ReleaseUpdates() => updates.TrySetResult();
+
         public void FailAttach(Exception exception) => attach.SetException(exception);
 
         // Disposed before the twin, so a failed assertion never leaves the twin's disposal waiting on the held attach.
-        public IDisposable UnblockOnExit() => new Unblock(attach);
+        public IDisposable UnblockOnExit() => new Unblock(attach, updates);
 
         public ValueTask<TValue> InvokeAsync<TValue>(string identifier, object?[]? args) => InvokeAsync<TValue>(identifier, CancellationToken.None, args);
 
@@ -140,9 +218,13 @@ public sealed class TwinReattachTests
 
         public ValueTask DisposeAsync() => ValueTask.CompletedTask;
 
-        private sealed class Unblock(TaskCompletionSource<IJSObjectReference> attach) : IDisposable
+        private sealed class Unblock(TaskCompletionSource<IJSObjectReference> attach, TaskCompletionSource updates) : IDisposable
         {
-            public void Dispose() => attach.TrySetException(new JSDisconnectedException("The test ended with the attach held."));
+            public void Dispose()
+            {
+                attach.TrySetException(new JSDisconnectedException("The test ended with the attach held."));
+                updates.TrySetResult();
+            }
         }
 
         private sealed class ModuleHandle(HeldAttachRuntime runtime) : IJSObjectReference
@@ -156,6 +238,11 @@ public sealed class TwinReattachTests
                     runtime.Calls.Add(identifier);
                     runtime.Updates.Add((string)args![0]!);
                     runtime.UpdateReferences.Add(args.Length > 1 ? (object[]?)args[1] : null);
+                    runtime.updateStarted.TrySetResult();
+                    if (runtime.HoldUpdates)
+                    {
+                        return new ValueTask<TValue>(runtime.updates.Task.ContinueWith(_ => default(TValue)!, TaskScheduler.Default));
+                    }
                 }
 
                 return ValueTask.FromResult(default(TValue)!);
