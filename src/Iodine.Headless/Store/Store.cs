@@ -9,9 +9,10 @@ namespace Iodine.Headless.Store;
 /// <remarks>
 /// <para>
 /// Every write replaces the record, which is readable synchronously through <see cref="State"/>. Listeners run in
-/// subscription order. A listener that writes during a pass starts a nested pass that notifies every listener with the
-/// newer record, and the outer pass stops, so no listener receives a stale record. Equality is
-/// <see cref="Equality.Is{T}(T, T)"/>.
+/// subscription order. Before any of them runs, every <see cref="SelectorSubscription{TState}"/> of the store re-evaluates
+/// its selections for the new record, so a listener that renders synchronously reads every part's selections for that
+/// record. A listener that writes during a pass starts a nested pass that notifies every listener with the newer record,
+/// and the outer pass stops, so no listener receives a stale record. Equality is <see cref="Equality.Is{T}(T, T)"/>.
 /// </para>
 /// <para>
 /// A store does not marshal between threads: write to it on the renderer's synchronization context (part handlers,
@@ -25,6 +26,10 @@ public class Store<TState>
     // Insertion-ordered and iterated live (UTL §8.2): a listener removed during a pass becomes a null tombstone so the
     // pass skips it, and one added during a pass is appended and reached. Tombstones are compacted when no pass runs.
     private readonly List<Action<TState>?> listeners = [];
+
+    // Issue 417 (design point 10-142b (c), chosen by the user 2026-11-28; ADR 05 Amendments 2026-11-28): the selector
+    // subscriptions, refreshed for a new record before any listener runs; tombstoned and compacted as the listeners are.
+    private readonly List<SelectorSubscription<TState>?> subscriptions = [];
     private TState state;
     private int updateTick;
     private int notifyDepth;
@@ -75,9 +80,10 @@ public class Store<TState>
     /// <param name="next">The new record.</param>
     /// <exception cref="ArgumentNullException"><paramref name="next"/> is <see langword="null"/>.</exception>
     /// <remarks>
-    /// Nothing happens when <paramref name="next"/> is the current record (the same reference). When a listener writes during
-    /// the pass, that nested write notifies every listener with the newer record and the outer pass stops, so the listeners it
-    /// had not reached never see the stale record.
+    /// Nothing happens when <paramref name="next"/> is the current record (the same reference). Every selector subscription
+    /// re-evaluates its selections first, then the listeners run. When a listener writes during the pass, that nested write
+    /// notifies every listener with the newer record and the outer pass stops, so the listeners it had not reached never see
+    /// the stale record.
     /// </remarks>
     public void SetState(TState next)
     {
@@ -92,6 +98,14 @@ public class Store<TState>
         notifyDepth++;
         try
         {
+            // Issue 417: React renders a commit's parts in one batch, each reading its snapshot of the committed record
+            // (UTL-STA-26); here a listener can render outside a batch at once, and the parts it re-renders read their
+            // selections, so all of them are refreshed before the first listener runs. Selectors do not write.
+            for (int i = 0; i < subscriptions.Count; i++)
+            {
+                subscriptions[i]?.Refresh(next);
+            }
+
             for (int i = 0; i < listeners.Count; i++)
             {
                 if (tick != updateTick)
@@ -108,6 +122,7 @@ public class Store<TState>
             if (--notifyDepth == 0 && hasTombstones)
             {
                 listeners.RemoveAll(static listener => listener is null);
+                subscriptions.RemoveAll(static subscription => subscription is null);
                 hasTombstones = false;
             }
         }
@@ -231,6 +246,31 @@ public class Store<TState>
                 listener(value, old, this);
             }
         });
+    }
+
+    /// <summary>Adds a selector subscription to the ones refreshed before the listeners of each write.</summary>
+    /// <param name="subscription">The subscription.</param>
+    internal void AddSubscription(SelectorSubscription<TState> subscription) => subscriptions.Add(subscription);
+
+    /// <summary>Removes a selector subscription from the ones refreshed before the listeners, even during a pass.</summary>
+    /// <param name="subscription">The subscription.</param>
+    internal void RemoveSubscription(SelectorSubscription<TState> subscription)
+    {
+        int index = subscriptions.IndexOf(subscription);
+        if (index < 0)
+        {
+            return;
+        }
+
+        if (notifyDepth > 0)
+        {
+            subscriptions[index] = null;
+            hasTombstones = true;
+        }
+        else
+        {
+            subscriptions.RemoveAt(index);
+        }
     }
 
     private void Write(TState next)

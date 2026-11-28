@@ -8,7 +8,8 @@ namespace Iodine.Headless.Store;
 /// <typeparam name="TState">The type of the immutable state record.</typeparam>
 /// <remarks>
 /// On every notification each selection is re-evaluated, and the callback runs once if any of them changed by
-/// <see cref="Equality.Is{T}(T, T)"/>. A part normally gets one through
+/// <see cref="Equality.Is{T}(T, T)"/>. Every subscription of the store is re-evaluated before any callback of the write
+/// runs, so a callback that renders another part synchronously finds that part's selections current. A part normally gets one through
 /// <see cref="Rendering.PartBase{TState}.SubscribeTo{TStoreState}(Store{TStoreState})"/>, which passes
 /// <see cref="Microsoft.AspNetCore.Components.ComponentBase.StateHasChanged"/> as the callback; it reads <see cref="StoreSelection{TState, TValue}.Value"/> while rendering, and the
 /// subscription is disposed with the part. A notification whose selections are all unchanged allocates nothing.
@@ -20,6 +21,7 @@ public sealed class SelectorSubscription<TState> : IDisposable
     private readonly Action onSelectionChanged;
     private readonly List<ISelectionRefresh<TState>> selections = [];
     private IDisposable? subscription;
+    private bool changed;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="SelectorSubscription{TState}"/> class and subscribes once to <paramref name="store"/>.
@@ -34,14 +36,19 @@ public sealed class SelectorSubscription<TState> : IDisposable
         this.store = store;
         this.onSelectionChanged = onSelectionChanged;
         subscription = store.Subscribe(OnStoreChanged);
+        store.AddSubscription(this);
     }
 
     /// <inheritdoc />
     /// <remarks>Unsubscribes from the store; the selections keep their last values. Calling it again does nothing.</remarks>
     public void Dispose()
     {
-        subscription?.Dispose();
-        subscription = null;
+        if (subscription is not null)
+        {
+            subscription.Dispose();
+            subscription = null;
+            store.RemoveSubscription(this);
+        }
     }
 
     /// <summary>
@@ -76,17 +83,24 @@ public sealed class SelectorSubscription<TState> : IDisposable
         return selection;
     }
 
-    private void OnStoreChanged(TState state)
+    // Issue 417 (ADR 05 Amendments 2026-11-28): the store's first phase, before any listener of the write runs. A change
+    // not yet called back survives a nested write's refresh, whose pass then calls it back (UTL-ALG-03).
+    /// <summary>Re-evaluates every selection for a new record and remembers whether one changed.</summary>
+    /// <param name="state">The new record.</param>
+    internal void Refresh(TState state)
     {
         // Every selection is refreshed, so each holds the value for this record even when an earlier one changed.
-        bool changed = false;
         for (int i = 0; i < selections.Count; i++)
         {
             changed |= selections[i].Refresh(state);
         }
+    }
 
+    private void OnStoreChanged(TState state)
+    {
         if (changed)
         {
+            changed = false;
             onSelectionChanged();
         }
     }
