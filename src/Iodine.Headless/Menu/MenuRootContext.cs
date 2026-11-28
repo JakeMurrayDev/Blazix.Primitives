@@ -146,6 +146,13 @@ internal abstract class MenuRootContext
     /// <summary>Drops a stored trigger-change instant type once closed.</summary>
     public abstract void ClearTriggerChangeWhenClosed();
 
+    /// <summary>Notifies the menu's listeners again with its current state.</summary>
+    /// <remarks>
+    /// Called from a listener of the menu's own write, it notifies the listeners that write has not reached yet, before
+    /// the caller goes on.
+    /// </remarks>
+    public abstract void NotifyListeners();
+
     /// <summary>Gets the element of a registered trigger.</summary>
     /// <param name="triggerId">The trigger's id.</param>
     /// <returns>The trigger's element, or <see langword="null"/> when no rendered trigger has that id.</returns>
@@ -403,6 +410,9 @@ internal sealed class MenuRootContext<TPayload> : MenuRootContext
 
     /// <inheritdoc />
     public override void ClearTriggerChangeWhenClosed() => store.ClearTriggerChangeWhenClosed();
+
+    /// <inheritdoc />
+    public override void NotifyListeners() => store.NotifyAll();
 
     /// <inheritdoc />
     public override ElementReference? TriggerElement(string? triggerId) => store.Triggers.GetById(triggerId)?.Element;
