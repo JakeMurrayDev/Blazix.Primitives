@@ -7,7 +7,7 @@
 | Tests | `packages/react/test/popupConformanceTests.tsx`, `test/detachedTriggersConformanceTests.tsx`, `test/viewportConformanceTests.tsx`, `test/popupFocusPropsTests.tsx`; `utils/popups/{store,popupTriggerMap,popupHandle,inlineRect}.test.ts`, `utils/popups/{popupStoreUtils,useTriggerFocusGuards}.test.tsx`, `utils/popups/popupStoreUtils.spec.ts` (type-level only), `utils/{useSwipeDismiss,usePopupViewport}.test.tsx`, `utils/popupStateMapping.test.ts` |
 | Prefix | `PSH` |
 | Status | approved |
-| Revised | 2026-11-25 |
+| Revised | 2026-11-28 |
 | Used by | `dialog.md` (DLG), `alert-dialog.md` (ADL), `drawer.md` (DRW), `popover.md` (POP), `menu.md` (MNU), `context-menu.md` (CTX), `menubar.md` (MBR), `tooltip.md` (TIP), `preview-card.md` (PRV), `select.md` (SEL), `combobox.md` (CMB), `autocomplete.md` (AUT), `navigation-menu.md` (NAV), `toast.md` (TST). See §6 for which pieces each uses. |
 
 ## 1. Purpose
@@ -147,6 +147,11 @@ Exact names and when they are present are specified in §4 DOM. Summary:
 - **PSH-STR-07** — MUST. A Viewport part renders its children inside a `<div data-current>` child; while a content transition is in progress it additionally renders a `<div data-previous>` sibling placed *before* the current container, and no `[data-previous]` element exists otherwise.
   Source: `utils/usePopupViewport.tsx:229-268`. Test: [L2] `viewportConformanceTests.tsx` "renders children in the `current` container by default", "creates morphing containers during transitions".
   Port note 2026-11-19 (M6 track 2, [issue 176](https://github.com/JakeMurrayDev/Iodine.Headless/issues/176); ADR 04 Amendments 2026-11-19, chosen by the user; conventions §3.5): holds on Server under circuit latency on the focus-opened families, where the session's reference moves to the new trigger at the focus, before C#'s render of the switch, and the Viewport's handle can attach in between: it seeds its previous trigger from the trigger C# still renders `data-popup-open` on, and a remount before the reference moves keeps the replaced content for the morph the move starts. Test (added): [L4] `viewportConformanceTests.ts` "port: creates morphing containers during transitions, under circuit latency on Server" (PreviewCard and Tooltip, where each was red 8 of 8 on `main`; Server only, WebAssembly has no circuit to delay).
+  Port note 2026-11-28 ([issue 142](https://github.com/JakeMurrayDev/Iodine.Headless/issues/142); design point 10-142a (1), "Fold in PopupStore", chosen by the user 2026-11-28; decisions/01-hosting-model-and-timing.md Amendments 2026-11-28; conventions §3.5): the store writes the values in the commit, as the layout effect does.
+  - *Ownership.* Each registered trigger records its forwarded values in the store at its parameter set (`RecordTriggerData`) and forgets them when it unregisters. A write that makes a trigger the owner of the mounted popup (a request's commit, the reconciliation's claim, a controlled trigger id) carries that trigger's payload in the same record.
+  - *A change while owning.* A change of the owner's values is written at its parameter set, inside the batch that renders it.
+  - *Before.* The trigger wrote them from `OnAfterRender`, one batch late, so on Server the payload of a hand-off followed its active trigger by a round trip.
+  - *Tests.* [L1] `PopupOwnerPayloadTests` (the three paths); [L2] `PopupTriggerCommitForwardingTests`; [L4] `tooltip.spec.ts` "port: a hover hand-off re-anchors at once; on Server the active trigger and its payload follow a round trip later (issue 142)".
 - **PSH-STR-08** — MUST. A focus guard is a `<span>` element.
   Source: `utils/FocusGuard.tsx:33-41`; see FLT-DOM-13 (full rendered shape). Test: none.
 - **PSH-STR-09** — MUST. The internal backdrop is a `<div>` element rendered as a sibling immediately before the positioner/popup subtree of the part that renders it (Dialog.Portal, Popover/Menu/Select/Combobox.Positioner).
