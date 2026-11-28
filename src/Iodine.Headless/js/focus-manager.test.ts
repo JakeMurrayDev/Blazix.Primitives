@@ -1771,10 +1771,10 @@ describe('FloatingFocusManager', () => {
       expect(btn2.hasAttribute('aria-hidden')).toBe(false);
     });
 
-    // Issue 139 (design point 10-139a (a), "Attach order", chosen by the user 2026-11-28): Base UI marks at the open's
+    // Issue 139 (design point 10-139b (a'), "Portal order", chosen by the user 2026-11-28): Base UI marks at the open's
     // commit, before a later modal exists. The port marks at the handle's attach, so two modals opened before the module's
-    // first load attach one after the other with both already rendered; the newer, the one that attached later, stays
-    // exposed to the older's marking, and the older is marked by the newer's.
+    // first load are both rendered and open when they attach; the one whose portal comes later stays exposed to the
+    // older's marking, and the older is marked by the newer's.
     it('port: a modal that attaches after another stays outside the older modal\'s marking (issue 139)', async () => {
       const referenceA = element('button', 'reference-a', { id: 'reference-a' });
       const referenceB = element('button', 'reference-b', { id: 'reference-b' });

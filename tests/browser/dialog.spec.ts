@@ -1247,9 +1247,10 @@ test.describe('attach order', () => {
     await expect(trigger).toBeFocused();
   });
 
-  // Issue 139 (design point 10-139a (a), "Attach order", chosen by the user 2026-11-28): Base UI marks a modal's outside at
-  // its open's commit, before a later modal exists. Two modals opened before the module's first load attach in that order
-  // once it arrives, with both rendered; the later one stays outside the earlier one's marking and marks it.
+  // Issue 139 (design point 10-139b (a'), "Portal order", chosen by the user 2026-11-28): Base UI marks a modal's outside
+  // at its open's commit, before a later modal exists. Two modals opened before the module's first load are both rendered
+  // and open when their handles attach, in any order on Server; the one whose portal comes later stays outside the
+  // earlier one's marking and marks it.
   test('port: with js/focus-manager.js stalled a modal opened from an earlier one before the module arrives stays outside the earlier one\'s marking (issue 139)', async ({ page, mode }) => {
     const focusManager = await stall(page, 'focus-manager');
     await gotoPopupFixture(page, mode, 'dialog-root', { defaultOpen: true, case: 'siblings' });
