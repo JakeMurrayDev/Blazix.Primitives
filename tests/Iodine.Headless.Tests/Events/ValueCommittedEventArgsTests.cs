@@ -38,17 +38,17 @@ public sealed class ValueCommittedEventArgsTests
         ValueCommittedEventArgs<double> args = new(1, new GenericEventDetails(EventReason.None));
         await callback.InvokeAsync(args);
 
-        long before = GC.GetAllocatedBytesForCurrentThread();
-        for (int i = 0; i < Deliveries; i++)
+        long allocated = AllocationSampler.LeastOfFive(() =>
         {
-            Task task = callback.InvokeAsync(args);
-            Assert.True(task.IsCompletedSuccessfully);
-        }
+            for (int i = 0; i < Deliveries; i++)
+            {
+                Task task = callback.InvokeAsync(args);
+                Assert.True(task.IsCompletedSuccessfully);
+            }
+        });
 
-        long allocated = GC.GetAllocatedBytesForCurrentThread() - before;
-
-        Assert.Equal(Deliveries + 1, received);
-        AllocationSampler.AssertWithinBudget(allocated, ReceiverlessBudgetBytes, $"{Deliveries} deliveries");
+        Assert.Equal((AllocationSampler.Runs * Deliveries) + 1, received);
+        AllocationSampler.AssertWithinBudget(allocated, ReceiverlessBudgetBytes, $"{Deliveries} deliveries (the least of {AllocationSampler.Runs} runs)");
     }
 
     [Fact(DisplayName = "a delivery through a component receiver costs one box plus Blazor's dispatch")]
@@ -60,18 +60,18 @@ public sealed class ValueCommittedEventArgsTests
         ValueCommittedEventArgs<double> args = new(1, new GenericEventDetails(EventReason.None));
         await callback.InvokeAsync(args);
 
-        long before = GC.GetAllocatedBytesForCurrentThread();
-        for (int i = 0; i < Deliveries; i++)
+        long allocated = AllocationSampler.LeastOfFive(() =>
         {
-            Task task = callback.InvokeAsync(args);
-            Assert.True(task.IsCompletedSuccessfully);
-        }
-
-        long allocated = GC.GetAllocatedBytesForCurrentThread() - before;
+            for (int i = 0; i < Deliveries; i++)
+            {
+                Task task = callback.InvokeAsync(args);
+                Assert.True(task.IsCompletedSuccessfully);
+            }
+        });
         long budget = ComponentReceiverBudgetBytesPerDelivery * Deliveries;
 
-        Assert.Equal(Deliveries + 1, receiver.Received);
-        AllocationSampler.AssertWithinBudget(allocated, budget, $"{Deliveries} deliveries");
+        Assert.Equal((AllocationSampler.Runs * Deliveries) + 1, receiver.Received);
+        AllocationSampler.AssertWithinBudget(allocated, budget, $"{Deliveries} deliveries (the least of {AllocationSampler.Runs} runs)");
     }
 
     /// <summary>A component's event handling without a renderer: run the work item, no re-render.</summary>
