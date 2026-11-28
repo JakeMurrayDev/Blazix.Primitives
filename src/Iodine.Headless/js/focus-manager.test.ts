@@ -1771,6 +1771,38 @@ describe('FloatingFocusManager', () => {
       expect(btn2.hasAttribute('aria-hidden')).toBe(false);
     });
 
+    // Issue 139 (design point 10-139a (a), "Attach order", chosen by the user 2026-11-28): Base UI marks at the open's
+    // commit, before a later modal exists. The port marks at the handle's attach, so two modals opened before the module's
+    // first load attach one after the other with both already rendered; the newer, the one that attached later, stays
+    // exposed to the older's marking, and the older is marked by the newer's.
+    it('port: a modal that attaches after another stays outside the older modal\'s marking (issue 139)', async () => {
+      const referenceA = element('button', 'reference-a', { id: 'reference-a' });
+      const referenceB = element('button', 'reference-b', { id: 'reference-b' });
+      const outside = element('button', 'outside');
+      const floatingA = element('div', 'floating-a', { tabindex: '-1', 'data-open': '' });
+      const floatingB = element('div', 'floating-b', { tabindex: '-1', 'data-open': '' });
+      document.body.append(referenceA, referenceB, outside, floatingA, floatingB);
+
+      const older = attachManager(floatingA, { domReferenceId: 'reference-a' });
+      const newer = attachManager(floatingB, { domReferenceId: 'reference-b' });
+      await settle();
+
+      expect(floatingB.hasAttribute('aria-hidden')).toBe(false);
+      expect(floatingB.hasAttribute('data-base-ui-inert')).toBe(false);
+      expect(floatingA.getAttribute('aria-hidden')).toBe('true');
+      expect(outside.getAttribute('aria-hidden')).toBe('true');
+
+      await unmount(newer);
+
+      expect(floatingB.hasAttribute('aria-hidden')).toBe(false);
+      expect(floatingA.hasAttribute('aria-hidden')).toBe(false);
+      expect(outside.getAttribute('aria-hidden')).toBe('true');
+
+      await unmount(older);
+
+      expect(outside.hasAttribute('aria-hidden')).toBe(false);
+    });
+
     // `getInsideElements` crosses as references (or ids) the options name.
     it('true - keeps supplied inside elements outside the floating node exposed to assistive tech', async () => {
       const reference = element('input', 'reference', { id: 'reference' });
