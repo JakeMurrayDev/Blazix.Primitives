@@ -81,6 +81,35 @@ public sealed class CreatedHandlerEmissionTests : IDisposable
         Assert.False(bare.HasAttribute("blazor:onkeyup"));
     }
 
+    // ComboboxTrigger.tsx:182-199: the trigger's own mousedown forces the list to mount and, with the input outside the popup or
+    // none, makes the trigger the floating root's reference. Its result is state, so the trigger adds it while enabled whatever
+    // the consumer supplies; its key handlers it adds only to run a declined consumer handler.
+    [Fact(DisplayName = "a combobox trigger without consumer handlers carries its mousedown handler, whose press mounts the list, and no key handler")]
+    [Trait("Requirement", "CMB-STA-32")]
+    [Trait("Requirement", "CMB-PTR-02")]
+    [Trait("Requirement", "ADR16-6")]
+    public async Task A_combobox_trigger_without_consumer_handlers_carries_its_mousedown_handler_and_no_key_handler()
+    {
+        using ComboboxTestContext combobox = new();
+        IRenderedComponent<ComboboxHarness> cut = combobox.Context.Render<ComboboxHarness>(p => p
+            .Add(x => x.WithInput, false)
+            .Add(x => x.Extra, (RenderFragment)(builder =>
+            {
+                builder.OpenComponent<ComboboxTrigger>(0);
+                builder.AddComponentParameter(1, "data-testid", "trigger");
+                builder.CloseComponent();
+            })));
+        IElement trigger = cut.Find("[data-testid=trigger]");
+
+        Assert.True(trigger.HasAttribute("blazor:onmousedown"));
+        await cut.InvokeAsync(() => cut.Find("[data-testid=trigger]").MouseDownAsync(new MouseEventArgs { Button = 0, Type = "mousedown" }));
+        Assert.True(cut.Instance.Root!.Store.State.ForceMounted);
+
+        trigger = cut.Find("[data-testid=trigger]");
+        Assert.False(trigger.HasAttribute("blazor:onkeydown"));
+        Assert.False(trigger.HasAttribute("blazor:onkeyup"));
+    }
+
     /// <summary>A part that creates an <c>onkeydown</c> handler and adds it only while <see cref="AddsHandler"/> is set.</summary>
     public sealed class ConditionalHandlerPart : PartBase<EmptyState>
     {
