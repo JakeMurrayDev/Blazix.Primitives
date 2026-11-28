@@ -318,8 +318,13 @@ internal static class RenderPipeline
                     // IOD2005: Blazor's EventCallback has no typed equality, only Equals(object), so this comparison boxes the
                     // slot's callback once per part handler per render; issue 57 removes it.
 #pragma warning disable IOD2005
-                    if (!(entry.Value.TryGetValue(out EventCallback callback) && callback.Equals(slot.Typed)))
+                    if (entry.Value.TryGetValue(out EventCallback callback) && callback.Equals(slot.Typed))
 #pragma warning restore IOD2005
+                    {
+                        // Issue 87: the created handler is on the element only in a render that adds it.
+                        slot.TypedAdded = true;
+                    }
+                    else
                     {
                         slot.Part = entry.Value;
                     }
@@ -475,9 +480,11 @@ internal static class RenderPipeline
             for (int i = 0; i < slots.Count; i++)
             {
                 HandlerSlot slot = slots[i];
-                if (slot.Typed.HasDelegate)
+                if (slot.TypedAdded)
                 {
-                    // The part's own handler: its callback is the real one and runs the chain itself.
+                    // The part's own handler, added this render (issue 87): its callback is the real one and runs the chain
+                    // itself. A created handler the part did not add is left off, so the event reaches C# only when the
+                    // part asks for it (ADR 16 rule 6).
                     merged.Set(slot.Name, slot.Typed);
                     continue;
                 }

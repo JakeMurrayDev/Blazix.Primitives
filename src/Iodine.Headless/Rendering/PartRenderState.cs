@@ -164,10 +164,14 @@ internal sealed class HandlerSlot(string name)
     /// <summary>Holds the generic chain callback, made on first need.</summary>
     public EventCallback Outer;
 
+    /// <summary>Holds a value indicating whether the part added <see cref="Typed"/> this render.</summary>
+    public bool TypedAdded;
+
     public string Name { get; } = name;
 
     public void Reset()
     {
+        TypedAdded = false;
         Substitute = default;
         Consumer = default;
         Part = default;
