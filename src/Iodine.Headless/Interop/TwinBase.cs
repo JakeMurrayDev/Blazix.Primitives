@@ -267,6 +267,8 @@ internal abstract class TwinBase<[DynamicallyAccessedMembers(DynamicallyAccessed
 
     private async Task ForwardCoreAsync(TwinHandle<TOptions> handle, Task? previous, TOptions options, TwinReferences? references)
     {
+        // The part's updates sent before this call; one sent after it carries newer options than this forward.
+        int partUpdates = handle.PartUpdates;
         string json = JsonSerializer.Serialize(options, optionsTypeInfo);
         object[]? argument = references?.ToArgument();
         await handle.Attached.ConfigureAwait(false);
@@ -276,13 +278,18 @@ internal abstract class TwinBase<[DynamicallyAccessedMembers(DynamicallyAccessed
             await previous.ConfigureAwait(ConfigureAwaitOptions.SuppressThrowing);
         }
 
+        if (handle.PartUpdates != partUpdates)
+        {
+            return;
+        }
+
         handle.SentJson ??= handle.SentOptions is { } sent ? JsonSerializer.Serialize(sent, optionsTypeInfo) : null;
         if (json != handle.SentJson || !SameReferences(argument, handle.SentReferences))
         {
             handle.SentOptions = options;
             handle.SentJson = json;
             handle.SentReferences = argument;
-            await handle.UpdateAsync(options, references).ConfigureAwait(false);
+            await handle.SendAsync(options, references).ConfigureAwait(false);
         }
     }
 

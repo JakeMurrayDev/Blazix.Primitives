@@ -56,6 +56,11 @@ internal sealed class TwinHandle<TOptions> : IAsyncDisposable
     /// <summary>Gets or sets the last forward of a repeated attach, which the next one waits for so the forwards keep call order.</summary>
     internal Task? LastForward { get; set; }
 
+    // PR 427's CI (run 46175183428, menu.filter-submenu.spec.ts:507): a forward is older than any update the part sent after
+    // the repeated attach that carries it, so it is dropped then.
+    /// <summary>Gets the number of updates the part sent through <see cref="UpdateAsync"/>.</summary>
+    internal int PartUpdates { get; private set; }
+
     /// <inheritdoc />
     /// <remarks>Calls the module's <c>dispose</c> and releases the JavaScript reference. Idempotent: a second call does nothing.</remarks>
     public async ValueTask DisposeAsync()
@@ -133,7 +138,21 @@ internal sealed class TwinHandle<TOptions> : IAsyncDisposable
     /// <see langword="null"/>, or an empty instance, to send none.
     /// </param>
     /// <returns>A task that completes when the module has applied the options.</returns>
-    public async ValueTask UpdateAsync(TOptions options, TwinReferences? references = null)
+    public ValueTask UpdateAsync(TOptions options, TwinReferences? references = null)
+    {
+        if (!disposed)
+        {
+            PartUpdates++;
+        }
+
+        return SendAsync(options, references);
+    }
+
+    /// <summary>Sends options to the module's <c>update</c> as <see cref="UpdateAsync"/> does, without counting it as the part's.</summary>
+    /// <param name="options">The options record to serialize and send.</param>
+    /// <param name="references">The elements and script-held objects the options name by index.</param>
+    /// <returns>A task that completes when the module has applied the options.</returns>
+    internal async ValueTask SendAsync(TOptions options, TwinReferences? references)
     {
         if (disposed)
         {
