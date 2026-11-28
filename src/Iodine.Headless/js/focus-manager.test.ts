@@ -1830,6 +1830,28 @@ describe('FloatingFocusManager', () => {
       expect(floatingA.hasAttribute('aria-hidden')).toBe(false);
     });
 
+    // PR 420's verifier: with the module loaded, a kept-mounted modal whose element comes earlier in the document and
+    // opens from inside an open modal is the newer one; it marks the open modal, as on main and in Base UI.
+    it('port: a kept-mounted modal earlier in the document that opens after another marks it (issue 139)', async () => {
+      const referenceA = element('button', 'reference-a', { id: 'reference-a' });
+      const referenceB = element('button', 'reference-b', { id: 'reference-b' });
+      const floatingB = element('div', 'floating-b', { tabindex: '-1' });
+      const floatingA = element('div', 'floating-a', { tabindex: '-1', 'data-open': '' });
+      document.body.append(referenceA, referenceB, floatingB, floatingA);
+
+      const older = attachManager(floatingA, { domReferenceId: 'reference-a' });
+      await settle();
+      floatingB.setAttribute('data-open', '');
+      const newer = attachManager(floatingB, { domReferenceId: 'reference-b' });
+      await settle();
+
+      expect(floatingA.getAttribute('aria-hidden')).toBe('true');
+      expect(floatingA.hasAttribute('data-base-ui-inert')).toBe(true);
+
+      await unmount(newer);
+      await unmount(older);
+    });
+
     // `getInsideElements` crosses as references (or ids) the options name.
     it('true - keeps supplied inside elements outside the floating node exposed to assistive tech', async () => {
       const reference = element('input', 'reference', { id: 'reference' });
