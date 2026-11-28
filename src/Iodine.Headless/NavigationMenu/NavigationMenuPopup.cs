@@ -94,6 +94,7 @@ public sealed class NavigationMenuPopup : PartBase<NavigationMenuPopupState>
     private IDisposable? retainRegistration;
     private NavigationMenuPopupState? state;
     private string? frozenStyle;
+    private string? renderedStyle;
     private string? consumerStyle;
     private bool disposed;
 
@@ -238,26 +239,40 @@ public sealed class NavigationMenuPopup : PartBase<NavigationMenuPopupState>
     protected override void FinishAttributes(AttributeList attributes)
     {
         consumerStyle = attributes.TryGetValue(MergeProps.StyleAttribute, out AttributeValue merged) && merged.TryGetValue(out string text) && text.Length > 0 ? text : null;
+        // The handover at attach (ADR 04 Amendments 2026-10-18): from the first render after the attach the part renders the
+        // style it rendered before it, never a newly computed one, so Blazor never writes the attribute the modules own. Issue
+        // 417: freezing the first post-attach render's own value removed the attribute when the status had left `starting`
+        // by then, which wiped the modules' styles.
         if (frozenStyle is null)
         {
-            string? own = status!.Value == TransitionStatus.Starting ? StartingStyle : null;
-            string? style = own is null ? consumerStyle : consumerStyle is null ? own : own + "; " + consumerStyle;
-            if (style is null)
+            if (!transitions!.HandedOver)
             {
-                attributes.Remove(MergeProps.StyleAttribute);
+                string? own = status!.Value == TransitionStatus.Starting ? StartingStyle : null;
+                string? style = own is null ? consumerStyle : consumerStyle is null ? own : own + "; " + consumerStyle;
+                renderedStyle = style;
+                if (style is null)
+                {
+                    attributes.Remove(MergeProps.StyleAttribute);
+                }
+                else
+                {
+                    attributes.Set(MergeProps.StyleAttribute, style);
+                }
+
                 return;
             }
 
-            attributes.Set(MergeProps.StyleAttribute, style);
-            if (transitions!.HandedOver)
-            {
-                frozenStyle = style;
-            }
-
-            return;
+            frozenStyle = renderedStyle ?? string.Empty;
         }
 
-        attributes.Set(MergeProps.StyleAttribute, frozenStyle);
+        if (frozenStyle.Length == 0)
+        {
+            attributes.Remove(MergeProps.StyleAttribute);
+        }
+        else
+        {
+            attributes.Set(MergeProps.StyleAttribute, frozenStyle);
+        }
     }
 
     private TransitionsOptions TransitionsOptions() => new()
