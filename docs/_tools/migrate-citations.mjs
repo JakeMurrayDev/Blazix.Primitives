@@ -13,9 +13,17 @@
 // fetched (`git fetch --depth 1 origin tag <tag>`); ADR 15's verification item, issue 24, and the dated note in ADR 15.
 //
 // A citation is one backticked span on a `Source:` line (before its `Test:` part) whose text is a source path, with or
-// without line numbers. Paths resolve per conventions section 3.1: `packages/utils/` and `docs/` from the clone's root,
-// `test/` under `packages/react/`, anything else under `packages/react/src/`. A path the old tree lacks is reported as
-// unresolved and never changed; `vendor/` paths are outside the clone and are reported as skipped.
+// without line numbers, ending in one of Base UI's file kinds (`sourceExtensions`); a code identifier such as
+// `Object.is` or `Select.Trigger` is no citation. Paths resolve per conventions section 3.1: `packages/` and `docs/`
+// from the clone's root, `test/` under `packages/react/`, a docs page (`components/menu/page.mdx`) under the official
+// docs root `docs/src/app/(docs)/react/`, `CHANGELOG.md` from the clone's root, `reference/base-ui/<path>` from the
+// clone's root, anything else under `packages/react/src/`. Any other `.md` name is a cross-reference to a port document,
+// not a citation. A path the old tree lacks is reported as unresolved and never changed; `vendor/` and
+// `reference/vendor/` paths are outside the clone and are reported as skipped (issue 391 added the docs-page,
+// CHANGELOG, `reference/` and identifier rules).
+//
+// Run with `--from` and `--to` both at the pin to check that every citation resolves: the diff is empty, so any
+// unresolved citation is a wrong path, and the exit code is 1.
 import { execFileSync } from 'node:child_process';
 import { readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
@@ -23,16 +31,39 @@ import { pathToFileURL } from 'node:url';
 
 const citationPattern = /^([\w@()[\].-]+(?:\/[\w@()[\].-]+)*\.[A-Za-z]+)(?::(\d+(?:-\d+)?(?:,\s?\d+(?:-\d+)?)*))?$/;
 
+// The file kinds a citation may name; anything else after the last dot is a member access in code.
+const sourceExtensions = new Set(['ts', 'tsx', 'mts', 'js', 'jsx', 'mjs', 'cjs', 'json', 'css', 'md', 'mdx']);
+
+// The official docs pages (docs/conventions.md section 1).
+const docsRoot = 'docs/src/app/(docs)/react/';
+
 /**
  * Resolves a cited path to its path in the Base UI clone (conventions section 3.1), or null for a path outside it.
  * @param {string} cited
  * @returns {string | null}
  */
 export function resolveCitedPath(cited) {
-  if (cited.startsWith('vendor/')) return null;
+  if (cited.startsWith('vendor/') || cited.startsWith('reference/vendor/')) return null;
+  if (cited.startsWith('reference/base-ui/')) return cited.slice('reference/base-ui/'.length);
   if (cited.startsWith('packages/') || cited.startsWith('docs/')) return cited;
   if (cited.startsWith('test/')) return `packages/react/${cited}`;
+  if (cited.endsWith('.mdx')) return `${docsRoot}${cited}`;
+  if (/^CHANGELOG(\.old)?\.md$/.test(cited)) return cited;
   return `packages/react/src/${cited}`;
+}
+
+/**
+ * Whether a backticked span that matches the path pattern names a file: it ends in a file kind of Base UI's, and a
+ * `.md` name is Base UI's (under `packages/` or `docs/`, a CHANGELOG, or behind `reference/base-ui/`) rather than a
+ * port document.
+ * @param {string} cited
+ * @returns {boolean}
+ */
+export function isSourcePath(cited) {
+  const extension = cited.slice(cited.lastIndexOf('.') + 1);
+  if (!sourceExtensions.has(extension)) return false;
+  if (extension !== 'md') return true;
+  return /^(packages\/|docs\/|reference\/base-ui\/|CHANGELOG(\.old)?\.md$)/.test(cited);
 }
 
 /**
@@ -44,6 +75,21 @@ export function citePath(resolved) {
   if (resolved.startsWith('packages/react/src/')) return resolved.slice('packages/react/src/'.length);
   if (resolved.startsWith('packages/react/test/')) return resolved.slice('packages/react/'.length);
   return resolved;
+}
+
+/**
+ * Cites a path of the new tree in the same form as the old citation: behind `reference/base-ui/` when it was, or as a
+ * docs page relative to the docs root when it was one and still is.
+ * @param {string} cited the old citation's path
+ * @param {string} resolved the new tree's path
+ * @returns {string}
+ */
+function citeLike(cited, resolved) {
+  if (cited.startsWith('reference/base-ui/')) return `reference/base-ui/${resolved}`;
+  if (!cited.startsWith('docs/') && cited.endsWith('.mdx') && resolved.startsWith(docsRoot) && resolved.endsWith('.mdx')) {
+    return resolved.slice(docsRoot.length);
+  }
+  return citePath(resolved);
 }
 
 /**
@@ -140,13 +186,14 @@ export function migrateCitation(text, diff, existsInOld) {
   const match = citationPattern.exec(text);
   if (!match) return { kind: 'not-a-citation', text };
   const [, cited, lines] = match;
+  if (!isSourcePath(cited)) return { kind: 'not-a-citation', text };
   const resolved = resolveCitedPath(cited);
   if (resolved === null) return { kind: 'skipped', text, reason: 'outside the Base UI clone' };
   if (!existsInOld(resolved)) return { kind: 'unresolved', text, reason: `${resolved} is not in the old tree` };
   const fate = diff.get(resolved);
   if (fate === undefined) return { kind: 'unchanged', text };
   if (fate.newPath === null) return { kind: 'deleted', text, reason: `${resolved} was deleted` };
-  const newCited = fate.newPath === resolved ? cited : citePath(fate.newPath);
+  const newCited = fate.newPath === resolved ? cited : citeLike(cited, fate.newPath);
   if (fate.binary) return { kind: 'flagged', text, reason: `${resolved} is binary and changed`, proposed: newCited };
   if (lines === undefined) {
     return newCited === cited ? { kind: 'unchanged', text } : { kind: 'moved', text: newCited };
@@ -277,7 +324,7 @@ if (import.meta.url === pathToFileURL(process.argv[1] ?? '').href) {
   try {
     const { report, counts } = run(parseArguments(process.argv.slice(2)));
     process.stdout.write(`${report}\n`);
-    process.exitCode = counts.flagged + counts.deleted > 0 ? 1 : 0;
+    process.exitCode = counts.flagged + counts.deleted + counts.unresolved > 0 ? 1 : 0;
   } catch (error) {
     process.stderr.write(`${error.message}\n`);
     process.exitCode = 2;
