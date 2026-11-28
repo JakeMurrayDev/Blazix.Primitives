@@ -129,6 +129,36 @@ public sealed class PopoverModuleWiringTests : IDisposable
         Assert.All(renders, Assert.Null);
     }
 
+    // Issue 417: with one payload on both triggers the move writes no payload, so nothing but the store's two-phase
+    // notification keeps the Positioner's synchronous re-render from showing the Popup's pre-commit `click`.
+    [Fact(DisplayName = "port: a keyboard press that moves the popover between triggers with one payload clears the instant type in the render that applies it (issue 417)")]
+    [Trait("Requirement", "POP-ANI-07")]
+    [Trait("Requirement", "POP-DOM-28")]
+    [Trait("Requirement", "UTL-STA-26")]
+    public async Task A_move_between_triggers_with_one_payload_clears_the_instant_type_at_commit()
+    {
+        List<PopoverInstantType?> renders = [];
+        IRenderedComponent<PopupTestHost> cut = Render(new PopoverSpec
+        {
+            Triggers = 2,
+            TriggerPayload = 7,
+            PopupClass = state =>
+            {
+                renders.Add(state.Instant);
+                return null;
+            },
+        });
+
+        await test.PressAsync(cut, "trigger-1", open: true, detail: 0);
+        Assert.Equal(PopoverInstantType.Click, renders[^1]);
+        renders.Clear();
+
+        await test.PressAsync(cut, "trigger-2", open: true, detail: 0);
+
+        Assert.NotEmpty(renders);
+        Assert.All(renders, Assert.Null);
+    }
+
     [Fact(DisplayName = "port: a controlled trigger id that moves the open popover clears the instant type in the render that applies it")]
     [Trait("Requirement", "POP-ANI-07")]
     [Trait("Requirement", "POP-DOM-28")]
