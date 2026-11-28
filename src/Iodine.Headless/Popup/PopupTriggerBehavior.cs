@@ -85,7 +85,7 @@ internal sealed class PopupTriggerBehavior<TStore, TState, TPayload> : IDisposab
     /// <summary>Gets the selector subscription of the current store, which the family adds selections to.</summary>
     public SelectorSubscription<TState>? Subscription => subscription;
 
-    /// <summary>Re-registers the trigger once its element is known, forwards a changed payload and runs the batch boundary.</summary>
+    /// <summary>Re-registers the trigger once its element is known and runs the batch boundary.</summary>
     /// <param name="element">The trigger's element after this render, or <see langword="null"/>.</param>
     /// <returns>A task that completes when the boundary's work has run.</returns>
     /// <remarks>Call it from the part's <c>OnAfterRenderAsync</c>.</remarks>
@@ -96,20 +96,6 @@ internal sealed class PopupTriggerBehavior<TStore, TState, TPayload> : IDisposab
         {
             this.element = element;
             Register();
-        }
-
-        // PSH-STA-28/30: when the trigger comes to own the mounted popup, and while it owns it whenever a forwarded value
-        // changed, the values are written post-commit; a trigger that lost the popup writes them again when it takes it
-        // back (useTriggerDataForwarding re-runs on isMountedByThisTrigger; design point 13.8 of M4 track 6, settled by the
-        // orchestrator 2026-10-28).
-        if (!IsMountedByTrigger)
-        {
-            forwarded = false;
-        }
-        else if (registeredId is not null && (!forwarded || forwardedSupplied != payloadSupplied || !Equality.Is(forwardedPayload, payload)))
-        {
-            Forwarded();
-            current.ForwardTriggerData(registeredElement, payloadSupplied, payload);
         }
 
         return current.AtBatchBoundaryAsync();
@@ -155,6 +141,7 @@ internal sealed class PopupTriggerBehavior<TStore, TState, TPayload> : IDisposab
         payload = triggerPayload;
         UseStore(Resolve(cascadedStore));
         Register();
+        Forward();
     }
 
     // PSH-ARIA-01..04.
@@ -230,6 +217,7 @@ internal sealed class PopupTriggerBehavior<TStore, TState, TPayload> : IDisposab
         PopupTriggerElement next = new(owner, element);
         if (registeredId is not null && ReferenceEquals(registeredStore, current) && string.Equals(registeredId, id, StringComparison.Ordinal) && registeredElement == next)
         {
+            current.RecordTriggerData(owner, payloadSupplied, payload);
             return;
         }
 
@@ -242,6 +230,7 @@ internal sealed class PopupTriggerBehavior<TStore, TState, TPayload> : IDisposab
         registeredStore = current;
         registeredId = id;
         registeredElement = next;
+        current.RecordTriggerData(owner, payloadSupplied, payload);
         current.RegisterTrigger(id, next);
         current.ApplyTriggerData(id, next, payloadSupplied, payload);
         if (current.Popup.IsTriggerActive(id) && current.Popup.EffectiveOpen)
@@ -261,7 +250,30 @@ internal sealed class PopupTriggerBehavior<TStore, TState, TPayload> : IDisposab
         string previousId = registeredId;
         registeredStore = null;
         registeredId = null;
+        previous.ForgetTriggerData(owner);
         previous.UnregisterTrigger(previousId, registeredElement, disposing);
+    }
+
+    // PSH-STA-28/30: when the trigger comes to own the mounted popup, and while it owns it whenever a forwarded value
+    // changed, the values are written; a trigger that lost the popup writes them again when it takes it back
+    // (useTriggerDataForwarding re-runs on isMountedByThisTrigger; design point 13.8 of M4 track 6, settled by the
+    // orchestrator 2026-10-28). Base UI writes in a layout effect, in the commit. The port writes in the commit path
+    // (issue 142, design point 10-142a (1), chosen by the user 2026-11-28): the store writes the recorded values in the
+    // write that makes the trigger the owner (PopupStore.RecordTriggerData), and a change of the owner's values is
+    // written here at its parameter set, inside the batch that renders it. Never from OnAfterRender (a batch late; on
+    // Server two round trips in a hand-off) nor from inside a store notification (a nested pass lets a synchronous render
+    // read the parts' pre-commit selections).
+    private void Forward()
+    {
+        if (!IsMountedByTrigger)
+        {
+            forwarded = false;
+        }
+        else if (registeredId is not null && (!forwarded || forwardedSupplied != payloadSupplied || !Equality.Is(forwardedPayload, payload)))
+        {
+            Forwarded();
+            Store.ForwardTriggerData(registeredElement, payloadSupplied, payload);
+        }
     }
 
     private void Forwarded()

@@ -295,6 +295,8 @@ function attachViewport(viewport: HTMLElement, initial: PopupOptions, channel: T
   let placementPending = false;
   // A side change that landed while a morph ran, measured at the morph's cleanup.
   let measureAfterMorph = false;
+  // Issue 142: whether the running morph has been measured since it started (its previous container sized).
+  let morphMeasured = false;
   let disposed = false;
   const currentWatcher = createAnimationsWatcher(() => currentContainer, true);
   const popupWatcher: AnimationsWatcher = createAnimationsWatcher(popup, true);
@@ -391,6 +393,7 @@ function attachViewport(viewport: HTMLElement, initial: PopupOptions, channel: T
     }
     viewport.insertBefore(previousContainer, currentContainer);
     previousContainer.replaceChildren(...Array.from(snapshot.childNodes));
+    morphMeasured = false;
     direction = getActivationDirection(calculateRelativePosition(from, to)) ?? null;
     if (direction === null) {
       viewport.removeAttribute(DIRECTION);
@@ -429,6 +432,7 @@ function attachViewport(viewport: HTMLElement, initial: PopupOptions, channel: T
   // One measurement; its own writes on the positioner are not the positioning handle's, so the side observer drops them.
   const measure = () => {
     measureNow();
+    morphMeasured = previousContainer !== null;
     sideObserver.takeRecords();
   };
 
@@ -506,11 +510,6 @@ function attachViewport(viewport: HTMLElement, initial: PopupOptions, channel: T
       lastHandledTrigger = trigger;
       startTransition(removed ?? keptContent, previousTrigger, trigger);
       keptContent = null;
-    } else if (remounted && previousContainer !== null) {
-      // A lagging payload remounted the current container mid-transition: keep the previous one first, re-run the
-      // choreography on the new container.
-      viewport.insertBefore(previousContainer, currentContainer);
-      runChoreography();
     } else if (
       open &&
       removed !== null &&
@@ -521,7 +520,17 @@ function attachViewport(viewport: HTMLElement, initial: PopupOptions, channel: T
       // Issue 176 (PSH-STA-30, PSH-ANI-09/10; ADR 04 Amendments 2026-11-19, chosen by the user): on Server the batch that
       // moved the active trigger off the previous one (its `data-popup-open` gone) and remounted the content can land
       // before the session's reference follows; the replaced content is kept for the morph the reference's move starts.
+      // Issue 142: checked before the lagging payload, since a hand-off during a running morph is such a batch too (its
+      // payload now lands with it); a running morph's previous container stays first until the reference moves.
       keptContent = removed;
+      if (remounted && previousContainer !== null && currentContainer !== null) {
+        viewport.insertBefore(previousContainer, currentContainer);
+      }
+    } else if (remounted && previousContainer !== null) {
+      // A lagging payload remounted the current container mid-transition: keep the previous one first, re-run the
+      // choreography on the new container.
+      viewport.insertBefore(previousContainer, currentContainer);
+      runChoreography();
     }
     if (!open) {
       keptContent = null;
@@ -611,6 +620,15 @@ function attachViewport(viewport: HTMLElement, initial: PopupOptions, channel: T
       if (version !== contentVersion || previousOptions.open !== options.open) {
         contentVersion = version;
         process(null, false);
+        if (previousContainer !== null && morphMeasured && previousOptions.open === options.open) {
+          // Issue 142: a content version that lands while a morph runs that was already measured (a lagging payload's
+          // remount measured in its own task; on Server C#'s update can follow the frame that started the remounted
+          // container's transition) is measured at the morph's cleanup, as gap 19's side change: the measurement's
+          // overrides on the containers would cancel the running transitions. A morph not yet measured (one the
+          // reference's move started after the remount) is measured now, which sizes its previous container.
+          measureAfterMorph = true;
+          return;
+        }
         measure();
         return;
       }

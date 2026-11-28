@@ -385,6 +385,64 @@ describe.each([false, true])('the viewport (synchronous: %s)', (synchronous) => 
     expect(placementReads.count).toBe(2);
   });
 
+  // Issue 142 (PR 419): on Server C#'s update carrying a lagging payload's content version can land after the frame that
+  // started the remounted container's transition. Its measurement's overrides (`transition: none` on [data-current],
+  // `display: none` on [data-previous]) would cancel the running morph, so, as gap 19's side change, it waits for the
+  // morph's cleanup; the remount's own task measured the new content already.
+  it('port: a content version update during a morph measures at the morph\'s cleanup, not over the running transitions (issue 142)', async () => {
+    const rendered = renderViewport();
+    activate(rendered, 0);
+    const handle = attachTo(rendered.viewport, openViewport, createFakeTwin({ synchronous }));
+    activate(rendered, 1);
+    remount(rendered, 'Two');
+    await settle();
+    const late = remount(rendered, 'Two, ready');
+    await settle();
+    const previous = rendered.viewport.querySelector<HTMLElement>('[data-previous]')!;
+    let containerStyleWrites = 0;
+    const observer = new MutationObserver((records) => {
+      containerStyleWrites += records.length;
+    });
+    observer.observe(late, { attributes: true, attributeFilter: ['style'] });
+    observer.observe(previous, { attributes: true, attributeFilter: ['style'] });
+    placementReads.count = 0;
+
+    handle.update(JSON.stringify({ ...openViewport, viewport: { ...openViewport.viewport, contentVersion: 1 } }));
+    await settle();
+
+    expect(containerStyleWrites).toBe(0);
+    expect(placementReads.count).toBe(0);
+
+    flushFrames();
+    flushFrames();
+    await settle();
+    observer.disconnect();
+
+    expect(rendered.viewport.querySelector('[data-previous]')).toBe(null);
+    expect(placementReads.count).toBe(1);
+  });
+
+  // Issue 142's deferral is for a morph already measured: one the reference's move started after the remount (issue 176)
+  // was never measured, so the content version's update measures it and sizes its previous container.
+  it('port: a content version update for a morph the reference\'s move started measures it at once (issue 142)', { tags: ['coverage'] }, async () => {
+    const rendered = renderViewport();
+    activate(rendered, 0);
+    const handle = attachTo(rendered.viewport, openViewport, createFakeTwin({ synchronous }));
+    activateAttributes(rendered, 1);
+    remount(rendered, 'Two');
+    await settle();
+    moveReference(rendered.triggers[1]!);
+    await settle();
+    const previous = rendered.viewport.querySelector<HTMLElement>('[data-previous]')!;
+    placementReads.count = 0;
+
+    handle.update(JSON.stringify({ ...openViewport, viewport: { ...openViewport.viewport, contentVersion: 1 } }));
+    await settle();
+
+    expect(placementReads.count).toBe(1);
+    expect(previous.style.getPropertyValue('--popup-width')).toMatch(/px$/);
+  });
+
   it('port: a remount without a move (a lagging payload) keeps the previous content first and restarts the choreography', async () => {
     const rendered = renderViewport();
     activate(rendered, 0);
@@ -432,6 +490,33 @@ describe.each([false, true])('the viewport (synchronous: %s)', (synchronous) => 
     await settle();
     expect(rendered.viewport.querySelectorAll('[data-previous]')).toHaveLength(1);
     expect(twin.reported<PopupViewportReport>(VIEWPORT_REPORT)).toHaveLength(reports);
+  });
+
+  // Issue 142: with the payload in the ownership write, a Server hand-off during a running morph is one batch (the
+  // attributes and the remount) that lands before the session's reference follows. It is the hand-off of issue 176, not a
+  // lagging payload, so the replaced content is kept and the reference's move restarts the morph from it.
+  it('port: a hand-off remount during a morph, before the reference follows, morphs from the replaced content once the reference moves (issue 142)', async () => {
+    const rendered = renderViewport();
+    activate(rendered, 0);
+    const twin = createFakeTwin({ synchronous });
+    attachTo(rendered.viewport, openViewport, twin);
+    activate(rendered, 1);
+    remount(rendered, 'Two');
+    await settle();
+    expect(rendered.viewport.querySelector('[data-previous]')?.textContent).toBe('One');
+
+    activateAttributes(rendered, 0);
+    const next = remount(rendered, 'One again');
+    await settle();
+    moveReference(rendered.triggers[0]!);
+    await settle();
+
+    const previous = rendered.viewport.firstElementChild as HTMLElement;
+    expect(previous.hasAttribute('data-previous')).toBe(true);
+    expect(previous.textContent).toBe('Two');
+    expect(rendered.viewport.querySelectorAll('[data-previous]')).toHaveLength(1);
+    expect(rendered.viewport.lastElementChild).toBe(next);
+    expect(rendered.viewport.getAttribute('data-activation-direction')).toBe('left up');
   });
 
   it('port: a reference that returns to the old trigger, moves while closed or moves after a same-trigger remount starts no morph, and a later move after a remount still does', async () => {
