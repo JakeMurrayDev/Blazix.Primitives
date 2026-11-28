@@ -1803,6 +1803,33 @@ describe('FloatingFocusManager', () => {
       expect(outside.hasAttribute('aria-hidden')).toBe(false);
     });
 
+    // Issue 139 (design point 10-139b (a'), "Portal order", chosen by the user 2026-11-28): the newer modal is the one
+    // whose portal comes later in the document, as a modal mounts its portal at its open. On Server the handles of two
+    // modals opened before the module's first load attach in any order once it arrives.
+    it('port: a modal whose portal comes later stays outside an earlier one\'s marking whichever attaches first (issue 139)', async () => {
+      const referenceA = element('button', 'reference-a', { id: 'reference-a' });
+      const referenceB = element('button', 'reference-b', { id: 'reference-b' });
+      const outside = element('button', 'outside');
+      const floatingA = element('div', 'floating-a', { tabindex: '-1', 'data-open': '' });
+      const floatingB = element('div', 'floating-b', { tabindex: '-1', 'data-open': '' });
+      document.body.append(referenceA, referenceB, outside, floatingA, floatingB);
+
+      const newer = attachManager(floatingB, { domReferenceId: 'reference-b' });
+      const older = attachManager(floatingA, { domReferenceId: 'reference-a' });
+      await settle();
+
+      expect(floatingB.hasAttribute('aria-hidden')).toBe(false);
+      expect(floatingB.hasAttribute('data-base-ui-inert')).toBe(false);
+      expect(floatingA.getAttribute('aria-hidden')).toBe('true');
+      expect(outside.getAttribute('aria-hidden')).toBe('true');
+
+      await unmount(newer);
+      await unmount(older);
+
+      expect(outside.hasAttribute('aria-hidden')).toBe(false);
+      expect(floatingA.hasAttribute('aria-hidden')).toBe(false);
+    });
+
     // `getInsideElements` crosses as references (or ids) the options name.
     it('true - keeps supplied inside elements outside the floating node exposed to assistive tech', async () => {
       const reference = element('input', 'reference', { id: 'reference' });
