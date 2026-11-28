@@ -222,7 +222,10 @@ internal abstract class TwinBase<[DynamicallyAccessedMembers(DynamicallyAccessed
 
         if (handles.TryGetValue(key, out TwinHandle<TOptions>? existing))
         {
-            return existing.Attached.IsCompleted ? existing : await ForwardAfterAttachAsync(existing, options, references).ConfigureAwait(false);
+            // PR 427's verifier, finding 1: a call made while an earlier forward is still sending joins the chain too.
+            return existing.Attached.IsCompleted && existing.LastForward is null or { IsCompleted: true }
+                ? existing
+                : await ForwardAfterAttachAsync(existing, options, references).ConfigureAwait(false);
         }
 
         object[]? argument = references?.ToArgument();
