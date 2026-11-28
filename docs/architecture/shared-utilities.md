@@ -7,7 +7,7 @@
 | Tests | `packages/utils/src/*.test.ts(x)`, `packages/utils/src/store/*.test.ts(x)`, `internals/{filter,itemEquality,resolveValueLabel,resolvePopupLabel,RequestQueue,TimeoutManager,useInitialLiveRegionTextMutation,useValueChanged}.test.ts(x)`, `utils/{getCssDimensions,getPseudoElementBounds,scrollEdges}.test.ts`, `direction-provider/DirectionProvider.test.tsx`, `csp-provider/CSPProvider.test.tsx`, `unstable-use-media-query/index.test.tsx` |
 | Prefix | `UTL` |
 | Status | approved |
-| Revised | 2026-11-23 |
+| Revised | 2026-11-28 |
 | Used by | Every component document. Specifically: controlled state (§4.1) — ACC, CHK, CKG, COL, CMB, DRW, MNU, NAV, NUM, RDG, SEL, SLD, SWT, TAB, TGL, TGG; store (§4.2) — CMB, AUT, DLG, ADL, DRW, MNU, CTX, MBR, POP, PRV, SEL, TST, TIP, NAV, plus FLT/PSH; scroll lock (§4.8) — DLG, ADL, DRW and every anchored popup through PSH `useAnchoredPopupScrollLock`; number formatting (§4.15) — NUM, SLD, MTR, PRG; locale filter (§4.15, §5) — CMB, AUT, MNU (filter parts); item equality and label resolution (§5) — CMB, AUT, SEL; live-region marker (§4.13) — CMB, AUT; direction (§4.15) — CMB, CMP, FLT, MNU, NAV, OTP, SCR, SEL, SLD, PSH; CSP (§4.12) — SCR, SEL, TRN; platform detection (§4.16) — CMB, DRW, FLT, MNU, NUM, OTP, SCR, SEL, PSH |
 
 ## 1. Purpose
@@ -637,6 +637,8 @@ setState(next):
     if myTick != updateTick: return         // a nested write already notified everyone with newer state
     listener(next)
 ```
+
+  Port note 2026-11-28 ([issue 417](https://github.com/JakeMurrayDev/Iodine.Headless/issues/417); design point 10-142b (c), chosen by the user 2026-11-28; decisions/05-state-store-and-event-details.md Amendments 2026-11-28; conventions §3.5): the port adds a first phase before the listener loop, which this procedure does not have. After `state = next` and the tick, every `SelectorSubscription` of the store re-evaluates its selections for `next`, with no callback. The loop above then runs unchanged, and a subscription's listener calls back only when one of its selections changed, including a change refreshed in an outer pass whose callback was cut off by a nested write. This keeps UTL-STA-26 when a listener renders synchronously outside a render batch. Test: [L1] `StoreTwoPhaseNotificationTests` (the red title of UTL-STA-26, plus "port: a callback reached after a nested write runs once, in the nested pass (issue 417)" and "port: a subscription disposed by an earlier callback of the pass gets no callback (issue 417)").
 
 - **UTL-ALG-04** — MUST. The implementation reproduces the following procedure exactly: Memoized selector (`createSelectorMemoized`): per-state-record cache plus last-call memoization.
   Source: `packages/utils/src/store/createSelectorMemoized.ts:59-155`. Test: [L1] `createSelectorMemoized.test.ts`.
