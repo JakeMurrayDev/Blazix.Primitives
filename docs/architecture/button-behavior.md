@@ -7,7 +7,7 @@
 | Tests | `internals/use-button/useButton.test.tsx`, `button/Button.test.tsx`, `toolbar/button/ToolbarButton.test.tsx`, `number-field/increment/NumberFieldIncrement.test.tsx`, plus the `nativeButton` / `focusableWhenDisabled` cases in component test files cited inline |
 | Prefix | `UBT` |
 | Status | approved |
-| Revised | 2026-11-26 |
+| Revised | 2026-11-28 |
 | Used by | `components/button.md`, `components/checkbox.md`, `components/switch.md`, `components/radio.md`, `components/toggle.md`, `components/toggle-group.md`, `components/tabs.md`, `components/accordion.md`, `components/collapsible.md`, `components/dialog.md`, `components/alert-dialog.md`, `components/drawer.md`, `components/popover.md`, `components/menu.md`, `components/menubar.md`, `components/context-menu.md`, `components/select.md`, `components/combobox.md`, `components/autocomplete.md`, `components/navigation-menu.md`, `components/toast.md`, `components/toolbar.md`, `components/number-field.md`, `components/slider.md` (touch-like pointer predicate only); `architecture/popup-store-and-handles.md` (interaction-type detection) |
 
 ## 1. Purpose
@@ -660,7 +660,7 @@ Consumers: `NumberField.Increment` / `NumberField.Decrement` (`number-field/root
 - **UBT-EDGE-07** — MUST. The mechanism has no platform-specific branches (no user-agent or engine checks); the only platform-dependent behavior in this slice is the iOS fallback inside the popup interaction-type consumer noted in §6.4, owned by `popup-store-and-handles.md`.
   Source: `internals/use-button/useButton.ts` (no `platform` import), `packages/utils/src/useEnhancedClickHandler.ts` (comment only), `utils/useOpenInteractionType.ts:19-23`. Test: none.
 - **UBT-EDGE-08** — MUST. In composite mode the mechanism does not emit `tabindex`, so a composite item used *outside* a composite root with explicit `composite: true` (menu/select/combobox items are examples, inside a floating list rather than a composite root) must receive its `tabindex` from the list-navigation layer or as an element prop.
-  Source: `utils/useFocusableWhenDisabled.ts:30`; `useButton.test.tsx:316-329` (tests pass `tabIndex={0}`). Test: [L2] `useButton.test.tsx` "key: Space fires keydown then click on composite buttons".
+  Source: `utils/useFocusableWhenDisabled.ts:30`; `internals/use-button/useButton.test.tsx:316-329` (tests pass `tabIndex={0}`). Test: [L2] `useButton.test.tsx` "key: Space fires keydown then click on composite buttons".
 
 ## 8. React-specific notes and porting considerations
 
@@ -796,3 +796,5 @@ Non-normative.
 7. **Space keydown then keyup on a non-native element whose keydown handler called `preventBaseUIHandler()`.** The keydown returns before `preventDefault()`, so the page may scroll on Space, and the keyup (a separate event, not suppressed) still dispatches the click unless the consumer also suppresses keyup — the test "does not click non-composite buttons when keydown/keyup calls preventBaseUIHandler" suppresses both. Behavior when only keydown is suppressed is untested; UBT-KEY-06 describes the source as written.
 
 **Identity rename (2026-11-23, [ADR 17](../decisions/17-product-name-and-package-identity.md)).** Every `Blazix.Primitives` in this document now reads `Iodine.Headless`, the `Blazix: ` message prefix reads `Iodine: `, every other `Blazix`, `blazix` or `BLZX` name reads its `Iodine`, `iodine` or `IOD` form, and links point to `JakeMurrayDev/Iodine.Headless`. No requirement's meaning, level or test changed.
+
+**Citation paths (2026-11-28, [issue 391](https://github.com/JakeMurrayDev/Iodine.Headless/issues/391)).** A fidelity correction against the pinned source: a `Source:` citation named a path the v1.9.0 tree lacks (a file without its folder, a stale folder or a wrong extension), so it did not resolve under conventions §3.1; it now names the file's full path, with the same line numbers: `useButton.test.tsx` → `internals/use-button/useButton.test.tsx` (UBT-EDGE-08). Statements, levels and `Test:` lines are unchanged.
