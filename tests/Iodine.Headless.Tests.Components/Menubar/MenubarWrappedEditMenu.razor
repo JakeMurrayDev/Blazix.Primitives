@@ -1,0 +1,10 @@
+@namespace Iodine.Headless.Tests.Components
+@* The consumer component of MenubarWrappedHost: no parameters, so a render of the bar above it skips it. *@
+<MenuRoot TPayload="NoPayload">
+    <MenuTrigger TPayload="NoPayload" id="edit" ClassValue="@(_ => Host!.CountEdit())">Edit</MenuTrigger>
+</MenuRoot>
+
+@code {
+    [CascadingParameter]
+    private MenubarWrappedHost? Host { get; set; }
+}

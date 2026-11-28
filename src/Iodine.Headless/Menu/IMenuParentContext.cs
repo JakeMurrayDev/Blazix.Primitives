@@ -103,10 +103,17 @@ internal interface IMenuParentContext
     /// <param name="reason">The change's reason.</param>
     void OnMenuOpenChange(MenuRootContext menu, bool open, EventReason reason);
 
-    /// <summary>Subscribes to changes of the parent's values.</summary>
+    /// <summary>Subscribes to changes of the parent's values other than <see cref="HasSubmenuOpen"/>.</summary>
     /// <param name="changed">Called after one of the values changed.</param>
     /// <returns>The subscription; disposing it unsubscribes.</returns>
     IDisposable Subscribe(Action changed);
+
+    // Issue 239 (chosen by the user 2026-11-28): only a menubar's flag changes, so a parent without one reports through
+    // Subscribe.
+    /// <summary>Subscribes to changes of <see cref="HasSubmenuOpen"/>.</summary>
+    /// <param name="changed">Called after the flag changed.</param>
+    /// <returns>The subscription; disposing it unsubscribes.</returns>
+    IDisposable SubscribeToFlag(Action changed) => Subscribe(changed);
 }
 
 /// <summary>Represents the resolved parent of a menu.</summary>

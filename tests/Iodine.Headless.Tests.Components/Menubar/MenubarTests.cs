@@ -144,11 +144,9 @@ public sealed class MenubarTests : BunitContext
     }
 
     // The brief's render counts: clearing the flag renders the bar once and nothing of a closed menu's content. The other
-    // menu's trigger renders twice (measured 2026-11-11; the brief asks for once): it hears the bar through its own
-    // subscription (OnParentChanged), and it renders again as a child of its Root, which re-renders on the store's
-    // NotifyParentChanged (traced 2026-11-11: without the first, the count is one). Open as issue 239, a Menu/ fix; this
-    // title pins the figure so it cannot grow.
-    [Fact(DisplayName = "port: a flag flip renders the bar once, the other trigger at most twice and no closed menu's content")]
+    // menu's trigger renders once: the bar's own render reaches it through the bar's child content, and the flag itself
+    // only sends the trigger's hover and focus options (issue 239, chosen by the user 2026-11-28).
+    [Fact(DisplayName = "port: a flag flip renders the bar once, the other trigger once and no closed menu's content")]
     [Trait("Requirement", "MBR-STA-02")]
     [Trait("Requirement", "MBR-STA-03")]
     public async Task A_flag_flip_renders_the_bar_once_and_no_closed_menus_content()
@@ -162,7 +160,120 @@ public sealed class MenubarTests : BunitContext
 
         Dictionary<string, int> renders = cut.Instance.Renders;
         Assert.Equal(before["bar"] + 1, renders["bar"]);
-        Assert.InRange(renders["edit"] - before["edit"], 1, 2);
+        Assert.Equal(before["edit"] + 1, renders["edit"]);
         Assert.Equal(0, renders.GetValueOrDefault("edit-item"));
+    }
+
+    [Fact(DisplayName = "port: a bar menu's open and its close each render the other menu's trigger once")]
+    [Trait("Requirement", "MBR-STA-02")]
+    [Trait("Requirement", "MBR-STA-03")]
+    public async Task A_bar_menus_open_and_close_each_render_the_other_trigger_once()
+    {
+        IRenderedComponent<MenubarRenderHost> cut = Render<MenubarRenderHost>();
+        cut.WaitForAssertion(() => Assert.True(cut.Find("[role=\"menubar\"]").HasAttribute("data-has-submenu-open")), TimeSpan.FromSeconds(2));
+        await cut.InvokeAsync(() => cut.Instance.File!.CloseAsync());
+        cut.WaitForAssertion(() => Assert.False(cut.Find("[role=\"menubar\"]").HasAttribute("data-has-submenu-open")), TimeSpan.FromSeconds(2));
+        int closed = cut.Instance.Renders["edit"];
+
+        await cut.InvokeAsync(() => cut.Instance.File!.Store.RequestOpenAsync(true, new OpenChangeEventDetails(EventReason.ImperativeAction)));
+        cut.WaitForAssertion(() => Assert.True(cut.Find("[role=\"menubar\"]").HasAttribute("data-has-submenu-open")), TimeSpan.FromSeconds(2));
+        int opened = cut.Instance.Renders["edit"];
+        await cut.InvokeAsync(() => cut.Instance.File!.CloseAsync());
+        cut.WaitForAssertion(() => Assert.False(cut.Find("[role=\"menubar\"]").HasAttribute("data-has-submenu-open")), TimeSpan.FromSeconds(2));
+
+        Assert.Equal(closed + 1, opened);
+        Assert.Equal(opened + 1, cut.Instance.Renders["edit"]);
+    }
+
+    // Issue 239's wrapped shape: a consumer component without parameters stops the bar's render above Edit's menu, so the
+    // flag reaches Edit's trigger only through the bar's subscription, which sends its options without a render.
+    [Fact(DisplayName = "port: a flag flip sends a trigger the bar's render does not reach its new options and renders it zero times")]
+    [Trait("Requirement", "MBR-STA-02")]
+    [Trait("Requirement", "MNU-API-19")]
+    public async Task A_flag_flip_sends_an_unreached_trigger_its_options_without_a_render()
+    {
+        BunitJSModuleInterop interactions = JSInterop.SetupModule("./_content/Iodine.Headless/js/interactions.js");
+        BunitJSModuleInterop handle = interactions.SetupModule("attach", _ => true);
+        handle.SetupVoid("update", _ => true).SetVoidResult();
+        handle.SetupVoid("dispose", _ => true).SetVoidResult();
+        IRenderedComponent<MenubarWrappedHost> cut = Render<MenubarWrappedHost>();
+        cut.WaitForAssertion(() => Assert.True(cut.Find("[role=\"menubar\"]").HasAttribute("data-has-submenu-open")), TimeSpan.FromSeconds(2));
+        cut.WaitForAssertion(() => Assert.True(EditOptions(interactions, handle).TryGetProperty("hover", out _)), TimeSpan.FromSeconds(2));
+        int before = cut.Instance.EditRenders;
+
+        await cut.InvokeAsync(() => cut.Instance.File!.CloseAsync());
+        cut.WaitForAssertion(() => Assert.False(cut.Find("[role=\"menubar\"]").HasAttribute("data-has-submenu-open")), TimeSpan.FromSeconds(2));
+
+        cut.WaitForAssertion(() => Assert.False(EditOptions(interactions, handle).TryGetProperty("hover", out _)), TimeSpan.FromSeconds(2));
+        Assert.False(EditOptions(interactions, handle).TryGetProperty("focus", out _));
+        Assert.Equal(before, cut.Instance.EditRenders);
+    }
+
+    // Issue 239's follow-up (main red at 9446001b, menubar.spec.ts's Shift+Tab title on Server): a bar menu's commit flips
+    // the flag inside a listener of the menu's store, and the bar's render runs at once and re-renders the menu's popup
+    // through its child content. The popup's focus manager then read the commit before the session had sent it, so on a
+    // collapsed reopen the focus manager ran its initial focus. The session sends a commit before the popup's focus manager
+    // sends what it read from it, as Base UI commits them in one batch.
+    [Fact(DisplayName = "port: a bar menu's close reaches its session before its popup's focus manager")]
+    [Trait("Requirement", "MBR-STA-03")]
+    [Trait("Requirement", "MBR-KEY-12")]
+    public async Task A_bar_menus_close_reaches_its_session_before_its_focus_manager()
+    {
+        List<string> sent = [];
+        const string prefix = "./_content/Iodine.Headless/js/";
+        BunitJSModuleInterop interactions = JSInterop.SetupModule(prefix + "interactions.js");
+        BunitJSModuleInterop interactionsHandle = interactions.SetupModule("attach", _ => true);
+        interactionsHandle.SetupVoid("update", invocation => Record(sent, "session", invocation)).SetVoidResult();
+        interactionsHandle.SetupVoid("dispose", _ => true).SetVoidResult();
+        BunitJSModuleInterop focusManager = JSInterop.SetupModule(prefix + "focus-manager.js");
+        BunitJSModuleInterop focusManagerHandle = focusManager.SetupModule("attach", _ => true);
+        focusManagerHandle.SetupVoid("update", invocation => Record(sent, "focus", invocation)).SetVoidResult();
+        focusManagerHandle.SetupVoid("dispose", _ => true).SetVoidResult();
+        IRenderedComponent<MenubarRenderHost> cut = Render<MenubarRenderHost>();
+        cut.WaitForAssertion(() => Assert.True(cut.Find("[role=\"menubar\"]").HasAttribute("data-has-submenu-open")), TimeSpan.FromSeconds(2));
+        cut.WaitForAssertion(() => Assert.NotEmpty(focusManager.Invocations["attach"]), TimeSpan.FromSeconds(2));
+        sent.Clear();
+
+        await cut.InvokeAsync(() => cut.Instance.File!.CloseAsync());
+        cut.WaitForAssertion(() => Assert.False(cut.Find("[role=\"menubar\"]").HasAttribute("data-has-submenu-open")), TimeSpan.FromSeconds(2));
+
+        int revision = sent.Select(entry => int.Parse(entry.Split(':')[1], System.Globalization.CultureInfo.InvariantCulture)).Max();
+        int session = sent.IndexOf($"session:{revision}");
+        int focus = sent.IndexOf($"focus:{revision}");
+        Assert.True(session >= 0, string.Join(" ", sent));
+        Assert.True(focus >= 0, string.Join(" ", sent));
+        Assert.True(session < focus, string.Join(" ", sent));
+    }
+
+    // Records an update that carries a relay, by its handle and the relay's revision; every update is accepted.
+    private static bool Record(List<string> sent, string handle, JSRuntimeInvocation invocation)
+    {
+        JsonElement root = JsonDocument.Parse((string)invocation.Arguments[0]!).RootElement;
+        if (root.TryGetProperty("relay", out JsonElement relay) && relay.TryGetProperty("revision", out JsonElement revision)
+            && (handle == "focus" || root.TryGetProperty("session", out _)))
+        {
+            sent.Add($"{handle}:{revision.GetInt32()}");
+        }
+
+        return true;
+    }
+
+    // The last trigger options Edit's interactions handle was sent, by its attach or an update.
+    private static JsonElement EditOptions(BunitJSModuleInterop interactions, BunitJSModuleInterop handle)
+    {
+        JsonElement last = default;
+        IEnumerable<string> sent = interactions.Invocations["attach"].Select(attach => (string)attach.Arguments[1]!)
+            .Concat(handle.Invocations["update"].Select(update => (string)update.Arguments[0]!));
+        foreach (string json in sent)
+        {
+            JsonElement root = JsonDocument.Parse(json).RootElement;
+            if (root.TryGetProperty("trigger", out JsonElement trigger) && trigger.TryGetProperty("triggerId", out JsonElement id) && id.GetString() == "edit")
+            {
+                last = trigger;
+            }
+        }
+
+        Assert.Equal(JsonValueKind.Object, last.ValueKind);
+        return last;
     }
 }

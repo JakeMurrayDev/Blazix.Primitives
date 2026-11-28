@@ -8,7 +8,7 @@
 | Docs page | `docs/src/app/(docs)/react/components/menubar/page.mdx` |
 | Prefix | `MBR` |
 | Status | approved |
-| Revised | 2026-11-27 |
+| Revised | 2026-11-28 |
 | Builds on | [menu](menu.md) |
 | Derived by | none |
 | Depends on | [rendering-and-composition](../architecture/rendering-and-composition.md), [event-details-and-reasons](../architecture/event-details-and-reasons.md), [button-behavior](../architecture/button-behavior.md), [composite-and-list-navigation](../architecture/composite-and-list-navigation.md), [floating-and-positioning](../architecture/floating-and-positioning.md), [popup-store-and-handles](../architecture/popup-store-and-handles.md), [transitions-and-mounting](../architecture/transitions-and-mounting.md) |
@@ -398,7 +398,7 @@ Vocabulary (CMP §4.6 predicates, with *b* = the Menubar `orientation`, *m* = th
 - **MBR-DIS-04** — MUST. Activating an item with `closeOnClick` closes the bar menu's whole tree with reason `item-press` (MNU-DIS-06) and takes the bar out of menu mode (MBR-STA-03).
   Source: `menu/item/useMenuItem.ts:24-38`; `menubar/Menubar.tsx:112-117`. Test: [L4] `Menubar.test.tsx` "closes on a touch item click immediately after focus opens another menu".
 - **MBR-DIS-05** — MUST. While a top-level bar menu is open and the Menubar's `modal` is `true`, page scroll is locked by the anchored scroll lock (PSH-PTR-07) regardless of the open reason (hover-opened bar menus included) and regardless of the Menu.Root's `modal`; for touch opens the lock applies only when the menu's Positioner is at least as wide as the viewport. Switching from a touch-opened menu that locks to one that does not releases the lock once the first closes. With Menubar `modal` `false` no bar menu locks scrolling.
-  Source: `menu/positioner/MenuPositioner.tsx:245-253`; `utils/popups/useAnchoredPopupScrollLock.ts`. Test: [L4] `Menubar.test.tsx` "applies scroll lock when a touch-opened submenu covers the viewport width", "does not apply scroll lock when a touch-opened submenu is narrower than the viewport", "updates scroll lock when handing off between top-level touch-opened menus".
+  Source: `menu/positioner/MenuPositioner.tsx:245-253`; `utils/useAnchoredPopupScrollLock.ts`. Test: [L4] `Menubar.test.tsx` "applies scroll lock when a touch-opened submenu covers the viewport width", "does not apply scroll lock when a touch-opened submenu is narrower than the viewport", "updates scroll lock when handing off between top-level touch-opened menus".
   Port note (2026-11-11, M5 track 8, [issue 195](https://github.com/JakeMurrayDev/Iodine.Headless/issues/195)): [L4] the three cited titles, both render modes, every Server title under a 40 ms one-way circuit delay, every setup, on the modal bar Base UI renders (`case=scroll-lock`, `fileWidth=narrow`), with real CDP touch taps.
 - **MBR-DIS-06** — MUST. A bar menu opened by hover or focus is dismissed only by the paths above (press, Escape, outside press, sibling open, item press, focus leaving, `list-navigation`) and never by pointer leave (MBR-PTR-05).
   Source: `menu/popup/MenuPopup.tsx:123-126`; `menu/trigger/MenuTrigger.tsx:176-181`. Test: [L4] `Menubar.test.tsx` "should open another menu on hover when a nested submenu is open".
@@ -706,3 +706,5 @@ Non-normative.
 9. **Unused context field.** `MenubarContext.allowMouseUpTriggerRef` is created per bar and shared into every bar menu store (`menu/store/MenuStore.ts:175-181`), but `MenuTrigger`'s reset of the flag when its menu is not open runs only for menus without a parent (`menu/trigger/MenuTrigger.tsx:121-125`), so a stale `true` could let a later `mouseup` on an item of another bar menu activate it within the same bar session. Untested (MBR-STA-07).
 
 **Identity rename (2026-11-23, [ADR 17](../decisions/17-product-name-and-package-identity.md)).** Every `Blazix.Primitives` in this document now reads `Iodine.Headless`, the `Blazix: ` message prefix reads `Iodine: `, every other `Blazix`, `blazix` or `BLZX` name reads its `Iodine`, `iodine` or `IOD` form, and links point to `JakeMurrayDev/Iodine.Headless`. No requirement's meaning, level or test changed.
+
+**Citation paths (2026-11-28, [issue 391](https://github.com/JakeMurrayDev/Iodine.Headless/issues/391)).** A fidelity correction against the pinned source: a `Source:` citation named a path the v1.9.0 tree lacks (a file without its folder, a stale folder or a wrong extension), so it did not resolve under conventions §3.1; it now names the file's full path, with the same line numbers: `utils/popups/useAnchoredPopupScrollLock.ts` → `utils/useAnchoredPopupScrollLock.ts` (MBR-DIS-05). Statements, levels and `Test:` lines are unchanged.

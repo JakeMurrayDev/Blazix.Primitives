@@ -14,8 +14,10 @@ public sealed class MenubarAllocationBudgetTests : IDisposable
     // (AllocationSampler.LeastOfFive), for one open and one close reported to the bar. It includes the bar's and both
     // triggers' renders, each trigger's interactions `update` with its serialized hover and focus options, and bUnit's
     // loose-mode record of those invocations. The budget is the envelope plus 112 B (the brief's), and only tightens
-    // afterwards.
-    private const long FlipBudgetBytes = 101888;
+    // afterwards. Tightened 2026-11-28 (issue 239): the flag reaches each trigger through a subscription of its own that
+    // sends the options without a render, so a trigger renders once per flip, not twice, and the bar's menus no longer
+    // hear the flag: 100448 bytes in 3 of 3 runs, against 102088 on main 970caf66 the same day.
+    private const long FlipBudgetBytes = 100448;
 
     private readonly BunitContext context = new();
 
