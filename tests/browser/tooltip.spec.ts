@@ -1768,7 +1768,10 @@ test.describe('Server relaxations (tooltip.md §9)', () => {
   // it: issue 142 (design point 10-142a (1), chosen by the user 2026-11-28) folds the new owner's payload into the write
   // that makes it the owner (PSH-STA-30), where the trigger forwarded it from OnAfterRender before, a round trip later.
   // Measured locally at 250 ms each way: anchor 0 ms, active 510 ms, payload 510 ms (950 ms before); WebAssembly 0 ms.
-  test('port: a hover hand-off re-anchors at once; on Server the active trigger and its payload follow a round trip later (issue 142)', async ({ page, mode }) => {
+  // One title per mode (ADR 11 §3: a title that passes in any project passes the red check, and WebAssembly lands all
+  // three at once on the base as on the change).
+  /** Hovers from the first trigger to the second and times the anchor, the active trigger and the payload after `mouseenter`. */
+  async function measureHandOff(page: Page, mode: RenderMode): Promise<{ enter: number; anchor: number; active: number; content: number }> {
     if (mode === 'server') {
       await delayCircuit(page, LATENCY);
     }
@@ -1803,18 +1806,29 @@ test.describe('Server relaxations (tooltip.md §9)', () => {
 
     await expect(byTestId(page, 'trigger-2')).toHaveAttribute('data-popup-open');
     await expect(byTestId(page, 'content')).toHaveText('2');
-    const { enter, anchor, active, content } = await page.evaluate(
+    const times = await page.evaluate(
       () => (window as unknown as { handoffTimes: { enter: number; anchor: number; active: number; content: number } }).handoffTimes,
     );
-    test.info().annotations.push({ type: 'hand-off', description: `${mode}: anchor ${Math.round(anchor - enter)} ms, active ${Math.round(active - enter)} ms, payload ${Math.round(content - enter)} ms after mouseenter` });
+    test.info().annotations.push({ type: 'hand-off', description: `${mode}: anchor ${Math.round(times.anchor - times.enter)} ms, active ${Math.round(times.active - times.enter)} ms, payload ${Math.round(times.content - times.enter)} ms after mouseenter` });
+    return times;
+  }
+
+  test('port: on Server a hover hand-off re-anchors at once and its payload lands with the active trigger, a round trip later (issue 142)', async ({ page, mode }) => {
+    test.skip(mode !== 'server', 'the round trip is the Server circuit\'s; WebAssembly has its own title');
+    const { enter, anchor, active, content } = await measureHandOff(page, mode);
+
     expect(anchor - enter).toBeLessThan(LATENCY);
-    if (mode === 'server') {
-      expect(active - enter).toBeGreaterThanOrEqual(2 * LATENCY - 20);
-      expect(content - active).toBeLessThan(LATENCY);
-    } else {
-      expect(active - enter).toBeLessThan(2 * LATENCY - 20);
-      expect(content - enter).toBeLessThan(2 * LATENCY - 20);
-    }
+    expect(active - enter).toBeGreaterThanOrEqual(2 * LATENCY - 20);
+    expect(content - active).toBeLessThan(LATENCY);
+  });
+
+  test('port: on WebAssembly a hover hand-off re-anchors, activates the trigger and renders its payload at once', { tag: '@coverage' }, async ({ page, mode }) => {
+    test.skip(mode !== 'wasm', 'WebAssembly applies the render in the dispatch; Server has its own title');
+    const { enter, anchor, active, content } = await measureHandOff(page, mode);
+
+    expect(anchor - enter).toBeLessThan(LATENCY);
+    expect(active - enter).toBeLessThan(2 * LATENCY - 20);
+    expect(content - enter).toBeLessThan(2 * LATENCY - 20);
   });
 
   // TIP-DIS-05 (PSH-STA-23): the close for a lost active trigger runs at the render-batch boundary, after paint plus a
