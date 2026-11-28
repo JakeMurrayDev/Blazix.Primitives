@@ -7,7 +7,8 @@ using Microsoft.JSInterop;
 namespace Iodine.Headless.Interop;
 
 /// <summary>
-/// The C# half of one JavaScript module. A twin imports its module lazily on first use, attaches parts to it
+/// The C# half of one JavaScript module. A twin imports its module lazily on first use (on Server once per circuit for
+/// every twin of the module), attaches parts to it
 /// (<c>attach(elementOrId, options, self, references)</c> returning a handle per element), owns the single
 /// <see cref="DotNetObjectReference{TValue}"/> the module calls back through, and answers the module's decision
 /// points. Parts talk to twins and never to <see cref="IJSRuntime"/>.
@@ -38,7 +39,11 @@ internal abstract class TwinBase<[DynamicallyAccessedMembers(DynamicallyAccessed
     }
 
     /// <inheritdoc />
-    /// <remarks>Disposes every live handle, the module reference and the .NET object reference. Idempotent.</remarks>
+    /// <remarks>
+    /// Disposes every live handle, the .NET object reference and, where the twin imported the module for itself, the module
+    /// reference. Idempotent. On Server the import is the circuit's, shared by every twin of the module, and is released with
+    /// the circuit.
+    /// </remarks>
     public async ValueTask DisposeAsync()
     {
         if (disposed)
@@ -55,7 +60,9 @@ internal abstract class TwinBase<[DynamicallyAccessedMembers(DynamicallyAccessed
 
         selfReference?.Dispose();
 
-        if (module is { IsCompletedSuccessfully: true, Result: { } imported })
+        // Issue 179 (ADR 04 Amendments 2026-11-28): on Server the module's reference is the circuit's (TwinModuleCache), so the
+        // twin leaves it for the module's next twin; on WebAssembly the twin imported it for itself and releases it.
+        if (!TwinModuleCache.IsShared(jsRuntime) && module is { IsCompletedSuccessfully: true, Result: { } imported })
         {
             try
             {
@@ -283,18 +290,6 @@ internal abstract class TwinBase<[DynamicallyAccessedMembers(DynamicallyAccessed
 
     private Task<IJSObjectReference?> ImportAsync()
     {
-        return module ??= ImportCoreAsync();
-    }
-
-    private async Task<IJSObjectReference?> ImportCoreAsync()
-    {
-        try
-        {
-            return await jsRuntime.InvokeAsync<IJSObjectReference>("import", modulePath).ConfigureAwait(false);
-        }
-        catch (JSDisconnectedException)
-        {
-            return null;
-        }
+        return module ??= TwinModuleCache.ImportAsync(jsRuntime, modulePath);
     }
 }
