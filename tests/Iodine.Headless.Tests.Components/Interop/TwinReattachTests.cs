@@ -130,6 +130,32 @@ public sealed class TwinReattachTests
         Assert.Equal(["""{"threshold":2}""", """{"threshold":3}"""], runtime.Updates);
     }
 
+    // PR 427's CI (run 46175183428, menu.filter-submenu.spec.ts:507 [server], 5 of 20 locally): a forward that resumes after
+    // the part sent newer options through the handle overwrote them with the older options its re-attach carried.
+    [Fact(DisplayName = "port: a forward still queued when the part sends newer options through the handle is dropped, so the module ends on the part's options")]
+    [Trait("Requirement", "ADR04-reattach-in-flight")]
+    public async Task A_queued_forward_older_than_the_parts_update_is_dropped()
+    {
+        HeldAttachRuntime runtime = new() { HoldUpdates = true };
+        await using TestTwin twin = new(runtime);
+        using IDisposable unblock = runtime.UnblockOnExit();
+
+        Task<TwinHandle<TestTwinOptions>> first = twin.AttachAsync("base-ui-1", new TestTwinOptions { Threshold = 1 }).AsTask();
+        Task<TwinHandle<TestTwinOptions>> second = twin.AttachAsync("base-ui-1", new TestTwinOptions { Threshold = 2 }).AsTask();
+        Task<TwinHandle<TestTwinOptions>> third = twin.AttachAsync("base-ui-1", new TestTwinOptions { Threshold = 3 }).AsTask();
+
+        Assert.False(third.IsCompleted);
+
+        runtime.ReleaseAttach();
+        TwinHandle<TestTwinOptions> handle = await Bounded(first);
+        await Bounded(runtime.UpdateStarted);
+        Task update = handle.UpdateAsync(new TestTwinOptions { Threshold = 5 }).AsTask();
+
+        runtime.ReleaseUpdates();
+        await Bounded(Task.WhenAll(second, third, update));
+        Assert.Equal(["""{"threshold":2}""", """{"threshold":5}"""], runtime.Updates);
+    }
+
     [Fact(DisplayName = "port: re-attaches in flight that go A, B, A send B and then A, so the module ends on the last render's options")]
     [Trait("Requirement", "ADR04-reattach-in-flight")]
     public async Task Reattaches_A_B_A_end_on_A()
