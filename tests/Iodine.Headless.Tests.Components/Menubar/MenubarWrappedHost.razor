@@ -1,0 +1,32 @@
+@namespace Iodine.Headless.Tests.Components
+@* Issue 239's wrapped shape (L2): Edit's Root and Trigger sit in a parameterless consumer component inside the bar, so the
+   bar's own render does not reach them. File is open at the first render; Edit's trigger counts its ClassValue calls. *@
+<CascadingValue Value="this" IsFixed="true">
+    <Menubar id="bar">
+        <MenuRoot TPayload="NoPayload" @ref="File" DefaultOpen="true">
+            <MenuTrigger TPayload="NoPayload">File</MenuTrigger>
+            <MenuPortal>
+                <MenuPositioner>
+                    <MenuPopup />
+                </MenuPositioner>
+            </MenuPortal>
+        </MenuRoot>
+        <MenubarWrappedEditMenu />
+    </Menubar>
+</CascadingValue>
+
+@code {
+    /// <summary>Gets the File menu's root.</summary>
+    public MenuRoot<NoPayload>? File { get; private set; }
+
+    /// <summary>Gets the renders of Edit's trigger, one per ClassValue call.</summary>
+    public int EditRenders { get; private set; }
+
+    /// <summary>Counts one render of Edit's trigger.</summary>
+    /// <returns><see langword="null"/>, no class.</returns>
+    public string? CountEdit()
+    {
+        EditRenders++;
+        return null;
+    }
+}
