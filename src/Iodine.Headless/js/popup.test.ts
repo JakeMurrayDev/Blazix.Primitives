@@ -434,6 +434,33 @@ describe.each([false, true])('the viewport (synchronous: %s)', (synchronous) => 
     expect(twin.reported<PopupViewportReport>(VIEWPORT_REPORT)).toHaveLength(reports);
   });
 
+  // Issue 142: with the payload in the ownership write, a Server hand-off during a running morph is one batch (the
+  // attributes and the remount) that lands before the session's reference follows. It is the hand-off of issue 176, not a
+  // lagging payload, so the replaced content is kept and the reference's move restarts the morph from it.
+  it('port: a hand-off remount during a morph, before the reference follows, morphs from the replaced content once the reference moves (issue 142)', async () => {
+    const rendered = renderViewport();
+    activate(rendered, 0);
+    const twin = createFakeTwin({ synchronous });
+    attachTo(rendered.viewport, openViewport, twin);
+    activate(rendered, 1);
+    remount(rendered, 'Two');
+    await settle();
+    expect(rendered.viewport.querySelector('[data-previous]')?.textContent).toBe('One');
+
+    activateAttributes(rendered, 0);
+    const next = remount(rendered, 'One again');
+    await settle();
+    moveReference(rendered.triggers[0]!);
+    await settle();
+
+    const previous = rendered.viewport.firstElementChild as HTMLElement;
+    expect(previous.hasAttribute('data-previous')).toBe(true);
+    expect(previous.textContent).toBe('Two');
+    expect(rendered.viewport.querySelectorAll('[data-previous]')).toHaveLength(1);
+    expect(rendered.viewport.lastElementChild).toBe(next);
+    expect(rendered.viewport.getAttribute('data-activation-direction')).toBe('left up');
+  });
+
   it('port: a reference that returns to the old trigger, moves while closed or moves after a same-trigger remount starts no morph, and a later move after a remount still does', async () => {
     const rendered = renderViewport();
     activate(rendered, 0);
