@@ -126,7 +126,8 @@ public sealed class MenuCheckboxItemTests : BunitContext
         Assert.False(item.HasAttribute("disabled"));
 
         item.KeyDown(new KeyboardEventArgs { Key = "Enter" });
-        item.KeyUp(new KeyboardEventArgs { Key = " " });
+        // Issue 87: a disabled item declines the consumer's keyup and adds no keyup of its own, so none reaches C#.
+        Assert.False(item.HasAttribute("blazor:onkeyup"));
         item.Click();
 
         Assert.Equal(0, cut.Instance.Handled);
@@ -285,7 +286,8 @@ public sealed class MenuRadioItemTests : BunitContext
     private static void Press(IElement item)
     {
         item.KeyDown(new KeyboardEventArgs { Key = "Enter" });
-        item.KeyUp(new KeyboardEventArgs { Key = " " });
+        // Issue 87: a disabled item declines the consumer's keyup and adds no keyup of its own, so none reaches C#.
+        Assert.False(item.HasAttribute("blazor:onkeyup"));
         item.Click();
     }
 }
