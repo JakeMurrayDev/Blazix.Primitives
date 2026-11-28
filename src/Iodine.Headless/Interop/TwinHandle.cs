@@ -15,20 +15,20 @@ internal sealed class TwinHandle<TOptions> : IAsyncDisposable
 {
     private readonly Task<IJSObjectReference?> reference;
     private readonly JsonTypeInfo<TOptions> optionsTypeInfo;
-    private readonly Action<TwinHandle<TOptions>> released;
+    private readonly Dictionary<string, TwinHandle<TOptions>> owner;
     private bool disposed;
 
     /// <summary>Initializes a new instance of the <see cref="TwinHandle{TOptions}"/> class.</summary>
     /// <param name="key">The element reference id, element id or token the handle is attached to.</param>
     /// <param name="reference">The pending JavaScript handle; <see langword="null"/> when the circuit disconnected before <c>attach</c> completed.</param>
     /// <param name="optionsTypeInfo">The source-generated type information of <typeparamref name="TOptions"/>.</param>
-    /// <param name="released">Called once when the handle is disposed, so the twin forgets it.</param>
-    internal TwinHandle(string key, Task<IJSObjectReference?> reference, JsonTypeInfo<TOptions> optionsTypeInfo, Action<TwinHandle<TOptions>> released)
+    /// <param name="owner">The twin's handles by key, from which the handle removes itself once when it is disposed.</param>
+    internal TwinHandle(string key, Task<IJSObjectReference?> reference, JsonTypeInfo<TOptions> optionsTypeInfo, Dictionary<string, TwinHandle<TOptions>> owner)
     {
         Key = key;
         this.reference = reference;
         this.optionsTypeInfo = optionsTypeInfo;
-        this.released = released;
+        this.owner = owner;
     }
 
     /// <summary>Gets the element reference id, element id or token this handle is attached to.</summary>
@@ -38,6 +38,28 @@ internal sealed class TwinHandle<TOptions> : IAsyncDisposable
     /// <summary>Gets a value indicating whether <see cref="DisposeAsync"/> has run.</summary>
     /// <value><see langword="true"/> once disposed; otherwise <see langword="false"/>.</value>
     public bool IsDisposed => disposed;
+
+    // Issue 132 (design point 10-132a (b), chosen by the user 2026-11-28): a repeated attach made while the attach is in
+    // flight awaits it, then sends its options when they differ from the options and references last sent in that window.
+    /// <summary>Gets the task of the module's <c>attach</c>, which completes when the handle exists in JavaScript.</summary>
+    internal Task Attached => reference;
+
+    /// <summary>Gets or sets the options sent with <c>attach</c>, or by the last repeated attach that forwarded its own.</summary>
+    internal TOptions? SentOptions { get; set; }
+
+    /// <summary>Gets or sets the JSON of <see cref="SentOptions"/>, serialized only when a repeated attach compares with it.</summary>
+    internal string? SentJson { get; set; }
+
+    /// <summary>Gets or sets the references argument sent with those options, or <see langword="null"/> when none were sent.</summary>
+    internal object[]? SentReferences { get; set; }
+
+    /// <summary>Gets or sets the last forward of a repeated attach, which the next one waits for so the forwards keep call order.</summary>
+    internal Task? LastForward { get; set; }
+
+    // PR 427's CI (run 46175183428, menu.filter-submenu.spec.ts:507): a forward is older than any update the part sent after
+    // the repeated attach that carries it, so it is dropped then.
+    /// <summary>Gets the number of updates the part sent through <see cref="UpdateAsync"/>.</summary>
+    internal int PartUpdates { get; private set; }
 
     /// <inheritdoc />
     /// <remarks>Calls the module's <c>dispose</c> and releases the JavaScript reference. Idempotent: a second call does nothing.</remarks>
@@ -49,7 +71,7 @@ internal sealed class TwinHandle<TOptions> : IAsyncDisposable
         }
 
         disposed = true;
-        released(this);
+        owner.Remove(Key);
 
         IJSObjectReference? handle = await reference.ConfigureAwait(false);
         if (handle is null)
@@ -116,7 +138,21 @@ internal sealed class TwinHandle<TOptions> : IAsyncDisposable
     /// <see langword="null"/>, or an empty instance, to send none.
     /// </param>
     /// <returns>A task that completes when the module has applied the options.</returns>
-    public async ValueTask UpdateAsync(TOptions options, TwinReferences? references = null)
+    public ValueTask UpdateAsync(TOptions options, TwinReferences? references = null)
+    {
+        if (!disposed)
+        {
+            PartUpdates++;
+        }
+
+        return SendAsync(options, references);
+    }
+
+    /// <summary>Sends options to the module's <c>update</c> as <see cref="UpdateAsync"/> does, without counting it as the part's.</summary>
+    /// <param name="options">The options record to serialize and send.</param>
+    /// <param name="references">The elements and script-held objects the options name by index.</param>
+    /// <returns>A task that completes when the module has applied the options.</returns>
+    internal async ValueTask SendAsync(TOptions options, TwinReferences? references)
     {
         if (disposed)
         {

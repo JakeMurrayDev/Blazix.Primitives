@@ -122,7 +122,8 @@ internal abstract class TwinBase<[DynamicallyAccessedMembers(DynamicallyAccessed
 
     /// <summary>
     /// Attaches the module to an element. Attaching is idempotent per element: a repeated call for the same element
-    /// returns the existing handle and sends nothing to JavaScript.
+    /// returns the existing handle once its attach has completed and sends nothing to JavaScript, except that a repeated
+    /// call made while that attach is in flight sends its options to the handle's <c>update</c> when they differ.
     /// </summary>
     /// <param name="element">The element to attach to.</param>
     /// <param name="options">The options sent with <c>attach</c>.</param>
@@ -159,7 +160,7 @@ internal abstract class TwinBase<[DynamicallyAccessedMembers(DynamicallyAccessed
     /// <summary>
     /// Attaches the module without an element, by a token the part draws and never renders: the handle of a part that
     /// renders no element of its own. JavaScript receives <see langword="null"/> as the element and reads the token from
-    /// the options. Attaching is idempotent per token.
+    /// the options. Attaching is idempotent per token, as it is per element.
     /// </summary>
     /// <param name="token">The token, for example one drawn with <c>PartIdGenerator.Next()</c>.</param>
     /// <param name="options">The options sent with <c>attach</c>, which carry the token.</param>
@@ -221,11 +222,20 @@ internal abstract class TwinBase<[DynamicallyAccessedMembers(DynamicallyAccessed
 
         if (handles.TryGetValue(key, out TwinHandle<TOptions>? existing))
         {
-            return existing;
+            // PR 427's verifier, finding 1: a call made while an earlier forward is still sending joins the chain too.
+            return existing.Attached.IsCompleted && existing.LastForward is null or { IsCompleted: true }
+                ? existing
+                : await ForwardAfterAttachAsync(existing, options, references).ConfigureAwait(false);
         }
 
-        Task<IJSObjectReference?> reference = AttachCoreAsync(elementOrId, options, references?.ToArgument(), TwinReferences.CaptureIds(elementCaptureId, references));
-        TwinHandle<TOptions> handle = new(key, reference, optionsTypeInfo, released => handles.Remove(released.Key));
+        object[]? argument = references?.ToArgument();
+        Task<IJSObjectReference?> reference = AttachCoreAsync(elementOrId, options, argument, TwinReferences.CaptureIds(elementCaptureId, references));
+        // Issue 132: the handle removes itself from the twin's dictionary, so no closure is allocated per attach.
+        TwinHandle<TOptions> handle = new(key, reference, optionsTypeInfo, handles)
+        {
+            SentOptions = options,
+            SentReferences = argument,
+        };
         handles[key] = handle;
 
         try
@@ -239,6 +249,71 @@ internal abstract class TwinBase<[DynamicallyAccessedMembers(DynamicallyAccessed
         }
 
         return handle;
+    }
+
+    // Issue 132 (design point 10-132a (b), chosen by the user 2026-11-28; ADR 04 Amendments 2026-11-28): a render that
+    // re-attaches the element while its attach is in flight gets the handle once that attach completed (its failure
+    // included), so a part that signals "attached" afterwards follows the module; and the options it brings, which the
+    // part now counts as sent, go to `update` when they differ from the last sent in that window (ADR 16 rule 7). The
+    // forwards keep call order by chaining each on the one before it, since the continuations of one task run in no
+    // guaranteed order.
+    private async ValueTask<TwinHandle<TOptions>> ForwardAfterAttachAsync(TwinHandle<TOptions> existing, TOptions options, TwinReferences? references)
+    {
+        Task forward = ForwardCoreAsync(existing, existing.LastForward, options, references);
+        existing.LastForward = forward;
+        await forward.ConfigureAwait(false);
+        return existing;
+    }
+
+    private async Task ForwardCoreAsync(TwinHandle<TOptions> handle, Task? previous, TOptions options, TwinReferences? references)
+    {
+        // The part's updates sent before this call; one sent after it carries newer options than this forward.
+        int partUpdates = handle.PartUpdates;
+        string json = JsonSerializer.Serialize(options, optionsTypeInfo);
+        object[]? argument = references?.ToArgument();
+        await handle.Attached.ConfigureAwait(false);
+        if (previous is not null)
+        {
+            // An earlier forward's failure is its own caller's.
+            await previous.ConfigureAwait(ConfigureAwaitOptions.SuppressThrowing);
+        }
+
+        if (handle.PartUpdates != partUpdates)
+        {
+            return;
+        }
+
+        handle.SentJson ??= handle.SentOptions is { } sent ? JsonSerializer.Serialize(sent, optionsTypeInfo) : null;
+        if (json != handle.SentJson || !SameReferences(argument, handle.SentReferences))
+        {
+            handle.SentOptions = options;
+            handle.SentJson = json;
+            handle.SentReferences = argument;
+            await handle.SendAsync(options, references).ConfigureAwait(false);
+        }
+    }
+
+    private static bool SameReferences(object[]? next, object[]? sent)
+    {
+        if (next is null || sent is null)
+        {
+            return next is null && sent is null;
+        }
+
+        if (next.Length != sent.Length)
+        {
+            return false;
+        }
+
+        for (int index = 0; index < next.Length; index++)
+        {
+            if (!Equals(next[index], sent[index]))
+            {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     // A JSDisconnectedException means the Server circuit is gone and the part is being torn down: the attach yields

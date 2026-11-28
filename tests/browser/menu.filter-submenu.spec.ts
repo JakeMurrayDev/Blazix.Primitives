@@ -515,6 +515,32 @@ test.describe('filterable submenu navigation, focus and pointer', () => {
     await expect(submenuTrigger).toBeFocused();
   });
 
+  // PR 427's CI (run 46175183428): the title above failed on Server about 1 in 200 once a re-attach in flight awaits its
+  // attach. The fixture's `data-attached` waited only for the root's session, so the title could focus the trigger before
+  // the parent list's `composite` handle attached; that handle never saw the focus, and ArrowDown started from no item.
+  // Here the module is held so the list attaches last (the standing rule of the attach order of two handles, the Toolbar
+  // title's hold): the fixture reports attached only after the module was served.
+  // Coverage (PR 427's red-check): the fault is the fixture's, which the red check runs on both sides; under eaddf979's
+  // fixture this title failed on both modes, 3 of 3 (`served` false when `data-attached` turned true).
+  test('port: with the parent list attaching last, the fixture reports attached only once the list module was served', { tag: '@coverage' }, async ({ page, mode }) => {
+    let served = false;
+    await page.route(/\/_content\/Iodine\.Headless\/js\/composite(\.[0-9a-z]+)?\.js$/, (route) => {
+      setTimeout(() => {
+        served = true;
+        void route.continue();
+      }, 1000);
+    });
+    const fixture = await render(page, mode, { ...plain, before: 'Disabled,Next', label: 'Move to folder', after: '', disabled: 'Disabled', loop: false });
+    expect(served).toBe(true);
+
+    const submenuTrigger = item(page, 'Move to folder');
+    await submenuTrigger.focus();
+    await page.keyboard.press('ArrowDown');
+    await page.evaluate(() => new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve))));
+    await expect(submenuTrigger).toBeFocused();
+    await expect(fixture).toHaveAttribute('data-attached', 'true');
+  });
+
   // MNU-FOC-15. FilterableSubmenu: a plain parent with Rename and the filterable "Move to folder" (Documents, Downloads).
   // Base UI's open plain menu focuses its popup on mount; the port focuses it first.
   test('focuses the input when a filterable submenu opens with the keyboard', async ({ page, mode }) => {

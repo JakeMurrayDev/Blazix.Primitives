@@ -31,7 +31,8 @@
     move); `extra` names an item that an Alt keydown on "Outside" appends to the submenu's list. Each highlight report of the root is recorded as
     `label:reason:key` (`none` for no item) in `data-highlights`, and each submenu open request as `open:reason` in
     `data-submenu-changes` (`|`-separated). `data-attached` turns "true" once the root's session has attached and, for a
-    filterable root that starts open, its input's and list's `menu-filter` handles; `data-child-attached` turns "true" once
+    filterable root that starts open, its input's and list's `menu-filter` handles, and for an open plain root without
+    `list`, its popup's handles (the list's among them); `data-child-attached` turns "true" once
     the input of a filterable submenu, opened at the start or later, has its handle.
 *@
 <FixtureContainer Name="menu-filter-submenu" data-attached="@(attached ? "true" : "false")" data-child-attached="@(childAttached ? "true" : "false")" data-highlights="@string.Join('|', highlights)" data-submenu-changes="@string.Join('|', submenuChanges)" data-child-value-changes="@string.Join('|', childValueChanges)">
@@ -76,6 +77,7 @@
     private MenuRoot<NoPayload>? root;
     private MenuInput? input;
     private MenuList? list;
+    private MenuPopup? popup;
     private bool attached;
     private bool attaching;
     private bool childAttached;
@@ -268,7 +270,7 @@
         }
         <MenuPortal>
             <MenuPositioner>
-                <MenuPopup data-testid="popup" class="@(Exiting ? "exiting" : null)">
+                <MenuPopup data-testid="popup" class="@(Exiting ? "exiting" : null)" @ref="popup">
                     @if (ParentPlain && !List)
                     {
                         @Items
@@ -389,7 +391,18 @@
             }
         }
 
-        await (needsParts ? Task.WhenAll(root.SessionAttached, input!.FilterAttached, list!.FilterAttached) : root.SessionAttached);
+        // PR 427's CI (run 46175183428): an open plain parent whose popup is its list also waits for the popup's handles,
+        // the list's among them, so a title never focuses an item before the list's handle can see it.
+        bool waitsForPopup = ParentPlain && !Closed && !List;
+        if (waitsForPopup && popup is null)
+        {
+            attaching = false;
+            return;
+        }
+
+        await (needsParts
+            ? Task.WhenAll(root.SessionAttached, input!.FilterAttached, list!.FilterAttached)
+            : waitsForPopup ? Task.WhenAll(root.SessionAttached, popup!.TwinAttached) : root.SessionAttached);
         attached = true;
         StateHasChanged();
     }
