@@ -1831,8 +1831,9 @@ describe('FloatingFocusManager', () => {
     });
 
     // PR 420's verifier: with the module loaded, a kept-mounted modal whose element comes earlier in the document and
-    // opens from inside an open modal is the newer one; it marks the open modal, as on main and in Base UI.
-    it('port: a kept-mounted modal earlier in the document that opens after another marks it (issue 139)', async () => {
+    // opens from inside an open modal is the newer one; it marks the open modal, as on main and in Base UI. Coverage: it
+    // passes on main and guards against ordering by document position alone (10-139c), which fails it.
+    it('port: a kept-mounted modal earlier in the document that opens after another marks it (issue 139)', { tags: ['coverage'] }, async () => {
       const referenceA = element('button', 'reference-a', { id: 'reference-a' });
       const referenceB = element('button', 'reference-b', { id: 'reference-b' });
       const floatingB = element('div', 'floating-b', { tabindex: '-1' });
