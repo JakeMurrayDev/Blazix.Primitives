@@ -233,3 +233,9 @@ Base UI v1.9.0 run in Chromium through its own vitest browser mode, from a copy 
 - OTP §16 items 1–11 are resolved by the dated notes of 2026-11-20 in §16 (replicated, or as built).
 - Seen on the way: on WebAssembly a fixture's attach marker read true while the module's script was still held by a route; the attach-order titles assert the route's hits instead (as `dialog.spec.ts` does). Not investigated further.
 - 2026-11-21, drawer.md (M6 track 8c, issue 279): fidelity correction on DRW-FOC-05, FOC-07, FOC-10 and FOC-11. "The Root" there is Base UI's `rootElement`, the Viewport element (`DrawerVirtualKeyboardProvider.tsx:96`); each row carries a dated note.
+
+## 2026-11-28, `Source:` citation paths (M6 lane D, [issue 391](https://github.com/JakeMurrayDev/Iodine.Headless/issues/391))
+
+- Lane B's run of `docs/_tools/migrate-citations.mjs` (PR 387) left 107 `Source:` citations unresolved against v1.9.0. 42 were the tool's limits: 27 docs pages in `Docs:` clauses, 2 `CHANGELOG.md`, 3 `reference/` paths, 2 port document names and 8 code identifiers such as `Object.is`; the tool now resolves or ignores each per conventions §3.1 (dated note there).
+- 65 were wrong paths in 14 documents (a file without its folder, a folder relative to a section's base such as `composite/`, a stale folder or a wrong extension). Each is corrected to its full path with its line numbers unchanged, and each document carries a dated "Citation paths" note listing the IDs. Line ranges were spot-checked against the pin.
+- After the fix, a run at the pin reports 0 unresolved of 10,245 citations (25 `vendor/` skipped).
