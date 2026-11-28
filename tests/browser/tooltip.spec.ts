@@ -1764,10 +1764,11 @@ test.describe('Server relaxations (tooltip.md §9)', () => {
 
   // ADR 01's hand-off row (chosen by the user 2026-10-27; ADR 04 Amendments 2026-10-28, design point 13.4 (1)); TIP-PTR-07,
   // TIP-FOC-04's at-once clause: the module re-anchors the popup to the new trigger as soon as it requests the hand-off;
-  // the active trigger (`data-popup-open`), which C# commits, follows a round trip later on Server, and the payload a
-  // further one, since the trigger forwards it from OnAfterRender (PSH-STA-30), which on Server runs after the batch's
-  // acknowledgement. Measured locally at 250 ms each way: anchor 0 ms, active 510 ms, payload 950 ms; WebAssembly 0 ms.
-  test('port: a hover hand-off re-anchors at once; on Server the active trigger follows a round trip later and the payload a further one', async ({ page, mode }) => {
+  // the active trigger (`data-popup-open`), which C# commits, follows a round trip later on Server, and the payload with
+  // it: issue 142 (design point 10-142a (1), chosen by the user 2026-11-28) folds the new owner's payload into the write
+  // that makes it the owner (PSH-STA-30), where the trigger forwarded it from OnAfterRender before, a round trip later.
+  // Measured locally at 250 ms each way: anchor 0 ms, active 510 ms, payload 510 ms (950 ms before); WebAssembly 0 ms.
+  test('port: a hover hand-off re-anchors at once; on Server the active trigger and its payload follow a round trip later (issue 142)', async ({ page, mode }) => {
     if (mode === 'server') {
       await delayCircuit(page, LATENCY);
     }
@@ -1809,7 +1810,7 @@ test.describe('Server relaxations (tooltip.md §9)', () => {
     expect(anchor - enter).toBeLessThan(LATENCY);
     if (mode === 'server') {
       expect(active - enter).toBeGreaterThanOrEqual(2 * LATENCY - 20);
-      expect(content - active).toBeGreaterThanOrEqual(LATENCY);
+      expect(content - active).toBeLessThan(LATENCY);
     } else {
       expect(active - enter).toBeLessThan(2 * LATENCY - 20);
       expect(content - enter).toBeLessThan(2 * LATENCY - 20);
