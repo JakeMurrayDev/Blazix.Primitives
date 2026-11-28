@@ -8,7 +8,7 @@
 | Docs page | `docs/src/app/(docs)/react/components/otp-field/page.mdx` |
 | Prefix | `OTP` |
 | Status | approved |
-| Revised | 2026-11-20 |
+| Revised | 2026-11-28 |
 | Builds on | none (`OTPField.Separator` is a re-export of the standalone [separator](separator.md)) |
 | Derived by | none |
 | Depends on | [rendering-and-composition](../architecture/rendering-and-composition.md), [event-details-and-reasons](../architecture/event-details-and-reasons.md), [field-and-form-infrastructure](../architecture/field-and-form-infrastructure.md), [composite-and-list-navigation](../architecture/composite-and-list-navigation.md), [shared-utilities](../architecture/shared-utilities.md) |
@@ -730,7 +730,7 @@ All warnings below are development-only, written through the shared once-per-mes
 - **OTP-EDGE-14** — MUST. Changing `length` at runtime MUST re-normalize the value (truncating when shrinking), re-evaluate completion, hidden-input constraints and presence, slot `enterkeyhint`/`maxlength`, and the active slot; it MUST NOT fire `onValueChange` or `onValueComplete`.
   Source: `otp-field/root/OTPFieldRoot.tsx:136,138,146-148,314,448-450`. Test: [L2] `OTPFieldRoot.test.tsx` "is kept when a previously focused slot unmounts after focus moves to a sibling" (`length` 3 → 2 with `defaultValue="1"`).
 - **OTP-I18N-01** — MUST. Only the previous/next arrow mapping depends on the reading direction from the nearest `DirectionProvider` (`'ltr'` default): in RTL, <kbd>ArrowRight</kbd> is "previous" and <kbd>ArrowLeft</kbd> is "next" (also with the boundary modifier). Slot order, value order, <kbd>Home</kbd>/<kbd>End</kbd>/<kbd>ArrowUp</kbd>/<kbd>ArrowDown</kbd>, <kbd>Backspace</kbd>/<kbd>Delete</kbd> and focus redirects are direction-independent; no locale affects character handling.
-  Source: `otp-field/input/OTPFieldInput.tsx:71,230-232`, `internals/direction-context/DirectionContext.ts:12-16`; UTL-I18N-01/03. Test: [L4] `OTPFieldInput.test.tsx` "moves focus with arrow keys in RTL", "moves focus to the field boundaries with Ctrl/Cmd + arrow keys in RTL". Docs: CHANGELOG.md v1.5.0 "Fix RTL arrow navigation".
+  Source: `otp-field/input/OTPFieldInput.tsx:71,230-232`, `internals/direction-context/DirectionContext.tsx:12-16`; UTL-I18N-01/03. Test: [L4] `OTPFieldInput.test.tsx` "moves focus with arrow keys in RTL", "moves focus to the field boundaries with Ctrl/Cmd + arrow keys in RTL". Docs: CHANGELOG.md v1.5.0 "Fix RTL arrow navigation".
 
 Inherited dev checks (not re-documented): invalid `render` element error and uppercase-named render callback warning (RND-EDGE-01/03).
 
@@ -1105,3 +1105,5 @@ Non-normative.
 9. **Form reset** (OTP-FRM-14). The browser resets the hidden input's DOM value; re-synchronization to the component value depends on React's controlled-input handling (same question as switch.md §16 item 1). A port should explicitly re-sync after `reset`. Resolved 2026-11-20 (decision 23 (a), "explicit re-sync on form reset"): the module rewrites the slots and the hidden input from the value one task after the form's `reset` (OTP-FRM-14's port title; OTP-DOM-22's `value` row is `C# → JS`).
 10. **Outline discrepancy.** The API outline lists only `className`, `render`, `style` for `OTPField.Input`, while `aria-label`, `aria-labelledby` and `type` receive special handling (OTP-API-21/22, OTP-DOM-09); and the outline's Input data attributes omit `data-length` (item 1). Resolved 2026-11-20: a note only; the port's API is the document's, not the outline's.
 11. **`length` mismatch and focus clamping** (OTP-STR-04). `focusInput` clamps to the rendered slot count (`OTPFieldRoot.tsx:166`) but the redirect and keyboard bounds use `length` (`:277`, `OTPFieldInput.tsx:227`); with fewer slots than `length` the two disagree only in which slot ends up focused at the tail. Not tested; documented as implemented. Resolved 2026-11-20 (decision 23 (a)): replicated; the module's `focusInput` clamps to the rendered slots and the keys to `Length`.
+
+**Citation paths (2026-11-28, [issue 391](https://github.com/JakeMurrayDev/Iodine.Headless/issues/391)).** A fidelity correction against the pinned source: a `Source:` citation named a path the v1.9.0 tree lacks (a file without its folder, a stale folder or a wrong extension), so it did not resolve under conventions §3.1; it now names the file's full path, with the same line numbers: `internals/direction-context/DirectionContext.ts` → `internals/direction-context/DirectionContext.tsx` (OTP-I18N-01). Statements, levels and `Test:` lines are unchanged.

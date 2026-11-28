@@ -8,7 +8,7 @@
 | Docs page | `docs/src/app/(docs)/react/components/collapsible/page.mdx` |
 | Prefix | `COL` |
 | Status | implemented |
-| Revised | 2026-11-23 |
+| Revised | 2026-11-28 |
 | Builds on | none |
 | Derived by | [accordion](accordion.md) |
 | Depends on | [rendering-and-composition](../architecture/rendering-and-composition.md), [transitions-and-mounting](../architecture/transitions-and-mounting.md), [button-behavior](../architecture/button-behavior.md), [event-details-and-reasons](../architecture/event-details-and-reasons.md), [shared-utilities](../architecture/shared-utilities.md) |
@@ -368,7 +368,7 @@ There is **no** `onOpenChangeComplete`, `actionsRef` or `preventUnmountOnClose()
 - **COL-EVT-05** — MUST. Calling `details.cancel()` for a `'none'` (beforematch) change prevents the open request; the observable result is per TRN-ANI-33: the state is not changed, `data-starting-style` is not removed, no motion-skip is armed, and the `hidden="until-found"` attribute the browser removed is restored (COL-ANI-25).
   Source: `collapsible/panel/useCollapsiblePanel.ts:426-431`; see TRN-ANI-33. Test: [L4] `CollapsiblePanel.test.tsx` "does not open or suppress the next trigger open when beforematch is canceled".
 - **COL-EVT-06** — MUST. `onOpenChange` MUST NOT be called when the consumer changes the `open` prop directly, nor when the component itself finishes a transition.
-  Source: `collapsible/root/useCollapsibleRoot.ts:31-42` (the only two call sites are the trigger handler and the beforematch handler at `useCollapsiblePanel.ts:424`). Test: [L2] `CollapsibleRoot.test.tsx` "controlled mode" (external toggle, no handler), `CollapsiblePanel.test.tsx` "finishes closing when the render function removes the panel element" (called once with `false`).
+  Source: `collapsible/root/useCollapsibleRoot.ts:31-42` (the only two call sites are the trigger handler and the beforematch handler at `collapsible/panel/useCollapsiblePanel.ts:424`). Test: [L2] `CollapsibleRoot.test.tsx` "controlled mode" (external toggle, no handler), `CollapsiblePanel.test.tsx` "finishes closing when the render function removes the panel element" (called once with `false`).
 - **COL-EVT-07** — MUST. `details.trigger` is always `undefined` for Collapsible (no trigger element is recorded), and `details.allowPropagation()` has no effect because Collapsible never stops event propagation.
   Source: `collapsible/root/useCollapsibleRoot.ts:33`; `collapsible/panel/useCollapsiblePanel.ts:422` (no third argument); `internals/createBaseUIEventDetails.ts:153`. Test: [L2] `CollapsibleRoot.test.tsx` "calls onOpenChange with eventDetails" (`allowPropagation` is a function).
 - **COL-EVT-08** — MUST. The latest `onOpenChange` function supplied by the consumer is the one invoked, even if the consumer replaced it between renders. (The wrapper's development-only guard, which throws `Base UI: Cannot call an event handler while rendering.` when the wrapped handler is called during rendering, is not reachable from consumer code because the wrapped handler is never exposed; it is not a requirement.)
@@ -769,3 +769,5 @@ Counts: STR 4, API 10, STA 9, DOM 20, ARIA 5, KEY 4, PTR 3, FOC 1, EVT 8, ANI 30
 18. **The Trigger state's `disabled` (COL-DOM-05 against §3.2).** §3.2 says the Trigger receives the Root's state object unchanged, so in Base UI 1.9.0 a Trigger whose own `disabled` overrides the Root's (COL-API-06) still carries the Root's `disabled` in its state and `data-disabled`; COL-DOM-05 said `data-disabled` follows the Trigger's effective value. Untested in Base UI. Resolved (2026-10-21, M1 track 6; chosen by the user): a fidelity correction of COL-DOM-05 to the source; the port's `CollapsibleTriggerState.Disabled` is the Root's, and the Trigger's own `Disabled` reaches only its button mechanism.
 
 **Identity rename (2026-11-23, [ADR 17](../decisions/17-product-name-and-package-identity.md)).** Every `Blazix.Primitives` in this document now reads `Iodine.Headless`, the `Blazix: ` message prefix reads `Iodine: `, every other `Blazix`, `blazix` or `BLZX` name reads its `Iodine`, `iodine` or `IOD` form, and links point to `JakeMurrayDev/Iodine.Headless`. No requirement's meaning, level or test changed.
+
+**Citation paths (2026-11-28, [issue 391](https://github.com/JakeMurrayDev/Iodine.Headless/issues/391)).** A fidelity correction against the pinned source: a `Source:` citation named a path the v1.9.0 tree lacks (a file without its folder, a stale folder or a wrong extension), so it did not resolve under conventions §3.1; it now names the file's full path, with the same line numbers: `useCollapsiblePanel.ts` → `collapsible/panel/useCollapsiblePanel.ts` (COL-EVT-06). Statements, levels and `Test:` lines are unchanged.
