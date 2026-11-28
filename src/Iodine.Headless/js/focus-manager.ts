@@ -541,6 +541,33 @@ function resetOutsideMarking(): void {
   lockCount = 0;
 }
 
+// Issue 139 (design point 10-139b (a'), "Portal order", chosen by the user 2026-11-28, replacing 10-139a (a)): Base UI
+// marks a modal's outside in a layout effect at its open's commit, before a later modal exists. The port marks once the
+// handle has attached, so two modals opened before the module's first load are both rendered when they attach. The newer
+// is the one whose portal (else floating element) comes later in the document, as a modal mounts its portal at its open;
+// a handle's marking keeps every newer live marking's element inside and re-runs the older ones with its own inside, so
+// the newer stays outside the older's marking and marks it. Page-global with the counters above (ADR 04 Amendments
+// 2026-10-27).
+/** A live outside marking of one handle. */
+interface LiveMarking {
+  /** The element whose document position orders the marking, and which an older marking keeps inside. */
+  readonly own: Element;
+  /** Applies the marking again, with the current newer markings' elements inside. */
+  readonly reapply: () => void;
+}
+
+let liveMarkings: LiveMarking[] = [];
+
+/** Whether `other` comes after `own` in the document, so its marking is the newer. */
+function isNewerMarking(own: Element, other: Element): boolean {
+  return other !== own && (own.compareDocumentPosition(other) & Node.DOCUMENT_POSITION_FOLLOWING) !== 0;
+}
+
+/** The elements of the live markings newer than the one ordered by `own`. */
+function newerOwnElements(own: Element): Element[] {
+  return liveMarkings.filter((marking) => isNewerMarking(own, marking.own)).map((marking) => marking.own);
+}
+
 /**
  * Marks every element outside a set of inside elements, with reference counting across overlapping calls. The native
  * `inert` attribute is never written.
@@ -646,6 +673,7 @@ function getPreviouslyFocusedElement(): Element | undefined {
  */
 export function resetFocusManagerState(): void {
   resetOutsideMarking();
+  liveMarkings = [];
   previouslyFocusedElements = [];
   cancelFrame(queuedFocusFrame);
   queuedFocusFrame = 0;
@@ -1420,12 +1448,36 @@ export function attach(
       untrapped ? reference : null,
     ].filter((x): x is Element => x != null);
 
-    const ariaHiddenCleanup = markOthers(inside, { ariaHidden: modal || untrapped, mark: false });
-    const markerCleanup = markOthers([floating, ...portalNodes]);
+    // Issue 139: newer handles' elements stay inside; the new marks apply before the old release, so the lock count
+    // never reaches zero in between.
+    const own = portal ?? floating;
+    const apply = (): (() => void) => {
+      const newer = newerOwnElements(own);
+      const ariaHiddenCleanup = markOthers([...inside, ...newer], { ariaHidden: modal || untrapped, mark: false });
+      const markerCleanup = markOthers([floating, ...portalNodes, ...newer]);
+      return () => {
+        markerCleanup();
+        ariaHiddenCleanup();
+      };
+    };
+    let release = apply();
+    const live: LiveMarking = {
+      own,
+      reapply: () => {
+        const next = apply();
+        release();
+        release = next;
+      },
+    };
+    const older = liveMarkings.filter((marking) => isNewerMarking(marking.own, own));
+    liveMarkings = [...liveMarkings, live];
+    for (const marking of older) {
+      marking.reapply();
+    }
 
     return () => {
-      markerCleanup();
-      ariaHiddenCleanup();
+      liveMarkings = liveMarkings.filter((marking) => marking !== live);
+      release();
     };
   };
 
