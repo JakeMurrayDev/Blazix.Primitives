@@ -206,6 +206,30 @@ test.describe('<Menu.Root />', () => {
           await expect(page.getByTestId('item-3')).toHaveAttribute('aria-disabled', 'true');
         });
 
+        // MenuItem.test.tsx "can be focused but not interacted with when disabled" at L4 (issue 87, PR 428's verifier): a
+        // disabled item's element carries no C# keyup or click handler, and a real Enter and Space on it neither activate it
+        // nor close the menu. Coverage: the base gated the same keys inside the handlers it always emitted.
+        test('port: a focused disabled item ignores Enter and Space, and the menu stays open', { tag: '@coverage' }, async ({ page, mode }) => {
+          const fixture = await render(page, mode, base);
+          await trigger(page).focus();
+          await page.keyboard.press('Enter');
+          await expect(page.getByTestId('item-1')).toBeFocused();
+          await arrowTo(page, ['ArrowDown', 'ArrowDown']);
+          await expect(page.getByTestId('item-3')).toBeFocused();
+
+          await page.keyboard.press('Enter');
+          await page.keyboard.press(' ');
+          await settle(fixture);
+          await expect(popup(page)).toBeVisible();
+          await expect(page.getByTestId('item-3')).toBeFocused();
+
+          await page.keyboard.press('ArrowUp');
+          await expect(page.getByTestId('item-2')).toBeFocused();
+          await page.keyboard.press('Enter');
+          await expect(popup(page)).toHaveCount(0);
+          expect((await recorded(fixture, 'data-item-clicks', '|')).map((entry) => entry.split(':')[0])).toEqual(['Item 2']);
+        });
+
         test('skips items hidden with CSS during keyboard navigation', async ({ page, mode }) => {
           await render(page, mode, { ...base, content: 'items', items: 'Item 1|Item 2|Item 3', hiddenItems: 'Item 1' });
           await trigger(page).focus();

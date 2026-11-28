@@ -431,9 +431,10 @@ public abstract class PartBase<TState> : ComponentBase, IPartHost, IDisposable
     /// <remarks>
     /// Call this method once in the constructor or <see cref="OnInitialized"/>, keep the result in a field, and add it from
     /// <see cref="AddPartAttributes"/> in every render whose element should carry it; a render that does not add it leaves
-    /// the handler off the element, and the consumer's or the substitute's handler for the event, if any, runs alone. On
-    /// dispatch the callback runs the substitute element's handler, then the consumer's, then <paramref name="handler"/>,
-    /// stopping at a veto.
+    /// the handler off the element, and the consumer's or the substitute's handler for the event, if any, runs alone. Under
+    /// <paramref name="eventName"/>, add only this callback: any <see cref="EventCallback"/> the part adds under that name
+    /// is taken as it. On dispatch the callback runs the substitute element's handler, then the consumer's, then
+    /// <paramref name="handler"/>, stopping at a veto.
     /// </remarks>
     protected EventCallback CreateHandler<TArgs>(string eventName, Func<TArgs, Task> handler)
         where TArgs : EventArgs

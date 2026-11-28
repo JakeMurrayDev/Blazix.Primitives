@@ -315,13 +315,11 @@ internal static class RenderPipeline
                 else if (MergeProps.IsHandler(entry.Name, entry.Value))
                 {
                     HandlerSlot slot = state.GetOrAddSlot(MergeProps.HandlerName(entry.Name));
-                    // IOD2005: Blazor's EventCallback has no typed equality, only Equals(object), so this comparison boxes the
-                    // slot's callback once per part handler per render; issue 57 removes it.
-#pragma warning disable IOD2005
-                    if (entry.Value.TryGetValue(out EventCallback callback) && callback.Equals(slot.Typed))
-#pragma warning restore IOD2005
+                    // Issue 87: the created handler is on the element only in a render that adds it. Issue 57: a callback the
+                    // part adds under an event name it created a handler for is that handler (the rule CreateHandler states),
+                    // so it is recognised without comparing it; Blazor's EventCallback has only Equals(object), which boxed.
+                    if (slot.Typed.HasDelegate && entry.Value.TryGetValue(out EventCallback _))
                     {
-                        // Issue 87: the created handler is on the element only in a render that adds it.
                         slot.TypedAdded = true;
                     }
                     else

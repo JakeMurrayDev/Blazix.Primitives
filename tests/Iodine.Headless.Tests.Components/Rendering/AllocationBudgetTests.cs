@@ -13,9 +13,11 @@ public sealed class AllocationBudgetTests : IDisposable
 {
     // First measurement 2026-10-20 (arm64, .NET 11 RC2, Release): 256 bytes on both paths, all of it the
     // dispatcher's and the renderer's own per-render work; the pipeline and the frame rewrite add nothing in
-    // steady state (lists, scratch builder and merges are reused or memoised).
-    private const long DefaultElementRenderBudgetBytes = 256;
-    private const long SubstituteElementRenderBudgetBytes = 256;
+    // steady state (lists, scratch builder and merges are reused or memoised). Tightened 2026-11-28 (issue 57; ADR 16
+    // Amendments 2026-11-28) to 224 bytes on both paths, the least of five in three processes: the 32 bytes were the box of
+    // the slot's EventCallback that matching the part's created handler cost per render.
+    private const long DefaultElementRenderBudgetBytes = 224;
+    private const long SubstituteElementRenderBudgetBytes = 224;
 
     private readonly BunitContext context = new();
 
