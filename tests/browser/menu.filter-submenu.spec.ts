@@ -520,7 +520,9 @@ test.describe('filterable submenu navigation, focus and pointer', () => {
   // the parent list's `composite` handle attached; that handle never saw the focus, and ArrowDown started from no item.
   // Here the module is held so the list attaches last (the standing rule of the attach order of two handles, the Toolbar
   // title's hold): the fixture reports attached only after the module was served.
-  test('port: with the parent list attaching last, the fixture reports attached only once the list module was served', async ({ page, mode }) => {
+  // Coverage (PR 427's red-check): the fault is the fixture's, which the red check runs on both sides; under eaddf979's
+  // fixture this title failed on both modes, 3 of 3 (`served` false when `data-attached` turned true).
+  test('port: with the parent list attaching last, the fixture reports attached only once the list module was served', { tag: '@coverage' }, async ({ page, mode }) => {
     let served = false;
     await page.route(/\/_content\/Iodine\.Headless\/js\/composite(\.[0-9a-z]+)?\.js$/, (route) => {
       setTimeout(() => {
