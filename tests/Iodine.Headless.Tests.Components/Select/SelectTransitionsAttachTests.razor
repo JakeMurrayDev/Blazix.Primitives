@@ -37,6 +37,32 @@
         Assert.True(await HeldAttachRuntime.SentUpdateAsync(Renderer.Dispatcher, handle, options => options.Contains("color: blue", StringComparison.Ordinal)));
     }
 
+    // Issue 417, the handover at attach (ADR 04 Amendments 2026-10-18, "the value C# rendered is frozen"): after the
+    // popup's transitions handle attached, a re-render keeps the style C# rendered and sends the consumer's new style through
+    // the module only, so Blazor never rewrites the attribute the modules own. Coverage of the rule: main froze the right
+    // value here too (a planted fault that computes the style on every render fails it).
+    [Fact(DisplayName = "port: after the popup's handover a consumer style change keeps the style C# rendered (issue 417)")]
+    [Trait("Requirement", "SEL-DOM-17")]
+    [Trait("Coverage", "issue-417")]
+    public async Task After_the_handover_a_consumer_style_change_keeps_the_rendered_style()
+    {
+        IRenderedComponent<SelectHost> cut = RenderSelect(@<SelectRoot TValue="string" DefaultOpen="true">
+            <SelectTrigger><SelectValue /></SelectTrigger>
+            <SelectPortal>
+                <SelectPositioner AlignItemWithTrigger="false">
+                    <SelectPopup data-testid="popup" style="@popupStyle"><SelectItem Value="@("a")">a</SelectItem></SelectPopup>
+                </SelectPositioner>
+            </SelectPortal>
+        </SelectRoot>);
+        string? rendered = cut.Find("[data-testid=\"popup\"]").GetAttribute("style");
+        Assert.Contains("color: red", rendered ?? string.Empty, StringComparison.Ordinal);
+
+        popupStyle = "color: blue";
+        await cut.InvokeAsync(() => cut.Instance.RefreshAsync());
+
+        Assert.Equal(rendered, cut.Find("[data-testid=\"popup\"]").GetAttribute("style"));
+    }
+
     [Fact(DisplayName = "port: a close while the backdrop's transitions handle attaches reaches the module once it attaches")]
     [Trait("Requirement", "SEL-DOM-17")]
     public async Task A_close_while_the_backdrops_handle_attaches_reaches_the_module()

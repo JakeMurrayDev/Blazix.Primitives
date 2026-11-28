@@ -91,4 +91,22 @@ public sealed class MenuTransitionsAttachTests : BunitContext
     }
 
 #pragma warning restore BL0016
+
+    // Issue 417, the handover at attach (ADR 04 Amendments 2026-10-18, "the value C# rendered is frozen"): after the
+    // popup's transitions handle attached, a re-render keeps the style C# rendered and sends the consumer's new style through
+    // the module only, so Blazor never rewrites the attribute the modules own. Coverage of the rule: main froze the right
+    // value here too (a planted fault that computes the style on every render fails it).
+    [Fact(DisplayName = "port: after the popup's handover a consumer style change keeps the style C# rendered (issue 417)")]
+    [Trait("Requirement", "MNU-ANI-12")]
+    [Trait("Coverage", "issue-417")]
+    public void After_the_handover_a_consumer_style_change_keeps_the_rendered_style()
+    {
+        IRenderedComponent<MenuTransitionsAttachHost> cut = Render<MenuTransitionsAttachHost>(p => p.Add(x => x.PopupStyle, "color: red"));
+        string? rendered = cut.Find("[role=\"menu\"]").GetAttribute("style");
+        Assert.Contains("color: red", rendered ?? string.Empty, StringComparison.Ordinal);
+
+        cut.Render(p => p.Add(x => x.PopupStyle, "color: blue"));
+
+        Assert.Equal(rendered, cut.Find("[role=\"menu\"]").GetAttribute("style"));
+    }
 }

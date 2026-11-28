@@ -529,4 +529,21 @@ public sealed class PopoverModuleWiringTests : IDisposable
         [.. test.Context.JSInterop.Invocations.Where(invocation => invocation.Identifier == "retainExit").Select(invocation => (bool)invocation.Arguments[1]!)];
 
     private IRenderedComponent<PopupTestHost> Render(PopoverSpec spec) => test.Render((builder, _) => PopoverTree.Build(builder, spec));
+
+    // Issue 417, the handover at attach (ADR 04 Amendments 2026-10-18, "the value C# rendered is frozen"): after the
+    // popup's transitions handle attached, a re-render keeps the style C# rendered and sends the consumer's new style through
+    // the module only, so Blazor never rewrites the attribute the modules own. Coverage of the rule: main froze the right
+    // value here too (a planted fault that computes the style on every render fails it).
+    [Fact(DisplayName = "port: after the popup's handover a consumer style change keeps the style C# rendered (issue 417)")]
+    [Trait("Requirement", "POP-DOM-29")]
+    [Trait("Coverage", "issue-417")]
+    public async Task After_the_handover_a_consumer_style_change_keeps_the_rendered_style()
+    {
+        IRenderedComponent<PopupTestHost> cut = test.Render((builder, host) => PopoverTree.Build(builder, new PopoverSpec { DefaultOpen = true, PopupStyle = host.Get<string>("style") ?? "color: red" }));
+        Assert.Equal("color: red", cut.Find("[data-testid=\"popup\"]").GetAttribute("style"));
+
+        await cut.Instance.SetAsync("style", "color: blue");
+
+        Assert.Equal("color: red", cut.Find("[data-testid=\"popup\"]").GetAttribute("style"));
+    }
 }
