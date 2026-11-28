@@ -78,7 +78,9 @@ public sealed class ComboboxRootFieldTests : IDisposable
             .Add(x => x.InputInsidePopup, true)
             .Add(x => x.Extra, Parts(label: true)));
 
-        await cut.InvokeAsync(() => cut.Find("[data-testid=label]").Click());
+        // Issue 87: the label's click is the module's (FFI-PTR-01); the label adds no C# click handler without a consumer one.
+        Assert.False(cut.Find("[data-testid=label]").HasAttribute("blazor:onclick"));
+        await cut.InvokeAsync(static () => { });
 
         string triggerId = cut.Find("[data-testid=trigger]").Id!;
         Assert.Contains("\"controlId\":\"" + triggerId + "\"", LabelOptions(), StringComparison.Ordinal);
