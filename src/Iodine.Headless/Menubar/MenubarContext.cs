@@ -130,7 +130,7 @@ internal sealed class MenubarContext : IMenuParentContext, IFloatingNodeContext
                 openMenus.Add(menu);
             }
 
-            SetFlag(true);
+            SetFlag(menu, true);
             foreach (MenuRootContext other in openMenus.ToArray())
             {
                 if (!ReferenceEquals(other, menu))
@@ -144,7 +144,7 @@ internal sealed class MenubarContext : IMenuParentContext, IFloatingNodeContext
             openMenus.Remove(menu);
             if (reason is not (EventReason.SiblingOpen or EventReason.ListNavigation))
             {
-                SetFlag(false);
+                SetFlag(menu, false);
             }
         }
     }
@@ -163,7 +163,7 @@ internal sealed class MenubarContext : IMenuParentContext, IFloatingNodeContext
         return new Subscription(flagListeners, changed);
     }
 
-    private void SetFlag(bool value)
+    private void SetFlag(MenuRootContext menu, bool value)
     {
         if (HasSubmenuOpen == value)
         {
@@ -174,6 +174,12 @@ internal sealed class MenubarContext : IMenuParentContext, IFloatingNodeContext
         // `data-has-submenu-open` shows (Base UI commits both together).
         HasSubmenuOpen = value;
         Notify(flagListeners);
+
+        // The flag flips inside a listener of the menu's commit, and the bar's render can run at once and re-render the
+        // menu's parts through its child content. The menu's own listeners hear the commit first, so its session sends the
+        // commit before its popup sends what it read from it (Base UI commits them in one batch). The bar's other menus
+        // did not change and are not notified.
+        menu.NotifyListeners();
         flagChanged();
     }
 

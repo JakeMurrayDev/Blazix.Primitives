@@ -209,6 +209,55 @@ public sealed class MenubarTests : BunitContext
         Assert.Equal(before, cut.Instance.EditRenders);
     }
 
+    // Issue 239's follow-up (main red at 9446001b, menubar.spec.ts's Shift+Tab title on Server): a bar menu's commit flips
+    // the flag inside a listener of the menu's store, and the bar's render runs at once and re-renders the menu's popup
+    // through its child content. The popup's focus manager then read the commit before the session had sent it, so on a
+    // collapsed reopen the focus manager ran its initial focus. The session sends a commit before the popup's focus manager
+    // sends what it read from it, as Base UI commits them in one batch.
+    [Fact(DisplayName = "port: a bar menu's close reaches its session before its popup's focus manager")]
+    [Trait("Requirement", "MBR-STA-03")]
+    [Trait("Requirement", "MBR-KEY-12")]
+    public async Task A_bar_menus_close_reaches_its_session_before_its_focus_manager()
+    {
+        List<string> sent = [];
+        const string prefix = "./_content/Iodine.Headless/js/";
+        BunitJSModuleInterop interactions = JSInterop.SetupModule(prefix + "interactions.js");
+        BunitJSModuleInterop interactionsHandle = interactions.SetupModule("attach", _ => true);
+        interactionsHandle.SetupVoid("update", invocation => Record(sent, "session", invocation)).SetVoidResult();
+        interactionsHandle.SetupVoid("dispose", _ => true).SetVoidResult();
+        BunitJSModuleInterop focusManager = JSInterop.SetupModule(prefix + "focus-manager.js");
+        BunitJSModuleInterop focusManagerHandle = focusManager.SetupModule("attach", _ => true);
+        focusManagerHandle.SetupVoid("update", invocation => Record(sent, "focus", invocation)).SetVoidResult();
+        focusManagerHandle.SetupVoid("dispose", _ => true).SetVoidResult();
+        IRenderedComponent<MenubarRenderHost> cut = Render<MenubarRenderHost>();
+        cut.WaitForAssertion(() => Assert.True(cut.Find("[role=\"menubar\"]").HasAttribute("data-has-submenu-open")), TimeSpan.FromSeconds(2));
+        cut.WaitForAssertion(() => Assert.NotEmpty(focusManager.Invocations["attach"]), TimeSpan.FromSeconds(2));
+        sent.Clear();
+
+        await cut.InvokeAsync(() => cut.Instance.File!.CloseAsync());
+        cut.WaitForAssertion(() => Assert.False(cut.Find("[role=\"menubar\"]").HasAttribute("data-has-submenu-open")), TimeSpan.FromSeconds(2));
+
+        int revision = sent.Select(entry => int.Parse(entry.Split(':')[1], System.Globalization.CultureInfo.InvariantCulture)).Max();
+        int session = sent.IndexOf($"session:{revision}");
+        int focus = sent.IndexOf($"focus:{revision}");
+        Assert.True(session >= 0, string.Join(" ", sent));
+        Assert.True(focus >= 0, string.Join(" ", sent));
+        Assert.True(session < focus, string.Join(" ", sent));
+    }
+
+    // Records an update that carries a relay, by its handle and the relay's revision; every update is accepted.
+    private static bool Record(List<string> sent, string handle, JSRuntimeInvocation invocation)
+    {
+        JsonElement root = JsonDocument.Parse((string)invocation.Arguments[0]!).RootElement;
+        if (root.TryGetProperty("relay", out JsonElement relay) && relay.TryGetProperty("revision", out JsonElement revision)
+            && (handle == "focus" || root.TryGetProperty("session", out _)))
+        {
+            sent.Add($"{handle}:{revision.GetInt32()}");
+        }
+
+        return true;
+    }
+
     // The last trigger options Edit's interactions handle was sent, by its attach or an update.
     private static JsonElement EditOptions(BunitJSModuleInterop interactions, BunitJSModuleInterop handle)
     {
