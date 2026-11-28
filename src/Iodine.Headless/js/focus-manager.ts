@@ -546,10 +546,11 @@ function resetOutsideMarking(): void {
 // port marks once the handle has attached, so two modals opened before the module's first load are both rendered and open
 // when they attach, in any order on Server. Of two live markings the one that started later is the newer, unless the
 // other's popup was already open (rendered `data-open`) when the earlier one started: then the one whose portal (else
-// floating element) comes later in the document is the newer, as a modal mounts its portal at its open; a position
-// neither before nor after (another tree or realm) keeps the start order. A marking keeps the newer ones' elements inside,
-// and an older one whose walk marked the newer's element applies again with it inside, so the newer stays outside the
-// older's marking and marks it. Page-global with the counters above (ADR 04 Amendments 2026-10-27).
+// floating element) comes later in the document is the newer, as a modal mounts its portal at its open; disconnected
+// nodes (another tree or realm) get compareDocumentPosition's arbitrary but stable order. A marking keeps the newer ones'
+// elements inside, and every older one applies again with the newer's element inside unless that element is nested in
+// the older's own (a re-walk per older marking at each open, even when its walk had not marked the newer), so the newer
+// stays outside the older's marking and marks it. Page-global with the counters above (ADR 04 Amendments 2026-10-27).
 /** A live outside marking of one handle. */
 interface LiveMarking {
   /** The element that orders the marking by document position, and which an older marking keeps inside. */
